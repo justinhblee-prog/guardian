@@ -371,16 +371,24 @@ class MainActivity : Activity() {
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
         body.addView(text("DNS 업스트림 서버", 18f, white, true).withTop(24))
         body.addView(text("차단되지 않은 DNS 질의를 전달할 서버를 선택합니다.", 12f, muted, false).withTop(5))
-        val dnsOptions = listOf(
+        val dnsPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val knownDnsOptions = listOf(
             "Cloudflare · 1.1.1.1" to "1.1.1.1",
             "Google · 8.8.8.8" to "8.8.8.8",
             "Quad9 · 9.9.9.9" to "9.9.9.9",
             "AdGuard DNS · 94.140.14.14" to "94.140.14.14"
         )
+        val currentDns = dnsPrefs.getString(GuardianVpnService.KEY_UPSTREAM_DNS, GuardianVpnService.DEFAULT_UPSTREAM_DNS)
+            ?: GuardianVpnService.DEFAULT_UPSTREAM_DNS
+        val dnsOptions = knownDnsOptions.toMutableList()
+        if (knownDnsOptions.none { it.second == currentDns }) {
+            dnsOptions.add(0, "사용자 지정 · $currentDns" to currentDns)
+        }
         val dnsSpinner = Spinner(this)
-        dnsSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, dnsOptions.map { it.first })
-        val dnsPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-        val selectedDns = dnsOptions.indexOfFirst { it.second == dnsPrefs.getString(GuardianVpnService.KEY_UPSTREAM_DNS, GuardianVpnService.DEFAULT_UPSTREAM_DNS) }.coerceAtLeast(0)
+        val dnsAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, dnsOptions.map { it.first })
+        dnsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        dnsSpinner.adapter = dnsAdapter
+        val selectedDns = dnsOptions.indexOfFirst { it.second == currentDns }.coerceAtLeast(0)
         dnsSpinner.setSelection(selectedDns)
         dnsSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
@@ -398,6 +406,52 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(5), dp(12), dp(5))
             addView(dnsSpinner)
         }.withTop(10))
+        val customDnsInput = EditText(this).apply {
+            hint = "사용자 지정 IPv4/IPv6 주소"
+            setHintTextColor(muted)
+            setTextColor(white)
+            textSize = 13f
+            singleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setPadding(dp(13), dp(12), dp(13), dp(12))
+            background = shape(panel2, 12)
+            if (knownDnsOptions.none { it.second == currentDns }) setText(currentDns)
+        }
+        body.addView(customDnsInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+        val customDnsFeedback = text("IP 주소만 입력할 수 있습니다. 호스트 이름은 허용하지 않습니다.", 11f, muted, false).withTop(6) as TextView
+        body.addView(customDnsFeedback)
+        body.addView(Button(this).apply {
+            text = "사용자 지정 DNS 저장"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 12)
+            setOnClickListener {
+                val normalized = DnsAddressValidator.normalize(customDnsInput.text.toString())
+                if (normalized == null) {
+                    customDnsFeedback.text = "올바른 IPv4 또는 IPv6 주소를 입력하세요."
+                    customDnsFeedback.setTextColor(red)
+                } else {
+                    dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_DNS, normalized).apply()
+                    var index = dnsOptions.indexOfFirst { it.second == normalized }
+                    if (index < 0) {
+                        dnsOptions.add(0, "사용자 지정 · $normalized" to normalized)
+                        dnsAdapter.clear()
+                        dnsAdapter.addAll(dnsOptions.map { it.first })
+                        index = 0
+                    }
+                    dnsSpinner.setSelection(index)
+                    customDnsInput.setText(normalized)
+                    customDnsFeedback.text = "DNS 서버 저장 완료: $normalized"
+                    customDnsFeedback.setTextColor(accent)
+                    if (ProtectionState.isActive(
+                            dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                            GuardianVpnService.isTunnelActive()
+                        )) {
+                        startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                    }
+                }
+            }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
         body.addView(text("광고 차단 필터", 18f, white, true).withTop(24))
         body.addView(text("AdGuard DNS Filter · 광고, 모바일 광고, 추적 도메인 목록", 12f, muted, false).withTop(5))
         val filterCard = card(panel, 16).apply {
