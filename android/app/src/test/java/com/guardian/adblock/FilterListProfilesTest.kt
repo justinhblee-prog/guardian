@@ -25,4 +25,9 @@ class FilterListProfilesTest {
         assertTrue("hagezi_normal" in keys)
         assertTrue("hagezi_pro" in keys)
     }
+    @Test fun protectionRequiresCacheForTheCurrentlySelectedProfile() {
+        assertTrue(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard"))
+        assertFalse(FilterListManager.isProfileCacheCurrent(false, "adguard", "adguard"))
+        assertFalse(FilterListManager.isProfileCacheCurrent(true, "hagezi_pro", "adguard"))
+    }
 }
