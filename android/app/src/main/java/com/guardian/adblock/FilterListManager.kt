@@ -21,7 +21,7 @@ object FilterListManager {
     private const val MAX_BYTES = 10 * 1024 * 1024
     private const val MIN_SECURITY_BLOCKS = 100
     private const val PREFS = "guardian_settings"
-    private const val KEY_UPDATED_AT = "filter_list_updated_at"
+    const val KEY_UPDATED_AT = "filter_list_updated_at"
     private const val KEY_BLOCK_COUNT = "filter_list_block_count"
     private const val KEY_IGNORED_COUNT = "filter_list_ignored_count"
     private const val KEY_SECURITY_UPDATED_AT = "security_filter_updated_at"
