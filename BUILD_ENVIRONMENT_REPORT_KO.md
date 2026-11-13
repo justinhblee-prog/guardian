@@ -1,10 +1,16 @@
-# 빌드 환경 보고서 — v0.6.3-dev
+# 빌드 환경 보고서 — 2026-11-13 갱신
 
-- Kotlin compiler 및 JDK 21: 사용 가능
-- Python / pytest: 사용 가능
-- Node.js: 사용 가능
-- Android SDK (`android.jar`), sdkmanager: 확인되지 않음
-- Gradle executable: 확인되지 않음
-- PyInstaller: 설치되지 않음
+## 로컬 개발 컨테이너
+- 로컬 컨테이너에는 Android SDK/Gradle CLI가 구성되어 있지 않아 직접 APK를 빌드하지 않았습니다.
+- 이 제한은 GitHub Actions 빌드와 별개입니다.
 
-검증 가능 범위는 Kotlin 순수 DNS 핵심부(IPv4/IPv6), Python 테스트/컴파일, 브라우저 Node 회귀 테스트입니다. Android 앱 전체 컴파일/JUnit/APK 및 Windows EXE 빌드는 수행할 수 없습니다. Windows 서비스·어댑터 실제 동작은 Windows 환경에서 별도 승인 검증이 필요합니다.
+## GitHub Actions 빌드 환경
+- JDK 17: 설치 및 사용 성공
+- Android SDK Platform 35 / Build Tools 35.0.0: 설치 성공
+- Gradle 8.9: 설정 성공
+- Android JUnit task 및 Debug APK assemble: 성공 (run 43423112883)
+- VPN manifest / launcher asset 검사: 성공
+- APK package ID / versionCode / versionName 검사: 성공
+- APK checksum 및 artifact 업로드: 성공
+
+로컬 환경에서 직접 빌드하지 않았다는 사실과 클라우드 CI의 실제 성공 결과를 혼동하지 않습니다. 실기기 설치 및 VPN 통합 검증은 별도입니다.
