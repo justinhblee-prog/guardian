@@ -113,4 +113,9 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - 검증 소스 커밋: `f518711e559bfb8873128f82c07a1a157a5f2068`
 - Android 단위 테스트: **통과**. push 검증이므로 APK 조립/업로드는 의도적으로 생략했습니다.
 - 테스트 인벤토리: **12개 스위트 / 68개 JUnit 테스트 메서드**.
-\n\n## Latest source verification\n\n- [GitHub Actions run 43444407063](https://github.com/justinhblee-prog/guardian/actions/runs/43444407063): 12 suites / 70 JUnit tests passed.\n- CI policy update: every push now also assembles and verifies the debug APK; only manual release dispatch uploads the installable artifact.\n
+
+
+## Latest source verification
+
+- [GitHub Actions run 43444407063](https://github.com/justinhblee-prog/guardian/actions/runs/43444407063): 12 suites / 70 JUnit tests passed.
+- CI policy update: every push now also assembles and verifies the debug APK; only manual release dispatch uploads the installable artifact.
