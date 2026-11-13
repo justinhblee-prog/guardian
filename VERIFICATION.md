@@ -151,3 +151,17 @@ Physical-device acceptance and Windows validation remain outstanding.
 This build includes IPv4 packet framing hardening, case-insensitive DNS question matching, and IPv6 UDP checksum/packet validation regression coverage. The first IPv6 test run exposed a test-fixture bug (the checksum field was not zeroed before recomputation); that fixture was corrected and the subsequent complete CI run passed.
 
 Physical-device acceptance and Windows validation remain outstanding.
+
+
+## Latest Android UI regression build — 2026-11-13
+
+- Workflow: [43421570913](https://github.com/justinhblee-prog/guardian/actions/runs/43421570913)
+- Source commit: `d438442ea45754be0b8faff777497c3308d3cfc7`
+- `clean testDebugUnitTest assembleDebug`: **PASS**
+- APK checksum verification and artifact upload: **PASS**
+- Artifact ID: `14034222440`
+- APK size: 846,278 bytes
+- APK SHA-256: `3d8e5aa6b6effe815dbed6f2f8d846d44098eb498de93ddd0807d2eedd2be340`
+- Downloaded ZIP integrity and extracted APK checksum match: **PASS**
+
+UI regression fixed: the Rules tab now has its own feedback text view. Saving/validating custom rules no longer overwrites or gets overwritten by the VPN protection status text. This build includes all previously listed IPv4, DNS case-insensitive matching, and IPv6 regression fixes.
