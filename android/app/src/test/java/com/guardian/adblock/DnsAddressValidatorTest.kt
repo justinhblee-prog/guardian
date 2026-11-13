@@ -15,4 +15,10 @@ class DnsAddressValidatorTest {
         assertNull(DnsAddressValidator.normalize("1.1.1"))
         assertNull(DnsAddressValidator.normalize("fe80::1%wlan0"))
     }
+
+    @Test fun acceptsOfficialIpv6ResolverPresets() {
+        assertNotNull(DnsAddressValidator.normalize("2a10:50c0::ad1:ff"))
+        assertNotNull(DnsAddressValidator.normalize("2a10:50c0::bad1:ff"))
+        assertNotNull(DnsAddressValidator.normalize("2606:4700:4700::1111"))
+    }
 }
