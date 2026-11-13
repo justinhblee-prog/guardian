@@ -245,7 +245,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
             addView(text("현재 보호 범위", 14f, white, true))
-            addView(text("IPv4 / IPv6 DNS · UDP 53", 12f, muted, false).withTop(7))
+            addView(text("IPv4 / IPv6 · UDP/53 DNS", 12f, muted, false).withTop(7))
             addView(text("DNS 이외 트래픽, DoH/DoT는 아직 필터링하지 않습니다.", 11f, muted, false).withTop(5))
         }.withTop(12))
     }
@@ -313,12 +313,12 @@ class MainActivity : Activity() {
         body.addView(text("보호 관리", 25f, white, true))
         body.addView(text("Guardian의 보호 엔진과 적용 범위를 확인합니다.", 13f, muted, false).withTop(5))
         body.addView(infoRow("DNS 보호", "광고 및 추적 도메인 질의 필터링", "활성화는 홈에서 시작", accent))
-        body.addView(infoRow("IPv4 / IPv6", "가상 DNS 엔드포인트", "지원", accent))
+        body.addView(infoRow("IPv4 / IPv6", "가상 DNS + 주요 공용 DNS 주소", "UDP/53", accent))
         body.addView(infoRow("사용자 규칙", "직접 등록한 차단·허용 도메인", "규칙 탭에서 관리", Color.rgb(116,167,255)))
         body.addView(infoRow("암호화 DNS", "DoH / DoT 트래픽", "미지원", red))
-        body.addView(infoRow("앱별 제어", "앱별 허용 및 차단", "추후 제공", red))
+        body.addView(infoRow("앱별 보호 제외", "선택한 앱을 VPN 필터에서 제외", "설정에서 관리", accent))
         body.addView(text("보호 범위 안내", 17f, white, true).withTop(24))
-        body.addView(text("현재 Guardian은 기기의 DNS 요청 중 IPv4/IPv6 UDP 53번 트래픽을 로컬 VPN으로 전달해 필터링합니다. 모든 광고 차단이나 HTTPS 내부 광고 제거를 보장하지 않습니다.", 13f, muted, false).withTop(8))
+        body.addView(text("현재 Guardian은 Android 가상 DNS와 주요 공용 DNS 주소로 향하는 IPv4/IPv6 UDP 53번 질의를 로컬 VPN으로 전달해 필터링합니다. DoH/DoT, TCP DNS, 목록에 없는 DNS 주소, HTTPS 내부 광고 요소는 필터링하지 못할 수 있습니다.", 13f, muted, false).withTop(8))
     }
 
     private fun buildRules(body: LinearLayout) {
