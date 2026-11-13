@@ -43,6 +43,17 @@ class FilterRuleParserTest {
         assertEquals(setOf("ads.example.com"), parsed.blocked)
     }
 
+    @Test fun badfilterDisablesMatchingBlockAndUnsupportedContextIsIgnored() {
+        val parsed = FilterRuleParser.parse(listOf(
+            "||disabled.example^",
+            "||disabled.example^\\$badfilter",
+            "||context.example^\\$third-party",
+            "||safe.example^"
+        ))
+        assertEquals(setOf("safe.example"), parsed.blocked)
+        assertTrue(parsed.ignored >= 1)
+    }
+
     @Test fun rejectsSingleLabelAndInvalidHostnameLabels() {
         val parsed = FilterRuleParser.parse(listOf(
             "||localhost^",
