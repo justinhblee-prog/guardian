@@ -35,6 +35,8 @@ class GuardianVpnService : VpnService() {
         const val KEY_DNS_BLOCKED = "dns_blocked"
         const val KEY_DNS_FORWARDED = "dns_forwarded"
         const val KEY_DNS_FAILED = "dns_failed"
+        const val KEY_DNS_IGNORED = "dns_ignored"
+        const val KEY_DNS_DIAGNOSTIC = "dns_diagnostic"
         const val KEY_DNS_RECENT = "dns_recent"
         private const val CHANNEL = "guardian_protection"
         private const val VIRTUAL_DNS = "10.13.37.2"
@@ -147,8 +149,16 @@ class GuardianVpnService : VpnService() {
                     if (length == 0) continue
                     val ipv4 = Ipv4Udp.parseDns(buffer, length)
                     val ipv6 = if (ipv4 == null) Ipv6Udp.parseDns(buffer, length) else null
-                    val payload = ipv4?.payload ?: ipv6?.payload ?: continue
-                    val domain = DomainFilter.readQuestionName(payload) ?: continue
+                    val payload = ipv4?.payload ?: ipv6?.payload
+                    if (payload == null) {
+                        recordIgnoredPacket("IPv4/IPv6 UDP DNS 패킷이 아니거나 헤더 검증 실패")
+                        continue
+                    }
+                    val domain = DomainFilter.readQuestionName(payload)
+                    if (domain == null) {
+                        recordIgnoredPacket("DNS 질의 형식 또는 질문 영역 검증 실패")
+                        continue
+                    }
                     val blocked = DomainFilter.isBlocked(domain)
                     val forwarded = if (blocked) null else forwardDns(payload)
                     val dnsResponse = (if (blocked) DomainFilter.makeNxdomain(payload)
@@ -179,6 +189,22 @@ class GuardianVpnService : VpnService() {
                 publishState(false, "DNS 패킷 처리 중단$detail. 보호를 다시 시작해 주세요.")
                 stopSelf()
             }
+        }
+    }
+
+    private fun recordIgnoredPacket(reason: String) {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        synchronized(DNS_STATS_LOCK) {
+            prefs.edit()
+                .putLong(KEY_DNS_IGNORED, prefs.getLong(KEY_DNS_IGNORED, 0L) + 1L)
+                .putString(KEY_DNS_DIAGNOSTIC, reason)
+                .apply()
+        }
+        val now = android.os.SystemClock.elapsedRealtime()
+        val previousBroadcast = lastStatsBroadcastAt.get()
+        if (now - previousBroadcast >= DNS_STATS_BROADCAST_INTERVAL_MS &&
+            lastStatsBroadcastAt.compareAndSet(previousBroadcast, now)) {
+            sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
         }
     }
 
