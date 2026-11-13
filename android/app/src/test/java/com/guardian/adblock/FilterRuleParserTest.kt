@@ -46,8 +46,8 @@ class FilterRuleParserTest {
     @Test fun badfilterDisablesMatchingBlockAndUnsupportedContextIsIgnored() {
         val parsed = FilterRuleParser.parse(listOf(
             "||disabled.example^",
-            "||disabled.example^\\$badfilter",
-            "||context.example^\\$third-party",
+            "||disabled.example^\$badfilter",
+            "||context.example^\$third-party",
             "||safe.example^"
         ))
         assertEquals(setOf("safe.example"), parsed.blocked)
