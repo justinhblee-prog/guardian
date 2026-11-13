@@ -249,6 +249,24 @@ class MainActivity : Activity() {
             addView(statsText!!)
         }
         body.addView(summary.withTop(18))
+        body.addView(Button(this).apply {
+            text = "활동 기록 초기화"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 12)
+            setOnClickListener {
+                prefs.edit()
+                    .putLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
+                    .putLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)
+                    .putLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)
+                    .putLong(GuardianVpnService.KEY_DNS_FAILED, 0L)
+                    .putLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)
+                    .putString(GuardianVpnService.KEY_DNS_RECENT, "")
+                    .putString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "")
+                    .apply()
+                refreshStatus()
+            }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
         body.addView(text("최근 DNS 요청", 18f, white, true).withTop(24))
         recentText = text(
             prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null)
