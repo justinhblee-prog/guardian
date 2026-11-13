@@ -74,7 +74,7 @@ class MainActivity : Activity() {
         val lastUpdate = FilterListManager.lastUpdatedAt(this)
         val updateInterval = filterPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
         val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-        val profileChanged = FilterListManager.hasCachedList(this) &&
+        val profileChanged = FilterListManager.hasCachedFile(this) &&
                 FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
         val securityStale = securityEnabled && (!FilterListManager.hasCachedSecurityList(this) ||
                 System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval)
@@ -250,9 +250,9 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
             addView(text("광고 차단 필터", 14f, white, true))
-            val filterReady = FilterListManager.hasCachedList(this@MainActivity)
+            val filterReady = isFilterConfigurationReady()
             addView(text(
-                if (filterReady) filterStatusDescription() else "공식 필터 목록을 아직 설치하지 않았습니다. 필터를 내려받아야 전체 광고 차단이 활성화됩니다.",
+                if (filterReady) filterStatusDescription() else "선택한 공식 필터 구성이 아직 준비되지 않았습니다. 목록을 내려받고 검증해야 광고 차단을 시작할 수 있습니다.",
                 11f, if (filterReady) accent else red, false
             ).withTop(8))
             addView(Button(this@MainActivity).apply {
@@ -564,6 +564,17 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun isFilterConfigurationReady(): Boolean {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        return FilterListManager.isProfileCacheCurrent(
+            FilterListManager.hasCachedList(this),
+            FilterListManager.selectedProfile(this).key,
+            FilterListManager.cachedProfile(this).key,
+            prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
+            FilterListManager.hasCachedSecurityList(this)
+        )
     }
 
     private fun buildFilterOptions(): View {
