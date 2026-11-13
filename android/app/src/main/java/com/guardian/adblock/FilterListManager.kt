@@ -45,6 +45,10 @@ object FilterListManager {
     )
 
     fun availableProfiles(): List<FilterProfile> = profiles
+
+    /** A cached list is usable for protection only when it matches the selected profile. */
+    internal fun isProfileCacheCurrent(hasCache: Boolean, selectedKey: String, cachedKey: String): Boolean =
+        hasCache && selectedKey == cachedKey
     fun cachedProfile(context: Context): FilterProfile {
         val key = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CACHED_PROFILE, null)
         return profiles.firstOrNull { it.key == key } ?: profiles.first()
