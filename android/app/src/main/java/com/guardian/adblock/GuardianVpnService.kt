@@ -304,10 +304,25 @@ class GuardianVpnService : VpnService() {
         }
         val sources = mutableListOf<List<String>>()
         sources.add(assets.open("filter_rules.txt").bufferedReader().use { it.readLines() })
-        // A failed or absent update never replaces the last known-good filter cache.
-        sources.add(FilterListManager.cachedLines(this))
+        // Validate actual file contents on the service worker; cached metadata
+        // alone must never make a truncated or malformed list look ready.
+        val baseLines = FilterListManager.cachedLines(this)
+        val parsedBase = FilterRuleParser.parse(baseLines)
+        require(FilterListManager.isCacheValid(
+            baseLines.isNotEmpty(), parsedBase.blocked.size, selectedProfile.minimumRules
+        )) {
+            "선택한 ${selectedProfile.label} 필터 캐시의 유효 규칙 수가 기준보다 적습니다."
+        }
+        sources.add(baseLines)
         if (securityEnabled) {
-            sources.add(FilterListManager.cachedSecurityLines(this))
+            val securityLines = FilterListManager.cachedSecurityLines(this)
+            val parsedSecurity = FilterRuleParser.parse(securityLines)
+            require(FilterListManager.isCacheValid(
+                securityLines.isNotEmpty(), parsedSecurity.blocked.size, FilterListManager.MIN_SECURITY_BLOCKS
+            )) {
+                "악성코드·피싱 필터 캐시가 유효하지 않습니다. 보안 목록을 다시 내려받으세요."
+            }
+            sources.add(securityLines)
         }
         val userBlock = prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
             .map { it.trim() }.filter { it.isNotEmpty() }.toList()
