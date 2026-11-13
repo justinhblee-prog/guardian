@@ -14,6 +14,7 @@ class Ipv4UdpTest {
         p[20] = 0x30; p[21] = 0x39
         p[22] = 0; p[23] = 53
         p[24] = 0; p[25] = 20
+        sealHeader(p, 20)
         val parsed = Ipv4Udp.parseDns(p, p.size)
         assertNotNull(parsed)
         assertEquals(12345, parsed!!.sourcePort)
@@ -59,6 +60,7 @@ class Ipv4UdpTest {
 
         assertNull(Ipv4Udp.parseDns(packet, 31))
         assertNull(Ipv4Udp.parseDns(packet, 30))
+        sealHeader(packet, 20)
         assertNotNull(Ipv4Udp.parseDns(packet, 28))
     }
 
@@ -72,7 +74,57 @@ class Ipv4UdpTest {
         packet[27] = 53
         packet[28] = 0
         packet[29] = 8
+        sealHeader(packet, 24)
         assertNotNull(Ipv4Udp.parseDns(packet, packet.size))
+    }
+
+    @Test fun rejectsCorruptedIpv4HeaderChecksum() {
+        val packet = ByteArray(28)
+        packet[0] = 0x45
+        packet[2] = 0
+        packet[3] = 28
+        packet[9] = 17
+        packet[22] = 0
+        packet[23] = 53
+        packet[24] = 0
+        packet[25] = 8
+        sealHeader(packet, 20)
+        assertNotNull(Ipv4Udp.parseDns(packet, packet.size))
+        packet[12] = 1 // Change source address without updating header checksum.
+        assertNull(Ipv4Udp.parseDns(packet, packet.size))
+    }
+
+    @Test fun rejectsInvalidNonzeroIpv4UdpChecksum() {
+        val packet = ByteArray(28)
+        packet[0] = 0x45
+        packet[2] = 0
+        packet[3] = 28
+        packet[9] = 17
+        packet[12] = 10
+        packet[16] = 10
+        packet[22] = 0
+        packet[23] = 53
+        packet[24] = 0
+        packet[25] = 8
+        packet[26] = 0x12
+        packet[27] = 0x34
+        sealHeader(packet, 20)
+        assertNull(Ipv4Udp.parseDns(packet, packet.size))
+    }
+
+    private fun sealHeader(packet: ByteArray, headerLength: Int) {
+        packet[10] = 0
+        packet[11] = 0
+        var sum = 0L
+        var i = 0
+        while (i < headerLength) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or (packet[i + 1].toInt() and 0xff)).toLong()
+            i += 2
+        }
+        while ((sum ushr 16) != 0L) sum = (sum and 0xffff) + (sum ushr 16)
+        val checksum = sum.inv().toInt() and 0xffff
+        packet[10] = (checksum ushr 8).toByte()
+        packet[11] = checksum.toByte()
     }
 
 }
