@@ -236,3 +236,10 @@
 ## 2026-11-13 — Continuous Android build verification
 - Every push now runs Android unit tests and assembles the debug APK, then verifies package ID, versionCode/versionName, file presence, and SHA-256.
 - Push builds remain internal CI checks; only a manual release dispatch uploads the installable APK artifact.
+
+
+## 2026-11-13 — Verified Android APK artifact
+- Every push now runs Android unit tests, assembles the debug APK, and checks package/version identity and SHA-256.
+- Published the installable `0.7.1-dev` debug APK artifact from successful run 43445545156.
+- 12 Kotlin test suites / 70 JUnit methods passed.
+- Physical-device acceptance remains outstanding; this artifact is a debug build, not a Play Store production-signed release.
