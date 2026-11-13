@@ -16,6 +16,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import android.widget.Spinner
@@ -42,6 +43,7 @@ class MainActivity : Activity() {
     private var diagnosticText: TextView? = null
     private var filterStatusText: TextView? = null
     private var filterUpdateButton: Button? = null
+    private var appFilterFeedback: TextView? = null
     private var receiverRegistered = false
     private var currentTab = "home"
 
@@ -98,6 +100,7 @@ class MainActivity : Activity() {
         rulesFeedback = null
         filterStatusText = null
         filterUpdateButton = null
+        appFilterFeedback = null
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
@@ -343,7 +346,10 @@ class MainActivity : Activity() {
         }
         filterCard.addView(filterUpdateButton!!, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
         body.addView(filterCard.withTop(10))
-        body.addView(text("현재 차단 엔진은 DNS 요청을 기준으로 동작합니다. 앱 내부에 직접 삽입된 광고, DoH/DoT 등은 별도 지원이 필요합니다.", 12f, muted, false).withTop(14))
+        body.addView(text("앱별 보호 제외", 18f, white, true).withTop(24))
+        body.addView(text("선택한 앱은 Guardian VPN 필터링에서 제외됩니다. 변경 사항은 보호를 다시 시작하면 적용됩니다.", 12f, muted, false).withTop(5))
+        buildAppExclusions(body)
+        body.addView(text("현재 DNS 필터는 UDP/53 요청을 기준으로 동작합니다. 앱 내부 광고, DoH/DoT, 목록에 없는 사용자 지정 DNS 서버는 별도 지원이 필요합니다.", 12f, muted, false).withTop(14))
     }
 
     private fun bottomNav(selected: String): View {
@@ -373,6 +379,44 @@ class MainActivity : Activity() {
             nav.addView(item, LinearLayout.LayoutParams(0, dp(48), 1f))
         }
         return nav
+    }
+
+    private fun buildAppExclusions(body: LinearLayout) {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val excluded = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty().toMutableSet()
+        val launchIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val apps = packageManager.queryIntentActivities(launchIntent, 0)
+            .map { it.activityInfo.packageName to it.loadLabel(packageManager).toString() }
+            .filter { it.first != packageName }
+            .distinctBy { it.first }
+            .sortedBy { it.second.lowercase(Locale.ROOT) }
+            .take(150)
+        val card = card(panel, 16).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+        apps.forEach { (pkg, label) ->
+            val check = CheckBox(this).apply {
+                text = "$label\n$pkg"
+                textSize = 12f
+                setTextColor(white)
+                isChecked = pkg in excluded
+                setPadding(dp(4), dp(5), dp(4), dp(5))
+                setOnCheckedChangeListener { _, checked ->
+                    val latest = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty().toMutableSet()
+                    if (checked) latest.add(pkg) else latest.remove(pkg)
+                    prefs.edit().putStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, latest.toSet()).apply()
+                    appFilterFeedback?.text = "제외 앱 ${latest.size}개 저장됨 · 보호를 중지한 뒤 다시 시작해 적용하세요."
+                }
+            }
+            card.addView(check)
+        }
+        body.addView(card.withTop(10))
+        appFilterFeedback = text(
+            "현재 제외 앱 ${excluded.size}개 · 최대 150개 표시",
+            11f, muted, false
+        ).withTop(8) as TextView
+        body.addView(appFilterFeedback!!)
     }
 
     private fun filterStatusDescription(): String {
