@@ -124,18 +124,45 @@ object FilterListManager {
         ignoredKey: String,
         cachedProfileKey: String? = null
     ): UpdateResult {
-        val connection = (URL(url).openConnection() as HttpsURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = 12000
-            readTimeout = 20000
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
-            setRequestProperty("Accept", "text/plain")
-        }
+        var connection: HttpsURLConnection? = null
         try {
-            val status = connection.responseCode
-            require(status in 200..299) { "필터 서버 HTTP $status" }
-            val bytes = connection.inputStream.use { input ->
+            var currentUrl = URL(url)
+            require(currentUrl.protocol.equals("https", ignoreCase = true) && currentUrl.userInfo == null) {
+                "필터 다운로드 URL은 사용자 정보가 없는 HTTPS 주소여야 합니다."
+            }
+            var redirectsFollowed = 0
+            while (connection == null) {
+                val candidate = currentUrl.openConnection() as? HttpsURLConnection
+                    ?: throw IllegalStateException("HTTPS 필터 연결을 만들 수 없습니다.")
+                try {
+                    candidate.requestMethod = "GET"
+                    candidate.connectTimeout = 12000
+                    candidate.readTimeout = 20000
+                    candidate.instanceFollowRedirects = false
+                    candidate.setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
+                    candidate.setRequestProperty("Accept", "text/plain")
+                    val status = candidate.responseCode
+                    if (status in 300..399) {
+                        val target = FilterRedirectPolicy.resolve(
+                            currentUrl.toExternalForm(), status,
+                            candidate.getHeaderField("Location"), redirectsFollowed
+                        )
+                        candidate.disconnect()
+                        require(target != null) {
+                            "필터 서버가 안전하지 않거나 허용 횟수를 초과한 리디렉션을 반환했습니다."
+                        }
+                        currentUrl = URL(target)
+                        redirectsFollowed++
+                    } else {
+                        require(status in 200..299) { "필터 서버 HTTP $status" }
+                        connection = candidate
+                    }
+                } catch (e: Exception) {
+                    if (connection !== candidate) candidate.disconnect()
+                    throw e
+                }
+            }
+            val bytes = connection!!.inputStream.use { input ->
                 val output = ByteArrayOutputStream()
                 val buffer = ByteArray(16384)
                 var total = 0
@@ -182,7 +209,7 @@ object FilterListManager {
             check(metadata.commit()) { "필터 캐시 메타데이터를 저장하지 못했습니다." }
             return UpdateResult(parsed.blocked.size + parsed.importantBlocked.size, parsed.allowed.size, parsed.ignored, bytes.size, now)
         } finally {
-            connection.disconnect()
+            connection?.disconnect()
         }
     }
 
