@@ -598,6 +598,25 @@ class MainActivity : Activity() {
             }
         }
         options.addView(securityCheck)
+        val directDnsCheck = CheckBox(this).apply {
+            text = "공용 DNS 직접 질의 포착 (고급)"
+            textSize = 12f
+            setTextColor(white)
+            isChecked = prefs.getBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, true)
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, checked).apply()
+                filterStatusText?.text = if (checked) {
+                    "공용 DNS 직접 질의 포착 설정 저장됨 · 보호를 중지한 뒤 다시 시작하면 적용됩니다."
+                } else {
+                    "시스템 가상 DNS만 포착하도록 설정됨 · 보호를 중지한 뒤 다시 시작하면 적용됩니다."
+                }
+            }
+        }
+        options.addView(directDnsCheck)
+        options.addView(text(
+            "고급 포착은 IP 주소 단위 경로를 사용하므로 해당 DNS 서버 IP로 향하는 DNS 이외의 연결도 VPN에 들어올 수 있습니다. DNS 외 트래픽은 중계하지 않으므로 연결 문제가 생기면 이 옵션을 끄세요.",
+            10f, muted, false
+        ).withTop(2))
         return options
     }
 
