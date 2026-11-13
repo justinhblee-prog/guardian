@@ -10,7 +10,7 @@ Guardian AdBlock은 Android VpnService 기반 DNS 필터링 앱입니다. 현재
 - Android 가상 DNS 엔드포인트뿐 아니라 주요 공용 DNS 서버(Cloudflare, Google, Quad9, AdGuard DNS, OpenDNS)의 직접 UDP/53 질의 경로도 VPN으로 유도
 - DNS 질의 도메인과 필터 규칙 일치 시 NXDOMAIN 반환
 - 허용 규칙 우선 적용, 업스트림 오류 시 SERVFAIL 반환
-- 업스트림 DNS 선택: Cloudflare, Google, Quad9, AdGuard DNS
+- 업스트림 DNS 선택: Cloudflare, Google, Quad9, AdGuard DNS 및 사용자 지정 IPv4/IPv6 주소
 - 공식 AdGuard DNS Filter 목록 다운로드 및 로컬 캐시
 - DNS 호환 Adblock 도메인 규칙(||domain^, @@||domain^), hosts 형식, Guardian block=/allow= 형식 지원
 - 안전하게 해석할 수 없는 문맥/재작성 규칙은 추측 적용하지 않고 제외 수를 기록
