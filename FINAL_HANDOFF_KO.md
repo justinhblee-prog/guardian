@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.7.0-dev — 개발 인수인계
+# Guardian AdBlock Android 0.7.1-dev — 개발 인수인계
 
 작성일: 2026-11-13
 
@@ -7,7 +7,7 @@
 - GitHub: https://github.com/justinhblee-prog/guardian
 - Branch: main
 - Package: `com.guardian.adblock`
-- Version: `0.7.0-dev` / versionCode `13`
+- Version: `0.7.1-dev` / versionCode `14`
 - 상태: 개발 진행 중
 - 최종 APK: 아직 생성하지 않음
 - push CI: Android unit test 전용. APK는 개발 완료 후 수동 릴리스 workflow에서 생성
@@ -16,7 +16,7 @@
 
 0.6.5-dev는 기본 차단 규칙이 10개 도메인뿐이었고, 외부 필터 목록 다운로드와 Adblock 규칙 해석이 없었습니다. VPN 상태가 켜져 있어도 실제 광고 도메인의 대부분이 차단 목록에 없었습니다.
 
-0.7.0-dev에서는 공식 필터 목록 다운로드·검증·캐시·적용 경로를 구현하고, 선택한 필터 구성의 캐시가 검증된 경우에만 VPN 보호를 시작하도록 변경했습니다.
+0.7.1-dev에서는 공식 필터 목록 다운로드·검증·캐시·적용 경로를 구현하고, 선택한 필터 구성의 캐시가 검증된 경우에만 VPN 보호를 시작하도록 변경했습니다.
 
 ## 3. 구현 기능
 
