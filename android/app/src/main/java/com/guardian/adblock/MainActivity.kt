@@ -69,11 +69,12 @@ class MainActivity : Activity() {
         val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
         val lastUpdate = FilterListManager.lastUpdatedAt(this)
+        val updateInterval = filterPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
         val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
         val securityStale = securityEnabled && (!FilterListManager.hasCachedSecurityList(this) ||
                 System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= 24L * 60L * 60L * 1000L)
         if (autoUpdate && (!FilterListManager.hasCachedList(this) ||
-                System.currentTimeMillis() - lastUpdate >= 24L * 60L * 60L * 1000L || securityStale)) {
+                System.currentTimeMillis() - lastUpdate >= updateInterval || securityStale)) {
             startFilterUpdate()
         }
     }
@@ -466,6 +467,27 @@ class MainActivity : Activity() {
             }
         }
         filterCard.addView(autoUpdateCheck)
+        filterCard.addView(text("필터 업데이트 주기", 12f, muted, false).withTop(10))
+        val updateIntervals = listOf(
+            "6시간마다" to 6L * 60L * 60L * 1000L,
+            "12시간마다" to 12L * 60L * 60L * 1000L,
+            "24시간마다" to 24L * 60L * 60L * 1000L,
+            "7일마다" to 7L * 24L * 60L * 60L * 1000L
+        )
+        val intervalPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val intervalSpinner = Spinner(this)
+        val intervalAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, updateIntervals.map { it.first })
+        intervalAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        intervalSpinner.adapter = intervalAdapter
+        val selectedInterval = intervalPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
+        intervalSpinner.setSelection(updateIntervals.indexOfFirst { it.second == selectedInterval }.coerceAtLeast(2))
+        intervalSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                intervalPrefs.edit().putLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, updateIntervals[position].second).apply()
+            }
+        }
+        filterCard.addView(intervalSpinner)
         val securityCheck = CheckBox(this).apply {
             text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence)"
             textSize = 12f
