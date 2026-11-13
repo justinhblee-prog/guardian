@@ -1,86 +1,72 @@
-# Guardian AdBlock Android — 0.6.5-dev
+# Guardian AdBlock Android — 0.7.0-dev
 
-Guardian AdBlock은 Android `VpnService`를 이용해 기기 DNS 질의를 로컬에서 검사하고, 지정된 광고·추적 도메인을 차단하는 개발 버전입니다.
+Guardian AdBlock은 Android VpnService 기반 DNS 필터링 앱입니다. 현재 개발 목표는 실제 차단 엔진의 작동 여부를 확인할 수 있게 만들고, AdGuard 스타일의 필터·DNS·앱별 제어와 활동 화면을 갖추는 것입니다.
 
-## 구현된 기능
+> 개발 중 정책: 기능 개발과 내부 검증이 끝나기 전에는 APK 릴리스 패키지를 만들지 않습니다. GitHub push CI는 테스트만 수행하며, APK 패키징은 최종 릴리스 수동 실행으로 제한합니다.
 
-- Android VPN 권한을 받은 뒤 동작하는 로컬 DNS 보호 서비스
-- IPv4 및 IPv6 UDP/53 DNS 질의 파싱
-- IPv6 UDP 필수 체크섬 검증 및 응답 체크섬 생성
-- 업스트림 Cloudflare DNS(1.1.1.1) 전달과 응답 transaction/question 검증
-- 업스트림 UDP 응답이 잘린 경우 TCP/53 재시도
-- 차단 도메인에 NXDOMAIN, 업스트림 실패 시 SERVFAIL 응답
-- 공용 규칙 파일 `shared/filter_rules.txt` 및 기기 내 사용자 차단/허용 목록
-- 허용 규칙 우선 적용, 규칙 입력 검증, 보호 중 규칙 재적용
-- DNS 통계 및 최근 활동 저장
-- 앱 프로세스가 재시작되어 VPN이 끊겼는데 저장된 상태만 남아 있는 경우 잘못된 '보호 중' 표시 방지
-- Guardian 전용 adaptive launcher icon
+## 현재 구현 범위
 
-## 규칙 형식
+- Android VPN 인터페이스 기반 IPv4 / IPv6 UDP DNS 필터링
+- Android 가상 DNS 엔드포인트뿐 아니라 주요 공용 DNS 서버(Cloudflare, Google, Quad9, AdGuard DNS, OpenDNS)의 직접 UDP/53 질의 경로도 VPN으로 유도
+- DNS 질의 도메인과 필터 규칙 일치 시 NXDOMAIN 반환
+- 허용 규칙 우선 적용, 업스트림 오류 시 SERVFAIL 반환
+- 업스트림 DNS 선택: Cloudflare, Google, Quad9, AdGuard DNS
+- 공식 AdGuard DNS Filter 목록 다운로드 및 로컬 캐시
+- DNS 호환 Adblock 도메인 규칙(||domain^, @@||domain^), hosts 형식, Guardian block=/allow= 형식 지원
+- 안전하게 해석할 수 없는 문맥/재작성 규칙은 추측 적용하지 않고 제외 수를 기록
+- 선택형 HaGeZi Threat Intelligence malware/phishing 목록
+- 24시간 경과 후 앱 실행 시 자동 필터 업데이트 옵션 및 수동 업데이트
+- 사용자 차단/허용 목록, 앱별 VPN 제외 목록
+- DNS 활동, 차단/전달/실패/무시 통계, 최근 요청 기록 및 기록 초기화
+- 패킷 파싱 실패 원인 진단
+- 앱 내부 DNS 자가 테스트: 공용 DNS 직접 질의 차단과 정상 도메인 응답 확인
+- IPv6 UDP 필수 checksum 검사, 잘린 upstream UDP 응답의 TCP fallback
 
-```text
-block=doubleclick.net
-allow=trusted.doubleclick.net
-```
+## 필터 목록 출처
 
-규칙은 정확한 도메인과 하위 도메인에 적용됩니다. 허용 규칙은 차단 규칙보다 우선합니다. 사용자 규칙은 목록별 최대 1,000개이며 기기 내부에 저장됩니다.
+- AdGuard DNS Filter: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+- HaGeZi Threat Intelligence Feeds: https://adguardteam.github.io/HostlistsRegistry/assets/filter_44.txt
+- AdGuard DNS Filter는 DNS 필터링에 맞게 단순화된 목록이며 기본 Adblock 도메인 규칙 문법 지원이 필요합니다. Guardian은 안전한 도메인 기반 규칙을 지원하고, 처리할 수 없는 고급 규칙은 무시합니다.
+- 목록은 앱 실행 기기의 비공개 저장소에 캐시되며, 다운로드 검증이 실패하면 기존 정상 캐시를 유지합니다.
 
-## 현재 미지원 범위
+## DNS 자가 테스트
+
+홈 또는 활동 화면의 DNS 차단 기능 테스트를 실행합니다.
+
+1. doubleclick.net을 8.8.8.8:53으로 직접 질의하여 NXDOMAIN 차단 응답이 오는지 확인합니다.
+2. example.com을 Guardian 가상 DNS로 질의하여 정상 NOERROR 응답이 오는지 확인합니다.
+3. 결과가 실패하면 활동 화면의 DNS 통계와 마지막 패킷 진단을 확인합니다.
+
+이 테스트는 기기의 실제 광고 노출 전부를 검증하지는 않지만, VPN TUN → DNS parser → rule matcher → 응답 패킷 경로를 확인하는 내부 기능 테스트입니다.
+
+## 현재 제한 / 미지원
 
 - 클라이언트 방향 TCP/53 DNS 가로채기
-- DNS-over-HTTPS(DoH), DNS-over-TLS(DoT)
+- DNS-over-HTTPS(DoH), DNS-over-TLS(DoT) 차단 및 앱 자체 DNS 터널 차단
+- 목록에 없는 사용자 지정 DNS 서버 주소로 직접 전송된 질의 가로채기
 - IPv6 확장 헤더 및 IP fragment 재조립
-- 앱별 제외/허용, 원격 필터 목록 자동 업데이트
-- 포괄적인 상용 광고 차단 목록 및 모든 앱 내부 광고 차단
+- 모든 IP 트래픽의 전체 VPN 프록시/전달
+- 웹페이지 요소 숨김, 동일 도메인(first-party) 광고 제거, 앱 화면 내부 광고 제거
+- 모든 광고가 차단되는 것을 보장하지 않음
 
-따라서 모든 광고가 차단되는 제품으로 간주하면 안 됩니다. DNS 기반 필터링을 우회하는 앱이나 자체 암호화 DNS를 쓰는 앱은 차단되지 않을 수 있습니다.
+DNS 필터는 광고·추적 도메인 질의를 막는 방식입니다. 웹페이지 요소를 숨기는 브라우저 확장이나 HTTPS 내부 콘텐츠를 수정하는 방식과는 다릅니다.
 
-## 빌드
+## 앱 화면 및 옵션
+
+- 홈: 보호 상태, 시작/중지, DNS 자가 테스트, 통계 요약
+- 보호: 현재 DNS 보호 범위와 미지원 범위
+- 활동: DNS 질의/차단/전달/실패/무시, 최근 요청, 진단, 기록 초기화
+- 필터: 사용자 차단 목록과 허용 목록
+- 설정: DNS 업스트림 선택, AdGuard 필터 업데이트, 자동 업데이트, 선택형 보안 필터, 앱별 보호 제외
+
+## 개발 및 검증
 
 필요 환경: JDK 17, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9.
 
-```bash
-gradle -p android --no-daemon clean testDebugUnitTest assembleDebug
-```
+로컬 테스트 명령: gradle -p android --no-daemon clean testDebugUnitTest
 
-APK 경로: `android/app/build/outputs/apk/debug/app-debug.apk`
+GitHub Actions push 실행은 Android JUnit 테스트만 수행합니다. 최종 APK는 개발 항목과 내부 테스트가 완료된 후 수동 릴리스 실행으로만 패키징합니다.
 
-GitHub Actions는 Android 단위 테스트, APK 빌드, VPN manifest 선언, launcher asset, 패키지 ID/버전, APK SHA-256을 확인한 후 설치용 Debug APK를 artifact로 보관합니다.
+## 실기기 검증 경계
 
-## 설치
-
-1. Android 기기에 최종 제공된 APK를 다운로드합니다.
-2. Android가 요청하면 다운로드 앱의 알 수 없는 앱 설치 권한을 허용합니다.
-3. Guardian AdBlock을 실행하고 **보호 시작**을 누릅니다.
-4. Android VPN 연결 승인 창에서 허용합니다.
-5. 앱에 표시되는 보호 상태를 확인합니다. 다른 VPN 앱이 실행 중이면 먼저 중지해야 할 수 있습니다.
-
-## 검증 경계
-
-CI 성공은 소스 컴파일, 자동화 테스트, APK 패키징 및 checksum 확인을 의미합니다. 실기기 설치, VPN 승인/시작/중지, Wi-Fi↔모바일 데이터 전환, 장시간 실행, 실제 광고 차단 범위는 별도 기기 수용 테스트가 필요합니다. 검증하지 않은 기기 동작을 완료로 표시하지 않습니다.
-
-
-## Latest verified installable APK — 0.6.5-dev
-
-- [GitHub Actions success run 43423112883](https://github.com/justinhblee-prog/guardian/actions/runs/43423112883)
-- Source commit: `05dd104a97ea4f9f2bcf908514a6c82bf0e3b5f1`
-- Gradle unit-test task + APK assemble: **PASS**
-- Package: `com.guardian.adblock`, versionCode `11`, versionName `0.6.5-dev`
-- Artifact ID: `14034534107`
-- APK size: 849,811 bytes
-- APK SHA-256: `daded536157e3a71fe205dd0a47513228e8ecacb88be784cda87925c4ee48130`
-
-The downloaded artifact ZIP passed integrity testing and its internal APK checksum matched the extracted APK. This is an installable Debug APK; physical-device acceptance is still required.
-
-
-## Latest verified installable APK — 0.6.5-dev
-
-- [GitHub Actions success run 43423810481](https://github.com/justinhblee-prog/guardian/actions/runs/43423810481)
-- Source commit: `7fe4620c141e17e5735e18101982d6eb5059adf9`
-- Gradle unit tests + APK assemble: **PASS**
-- Package: `com.guardian.adblock`, versionCode `12`, versionName `0.6.5-dev`
-- Artifact ID: `14035456605`
-- APK SHA-256: `df0180f41fa697be32bf0c83cbe0ffffc2147314159d4a3e0e482d7166051ed6`
-- ZIP SHA-256: `8208a69ccd413d8e46f3bd45fa1bea47be336b372ff7931cdf45f1cb5c5f106d`
-
-This is an installable Debug APK. Physical-device acceptance is still required.
+CI 테스트 통과는 소스 컴파일과 자동화 테스트 통과를 의미합니다. 실기기에서 VPN 승인/연결, 공용 DNS 직접 질의, 앱별 제외, Wi-Fi↔모바일 데이터 전환, 장시간 실행 및 광고 차단 범위는 별도로 확인해야 합니다. 실제 기기에서 실행하지 않은 항목은 완료로 보고하지 않습니다.
