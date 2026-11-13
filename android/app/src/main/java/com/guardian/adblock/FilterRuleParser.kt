@@ -63,16 +63,10 @@ object FilterRuleParser {
         if (labels.size < 2) return null
         if (!labels.all { label ->
                 label.isNotEmpty() && label.length <= 63 &&
-                    label.first() in 'a'..'z' || false
-            }) {
-            // Full validation below keeps operator precedence explicit.
-            if (!labels.all { label ->
-                    label.isNotEmpty() && label.length <= 63 &&
-                        (label.first() in 'a'..'z' || label.first() in '0'..'9') &&
-                        (label.last() in 'a'..'z' || label.last() in '0'..'9') &&
-                        label.all { it in 'a'..'z' || it in '0'..'9' || it == '-' }
-                }) return null
-        }
+                    (label.first() in 'a'..'z' || label.first() in '0'..'9') &&
+                    (label.last() in 'a'..'z' || label.last() in '0'..'9') &&
+                    label.all { it in 'a'..'z' || it in '0'..'9' || it == '-' }
+            }) return null
         return domain
     }
 }
