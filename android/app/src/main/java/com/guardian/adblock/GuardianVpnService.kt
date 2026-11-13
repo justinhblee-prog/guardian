@@ -48,34 +48,44 @@ class GuardianVpnService : VpnService() {
 
     private var tun: ParcelFileDescriptor? = null
     private val running = AtomicBoolean(false)
+    private val starting = AtomicBoolean(false)
     private val lastStatsBroadcastAt = AtomicLong(0L)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> stopProtection()
-            ACTION_START -> startProtection()
-            ACTION_RELOAD_RULES -> reloadUserRules()
+            ACTION_START -> thread(name = "guardian-vpn-start") { startProtection() }
+            ACTION_RELOAD_RULES -> thread(name = "guardian-vpn-rule-reload") { reloadUserRules() }
         }
         return START_NOT_STICKY
     }
 
     private fun startProtection() {
-        if (running.get()) return
-        tunnelActive = false
+        if (running.get() || !starting.compareAndSet(false, true)) return
         try {
-            loadConfiguredRules()
-        } catch (e: Exception) {
-            // Fail closed and expose the underlying reason for startup diagnosis.
-            publishState(false, "필터 규칙 로드 실패 (${e.javaClass.simpleName}): ${e.message ?: "원인 정보 없음"}")
-            stopSelf()
-            return
+            startProtectionInternal()
+        } finally {
+            starting.set(false)
         }
+    }
+
+    private fun startProtectionInternal() {
+        tunnelActive = false
         try {
             createNotificationChannel()
             startForeground(41, buildNotification())
         } catch (e: Exception) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             publishState(false, "포그라운드 서비스 시작 실패 (${e.javaClass.simpleName}): ${e.message ?: "권한 또는 Android 정책을 확인하세요."}")
+            stopSelf()
+            return
+        }
+        try {
+            // Parsing a large downloaded filter list must not block the service main thread.
+            loadConfiguredRules()
+        } catch (e: Exception) {
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+            publishState(false, "필터 규칙 로드 실패 (${e.javaClass.simpleName}): ${e.message ?: "원인 정보 없음"}")
             stopSelf()
             return
         }
