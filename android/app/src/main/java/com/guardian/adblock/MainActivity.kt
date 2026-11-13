@@ -475,6 +475,33 @@ class MainActivity : Activity() {
         }
         filterStatusText = text(filterStatusDescription(), 12f, muted, false)
         filterCard.addView(filterStatusText!!)
+        filterCard.addView(text("차단 목록 프로필", 12f, muted, false).withTop(12))
+        val profilePrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val filterProfiles = FilterListManager.availableProfiles()
+        val profileSpinner = Spinner(this)
+        val profileAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, filterProfiles.map { it.label })
+        profileAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        profileSpinner.adapter = profileAdapter
+        val selectedProfileKey = FilterListManager.selectedProfile(this).key
+        profileSpinner.setSelection(filterProfiles.indexOfFirst { it.key == selectedProfileKey }.coerceAtLeast(0))
+        profileSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selected = filterProfiles[position]
+                val current = profilePrefs.getString(FilterListManager.KEY_FILTER_PROFILE, "adguard") ?: "adguard"
+                if (selected.key == current) return
+                if (filterUpdateRunning.get()) {
+                    val currentIndex = filterProfiles.indexOfFirst { it.key == current }.coerceAtLeast(0)
+                    profileSpinner.setSelection(currentIndex)
+                    filterStatusText?.text = "필터 업데이트 중에는 프로필을 변경할 수 없습니다."
+                    return
+                }
+                profilePrefs.edit().putString(FilterListManager.KEY_FILTER_PROFILE, selected.key).apply()
+                filterStatusText?.text = "선택한 프로필: ${selected.label} · 새 목록을 내려받습니다."
+                startFilterUpdate()
+            }
+        }
+        filterCard.addView(profileSpinner)
         val autoUpdateCheck = CheckBox(this).apply {
             text = "24시간 경과 시 앱 실행 중 자동 업데이트"
             textSize = 12f
@@ -686,7 +713,12 @@ class MainActivity : Activity() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val lastError = prefs.getString(FilterListManager.KEY_LAST_ERROR, null)
         val securityError = if (securityOn) prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null) else null
-        val summary = "광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored}개 제외 · 업데이트: $time"
+        val selectedProfile = FilterListManager.selectedProfile(this)
+        val cachedProfile = FilterListManager.cachedProfile(this)
+        val profileLabel = if (FilterListManager.hasCachedList(this) && selectedProfile.key != cachedProfile.key) {
+            "선택: ${selectedProfile.label} · 적용 중: ${cachedProfile.label}"
+        } else selectedProfile.label
+        val summary = "$profileLabel · 광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored}개 제외 · 업데이트: $time"
         return listOfNotNull(
             summary,
             lastError?.takeIf { it.isNotBlank() }?.let { "광고 필터 업데이트 실패(이전 목록 유지): $it" },
@@ -732,7 +764,7 @@ class MainActivity : Activity() {
                     val securityMessage = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
                         if (securityResult != null) " · 보안 ${securityResult.blocked}개" else " · 보안 목록 업데이트 실패(이전 목록 유지)"
                     } else ""
-                    filterStatusText?.text = "광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage} · ${result.bytes / 1024}KB"
+                    filterStatusText?.text = "${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage} · ${result.bytes / 1024}KB"
                     filterUpdateButton?.text = "필터 목록 업데이트"
                     filterUpdateButton?.isEnabled = true
                 }
