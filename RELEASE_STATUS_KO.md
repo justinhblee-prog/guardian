@@ -38,3 +38,17 @@
 - IPv4 TUN 패킷 길이 회귀 테스트: 최신 CI에 포함되어 통과
 
 **갱신 판정:** 최신 IPv4 길이 검증 수정까지 포함한 Android 개발 APK 빌드/자동화 검증 성공. 실기기 VPN·실제 광고 차단 검증은 여전히 미완료이며, 운영 최종판 판정은 보류합니다.
+
+
+## 최신 Android APK — 2026-11-13
+
+- CI 실행: [43420975704](https://github.com/justinhblee-prog/guardian/actions/runs/43420975704)
+- 소스 커밋: `5b93b93ec36b86c2312c09b95562e396ec6dd890`
+- `clean testDebugUnitTest assembleDebug`: **BUILD SUCCESSFUL**
+- Artifact ID: `14034191808`
+- APK 크기: 846,262 bytes
+- APK SHA-256: `9d8ba26f6c9cadad5250e15d3d46456262476b4d5aeb8ac27f023e5eea2fb92b`
+- ZIP 무결성 및 추출 APK 체크섬 대조: **PASS**
+- IPv4 패킷 프레이밍, DNS 질문 대소문자 비구분 비교, IPv6 UDP 체크섬 회귀 테스트 포함
+
+**판정:** 위 커밋의 Android 개발 APK 빌드와 설정된 자동화 테스트가 통과했습니다. 실기기 VPN 동작 및 실제 광고 차단은 미검증이며 운영 최종판은 아닙니다.
