@@ -50,11 +50,12 @@
 - 웹페이지 요소 숨김 및 앱 내부/first-party 광고 제거 미지원
 - 공용 DNS 직접 포착의 실기기 라우팅 부작용 검증 필요
 
-## APK 생성 정책
+## APK 생성 및 릴리스 정책
 
-개발 완료 전에는 APK를 생성하지 않습니다. 내부 구현·회귀 테스트·문서 검증을 마친 뒤 최종 수동 릴리스 workflow로 APK를 만들고 package/version, SHA-256 및 ZIP 무결성을 확인합니다.
-
-**현재 판정: 0.7.2-dev 최종 빌드 검증 진행 중.** 이전 0.7.1-dev 설치 APK는 확보되어 있으나, 최신 DNS 응답 크기 수정이 포함된 0.7.2-dev APK는 최종 CI 완료 후 교체합니다. CI 성공은 실기기 광고 차단 성공을 의미하지 않습니다.
+- 모든 소스 push에서 CI가 Android 테스트와 debug APK 조립·패키지 식별·SHA-256 검증을 수행합니다.
+- 일반 push에서는 APK artifact를 공개하지 않습니다. 수동 workflow 실행 또는 `[final-apk]` 커밋에서만 설치 APK artifact를 업로드합니다.
+- 현재 최신 산출물은 0.7.2-dev 설치 가능 debug APK이며, Play Store production 서명본은 아닙니다.
+- CI 성공은 실기기 VPN 라우팅이나 실제 광고 차단 효과를 증명하지 않습니다.
 
 
 ## DNS 테스트 정확성 및 서비스 복구
