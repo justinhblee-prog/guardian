@@ -150,6 +150,6 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - TCP/53 패킷 codec과 제한된 연결 상태 관리자를 추가했습니다.
 - SYN/SYN-ACK, ACK, FIN/RST, DNS length-prefix 조립, 분할된 질의 재조립, 다중 DNS 메시지 처리 및 응답 분할을 지원합니다.
 - SYN 이후 서버 시퀀스 번호, payload와 FIN이 함께 온 세그먼트, IPv4/IPv6 TCP checksum을 회귀 테스트합니다.
-- [GitHub Actions run 43450314549](https://github.com/justinhblee-prog/guardian/actions/runs/43450314549): **success**, 14개 테스트 스위트 / 82개 테스트 메서드.
+- [GitHub Actions run 43451724582](https://github.com/justinhblee-prog/guardian/actions/runs/43451724582): **success**, 14개 테스트 스위트 / 84개 테스트 메서드.
 - 이 push CI는 versionCode 15 / 0.7.2-dev APK를 조립·식별·SHA-256 검증했지만 artifact 업로드는 생략했습니다. 기존 배포 artifact는 이 TCP/53 변경 이전 빌드입니다.
 - 실기기에서 Android resolver가 TCP/53으로 재시도하는지 및 실제 DNS 응답 경로는 아직 검증되지 않았습니다.
