@@ -21,4 +21,21 @@ class DnsProbeTest {
             DnsProbe.buildQuery("bad_domain.example")
         }
     }
+
+    @Test fun evaluatesActiveBlockRulesAndNxdomainBuilderWithoutOpeningSelfTunSocket() {
+        DomainFilter.loadRules(listOf("block=doubleclick.net"))
+        val result = DnsProbe.evaluateRules()
+        assertTrue(result.blockedRuleMatched)
+        assertEquals(3, result.blockedResponseCode)
+        assertFalse(result.normalDomainBlocked)
+        assertTrue(result.passed)
+    }
+
+    @Test fun failsSelfTestWhenExpectedBlockRuleIsMissing() {
+        DomainFilter.loadRules(listOf("block=ads.example.net"))
+        val result = DnsProbe.evaluateRules()
+        assertFalse(result.blockedRuleMatched)
+        assertNull(result.blockedResponseCode)
+        assertFalse(result.passed)
+    }
 }
