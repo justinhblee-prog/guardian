@@ -523,13 +523,16 @@ class MainActivity : Activity() {
             return
         }
         selfTestText?.text = "DNS 테스트 실행 중…"
+        val directCapture = prefs.getBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, true)
+        val blockedDnsServer = if (directCapture) "8.8.8.8" else "10.13.37.2"
         thread(name = "guardian-dns-self-test") {
             try {
-                val blocked = DnsProbe.query("doubleclick.net", dnsServer = "8.8.8.8")
+                val blocked = DnsProbe.query("doubleclick.net", dnsServer = blockedDnsServer)
                 val normal = DnsProbe.query("example.com")
                 val passed = blocked.responseCode == 3 && normal.responseCode == 0
+                val routeLabel = if (directCapture) "공용 DNS 직접 질의" else "시스템 가상 DNS"
                 val result = if (passed) {
-                    "통과 · 8.8.8.8 직접 질의 차단(NXDOMAIN) / example.com 정상(NOERROR)"
+                    "통과 · $routeLabel 차단(NXDOMAIN) / example.com 정상(NOERROR)"
                 } else {
                     "실패 · 차단 도메인 RCODE=${blocked.responseCode}, 정상 도메인 RCODE=${normal.responseCode}"
                 }
