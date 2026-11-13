@@ -1,6 +1,6 @@
 # Guardian AdBlock Android — 개발/릴리스 상태
 
-기준 버전: **0.7.1-dev**  
+기준 버전: **0.7.2-dev**  
 기준일: 2026-11-13  
 저장소: https://github.com/justinhblee-prog/guardian
 
@@ -13,7 +13,7 @@
 | 영역 | 현재 구현 |
 |---|---|
 | DNS 보호 | Android VpnService, IPv4/IPv6 UDP DNS |
-| DNS 응답 | NXDOMAIN / SERVFAIL, upstream transaction/question 검증, truncated UDP의 TCP fallback |
+| DNS 응답 | NXDOMAIN / SERVFAIL, upstream transaction/question 검증, truncated upstream UDP의 TCP fallback 및 클라이언트 응답 1232바이트 제한/TC 응답 |
 | 필터 프로필 | AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro |
 | 보안 목록 | 선택형 HaGeZi Threat Intelligence |
 | 앱 광고 SDK 목록 | 선택형 AWAvenue Ads Rule |
@@ -54,7 +54,7 @@
 
 개발 완료 전에는 APK를 생성하지 않습니다. 내부 구현·회귀 테스트·문서 검증을 마친 뒤 최종 수동 릴리스 workflow로 APK를 만들고 package/version, SHA-256 및 ZIP 무결성을 확인합니다.
 
-**현재 판정: 개발 진행 중. 최종 APK는 아직 생성하지 않았습니다.** CI 성공은 실기기 광고 차단 성공을 의미하지 않습니다.
+**현재 판정: 0.7.2-dev 최종 빌드 검증 진행 중.** 이전 0.7.1-dev 설치 APK는 확보되어 있으나, 최신 DNS 응답 크기 수정이 포함된 0.7.2-dev APK는 최종 CI 완료 후 교체합니다. CI 성공은 실기기 광고 차단 성공을 의미하지 않습니다.
 
 
 ## DNS 테스트 정확성 및 서비스 복구
@@ -128,3 +128,11 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - GitHub artifact: `Guardian-AdBlock-Android-APK-v0.7.1-dev`
 - APK ZIP 무결성: 로컬 추출 후 `unzip -t` 통과
 - 릴리스 판정: 설치 가능한 debug APK 산출 완료. 단, 실기기 설치·VPN 권한·Wi-Fi/모바일 전환·실제 광고 차단률은 아직 미검증이며, 완전한 AdGuard 대체품이나 모든 광고 차단을 보장하지 않습니다.
+
+
+## 0.7.2-dev DNS UDP 응답 크기 안전성
+
+- IPv6 최소 MTU를 고려해 UDP DNS payload 상한을 1232바이트로 제한합니다.
+- 업스트림 응답이 상한을 넘으면 검증된 질문 섹션을 보존한 TC 응답을 생성해 TUN에 과대 패킷을 쓰지 않습니다.
+- 클라이언트 방향 TCP/53은 아직 지원하지 않으므로, TC 응답 이후 resolver의 TCP 재시도까지 성공한다고 보장하지 않습니다.
+- 추가 회귀 테스트 2개 포함, 전체 12개 스위트 / 72개 테스트.
