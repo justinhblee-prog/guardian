@@ -22,7 +22,8 @@
 | FilterRuleComposerTest | 2 |
 | DnsAddressValidatorTest | 2 |
 | FilterListProfilesTest | 4 |
-| Total | 47 |
+| VpnStartCancellationGateTest | 2 |
+| Total | 49 |
 
 ## Covered areas
 
@@ -102,6 +103,13 @@ This validates source compilation and unit tests only. It does not verify the An
 ## Current main source — pending CI
 
 - Latest known source changes include UTF-8 BOM handling for downloaded lists and a startup guard that requires the selected filter profile to match the cached profile.
-- Regression inventory: 9 suites / 47 JUnit test methods.
+- Regression inventory: 10 suites / 49 JUnit test methods.
 - CI for these latest changes has not yet been verified in this record.
 - No APK was generated; physical-device VPN and real-world blocking tests remain outstanding.
+
+
+## VPN lifecycle race fix — CI pending
+
+- Fixed the startup/stop ordering race: a stop request arriving after ACTION_START but before the startup worker begins is no longer overwritten by a worker-side reset.
+- Added a dedicated cancellation gate and two deterministic regression tests for stop-before-worker and explicit restart behavior.
+- Latest source inventory: 10 suites / 49 test methods. CI result not yet confirmed.
