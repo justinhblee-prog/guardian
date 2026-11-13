@@ -1,6 +1,7 @@
 package com.guardian.adblock
 
 import org.junit.Assert.*
+import java.util.Locale
 import org.junit.Test
 
 class DomainFilterTest {
@@ -30,11 +31,17 @@ class DomainFilterTest {
     }
 
     @Test fun normalizesUppercaseDnsQuestionNamesWithRootLocale() {
-        val query = DnsProbe.buildQuery("doubleclick.net").also {
-            for (i in 13 until 24) it[i] = (it[i].toInt() - 32).toByte()
-            for (i in 25 until 28) it[i] = (it[i].toInt() - 32).toByte()
+        val previousLocale = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale("tr", "TR"))
+            val query = DnsProbe.buildQuery("doubleclick.net").also {
+                for (i in 13 until 24) it[i] = (it[i].toInt() - 32).toByte()
+                for (i in 25 until 28) it[i] = (it[i].toInt() - 32).toByte()
+            }
+            assertEquals("doubleclick.net", DomainFilter.readQuestionName(query))
+        } finally {
+            Locale.setDefault(previousLocale)
         }
-        assertEquals("doubleclick.net", DomainFilter.readQuestionName(query))
     }
 
     @Test fun matchesLargeDownloadedRuleSetsByDomainSuffix() {
