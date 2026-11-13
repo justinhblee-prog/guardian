@@ -42,6 +42,8 @@ class GuardianVpnService : VpnService() {
         private const val UPSTREAM_DNS = "1.1.1.1"
         private val DNS_STATS_LOCK = Any()
         private const val DNS_STATS_BROADCAST_INTERVAL_MS = 500L
+        @Volatile private var tunnelActive = false
+        fun isTunnelActive(): Boolean = tunnelActive
     }
 
     private var tun: ParcelFileDescriptor? = null
@@ -59,6 +61,7 @@ class GuardianVpnService : VpnService() {
 
     private fun startProtection() {
         if (running.get()) return
+        tunnelActive = false
         try {
             loadConfiguredRules()
         } catch (e: Exception) {
@@ -102,6 +105,7 @@ class GuardianVpnService : VpnService() {
         }
         tun = descriptor
         running.set(true)
+        tunnelActive = true
         publishState(true, "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다.")
         thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
     }
@@ -143,6 +147,7 @@ class GuardianVpnService : VpnService() {
         } finally {
             // A dead packet loop must never leave the UI claiming protection is active.
             if (running.compareAndSet(true, false)) {
+                tunnelActive = false
                 try { descriptor.close() } catch (_: Exception) { }
                 if (tun === descriptor) tun = null
                 try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
@@ -295,6 +300,7 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun stopProtection() {
+        tunnelActive = false
         val wasActive = running.getAndSet(false) || tun != null
         try { tun?.close() } catch (_: Exception) { }
         tun = null
