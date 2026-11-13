@@ -185,4 +185,26 @@ class DomainFilterTest {
         assertNull(DomainFilter.makeServfail(byteArrayOf(1, 2, 3)))
     }
 
+
+    @Test fun buildsTruncatedUdpReplyWithinSafePayloadLimit() {
+        val query = DnsProbe.buildQuery("large-answer.example").also {
+            it[2] = 0x01 // RD
+            it[3] = 0x10 // CD
+        }
+        val truncated = DomainFilter.makeTruncatedResponse(query)!!
+        val flags = ((truncated[2].toInt() and 0xff) shl 8) or (truncated[3].toInt() and 0xff)
+        assertTrue((flags and 0x8000) != 0) // QR
+        assertTrue((flags and 0x0200) != 0) // TC
+        assertTrue((flags and 0x0080) != 0) // RA
+        assertTrue((flags and 0x0100) != 0) // RD preserved
+        assertTrue((flags and 0x0010) != 0) // CD preserved
+        assertEquals("large-answer.example", DomainFilter.readQuestionName(truncated))
+        assertEquals(1, ((truncated[4].toInt() and 0xff) shl 8) or (truncated[5].toInt() and 0xff))
+        assertEquals(0, ((truncated[6].toInt() and 0xff) shl 8) or (truncated[7].toInt() and 0xff))
+        assertTrue(truncated.size <= 1232)
+    }
+
+    @Test fun truncatedReplyRejectsMalformedDnsQuery() {
+        assertNull(DomainFilter.makeTruncatedResponse(byteArrayOf(0, 1, 2)))
+    }
 }
