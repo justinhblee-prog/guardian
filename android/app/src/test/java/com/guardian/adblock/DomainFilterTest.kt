@@ -130,6 +130,24 @@ class DomainFilterTest {
         assertFalse(DomainFilter.isMatchingResponse(query, response.copyOf().also { it[2] = 0x83.toByte() }))
     }
 
+    @Test fun matchesDnsQuestionNameCaseInsensitivelyButKeepsTypeAndClassExact() {
+        val query = intArrayOf(
+            0x12,0x34,0x01,0x00,0x00,0x01,0,0,0,0,0,0,
+            0x07,0x65,0x78,0x61,0x6d,0x70,0x6c,0x65,
+            0x03,0x63,0x6f,0x6d,0,0,1,0,1
+        ).map { it.toByte() }.toByteArray()
+        val uppercaseResponse = query.copyOf().also {
+            it[2] = 0x81.toByte(); it[3] = 0x80.toByte()
+            for (i in 13 until 20) it[i] = (it[i].toInt() - 32).toByte()
+            for (i in 21 until 24) it[i] = (it[i].toInt() - 32).toByte()
+        }
+        assertTrue(DomainFilter.isMatchingResponse(query, uppercaseResponse))
+        val qtypeMismatch = uppercaseResponse.copyOf().also { it[it.size - 4] = 0; it[it.size - 3] = 28 }
+        val qclassMismatch = uppercaseResponse.copyOf().also { it[it.lastIndex] = 2 }
+        assertFalse(DomainFilter.isMatchingResponse(query, qtypeMismatch))
+        assertFalse(DomainFilter.isMatchingResponse(query, qclassMismatch))
+    }
+
     @Test fun returnsServfailWhenUpstreamCannotResolve() {
         val query = intArrayOf(
             0x12,0x34,0x01,0x10,0x00,0x01,0,0,0,0,0,0,
