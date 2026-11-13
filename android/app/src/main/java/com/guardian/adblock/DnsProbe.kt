@@ -1,5 +1,6 @@
 package com.guardian.adblock
 
+import java.io.ByteArrayOutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -37,24 +38,24 @@ object DnsProbe {
     private fun buildQuery(domain: String): ByteArray {
         val normalized = DomainFilter.normalizeRuleDomain(domain)
             ?: throw IllegalArgumentException("잘못된 테스트 도메인입니다.")
-        val output = ArrayList<Byte>()
-        output.add((TRANSACTION_ID ushr 8).toByte())
-        output.add(TRANSACTION_ID.toByte())
-        output.add(0x01) // RD
-        output.add(0)
-        output.add(0)
-        output.add(1) // QDCOUNT
-        repeat(6) { output.add(0) }
+        val output = ByteArrayOutputStream()
+        output.write(TRANSACTION_ID ushr 8)
+        output.write(TRANSACTION_ID)
+        output.write(0x01) // RD
+        output.write(0)
+        output.write(0)
+        output.write(1) // QDCOUNT
+        repeat(6) { output.write(0) }
         normalized.split('.').forEach { label ->
             val bytes = label.toByteArray(Charsets.US_ASCII)
-            output.add(bytes.size.toByte())
-            bytes.forEach { output.add(it) }
+            output.write(bytes.size)
+            output.write(bytes)
         }
-        output.add(0)
-        output.add(0)
-        output.add(1) // A
-        output.add(0)
-        output.add(1) // IN
+        output.write(0)
+        output.write(0)
+        output.write(1) // A
+        output.write(0)
+        output.write(1) // IN
         return output.toByteArray()
     }
 
