@@ -1,9 +1,11 @@
 # Guardian AdBlock Android — Verification Record
 
-기준 버전: 0.7.1-dev  
+기준 버전: 0.7.2-dev  
 기준일: 2026-11-13
 
 ## 현재 회귀 테스트 인벤토리
+
+최신 소스 기준 실제 테스트 파일 인벤토리는 아래의 2026-11-14 갱신 항목을 참조하세요.
 
 | 테스트 스위트 | 테스트 메서드 |
 |---|---:|
@@ -51,7 +53,7 @@
 - 실제 Android 기기 설치 및 VPN 권한 승인
 - 실기기에서 필터 목록 다운로드, TUN 라우팅 및 실제 광고 차단 성공
 - Wi-Fi↔모바일 데이터 전환, 장시간 실행, 화면 잠금/복귀
-- DoH/DoT; TCP/53은 기본 순서형 스트림 지원만 제공하며 재전송·손실 복구는 미지원
+- DoH/DoT 업스트림 전송 경로는 구현되어 있으나 실제 제공자 연결·인증서 검증은 CI만으로 실기기 검증되지 않음; TCP/53은 순서형 스트림 및 중복 요청/SYN 재전송 대응을 포함하지만 타이머 기반 재전송·패킷 손실 복구는 미지원
 - IPv6 확장 헤더 및 IP fragment 재조립
 - 웹페이지 요소 숨김, 앱 내부/first-party 광고 제거
 - 앱별 제외 및 고급 공용 DNS 직접 포착의 실기기 검증
@@ -218,3 +220,15 @@
 - SHA-256: `c40229d5c3a25173092233b2e23ace19d9c3d6f831837d6d6684c20f156495ee`
 - Push-triggered workflow skipped the manual-release-only artifact upload. No new installable artifact was published by this run.
 - CI does not validate actual Android VPN routing, live upstream reachability on the user's device, TCP/53 resolver fallback, or real-world ad removal.
+
+
+## 2026-11-14 — TCP DNS 세션 안정성 검증 갱신
+
+- Source commit: `4c8511770039665da0eb61b018c460d86a8031e2`
+- GitHub Actions: [run 43530335902](https://github.com/justinhblee-prog/guardian/actions/runs/43530335902) — success
+- Android unit tests, lintDebug, assembleDebug, package identity/version 및 APK checksum 단계 모두 성공
+- 테스트 인벤토리 재집계: **17개 Kotlin 테스트 스위트 / 104개 JUnit 테스트 메서드**
+- APK: `com.guardian.adblock` / versionCode 15 / versionName `0.7.2-dev`
+- CI 생성 APK SHA-256: `071fd9fc18288ba3144c747fb2a92beb9a93e3f58557ee49e9b086811f97f7ec`
+- 새 회귀 테스트는 연결 완료 후 도착한 동일 SYN이 세션 상태를 초기화하지 않는지 확인합니다.
+- CI 검증은 실기기 설치, 실제 VPN 라우팅, 실제 광고 제거 성공을 대체하지 않습니다.

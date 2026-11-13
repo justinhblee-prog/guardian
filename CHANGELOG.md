@@ -291,3 +291,13 @@
 - Debug APK assembly, package identity/version check, and SHA-256 verification passed in GitHub Actions run 43525073201.
 - CI-built APK SHA-256: `c40229d5c3a25173092233b2e23ace19d9c3d6f831837d6d6684c20f156495ee`.
 - Push workflow intentionally skipped manual-release artifact upload; this is not a new installable APK release.
+
+
+## v0.7.2-dev — TCP DNS 세션 안정성 및 진단 보완 (2026-11-14)
+- 이미 연결된 DNS TCP 세션에 지연 재전송된 동일 SYN이 도착해도 기존 sequence state를 보존하고 동일 SYNACK으로 응답합니다.
+- 지연 SYN 이후 새로운 DNS TCP 질의가 계속 처리되는 회귀 테스트를 추가했습니다.
+- 모순된 TCP 제어 플래그(SYN+FIN/RST, RST+FIN/PSH)를 거부합니다.
+- Android 비공개 DNS 자동/호스트명 모드를 홈·보호 화면에서 진단해, 암호화 DNS 우회 가능성을 사용자에게 안내합니다.
+- GitHub Actions run 43530335902: Android unit tests, lint, debug APK assembly, package/version and SHA-256 checks all succeeded.
+- Test inventory: 17 suites / 104 JUnit test methods.
+- CI artifact upload was skipped by push policy; this is not a final APK release. Device-level VPN and ad-blocking acceptance remains outstanding.
