@@ -157,6 +157,6 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 
 - TCP/53 codec 및 bounded session manager를 VPN 패킷 루프에 연결했습니다.
 - SYN/ACK 시퀀스 처리, IPv4/IPv6 checksum, 분할 DNS 프레임 재조립, 다중 질의, DNS 응답 분할, FIN+payload 처리를 회귀 테스트합니다.
-- [GitHub Actions 43451724582](https://github.com/justinhblee-prog/guardian/actions/runs/43451724582): **success** — 14 suites / 84 JUnit tests; debug APK assembly, package identity and SHA-256 checks also passed.
+- [GitHub Actions 43452443314](https://github.com/justinhblee-prog/guardian/actions/runs/43452443314): **success** — 14 suites / 86 JUnit tests; debug APK assembly, package identity and SHA-256 checks also passed.
 - 빌드된 검증 APK는 versionCode 15 / 0.7.2-dev이며 push CI 정책상 artifact 업로드는 생략했습니다. 이전 수동 배포 artifact는 TCP/53 변경 전 소스입니다.
-- 제한: TCP 재전송 및 손실 복구, IPv6 extension header, IP fragmentation, DoH/DoT, 실기기 통신 및 실제 광고 차단률은 미검증/미지원입니다.
+- 제한: 동일 요청 세그먼트의 캐시 응답 재전송은 지원하지만 자체 재전송 타이머·부분 ACK 복구, IPv6 extension header, IP fragmentation, DoH/DoT, 실기기 통신 및 실제 광고 차단률은 미검증/미지원입니다.

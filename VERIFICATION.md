@@ -178,12 +178,12 @@
 
 ## DNS-over-TCP/53 — latest source verification
 
-- GitHub Actions run: https://github.com/justinhblee-prog/guardian/actions/runs/43451724582 — **success**
-- Source commit: `b5d541444f604c424580d5baca842f6032266790`
-- Android unit tests: **14 suites / 84 JUnit test methods passed**
+- GitHub Actions run: https://github.com/justinhblee-prog/guardian/actions/runs/43452443314 — **success**
+- Source commit: `09502f426d8c51c03398927a6e10235ec4b23874`
+- Android unit tests: **14 suites / 86 JUnit test methods passed**
 - Debug APK assembly, package identity and SHA-256 checks: **success**
 - Package: `com.guardian.adblock`, versionCode `15`, versionName `0.7.2-dev`
-- APK SHA-256: `69baf3e6c5fb15580566f790c6c407bc9ed5d1f447e00689ac0476d1327e4f8f`
+- APK SHA-256: `bd9a985de52090d0c9729266b4c3e43058f5c99e1f3b6440100f90243dec9eb5`
 - Push CI intentionally skipped artifact upload; this is build verification, not a newly published install file.
 - Regression coverage includes IPv4/IPv6 TCP packet checksums, TCP sequence advancement after SYN, DNS-over-TCP framing, partial-frame reassembly, and FIN+payload.
-- Device-level VPN/resolver routing and real-world ad blocking remain unverified. TCP retransmission/loss recovery, IPv6 extension headers and IP fragmentation remain unsupported.
+- Device-level VPN/resolver routing and real-world ad blocking remain unverified. Exact duplicate client request segments replay cached DNS replies; autonomous retransmission timers/partial-ACK recovery, IPv6 extension headers and IP fragmentation remain unsupported.
