@@ -54,6 +54,15 @@ class FilterRuleParserTest {
         assertTrue(parsed.ignored >= 1)
     }
 
+    @Test fun acceptsSingleLabelOnlyForExplicitGuardianRules() {
+        val parsed = FilterRuleParser.parse(listOf(
+            "block=localhost",
+            "||localhost^"
+        ))
+        assertEquals(setOf("localhost"), parsed.blocked)
+        assertTrue(parsed.ignored >= 1)
+    }
+
     @Test fun rejectsSingleLabelAndInvalidHostnameLabels() {
         val parsed = FilterRuleParser.parse(listOf(
             "||localhost^",
