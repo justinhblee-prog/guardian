@@ -97,3 +97,15 @@ GitHub Actions 성공은 컴파일, 자동화 테스트 task 및 APK 패키징 �
 - IPv4 packet framing, DNS question case-insensitive matching, IPv6 UDP checksum regression tests included
 
 실기기 설치/VPN/실제 광고 차단 검증과 Windows 통합 검증은 여전히 별도 수용 테스트 항목입니다.
+
+
+## 최신 규칙 UI 수정 APK
+
+- [CI run 43421570913](https://github.com/justinhblee-prog/guardian/actions/runs/43421570913)
+- Source commit: `d438442ea45754be0b8faff777497c3308d3cfc7`
+- Android tests + debug APK: **PASS**
+- Artifact ID: `14034222440`
+- APK size: 846,278 bytes
+- APK SHA-256: `3d8e5aa6b6effe815dbed6f2f8d846d44098eb498de93ddd0807d2eedd2be340`
+- Artifact ZIP integrity and internal APK checksum: **PASS**
+- Rules editor feedback is now separate from VPN status messages.
