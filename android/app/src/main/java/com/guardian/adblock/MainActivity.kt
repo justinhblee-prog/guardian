@@ -74,6 +74,7 @@ class MainActivity : Activity() {
         showTab("home")
         val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
+        FilterUpdateScheduler.sync(this)
         val lastUpdate = FilterListManager.lastUpdatedAt(this)
         val updateInterval = filterPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
         val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
@@ -606,6 +607,7 @@ class MainActivity : Activity() {
             isChecked = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
             setOnCheckedChangeListener { _, checked ->
                 prefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).apply()
+                FilterUpdateScheduler.sync(this@MainActivity)
             }
         }
         options.addView(autoUpdateCheck)
@@ -628,11 +630,12 @@ class MainActivity : Activity() {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 prefs.edit().putLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, intervals[position].second).apply()
+                FilterUpdateScheduler.sync(this@MainActivity)
             }
         }
         options.addView(intervalSpinner)
         options.addView(text(
-            "업데이트 확인은 앱을 실행할 때 수행됩니다. 앱을 닫은 동안의 백그라운드 자동 업데이트는 아직 지원하지 않습니다.",
+            "설정한 주기에 따라 백그라운드에서 네트워크 연결 시 자동 갱신합니다. 앱 실행 시에도 만료된 목록을 확인합니다.",
             10f, muted, false
         ).withTop(3))
         val securityCheck = CheckBox(this).apply {
