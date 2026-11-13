@@ -1,6 +1,6 @@
 # Guardian AdBlock Android — Verification Record
 
-기준 버전: 0.7.0-dev  
+기준 버전: 0.7.1-dev  
 기준일: 2026-11-13
 
 ## 현재 회귀 테스트 인벤토리
