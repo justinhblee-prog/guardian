@@ -18,9 +18,10 @@
 | FilterListProfilesTest | 8 |
 | VpnConfigurationDefaultsTest | 1 |
 | VpnStartCancellationGateTest | 4 |
-| **합계** | **65** |
+| FilterUpdateSchedulePolicyTest | 2 |
+| **합계** | **67** |
 
-총 11개 Kotlin 테스트 스위트 / 65개 JUnit 테스트 메서드입니다.
+총 12개 Kotlin 테스트 스위트 / 67개 JUnit 테스트 메서드입니다.
 
 ## 최신 성공 CI
 
@@ -73,7 +74,7 @@
 - Latest source CI: https://github.com/justinhblee-prog/guardian/actions/runs/43435146415
 - Source commit under test: `ea97e9482afa009f7f1bc5ff718428ce6c282ec7`
 - Android unit-test step: **success**; full workflow cleanup was still running when recorded.
-- Test inventory at this commit: 11 suites / 65 test methods.
+- Test inventory at this commit: 12 suites / 67 test methods.
 
 
 ## Latest CI verification
@@ -96,3 +97,11 @@
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
 - Test inventory: 11 suites / 65 test methods.
+
+
+## WorkManager background refresh
+
+- Added WorkManager 2.12.0 periodic filter worker with connected-network constraint, user-configured 6/12/24-hour or 7-day cadence, exponential retry, and cancellation when auto-update is disabled.
+- Worker refreshes selected base list and enabled optional lists, then asks an active VPN service to reload rules.
+- Filter cache downloads are synchronized so manual and periodic workers cannot write the same temporary cache simultaneously.
+- Added two interval policy tests. Current source inventory: 12 suites / 67 test methods.
