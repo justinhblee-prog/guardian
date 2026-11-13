@@ -243,3 +243,10 @@
 - Published the installable `0.7.1-dev` debug APK artifact from successful run 43445545156.
 - 12 Kotlin test suites / 70 JUnit methods passed.
 - Physical-device acceptance remains outstanding; this artifact is a debug build, not a Play Store production-signed release.
+
+
+## 0.7.2-dev — Safe UDP DNS response sizing
+- Cap DNS UDP replies to 1232 bytes to respect the IPv6 minimum-MTU safe DNS payload.
+- When upstream replies exceed the cap, build a standards-shaped TC response retaining the validated DNS question instead of writing an oversized IP packet to TUN.
+- Add regression tests for TC/QR/RA/RD/CD flags, question preservation, and malformed query rejection.
+- Client-side TCP/53 retry remains unsupported and is documented as a limitation.
