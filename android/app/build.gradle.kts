@@ -1,0 +1,19 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+android {
+    namespace = "com.guardian.adblock"
+    compileSdk = 35
+    defaultConfig {
+        applicationId = "com.guardian.adblock"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 10
+        versionName = "0.6.3-dev"
+    }
+    sourceSets.getByName("main").assets.srcDir("../../shared")
+    testOptions { unitTests.isIncludeAndroidResources = true }
+}
+
+dependencies { testImplementation("junit:junit:4.13.2") }
