@@ -18,6 +18,7 @@ object FilterListManager {
     private const val MIN_VALID_BLOCKS = 1000
     private const val PREFS = "guardian_settings"
     private const val KEY_UPDATED_AT = "filter_list_updated_at"
+    const val KEY_AUTO_UPDATE = "filter_auto_update"
     private const val KEY_BLOCK_COUNT = "filter_list_block_count"
 
     data class UpdateResult(val blocked: Int, val allowed: Int, val bytes: Int, val updatedAt: Long)
