@@ -49,6 +49,64 @@ class DnsTcpSessionManagerTest {
         assertEquals(0, manager.activeSessionCount())
     }
 
+
+    @Test fun forwardsCompleteDnsOverTcpQueryAndFramesTheAnswer() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 1000)
+        val synAckBytes = manager.handle(syn, syn.size) { null }.single()
+        val synAck = DnsTcpPacket.parse(synAckBytes, synAckBytes.size, 53000)!!
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        var calls = 0
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH, seq = 1001, payload = framed)
+        val replies = manager.handle(request, request.size) {
+            calls++
+            assertArrayEquals(query, it)
+            DomainFilter.makeServfail(it)
+        }
+        assertEquals(1, calls)
+        assertEquals(1, replies.size)
+        val segment = DnsTcpPacket.parse(replies.single(), replies.single().size, 53000)!!
+        assertTrue(segment.ack)
+        assertEquals(1001L + framed.size, segment.acknowledgement)
+        assertEquals((synAck.sequence + 1L) and 0xffffffffL, segment.sequence)
+        val answer = segment.payload
+        val answerLength = ((answer[0].toInt() and 255) shl 8) or (answer[1].toInt() and 255)
+        assertEquals(answerLength, answer.size - 2)
+        assertEquals(2, answer[3].toInt() and 0x0f)
+    }
+
+    @Test fun reassemblesPartialDnsFrameAcrossTcpSegments() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 700)
+        manager.handle(syn, syn.size) { null }
+        var calls = 0
+        val first = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH, seq = 701,
+            payload = framed.copyOfRange(0, 9))
+        val firstReply = manager.handle(first, first.size) { calls++; null }.single()
+        assertTrue(DnsTcpPacket.parse(firstReply, firstReply.size, 53000)!!.ack)
+        assertEquals(0, calls)
+        val second = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH, seq = 710,
+            payload = framed.copyOfRange(9, framed.size))
+        val replies = manager.handle(second, second.size) {
+            calls++
+            assertArrayEquals(query, it)
+            DomainFilter.makeServfail(it)
+        }
+        assertEquals(1, calls)
+        assertEquals(1, replies.size)
+        assertTrue(DnsTcpPacket.parse(replies.single(), replies.single().size, 53000)!!.payload.isNotEmpty())
+    }
+
+    private fun dnsQuery(): ByteArray = byteArrayOf(
+        0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+        0x07, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65,
+        0x03, 0x63, 0x6f, 0x6d, 0x00, 0x00, 0x01, 0x00, 0x01
+    )
+
     private fun packet(flags: Int, seq: Long, payload: ByteArray = byteArrayOf()): ByteArray {
         val tcpLength = 20 + payload.size
         val p = ByteArray(20 + tcpLength)
