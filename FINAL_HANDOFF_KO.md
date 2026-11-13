@@ -196,3 +196,5 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - The DNS rule-engine self-test now explicitly disclaims live network-path and in-app ad-blocking verification.
 
 - Added optional DNS-over-TLS upstream transport (port 853) with SNI and certificate hostname verification. External provider connectivity and on-device DNS resolution still require device validation.
+
+- Added DoH upstream over TLS/443 with HTTP POST binary DNS messages, strict content-type/status validation, bounded Content-Length/chunked parsing and TLS hostname verification. External provider connectivity remains unverified.

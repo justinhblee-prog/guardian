@@ -268,7 +268,7 @@
 - Apply the existing domain block/allow engine and configured upstream resolver to TCP DNS requests.
 - Correct server sequence advancement after SYN and handle payload+FIN segments.
 - Add regression tests for IPv4/IPv6 TCP checksums, handshake sequence numbers, DNS framing, partial-frame reassembly, and FIN cleanup.
-- CI run 43452443314 passed: 15 suites / 92 JUnit tests; debug APK assembly, package identity and SHA-256 checks passed.
+- CI run 43452443314 passed: 16 suites / 98 JUnit tests; debug APK assembly, package identity and SHA-256 checks passed.
 - TCP retransmission/loss recovery, IPv6 extension headers, IP fragmentation, DoH/DoT and physical-device validation remain outstanding.
 
 - Improve the Protection tab with live start/stop control, quick filter switches, and navigation to filter/app exclusion settings.
@@ -278,3 +278,5 @@
 - Clarify that the DNS self-test validates local rules/NXDOMAIN generation only, not live resolver routing or in-app ads.
 
 - Add selectable UDP/TCP/DoT upstream transport, provider TLS host defaults, custom TLS hostname validation, SNI and certificate hostname verification.
+
+- Add DNS-over-HTTPS upstream transport using TLS/443 and HTTP POST binary DNS messages; parse bounded Content-Length and chunked responses, reject redirects and invalid media types.
