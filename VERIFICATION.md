@@ -60,3 +60,20 @@ The artifact is an installable Android Debug APK. Physical-device acceptance rem
 
 ## v0.6.5-dev regression coverage
 - `ProtectionStateTest`: verifies persisted-active + no live tunnel is inactive, and both persisted flag and live tunnel are required.
+
+
+## Actual latest successful CI result — 2026-11-13 (v0.6.5-dev)
+
+- Workflow: [43423810481](https://github.com/justinhblee-prog/guardian/actions/runs/43423810481)
+- Built source commit: `7fe4620c141e17e5735e18101982d6eb5059adf9`
+- Workflow conclusion: **success**
+- Android Gradle `clean testDebugUnitTest assembleDebug`: **BUILD SUCCESSFUL**
+- VPN manifest / foreground-service / launcher checks: **PASS**
+- APK package identity: `com.guardian.adblock`, versionCode `12`, versionName `0.6.5-dev` — **PASS**
+- Artifact ID: `14035456605`
+- Artifact ZIP size: 842,081 bytes; SHA-256: `8208a69ccd413d8e46f3bd45fa1bea47be336b372ff7931cdf45f1cb5c5f106d`
+- Extracted APK size: 850,111 bytes; SHA-256: `df0180f41fa697be32bf0c83cbe0ffffc2147314159d4a3e0e482d7166051ed6`
+- ZIP integrity and APK internal checksum comparison: **PASS**
+- Protection-state regression tests added; Gradle test task passed.
+
+The APK is an installable Android Debug APK. Physical-device acceptance remains outstanding.
