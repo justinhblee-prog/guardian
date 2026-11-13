@@ -143,13 +143,13 @@
 ## v0.7.0-dev — AdGuard-style filtering and diagnostics (2026-11-13)
 - Identified the previous effective-blocking gap: the built-in baseline contained only ten domains, and no downloaded AdGuard DNS filter or Adblock rule parser existed.
 - Added a DNS-compatible Adblock/hosts parser for anchored domain block rules, exception rules, hosts entries, and badfilter handling. Unsupported contextual/rewriting modifiers are ignored rather than guessed.
-- Added download, validation, app-private caching, safe cache replacement, and 24-hour launch-triggered auto-update for the official AdGuard DNS filter.
+- Added download, validation, app-private caching, safe cache replacement, and configurable 6h/12h/24h/7-day app-launch updates for selectable official DNS filter profiles.
 - Added optional HaGeZi Threat Intelligence malware/phishing list.
-- Added upstream DNS choices (Cloudflare, Google, Quad9, AdGuard DNS, custom IPv4/IPv6 literals), installed-app VPN exclusions, live DNS activity/diagnostics, and log reset.
+- Added upstream DNS choices (Cloudflare, Google, Quad9, AdGuard DNS, AdGuard Family DNS, custom IPv4/IPv6 literals), installed-app VPN exclusions, live DNS activity/diagnostics, and log reset.
 - Added source-isolated badfilter composition and regression tests so one filter list cannot cancel another list's matching domain rule.
 - Added optional direct DNS capture for common public resolvers. Because Android VPN routes are IP-based rather than port-based, the UI exposes this as an advanced option and warns that non-DNS traffic to those resolver IPs may also be captured.
 - Optimized block/allow matching to use bounded DNS-label suffix lookups instead of scanning the full downloaded list for every query.
-- Added an in-app end-to-end DNS self-test that checks a blocked domain sent directly to 8.8.8.8 and a normal domain sent to the virtual DNS endpoint.
+- Added an in-app end-to-end DNS self-test that checks a blocked domain using the selected DNS capture mode and a normal domain through the virtual DNS endpoint.
 - Moved large filter parsing and reload work off the VPN service main thread.
 - Changed push CI to run tests only; final APK packaging is gated behind a manual release workflow.
 - Physical-device verification and final APK are intentionally pending.
