@@ -113,3 +113,11 @@ CI cancels superseded runs within the same branch so rapid pushes do not accumul
 
 
 백그라운드 업데이트는 WorkManager 2.12.0의 네트워크 제약 주기 작업을 사용합니다. 자동 업데이트를 끄면 예약을 취소하며, 수동/백그라운드 캐시 다운로드는 직렬화됩니다.
+
+
+## Latest WorkManager verification
+
+- [GitHub Actions run 43437792450](https://github.com/justinhblee-prog/guardian/actions/runs/43437792450): **success**
+- Source commit: `5d7624fd445edadb1a1ed24a482b9e2d25f07d41`
+- Android unit tests: **passed**; APK assembly was skipped because this was a push-triggered validation run.
+- Test inventory: **12 suites / 67 test methods**.
