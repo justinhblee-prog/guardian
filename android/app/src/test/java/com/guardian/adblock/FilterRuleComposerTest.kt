@@ -21,4 +21,13 @@ class FilterRuleComposerTest {
         assertTrue(DomainFilter.isBlocked("ads.example.com"))
         assertFalse(DomainFilter.isBlocked("trusted.ads.example.com"))
     }
+    @Test fun importantBlockOverridesUserAllowException() {
+        val composed = FilterRuleComposer.compose(
+            sources = listOf(listOf("||critical.example^$important")),
+            userAllowDomains = listOf("critical.example")
+        )
+        DomainFilter.loadRules(composed)
+        assertTrue(DomainFilter.isBlocked("critical.example"))
+    }
+
 }
