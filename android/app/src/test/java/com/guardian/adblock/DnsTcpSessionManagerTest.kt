@@ -102,6 +102,62 @@ class DnsTcpSessionManagerTest {
 
 
 
+
+    @Test fun processesMultipleDnsMessagesFromOneTcpPayload() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val frame = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val payload = frame + frame
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 4000)
+        manager.handle(syn, syn.size) { null }
+        var calls = 0
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH, seq = 4001, payload = payload)
+        val replies = manager.handle(request, request.size) {
+            calls++
+            assertArrayEquals(query, it)
+            DomainFilter.makeServfail(it)
+        }
+        assertEquals(2, calls)
+        assertEquals(2, replies.size)
+        val first = DnsTcpPacket.parse(replies[0], replies[0].size, 53000)!!
+        val second = DnsTcpPacket.parse(replies[1], replies[1].size, 53000)!!
+        assertEquals((first.sequence + first.payload.size) and 0xffffffffL, second.sequence)
+        assertEquals(4001L + payload.size, second.acknowledgement)
+    }
+
+    @Test fun segmentsLargeDnsAnswersWithinConservativeTcpMss() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val largeAnswer = ByteArray(1200).also {
+            it[0] = 0x12
+            it[1] = 0x34
+            it[2] = 0x81.toByte()
+            it[3] = 0x80.toByte()
+        }
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 8000)
+        manager.handle(syn, syn.size) { null }
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 8001, payload = framedQuery)
+        val replies = manager.handle(request, request.size) { largeAnswer }
+        assertEquals(3, replies.size)
+        var expectedSequence: Long? = null
+        val assembled = java.io.ByteArrayOutputStream()
+        replies.forEach { bytes ->
+            val segment = DnsTcpPacket.parse(bytes, bytes.size, 53000)!!
+            assertTrue(segment.payload.size <= 536)
+            if (expectedSequence != null) assertEquals(expectedSequence, segment.sequence)
+            expectedSequence = (segment.sequence + segment.payload.size) and 0xffffffffL
+            assertEquals(8001L + framedQuery.size, segment.acknowledgement)
+            assembled.write(segment.payload)
+        }
+        val framedAnswer = assembled.toByteArray()
+        val declaredLength = ((framedAnswer[0].toInt() and 255) shl 8) or
+            (framedAnswer[1].toInt() and 255)
+        assertEquals(1200, declaredLength)
+        assertEquals(1202, framedAnswer.size)
+    }
+
     @Test fun retransmittedSynReceivesTheSameServerSequence() {
         val manager = DnsTcpSessionManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 5000)
