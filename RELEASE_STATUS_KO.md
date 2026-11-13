@@ -6,42 +6,40 @@
 
 ## 기존 차단 실패 원인
 
-이전 0.6.5-dev는 기본 차단 규칙이 10개 도메인뿐이었고, 공식 광고 필터 목록을 내려받거나 Adblock 형식을 해석하지 못했습니다. VPN이 켜져 있어도 대부분의 광고 도메인이 차단 목록에 없었습니다.
+이전 0.6.5-dev는 기본 차단 규칙이 10개 도메인뿐이었고, 공식 광고 필터 목록 다운로드 및 Adblock 규칙 해석이 없었습니다. VPN 상태가 켜져 있어도 대부분의 광고 도메인이 차단 목록에 없었습니다.
 
-0.7.0-dev에서는 실제 DNS 필터 목록 다운로드·검증·캐시·적용 경로와 필터 준비 확인을 추가했습니다.
-
-## 구현된 기능
+## 구현 현황
 
 | 영역 | 현재 구현 |
 |---|---|
 | DNS 보호 | Android VpnService, IPv4/IPv6 UDP DNS |
-| DNS 응답 | NXDOMAIN / SERVFAIL, upstream 응답·transaction·question 검증, truncated UDP의 TCP fallback |
-| 필터 프로필 | AdGuard DNS Filter(권장), 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro |
-| 보안 필터 | 선택형 HaGeZi Threat Intelligence 악성코드·피싱 목록 |
-| 규칙 엔진 | Adblock 도메인 앵커, 예외 규칙, hosts, badfilter 출처 격리, 사용자 block/allow |
-| 캐시 안전성 | 임시 파일 다운로드, 규칙 수 검증, 원자적 교체, 이전 정상 캐시 보존, 서비스 시작 직전 실제 파일 재검증 |
+| DNS 응답 | NXDOMAIN / SERVFAIL, upstream transaction/question 검증, truncated UDP의 TCP fallback |
+| 필터 프로필 | AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro |
+| 보안 목록 | 선택형 HaGeZi Threat Intelligence |
+| 앱 광고 SDK 목록 | 선택형 AWAvenue Ads Rule |
+| 규칙 엔진 | Adblock 도메인 앵커, 예외, hosts, important, 출처별 badfilter, 사용자 block/allow |
+| 캐시 | 크기/규칙 수 검증, 원자적 교체, 이전 정상 캐시 보존, 서비스 시작 직전 실제 파일 재검증 |
 | DNS 업스트림 | Cloudflare, Google, Quad9, AdGuard DNS, AdGuard Family DNS, 사용자 지정 IPv4/IPv6 |
-| 직접 DNS | 공용 DNS 직접 포착 고급 옵션, 시스템 가상 DNS 경로 |
-| 자동 업데이트 | 앱 실행 시 6시간 / 12시간 / 24시간 / 7일 주기 확인 |
-| 앱 제어 | 설치 앱 이름/패키지 검색 및 VPN 보호 제외 |
-| 사용자 규칙 | 사용자 차단/허용 도메인 |
-| 활동/진단 | DNS 활동, 통계, 최근 요청, 진단 메시지, 기록 초기화 |
-| 자체 테스트 | 활성 VPN에서 차단 도메인과 정상 도메인 DNS 테스트 |
-| UI | 홈 필터 준비 상태, 필터 프로필/보안/업데이트 옵션, DNS 설정, 앱 제외 검색 |
+| 직접 DNS | 공용 DNS 직접 포착 고급 옵션(기본 비활성화), 시스템 가상 DNS |
+| 자동 업데이트 | 앱 실행 시 6/12/24시간 또는 7일 주기 확인 |
+| 앱 제어 | 설치 앱 검색 및 VPN 보호 제외 |
+| 사용자 규칙 | 차단/허용 도메인 |
+| 활동/진단 | DNS 활동, 통계, 최근 요청, 진단, 기록 초기화 |
+| 자체 테스트 | 활성 VPN에서 선택 DNS 경로로 차단 도메인/정상 도메인 시험 |
+| UI | 홈, 보호, 활동, 필터, 설정의 5개 화면 |
 
-강력한 차단 프로필은 정상 서비스까지 차단할 가능성이 높아질 수 있습니다. 필터 프로필을 바꾸면 새 목록을 다운로드하고 캐시 프로필 검증이 끝난 뒤에만 새 구성으로 보호를 시작합니다.
+자동 업데이트 확인은 앱 실행 시 수행됩니다. 앱을 닫은 동안의 백그라운드 예약 업데이트는 아직 지원하지 않습니다.
 
-자동 업데이트 확인은 앱을 실행할 때 수행됩니다. 앱을 닫은 동안의 백그라운드 예약 업데이트는 아직 지원하지 않습니다.
-
-공용 DNS 직접 포착은 IP 단위 라우팅으로 동작하므로 해당 DNS 서버 IP로 향하는 비-DNS 연결도 TUN에 들어올 수 있습니다. 비-DNS 트래픽은 중계하지 않으므로 고급 옵션에서 끌 수 있습니다.
+공용 DNS 직접 포착은 IP 단위 라우팅입니다. DNS 서버 IP로 향하는 비DNS 연결도 TUN에 들어올 수 있으며 앱은 이를 중계하지 않습니다. 이 때문에 기본값은 꺼져 있고 고급 옵션으로만 켤 수 있습니다.
 
 ## 최신 내부 검증
 
-- [GitHub Actions 43432189671](https://github.com/justinhblee-prog/guardian/actions/runs/43432189671): **Success**
-- 소스 커밋: `0213bc28e97e7553d621a75d43108d4f885da67a`
-- Android JUnit: **53개 테스트 메서드 / 10개 스위트 통과**
-- Gradle: **BUILD SUCCESSFUL**
+- [GitHub Actions 43434091375](https://github.com/justinhblee-prog/guardian/actions/runs/43434091375): **Success**
+- 소스 커밋: `419356a1ef43ba20c33256b353566da7f42b8f61`
+- Android unit-test 단계: **통과**
+- 테스트 인벤토리: **11개 스위트 / 60개 JUnit 테스트 메서드**
 - APK 생성/업로드: push CI에서는 의도적으로 생략
+- 직전 파서 오류 원인: `$important,badfilter`처럼 쉼표로 구분된 modifier에서 badfilter 토큰을 인식하지 못했습니다. modifier를 분리해 각각 인식하도록 수정했고 59개 테스트가 통과했습니다. 이후 직접 DNS 안전 기본값 테스트를 추가해 현재 인벤토리는 60개입니다.
 
 ## 남은 검증 및 제한
 
@@ -50,56 +48,10 @@
 - DoH/DoT 및 클라이언트 TCP DNS 미지원
 - IPv6 확장 헤더 및 IP fragment 재조립 미지원
 - 웹페이지 요소 숨김 및 앱 내부/first-party 광고 제거 미지원
-- 공용 DNS 직접 포착은 IP 라우팅 부작용이 있어 실기기에서 반드시 확인 필요
+- 공용 DNS 직접 포착의 실기기 라우팅 부작용 검증 필요
 
 ## APK 생성 정책
 
-사용자 요청대로 개발 완료 전에는 APK를 생성하지 않습니다. 내부 구현·회귀 테스트·문서 검증을 마친 뒤 최종 수동 릴리스 workflow로 APK와 설치 패키지를 만들고, package/version, SHA-256 및 ZIP 무결성을 확인합니다.
+개발 완료 전에는 APK를 생성하지 않습니다. 내부 구현·회귀 테스트·문서 검증을 마친 뒤 최종 수동 릴리스 workflow로 APK를 만들고 package/version, SHA-256 및 ZIP 무결성을 확인합니다.
 
 **현재 판정: 개발 진행 중. 최종 APK는 아직 생성하지 않았습니다.** CI 성공은 실기기 광고 차단 성공을 의미하지 않습니다.
-
-
-## Adblock important 우선순위 처리 — CI 대기
-
-- `$important` 차단 규칙을 일반 차단 규칙과 분리해 보존하고, 허용 예외보다 우선 적용하도록 엔진을 수정했습니다.
-- `$badfilter`는 같은 출처의 important 규칙도 정확히 해제합니다.
-- 구현하지 않은 important 허용 예외는 임의로 일반 허용 규칙으로 처리하지 않고 미지원 규칙으로 제외합니다.
-- 필터 목록 검증 수와 UI 차단 규칙 수에 important 차단 규칙도 포함합니다.
-- 현재 테스트 소스: 11개 suite / 60개 테스트 메서드. 최신 변경 CI 대기.
-
-
-- 추가 수정: `$badfilter`가 같은 도메인의 일반 차단 규칙과 `$important` 규칙을 구분하여 해당 modifier 변형만 해제하도록 수정하고 회귀 테스트를 추가했습니다. 최신 테스트 소스는 10개 suite / 57개 메서드이며 CI 대기 중입니다.
-
-
-## Android 앱 광고 SDK 필터 추가 — CI 대기
-
-- AWAvenue Ads Rule (`filter_53.txt`) 기반의 선택형 Android 앱 광고 SDK 도메인 필터를 추가했습니다.
-- 사용자가 옵션을 켠 경우에만 다운로드·규칙 수 검증·원자적 캐시 저장을 수행합니다.
-- VPN 서비스가 실제 캐시 내용을 다시 검증한 뒤 해당 목록을 차단 엔진에 합칩니다.
-- 캐시 미준비 시 보호 시작을 제한하고, 다운로드 오류와 적용 규칙 수를 화면에 표시합니다.
-- 최신 테스트 소스: 11개 suite / 60개 테스트 메서드. CI 대기 중.
-
-
-## GitHub Actions 재검증 통과 — 2026-11-13
-
-- [검증 실행 결과](https://github.com/justinhblee-prog/guardian/actions/runs/43433588312)
-- 커밋: `fbc3f5a392cbab666ec11c605fa662c3d30baae0`
-- `:app:testDebugUnitTest`: **성공**, Gradle 로그 기준 59개 테스트 완료 / 실패 0개
-- 직전 실패 원인: `$important,badfilter`처럼 쉼표로 구분된 modifier에서 `$badfilter` 토큰을 찾지 못했습니다. modifier 목록을 분리해 각각 인식하도록 수정했습니다.
-- 이번 실행은 push 테스트 CI이며 APK 조립 및 업로드는 수행하지 않았습니다.
-- 실기기 설치, VPN 연결 및 실제 광고 차단 검증은 별도 단계로 남아 있습니다.
-
-
-## 공용 DNS 직접 포착 기본값 안전화 — CI 대기
-
-- Android VPN 경로는 포트가 아닌 IP 주소 단위로 적용되므로, 공용 DNS 서버 IP를 VPN에 넣으면 같은 IP로 향하는 일반 HTTPS 등 비DNS 트래픽도 TUN으로 들어올 수 있습니다. 현재 패킷 엔진은 DNS만 처리하므로 기본 활성화 시 다른 연결을 끊을 위험이 있습니다.
-- 공용 DNS 직접 포착을 기본 비활성화하고 고급 옵션에서만 켜도록 변경했습니다. 설정 설명에 비DNS 연결 영향 가능성을 표시하고, 기본 자체 테스트는 시스템 가상 DNS를 사용합니다.
-- 안전 기본값 회귀 테스트 1건 추가. 현재 소스 예상 테스트 수: 10개 suite / 60개. 최신 CI 대기.
-
-
-## 안전 기본값 변경 CI — 단위 테스트 통과
-
-- 최신 소스 커밋: `419356a1ef43ba20c33256b353566da7f42b8f61`
-- [GitHub Actions 실행](https://github.com/justinhblee-prog/guardian/actions/runs/43434091375)
-- Android 단위 테스트 단계: **성공**. 기록 시점에는 후처리 단계가 진행 중이었습니다.
-- 테스트 소스 인벤토리: 11개 Kotlin 테스트 suite.
