@@ -54,3 +54,20 @@
 - Android JUnit 25개 테스트 메서드 포함, Gradle 테스트 작업 통과
 
 **판정:** Android 0.6.5-dev 설치용 Debug APK 생성 및 CI 검증 완료. 실기기 설치/VPN 승인/네트워크 전환/장시간 실행은 아직 사용자 기기에서 확인되지 않았으므로 운영판 검증은 별도입니다.
+
+
+## 최신 0.6.5-dev APK 빌드 결과 — 2026-11-13
+
+- [GitHub Actions 실행 43423810481](https://github.com/justinhblee-prog/guardian/actions/runs/43423810481): **Success**
+- 빌드 소스 커밋: `7fe4620c141e17e5735e18101982d6eb5059adf9`
+- Gradle `clean testDebugUnitTest assembleDebug`: **BUILD SUCCESSFUL**
+- Manifest / FGS / launcher 검사: **PASS**
+- APK package ID: `com.guardian.adblock`, versionCode `12`, versionName `0.6.5-dev`
+- Artifact ID: `14035456605`
+- APK 크기: 850,111 bytes
+- APK SHA-256: `df0180f41fa697be32bf0c83cbe0ffffc2147314159d4a3e0e482d7166051ed6`
+- ZIP 크기: 842,081 bytes
+- ZIP SHA-256: `8208a69ccd413d8e46f3bd45fa1bea47be336b372ff7931cdf45f1cb5c5f106d`
+- ZIP 무결성 및 내부 APK checksum 대조: **PASS**
+
+**판정:** 0.6.5-dev 설치용 Debug APK 생성 및 CI 검증 완료. 실기기 설치와 VPN 네트워크 수용 테스트는 별도입니다.
