@@ -62,18 +62,26 @@
 - 앱 자체 소켓은 Android VPN TUN을 우회하므로, 가상 DNS IP에 앱 소켓으로 질의하는 기존 자체 테스트 방식은 제거했습니다.
 - 현재 테스트는 실제 네트워크 경로라고 주장하지 않고 활성 차단 규칙 매칭, NXDOMAIN 생성, 정상 도메인 비차단을 확인합니다.
 - VPN 서비스는 `START_STICKY` 및 persisted-active 확인을 통해 OS 프로세스 회수 후 재생성 시 보호를 복구하도록 변경했습니다. 사용자가 중지한 상태는 복구하지 않습니다.
-- 최신 테스트 인벤토리: 11개 suite / 63개 메서드. 실기기 복구 안정성은 아직 미검증입니다.
+- 최신 테스트 인벤토리: 11개 suite / 65개 메서드. 실기기 복구 안정성은 아직 미검증입니다.
 
 
 ## Latest CI verification
 
-- [GitHub Actions run 43435647740](https://github.com/justinhblee-prog/guardian/actions/runs/43436286243): **success**
+- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
 - Source commit: `da7e9fab22a38fc90e1c20739358239a5c994a0b`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
-- Inventory: 11 test suites / 63 test methods.
+- Inventory: 11 test suites / 65 test methods.
 
 
 ## UI polish verification
 
 - DNS upstream, filter profile and update interval selectors now use dark themed selected/dropdown rows consistent with the Guardian dashboard palette.
 - Status refreshes no longer retain/update detached home-screen views while the user is on other tabs.
+
+
+## Latest verification update
+
+- Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
+- Added two unit tests for this stop/start race policy.
+- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
+- Test inventory: 11 suites / 65 test methods.
