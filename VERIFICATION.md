@@ -78,7 +78,13 @@
 
 ## Latest CI verification
 
-- [GitHub Actions run 43435647740](https://github.com/justinhblee-prog/guardian/actions/runs/43435647740): **success**
-- Source commit: `592a19d10d6e5b989112d37050425f3c94206e2c`
+- [GitHub Actions run 43435647740](https://github.com/justinhblee-prog/guardian/actions/runs/43436286243): **success**
+- Source commit: `da7e9fab22a38fc90e1c20739358239a5c994a0b`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
 - Inventory: 11 test suites / 63 test methods.
+
+
+## UI polish verification
+
+- DNS upstream, filter profile and update interval selectors now use dark themed selected/dropdown rows consistent with the Guardian dashboard palette.
+- Status refreshes no longer retain/update detached home-screen views while the user is on other tabs.
