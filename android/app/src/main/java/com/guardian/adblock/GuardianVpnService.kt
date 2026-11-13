@@ -429,7 +429,7 @@ class GuardianVpnService : VpnService() {
     private fun configuredUpstreamTransport(): String {
         val value = getSharedPreferences(PREFS, MODE_PRIVATE)
             .getString(KEY_UPSTREAM_TRANSPORT, DEFAULT_UPSTREAM_TRANSPORT)
-        return value?.takeIf { it == "udp" || it == "tcp" || it == "dot" } ?: DEFAULT_UPSTREAM_TRANSPORT
+        return value?.takeIf { it == "udp" || it == "tcp" || it == "dot" || it == "doh" } ?: DEFAULT_UPSTREAM_TRANSPORT
     }
 
     private fun configuredUpstreamTlsHost(): String =
@@ -441,6 +441,7 @@ class GuardianVpnService : VpnService() {
         when (configuredUpstreamTransport()) {
             "tcp" -> return forwardDnsTcp(query)
             "dot" -> return forwardDnsOverTls(query)
+            "doh" -> return forwardDnsOverHttps(query)
         }
         var socket: DatagramSocket? = null
         return try {
@@ -517,6 +518,35 @@ class GuardianVpnService : VpnService() {
             if (length !in 17..4096) return null
             val answer = ByteArray(length)
             input.readFully(answer)
+            if (DomainFilter.isMatchingResponse(query, answer)) answer else null
+        } catch (_: Exception) {
+            null
+        } finally {
+            try { socket?.close() } catch (_: Exception) { }
+        }
+    }
+
+    private fun forwardDnsOverHttps(query: ByteArray): ByteArray? {
+        if (query.size !in 17..4096) return null
+        val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
+        val request = DnsDohHttpCodec.buildPostRequest(tlsHost, "/dns-query", query) ?: return null
+        var socket: SSLSocket? = null
+        return try {
+            val address = InetAddress.getByName(configuredUpstreamDns())
+            val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
+            socket = factory.createSocket() as SSLSocket
+            if (!protect(socket)) return null
+            socket.connect(InetSocketAddress(address, 443), 3500)
+            socket.soTimeout = 3500
+            val parameters = socket.sslParameters
+            parameters.endpointIdentificationAlgorithm = "HTTPS"
+            parameters.serverNames = listOf(SNIHostName(tlsHost))
+            socket.sslParameters = parameters
+            socket.startHandshake()
+
+            socket.outputStream.write(request)
+            socket.outputStream.flush()
+            val answer = DnsDohHttpCodec.readResponse(socket.inputStream) ?: return null
             if (DomainFilter.isMatchingResponse(query, answer)) answer else null
         } catch (_: Exception) {
             null

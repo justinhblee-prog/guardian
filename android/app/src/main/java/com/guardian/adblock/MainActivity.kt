@@ -674,7 +674,8 @@ class MainActivity : Activity() {
         val transportOptions = listOf(
             "UDP · 일반 DNS/53" to "udp",
             "TCP · DNS/53" to "tcp",
-            "DNS-over-TLS · 암호화/853" to "dot"
+            "DNS-over-TLS · 암호화/853" to "dot",
+            "DNS-over-HTTPS · 암호화/443" to "doh"
         )
         val currentTransport = dnsPrefs.getString(
             GuardianVpnService.KEY_UPSTREAM_TRANSPORT,
@@ -711,7 +712,7 @@ class MainActivity : Activity() {
         }
         body.addView(tlsHostInput!!, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
         val tlsHostFeedback = text(
-            "DoT는 TLS 인증서와 호스트 이름을 검증합니다. 사용자 지정 DNS IP를 선택했다면 해당 IP에 맞는 인증서 호스트를 입력하세요.",
+            "DoT/DoH는 TLS 인증서와 호스트 이름을 검증합니다. 사용자 지정 DNS IP를 선택했다면 해당 IP에 맞는 인증서 호스트를 입력하세요.",
             10f, muted, false
         ).withTop(6) as TextView
         tlsHostFeedback.visibility = if (currentTransport == "dot") View.VISIBLE else View.GONE
@@ -753,7 +754,7 @@ class MainActivity : Activity() {
                 )
                 if (previous != mode) {
                     dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TRANSPORT, mode).apply()
-                    val showTls = mode == "dot"
+                    val showTls = mode == "dot" || mode == "doh"
                     tlsHostInput?.visibility = if (showTls) View.VISIBLE else View.GONE
                     tlsHostFeedback.visibility = if (showTls) View.VISIBLE else View.GONE
                     tlsHostSaveButton.visibility = if (showTls) View.VISIBLE else View.GONE
@@ -819,7 +820,7 @@ class MainActivity : Activity() {
         body.addView(text("앱별 보호 제외", 18f, white, true).withTop(24))
         body.addView(text("선택한 앱은 Guardian VPN 필터링에서 제외됩니다. 변경 사항은 보호를 다시 시작하면 적용됩니다.", 12f, muted, false).withTop(5))
         buildAppExclusions(body)
-        body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP 또는 DNS-over-TLS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
+        body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
     }
 
     private fun defaultTlsHostForDns(address: String): String? = when (address.lowercase()) {
