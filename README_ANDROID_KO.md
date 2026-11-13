@@ -87,7 +87,7 @@ APK 출력:
 - 공용 DNS 직접 포착은 IP 단위 라우트이므로 DNS가 아닌 트래픽까지 TUN에 들어올 수 있어 기본 꺼짐입니다. Guardian은 DNS 이외 트래픽을 중계하지 않습니다.
 - DNS 수준 필터이므로 웹페이지의 cosmetic filtering, HTTPS 내부 광고 요소 제거, 앱에 직접 포함된 광고 제거를 제공하지 않습니다. 모든 광고 차단을 보장하지 않습니다.
 - 백그라운드 필터 업데이트는 WorkManager의 네트워크 연결 조건과 주기 작업 정책을 사용합니다. Android 전원 관리에 따라 실제 실행 시각은 설정한 시각과 정확히 일치하지 않을 수 있습니다.
-- 현재 CI 단위 테스트는 12개 테스트 스위트 / 67개 테스트 메서드를 대상으로 합니다. CI 통과는 실기기 네트워크 검증과 다릅니다.
+- 현재 CI 단위 테스트는 12개 테스트 스위트 / 68개 테스트 메서드를 대상으로 합니다. CI 통과는 실기기 네트워크 검증과 다릅니다.
 - 실제 Android 기기에서 VPN 권한, Wi-Fi/모바일 전환, 장시간 백그라운드 유지, 배터리 최적화, 실제 광고 차단률 및 제조사별 동작은 아직 검증되지 않았습니다.
 
 
@@ -101,4 +101,8 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - [GitHub Actions run 43437792450](https://github.com/justinhblee-prog/guardian/actions/runs/43437792450): **success**
 - Source commit: `5d7624fd445edadb1a1ed24a482b9e2d25f07d41`
 - Android unit tests: **passed**; APK assembly was skipped because this was a push-triggered validation run.
-- Test inventory: **12 suites / 67 test methods**.
+- Test inventory: **12 suites / 68 test methods**.
+
+
+## IPv6 DNS 업스트림 선택
+설정에서 Cloudflare, Google, Quad9 및 AdGuard DNS의 IPv4/IPv6 업스트림 프리셋을 선택할 수 있습니다. AdGuard 기본 IPv6 주소도 고급 직접 DNS 포착 경로 목록에 포함했습니다. IPv6 업스트림은 현재 네트워크에서 IPv6 연결을 제공해야 정상 동작합니다.
