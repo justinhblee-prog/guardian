@@ -971,7 +971,7 @@ class MainActivity : Activity() {
         } else prefs.getString(GuardianVpnService.KEY_STATUS, null)
         // Not every tab creates the dashboard status views. Update only views
         // that exist so opening Rules/Protection/Settings cannot crash the app.
-        if (::statusTitle.isInitialized) {
+        if (currentTab == "home" && ::statusTitle.isInitialized) {
             statusTitle.text = when { active -> "보호가 실행 중입니다"; staleSession -> "보호 복구 대기 중"; else -> "보호가 꺼져 있습니다" }
             statusDot.text = when { active -> "●  PROTECTION ACTIVE"; staleSession -> "●  RECOVERY PENDING"; else -> "●  PROTECTION OFF" }
             statusDot.setTextColor(if (active || staleSession) accent else red)
@@ -979,7 +979,7 @@ class MainActivity : Activity() {
             startButton?.isEnabled = !active
             startButton?.alpha = if (active) 0.58f else 1f
         }
-        if (::status.isInitialized) {
+        if (currentTab == "home" && ::status.isInitialized) {
             status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
         }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
