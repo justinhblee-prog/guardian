@@ -19,4 +19,13 @@ class ProtectionStateTest {
         assertTrue(ProtectionState.shouldRestoreAfterServiceRestart(persistedActive = true))
         assertFalse(ProtectionState.shouldRestoreAfterServiceRestart(persistedActive = false))
     }
+
+    @Test fun explicitStopClearsRestartIntentEvenBeforeTunnelStarts() {
+        assertTrue(ProtectionState.shouldPublishStoppedState(explicitStop = true, tunnelWasActive = false))
+    }
+
+    @Test fun serviceCleanupWithoutActiveTunnelDoesNotOverwriteStartupFailureState() {
+        assertFalse(ProtectionState.shouldPublishStoppedState(explicitStop = false, tunnelWasActive = false))
+        assertTrue(ProtectionState.shouldPublishStoppedState(explicitStop = false, tunnelWasActive = true))
+    }
 }
