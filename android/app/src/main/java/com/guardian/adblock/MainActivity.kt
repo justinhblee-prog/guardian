@@ -307,7 +307,7 @@ class MainActivity : Activity() {
             }
             domains.add(domain)
             if (domains.size > MAX_USER_RULES) {
-                status.text = "$label은 최대 $MAX_USER_RULES개까지 등록할 수 있습니다."
+                status.text = "${label}은 최대 ${MAX_USER_RULES}개까지 등록할 수 있습니다."
                 return null
             }
         }
