@@ -326,7 +326,7 @@ class MainActivity : Activity() {
         }
         body.addView(summary.withTop(18))
         body.addView(Button(this).apply {
-            text = "DNS 차단 기능 테스트"
+            text = "DNS 규칙 엔진 테스트"
             isAllCaps = false
             setTextColor(bg)
             background = shape(accent, 12)
