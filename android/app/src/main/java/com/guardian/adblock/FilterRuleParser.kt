@@ -63,7 +63,7 @@ object FilterRuleParser {
         val supportedModifiers = setOf("important", "all", "badfilter")
         if (modifiers.any { it.isNotBlank() && it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
         if (host.isEmpty() || host.contains('*') || host.contains('/') || host.contains('|')) return null
-        return normalize(host)
+        return normalize(host, requireDomainName = true)
     }
 
     private fun addDomain(raw: String, destination: MutableSet<String>): Boolean {
@@ -72,11 +72,11 @@ object FilterRuleParser {
         return true
     }
 
-    private fun normalize(raw: String): String? {
+    private fun normalize(raw: String, requireDomainName: Boolean = false): String? {
         val domain = raw.trim().trimEnd('.').lowercase(Locale.ROOT)
         if (domain.length !in 1..253) return null
         val labels = domain.split('.')
-        if (labels.size < 2) return null
+        if (requireDomainName && labels.size < 2) return null
         if (!labels.all { label ->
                 label.isNotEmpty() && label.length <= 63 &&
                     (label.first() in 'a'..'z' || label.first() in '0'..'9') &&
