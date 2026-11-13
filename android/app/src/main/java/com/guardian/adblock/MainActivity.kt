@@ -441,7 +441,7 @@ class MainActivity : Activity() {
     private fun buildSettings(body: LinearLayout) {
         body.addView(text("설정", 25f, white, true))
         body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
-        body.addView(infoRow("앱 버전", "Guardian AdBlock", "0.7.1-dev", accent))
+        body.addView(infoRow("앱 버전", "Guardian AdBlock", "0.7.2-dev", accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
         body.addView(text("DNS 업스트림 서버", 18f, white, true).withTop(24))
