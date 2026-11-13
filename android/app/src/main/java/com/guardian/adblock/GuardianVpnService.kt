@@ -58,21 +58,22 @@ class GuardianVpnService : VpnService() {
         if (running.get()) return
         try {
             loadConfiguredRules()
-        } catch (_: Exception) {
-            // Fail closed: do not start a VPN that silently has no shared filter rules.
-            publishState(false, "필터 규칙을 읽지 못해 보호를 시작하지 않았습니다.")
+        } catch (e: Exception) {
+            // Fail closed and expose the underlying reason for startup diagnosis.
+            publishState(false, "필터 규칙 로드 실패 (${e.javaClass.simpleName}): ${e.message ?: "원인 정보 없음"}")
             stopSelf()
             return
         }
         try {
             createNotificationChannel()
             startForeground(41, buildNotification())
-        } catch (_: Exception) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            publishState(false, "보호 알림을 시작하지 못했습니다.")
+        } catch (e: Exception) {
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+            publishState(false, "포그라운드 서비스 시작 실패 (${e.javaClass.simpleName}): ${e.message ?: "권한 또는 Android 정책을 확인하세요."}")
             stopSelf()
             return
         }
+        var establishError: Exception? = null
         val descriptor = try {
             Builder()
                 .setSession("Guardian AdBlock")
@@ -85,12 +86,14 @@ class GuardianVpnService : VpnService() {
                 .addRoute(VIRTUAL_DNS_V6, 128)
                 .setBlocking(true)
                 .establish()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            establishError = e
             null
         }
         if (descriptor == null) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            publishState(false, "VPN 연결을 만들지 못했습니다. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요.")
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+            val detail = establishError?.let { " (${it.javaClass.simpleName}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
+            publishState(false, "VPN 연결 생성 실패$detail. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요.")
             stopSelf()
             return
         }
@@ -101,30 +104,48 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun packetLoop(descriptor: ParcelFileDescriptor) {
-        val input = FileInputStream(descriptor.fileDescriptor)
-        val output = FileOutputStream(descriptor.fileDescriptor)
-        val buffer = ByteArray(32767)
-        while (running.get()) {
-            try {
-                val length = input.read(buffer)
-                if (length <= 0) continue
-                val ipv4 = Ipv4Udp.parseDns(buffer, length)
-                val ipv6 = if (ipv4 == null) Ipv6Udp.parseDns(buffer, length) else null
-                val payload = ipv4?.payload ?: ipv6?.payload ?: continue
-                val domain = DomainFilter.readQuestionName(payload) ?: continue
-                val blocked = DomainFilter.isBlocked(domain)
-                val forwarded = if (blocked) null else forwardDns(payload)
-                val dnsResponse = (if (blocked) DomainFilter.makeNxdomain(payload)
-                    else forwarded ?: DomainFilter.makeServfail(payload)) ?: continue
-                recordDnsActivity(domain, blocked, forwarded != null)
-                val packet = if (ipv4 != null) Ipv4Udp.response(ipv4, dnsResponse)
-                    else Ipv6Udp.response(ipv6!!, dnsResponse)
-                synchronized(output) {
-                    output.write(packet)
-                    output.flush()
+        var loopFailure: Exception? = null
+        try {
+            val input = FileInputStream(descriptor.fileDescriptor)
+            val output = FileOutputStream(descriptor.fileDescriptor)
+            val buffer = ByteArray(32767)
+            while (running.get()) {
+                try {
+                    val length = input.read(buffer)
+                    if (length < 0) break
+                    if (length == 0) continue
+                    val ipv4 = Ipv4Udp.parseDns(buffer, length)
+                    val ipv6 = if (ipv4 == null) Ipv6Udp.parseDns(buffer, length) else null
+                    val payload = ipv4?.payload ?: ipv6?.payload ?: continue
+                    val domain = DomainFilter.readQuestionName(payload) ?: continue
+                    val blocked = DomainFilter.isBlocked(domain)
+                    val forwarded = if (blocked) null else forwardDns(payload)
+                    val dnsResponse = (if (blocked) DomainFilter.makeNxdomain(payload)
+                        else forwarded ?: DomainFilter.makeServfail(payload)) ?: continue
+                    recordDnsActivity(domain, blocked, forwarded != null)
+                    val packet = if (ipv4 != null) Ipv4Udp.response(ipv4, dnsResponse)
+                        else Ipv6Udp.response(ipv6!!, dnsResponse)
+                    synchronized(output) {
+                        output.write(packet)
+                        output.flush()
+                    }
+                } catch (e: Exception) {
+                    if (!running.get()) break
+                    loopFailure = e
+                    break
                 }
-            } catch (_: Exception) {
-                if (!running.get()) break
+            }
+        } catch (e: Exception) {
+            if (running.get()) loopFailure = e
+        } finally {
+            // A dead packet loop must never leave the UI claiming protection is active.
+            if (running.compareAndSet(true, false)) {
+                try { descriptor.close() } catch (_: Exception) { }
+                if (tun === descriptor) tun = null
+                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+                val detail = loopFailure?.let { " (${it.javaClass.simpleName}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
+                publishState(false, "DNS 패킷 처리 중단$detail. 보호를 다시 시작해 주세요.")
+                stopSelf()
             }
         }
     }
