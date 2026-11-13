@@ -359,6 +359,7 @@ class MainActivity : Activity() {
             addView(text(FilterListManager.selectedProfile(this@MainActivity).label, 14f, white, true).withTop(7))
             filterStatusText = text(filterStatusDescription(), 11f, muted, false).withTop(7) as TextView
             addView(filterStatusText!!)
+            addView(buildFilterProfileSelector().withTop(10))
             filterUpdateButton = Button(this@MainActivity).apply {
                 text = "필터 목록 업데이트"
                 isAllCaps = false
@@ -483,36 +484,6 @@ class MainActivity : Activity() {
         }
         filterStatusText = text(filterStatusDescription(), 12f, muted, false)
         filterCard.addView(filterStatusText!!)
-        filterCard.addView(text("차단 목록 프로필", 12f, muted, false).withTop(12))
-        val profilePrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-        val filterProfiles = FilterListManager.availableProfiles()
-        val profileSpinner = Spinner(this)
-        val profileAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, filterProfiles.map { it.label })
-        profileAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        profileSpinner.adapter = profileAdapter
-        val selectedProfileKey = FilterListManager.selectedProfile(this).key
-        profileSpinner.setSelection(filterProfiles.indexOfFirst { it.key == selectedProfileKey }.coerceAtLeast(0))
-        profileSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val selected = filterProfiles[position]
-                val current = profilePrefs.getString(FilterListManager.KEY_FILTER_PROFILE, "adguard") ?: "adguard"
-                if (selected.key == current) return
-                if (filterUpdateRunning.get()) {
-                    val currentIndex = filterProfiles.indexOfFirst { it.key == current }.coerceAtLeast(0)
-                    profileSpinner.setSelection(currentIndex)
-                    filterStatusText?.text = "필터 업데이트 중에는 프로필을 변경할 수 없습니다."
-                    return
-                }
-                profilePrefs.edit()
-                    .putString(FilterListManager.KEY_FILTER_PROFILE, selected.key)
-                    .putLong(FilterListManager.KEY_UPDATED_AT, 0L)
-                    .apply()
-                filterStatusText?.text = "선택한 프로필: ${selected.label} · 새 목록을 내려받습니다."
-                startFilterUpdate()
-            }
-        }
-        filterCard.addView(profileSpinner)
         val autoUpdateCheck = CheckBox(this).apply {
             text = "앱 실행 시 자동으로 최신 필터 확인"
             textSize = 12f
@@ -644,6 +615,47 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun buildFilterProfileSelector(): View {
+        val wrapper = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        wrapper.addView(text("차단 목록 프로필", 12f, muted, false))
+        val profilePrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val filterProfiles = FilterListManager.availableProfiles()
+        val profileSpinner = Spinner(this)
+        val profileAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, filterProfiles.map { it.label })
+        profileAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        profileSpinner.adapter = profileAdapter
+        val selectedProfileKey = FilterListManager.selectedProfile(this).key
+        profileSpinner.setSelection(filterProfiles.indexOfFirst { it.key == selectedProfileKey }.coerceAtLeast(0))
+        profileSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selected = filterProfiles[position]
+                val current = profilePrefs.getString(FilterListManager.KEY_FILTER_PROFILE, "adguard") ?: "adguard"
+                if (selected.key == current) return
+                if (filterUpdateRunning.get()) {
+                    val currentIndex = filterProfiles.indexOfFirst { it.key == current }.coerceAtLeast(0)
+                    profileSpinner.setSelection(currentIndex)
+                    filterStatusText?.text = "필터 업데이트 중에는 프로필을 변경할 수 없습니다."
+                    return
+                }
+                profilePrefs.edit()
+                    .putString(FilterListManager.KEY_FILTER_PROFILE, selected.key)
+                    .putLong(FilterListManager.KEY_UPDATED_AT, 0L)
+                    .apply()
+                filterStatusText?.text = "선택한 프로필: ${selected.label} · 새 목록을 내려받습니다."
+                startFilterUpdate()
+            }
+        }
+        wrapper.addView(profileSpinner)
+        wrapper.addView(text(
+            "강력한 프로필은 차단 범위가 넓지만 일부 정상 서비스가 차단될 수 있습니다.",
+            10f, muted, false
+        ).withTop(4))
+        return wrapper
     }
 
     private fun buildAppExclusions(body: LinearLayout) {
