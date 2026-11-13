@@ -24,6 +24,26 @@ class DnsTcpPacketTest {
         assertEquals(DnsTcpPacket.SYN or DnsTcpPacket.ACK, reply.flags)
     }
 
+    @Test fun rejectsContradictoryTcpControlFlags() {
+        val synFin = ipv4Request().also {
+            it[33] = (DnsTcpPacket.SYN or DnsTcpPacket.FIN).toByte()
+            sealTcp4(it); sealIp4(it)
+        }
+        assertNull(DnsTcpPacket.parse(synFin, synFin.size))
+
+        val rstSyn = ipv4Request().also {
+            it[33] = (DnsTcpPacket.RST or DnsTcpPacket.SYN).toByte()
+            sealTcp4(it); sealIp4(it)
+        }
+        assertNull(DnsTcpPacket.parse(rstSyn, rstSyn.size))
+
+        val rstFin = ipv4Request().also {
+            it[33] = (DnsTcpPacket.RST or DnsTcpPacket.FIN).toByte()
+            sealTcp4(it); sealIp4(it)
+        }
+        assertNull(DnsTcpPacket.parse(rstFin, rstFin.size))
+    }
+
     @Test fun rejectsCorruptTcpChecksum() {
         val packet = ipv4Request()
         packet[packet.size - 1] = 1

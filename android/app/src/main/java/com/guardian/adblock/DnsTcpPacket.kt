@@ -62,10 +62,15 @@ object DnsTcpPacket {
         if (checksum == 0 || !tcpChecksumValid(packet, version, tcpOffset, tcpLength, source, destination)) return null
         val destinationPort = u16(packet, tcpOffset + 2)
         if (destinationPort != expectedDestinationPort) return null
+        val flags = packet[tcpOffset + 13].toInt() and 0xff
+        // Reject contradictory control-flag combinations instead of letting
+        // malformed segments mutate the DNS TCP session state machine.
+        if (flags and SYN != 0 && flags and (FIN or RST) != 0) return null
+        if (flags and RST != 0 && flags and (FIN or PSH) != 0) return null
         return Parsed(
             version, source, destination, u16(packet, tcpOffset), destinationPort,
             u32(packet, tcpOffset + 4), u32(packet, tcpOffset + 8),
-            packet[tcpOffset + 13].toInt() and 0xff, u16(packet, tcpOffset + 14),
+            flags, u16(packet, tcpOffset + 14),
             packet.copyOfRange(tcpOffset + headerLength, length)
         )
     }
