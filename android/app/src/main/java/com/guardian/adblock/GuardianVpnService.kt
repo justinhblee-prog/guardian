@@ -43,6 +43,16 @@ class GuardianVpnService : VpnService() {
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
         const val KEY_UPSTREAM_DNS = "upstream_dns"
         const val DEFAULT_UPSTREAM_DNS = "1.1.1.1"
+        private val KNOWN_PUBLIC_DNS_IPV4 = listOf(
+            "1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4",
+            "9.9.9.9", "149.112.112.112", "94.140.14.14", "94.140.15.15",
+            "208.67.222.222", "208.67.220.220"
+        )
+        private val KNOWN_PUBLIC_DNS_IPV6 = listOf(
+            "2606:4700:4700::1111", "2606:4700:4700::1001",
+            "2001:4860:4860::8888", "2001:4860:4860::8844",
+            "2620:fe::fe", "2620:fe::9"
+        )
         private val DNS_STATS_LOCK = Any()
         private const val DNS_STATS_BROADCAST_INTERVAL_MS = 500L
         @Volatile private var tunnelActive = false
@@ -101,7 +111,7 @@ class GuardianVpnService : VpnService() {
         }
         var establishError: Exception? = null
         val descriptor = try {
-            Builder()
+            val builder = Builder()
                 .setSession("Guardian AdBlock")
                 .setMtu(1500)
                 .addAddress("10.13.37.1", 32)
@@ -110,8 +120,11 @@ class GuardianVpnService : VpnService() {
                 .addDnsServer(VIRTUAL_DNS_V6)
                 .addRoute(VIRTUAL_DNS, 32)
                 .addRoute(VIRTUAL_DNS_V6, 128)
-                .setBlocking(true)
-                .establish()
+            // Capture direct UDP/53 queries to common public resolvers as well
+            // as requests sent to Android's configured virtual DNS endpoint.
+            KNOWN_PUBLIC_DNS_IPV4.forEach { builder.addRoute(it, 32) }
+            KNOWN_PUBLIC_DNS_IPV6.forEach { builder.addRoute(it, 128) }
+            builder.setBlocking(true).establish()
         } catch (e: Exception) {
             establishError = e
             null
