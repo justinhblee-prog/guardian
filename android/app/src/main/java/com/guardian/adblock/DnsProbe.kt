@@ -31,6 +31,9 @@ object DnsProbe {
             }
             val flags = u16(response, 2)
             require((flags and 0x8000) != 0) { "DNS 응답에 QR 플래그가 없습니다." }
+            require(DomainFilter.isMatchingResponse(query, response)) {
+                "DNS 응답 질문 영역이 요청과 일치하지 않습니다."
+            }
             return Result(domain, flags and 0x000f)
         }
     }
