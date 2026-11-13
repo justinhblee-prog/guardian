@@ -7,14 +7,14 @@ object Ipv4Udp {
     data class Parsed(val source: ByteArray, val destination: ByteArray, val sourcePort: Int, val destinationPort: Int, val payload: ByteArray)
 
     fun parseDns(packet: ByteArray, length: Int): Parsed? {
-        if (length < 28) return null
+        if (length < 28 || length > packet.size) return null
         val version = (packet[0].toInt() ushr 4) and 0xf
         if (version != 4) return null
         val ihl = (packet[0].toInt() and 0xf) * 4
         if (ihl < 20 || length < ihl + 8) return null
         if ((packet[9].toInt() and 0xff) != 17) return null
         val total = u16(packet, 2)
-        if (total > length || total < ihl + 8) return null
+        if (total != length || total < ihl + 8) return null
         // DNS datagrams must not be IP-fragmented; reassembly is not implemented.
         val fragment = u16(packet, 6)
         if ((fragment and 0x3fff) != 0) return null
