@@ -106,3 +106,10 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 
 ## IPv6 DNS 업스트림 선택
 설정에서 Cloudflare, Google, Quad9 및 AdGuard DNS의 IPv4/IPv6 업스트림 프리셋을 선택할 수 있습니다. AdGuard 기본 IPv6 주소도 고급 직접 DNS 포착 경로 목록에 포함했습니다. IPv6 업스트림은 현재 네트워크에서 IPv6 연결을 제공해야 정상 동작합니다.
+
+
+## 최신 검증 — IPv6 DNS 프리셋
+- [GitHub Actions run 43443209122](https://github.com/justinhblee-prog/guardian/actions/runs/43443209122): **성공**
+- 검증 소스 커밋: `f518711e559bfb8873128f82c07a1a157a5f2068`
+- Android 단위 테스트: **통과**. push 검증이므로 APK 조립/업로드는 의도적으로 생략했습니다.
+- 테스트 인벤토리: **12개 스위트 / 68개 JUnit 테스트 메서드**.
