@@ -19,7 +19,9 @@
 | ProtectionStateTest | 2 |
 | FilterRuleParserTest | 6 |
 | DnsProbeTest | 2 |
-| Total | 35 |
+| FilterRuleComposerTest | 2 |
+| DnsAddressValidatorTest | 2 |
+| Total | 40 |
 
 ## Covered areas
 
@@ -30,6 +32,7 @@
 - stale persisted VPN state and live tunnel requirement
 - Adblock domain anchor, allow exception, hosts entries, badfilter, unsupported modifier rejection
 - DNS self-test query construction and hostname validation
+- Filter-source badfilter isolation and custom DNS IPv4/IPv6 literal validation
 
 ## Functional boundaries not covered by CI
 
