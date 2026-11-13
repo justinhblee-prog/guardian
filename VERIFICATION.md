@@ -180,12 +180,12 @@
 
 - GitHub Actions run: https://github.com/justinhblee-prog/guardian/actions/runs/43452443314 — **success**
 - Source commit: `09502f426d8c51c03398927a6e10235ec4b23874`
-- Android unit tests: **14 suites / 86 JUnit test methods passed**
+- Android unit tests: **14 suites / 88 JUnit test methods passed**
 - Debug APK assembly, package identity and SHA-256 checks: **success**
 - Package: `com.guardian.adblock`, versionCode `15`, versionName `0.7.2-dev`
 - APK SHA-256: `bd9a985de52090d0c9729266b4c3e43058f5c99e1f3b6440100f90243dec9eb5`
 - Push CI intentionally skipped artifact upload; this is build verification, not a newly published install file.
-- Regression coverage includes IPv4/IPv6 TCP packet checksums, TCP sequence advancement after SYN, DNS-over-TCP framing, partial-frame reassembly, and FIN+payload.
+- Regression coverage includes IPv4/IPv6 TCP packet checksums, TCP sequence advancement after SYN, DNS-over-TCP framing, partial-frame reassembly, multiple queries per segment, large-response segmentation, and FIN+payload.
 - Device-level VPN/resolver routing and real-world ad blocking remain unverified. Exact duplicate client request segments replay cached DNS replies; autonomous retransmission timers/partial-ACK recovery, IPv6 extension headers and IP fragmentation remain unsupported.
 
-- Protection tab quick controls and recovery button behavior are included in source commit `cdaf16b2f45c1a04706083e37c713c1642d13107`; CI run 43453483117 passed.
+- Protection tab quick controls and recovery button behavior are included in source commit `f7f35890eb1bc9a5f387ab9a2699beed1159b871`; CI run 43454148857 passed.

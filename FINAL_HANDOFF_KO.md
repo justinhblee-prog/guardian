@@ -185,7 +185,7 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 
 - TCP/53 codec/session manager is integrated in the VPN packet loop for IPv4 and IPv6 base headers.
 - Handles DNS length-prefix framing, ordered stream reassembly, bounded sessions/buffers, DNS filtering/upstream forwarding, segmented replies, and FIN/RST cleanup.
-- CI run 43452443314 passed: 14 test suites / 86 JUnit methods; debug APK assembly, package identity and SHA-256 checks passed.
+- CI run 43452443314 passed: 14 test suites / 88 JUnit methods; debug APK assembly, package identity and SHA-256 checks passed.
 - Verified package remains `com.guardian.adblock` versionCode 15 / `0.7.2-dev`; push CI did not upload an artifact.
 - Not a complete TCP implementation: retransmission/loss recovery, IPv6 extension headers and IP fragmentation are unsupported. Real Android device resolver behavior remains unverified.
 
