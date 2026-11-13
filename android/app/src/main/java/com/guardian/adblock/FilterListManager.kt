@@ -63,8 +63,16 @@ object FilterListManager {
         return profiles.firstOrNull { it.key == key } ?: profiles.first()
     }
 
-    fun hasCachedList(context: Context): Boolean = File(context.filesDir, CACHE_FILE).let { it.isFile && it.length() > 0L }
-    fun hasCachedSecurityList(context: Context): Boolean = File(context.filesDir, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
+    fun hasCachedFile(context: Context): Boolean =
+        File(context.filesDir, CACHE_FILE).let { it.isFile && it.length() > 0L }
+
+    fun hasCachedList(context: Context): Boolean =
+        hasCachedFile(context) && cachedBlockCount(context) >= selectedProfile(context).minimumRules
+
+    fun hasCachedSecurityList(context: Context): Boolean =
+        File(context.filesDir, SECURITY_CACHE_FILE).let {
+            it.isFile && it.length() > 0L && cachedSecurityBlockCount(context) >= MIN_SECURITY_BLOCKS
+        }
     fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
     fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
 
