@@ -56,7 +56,7 @@ jobs:
       - name: Upload installable debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: Guardian-AdBlock-Android-APK-v0.6.3-dev
+          name: Guardian-AdBlock-Android-APK-v0.6.4-dev
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/debug/SHA256SUMS.txt
