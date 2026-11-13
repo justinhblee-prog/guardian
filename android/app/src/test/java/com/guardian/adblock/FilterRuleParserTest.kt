@@ -8,7 +8,7 @@ class FilterRuleParserTest {
         val parsed = FilterRuleParser.parse(listOf(
             "||ads.example.com^",
             "@@||trusted.ads.example.com^",
-            "||tracker.example.net^\$important",
+            "||tracker.example.net^\\$important",
             "! comment"
         ))
         assertEquals(setOf("ads.example.com"), parsed.blocked)
@@ -81,15 +81,15 @@ class FilterRuleParserTest {
     }
     @Test fun badfilterDisablesAnImportantBlockRule() {
         val parsed = FilterRuleParser.parse(listOf(
-            "||priority.example^$important",
-            "||priority.example^$important,badfilter"
+            "||priority.example^\$important",
+            "||priority.example^\$important,badfilter"
         ))
         assertTrue(parsed.importantBlocked.isEmpty())
         assertTrue(parsed.blocked.isEmpty())
     }
 
     @Test fun importantModifierOnExceptionIsIgnoredRatherThanMisapplied() {
-        val parsed = FilterRuleParser.parse(listOf("@@||trusted.example^$important"))
+        val parsed = FilterRuleParser.parse(listOf("@@||trusted.example^\$important"))
         assertTrue(parsed.allowed.isEmpty())
         assertEquals(1, parsed.ignored)
     }
