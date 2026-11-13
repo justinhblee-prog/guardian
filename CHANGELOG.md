@@ -184,3 +184,12 @@
 - Make direct interception of public DNS resolver IPs opt-in because IP-prefix VPN routes can capture non-DNS traffic to those same addresses.
 - Keep the self-test aligned with the safe default and display the advanced-routing side-effect warning.
 - Add a regression test for the default configuration.
+
+
+### Reliability and UI polish — 2026-11-13
+- Restore a previously active VPN service after Android reclaims its process (`START_STICKY`), while respecting explicit stop state.
+- Keep the dashboard honest during a service restart and offer a reconnect action rather than clearing the persisted restore intent.
+- Replace the app-owned virtual-DNS UDP self-test (which bypasses the app's own VPN route on Android) with an accurately labelled in-process rule-engine test.
+- Apply consistent dark styling to DNS/profile/update-interval selectors and avoid refreshing detached home views.
+- Serialize CI per branch and cancel superseded push runs.
+- Latest CI: run 43436286243 passed; 11 suites / 63 JUnit test methods.
