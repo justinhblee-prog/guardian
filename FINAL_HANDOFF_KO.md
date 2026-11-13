@@ -73,7 +73,7 @@
 - `DnsProbe.kt`: DNS 자체 테스트 질의
 - `Ipv4Udp.kt` / `Ipv6Udp.kt`: IPv4/IPv6 UDP 패킷 처리
 - `MainActivity.kt`: 홈, 보호, 활동, 필터, 설정 UI
-- `android/app/src/test`: **11개 테스트 스위트 / 63개 JUnit 테스트 메서드**
+- `android/app/src/test`: **11개 테스트 스위트 / 65개 JUnit 테스트 메서드**
 
 ## 6. 필터 출처
 
@@ -90,7 +90,7 @@
 - 성공 CI: https://github.com/justinhblee-prog/guardian/actions/runs/43434091375
 - 소스 커밋: `419356a1ef43ba20c33256b353566da7f42b8f61`
 - Android unit-test 단계: **Success**
-- 테스트 소스 인벤토리: 11 suites / 63 test methods
+- 테스트 소스 인벤토리: 11 suites / 65 test methods
 - APK build/upload: push CI 정책에 따라 skipped
 - 최신 후속 UI 안내문 수정 커밋은 CI 재검증 중일 수 있으므로 최종 상태를 Actions에서 확인해야 합니다.
 
@@ -130,13 +130,21 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 
 ## Latest CI verification
 
-- [GitHub Actions run 43435647740](https://github.com/justinhblee-prog/guardian/actions/runs/43436286243): **success**
+- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
 - Source commit: `da7e9fab22a38fc90e1c20739358239a5c994a0b`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
-- Inventory: 11 test suites / 63 test methods.
+- Inventory: 11 test suites / 65 test methods.
 
 
 ## UI polish verification
 
 - DNS upstream, filter profile and update interval selectors now use dark themed selected/dropdown rows consistent with the Guardian dashboard palette.
 - Status refreshes no longer retain/update detached home-screen views while the user is on other tabs.
+
+
+## Latest verification update
+
+- Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
+- Added two unit tests for this stop/start race policy.
+- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
+- Test inventory: 11 suites / 65 test methods.
