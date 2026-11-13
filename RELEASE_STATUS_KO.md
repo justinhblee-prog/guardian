@@ -1,6 +1,6 @@
 # Guardian AdBlock Android — 개발/릴리스 상태
 
-기준 버전: **0.7.0-dev**  
+기준 버전: **0.7.1-dev**  
 기준일: 2026-11-13  
 저장소: https://github.com/justinhblee-prog/guardian
 
