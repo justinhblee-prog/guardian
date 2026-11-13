@@ -475,7 +475,9 @@ class GuardianVpnService : VpnService() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         // An explicit user stop must clear the persisted restart intent even
         // when startup was still in flight and no TUN descriptor was committed.
-        if (explicitStop || wasActive) publishState(false, "DNS 보호가 중지되었습니다.")
+        if (ProtectionState.shouldPublishStoppedState(explicitStop, wasActive)) {
+            publishState(false, "DNS 보호가 중지되었습니다.")
+        }
         stopSelf()
     }
 
