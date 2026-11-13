@@ -260,26 +260,19 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun loadConfiguredRules() {
-        val rules = mutableListOf<String>()
-        fun appendSource(sourceLines: List<String>) {
-            // Apply badfilter within each source only. A source must not cancel
-            // an identical domain rule contributed by a different enabled list.
-            val parsed = FilterRuleParser.parse(sourceLines)
-            parsed.blocked.forEach { rules.add("block=$it") }
-            parsed.allowed.forEach { rules.add("allow=$it") }
-        }
-        appendSource(assets.open("filter_rules.txt").bufferedReader().use { it.readLines() })
+        val sources = mutableListOf<List<String>>()
+        sources.add(assets.open("filter_rules.txt").bufferedReader().use { it.readLines() })
         // A failed or absent update never replaces the last known-good filter cache.
-        appendSource(FilterListManager.cachedLines(this))
+        sources.add(FilterListManager.cachedLines(this))
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
-            appendSource(FilterListManager.cachedSecurityLines(this))
+            sources.add(FilterListManager.cachedSecurityLines(this))
         }
-        prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
-            .map { it.trim() }.filter { it.isNotEmpty() }.forEach { rules.add("block=$it") }
-        prefs.getString(KEY_USER_ALLOW, "").orEmpty().lineSequence()
-            .map { it.trim() }.filter { it.isNotEmpty() }.forEach { rules.add("allow=$it") }
-        DomainFilter.loadRules(rules)
+        val userBlock = prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
+            .map { it.trim() }.filter { it.isNotEmpty() }.toList()
+        val userAllow = prefs.getString(KEY_USER_ALLOW, "").orEmpty().lineSequence()
+            .map { it.trim() }.filter { it.isNotEmpty() }.toList()
+        DomainFilter.loadRules(FilterRuleComposer.compose(sources, userBlock, userAllow))
     }
 
     private fun reloadUserRules() {
