@@ -341,7 +341,13 @@ class MainActivity : Activity() {
             addView(text("현재 보호 범위", 14f, white, true))
             addView(text("IPv4 / IPv6 · UDP/53 + TCP/53 DNS", 12f, muted, false).withTop(7))
             addView(text("DNS 이외 트래픽, DoH/DoT는 아직 필터링하지 않습니다.", 11f, muted, false).withTop(5))
-        }.withTop(12))
+        }.withTop(12))        val privateDns = privateDnsCompatibilityStatus()
+        body.addView(card(panel, 14).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            addView(text("ANDROID 비공개 DNS", 10f, muted, true))
+            addView(text(privateDns.first, 11f, privateDns.second, false).withTop(6))
+        }.withTop(10))
     }
 
     private fun buildActivity(body: LinearLayout) {
@@ -442,6 +448,24 @@ class MainActivity : Activity() {
         else "연결 실패 · $transport · 서버 주소, 네트워크 또는 TLS 호스트 설정을 확인하세요 · $time"
     }
 
+    private fun privateDnsCompatibilityStatus(): Pair<String, Int> {
+        if (Build.VERSION.SDK_INT < 28) {
+            return "Android 비공개 DNS 상태 확인은 Android 9 이상에서 지원됩니다." to muted
+        }
+        val mode = android.provider.Settings.Global.getString(
+            contentResolver, "private_dns_mode"
+        )?.lowercase(Locale.ROOT)
+        val provider = android.provider.Settings.Global.getString(
+            contentResolver, "private_dns_specifier"
+        )?.takeIf { it.isNotBlank() }
+        return when (mode) {
+            "off" -> "비공개 DNS 꺼짐 — Guardian 시스템 DNS 필터링에 적합한 상태입니다." to accent
+            "opportunistic" -> "비공개 DNS 자동 모드입니다. 네트워크에 따라 암호화 DNS가 Guardian 필터를 우회할 수 있습니다. 차단이 누락되면 Android 설정에서 비공개 DNS를 '사용 안 함'으로 변경해 주세요." to Color.rgb(238, 176, 82)
+            "hostname" -> ("비공개 DNS 공급자" + (provider?.let { " ($it)" } ?: "") + "가 지정되어 있습니다. DoT/853 요청이 Guardian 필터를 우회할 수 있습니다. 완전한 DNS 필터링을 원하시면 Android 설정에서 비공개 DNS를 '사용 안 함'으로 변경해 주세요.") to red
+            else -> "비공개 DNS 상태를 확인할 수 없습니다. DNS 차단이 작동하지 않으면 Android 비공개 DNS 설정을 확인해 주세요." to muted
+        }
+    }
+
     private fun buildProtection(body: LinearLayout) {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val active = ProtectionState.isActive(
@@ -466,6 +490,8 @@ class MainActivity : Activity() {
                 12f, muted, false
             ).withTop(6) as TextView
             addView(protectionStatusDetail!!)
+            val privateDns = privateDnsCompatibilityStatus()
+            addView(text(privateDns.first, 11f, privateDns.second, false).withTop(10))
             protectionActionButton = Button(this@MainActivity).apply {
                 text = if (active) "보호 중지" else "보호 시작"
                 isAllCaps = false
