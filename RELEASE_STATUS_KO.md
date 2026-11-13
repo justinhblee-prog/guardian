@@ -22,11 +22,11 @@
 | AdGuard DNS Filter 다운로드 및 캐시 | 구현 중 / CI 확인 필요 |
 | Adblock 도메인 규칙 및 hosts 형식 파싱 | 구현 중 / CI 확인 필요 |
 | 안전하게 처리할 수 없는 고급 규칙 제외 및 개수 표시 | 구현 중 / CI 확인 필요 |
-| 선택형 HaGeZi 악성코드·피싱 목록 | 구현 중 / CI 확인 필요 |
-| DNS 업스트림 선택 및 사용자 지정 IPv4/IPv6 주소 | 구현 |
-| 24시간 경과 후 앱 실행 시 자동 업데이트 | 구현 |
+| 선택형 HaGeZi 악성코드·피싱 목록 | 구현 |
+| DNS 업스트림 선택(AdGuard Family 포함) 및 사용자 지정 IPv4/IPv6 주소 | 구현 |
+| 6시간/12시간/24시간/7일 자동 업데이트 주기 | 구현 |
 | 사용자 차단/허용 목록 | 구현 |
-| 앱별 VPN 제외 | 구현 |
+| 앱별 VPN 제외 및 앱 이름/패키지 검색 | 구현 |
 | DNS 활동/통계/진단/초기화 | 구현 |
 | 가상 DNS 및 직접 공용 DNS 자가 테스트 | 구현 / 실기기 확인 필요 |
 | DoH/DoT 및 client-side TCP DNS | 미지원 |
@@ -41,7 +41,7 @@
 
 ## 내부 검증 체크리스트
 
-- [ ] 최신 main 소스의 Android JUnit 테스트 성공
+- [x] 최신 main 소스의 Android JUnit 테스트 성공 (43개)
 - [ ] Adblock parser: 차단/예외/hosts/badfilter/unsupported modifier 회귀 테스트 통과
 - [ ] DNS 자가 테스트 query/response 패킷 형식 및 매칭 테스트 통과
 - [ ] VPN start/stop/restart race 및 stale 상태 검증
@@ -66,10 +66,10 @@
 
 ## 최신 내부 CI 결과
 
-- [GitHub Actions 43428069445](https://github.com/justinhblee-prog/guardian/actions/runs/43428069445): **Success**
-- 소스 커밋: e681062ee2cc3a3573aa4597e2eb545420fa81e1
+- [GitHub Actions 43429911684](https://github.com/justinhblee-prog/guardian/actions/runs/43429911684): **Success**
+- 소스 커밋: 5ef6f94e1c46d760de445d9326bda9711f265083
 - Gradle clean + testDebugUnitTest: **BUILD SUCCESSFUL**
-- 회귀 테스트 소스 기준: 8개 suite / 40개 테스트 메서드
+- 회귀 테스트 소스 기준: 9개 suite / 43개 테스트 메서드
 - APK 빌드/업로드: **정책에 따라 생략** (push CI는 테스트 전용)
 
 실기기 VPN/광고 차단 수용 테스트는 아직 미완료입니다.
@@ -92,4 +92,4 @@
 - 업스트림 DNS에 AdGuard Family DNS 추가
 - 설치 앱 제외 목록 검색 및 홈 대시보드의 필터 준비 상태 카드
 
-현재 테스트 소스: 9개 테스트 스위트 / 43개 JUnit 테스트 메서드. 최신 CI 실행 결과는 확인 중이며 APK는 개발 완료 전까지 생성하지 않습니다.
+현재 테스트 소스: 9개 테스트 스위트 / 43개 JUnit 테스트 메서드. 최신 CI는 성공했습니다. APK는 개발 완료 전까지 생성하지 않습니다.
