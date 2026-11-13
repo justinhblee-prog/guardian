@@ -114,8 +114,8 @@ class GuardianVpnService : VpnService() {
                 val domain = DomainFilter.readQuestionName(payload) ?: continue
                 val blocked = DomainFilter.isBlocked(domain)
                 val forwarded = if (blocked) null else forwardDns(payload)
-                val dnsResponse = if (blocked) DomainFilter.makeNxdomain(payload)
-                    else forwarded ?: DomainFilter.makeServfail(payload)
+                val dnsResponse = (if (blocked) DomainFilter.makeNxdomain(payload)
+                    else forwarded ?: DomainFilter.makeServfail(payload)) ?: continue
                 recordDnsActivity(domain, blocked, forwarded != null)
                 val packet = if (ipv4 != null) Ipv4Udp.response(ipv4, dnsResponse)
                     else Ipv6Udp.response(ipv6!!, dnsResponse)
