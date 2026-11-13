@@ -5,31 +5,53 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.URL
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import javax.net.ssl.HttpsURLConnection
 
-/** Downloads and validates the official AdGuard DNS filter into app-private storage. */
+/** Downloads and validates DNS-compatible community filters into app-private storage. */
 object FilterListManager {
     const val FILTER_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt"
+    const val SECURITY_FILTER_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_44.txt"
     private const val CACHE_FILE = "adguard_dns_filter.txt"
+    private const val SECURITY_CACHE_FILE = "hagezi_threat_intelligence.txt"
     private const val MAX_BYTES = 10 * 1024 * 1024
     private const val MIN_VALID_BLOCKS = 1000
+    private const val MIN_SECURITY_BLOCKS = 100
     private const val PREFS = "guardian_settings"
     private const val KEY_UPDATED_AT = "filter_list_updated_at"
-    const val KEY_AUTO_UPDATE = "filter_auto_update"
     private const val KEY_BLOCK_COUNT = "filter_list_block_count"
+    private const val KEY_SECURITY_UPDATED_AT = "security_filter_updated_at"
+    private const val KEY_SECURITY_BLOCK_COUNT = "security_filter_block_count"
+    const val KEY_AUTO_UPDATE = "filter_auto_update"
+    const val KEY_SECURITY_ENABLED = "security_filter_enabled"
 
     data class UpdateResult(val blocked: Int, val allowed: Int, val bytes: Int, val updatedAt: Long)
 
-    fun cachedLines(context: Context): List<String> {
-        val file = File(context.filesDir, CACHE_FILE)
+    fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
+    fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
+
+    fun update(context: Context): UpdateResult =
+        download(context, FILTER_URL, CACHE_FILE, MIN_VALID_BLOCKS, KEY_UPDATED_AT, KEY_BLOCK_COUNT)
+
+    fun updateSecurity(context: Context): UpdateResult =
+        download(context, SECURITY_FILTER_URL, SECURITY_CACHE_FILE, MIN_SECURITY_BLOCKS, KEY_SECURITY_UPDATED_AT, KEY_SECURITY_BLOCK_COUNT)
+
+    private fun readCache(context: Context, name: String): List<String> {
+        val file = File(context.filesDir, name)
         return if (file.isFile && file.length() > 0L) file.readLines(Charsets.UTF_8) else emptyList()
     }
 
-    fun update(context: Context): UpdateResult {
-        val connection = (URL(FILTER_URL).openConnection() as HttpsURLConnection).apply {
+    private fun download(
+        context: Context,
+        url: String,
+        cacheName: String,
+        minimumRules: Int,
+        updatedKey: String,
+        countKey: String
+    ): UpdateResult {
+        val connection = (URL(url).openConnection() as HttpsURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 12000
             readTimeout = 20000
@@ -53,14 +75,13 @@ object FilterListManager {
                 }
                 output.toByteArray()
             }
-            val text = String(bytes, StandardCharsets.UTF_8)
-            val lines = text.lineSequence().toList()
+            val lines = String(bytes, StandardCharsets.UTF_8).lineSequence().toList()
             val parsed = FilterRuleParser.parse(lines)
-            require(parsed.blocked.size >= MIN_VALID_BLOCKS) {
+            require(parsed.blocked.size >= minimumRules) {
                 "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size}개뿐입니다."
             }
-            val target = File(context.filesDir, CACHE_FILE)
-            val temporary = File(context.filesDir, "$CACHE_FILE.tmp")
+            val target = File(context.filesDir, cacheName)
+            val temporary = File(context.filesDir, "$cacheName.tmp")
             temporary.writeBytes(bytes)
             try {
                 Files.move(
@@ -81,8 +102,8 @@ object FilterListManager {
             }
             val now = System.currentTimeMillis()
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putLong(KEY_UPDATED_AT, now)
-                .putInt(KEY_BLOCK_COUNT, parsed.blocked.size)
+                .putLong(updatedKey, now)
+                .putInt(countKey, parsed.blocked.size)
                 .apply()
             return UpdateResult(parsed.blocked.size, parsed.allowed.size, bytes.size, now)
         } finally {
@@ -95,4 +116,10 @@ object FilterListManager {
 
     fun cachedBlockCount(context: Context): Int =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_BLOCK_COUNT, 0)
+
+    fun lastSecurityUpdatedAt(context: Context): Long =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_SECURITY_UPDATED_AT, 0L)
+
+    fun cachedSecurityBlockCount(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_SECURITY_BLOCK_COUNT, 0)
 }
