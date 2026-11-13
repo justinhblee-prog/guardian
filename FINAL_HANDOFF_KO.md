@@ -1,111 +1,73 @@
-# Guardian AdBlock v0.6.3-dev 인수인계
+# Guardian AdBlock Android 0.6.4-dev — 인수인계
 
 작성일: 2026-11-13
 
-## 1. 현재 릴리스 판정
+## 1. 제품 범위
 
-Android APK를 GitHub Actions에서 빌드하고 업로드한 이력이 확인됩니다. 다만 현재 main에는 그 성공 빌드 이후 IPv4 패킷 길이 검증 수정이 추가되어 있습니다. 이 최신 수정까지 포함한 빌드가 다시 성공하기 전에는 아래 APK를 최신 main의 APK라고 간주하면 안 됩니다.
+현재 GitHub 저장소 `justinhblee-prog/guardian`의 실제 코드 범위는 Android 앱과 공유 DNS 규칙 파일입니다. 오래된 문서에 있던 Windows 엔진·브라우저 확장·Python DNS 서버는 현재 저장소 트리에 없으므로 이번 Android 인수인계 범위에서 제외합니다.
 
-- 확인된 성공 CI: [run 43419311161](https://github.com/justinhblee-prog/guardian/actions/runs/43419311161)
-- 해당 CI 커밋: `ccc5beba3ae8658733ca215708a77115158d78f1`
-- Gradle: `testDebugUnitTest assembleDebug` 성공
-- artifact: `Guardian-AdBlock-Android-APK-v0.6.3-dev`
-- APK SHA-256: `40593421ba6b8fdf62fd41225a4c8055266da89bd5b17f56eb416085afb85178`
+## 2. 주요 소스
 
-## 2. Android 구현 범위
+- `android/app/src/main/java/com/guardian/adblock/GuardianVpnService.kt`: VPN 수명주기, DNS 패킷 루프, 업스트림 전달
+- `DomainFilter.kt`: DNS 질의 검증, 차단/허용 규칙, NXDOMAIN/SERVFAIL, 응답 매칭
+- `Ipv4Udp.kt`: IPv4 UDP DNS 패킷 파싱/응답 생성
+- `Ipv6Udp.kt`: IPv6 UDP DNS 파싱, 체크섬 검증/응답 생성
+- `MainActivity.kt`: 홈·보호·규칙·설정 UI
+- `shared/filter_rules.txt`: 공용 DNS 도메인 규칙
+- `android/app/src/test/`: Android JUnit 회귀 테스트
+- `android/core-checks/CoreSmoke.kt`: 순수 Kotlin DNS 핵심부 스모크 테스트
 
-1. Android `VpnService` 기반 로컬 DNS 필터링
-2. IPv4 UDP/53 및 IPv6 UDP/53 처리
-3. IPv6 UDP 체크섬 검증 및 응답 체크섬 생성
-4. 공용 규칙 파일과 기기 내 사용자 차단/허용 목록 지원
-5. 허용 규칙이 차단 규칙보다 우선
-6. 업스트림 DNS 응답의 transaction ID 및 질문 일치 검증
-7. 업스트림 UDP 응답이 잘린 경우 보호된 TCP/53으로 재시도
-8. 업스트림 장애 시 유효한 DNS 질의에 SERVFAIL 응답
-9. DNS 통계와 최근 활동 저장, UI 갱신 브로드캐스트 제한
+## 3. 동작 구조
 
-## 3. 명시적 제한
+1. 사용자가 Android VPN 권한을 승인하고 보호 시작을 누릅니다.
+2. VPN 인터페이스에 IPv4/IPv6 가상 DNS 주소와 DNS 호스트 라우트를 등록합니다.
+3. TUN에서 IPv4/IPv6 UDP DNS 질의를 읽고 단일 DNS 질문을 검증합니다.
+4. 차단 규칙이면 NXDOMAIN을 반환합니다.
+5. 허용/일반 질의는 보호된 소켓으로 1.1.1.1에 전달하고 응답 출처·transaction ID·질문을 검증합니다.
+6. 업스트림 UDP 응답이 잘리면 TCP/53으로 재시도합니다.
+7. 업스트림 실패 시 SERVFAIL을 반환합니다.
+8. DNS 통계와 최근 활동을 저장하고 UI 갱신 브로드캐스트를 제한합니다.
 
-- 앱이 직접 수신하는 DNS TCP 질의 가로채기 미지원
-- DoH(HTTPS DNS) 및 DoT(TLS DNS) 필터링 미지원
-- IPv6 확장 헤더 및 IP fragment 재조립 미지원
-- 번들 차단 목록은 소규모 개발용 기본 목록이며 포괄적인 광고 DB가 아님
-- 일부 앱 내부 광고, 자체 DoH를 사용하는 앱, DNS 이외 방식의 광고 요청은 차단되지 않을 수 있음
+## 4. 최근 수정 사항
 
-## 4. 검증 현황
+- IPv4 TUN 입력 길이와 IP total length 일치 검증
+- IPv6 UDP 필수 checksum 검증 및 응답 checksum 생성
+- DNS QNAME은 대소문자 비구분으로 응답 매칭하되 QTYPE/QCLASS는 정확히 비교
+- DNS wire label 안에 literal dot이 들어가 hostname 문자열로 모호해지는 입력 거부
+- 잘린 UDP upstream 응답의 TCP fallback
+- 사용자 규칙 화면 메시지와 VPN 보호 상태 메시지 분리
+- Android 프로세스가 죽어 저장 상태만 남은 경우 보호가 실행 중이라고 표시하지 않도록 수정
+- Guardian 전용 adaptive launcher icon과 버전 0.6.4-dev
 
-| 항목 | 상태 |
-|---|---|
-| Python / Browser / Kotlin 핵심부 자동화 검증 | 이전 검증 기록 PASS |
-| Android Gradle JUnit task | CI PASS (위 커밋 기준) |
-| Android APK 빌드 및 업로드 | CI PASS (위 커밋 기준) |
-| APK 체크섬 | 위 커밋 산출물 확인 |
-| 이후 IPv4 TUN 길이 방어 수정 | 후속 CI 확인 필요 |
-| Android 실기기 설치 및 VPN 시작/중지 | 미검증 |
-| 실제 IPv4/IPv6 DNS 및 광고 차단 | 미검증 |
-| Windows 실환경 DNS 어댑터/서비스 | 미검증 |
-| Windows EXE/설치 프로그램 | 미생성 |
+## 5. 명시적 제한
 
-## 5. Android 설치 절차
+- DoH/DoT 미지원
+- 클라이언트 방향 TCP DNS 미지원 (업스트림 truncated UDP fallback TCP는 지원)
+- IPv6 extension header 및 IP fragment 재조립 미지원
+- 앱별 제어, 원격 목록 자동 업데이트, 포괄적 광고 목록 미지원
+- 실기기에서 VPN 동작 및 광고 차단 결과는 별도 검증 필요
 
-1. 성공한 GitHub Actions 실행에서 APK artifact를 내려받습니다.
-2. Android에서 APK를 열고 필요 시 해당 다운로드 앱의 '알 수 없는 앱 설치' 권한을 허용합니다.
-3. Guardian AdBlock을 실행하고 '보호 시작'을 누릅니다.
-4. Android VPN 연결 승인 창에서 허용합니다.
-5. 화면의 보호 상태가 실행 중으로 바뀌는지 확인합니다.
-6. 문제가 있으면 다른 VPN 앱이 활성화되어 있는지 확인합니다. Android는 일반적으로 사용자 프로필당 활성 VPN을 하나만 허용합니다.
+## 6. 빌드 및 테스트
 
-## 6. 다음 우선순위
+```bash
+gradle -p android --no-daemon clean testDebugUnitTest assembleDebug
+```
 
-1. 최신 main 커밋의 Android JUnit 및 APK 빌드 재검증
-2. TUN 패킷 처리와 VPN 서비스 수명주기 회귀 검토
-3. 실기기 검증 체크리스트를 따라 설치·권한·DNS·네트워크 변경 확인
-4. 실제 동작 증거를 반영해 릴리스 상태와 변경 이력 갱신
-5. Windows 기능은 별도 Windows 호스트에서 검증하고 설치 패키지를 별도 제작
+산출 APK:
+`android/app/build/outputs/apk/debug/app-debug.apk`
 
-## 7. 최종 주의
+JDK 17, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9가 필요합니다. GitHub Actions는 JUnit task, APK assemble, manifest/launcher asset, APK package ID/version, checksum 검사를 수행합니다.
 
-GitHub Actions 성공은 컴파일, 자동화 테스트 task 및 APK 패키징 성공을 의미합니다. Android 기기에서 VPN이 정상 동작하거나 모든 광고가 차단된다는 보증은 아닙니다. 실기기 수용 테스트 전에는 운영 최종판 또는 상용 수준으로 표시하지 않습니다.
+## 7. 기기 수용 테스트
 
+- APK 설치와 VPN 권한 승인
+- 보호 시작·중지 반복
+- 앱 강제 종료/프로세스 재시작 후 상태 표시
+- 차단 도메인 NXDOMAIN 확인
+- 허용 도메인 및 일반 도메인 정상 응답
+- 업스트림 DNS 장애 시 SERVFAIL 확인
+- Wi-Fi와 모바일 데이터 간 전환
+- 화면 잠금 후 복귀 및 장시간 실행
+- IPv4 및 IPv6 네트워크 환경 각각 확인
 
-## 최신 인수인계 갱신 — 2026-11-13
-
-이 섹션은 위의 이전 CI 대기 문구를 대체합니다.
-
-- 최신 CI: [43420229693](https://github.com/justinhblee-prog/guardian/actions/runs/43420229693)
-- 최신 소스 커밋: `d6191812b51cf97a288186901435608280bab1f8`
-- Android JUnit task + Debug APK 빌드: **PASS**
-- APK ZIP 무결성 검사: **PASS**
-- Artifact ID: `14034125411`
-- APK 크기: 845,986 bytes
-- APK SHA-256: `c17a91a518e39e9ec9681c8cb90d645f589ebbbb0276152299299d5c321bfff9`
-- IPv4 입력 버퍼 경계, IP total-length 불일치, IPv4 options 케이스 회귀 테스트가 최신 빌드에 포함되어 통과했습니다.
-
-실기기 설치·VPN 승인·보호 시작/중지·IPv4/IPv6 실제 DNS·네트워크 변경 안정성 및 Windows 통합 검증은 미완료입니다. 따라서 현재 산출물은 검증된 Android 개발 APK이지, 모든 환경에서 동작이 확인된 상용 최종판은 아닙니다.
-
-
-## 최신 성공 빌드 — 2026-11-13
-
-- [GitHub Actions 43420975704](https://github.com/justinhblee-prog/guardian/actions/runs/43420975704)
-- 소스 커밋: `5b93b93ec36b86c2312c09b95562e396ec6dd890`
-- Gradle `clean testDebugUnitTest assembleDebug`: **BUILD SUCCESSFUL**
-- Artifact ID: `14034191808`
-- APK: 846,262 bytes
-- APK SHA-256: `9d8ba26f6c9cadad5250e15d3d46456262476b4d5aeb8ac27f023e5eea2fb92b`
-- Artifact ZIP SHA-256: `d691be00fe2d716df9351b5f7183c2cc968533a38d9059dc2977b08e6c7e7c10`
-- 다운로드 ZIP 무결성 및 내부 APK 체크섬 일치 확인 완료
-- IPv4 packet framing, DNS question case-insensitive matching, IPv6 UDP checksum regression tests included
-
-실기기 설치/VPN/실제 광고 차단 검증과 Windows 통합 검증은 여전히 별도 수용 테스트 항목입니다.
-
-
-## 최신 규칙 UI 수정 APK
-
-- [CI run 43421570913](https://github.com/justinhblee-prog/guardian/actions/runs/43421570913)
-- Source commit: `d438442ea45754be0b8faff777497c3308d3cfc7`
-- Android tests + debug APK: **PASS**
-- Artifact ID: `14034222440`
-- APK size: 846,278 bytes
-- APK SHA-256: `3d8e5aa6b6effe815dbed6f2f8d846d44098eb498de93ddd0807d2eedd2be340`
-- Artifact ZIP integrity and internal APK checksum: **PASS**
-- Rules editor feedback is now separate from VPN status messages.
+실제 Android 기기에서 실행하지 않은 항목은 완료로 처리하지 않습니다.
