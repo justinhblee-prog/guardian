@@ -314,7 +314,7 @@ class MainActivity : Activity() {
             background = shape(accent, 12)
             setOnClickListener { runDnsSelfTest() }
         }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
-        selfTestText = text("8.8.8.8 직접 질의도 VPN에서 가로채는지 확인합니다.", 11f, muted, false).withTop(8) as TextView
+        selfTestText = text("현재 선택된 DNS 경로에서 차단 도메인과 정상 도메인의 응답을 검증합니다.", 11f, muted, false).withTop(8) as TextView
         body.addView(selfTestText!!)
         body.addView(Button(this).apply {
             text = "활동 기록 초기화"
