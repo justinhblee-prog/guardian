@@ -1,41 +1,39 @@
 package com.guardian.adblock
 
 import java.io.ByteArrayOutputStream
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
 
-/** End-to-end UDP DNS probe sent through the app's virtual VPN DNS endpoint. */
+/** In-process rule-engine probe. The VPN app's own sockets bypass its TUN by design,
+ * so opening a DatagramSocket to the virtual DNS address would not be an end-to-end test. */
 object DnsProbe {
-    private const val VIRTUAL_DNS = "10.13.37.2"
-    private const val DNS_PORT = 53
     private const val TRANSACTION_ID = 0x4755
 
-    data class Result(val domain: String, val responseCode: Int)
+    data class Result(
+        val blockedDomain: String,
+        val blockedRuleMatched: Boolean,
+        val blockedResponseCode: Int?,
+        val normalDomain: String,
+        val normalDomainBlocked: Boolean
+    ) {
+        val passed: Boolean
+            get() = blockedRuleMatched && blockedResponseCode == 3 && !normalDomainBlocked
+    }
 
-    fun query(domain: String, dnsServer: String = VIRTUAL_DNS, timeoutMs: Int = 5000): Result {
-        val query = buildQuery(domain)
-        DatagramSocket().use { socket ->
-            socket.soTimeout = timeoutMs
-            val target = InetAddress.getByName(dnsServer)
-            socket.send(DatagramPacket(query, query.size, target, DNS_PORT))
-            val buffer = ByteArray(4096)
-            val responsePacket = DatagramPacket(buffer, buffer.size)
-            socket.receive(responsePacket)
-            require(responsePacket.port == DNS_PORT && responsePacket.address == target) {
-                "응답 DNS 엔드포인트가 요청과 일치하지 않습니다."
-            }
-            val response = buffer.copyOf(responsePacket.length)
-            require(response.size >= 12 && u16(response, 0) == TRANSACTION_ID) {
-                "DNS 응답 transaction ID가 일치하지 않습니다."
-            }
-            val flags = u16(response, 2)
-            require((flags and 0x8000) != 0) { "DNS 응답에 QR 플래그가 없습니다." }
-            require(DomainFilter.isMatchingResponse(query, response)) {
-                "DNS 응답 질문 영역이 요청과 일치하지 않습니다."
-            }
-            return Result(domain, flags and 0x000f)
-        }
+    /** Verifies active rule matching and the NXDOMAIN response builder without a misleading loopback socket. */
+    fun evaluateRules(): Result {
+        val blockedQuery = buildQuery("doubleclick.net")
+        val blockedDomain = DomainFilter.readQuestionName(blockedQuery)
+            ?: throw IllegalStateException("차단 테스트 DNS 질문을 해석하지 못했습니다.")
+        val matched = DomainFilter.isBlocked(blockedDomain)
+        val response = if (matched) DomainFilter.makeNxdomain(blockedQuery) else null
+        val responseCode = response?.let { u16(it, 2) and 0x000f }
+        val normalDomain = "example.com"
+        return Result(
+            blockedDomain = blockedDomain,
+            blockedRuleMatched = matched,
+            blockedResponseCode = responseCode,
+            normalDomain = normalDomain,
+            normalDomainBlocked = DomainFilter.isBlocked(normalDomain)
+        )
     }
 
     internal fun buildQuery(domain: String): ByteArray {
