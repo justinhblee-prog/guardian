@@ -108,12 +108,32 @@ object DomainFilter {
         val responseFlags = u16(response, 2)
         if ((queryFlags and 0x8000) != 0 || (queryFlags and 0x7800) != 0) return false
         if ((responseFlags and 0x8000) == 0 || (responseFlags and 0x7800) != 0) return false
-        if ((responseFlags and 0x0200) != 0) return false // TC: TCP fallback is not implemented.
+        if ((responseFlags and 0x0200) != 0) return false // The service retries TC replies over TCP.
         if (u16(query, 0) != u16(response, 0)) return false
         if (u16(query, 4) != 1 || u16(response, 4) != 1) return false
         val queryEnd = questionEnd(query) ?: return false
         val responseEnd = rawQuestionEnd(response) ?: return false
-        return query.copyOfRange(12, queryEnd).contentEquals(response.copyOfRange(12, responseEnd))
+        return canonicalQuestion(query, queryEnd)?.contentEquals(canonicalQuestion(response, responseEnd) ?: return false) ?: false
+    }
+
+
+    /** DNS names are case-insensitive; preserve the binary QTYPE/QCLASS bytes. */
+    private fun canonicalQuestion(message: ByteArray, end: Int): ByteArray? {
+        if (end < 17 || end > message.size) return null
+        val question = message.copyOfRange(12, end)
+        var p = 0
+        var labels = 0
+        while (p < question.size && labels++ < 128) {
+            val size = question[p++].toInt() and 0xff
+            if (size == 0) return if (p + 4 == question.size) question else null
+            if ((size and 0xc0) != 0 || size > 63 || p + size > question.size) return null
+            for (i in p until p + size) {
+                val c = question[i].toInt() and 0xff
+                if (c in 65..90) question[i] = (c + 32).toByte()
+            }
+            p += size
+        }
+        return null
     }
 
     private fun rawQuestionEnd(message: ByteArray): Int? {
