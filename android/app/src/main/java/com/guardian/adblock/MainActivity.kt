@@ -242,14 +242,14 @@ class MainActivity : Activity() {
         }
         hero.addView(stop, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(9) })
         val selfTestButton = Button(this).apply {
-            text = "DNS 차단 기능 테스트"
+            text = "DNS 규칙 엔진 테스트"
             isAllCaps = false
             setTextColor(white)
             background = shape(panel2, 13)
             setOnClickListener { runDnsSelfTest() }
         }
         hero.addView(selfTestButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(9) })
-        selfTestText = text("테스트를 실행하면 차단 도메인과 정상 도메인의 DNS 응답을 확인합니다.", 11f, muted, false).apply {
+        selfTestText = text("현재 적용된 차단 규칙과 NXDOMAIN 응답 생성 로직을 검사합니다.", 11f, muted, false).apply {
             gravity = Gravity.CENTER
             setPadding(0, dp(8), 0, 0)
         }
@@ -332,7 +332,7 @@ class MainActivity : Activity() {
             background = shape(accent, 12)
             setOnClickListener { runDnsSelfTest() }
         }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
-        selfTestText = text("현재 선택된 DNS 경로에서 차단 도메인과 정상 도메인의 응답을 검증합니다.", 11f, muted, false).withTop(8) as TextView
+        selfTestText = text("VPN 내부 규칙 엔진을 검사합니다. 실기기 네트워크 경로 검증은 별도입니다.", 11f, muted, false).withTop(8) as TextView
         body.addView(selfTestText!!)
         body.addView(Button(this).apply {
             text = "활동 기록 초기화"
@@ -559,28 +559,22 @@ class MainActivity : Activity() {
             selfTestText?.setTextColor(red)
             return
         }
-        selfTestText?.text = "DNS 테스트 실행 중…"
-        val directCapture = prefs.getBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, GuardianVpnService.DEFAULT_DIRECT_DNS_CAPTURE)
-        val blockedDnsServer = if (directCapture) "8.8.8.8" else "10.13.37.2"
+        selfTestText?.text = "DNS 규칙 엔진 테스트 실행 중…"
         thread(name = "guardian-dns-self-test") {
             try {
-                val blocked = DnsProbe.query("doubleclick.net", dnsServer = blockedDnsServer)
-                val normal = DnsProbe.query("example.com")
-                val passed = blocked.responseCode == 3 && normal.responseCode == 0
-                val routeLabel = if (directCapture) "공용 DNS 직접 질의" else "시스템 가상 DNS"
-                val result = if (passed) {
-                    "통과 · $routeLabel 차단(NXDOMAIN) / example.com 정상(NOERROR)"
+                val result = DnsProbe.evaluateRules()
+                val message = if (result.passed) {
+                    "통과 · ${result.blockedDomain} 차단 규칙 일치 및 NXDOMAIN 생성 · ${result.normalDomain} 정상 허용"
                 } else {
-                    "실패 · 차단 도메인 RCODE=${blocked.responseCode}, 정상 도메인 RCODE=${normal.responseCode}"
+                    "실패 · 차단 일치=${result.blockedRuleMatched}, RCODE=${result.blockedResponseCode}, 정상 도메인 차단=${result.normalDomainBlocked}"
                 }
                 runOnUiThread {
-                    selfTestText?.text = result
-                    selfTestText?.setTextColor(if (passed) accent else red)
-                    refreshStatus()
+                    selfTestText?.text = message
+                    selfTestText?.setTextColor(if (result.passed) accent else red)
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    selfTestText?.text = "실패 · ${e.message ?: e.javaClass.simpleName} · VPN 연결 및 DNS 처리 로그를 확인하세요."
+                    selfTestText?.text = "실패 · ${e.message ?: e.javaClass.simpleName}"
                     selfTestText?.setTextColor(red)
                 }
             }
