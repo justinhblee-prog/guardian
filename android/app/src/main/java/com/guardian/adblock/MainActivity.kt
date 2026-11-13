@@ -360,6 +360,7 @@ class MainActivity : Activity() {
             filterStatusText = text(filterStatusDescription(), 11f, muted, false).withTop(7) as TextView
             addView(filterStatusText!!)
             addView(buildFilterProfileSelector().withTop(10))
+            addView(buildFilterOptions().withTop(12))
             filterUpdateButton = Button(this@MainActivity).apply {
                 text = "필터 목록 업데이트"
                 isAllCaps = false
@@ -476,77 +477,6 @@ class MainActivity : Activity() {
                 }
             }
         }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-        body.addView(text("광고 차단 필터", 18f, white, true).withTop(24))
-        body.addView(text("선택한 DNS 필터 목록과 보안 차단 옵션을 관리합니다.", 12f, muted, false).withTop(5))
-        val filterCard = card(panel, 16).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(15), dp(15), dp(15), dp(15))
-        }
-        filterStatusText = text(filterStatusDescription(), 12f, muted, false)
-        filterCard.addView(filterStatusText!!)
-        val autoUpdateCheck = CheckBox(this).apply {
-            text = "앱 실행 시 자동으로 최신 필터 확인"
-            textSize = 12f
-            setTextColor(white)
-            isChecked = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-                .getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
-            setOnCheckedChangeListener { _, checked ->
-                getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
-                    .putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).apply()
-            }
-        }
-        filterCard.addView(autoUpdateCheck)
-        filterCard.addView(text("필터 업데이트 주기", 12f, muted, false).withTop(10))
-        val updateIntervals = listOf(
-            "6시간마다" to 6L * 60L * 60L * 1000L,
-            "12시간마다" to 12L * 60L * 60L * 1000L,
-            "24시간마다" to 24L * 60L * 60L * 1000L,
-            "7일마다" to 7L * 24L * 60L * 60L * 1000L
-        )
-        val intervalPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-        val intervalSpinner = Spinner(this)
-        val intervalAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, updateIntervals.map { it.first })
-        intervalAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        intervalSpinner.adapter = intervalAdapter
-        val selectedInterval = intervalPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
-        intervalSpinner.setSelection(updateIntervals.indexOfFirst { it.second == selectedInterval }.coerceAtLeast(2))
-        intervalSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                intervalPrefs.edit().putLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, updateIntervals[position].second).apply()
-            }
-        }
-        filterCard.addView(intervalSpinner)
-        val securityCheck = CheckBox(this).apply {
-            text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence)"
-            textSize = 12f
-            setTextColor(white)
-            isChecked = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-                .getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-            setOnCheckedChangeListener { _, checked ->
-                getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
-                    .putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
-                val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-                if (ProtectionState.isActive(
-                        prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
-                        GuardianVpnService.isTunnelActive()
-                    )) {
-                    startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
-                }
-                if (checked && !FilterListManager.hasCachedSecurityList(this@MainActivity)) startFilterUpdate()
-                else filterStatusText?.text = filterStatusDescription()
-            }
-        }
-        filterCard.addView(securityCheck)
-        filterUpdateButton = Button(this).apply {
-            text = "필터 목록 업데이트"
-            isAllCaps = false
-            setTextColor(bg)
-            background = shape(accent, 13)
-            setOnClickListener { startFilterUpdate() }
-        }
-        filterCard.addView(filterUpdateButton!!, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
-        body.addView(filterCard.withTop(10))
         body.addView(text("앱별 보호 제외", 18f, white, true).withTop(24))
         body.addView(text("선택한 앱은 Guardian VPN 필터링에서 제외됩니다. 변경 사항은 보호를 다시 시작하면 적용됩니다.", 12f, muted, false).withTop(5))
         buildAppExclusions(body)
@@ -615,6 +545,60 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun buildFilterOptions(): View {
+        val options = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val autoUpdateCheck = CheckBox(this).apply {
+            text = "앱 실행 시 자동으로 최신 필터 확인"
+            textSize = 12f
+            setTextColor(white)
+            isChecked = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).apply()
+            }
+        }
+        options.addView(autoUpdateCheck)
+        options.addView(text("필터 업데이트 주기", 12f, muted, false).withTop(8))
+        val intervals = listOf(
+            "6시간마다" to 6L * 60L * 60L * 1000L,
+            "12시간마다" to 12L * 60L * 60L * 1000L,
+            "24시간마다" to 24L * 60L * 60L * 1000L,
+            "7일마다" to 7L * 24L * 60L * 60L * 1000L
+        )
+        val intervalSpinner = Spinner(this)
+        val intervalAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, intervals.map { it.first })
+        intervalAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        intervalSpinner.adapter = intervalAdapter
+        val currentInterval = prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
+        intervalSpinner.setSelection(intervals.indexOfFirst { it.second == currentInterval }.coerceAtLeast(2))
+        intervalSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                prefs.edit().putLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, intervals[position].second).apply()
+            }
+        }
+        options.addView(intervalSpinner)
+        val securityCheck = CheckBox(this).apply {
+            text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence)"
+            textSize = 12f
+            setTextColor(white)
+            isChecked = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
+                if (ProtectionState.isActive(
+                        prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                        GuardianVpnService.isTunnelActive()
+                    )) {
+                    startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                }
+                if (checked && !FilterListManager.hasCachedSecurityList(this@MainActivity)) startFilterUpdate()
+                else filterStatusText?.text = filterStatusDescription()
+            }
+        }
+        options.addView(securityCheck)
+        return options
     }
 
     private fun buildFilterProfileSelector(): View {
