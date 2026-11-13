@@ -81,7 +81,9 @@ object DomainFilter {
             if (nameLength > 254) return null
             for (i in p until p + n) {
                 val c = message[i].toInt() and 0xff
-                if (c <= 32 || c >= 127) return null
+                // A literal dot inside one wire label would be ambiguous after
+                // joining labels into the hostname used for blocklist matching.
+                if (c <= 32 || c >= 127 || c == '.'.code) return null
             }
             p += n
         }
