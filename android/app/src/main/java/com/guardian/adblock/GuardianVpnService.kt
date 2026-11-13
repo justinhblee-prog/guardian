@@ -309,7 +309,7 @@ class GuardianVpnService : VpnService() {
         val baseLines = FilterListManager.cachedLines(this)
         val parsedBase = FilterRuleParser.parse(baseLines)
         require(FilterListManager.isCacheValid(
-            baseLines.isNotEmpty(), parsedBase.blocked.size, selectedProfile.minimumRules
+            baseLines.isNotEmpty(), parsedBase.blocked.size + parsedBase.importantBlocked.size, selectedProfile.minimumRules
         )) {
             "선택한 ${selectedProfile.label} 필터 캐시의 유효 규칙 수가 기준보다 적습니다."
         }
@@ -318,7 +318,7 @@ class GuardianVpnService : VpnService() {
             val securityLines = FilterListManager.cachedSecurityLines(this)
             val parsedSecurity = FilterRuleParser.parse(securityLines)
             require(FilterListManager.isCacheValid(
-                securityLines.isNotEmpty(), parsedSecurity.blocked.size, FilterListManager.MIN_SECURITY_BLOCKS
+                securityLines.isNotEmpty(), parsedSecurity.blocked.size + parsedSecurity.importantBlocked.size, FilterListManager.MIN_SECURITY_BLOCKS
             )) {
                 "악성코드·피싱 필터 캐시가 유효하지 않습니다. 보안 목록을 다시 내려받으세요."
             }
