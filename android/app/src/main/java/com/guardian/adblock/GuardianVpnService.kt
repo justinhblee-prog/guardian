@@ -206,21 +206,46 @@ class GuardianVpnService : VpnService() {
             val input = FileInputStream(descriptor.fileDescriptor)
             val output = FileOutputStream(descriptor.fileDescriptor)
             val buffer = ByteArray(32767)
+            val tcpDns = DnsTcpSessionManager()
             while (running.get()) {
                 try {
                     val length = input.read(buffer)
                     if (length < 0) break
                     if (length == 0) continue
+
+                    val tcpReplies = tcpDns.handle(buffer, length) { query ->
+                        val domain = DomainFilter.readQuestionName(query)
+                        if (domain == null) {
+                            recordIgnoredPacket("TCP DNS 질의 형식 또는 질문 영역 검증 실패")
+                            null
+                        } else {
+                            val blocked = DomainFilter.isBlocked(domain)
+                            val forwarded = if (blocked) null else forwardDns(query)
+                            val answer = if (blocked) DomainFilter.makeNxdomain(query)
+                                else forwarded ?: DomainFilter.makeServfail(query)
+                            recordDnsActivity(domain, blocked, forwarded != null)
+                            answer
+                        }
+                    }
+                    if (tcpReplies.isNotEmpty()) {
+                        synchronized(output) {
+                            tcpReplies.forEach { output.write(it) }
+                            output.flush()
+                        }
+                        continue
+                    }
+
                     val ipv4 = Ipv4Udp.parseDns(buffer, length)
                     val ipv6 = if (ipv4 == null) Ipv6Udp.parseDns(buffer, length) else null
                     val payload = ipv4?.payload ?: ipv6?.payload
                     if (payload == null) {
-                        recordIgnoredPacket("IPv4/IPv6 UDP DNS 패킷이 아니거나 헤더 검증 실패")
+                        // Ignore non-DNS traffic quietly; only count malformed UDP DNS
+                        // packets when their IP protocol explicitly identifies UDP.
                         continue
                     }
                     val domain = DomainFilter.readQuestionName(payload)
                     if (domain == null) {
-                        recordIgnoredPacket("DNS 질의 형식 또는 질문 영역 검증 실패")
+                        recordIgnoredPacket("IPv4/IPv6 UDP DNS 질의 형식 또는 질문 영역 검증 실패")
                         continue
                     }
                     val blocked = DomainFilter.isBlocked(domain)
@@ -234,10 +259,10 @@ class GuardianVpnService : VpnService() {
                         DomainFilter.makeTruncatedResponse(payload) ?: continue
                     } else dnsResponse
                     recordDnsActivity(domain, blocked, forwarded != null)
-                    val packet = if (ipv4 != null) Ipv4Udp.response(ipv4, boundedDnsResponse)
+                    val responsePacket = if (ipv4 != null) Ipv4Udp.response(ipv4, boundedDnsResponse)
                         else Ipv6Udp.response(ipv6!!, boundedDnsResponse)
                     synchronized(output) {
-                        output.write(packet)
+                        output.write(responsePacket)
                         output.flush()
                     }
                 } catch (e: Exception) {
