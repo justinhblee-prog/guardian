@@ -771,23 +771,27 @@ class MainActivity : Activity() {
         val updated = FilterListManager.lastUpdatedAt(this)
         val time = if (updated > 0L) SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(updated)) else "아직 업데이트되지 않음"
         val securityCount = FilterListManager.cachedSecurityBlockCount(this)
-        val securityOn = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-            .getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val securityOn = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+        val androidAdsOn = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+        val androidAdsCount = FilterListManager.cachedAndroidAdsBlockCount(this)
         val ignored = FilterListManager.cachedIgnoredCount(this)
         val securityIgnored = if (securityOn) FilterListManager.cachedSecurityIgnoredCount(this) else 0
-        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val androidAdsIgnored = if (androidAdsOn) FilterListManager.cachedAndroidAdsIgnoredCount(this) else 0
         val lastError = prefs.getString(FilterListManager.KEY_LAST_ERROR, null)
         val securityError = if (securityOn) prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null) else null
+        val androidAdsError = if (androidAdsOn) prefs.getString(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR, null) else null
         val selectedProfile = FilterListManager.selectedProfile(this)
         val cachedProfile = FilterListManager.cachedProfile(this)
         val profileLabel = if (FilterListManager.hasCachedList(this) && selectedProfile.key != cachedProfile.key) {
             "선택: ${selectedProfile.label} · 적용 중: ${cachedProfile.label}"
         } else selectedProfile.label
-        val summary = "$profileLabel · 광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored}개 제외 · 업데이트: $time"
+        val summary = "$profileLabel · 광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 앱 광고 ${if (androidAdsOn) androidAdsCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored + androidAdsIgnored}개 제외 · 업데이트: $time"
         return listOfNotNull(
             summary,
             lastError?.takeIf { it.isNotBlank() }?.let { "광고 필터 업데이트 실패(이전 목록 유지): $it" },
-            securityError?.takeIf { it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): $it" }
+            securityError?.takeIf { it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): $it" },
+            androidAdsError?.takeIf { it.isNotBlank() }?.let { "Android 앱 광고 필터 업데이트 실패(이전 목록 유지): $it" }
         ).joinToString(" · ")
     }
 
