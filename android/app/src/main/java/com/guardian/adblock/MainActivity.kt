@@ -604,6 +604,9 @@ class MainActivity : Activity() {
             .getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
         val ignored = FilterListManager.cachedIgnoredCount(this)
         val securityIgnored = if (securityOn) FilterListManager.cachedSecurityIgnoredCount(this) else 0
+        val lastError = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            .getString(FilterListManager.KEY_LAST_ERROR, null)
+        if (count == 0 && !lastError.isNullOrBlank()) return "필터 다운로드 실패: $lastError"
         return "광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored}개 제외 · 업데이트: $time"
     }
 
@@ -615,6 +618,7 @@ class MainActivity : Activity() {
             try {
                 val result = FilterListManager.update(this)
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+                prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
                 val securityResult = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
                     try { FilterListManager.updateSecurity(this) } catch (e: Exception) { null }
                 } else null
@@ -634,6 +638,8 @@ class MainActivity : Activity() {
                     filterUpdateButton?.isEnabled = true
                 }
             } catch (e: Exception) {
+                getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
+                    .putString(FilterListManager.KEY_LAST_ERROR, e.message ?: e.javaClass.simpleName).apply()
                 runOnUiThread {
                     filterStatusText?.text = "업데이트 실패: ${e.message ?: e.javaClass.simpleName} · 기존 필터 유지"
                     filterUpdateButton?.text = "다시 시도"
