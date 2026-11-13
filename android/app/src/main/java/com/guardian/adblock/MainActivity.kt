@@ -1191,9 +1191,9 @@ class MainActivity : Activity() {
             } else {
                 "보호를 시작하면 시스템 가상 DNS를 통해 필터링합니다."
             }
-            protectionActionButton?.text = if (active || staleSession) "보호 중지" else "보호 시작"
-            protectionActionButton?.setTextColor(if (active || staleSession) white else bg)
-            protectionActionButton?.background = shape(if (active || staleSession) panel2 else accent, 13)
+            protectionActionButton?.text = when { active -> "보호 중지"; staleSession -> "보호 다시 연결"; else -> "보호 시작" }
+            protectionActionButton?.setTextColor(if (active) white else bg)
+            protectionActionButton?.background = shape(if (active) panel2 else accent, 13)
         }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
         val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
