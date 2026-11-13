@@ -230,6 +230,34 @@ class DnsTcpSessionManagerTest {
         assertEquals(1, manager.activeSessionCount())
     }
 
+    @Test fun delayedSynRetransmissionDoesNotResetAnEstablishedDnsSession() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 5100)
+        val initialSynAckBytes = manager.handle(syn, syn.size) { null }.single()
+        val initialSynAck = DnsTcpPacket.parse(initialSynAckBytes, initialSynAckBytes.size, 53000)!!
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 5101, payload = framed)
+        manager.handle(request, request.size) { DomainFilter.makeServfail(it) }
+
+        val delayedSynAckBytes = manager.handle(syn, syn.size) { null }.single()
+        val delayedSynAck = DnsTcpPacket.parse(delayedSynAckBytes, delayedSynAckBytes.size, 53000)!!
+        assertEquals(initialSynAck.sequence, delayedSynAck.sequence)
+        assertEquals(5101L, delayedSynAck.acknowledgement)
+        assertEquals(1, manager.activeSessionCount())
+
+        var calls = 0
+        val nextRequest = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 5101L + framed.size, payload = framed)
+        val replies = manager.handle(nextRequest, nextRequest.size) {
+            calls++
+            DomainFilter.makeServfail(it)
+        }
+        assertEquals(1, calls)
+        assertTrue(replies.isNotEmpty())
+    }
+
     @Test fun retransmittedDnsRequestReplaysTheCachedAnswerWithoutResolvingAgain() {
         val manager = DnsTcpSessionManager()
         val query = dnsQuery()
