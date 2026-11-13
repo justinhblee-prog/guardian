@@ -35,13 +35,23 @@ Rules match exact domains and subdomains. `allow=` takes precedence over `block=
 
 - Python automated tests: 18 passing in the packaged workspace.
 - Browser extension parser/limit/state/permission regression tests: 11 passing with Node.js.
-- Android JUnit: 16 tests authored; not executed in this build environment.
-- Pure Kotlin DNS core compile/smoke check: 18 assertions passed, including IPv6 UDP checksum and response checks, with `./VERIFY_ANDROID_CORE.sh`.
-- Android APK: not built or included.
+- Android JUnit: `testDebugUnitTest` passed in GitHub Actions for commit `ccc5beba3ae8658733ca215708a77115158d78f1`.
+- Android debug APK: built successfully with Gradle 8.9 / JDK 17 / Android SDK 35; uploaded as the `Guardian-AdBlock-Android-APK-v0.6.3-dev` workflow artifact. The APK SHA-256 is `40593421ba6b8fdf62fd41225a4c8055266da89bd5b17f56eb416085afb85178`.
+- APK archive integrity and checksum: verified after download.
+- Android physical-device installation, VPN startup, and real-world ad-blocking acceptance: not yet verified.
 - Windows live adapter/service acceptance: not executed on a Windows host.
 - Windows EXE/installer: not built or included.
 
-Android client-side TCP DNS interception is not implemented; only upstream TCP fallback for truncated UDP answers is implemented. IPv6 extension headers and fragment reassembly are not implemented. This is a development release, not a production-ready or comprehensive ad-blocking product. Read `VERIFICATION.md` and `NEXT_STAGE_GUIDE_KO.md` before enabling system protection.
+Android client-side TCP DNS interception is not implemented; only upstream TCP fallback for truncated UDP answers is implemented. IPv6 extension headers and fragment reassembly are not implemented. DNS-over-HTTPS (DoH) and DNS-over-TLS (DoT) are not filtered. This is a development build, not a production-ready or comprehensive ad-blocking product. Read `VERIFICATION.md` and `NEXT_STAGE_GUIDE_KO.md` before enabling system protection.
+
+## Android APK installation
+
+1. Download the APK artifact from the successful [GitHub Actions run](https://github.com/justinhblee-prog/guardian/actions/runs/43419311161).
+2. On the Android device, open the downloaded APK and allow installation from the source app if Android requests it.
+3. Launch **Guardian AdBlock**, tap **보호 시작**, and approve Android's VPN permission prompt.
+4. Confirm the app shows the active protection state. Android permits one active VPN connection per user; stop any other VPN app first if connection setup fails.
+
+The CI build proves compilation, unit tests, and APK packaging only. It does not prove that VPN protection starts successfully on every device or that all in-app advertisements are blocked.
 
 
 ### Browser filter download safety
