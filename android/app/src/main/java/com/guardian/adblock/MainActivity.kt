@@ -28,6 +28,8 @@ class MainActivity : Activity() {
     private lateinit var statusDot: TextView
     private lateinit var blockRulesInput: EditText
     private lateinit var allowRulesInput: EditText
+    private var statsText: TextView? = null
+    private var recentText: TextView? = null
     private var receiverRegistered = false
     private var currentTab = "home"
 
@@ -177,6 +179,15 @@ class MainActivity : Activity() {
         body.addView(card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
+            addView(text("실시간 DNS 통계", 14f, white, true))
+            statsText = text("질의 0 · 차단 0 · 전달 0 · 실패 0", 12f, accent, true).withTop(9) as TextView
+            addView(statsText)
+            recentText = text("아직 기록된 DNS 활동이 없습니다.", 11f, muted, false).withTop(8) as TextView
+            addView(recentText)
+        }.withTop(12))
+        body.addView(card(panel, 16).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(15), dp(16), dp(15))
             addView(text("현재 보호 범위", 14f, white, true))
             addView(text("IPv4 / IPv6 DNS · UDP 53", 12f, muted, false).withTop(7))
             addView(text("DNS 이외 트래픽, DoH/DoT는 아직 필터링하지 않습니다.", 11f, muted, false).withTop(5))
@@ -275,6 +286,8 @@ class MainActivity : Activity() {
         val message = prefs.getString(GuardianVpnService.KEY_STATUS, null)
         statusTitle.text = if (active) "보호가 실행 중입니다" else "보호가 꺼져 있습니다"
         status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
+        statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)}"
+        recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
     }
 
     private fun loadUserRulesIntoEditors() {
