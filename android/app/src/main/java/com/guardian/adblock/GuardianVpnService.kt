@@ -295,10 +295,10 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun configuredUpstreamDns(): String =
-        getSharedPreferences(PREFS, MODE_PRIVATE)
-            .getString(KEY_UPSTREAM_DNS, DEFAULT_UPSTREAM_DNS)
-            ?.takeIf { it in setOf("1.1.1.1", "8.8.8.8", "9.9.9.9", "94.140.14.14") }
-            ?: DEFAULT_UPSTREAM_DNS
+        DnsAddressValidator.normalize(
+            getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getString(KEY_UPSTREAM_DNS, DEFAULT_UPSTREAM_DNS).orEmpty()
+        ) ?: DEFAULT_UPSTREAM_DNS
 
     private fun forwardDns(query: ByteArray): ByteArray? {
         var socket: DatagramSocket? = null
