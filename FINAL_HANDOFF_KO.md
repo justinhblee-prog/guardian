@@ -192,3 +192,5 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - Protection tab now exposes immediate start/stop and filter quick settings; recovery action text matches its reconnect behavior.
 
 - CI includes Android lint; the receiver export-flag lint error was fixed and the latest lint run passed.
+
+- The DNS rule-engine self-test now explicitly disclaims live network-path and in-app ad-blocking verification.

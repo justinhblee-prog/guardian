@@ -274,3 +274,5 @@
 - Improve the Protection tab with live start/stop control, quick filter switches, and navigation to filter/app exclusion settings.
 
 - Add Android `lintDebug` to CI and fix the app-private broadcast receiver registration flag.
+
+- Clarify that the DNS self-test validates local rules/NXDOMAIN generation only, not live resolver routing or in-app ads.
