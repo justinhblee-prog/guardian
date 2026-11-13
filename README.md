@@ -71,3 +71,16 @@ CI 성공은 소스 컴파일, 자동화 테스트, APK 패키징 및 checksum �
 - APK SHA-256: `daded536157e3a71fe205dd0a47513228e8ecacb88be784cda87925c4ee48130`
 
 The downloaded artifact ZIP passed integrity testing and its internal APK checksum matched the extracted APK. This is an installable Debug APK; physical-device acceptance is still required.
+
+
+## Latest verified installable APK — 0.6.5-dev
+
+- [GitHub Actions success run 43423810481](https://github.com/justinhblee-prog/guardian/actions/runs/43423810481)
+- Source commit: `7fe4620c141e17e5735e18101982d6eb5059adf9`
+- Gradle unit tests + APK assemble: **PASS**
+- Package: `com.guardian.adblock`, versionCode `12`, versionName `0.6.5-dev`
+- Artifact ID: `14035456605`
+- APK SHA-256: `df0180f41fa697be32bf0c83cbe0ffffc2147314159d4a3e0e482d7166051ed6`
+- ZIP SHA-256: `8208a69ccd413d8e46f3bd45fa1bea47be336b372ff7931cdf45f1cb5c5f106d`
+
+This is an installable Debug APK. Physical-device acceptance is still required.
