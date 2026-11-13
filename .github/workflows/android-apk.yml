@@ -8,6 +8,11 @@ on:
       - 'shared/**'
       - '.github/workflows/android-apk.yml'
 
+# Keep only the newest branch run; rapid source commits should not waste runners.
+concurrency:
+  group: guardian-android-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
