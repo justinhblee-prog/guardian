@@ -163,12 +163,6 @@ class GuardianVpnService : VpnService() {
             establishError = e
             null
         }
-        if (startCancellation.isCancelled() && descriptor != null) {
-            try { descriptor.close() } catch (_: Exception) { }
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            stopSelf()
-            return
-        }
         if (descriptor == null) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             val detail = establishError?.let { " (${it.javaClass.simpleName}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
@@ -176,11 +170,18 @@ class GuardianVpnService : VpnService() {
             stopSelf()
             return
         }
-        tun = descriptor
-        running.set(true)
-        tunnelActive = true
-        publishState(true, "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다.")
-        thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
+        val committed = startCancellation.tryCommitStart {
+            tun = descriptor
+            running.set(true)
+            tunnelActive = true
+            publishState(true, "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다.")
+            thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
+        }
+        if (!committed) {
+            try { descriptor.close() } catch (_: Exception) { }
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+            stopSelf()
+        }
     }
 
     private fun packetLoop(descriptor: ParcelFileDescriptor) {
