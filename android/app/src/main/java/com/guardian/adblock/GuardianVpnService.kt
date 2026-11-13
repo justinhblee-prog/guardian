@@ -66,6 +66,7 @@ class GuardianVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private val running = AtomicBoolean(false)
     private val starting = AtomicBoolean(false)
+    private val startRequestedWhileStarting = AtomicBoolean(false)
     private val startCancellation = VpnStartCancellationGate()
     private val lastStatsBroadcastAt = AtomicLong(0L)
 
@@ -82,11 +83,24 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun startProtection() {
-        if (running.get() || !starting.compareAndSet(false, true)) return
+        if (running.get()) {
+            startRequestedWhileStarting.set(false)
+            return
+        }
+        if (!starting.compareAndSet(false, true)) {
+            if (!startCancellation.isCancelled()) startRequestedWhileStarting.set(true)
+            return
+        }
         try {
             startProtectionInternal()
         } finally {
             starting.set(false)
+            // Preserve a fresh start request that arrived while an earlier
+            // startup was still unwinding after cancellation.
+            if (startRequestedWhileStarting.getAndSet(false) &&
+                !running.get() && !startCancellation.isCancelled()) {
+                thread(name = "guardian-vpn-start-pending") { startProtection() }
+            }
         }
     }
 
@@ -395,6 +409,7 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun stopProtection() {
+        startRequestedWhileStarting.set(false)
         startCancellation.cancel()
         tunnelActive = false
         val wasActive = running.getAndSet(false) || tun != null
