@@ -536,7 +536,9 @@ class MainActivity : Activity() {
         val securityCount = FilterListManager.cachedSecurityBlockCount(this)
         val securityOn = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
             .getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-        return "광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 마지막 업데이트: $time"
+        val ignored = FilterListManager.cachedIgnoredCount(this)
+        val securityIgnored = if (securityOn) FilterListManager.cachedSecurityIgnoredCount(this) else 0
+        return "광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored}개 제외 · 업데이트: $time"
     }
 
     private fun startFilterUpdate() {
@@ -561,7 +563,7 @@ class MainActivity : Activity() {
                     val securityMessage = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
                         if (securityResult != null) " · 보안 ${securityResult.blocked}개" else " · 보안 목록 업데이트 실패(이전 목록 유지)"
                     } else ""
-                    filterStatusText?.text = "광고·추적 ${result.blocked}개 검증 완료${securityMessage} · ${result.bytes / 1024}KB"
+                    filterStatusText?.text = "광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage} · ${result.bytes / 1024}KB"
                     filterUpdateButton?.text = "필터 목록 업데이트"
                     filterUpdateButton?.isEnabled = true
                 }
