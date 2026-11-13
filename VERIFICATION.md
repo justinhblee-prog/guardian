@@ -17,7 +17,7 @@
 | Ipv4UdpTest | 6 |
 | Ipv6UdpTest | 4 |
 | ProtectionStateTest | 2 |
-| FilterRuleParserTest | 6 |
+| FilterRuleParserTest | 7 |
 | DnsProbeTest | 2 |
 | FilterRuleComposerTest | 2 |
 | DnsAddressValidatorTest | 2 |
