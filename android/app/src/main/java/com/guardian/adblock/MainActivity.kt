@@ -105,6 +105,10 @@ class MainActivity : Activity() {
         else @Suppress("DEPRECATION") registerReceiver(stateReceiver, filter)
         receiverRegistered = true
         refreshStatus()
+        // A filter update may finish while this Activity is stopped, when its
+        // package-scoped broadcast receiver is not registered. Re-read persisted
+        // cache metadata whenever the screen becomes visible again.
+        filterStatusText?.text = filterStatusDescription()
     }
 
     override fun onStop() {
