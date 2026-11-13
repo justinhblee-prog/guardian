@@ -3,7 +3,7 @@ package com.guardian.adblock
 import org.junit.Assert.*
 import org.junit.Test
 
-class Ipv4UdpTest {\n    // Packet framing regression coverage for TUN input.
+class Ipv4UdpTest {
     @Test fun parsesUdpDnsPacket() {
         val p = ByteArray(20 + 8 + 12)
         p[0] = 0x45
@@ -46,4 +46,33 @@ class Ipv4UdpTest {\n    // Packet framing regression coverage for TUN input.
         p[22] = 0; p[23] = 54
         assertNull(Ipv4Udp.parseDns(p, p.size))
     }
+    @Test fun rejectsCallerLengthBeyondBufferAndTrailingBytes() {
+        val packet = ByteArray(30)
+        packet[0] = 0x45
+        packet[2] = 0
+        packet[3] = 28
+        packet[9] = 17
+        packet[22] = 0
+        packet[23] = 53
+        packet[24] = 0
+        packet[25] = 8
+
+        assertNull(Ipv4Udp.parseDns(packet, 31))
+        assertNull(Ipv4Udp.parseDns(packet, 30))
+        assertNotNull(Ipv4Udp.parseDns(packet, 28))
+    }
+
+    @Test fun acceptsExactPacketLengthWithIpv4Options() {
+        val packet = ByteArray(32)
+        packet[0] = 0x46
+        packet[2] = 0
+        packet[3] = 32
+        packet[9] = 17
+        packet[26] = 0
+        packet[27] = 53
+        packet[28] = 0
+        packet[29] = 8
+        assertNotNull(Ipv4Udp.parseDns(packet, packet.size))
+    }
+
 }
