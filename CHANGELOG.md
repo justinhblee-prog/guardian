@@ -250,3 +250,11 @@
 - When upstream replies exceed the cap, build a standards-shaped TC response retaining the validated DNS question instead of writing an oversized IP packet to TUN.
 - Add regression tests for TC/QR/RA/RD/CD flags, question preservation, and malformed query rejection.
 - Client-side TCP/53 retry remains unsupported and is documented as a limitation.
+
+
+## 2026-11-13 — 0.7.2-dev verified APK
+- VersionCode 15 / versionName 0.7.2-dev.
+- 12 Kotlin test suites / 72 JUnit tests passed.
+- Debug APK assembled, package identity and SHA-256 verified, and installable artifact uploaded.
+- Final CI run: https://github.com/justinhblee-prog/guardian/actions/runs/43447121533
+- APK SHA-256: `a1d41cf8937b2c09f7c4ca8d0b02ddf252e95f935b1cee3ed1d485c5470f55d8`
