@@ -119,3 +119,11 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 
 - [GitHub Actions run 43444407063](https://github.com/justinhblee-prog/guardian/actions/runs/43444407063): 12 suites / 70 JUnit tests passed.
 - CI policy update: every push now also assembles and verifies the debug APK; only manual release dispatch uploads the installable artifact.
+
+
+## 최종 APK 빌드 확인
+- [GitHub Actions 최종 빌드](https://github.com/justinhblee-prog/guardian/actions/runs/43445545156): **성공**
+- APK: `com.guardian.adblock` / versionCode 14 / `0.7.1-dev`
+- 테스트: 12개 스위트 / 70개 JUnit 테스트 통과
+- APK 조립, 패키지 식별, SHA-256 확인 완료. 설치 파일은 GitHub Actions artifact로 업로드했습니다.
+- 실기기 설치 및 실제 광고 차단 검증은 별도이며, CI 성공만으로 이를 완료했다고 보지 않습니다.
