@@ -8,7 +8,7 @@ class FilterRuleParserTest {
         val parsed = FilterRuleParser.parse(listOf(
             "||ads.example.com^",
             "@@||trusted.ads.example.com^",
-            "||tracker.example.net^\\$important",
+            "||tracker.example.net^\$important",
             "! comment"
         ))
         assertEquals(setOf("ads.example.com"), parsed.blocked)
