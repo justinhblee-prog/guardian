@@ -1,44 +1,90 @@
-# Guardian AdBlock Android 0.6.5-dev
+# Guardian AdBlock Android 0.7.0-dev
 
-## 포함된 기능
-- Android `VpnService` 기반 로컬 DNS 필터링
-- Android VPN 권한 동의 후 보호 시작/중지
-- 실행 상태와 시작 실패 사유를 앱 화면에 표시
-- 내장 도메인 목록 및 사용자가 직접 입력한 차단/허용 규칙
-- 규칙은 기기 내부 `SharedPreferences`에 저장되며, 보호 중 저장하면 즉시 다시 읽어 적용
-- 차단 규칙은 정확한 도메인과 하위 도메인에 적용되고, 허용 규칙이 차단 규칙보다 우선
-- 공통 규칙(`shared/filter_rules.txt`)을 Windows DNS 엔진과 공유
-- 내장 차단 도메인에 NXDOMAIN 응답
-- 허용 도메인은 Cloudflare DNS(1.1.1.1)로 전달
-- DNS 전달용 소켓은 `VpnService.protect()` 처리하여 VPN 루프 방지
-- 표준 단일 질의만 수락하고 DNS 응답 패킷·압축 QNAME·복수 질문·잘못된 패킷을 거부
-- IPv6 가상 DNS 주소(`/128`)와 UDP/53 필터링 지원, UDP checksum 검증 및 응답 checksum 생성
-- IPv6 확장 헤더와 조각화 패킷은 재조립하지 않고 거부
-- 업스트림 UDP 응답이 잘리면 TCP/53으로 재시도하며 응답 길이·DNS transaction/question 검증
+## 제품 개요
 
-## 사용자 규칙 사용법
-1. 앱에서 `사용자 차단 목록`에 차단할 도메인을 한 줄에 하나씩 입력합니다.
-2. 예외로 허용할 도메인은 `허용 목록`에 입력합니다.
-3. `사용자 규칙 저장 및 적용`을 누릅니다.
-4. 보호 실행 중이면 현재 VPN 필터에 다시 불러오고, 꺼져 있으면 다음 보호 시작 때 적용합니다.
+Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필터링하는 로컬 DNS 보호 앱입니다. 별도 VPN 서버나 사용자 계정은 사용하지 않습니다.
 
-도메인은 ASCII DNS hostname 형식으로 입력해야 합니다. 공백, URL 경로, 포트, 와일드카드는 허용하지 않습니다. 한 목록당 최대 1,000개까지 등록할 수 있으며, 중복은 자동 정리됩니다. 예를 들어 `ads.example.com`을 차단하면 `img.ads.example.com`도 차단됩니다. `allow=trusted.ads.example.com`에 해당하는 허용 규칙은 그 아래 하위 도메인에도 우선 적용됩니다.
+- 패키지: `com.guardian.adblock`
+- 최소 Android: API 26
+- compile/target SDK: 35
+- 빌드 JDK: 17
+- 현재 버전: `0.7.0-dev` (versionCode 13)
 
-## 중요한 제한
-- IPv4/IPv6 UDP/53 DNS를 처리합니다. 업스트림 UDP 응답이 잘릴 때만 TCP/53으로 재시도합니다. 클라이언트 방향 TCP DNS 가로채기, IPv6 확장 헤더/조각화 재조립, DoH/DoT, 앱별 제외, 원격 목록 업데이트는 미구현입니다.
-- 내장 차단 목록은 개발용 소규모 목록입니다. 광고 전체 차단을 보장하지 않습니다.
-- DNS 이외의 트래픽은 VPN 라우팅 대상이 아닙니다.
-- DNS 업스트림 장애 시 유효한 SERVFAIL 응답을 반환합니다.
-- 앱 프로세스 재시작 시 stale 상태 표시를 방지하며, 실제 Android 기기에서 패킷 호환성, 백그라운드 지속성, 배터리, Android 15 이상 정책 검증이 필요합니다.
+## 현재 구현 기능
+
+### DNS 보호 엔진
+- Android VPN 권한 승인 후 로컬 TUN을 구성하고 보호 시작/중지
+- 시스템 가상 DNS 주소를 기본 경로로 사용
+- IPv4/IPv6 UDP DNS 질의 파싱, 응답 패킷 생성 및 IPv6 UDP checksum 처리
+- 차단 도메인은 NXDOMAIN, 업스트림 장애는 SERVFAIL 응답
+- Cloudflare, Google, Quad9, AdGuard DNS 및 사용자 지정 IPv4/IPv6 숫자 주소를 업스트림으로 사용
+- 보호된 업스트림 UDP 소켓, 응답 발신지·transaction ID·질문 검증
+- UDP 응답이 잘린 경우 업스트림 TCP/53으로 재시도
+- VPN 시작/중지 경합 제어 및 Android 프로세스 회수 후 sticky service 복구
+- 사용자가 시작 중 보호 중지를 누른 경우에도 저장된 자동 복구 상태를 해제
+- 패킷 처리 루프가 중단되면 활성 상태를 해제하고 실패 사유 기록
+
+### 필터와 사용자 옵션
+- 공식 DNS 필터 프로필: AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro
+- 선택형 HaGeZi Threat Intelligence 악성코드·피싱 도메인 목록
+- 선택형 AWAvenue Android Ads Rule SDK 도메인 목록
+- 사용자 차단/허용 도메인 목록(각 최대 1,000개)
+- 앱별 VPN 보호 제외 설정
+- 공용 DNS 직접 질의 포착은 고급 선택 옵션이며 기본값은 꺼짐
+- 앱 실행 시 자동 업데이트 확인 및 6/12/24시간, 7일 주기 설정
+- 다운로드 크기·유효 규칙 수 검증, 임시 파일 교체 및 기존 정상 캐시 보존
+- 프로필/캐시 불일치 또는 보안 목록 미준비 시 잘못된 필터 조합으로 보호가 시작되지 않도록 차단
+
+### 앱 화면
+- 홈 보호 대시보드와 실시간 DNS 통계
+- 보호 범위 및 제한 안내
+- 필터 프로필·보안 옵션·사용자 규칙 관리
+- 활동 기록, 최근 DNS 질의 및 패킷 진단
+- 업스트림 DNS 및 앱별 보호 제외 설정
+- 어두운 프리미엄 스타일의 다크 UI
+
+## DNS 테스트의 의미
+
+홈/활동 탭의 **DNS 규칙 엔진 테스트**는 다음 항목을 앱 내부에서 검사합니다.
+
+1. 현재 로드된 규칙에서 `doubleclick.net` 차단 여부
+2. NXDOMAIN 응답 생성기의 RCODE가 3인지
+3. `example.com`이 차단되지 않는지
+
+Android는 VPN 앱 자신이 만든 소켓을 자체 TUN 경로에서 제외합니다. 따라서 앱 소켓으로 가상 DNS IP에 질의하는 방식은 실제 VPN 경로 검증이 아닙니다. 이 테스트는 규칙 엔진과 응답 생성기만 확인하며 실제 네트워크/TUN 통과를 증명하지 않습니다.
+
+## 설치 및 실행
+
+1. APK 설치 후 앱을 실행합니다.
+2. 필터 탭에서 사용할 프로필을 선택하고 필터 목록을 업데이트합니다.
+3. 선택형 보안/Android 앱 광고 목록을 켰다면 해당 목록 다운로드와 검증이 완료됐는지 확인합니다.
+4. 홈에서 보호 시작을 누르고 Android VPN 권한을 승인합니다.
+5. 활동 탭에서 실제 DNS 질의·차단·전달·실패 통계를 확인합니다.
 
 ## 빌드
-공통 규칙 원본은 프로젝트의 `shared/filter_rules.txt`입니다. Gradle은 이 파일을 Android assets에 포함합니다. Android Studio에서 `android` 폴더를 열고 Gradle Sync 후 `:app:testDebugUnitTest` 및 `:app:assembleDebug`를 실행합니다.
-APK 경로: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-필수 환경: Android Studio, Android SDK Platform 35, JDK 17 이상, 인터넷 연결(Gradle 플러그인 다운로드).
+GitHub Actions의 `Guardian AdBlock Android APK` 워크플로는 push 시 Android 단위 테스트를 수행합니다. `workflow_dispatch` 실행은 별도로 APK를 조립하고 패키지명·버전·SHA-256을 검증한 뒤 APK artifact를 업로드합니다.
 
-## 설치
-Debug APK를 Android 기기로 복사한 후 설치합니다. 출처를 알 수 없는 앱 설치 허용이 필요할 수 있습니다.
-앱 실행 → 보호 시작 → Android VPN 연결 승인.
+로컬 빌드 환경:
+- JDK 17
+- Android SDK Platform 35 / Build Tools 35.0.0
+- Gradle 8.9
 
-추가 개선: 앱 제외 검색, 필터 자동 업데이트 주기 선택, 사용자 지정 DNS 라우트, 공식 필터 준비 상태 확인.
+명령:
+```bash
+gradle -p android --no-daemon clean testDebugUnitTest
+gradle -p android --no-daemon assembleDebug
+```
+
+APK 출력:
+`android/app/build/outputs/apk/debug/app-debug.apk`
+
+## 명확한 제한 및 미검증 사항
+
+- 현재 필터링은 시스템 가상 DNS를 통한 IPv4/IPv6 UDP/53 질의가 중심입니다.
+- 클라이언트 방향 TCP DNS, DoH/DoT, IPv6 확장 헤더 및 IP 조각화 재조립은 지원하지 않습니다.
+- 공용 DNS 직접 포착은 IP 단위 라우트이므로 DNS가 아닌 트래픽까지 TUN에 들어올 수 있어 기본 꺼짐입니다. Guardian은 DNS 이외 트래픽을 중계하지 않습니다.
+- DNS 수준 필터이므로 웹페이지의 cosmetic filtering, HTTPS 내부 광고 요소 제거, 앱에 직접 포함된 광고 제거를 제공하지 않습니다. 모든 광고 차단을 보장하지 않습니다.
+- 필터 자동 업데이트는 앱 실행 시 확인하는 방식이며, 앱이 닫힌 동안의 주기적 백그라운드 업데이트는 아직 구현되지 않았습니다.
+- 현재 CI 단위 테스트는 11개 테스트 스위트 / 65개 테스트 메서드를 대상으로 합니다. CI 통과는 실기기 네트워크 검증과 다릅니다.
+- 실제 Android 기기에서 VPN 권한, Wi-Fi/모바일 전환, 장시간 백그라운드 유지, 배터리 최적화, 실제 광고 차단률 및 제조사별 동작은 아직 검증되지 않았습니다.
