@@ -41,6 +41,7 @@ class MainActivity : Activity() {
     private var statsText: TextView? = null
     private var recentText: TextView? = null
     private var diagnosticText: TextView? = null
+    private var selfTestText: TextView? = null
     private var filterStatusText: TextView? = null
     private var filterUpdateButton: Button? = null
     private var appFilterFeedback: TextView? = null
@@ -106,6 +107,7 @@ class MainActivity : Activity() {
         statsText = null
         recentText = null
         diagnosticText = null
+        selfTestText = null
         rulesFeedback = null
         filterStatusText = null
         filterUpdateButton = null
@@ -207,6 +209,19 @@ class MainActivity : Activity() {
             setOnClickListener { startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_STOP)) }
         }
         hero.addView(stop, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(9) })
+        val selfTestButton = Button(this).apply {
+            text = "DNS 차단 기능 테스트"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 13)
+            setOnClickListener { runDnsSelfTest() }
+        }
+        hero.addView(selfTestButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(9) })
+        selfTestText = text("테스트를 실행하면 차단 도메인과 정상 도메인의 DNS 응답을 확인합니다.", 11f, muted, false).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, 0)
+        }
+        hero.addView(selfTestText!!)
         body.addView(hero.withTop(22))
 
         body.addView(text("보호 구성", 18f, white, true).withTop(24))
@@ -249,6 +264,15 @@ class MainActivity : Activity() {
             addView(statsText!!)
         }
         body.addView(summary.withTop(18))
+        body.addView(Button(this).apply {
+            text = "DNS 차단 기능 테스트"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 12)
+            setOnClickListener { runDnsSelfTest() }
+        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
+        selfTestText = text("doubleclick.net → NXDOMAIN / example.com → NOERROR가 예상 결과입니다.", 11f, muted, false).withTop(8) as TextView
+        body.addView(selfTestText!!)
         body.addView(Button(this).apply {
             text = "활동 기록 초기화"
             isAllCaps = false
@@ -439,6 +463,32 @@ class MainActivity : Activity() {
             nav.addView(item, LinearLayout.LayoutParams(0, dp(48), 1f))
         }
         return nav
+    }
+
+    private fun runDnsSelfTest() {
+        selfTestText?.text = "DNS 테스트 실행 중…"
+        thread(name = "guardian-dns-self-test") {
+            try {
+                val blocked = DnsProbe.query("doubleclick.net")
+                val normal = DnsProbe.query("example.com")
+                val passed = blocked.responseCode == 3 && normal.responseCode == 0
+                val result = if (passed) {
+                    "통과 · doubleclick.net NXDOMAIN / example.com NOERROR"
+                } else {
+                    "실패 · 차단 도메인 RCODE=${blocked.responseCode}, 정상 도메인 RCODE=${normal.responseCode}"
+                }
+                runOnUiThread {
+                    selfTestText?.text = result
+                    selfTestText?.setTextColor(if (passed) accent else red)
+                    refreshStatus()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    selfTestText?.text = "실패 · ${e.message ?: e.javaClass.simpleName} · VPN 연결 및 DNS 처리 로그를 확인하세요."
+                    selfTestText?.setTextColor(red)
+                }
+            }
+        }
     }
 
     private fun buildAppExclusions(body: LinearLayout) {
