@@ -16,6 +16,7 @@ class DnsTcpSessionManager(
         val version: Int, val source: String, val destination: String, val sourcePort: Int
     )
     private data class Session(
+        val clientInitialSequence: Long,
         var clientNext: Long,
         var serverNext: Long,
         val serverInitial: Long,
@@ -49,17 +50,18 @@ class DnsTcpSessionManager(
         if (tcp.syn && !tcp.ack) {
             val existing = sessions[key]
             val expectedClientNext = (tcp.sequence + 1L) and MASK
-            if (existing != null && existing.clientNext == expectedClientNext) {
+            if (existing != null && existing.clientInitialSequence == tcp.sequence) {
                 existing.lastActivity = now
                 return listOf(DnsTcpPacket.response(tcp, existing.serverInitial,
-                    existing.clientNext, DnsTcpPacket.SYN or DnsTcpPacket.ACK))
+                    (existing.clientInitialSequence + 1L) and MASK,
+                    DnsTcpPacket.SYN or DnsTcpPacket.ACK))
             }
             if (sessions.size >= maxSessions && existing == null) {
                 val oldest = sessions.minByOrNull { it.value.lastActivity }?.key
                 if (oldest != null) sessions.remove(oldest)
             }
             val serverInitial = random.nextInt().toLong() and 0xffffffffL
-            val session = Session((tcp.sequence + 1L) and MASK,
+            val session = Session(tcp.sequence, expectedClientNext,
                 (serverInitial + 1L) and MASK, serverInitial, lastActivity = now)
             sessions[key] = session
             return listOf(DnsTcpPacket.response(tcp, serverInitial, session.clientNext,
