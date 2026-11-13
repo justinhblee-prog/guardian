@@ -396,7 +396,8 @@ class MainActivity : Activity() {
             "Cloudflare · 1.1.1.1" to "1.1.1.1",
             "Google · 8.8.8.8" to "8.8.8.8",
             "Quad9 · 9.9.9.9" to "9.9.9.9",
-            "AdGuard DNS · 94.140.14.14" to "94.140.14.14"
+            "AdGuard DNS · 광고/추적 차단 · 94.140.14.14" to "94.140.14.14",
+            "AdGuard DNS 가족 보호 · 성인 콘텐츠 차단 · 94.140.14.15" to "94.140.14.15"
         )
         val currentDns = dnsPrefs.getString(GuardianVpnService.KEY_UPSTREAM_DNS, GuardianVpnService.DEFAULT_UPSTREAM_DNS)
             ?: GuardianVpnService.DEFAULT_UPSTREAM_DNS
