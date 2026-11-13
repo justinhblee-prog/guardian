@@ -25,6 +25,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import kotlin.concurrent.thread
+import java.util.concurrent.atomic.AtomicBoolean
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,6 +48,7 @@ class MainActivity : Activity() {
     private var appFilterFeedback: TextView? = null
     private var receiverRegistered = false
     private var currentTab = "home"
+    private val filterUpdateRunning = AtomicBoolean(false)
 
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) = refreshStatus()
@@ -554,6 +556,15 @@ class MainActivity : Activity() {
     }
 
     private fun runDnsSelfTest() {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        if (!ProtectionState.isActive(
+                prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                GuardianVpnService.isTunnelActive()
+            )) {
+            selfTestText?.text = "테스트할 수 없습니다 · 먼저 DNS 보호를 시작하세요."
+            selfTestText?.setTextColor(red)
+            return
+        }
         selfTestText?.text = "DNS 테스트 실행 중…"
         thread(name = "guardian-dns-self-test") {
             try {
@@ -661,6 +672,10 @@ class MainActivity : Activity() {
     }
 
     private fun startFilterUpdate() {
+        if (!filterUpdateRunning.compareAndSet(false, true)) {
+            filterStatusText?.text = "필터 목록을 이미 다운로드하고 있습니다."
+            return
+        }
         filterUpdateButton?.isEnabled = false
         filterUpdateButton?.text = "필터 다운로드 및 검증 중…"
         filterStatusText?.text = "공식 AdGuard DNS 필터를 내려받아 규칙을 검증합니다."
@@ -679,6 +694,7 @@ class MainActivity : Activity() {
                 if (active) {
                     startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
                 }
+                filterUpdateRunning.set(false)
                 runOnUiThread {
                     val securityMessage = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
                         if (securityResult != null) " · 보안 ${securityResult.blocked}개" else " · 보안 목록 업데이트 실패(이전 목록 유지)"
@@ -688,6 +704,7 @@ class MainActivity : Activity() {
                     filterUpdateButton?.isEnabled = true
                 }
             } catch (e: Exception) {
+                filterUpdateRunning.set(false)
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
                     .putString(FilterListManager.KEY_LAST_ERROR, e.message ?: e.javaClass.simpleName).apply()
                 runOnUiThread {
@@ -700,6 +717,13 @@ class MainActivity : Activity() {
     }
 
     private fun requestProtection() {
+        if (!FilterListManager.hasCachedList(this)) {
+            statusTitle.text = "광고 필터 준비 필요"
+            status.text = "공식 광고 차단 목록을 아직 내려받지 못했습니다. 인터넷 연결 후 필터를 준비해야 정상적인 광고 차단이 가능합니다."
+            showTab("rules")
+            startFilterUpdate()
+            return
+        }
         val consent = VpnService.prepare(this)
         if (consent != null) startActivityForResult(consent, REQUEST_VPN) else startProtection()
     }
