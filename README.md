@@ -58,3 +58,16 @@ GitHub Actions는 Android 단위 테스트, APK 빌드, VPN manifest 선언, lau
 ## 검증 경계
 
 CI 성공은 소스 컴파일, 자동화 테스트, APK 패키징 및 checksum 확인을 의미합니다. 실기기 설치, VPN 승인/시작/중지, Wi-Fi↔모바일 데이터 전환, 장시간 실행, 실제 광고 차단 범위는 별도 기기 수용 테스트가 필요합니다. 검증하지 않은 기기 동작을 완료로 표시하지 않습니다.
+
+
+## Latest verified installable APK — 0.6.4-dev
+
+- [GitHub Actions success run 43423112883](https://github.com/justinhblee-prog/guardian/actions/runs/43423112883)
+- Source commit: `05dd104a97ea4f9f2bcf908514a6c82bf0e3b5f1`
+- Gradle unit-test task + APK assemble: **PASS**
+- Package: `com.guardian.adblock`, versionCode `11`, versionName `0.6.4-dev`
+- Artifact ID: `14034534107`
+- APK size: 849,811 bytes
+- APK SHA-256: `daded536157e3a71fe205dd0a47513228e8ecacb88be784cda87925c4ee48130`
+
+The downloaded artifact ZIP passed integrity testing and its internal APK checksum matched the extracted APK. This is an installable Debug APK; physical-device acceptance is still required.
