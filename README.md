@@ -1,4 +1,4 @@
-# Guardian AdBlock Android — 0.7.0-dev
+# Guardian AdBlock Android — 0.7.1-dev
 
 Guardian AdBlock은 Android VpnService 기반 DNS 필터링 앱입니다. 공식 DNS 필터 목록을 내려받아 검증하고, 가상 DNS 경로로 들어오는 도메인 질의를 차단합니다.
 
