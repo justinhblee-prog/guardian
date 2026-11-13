@@ -41,6 +41,7 @@ class GuardianVpnService : VpnService() {
         private const val CHANNEL = "guardian_protection"
         private const val VIRTUAL_DNS = "10.13.37.2"
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
+        private const val MAX_UDP_DNS_RESPONSE_BYTES = 1232
         const val KEY_UPSTREAM_DNS = "upstream_dns"
         const val KEY_EXCLUDED_APPS = "excluded_apps"
         const val KEY_DIRECT_DNS_CAPTURE = "direct_dns_capture"
@@ -226,9 +227,15 @@ class GuardianVpnService : VpnService() {
                     val forwarded = if (blocked) null else forwardDns(payload)
                     val dnsResponse = (if (blocked) DomainFilter.makeNxdomain(payload)
                         else forwarded ?: DomainFilter.makeServfail(payload)) ?: continue
+                    // Keep UDP DNS replies within the IPv6 minimum-MTU safe payload.
+                    // Oversized upstream answers are returned as TC responses instead
+                    // of emitting an IP packet that exceeds the VPN interface MTU.
+                    val boundedDnsResponse = if (dnsResponse.size > MAX_UDP_DNS_RESPONSE_BYTES) {
+                        DomainFilter.makeTruncatedResponse(payload) ?: continue
+                    } else dnsResponse
                     recordDnsActivity(domain, blocked, forwarded != null)
-                    val packet = if (ipv4 != null) Ipv4Udp.response(ipv4, dnsResponse)
-                        else Ipv6Udp.response(ipv6!!, dnsResponse)
+                    val packet = if (ipv4 != null) Ipv4Udp.response(ipv4, boundedDnsResponse)
+                        else Ipv6Udp.response(ipv6!!, boundedDnsResponse)
                     synchronized(output) {
                         output.write(packet)
                         output.flush()
