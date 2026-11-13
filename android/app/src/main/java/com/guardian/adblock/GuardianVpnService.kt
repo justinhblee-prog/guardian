@@ -39,7 +39,8 @@ class GuardianVpnService : VpnService() {
         private const val CHANNEL = "guardian_protection"
         private const val VIRTUAL_DNS = "10.13.37.2"
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
-        private const val UPSTREAM_DNS = "1.1.1.1"
+        const val KEY_UPSTREAM_DNS = "upstream_dns"
+        const val DEFAULT_UPSTREAM_DNS = "1.1.1.1"
         private val DNS_STATS_LOCK = Any()
         private const val DNS_STATS_BROADCAST_INTERVAL_MS = 500L
         @Volatile private var tunnelActive = false
@@ -232,13 +233,19 @@ class GuardianVpnService : VpnService() {
         sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
     }
 
+    private fun configuredUpstreamDns(): String =
+        getSharedPreferences(PREFS, MODE_PRIVATE)
+            .getString(KEY_UPSTREAM_DNS, DEFAULT_UPSTREAM_DNS)
+            ?.takeIf { it in setOf("1.1.1.1", "8.8.8.8", "9.9.9.9", "94.140.14.14") }
+            ?: DEFAULT_UPSTREAM_DNS
+
     private fun forwardDns(query: ByteArray): ByteArray? {
         var socket: DatagramSocket? = null
         return try {
             socket = DatagramSocket()
             if (!protect(socket)) return null
             socket.soTimeout = 3500
-            val address = InetAddress.getByName(UPSTREAM_DNS)
+            val address = InetAddress.getByName(configuredUpstreamDns())
             socket.send(DatagramPacket(query, query.size, address, 53))
             val response = ByteArray(4096)
             val packet = DatagramPacket(response, response.size)
@@ -262,7 +269,7 @@ class GuardianVpnService : VpnService() {
         return try {
             socket = Socket()
             if (!protect(socket)) return null
-            socket.connect(java.net.InetSocketAddress(UPSTREAM_DNS, 53), 3500)
+            socket.connect(java.net.InetSocketAddress(configuredUpstreamDns(), 53), 3500)
             socket.soTimeout = 3500
             val output = DataOutputStream(socket.getOutputStream())
             output.writeShort(query.size)
