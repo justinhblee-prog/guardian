@@ -961,21 +961,15 @@ class MainActivity : Activity() {
         val active = ProtectionState.isActive(persistedActive, GuardianVpnService.isTunnelActive())
         val staleSession = persistedActive && !active
         val message = if (staleSession) {
-            "앱 프로세스가 재시작되어 VPN 보호가 중단되었습니다. 다시 시작해 주세요."
+            "VPN 서비스가 다시 연결되는 중입니다. 복구되지 않으면 보호 다시 연결을 눌러 주세요."
         } else prefs.getString(GuardianVpnService.KEY_STATUS, null)
-        if (staleSession) {
-            // Clear stale persisted state so subsequent rule saves do not try to
-            // reload a service that no longer owns a TUN descriptor.
-            prefs.edit().putBoolean(GuardianVpnService.KEY_ACTIVE, false)
-                .putString(GuardianVpnService.KEY_STATUS, message).apply()
-        }
         // Not every tab creates the dashboard status views. Update only views
         // that exist so opening Rules/Protection/Settings cannot crash the app.
         if (::statusTitle.isInitialized) {
-            statusTitle.text = if (active) "보호가 실행 중입니다" else "보호가 꺼져 있습니다"
-            statusDot.text = if (active) "●  PROTECTION ACTIVE" else "●  PROTECTION OFF"
-            statusDot.setTextColor(if (active) accent else red)
-            startButton?.text = if (active) "보호 실행 중" else "보호 시작"
+            statusTitle.text = when { active -> "보호가 실행 중입니다"; staleSession -> "보호 복구 대기 중"; else -> "보호가 꺼져 있습니다" }
+            statusDot.text = when { active -> "●  PROTECTION ACTIVE"; staleSession -> "●  RECOVERY PENDING"; else -> "●  PROTECTION OFF" }
+            statusDot.setTextColor(if (active || staleSession) accent else red)
+            startButton?.text = when { active -> "보호 실행 중"; staleSession -> "보호 다시 연결"; else -> "보호 시작" }
             startButton?.isEnabled = !active
             startButton?.alpha = if (active) 0.58f else 1f
         }
