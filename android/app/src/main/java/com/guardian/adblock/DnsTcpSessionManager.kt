@@ -48,7 +48,8 @@ class DnsTcpSessionManager(
                 if (oldest != null) sessions.remove(oldest)
             }
             val serverInitial = random.nextInt().toLong() and 0xffffffffL
-            val session = Session((tcp.sequence + 1L) and MASK, serverInitial, lastActivity = now)
+            val session = Session((tcp.sequence + 1L) and MASK,
+                (serverInitial + 1L) and MASK, lastActivity = now)
             sessions[key] = session
             return listOf(DnsTcpPacket.response(tcp, serverInitial, session.clientNext,
                 DnsTcpPacket.SYN or DnsTcpPacket.ACK))
