@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build-apk:
-    name: Test and build debug APK
+    name: Test and assemble debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -59,19 +59,16 @@ jobs:
       - name: Run Android unit tests
         run: gradle -p android --no-daemon clean testDebugUnitTest
 
-      - name: Assemble final APK (manual release dispatch only)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Assemble debug APK for build verification
         run: gradle -p android --no-daemon assembleDebug
 
-      - name: Verify APK package identity and release version
-        if: github.event_name == 'workflow_dispatch'
+      - name: Verify APK package identity and version
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
           echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='14' versionName='0.7.1-dev'"
 
       - name: Verify APK exists and calculate checksum
-        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
@@ -79,7 +76,7 @@ jobs:
           sha256sum "$APK" | tee android/app/build/outputs/apk/debug/SHA256SUMS.txt
           ls -lh "$APK"
 
-      - name: Upload installable debug APK
+      - name: Upload installable debug APK (manual release dispatch only)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
