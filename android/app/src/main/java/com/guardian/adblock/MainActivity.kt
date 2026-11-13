@@ -285,7 +285,10 @@ class MainActivity : Activity() {
 
     private fun refreshStatus() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-        val active = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)
+        // A persisted flag can outlive an Android process kill. Confirm this
+        // process still owns the VPN tunnel before showing protection as active.
+        val active = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false) &&
+            GuardianVpnService.isTunnelActive()
         val message = prefs.getString(GuardianVpnService.KEY_STATUS, null)
         // Not every tab creates the dashboard status views. Update only views
         // that exist so opening Rules/Protection/Settings cannot crash the app.
