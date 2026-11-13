@@ -113,3 +113,11 @@ This validates source compilation and unit tests only. It does not verify the An
 - Fixed the startup/stop ordering race: a stop request arriving after ACTION_START but before the startup worker begins is no longer overwritten by a worker-side reset.
 - Added a dedicated cancellation gate and two deterministic regression tests for stop-before-worker and explicit restart behavior.
 - Latest source inventory: 10 suites / 49 test methods. CI result not yet confirmed.
+
+
+## Enabled security-list readiness guard — CI pending
+
+- Protection startup now also requires a valid cached HaGeZi Threat Intelligence list whenever the malware/phishing option is enabled; a failed first download can no longer silently start without the selected security layer.
+- Filter profile metadata is synchronously committed after atomic cache replacement so a successful update is not reported before its selected-profile marker is persisted.
+- Added regression coverage for security enabled/disabled and cache present/missing.
+- Latest known source test inventory: 10 suites / 50 test methods (subject to repository inventory reconciliation); latest CI result pending.
