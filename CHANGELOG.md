@@ -178,3 +178,9 @@
 ### CI fix — `$important,badfilter` modifier parsing
 - Fixed detection of `$badfilter` when it appears after another comma-separated modifier.
 - Latest Android unit-test CI passed: 59 tests completed, 0 failures (run 43433588312).
+
+
+### VPN routing safety
+- Make direct interception of public DNS resolver IPs opt-in because IP-prefix VPN routes can capture non-DNS traffic to those same addresses.
+- Keep the self-test aligned with the safe default and display the advanced-routing side-effect warning.
+- Add a regression test for the default configuration.
