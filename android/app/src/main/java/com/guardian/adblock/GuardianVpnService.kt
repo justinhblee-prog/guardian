@@ -73,7 +73,7 @@ class GuardianVpnService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_STOP -> stopProtection()
+            ACTION_STOP -> stopProtection(explicitStop = true)
             ACTION_START -> {
                 startCancellation.onStartRequested()
                 thread(name = "guardian-vpn-start") { startProtection() }
@@ -465,7 +465,7 @@ class GuardianVpnService : VpnService() {
         }
     }
 
-    private fun stopProtection() {
+    private fun stopProtection(explicitStop: Boolean = false) {
         startRequestedWhileStarting.set(false)
         startCancellation.cancel()
         tunnelActive = false
@@ -473,7 +473,9 @@ class GuardianVpnService : VpnService() {
         try { tun?.close() } catch (_: Exception) { }
         tun = null
         stopForeground(STOP_FOREGROUND_REMOVE)
-        if (wasActive) publishState(false, "DNS 보호가 중지되었습니다.")
+        // An explicit user stop must clear the persisted restart intent even
+        // when startup was still in flight and no TUN descriptor was committed.
+        if (explicitStop || wasActive) publishState(false, "DNS 보호가 중지되었습니다.")
         stopSelf()
     }
 
