@@ -192,4 +192,12 @@
 - Replace the app-owned virtual-DNS UDP self-test (which bypasses the app's own VPN route on Android) with an accurately labelled in-process rule-engine test.
 - Apply consistent dark styling to DNS/profile/update-interval selectors and avoid refreshing detached home views.
 - Serialize CI per branch and cancel superseded push runs.
-- Latest CI: run 43436286243 passed; 11 suites / 63 JUnit test methods.
+- Latest CI: run 43436954231 passed; 11 suites / 63 JUnit test methods.
+
+
+## Latest verification update
+
+- Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
+- Added two unit tests for this stop/start race policy.
+- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
+- Test inventory: 11 suites / 65 test methods.
