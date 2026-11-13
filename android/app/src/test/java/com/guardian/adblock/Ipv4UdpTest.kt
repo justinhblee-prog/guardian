@@ -3,7 +3,7 @@ package com.guardian.adblock
 import org.junit.Assert.*
 import org.junit.Test
 
-class Ipv4UdpTest {
+class Ipv4UdpTest {\n    // Packet framing regression coverage for TUN input.
     @Test fun parsesUdpDnsPacket() {
         val p = ByteArray(20 + 8 + 12)
         p[0] = 0x45
