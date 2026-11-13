@@ -1,0 +1,13 @@
+# Guardian AdBlock shared DNS rules
+# Format: block=domain or allow=domain
+# Development baseline list; subdomains are covered automatically.
+block=doubleclick.net
+block=googlesyndication.com
+block=googleadservices.com
+block=adnxs.com
+block=adform.net
+block=taboola.com
+block=outbrain.com
+block=criteo.com
+block=scorecardresearch.com
+block=quantserve.com
