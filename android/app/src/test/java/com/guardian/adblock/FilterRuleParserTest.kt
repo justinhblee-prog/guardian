@@ -94,4 +94,22 @@ class FilterRuleParserTest {
         assertEquals(1, parsed.ignored)
     }
 
+    @Test fun badfilterOnlyCancelsTheMatchingImportantPriorityVariant() {
+        val ordinaryDisabled = FilterRuleParser.parse(listOf(
+            "||same.example^",
+            "||same.example^\$important",
+            "||same.example^\$badfilter"
+        ))
+        assertTrue(ordinaryDisabled.blocked.isEmpty())
+        assertEquals(setOf("same.example"), ordinaryDisabled.importantBlocked)
+
+        val importantDisabled = FilterRuleParser.parse(listOf(
+            "||same.example^",
+            "||same.example^\$important",
+            "||same.example^\$important,badfilter"
+        ))
+        assertEquals(setOf("same.example"), importantDisabled.blocked)
+        assertTrue(importantDisabled.importantBlocked.isEmpty())
+    }
+
 }
