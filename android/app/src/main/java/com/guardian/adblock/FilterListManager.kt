@@ -128,8 +128,8 @@ object FilterListManager {
             }
             val lines = String(bytes, StandardCharsets.UTF_8).lineSequence().toList()
             val parsed = FilterRuleParser.parse(lines)
-            require(parsed.blocked.size >= minimumRules) {
-                "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size}개뿐입니다."
+            require((parsed.blocked.size + parsed.importantBlocked.size) >= minimumRules) {
+                "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size + parsed.importantBlocked.size}개뿐입니다."
             }
             val target = File(context.filesDir, cacheName)
             val temporary = File(context.filesDir, "$cacheName.tmp")
@@ -154,11 +154,11 @@ object FilterListManager {
             val now = System.currentTimeMillis()
             val metadata = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putLong(updatedKey, now)
-                .putInt(countKey, parsed.blocked.size)
+                .putInt(countKey, parsed.blocked.size + parsed.importantBlocked.size)
                 .putInt(ignoredKey, parsed.ignored)
             if (cachedProfileKey != null) metadata.putString(KEY_CACHED_PROFILE, cachedProfileKey)
             check(metadata.commit()) { "필터 캐시 메타데이터를 저장하지 못했습니다." }
-            return UpdateResult(parsed.blocked.size, parsed.allowed.size, parsed.ignored, bytes.size, now)
+            return UpdateResult(parsed.blocked.size + parsed.importantBlocked.size, parsed.allowed.size, parsed.ignored, bytes.size, now)
         } finally {
             connection.disconnect()
         }
