@@ -199,4 +199,6 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 
 - Added DoH upstream over TLS/443 with HTTP POST binary DNS messages, strict content-type/status validation, bounded Content-Length/chunked parsing and TLS hostname verification. External provider connectivity remains unverified.
 
-- DoH settings persistence/visibility was corrected and verified in CI run 43458721003.
+- DoH settings persistence/visibility was corrected and verified in CI run 43459666939.
+
+- IPv6 TCP SYN-to-DNS-response integration is now covered by regression tests and CI.

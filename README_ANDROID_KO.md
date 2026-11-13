@@ -150,7 +150,7 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - TCP/53 패킷 codec과 제한된 연결 상태 관리자를 추가했습니다.
 - SYN/SYN-ACK, ACK, FIN/RST, DNS length-prefix 조립, 분할된 질의 재조립, 다중 DNS 메시지 처리 및 응답 분할을 지원합니다.
 - SYN 이후 서버 시퀀스 번호, payload와 FIN이 함께 온 세그먼트, IPv4/IPv6 TCP checksum을 회귀 테스트합니다.
-- [GitHub Actions run 43452443314](https://github.com/justinhblee-prog/guardian/actions/runs/43452443314): **success**, 16개 테스트 스위트 / 98개 테스트 메서드.
+- [GitHub Actions run 43452443314](https://github.com/justinhblee-prog/guardian/actions/runs/43452443314): **success**, 16개 테스트 스위트 / 99개 테스트 메서드.
 - 이 push CI는 versionCode 15 / 0.7.2-dev APK를 조립·식별·SHA-256 검증했지만 artifact 업로드는 생략했습니다. 기존 배포 artifact는 이 TCP/53 변경 이전 빌드입니다.
 - 실기기에서 Android resolver가 TCP/53으로 재시도하는지 및 실제 DNS 응답 경로는 아직 검증되지 않았습니다.
 
@@ -160,7 +160,7 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - Protection 탭에 실시간 보호 시작/중지, 자동 업데이트, 악성코드·피싱, Android 광고 SDK, 고급 DNS 포착 스위치를 추가하고 필터/앱별 제외 관리로 바로 이동할 수 있도록 했습니다.
 - 각 스위치는 기존 설정 저장·필터 재적용·업데이트 작업과 연결되어 있으며, 공용 DNS 직접 포착은 재시작이 필요하다는 경고를 표시합니다.
 
-- CI now also runs `lintDebug`; latest run 43458721003 passed Android unit tests, lint, debug APK assembly, package identity and checksum verification.
+- CI now also runs `lintDebug`; latest run 43459666939 passed Android unit tests, lint, debug APK assembly, package identity and checksum verification.
 
 - DNS 규칙 엔진 자체 테스트의 안내문을 명확히 했습니다. 로컬 규칙 매칭/NXDOMAIN 생성만 검사하며 실제 외부 DNS 경로와 앱 내부 광고 차단 검증은 아닙니다.
 
@@ -179,3 +179,5 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - DoH/DoT는 Guardian이 선택한 업스트림으로 나가는 연결만 암호화합니다. 앱 자체 DoH/DoT 우회 요청을 가로채거나 차단하는 기능은 아닙니다. 외부 제공자 TLS 연결은 실기기에서 별도 검증해야 합니다.
 
 - 저장된 DoH 모드로 설정 화면을 다시 열 때도 TLS 호스트 입력·저장 컨트롤이 보이도록 초기 표시 상태를 수정하고 CI에서 재검증했습니다.
+
+- IPv6 TCP 세션의 SYN→DNS 질의→응답 흐름을 통합 회귀 테스트에 추가했습니다.

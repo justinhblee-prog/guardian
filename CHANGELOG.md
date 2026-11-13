@@ -268,7 +268,7 @@
 - Apply the existing domain block/allow engine and configured upstream resolver to TCP DNS requests.
 - Correct server sequence advancement after SYN and handle payload+FIN segments.
 - Add regression tests for IPv4/IPv6 TCP checksums, handshake sequence numbers, DNS framing, partial-frame reassembly, and FIN cleanup.
-- CI run 43452443314 passed: 16 suites / 98 JUnit tests; debug APK assembly, package identity and SHA-256 checks passed.
+- CI run 43452443314 passed: 16 suites / 99 JUnit tests; debug APK assembly, package identity and SHA-256 checks passed.
 - TCP retransmission/loss recovery, IPv6 extension headers, IP fragmentation, DoH/DoT and physical-device validation remain outstanding.
 
 - Improve the Protection tab with live start/stop control, quick filter switches, and navigation to filter/app exclusion settings.
@@ -282,3 +282,5 @@
 - Add DNS-over-HTTPS upstream transport using TLS/443 and HTTP POST binary DNS messages; parse bounded Content-Length and chunked responses, reject redirects and invalid media types.
 
 - Fix DoH TLS-host settings visibility when reopening the settings screen with DoH already selected.
+
+- Add an end-to-end IPv6 TCP DNS session regression test.
