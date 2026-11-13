@@ -130,6 +130,9 @@ class MainActivity : Activity() {
         filterStatusText = null
         filterUpdateButton = null
         appFilterFeedback = null
+        blockRateValue = null
+        blockedCountValue = null
+        queryCountValue = null
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
