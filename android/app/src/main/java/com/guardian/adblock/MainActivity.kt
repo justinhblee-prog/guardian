@@ -90,6 +90,12 @@ class MainActivity : Activity() {
 
     private fun showTab(tab: String) {
         currentTab = tab
+        startButton = null
+        statsText = null
+        recentText = null
+        rulesFeedback = null
+        filterStatusText = null
+        filterUpdateButton = null
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
@@ -104,6 +110,7 @@ class MainActivity : Activity() {
             "home" -> buildHome(body)
             "protection" -> buildProtection(body)
             "rules" -> buildRules(body)
+            "activity" -> buildActivity(body)
             else -> buildSettings(body)
         }
         scroll.addView(body)
@@ -214,6 +221,32 @@ class MainActivity : Activity() {
         }.withTop(12))
     }
 
+    private fun buildActivity(body: LinearLayout) {
+        body.addView(text("활동 및 통계", 25f, white, true))
+        body.addView(text("실제 VPN DNS 엔진에서 처리한 요청 기록입니다.", 13f, muted, false).withTop(5))
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        grid.addView(infoCard(prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L).toString(), "전체 DNS 질의", "가상 DNS로 수신한 요청", accent), LinearLayout.LayoutParams(0, dp(112), 1f))
+        grid.addView(space(10), LinearLayout.LayoutParams(dp(10), 1))
+        grid.addView(infoCard(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L).toString(), "차단된 요청", "필터 규칙 일치", red), LinearLayout.LayoutParams(0, dp(112), 1f))
+        body.addView(grid.withTop(18))
+        val grid2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        grid2.addView(infoCard(prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L).toString(), "정상 전달", "업스트림 응답 수신", accent), LinearLayout.LayoutParams(0, dp(112), 1f))
+        grid2.addView(space(10), LinearLayout.LayoutParams(dp(10), 1))
+        grid2.addView(infoCard(prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L).toString(), "응답 실패", "업스트림/처리 오류", red), LinearLayout.LayoutParams(0, dp(112), 1f))
+        body.addView(grid2.withTop(10))
+        body.addView(text("최근 DNS 요청", 18f, white, true).withTop(24))
+        recentText = text(
+            prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 DNS 요청 기록이 없습니다. 보호를 시작한 뒤 앱이나 웹사이트를 이용해 주세요.",
+            12f, muted, false
+        ).withTop(10) as TextView
+        body.addView(card(panel, 16).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(recentText!!)
+        }.withTop(10))
+        body.addView(text("참고: 이 화면의 수치는 VPN 패킷 처리 엔진이 기록한 DNS 요청만 집계합니다. DNS 암호화 또는 VPN 우회 트래픽은 포함되지 않습니다.", 11f, muted, false).withTop(14))
+    }
+
     private fun buildProtection(body: LinearLayout) {
         body.addView(text("보호 관리", 25f, white, true))
         body.addView(text("Guardian의 보호 엔진과 적용 범위를 확인합니다.", 13f, muted, false).withTop(5))
@@ -227,7 +260,7 @@ class MainActivity : Activity() {
     }
 
     private fun buildRules(body: LinearLayout) {
-        body.addView(text("사용자 규칙", 25f, white, true))
+        body.addView(text("필터 및 규칙", 25f, white, true))
         body.addView(text("나만의 차단 및 허용 도메인을 관리합니다.", 13f, muted, false).withTop(5))
         body.addView(text("차단 도메인", 16f, white, true).withTop(22))
         body.addView(text("도메인 하나를 한 줄에 입력하세요. 하위 도메인도 함께 차단됩니다.", 12f, muted, false).withTop(5))
@@ -312,7 +345,13 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.rgb(15, 23, 39))
             setPadding(dp(5), dp(8), dp(5), dp(8))
         }
-        val items = listOf(Triple("home", "⌂", "홈"), Triple("protection", "◈", "보호"), Triple("rules", "≡", "규칙"), Triple("settings", "⚙", "설정"))
+        val items = listOf(
+            Triple("home", "⌂", "홈"),
+            Triple("protection", "◈", "보호"),
+            Triple("activity", "▤", "활동"),
+            Triple("rules", "≡", "필터"),
+            Triple("settings", "⚙", "설정")
+        )
         items.forEach { (id, icon, label) ->
             val active = selected == id
             val item = LinearLayout(this).apply {
