@@ -31,6 +31,8 @@ object FilterListManager {
 
     data class UpdateResult(val blocked: Int, val allowed: Int, val ignored: Int, val bytes: Int, val updatedAt: Long)
 
+    fun hasCachedList(context: Context): Boolean = File(context.filesDir, CACHE_FILE).let { it.isFile && it.length() > 0L }
+    fun hasCachedSecurityList(context: Context): Boolean = File(context.filesDir, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
     fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
     fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
 
