@@ -10,4 +10,8 @@ object ProtectionState {
 
     /** A sticky service restart should rebuild the TUN only when the last user-requested state was active. */
     fun shouldRestoreAfterServiceRestart(persistedActive: Boolean): Boolean = persistedActive
+
+    /** Explicit stop always clears restart intent, even before a TUN is committed. */
+    fun shouldPublishStoppedState(explicitStop: Boolean, tunnelWasActive: Boolean): Boolean =
+        explicitStop || tunnelWasActive
 }
