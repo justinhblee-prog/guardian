@@ -14,4 +14,9 @@ class ProtectionStateTest {
         assertFalse(ProtectionState.isActive(persistedActive = false, tunnelActive = true))
         assertFalse(ProtectionState.isActive(persistedActive = false, tunnelActive = false))
     }
+
+    @Test fun restoresStickyServiceOnlyWhenProtectionWasPreviouslyEnabled() {
+        assertTrue(ProtectionState.shouldRestoreAfterServiceRestart(persistedActive = true))
+        assertFalse(ProtectionState.shouldRestoreAfterServiceRestart(persistedActive = false))
+    }
 }
