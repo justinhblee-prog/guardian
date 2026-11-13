@@ -165,3 +165,11 @@
 - Require the optional malware/phishing list cache before protection starts when that layer is enabled.
 - Commit selected filter-profile metadata synchronously after atomic cache replacement.
 - Latest source: 10 test suites / 52 JUnit methods; CI pending; no APK generated.
+
+
+### 0.7.0-dev — Adblock important modifier priority
+- Preserve `$important` domain blocks separately and evaluate them before allow exceptions.
+- Keep important-rule behavior isolated by source and allow `$badfilter` to disable matching important blocks within that source.
+- Ignore unsupported important exceptions rather than applying incorrect allow semantics.
+- Include important rules in downloaded-cache validation and visible block counts.
+- Add parser and composed-engine regression tests; latest source CI pending.
