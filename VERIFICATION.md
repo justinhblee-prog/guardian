@@ -136,3 +136,17 @@
 - Regression coverage: settings spinner preserves the selected 6-hour and 12-hour values and falls back to the daily default for an unknown stored interval.
 - Test inventory independently counted from all test source files: **12 suites / 70 JUnit test methods**.
 - APK assemble and upload: **skipped by design** for push-triggered CI; final APK remains gated on development completion.
+ 
+
+## Final APK build verification — 2026-11-13
+
+- GitHub Actions run: https://github.com/justinhblee-prog/guardian/actions/runs/43445545156 — **success**
+- Source commit: `29a10e46f27dd1bafdde72a62ddd984b9965a537`
+- Android unit tests: **12 suites / 70 JUnit test methods passed**
+- Debug APK assembly: **success**
+- Package identity: `com.guardian.adblock`, versionCode `14`, versionName `0.7.1-dev` — verified by CI `aapt dump badging`
+- APK size: 2,978,276 bytes
+- APK SHA-256: `4ee62c89678f0cef2b75d96a019a5700064538efaff4c82e9768a9bbf28ddb75`
+- APK ZIP integrity: verified locally with `unzip -t`; no archive errors.
+- Artifact: `Guardian-AdBlock-Android-APK-v0.7.1-dev` (GitHub artifact ID `14048365232`)
+- This is an installable debug-signed APK. Physical Android installation, VPN route validation, and real ad-block effectiveness remain unverified.
