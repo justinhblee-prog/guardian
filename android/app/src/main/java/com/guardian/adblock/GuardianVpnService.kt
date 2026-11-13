@@ -192,6 +192,9 @@ class GuardianVpnService : VpnService() {
 
     private fun loadConfiguredRules() {
         val rules = assets.open("filter_rules.txt").bufferedReader().use { it.readLines().toMutableList() }
+        // The downloaded official DNS list is cached in app-private storage.
+        // A failed or absent update never replaces the last known-good filter.
+        rules.addAll(FilterListManager.cachedLines(this))
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
             .map { it.trim() }.filter { it.isNotEmpty() }.forEach { rules.add("block=$it") }
