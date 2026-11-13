@@ -136,3 +136,17 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 업스트림 응답이 상한을 넘으면 검증된 질문 섹션을 보존한 TC 응답을 생성해 TUN에 과대 패킷을 쓰지 않습니다.
 - 클라이언트 방향 TCP/53은 아직 지원하지 않으므로, TC 응답 이후 resolver의 TCP 재시도까지 성공한다고 보장하지 않습니다.
 - 추가 회귀 테스트 2개 포함, 전체 12개 스위트 / 72개 테스트.
+
+
+## 최종 0.7.2-dev APK — 2026-11-13
+
+- [GitHub Actions 최종 실행](https://github.com/justinhblee-prog/guardian/actions/runs/43447121533): **success**
+- 소스 커밋: `50e768e253ae3ee7d77d3cdc07b5f23ccd970eab`
+- 테스트: **12개 스위트 / 72개 JUnit 테스트 통과**
+- APK: `com.guardian.adblock`, versionCode 15, `0.7.2-dev`
+- APK 크기: 2,978,452 bytes
+- SHA-256: `a1d41cf8937b2c09f7c4ca8d0b02ddf252e95f935b1cee3ed1d485c5470f55d8`
+- GitHub artifact: `Guardian-AdBlock-Android-APK-v0.7.2-dev` (ID `14049565251`)
+- Artifact ZIP 무결성 검사 및 APK 체크섬 독립 확인 완료.
+- 릴리스 유형: 설치 가능한 debug 서명 APK. Play Store production 서명 빌드는 아닙니다.
+- 실기기 VPN 권한/라우팅, 네트워크 전환 및 실제 광고 차단률은 별도 미검증입니다.
