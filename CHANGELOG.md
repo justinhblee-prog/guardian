@@ -122,12 +122,19 @@
 - Verified with Android unit-test task and debug APK CI build (run 43421570913).
 
 
-## v0.6.4-dev — Android lifecycle, DNS validation and release polish (2026-11-13)
+## v0.6.5-dev — Android lifecycle, DNS validation and release polish (2026-11-13)
 - Confirm active protection only when the current app process owns a live VPN tunnel; persisted stale flags no longer make the dashboard claim protection is running after process restart.
 - Show a dedicated live protection badge and disable the start action while the tunnel is active.
 - Reject DNS wire QNAME labels containing literal dot bytes to prevent ambiguous conversion into dotted hostnames used for domain matching.
 - Add regression tests for ambiguous DNS labels and case-insensitive QNAME response matching while requiring exact QTYPE/QCLASS.
 - Add Guardian adaptive and legacy launcher icons.
-- Bump Android version to 0.6.4-dev (versionCode 11).
+- Bump Android version to 0.6.5-dev (versionCode 12).
 - Strengthen CI with VPN manifest/foreground-service declaration checks, launcher asset checks, APK package identity/version validation, SHA-256 and artifact upload.
 - Real-device VPN lifecycle and network-transition acceptance remain required before production release.
+
+
+## v0.6.5-dev — stale protection-state recovery (2026-11-13)
+- Extracted a testable protection-state guard: persisted state alone never represents a live VPN session.
+- When the dashboard detects a stale active flag after process restart, it now clears the persisted active flag and stores the recovery message.
+- User rule saves now request live rule reload only when the current process actually owns an active VPN tunnel; stale sessions save rules for the next start instead.
+- Added two regression tests for stale persisted state and live tunnel requirements.
