@@ -77,7 +77,7 @@ jobs:
           ls -lh "$APK"
 
       - name: Upload installable debug APK (manual release dispatch only)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[final-apk]')
         uses: actions/upload-artifact@v4
         with:
           name: Guardian-AdBlock-Android-APK-v0.7.1-dev
