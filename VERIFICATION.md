@@ -14,14 +14,14 @@
 | FilterRuleParserTest | 11 |
 | DnsProbeTest | 4 |
 | FilterRuleComposerTest | 3 |
-| DnsAddressValidatorTest | 2 |
+| DnsAddressValidatorTest | 3 |
 | FilterListProfilesTest | 8 |
 | VpnConfigurationDefaultsTest | 1 |
 | VpnStartCancellationGateTest | 4 |
-| FilterUpdateSchedulePolicyTest | 2 |
-| **합계** | **67** |
+| FilterUpdateSchedulePolicyTest | 4 |
+| **합계** | **70** |
 
-총 12개 Kotlin 테스트 스위트 / 68개 JUnit 테스트 메서드입니다.
+총 12개 Kotlin 테스트 스위트 / 70개 JUnit 테스트 메서드입니다.
 
 ## 최신 성공 CI
 
@@ -126,3 +126,13 @@
 - Source commit: `f518711e559bfb8873128f82c07a1a157a5f2068`
 - Android unit tests: passed; inventory **12 suites / 68 JUnit methods**.
 - APK assembly and upload: skipped because this was a push-triggered validation run.
+
+
+## Latest CI verification — interval selection regression
+
+- GitHub Actions: https://github.com/justinhblee-prog/guardian/actions/runs/43444407063 — **success**
+- Source commit: `1a27d0627dc4e6448baf7eb4b271371cfd60708e`
+- Android unit-test step: **passed**.
+- Regression coverage: settings spinner preserves the selected 6-hour and 12-hour values and falls back to the daily default for an unknown stored interval.
+- Test inventory independently counted from all test source files: **12 suites / 70 JUnit test methods**.
+- APK assemble and upload: **skipped by design** for push-triggered CI; final APK remains gated on development completion.
