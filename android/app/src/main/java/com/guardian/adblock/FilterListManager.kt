@@ -13,6 +13,7 @@ import javax.net.ssl.HttpsURLConnection
 /** Downloads and validates DNS-compatible community filters into app-private storage. */
 object FilterListManager {
     const val FILTER_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt"
+    const val KEY_FILTER_PROFILE = "filter_profile"
     const val SECURITY_FILTER_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_44.txt"
     private const val CACHE_FILE = "adguard_dns_filter.txt"
     private const val SECURITY_CACHE_FILE = "hagezi_threat_intelligence.txt"
@@ -33,14 +34,31 @@ object FilterListManager {
     const val KEY_SECURITY_ENABLED = "security_filter_enabled"
 
     data class UpdateResult(val blocked: Int, val allowed: Int, val ignored: Int, val bytes: Int, val updatedAt: Long)
+    data class FilterProfile(val key: String, val label: String, val url: String, val minimumRules: Int)
+
+    private val profiles = listOf(
+        FilterProfile("adguard", "AdGuard DNS Filter · 권장", FILTER_URL, 1000),
+        FilterProfile("1hosts_lite", "1Hosts Lite · 균형", "https://adguardteam.github.io/HostlistsRegistry/assets/filter_24.txt", 100),
+        FilterProfile("oisd_big", "OISD Big · 강력", "https://adguardteam.github.io/HostlistsRegistry/assets/filter_27.txt", 100),
+        FilterProfile("hagezi_normal", "HaGeZi Normal · 강력", "https://adguardteam.github.io/HostlistsRegistry/assets/filter_34.txt", 100),
+        FilterProfile("hagezi_pro", "HaGeZi Pro · 매우 강력", "https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt", 100)
+    )
+
+    fun availableProfiles(): List<FilterProfile> = profiles
+    fun selectedProfile(context: Context): FilterProfile {
+        val key = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_FILTER_PROFILE, "adguard")
+        return profiles.firstOrNull { it.key == key } ?: profiles.first()
+    }
 
     fun hasCachedList(context: Context): Boolean = File(context.filesDir, CACHE_FILE).let { it.isFile && it.length() > 0L }
     fun hasCachedSecurityList(context: Context): Boolean = File(context.filesDir, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
     fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
     fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
 
-    fun update(context: Context): UpdateResult =
-        download(context, FILTER_URL, CACHE_FILE, MIN_VALID_BLOCKS, KEY_UPDATED_AT, KEY_BLOCK_COUNT, KEY_IGNORED_COUNT)
+    fun update(context: Context): UpdateResult {
+        val profile = selectedProfile(context)
+        return download(context, profile.url, CACHE_FILE, profile.minimumRules, KEY_UPDATED_AT, KEY_BLOCK_COUNT, KEY_IGNORED_COUNT)
+    }
 
     fun updateSecurity(context: Context): UpdateResult =
         download(context, SECURITY_FILTER_URL, SECURITY_CACHE_FILE, MIN_SECURITY_BLOCKS, KEY_SECURITY_UPDATED_AT, KEY_SECURITY_BLOCK_COUNT, KEY_SECURITY_IGNORED_COUNT)
