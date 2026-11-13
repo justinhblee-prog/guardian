@@ -25,6 +25,13 @@ class FilterListProfilesTest {
         assertTrue("hagezi_normal" in keys)
         assertTrue("hagezi_pro" in keys)
     }
+    @Test fun cacheMustExistAndMeetTheSelectedProfilesMinimumRuleCount() {
+        assertFalse(FilterListManager.isCacheValid(false, 5000, 1000))
+        assertFalse(FilterListManager.isCacheValid(true, 999, 1000))
+        assertTrue(FilterListManager.isCacheValid(true, 1000, 1000))
+        assertFalse(FilterListManager.isCacheValid(true, 100, 0))
+    }
+
     @Test fun protectionRequiresCacheForTheCurrentlySelectedProfile() {
         assertTrue(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard"))
         assertFalse(FilterListManager.isProfileCacheCurrent(false, "adguard", "adguard"))
