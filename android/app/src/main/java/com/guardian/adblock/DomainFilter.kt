@@ -102,7 +102,7 @@ object DomainFilter {
             labels.add(String(message, p, n, Charsets.US_ASCII))
             p += n
         }
-        return labels.joinToString(".").lowercase()
+        return labels.joinToString(".").lowercase(java.util.Locale.ROOT)
     }
 
     /** Reject spoofed, mismatched, truncated, or malformed upstream DNS replies. */
