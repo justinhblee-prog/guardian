@@ -47,12 +47,14 @@ class GuardianVpnService : VpnService() {
         private val KNOWN_PUBLIC_DNS_IPV4 = listOf(
             "1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4",
             "9.9.9.9", "149.112.112.112", "94.140.14.14", "94.140.15.15",
+            "94.140.14.15", "94.140.15.16",
             "208.67.222.222", "208.67.220.220"
         )
         private val KNOWN_PUBLIC_DNS_IPV6 = listOf(
             "2606:4700:4700::1111", "2606:4700:4700::1001",
             "2001:4860:4860::8888", "2001:4860:4860::8844",
-            "2620:fe::fe", "2620:fe::9"
+            "2620:fe::fe", "2620:fe::9",
+            "2a10:50c0::bad1:ff", "2a10:50c0::bad2:ff"
         )
         private val DNS_STATS_LOCK = Any()
         private const val DNS_STATS_BROADCAST_INTERVAL_MS = 500L
