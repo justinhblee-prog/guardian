@@ -51,6 +51,14 @@ class GuardianVpnService : VpnService() {
         const val KEY_UPSTREAM_DNS = "upstream_dns"
         const val KEY_UPSTREAM_TRANSPORT = "upstream_transport"
         const val KEY_UPSTREAM_TLS_HOST = "upstream_tls_host"
+        const val KEY_UPSTREAM_TEST_SUCCESS = "upstream_test_success"
+        const val KEY_UPSTREAM_TEST_LATENCY_MS = "upstream_test_latency_ms"
+        const val KEY_UPSTREAM_TEST_TRANSPORT = "upstream_test_transport"
+        const val KEY_UPSTREAM_TEST_AT = "upstream_test_at"
+        const val KEY_UPSTREAM_TEST_SUCCESS = "upstream_test_success"
+        const val KEY_UPSTREAM_TEST_LATENCY_MS = "upstream_test_latency_ms"
+        const val KEY_UPSTREAM_TEST_TRANSPORT = "upstream_test_transport"
+        const val KEY_UPSTREAM_TEST_AT = "upstream_test_at"
         const val DEFAULT_UPSTREAM_TRANSPORT = "udp"
         const val DEFAULT_UPSTREAM_TLS_HOST = "cloudflare-dns.com"
         const val KEY_EXCLUDED_APPS = "excluded_apps"
@@ -503,11 +511,19 @@ class GuardianVpnService : VpnService() {
         val response = forwardDns(query)
         val latencyMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
         val success = DnsUpstreamProbe.isValidResponse(query, response)
+        val testedAt = System.currentTimeMillis()
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+            .putBoolean(KEY_UPSTREAM_TEST_SUCCESS, success)
+            .putLong(KEY_UPSTREAM_TEST_LATENCY_MS, latencyMs)
+            .putString(KEY_UPSTREAM_TEST_TRANSPORT, transport)
+            .putLong(KEY_UPSTREAM_TEST_AT, testedAt)
+            .apply()
         sendBroadcast(Intent(ACTION_UPSTREAM_TEST_RESULT).apply {
             setPackage(packageName)
             putExtra("success", success)
             putExtra("latency_ms", latencyMs)
             putExtra("transport", transport)
+            putExtra("tested_at", testedAt)
         })
         if (!isTunnelActive() &&
             !getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_ACTIVE, false)) {
