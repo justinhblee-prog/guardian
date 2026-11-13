@@ -641,7 +641,9 @@ class MainActivity : Activity() {
         intervalSpinner.setPopupBackgroundDrawable(shape(panel, 12))
         intervalSpinner.adapter = intervalAdapter
         val currentInterval = prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
-        intervalSpinner.setSelection(intervals.indexOfFirst { it.second == currentInterval }.coerceAtLeast(2))
+        intervalSpinner.setSelection(
+            FilterUpdateScheduler.selectionIndex(currentInterval, intervals.map { it.second }, defaultIndex = 2)
+        )
         intervalSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
