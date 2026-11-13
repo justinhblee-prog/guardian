@@ -437,6 +437,10 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(5), dp(12), dp(5))
             addView(dnsSpinner)
         }.withTop(10))
+        body.addView(text(
+            "시스템 가상 DNS의 업스트림은 즉시 변경됩니다. 공용 DNS 직접 포착을 사용하는 경우 새 서버 경로는 보호를 중지하고 다시 시작해야 적용됩니다.",
+            10f, muted, false
+        ).withTop(7))
         val customDnsInput = EditText(this).apply {
             hint = "사용자 지정 IPv4/IPv6 주소"
             setHintTextColor(muted)
