@@ -682,10 +682,15 @@ class MainActivity : Activity() {
             .getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
         val ignored = FilterListManager.cachedIgnoredCount(this)
         val securityIgnored = if (securityOn) FilterListManager.cachedSecurityIgnoredCount(this) else 0
-        val lastError = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-            .getString(FilterListManager.KEY_LAST_ERROR, null)
-        if (count == 0 && !lastError.isNullOrBlank()) return "필터 다운로드 실패: $lastError"
-        return "광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored}개 제외 · 업데이트: $time"
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val lastError = prefs.getString(FilterListManager.KEY_LAST_ERROR, null)
+        val securityError = if (securityOn) prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null) else null
+        val summary = "광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored}개 제외 · 업데이트: $time"
+        return listOfNotNull(
+            summary,
+            lastError?.takeIf { it.isNotBlank() }?.let { "광고 필터 업데이트 실패(이전 목록 유지): $it" },
+            securityError?.takeIf { it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): $it" }
+        ).joinToString(" · ")
     }
 
     private fun startFilterUpdate() {
@@ -702,7 +707,17 @@ class MainActivity : Activity() {
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
                 val securityResult = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
-                    try { FilterListManager.updateSecurity(this) } catch (e: Exception) { null }
+                    try {
+                        FilterListManager.updateSecurity(this).also {
+                            prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
+                        }
+                    } catch (e: Exception) {
+                        prefs.edit().putString(
+                            FilterListManager.KEY_SECURITY_LAST_ERROR,
+                            e.message ?: e.javaClass.simpleName
+                        ).apply()
+                        null
+                    }
                 } else null
                 val active = ProtectionState.isActive(
                     prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
