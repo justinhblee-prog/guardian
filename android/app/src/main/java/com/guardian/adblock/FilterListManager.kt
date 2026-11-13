@@ -60,8 +60,11 @@ object FilterListManager {
         selectedKey: String,
         cachedKey: String,
         securityEnabled: Boolean = false,
-        hasSecurityCache: Boolean = true
-    ): Boolean = hasCache && selectedKey == cachedKey && (!securityEnabled || hasSecurityCache)
+        hasSecurityCache: Boolean = true,
+        androidAdsEnabled: Boolean = false,
+        hasAndroidAdsCache: Boolean = true
+    ): Boolean = hasCache && selectedKey == cachedKey &&
+        (!securityEnabled || hasSecurityCache) && (!androidAdsEnabled || hasAndroidAdsCache)
     fun cachedProfile(context: Context): FilterProfile {
         val key = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CACHED_PROFILE, null)
         return profiles.firstOrNull { it.key == key } ?: profiles.first()
