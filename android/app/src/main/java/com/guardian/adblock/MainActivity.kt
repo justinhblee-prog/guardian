@@ -180,10 +180,12 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
             addView(text("실시간 DNS 통계", 14f, white, true))
-            statsText = text("질의 0 · 차단 0 · 전달 0 · 실패 0", 12f, accent, true).withTop(9) as TextView
-            addView(statsText)
-            recentText = text("아직 기록된 DNS 활동이 없습니다.", 11f, muted, false).withTop(8) as TextView
-            addView(recentText)
+            val stats = text("질의 0 · 차단 0 · 전달 0 · 실패 0", 12f, accent, true).withTop(9) as TextView
+            statsText = stats
+            addView(stats)
+            val recent = text("아직 기록된 DNS 활동이 없습니다.", 11f, muted, false).withTop(8) as TextView
+            recentText = recent
+            addView(recent)
         }.withTop(12))
         body.addView(card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
