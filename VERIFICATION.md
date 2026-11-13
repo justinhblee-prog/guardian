@@ -10,7 +10,7 @@
 | DomainFilterTest | 17 |
 | Ipv4UdpTest | 6 |
 | Ipv6UdpTest | 4 |
-| ProtectionStateTest | 3 |
+| ProtectionStateTest | 5 |
 | FilterRuleParserTest | 11 |
 | DnsProbeTest | 4 |
 | FilterRuleComposerTest | 3 |
@@ -18,9 +18,9 @@
 | FilterListProfilesTest | 8 |
 | VpnConfigurationDefaultsTest | 1 |
 | VpnStartCancellationGateTest | 4 |
-| **합계** | **63** |
+| **합계** | **65** |
 
-총 11개 Kotlin 테스트 스위트 / 63개 JUnit 테스트 메서드입니다.
+총 11개 Kotlin 테스트 스위트 / 65개 JUnit 테스트 메서드입니다.
 
 ## 최신 성공 CI
 
@@ -73,18 +73,26 @@
 - Latest source CI: https://github.com/justinhblee-prog/guardian/actions/runs/43435146415
 - Source commit under test: `ea97e9482afa009f7f1bc5ff718428ce6c282ec7`
 - Android unit-test step: **success**; full workflow cleanup was still running when recorded.
-- Test inventory at this commit: 11 suites / 63 test methods.
+- Test inventory at this commit: 11 suites / 65 test methods.
 
 
 ## Latest CI verification
 
-- [GitHub Actions run 43435647740](https://github.com/justinhblee-prog/guardian/actions/runs/43436286243): **success**
+- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
 - Source commit: `da7e9fab22a38fc90e1c20739358239a5c994a0b`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
-- Inventory: 11 test suites / 63 test methods.
+- Inventory: 11 test suites / 65 test methods.
 
 
 ## UI polish verification
 
 - DNS upstream, filter profile and update interval selectors now use dark themed selected/dropdown rows consistent with the Guardian dashboard palette.
 - Status refreshes no longer retain/update detached home-screen views while the user is on other tabs.
+
+
+## Latest verification update
+
+- Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
+- Added two unit tests for this stop/start race policy.
+- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
+- Test inventory: 11 suites / 65 test methods.
