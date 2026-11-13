@@ -130,7 +130,10 @@ class GuardianVpnService : VpnService() {
             // never performs DNS resolution while the VPN is being established.
             val selectedResolver = configuredUpstreamDns()
             val selectedResolverPrefix = if (selectedResolver.contains(":")) 128 else 32
-            builder.addRoute(selectedResolver, selectedResolverPrefix)
+            val resolverAlreadyRouted = if (selectedResolverPrefix == 128) {
+                selectedResolver in KNOWN_PUBLIC_DNS_IPV6
+            } else selectedResolver in KNOWN_PUBLIC_DNS_IPV4
+            if (!resolverAlreadyRouted) builder.addRoute(selectedResolver, selectedResolverPrefix)
             getSharedPreferences(PREFS, MODE_PRIVATE)
                 .getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty()
                 .forEach { packageName ->
