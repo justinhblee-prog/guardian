@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -21,6 +22,7 @@ import android.widget.CheckBox
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import android.widget.Spinner
+import android.widget.Switch
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -37,6 +39,10 @@ class MainActivity : Activity() {
     private lateinit var statusTitle: TextView
     private lateinit var statusDot: TextView
     private var startButton: Button? = null
+    private var protectionStatusText: TextView? = null
+    private var protectionStatusDetail: TextView? = null
+    private var protectionActionButton: Button? = null
+    private var protectionFeedback: TextView? = null
     private lateinit var blockRulesInput: EditText
     private lateinit var allowRulesInput: EditText
     private var rulesFeedback: TextView? = null
@@ -134,6 +140,10 @@ class MainActivity : Activity() {
     private fun showTab(tab: String) {
         currentTab = tab
         startButton = null
+        protectionStatusText = null
+        protectionStatusDetail = null
+        protectionActionButton = null
+        protectionFeedback = null
         statsText = null
         recentText = null
         diagnosticText = null
@@ -383,15 +393,182 @@ class MainActivity : Activity() {
     }
 
     private fun buildProtection(body: LinearLayout) {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val active = ProtectionState.isActive(
+            prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+            GuardianVpnService.isTunnelActive()
+        )
         body.addView(text("보호 관리", 25f, white, true))
-        body.addView(text("Guardian의 보호 엔진과 적용 범위를 확인합니다.", 13f, muted, false).withTop(5))
-        body.addView(infoRow("DNS 보호", "광고 및 추적 도메인 질의 필터링", "활성화는 홈에서 시작", accent))
-        body.addView(infoRow("IPv4 / IPv6", "시스템 가상 DNS 기본 · 공용 DNS 직접 포착 선택형", "UDP/TCP 53", accent))
-        body.addView(infoRow("사용자 규칙", "직접 등록한 차단·허용 도메인", "필터 탭에서 관리", Color.rgb(116,167,255)))
-        body.addView(infoRow("암호화 DNS", "DoH / DoT 트래픽", "미지원", red))
-        body.addView(infoRow("앱별 보호 제외", "선택한 앱을 VPN 필터에서 제외", "설정에서 관리", accent))
-        body.addView(text("보호 범위 안내", 17f, white, true).withTop(24))
-        body.addView(text("현재 Guardian은 Android 시스템 가상 DNS로 들어오는 IPv4/IPv6 UDP 및 TCP 53번 DNS 질의를 기본 필터링합니다. 공용 DNS 직접 포착은 고급 옵션이며 IP 단위 경로로 인해 비DNS 연결에 영향을 줄 수 있어 기본 꺼져 있습니다. DoH/DoT, IPv6 확장 헤더 및 IP 조각화, 목록에 없는 DNS 주소, HTTPS 내부 광고 요소는 필터링하지 못할 수 있습니다. TCP DNS는 기본 세션·순서형 스트림을 지원하지만 패킷 손실 복구까지 구현한 완전한 TCP 스택은 아닙니다.", 13f, muted, false).withTop(8))
+        body.addView(text("실시간 DNS 보호와 주요 차단 기능을 한곳에서 관리합니다.", 13f, muted, false).withTop(5))
+
+        val control = card(panel, 20).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            addView(text("GUARDIAN PROTECTION", 10f, accent, true))
+            protectionStatusText = text(
+                if (active) "보호가 실행 중입니다" else "보호가 꺼져 있습니다",
+                21f, white, true
+            ).withTop(12) as TextView
+            addView(protectionStatusText!!)
+            protectionStatusDetail = text(
+                if (active) "시스템 DNS 질의가 Guardian 필터를 통과하고 있습니다."
+                else "보호를 시작하면 시스템 가상 DNS를 통해 필터링합니다.",
+                12f, muted, false
+            ).withTop(6) as TextView
+            addView(protectionStatusDetail!!)
+            protectionActionButton = Button(this@MainActivity).apply {
+                text = if (active) "보호 중지" else "보호 시작"
+                isAllCaps = false
+                textSize = 14f
+                setTextColor(if (active) white else bg)
+                background = shape(if (active) panel2 else accent, 13)
+                setOnClickListener {
+                    val isActive = ProtectionState.isActive(
+                        prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                        GuardianVpnService.isTunnelActive()
+                    )
+                    if (isActive) {
+                        startService(Intent(this@MainActivity, GuardianVpnService::class.java)
+                            .setAction(GuardianVpnService.ACTION_STOP))
+                    } else {
+                        requestProtection()
+                    }
+                }
+            }
+            addView(protectionActionButton!!, LinearLayout.LayoutParams(-1, dp(48)).apply {
+                topMargin = dp(14)
+            })
+        }
+        body.addView(control.withTop(18))
+
+        body.addView(text("보호 기능", 18f, white, true).withTop(24))
+        body.addView(text("필터 기능을 켜거나 끄고 업데이트 정책을 조정합니다.", 12f, muted, false).withTop(4))
+
+        val feedback = text("변경한 필터 옵션은 현재 보호 상태에 맞춰 적용됩니다.", 11f, muted, false).withTop(8) as TextView
+        protectionFeedback = feedback
+
+        body.addView(protectionSwitchCard(
+            "자동 필터 업데이트",
+            "네트워크 연결 시 설정한 주기에 따라 광고·추적 필터를 갱신합니다.",
+            prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
+        ) { checked ->
+            prefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).apply()
+            FilterUpdateScheduler.sync(this)
+            feedback.text = if (checked) "자동 업데이트를 켰습니다." else "자동 업데이트를 껐습니다."
+        }.withTop(10))
+
+        body.addView(protectionSwitchCard(
+            "악성코드 · 피싱 보호",
+            "HaGeZi Threat Intelligence 도메인 목록을 추가로 적용합니다.",
+            prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+        ) { checked ->
+            prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
+            if (checked && !FilterListManager.hasCachedSecurityList(this)) {
+                feedback.text = "보안 필터 목록을 다운로드합니다."
+                startFilterUpdate()
+            } else {
+                reloadProtectionRulesIfActive(prefs)
+                feedback.text = if (checked) "보안 필터를 활성화했습니다." else "보안 필터를 비활성화했습니다."
+            }
+        }.withTop(8))
+
+        body.addView(protectionSwitchCard(
+            "Android 앱 광고 SDK 필터",
+            "AWAvenue 목록으로 알려진 앱 광고 SDK 도메인을 추가 차단합니다. 모든 앱 내부 광고를 제거하는 기능은 아닙니다.",
+            prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+        ) { checked ->
+            prefs.edit().putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, checked).apply()
+            if (checked && !FilterListManager.hasCachedAndroidAdsList(this)) {
+                feedback.text = "Android 광고 SDK 목록을 다운로드합니다."
+                startFilterUpdate()
+            } else {
+                reloadProtectionRulesIfActive(prefs)
+                feedback.text = if (checked) "앱 광고 SDK 필터를 활성화했습니다." else "앱 광고 SDK 필터를 비활성화했습니다."
+            }
+        }.withTop(8))
+
+        body.addView(protectionSwitchCard(
+            "공용 DNS 직접 포착 · 고급",
+            "Cloudflare·Google·Quad9·AdGuard 등 알려진 DNS 서버 IP를 포착합니다. 같은 IP로 가는 비DNS 연결에도 영향을 줄 수 있어 기본값은 꺼져 있습니다.",
+            prefs.getBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, GuardianVpnService.DEFAULT_DIRECT_DNS_CAPTURE)
+        ) { checked ->
+            prefs.edit().putBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, checked).apply()
+            feedback.text = if (checked) {
+                "고급 DNS 포착 설정을 저장했습니다. 보호를 중지한 뒤 다시 시작해야 적용됩니다."
+            } else {
+                "시스템 가상 DNS만 포착하도록 설정했습니다. 보호를 중지한 뒤 다시 시작해야 적용됩니다."
+            }
+        }.withTop(8))
+        body.addView(feedback)
+
+        val profile = FilterListManager.selectedProfile(this)
+        body.addView(card(panel, 16).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("현재 필터 프로필", 11f, muted, true))
+            addView(text(profile.label, 15f, white, true).withTop(6))
+            addView(text(filterStatusDescription(), 11f, muted, false).withTop(6))
+            addView(Button(this@MainActivity).apply {
+                text = "필터 및 사용자 규칙 관리"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(panel2, 12)
+                setOnClickListener { showTab("rules") }
+            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(12) })
+            addView(Button(this@MainActivity).apply {
+                text = "앱별 보호 제외 관리"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(panel2, 12)
+                setOnClickListener { showTab("settings") }
+            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(8) })
+        }.withTop(18))
+
+        body.addView(text("현재 보호 범위", 18f, white, true).withTop(24))
+        body.addView(infoRow("DNS 프로토콜", "시스템 가상 DNS의 IPv4 / IPv6 요청", "UDP/53 · TCP/53", accent))
+        body.addView(infoRow("암호화 DNS", "앱 자체 DoH / DoT 및 DNS 우회 연결", "미지원", red))
+        body.addView(text(
+            "DNS 이외의 네트워크 트래픽은 중계하지 않습니다. IPv6 확장 헤더와 IP 조각화, HTTPS 내부 광고 요소, 앱에 직접 내장된 광고 콘텐츠는 필터링하지 못할 수 있습니다.",
+            11f, muted, false
+        ).withTop(8))
+    }
+
+    private fun protectionSwitchCard(
+        title: String,
+        description: String,
+        checked: Boolean,
+        onChanged: (Boolean) -> Unit
+    ): View {
+        val card = card(panel, 14).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+        }
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        row.addView(text(title, 13f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
+        val toggle = Switch(this).apply {
+            isChecked = checked
+            thumbTintList = ColorStateList.valueOf(accent)
+            trackTintList = ColorStateList.valueOf(panel2)
+            contentDescription = title
+            setOnCheckedChangeListener { _, enabled -> onChanged(enabled) }
+        }
+        row.addView(toggle, LinearLayout.LayoutParams(dp(58), dp(42)))
+        card.addView(row)
+        card.addView(text(description, 10f, muted, false).withTop(4))
+        return card
+    }
+
+    private fun reloadProtectionRulesIfActive(prefs: android.content.SharedPreferences) {
+        if (ProtectionState.isActive(
+                prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                GuardianVpnService.isTunnelActive()
+            )) {
+            startService(Intent(this, GuardianVpnService::class.java)
+                .setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+        }
     }
 
     private fun buildRules(body: LinearLayout) {
@@ -1002,6 +1179,21 @@ class MainActivity : Activity() {
         }
         if (currentTab == "home" && ::status.isInitialized) {
             status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
+        }
+        if (currentTab == "protection") {
+            protectionStatusText?.text = when {
+                active -> "보호가 실행 중입니다"
+                staleSession -> "보호 복구 대기 중"
+                else -> "보호가 꺼져 있습니다"
+            }
+            protectionStatusDetail?.text = message ?: if (active) {
+                "시스템 DNS 질의가 Guardian 필터를 통과하고 있습니다."
+            } else {
+                "보호를 시작하면 시스템 가상 DNS를 통해 필터링합니다."
+            }
+            protectionActionButton?.text = if (active || staleSession) "보호 중지" else "보호 시작"
+            protectionActionButton?.setTextColor(if (active || staleSession) white else bg)
+            protectionActionButton?.background = shape(if (active || staleSession) panel2 else accent, 13)
         }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
         val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
