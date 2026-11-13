@@ -119,3 +119,10 @@
 - Added IPv6 resolver presets for Cloudflare, Google, Quad9, and AdGuard DNS default/family protection.
 - Added AdGuard default IPv6 addresses to the optional direct-DNS capture route set.
 - Added IPv6 literal validation regression test; device/network IPv6 reachability remains unverified.
+
+
+## Latest IPv6 resolver verification
+- GitHub Actions: https://github.com/justinhblee-prog/guardian/actions/runs/43443209122 — **success**
+- Source commit: `f518711e559bfb8873128f82c07a1a157a5f2068`
+- Android unit tests: passed; inventory **12 suites / 68 JUnit methods**.
+- APK assembly and upload: skipped because this was a push-triggered validation run.
