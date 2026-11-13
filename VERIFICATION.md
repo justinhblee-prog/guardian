@@ -21,7 +21,7 @@
 | FilterUpdateSchedulePolicyTest | 2 |
 | **합계** | **67** |
 
-총 12개 Kotlin 테스트 스위트 / 67개 JUnit 테스트 메서드입니다.
+총 12개 Kotlin 테스트 스위트 / 68개 JUnit 테스트 메서드입니다.
 
 ## 최신 성공 CI
 
@@ -74,7 +74,7 @@
 - Latest source CI: https://github.com/justinhblee-prog/guardian/actions/runs/43435146415
 - Source commit under test: `ea97e9482afa009f7f1bc5ff718428ce6c282ec7`
 - Android unit-test step: **success**; full workflow cleanup was still running when recorded.
-- Test inventory at this commit: 12 suites / 67 test methods.
+- Test inventory at this commit: 12 suites / 68 test methods.
 
 
 ## Latest CI verification
@@ -82,7 +82,7 @@
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
 - Source commit: `57f30f68484fa4d6ef716a557efe8a75a4446407`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
-- Inventory: 12 test suites / 67 test methods.
+- Inventory: 12 test suites / 68 test methods.
 
 
 ## UI polish verification
@@ -96,7 +96,7 @@
 - Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
-- Test inventory: 12 suites / 67 test methods.
+- Test inventory: 12 suites / 68 test methods.
 
 
 ## WorkManager background refresh
@@ -104,7 +104,7 @@
 - Added WorkManager 2.12.0 periodic filter worker with connected-network constraint, user-configured 6/12/24-hour or 7-day cadence, exponential retry, and cancellation when auto-update is disabled.
 - Worker refreshes selected base list and enabled optional lists, then asks an active VPN service to reload rules.
 - Filter cache downloads are synchronized so manual and periodic workers cannot write the same temporary cache simultaneously.
-- Added two interval policy tests. Current source inventory: 12 suites / 67 test methods.
+- Added two interval policy tests. Current source inventory: 12 suites / 68 test methods.
 
 
 ## Latest WorkManager verification
@@ -112,4 +112,10 @@
 - [GitHub Actions run 43437792450](https://github.com/justinhblee-prog/guardian/actions/runs/43437792450): **success**
 - Source commit: `5d7624fd445edadb1a1ed24a482b9e2d25f07d41`
 - Android unit tests: **passed**; APK assembly was skipped because this was a push-triggered validation run.
-- Test inventory: **12 suites / 67 test methods**.
+- Test inventory: **12 suites / 68 test methods**.
+
+
+## IPv6 resolver preset coverage
+- Added IPv6 resolver presets for Cloudflare, Google, Quad9, and AdGuard DNS default/family protection.
+- Added AdGuard default IPv6 addresses to the optional direct-DNS capture route set.
+- Added IPv6 literal validation regression test; device/network IPv6 reachability remains unverified.
