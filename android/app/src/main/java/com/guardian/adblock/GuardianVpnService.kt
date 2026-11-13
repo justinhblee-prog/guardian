@@ -50,6 +50,7 @@ class GuardianVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private val running = AtomicBoolean(false)
     private val starting = AtomicBoolean(false)
+    @Volatile private var startCancelled = false
     private val lastStatsBroadcastAt = AtomicLong(0L)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -63,6 +64,7 @@ class GuardianVpnService : VpnService() {
 
     private fun startProtection() {
         if (running.get() || !starting.compareAndSet(false, true)) return
+        startCancelled = false
         try {
             startProtectionInternal()
         } finally {
@@ -90,6 +92,11 @@ class GuardianVpnService : VpnService() {
             stopSelf()
             return
         }
+        if (startCancelled) {
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+            stopSelf()
+            return
+        }
         var establishError: Exception? = null
         val descriptor = try {
             Builder()
@@ -106,6 +113,12 @@ class GuardianVpnService : VpnService() {
         } catch (e: Exception) {
             establishError = e
             null
+        }
+        if (startCancelled && descriptor != null) {
+            try { descriptor.close() } catch (_: Exception) { }
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+            stopSelf()
+            return
         }
         if (descriptor == null) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
@@ -320,6 +333,7 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun stopProtection() {
+        startCancelled = true
         tunnelActive = false
         val wasActive = running.getAndSet(false) || tun != null
         try { tun?.close() } catch (_: Exception) { }
