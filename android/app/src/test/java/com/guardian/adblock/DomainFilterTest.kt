@@ -29,6 +29,14 @@ class DomainFilterTest {
         assertFalse(DomainFilter.isBlocked("example.com"))
     }
 
+    @Test fun matchesLargeDownloadedRuleSetsByDomainSuffix() {
+        val rules = (0 until 5000).map { "block=tracker$it.example" } + "block=ads.example"
+        DomainFilter.loadRules(rules)
+        assertTrue(DomainFilter.isBlocked("cdn.ads.example"))
+        assertTrue(DomainFilter.isBlocked("tracker4999.example"))
+        assertFalse(DomainFilter.isBlocked("notads.example"))
+    }
+
     @Test fun extractsDnsQuestionName() {
         val q = intArrayOf(
             0x12,0x34,0x01,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,
