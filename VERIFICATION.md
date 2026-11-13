@@ -117,3 +117,19 @@ Latest confirmed successful CI run before the IPv4 packet-length hardening:
 - Windows live adapter/service acceptance and Windows installer remain **NOT VERIFIED / NOT BUILT**.
 
 The successful CI build proves the source at the recorded commit compiled, its configured JUnit task passed, and an APK was packaged. It does not prove runtime behavior on a physical Android device or comprehensive ad blocking.
+
+
+## Latest Android CI verification — 2026-11-13 (supersedes pending gate above)
+
+- Workflow: [43420229693](https://github.com/justinhblee-prog/guardian/actions/runs/43420229693)
+- Source commit: `d6191812b51cf97a288186901435608280bab1f8`
+- `testDebugUnitTest assembleDebug`: **PASS**
+- APK checksum verification step: **PASS**
+- Artifact upload: **PASS**, artifact ID `14034125411`
+- Artifact ZIP size: 839,169 bytes; ZIP integrity test: **PASS**
+- APK size: 845,986 bytes
+- APK SHA-256: `c17a91a518e39e9ec9681c8cb90d645f589ebbbb0276152299299d5c321bfff9`
+
+The IPv4 length hardening and its regression tests are now included in a successful CI-built APK. The test covers caller length beyond the backing buffer, trailing bytes beyond the IPv4 total length, and a valid packet with IPv4 options.
+
+Physical-device acceptance and Windows validation remain outstanding.
