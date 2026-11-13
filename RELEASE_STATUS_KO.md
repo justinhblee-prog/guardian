@@ -63,3 +63,11 @@
 - 현재 테스트는 실제 네트워크 경로라고 주장하지 않고 활성 차단 규칙 매칭, NXDOMAIN 생성, 정상 도메인 비차단을 확인합니다.
 - VPN 서비스는 `START_STICKY` 및 persisted-active 확인을 통해 OS 프로세스 회수 후 재생성 시 보호를 복구하도록 변경했습니다. 사용자가 중지한 상태는 복구하지 않습니다.
 - 최신 테스트 인벤토리: 11개 suite / 63개 메서드. 실기기 복구 안정성은 아직 미검증입니다.
+
+
+## Latest CI verification
+
+- [GitHub Actions run 43435647740](https://github.com/justinhblee-prog/guardian/actions/runs/43435647740): **success**
+- Source commit: `592a19d10d6e5b989112d37050425f3c94206e2c`
+- Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
+- Inventory: 11 test suites / 63 test methods.
