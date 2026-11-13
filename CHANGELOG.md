@@ -231,4 +231,8 @@
 - Added AdGuard default IPv6 addresses to optional direct-DNS capture routes and IPv6 validation regression coverage.
 - [CI run 43443209122](https://github.com/justinhblee-prog/guardian/actions/runs/43443209122) passed on `f518711e559bfb8873128f82c07a1a157a5f2068`; 12 suites / 68 methods.
 - APK build intentionally skipped on push.
-\n\n## 2026-11-13 — Continuous Android build verification\n- Every push now runs Android unit tests and assembles the debug APK, then verifies package ID, versionCode/versionName, file presence, and SHA-256.\n- Push builds remain internal CI checks; only a manual release dispatch uploads the installable APK artifact.\n
+
+
+## 2026-11-13 — Continuous Android build verification
+- Every push now runs Android unit tests and assembles the debug APK, then verifies package ID, versionCode/versionName, file presence, and SHA-256.
+- Push builds remain internal CI checks; only a manual release dispatch uploads the installable APK artifact.
