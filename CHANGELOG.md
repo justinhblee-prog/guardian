@@ -152,3 +152,7 @@
 - Moved large filter parsing and reload work off the VPN service main thread.
 - Changed push CI to run tests only; final APK packaging is gated behind a manual release workflow.
 - Physical-device verification and final APK are intentionally pending.
+
+
+### 0.7.0-dev 추가 변경
+- 앱 제외 검색, 업데이트 주기 선택, 커스텀 DNS 라우트, 필터 준비 확인을 추가했습니다.
