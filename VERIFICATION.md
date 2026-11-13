@@ -21,9 +21,9 @@
 | DnsProbeTest | 2 |
 | FilterRuleComposerTest | 2 |
 | DnsAddressValidatorTest | 2 |
-| FilterListProfilesTest | 4 |
-| VpnStartCancellationGateTest | 2 |
-| Total | 49 |
+| FilterListProfilesTest | 5 |
+| VpnStartCancellationGateTest | 4 |
+| Total | 52 |
 
 ## Covered areas
 
@@ -121,3 +121,12 @@ This validates source compilation and unit tests only. It does not verify the An
 - Filter profile metadata is synchronously committed after atomic cache replacement so a successful update is not reported before its selected-profile marker is persisted.
 - Added regression coverage for security enabled/disabled and cache present/missing.
 - Latest known source test inventory: 10 suites / 50 test methods (subject to repository inventory reconciliation); latest CI result pending.
+
+
+## Atomic VPN activation and security-list gate — CI pending
+
+- Final TUN descriptor activation is now serialized with stop/revoke cancellation; a stop cannot land between the last cancellation check and publishing the active tunnel state.
+- Cancellation gate tests now cover early stop, restart, cancelled commit rejection, and stop-after-commit ordering.
+- Protection start also requires the selected security filter cache when the security option is enabled.
+- Filter profile metadata is synchronously committed after successful atomic cache replacement.
+- Current source inventory: 10 suites / 52 test methods. Latest CI pending.
