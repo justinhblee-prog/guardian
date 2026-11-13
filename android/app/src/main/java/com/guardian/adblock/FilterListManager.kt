@@ -29,6 +29,7 @@ object FilterListManager {
     const val KEY_AUTO_UPDATE = "filter_auto_update"
     const val KEY_UPDATE_INTERVAL_MS = "filter_update_interval_ms"
     const val KEY_LAST_ERROR = "filter_list_last_error"
+    const val KEY_SECURITY_LAST_ERROR = "security_filter_last_error"
     const val KEY_SECURITY_ENABLED = "security_filter_enabled"
 
     data class UpdateResult(val blocked: Int, val allowed: Int, val ignored: Int, val bytes: Int, val updatedAt: Long)
