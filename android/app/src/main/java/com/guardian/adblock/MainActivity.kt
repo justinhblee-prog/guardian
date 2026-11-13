@@ -23,6 +23,7 @@ import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import android.widget.Spinner
 import android.widget.Switch
+import androidx.core.content.ContextCompat
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -107,8 +108,7 @@ class MainActivity : Activity() {
         val filter = IntentFilter(GuardianVpnService.ACTION_STATUS_CHANGED).apply {
             addAction(FilterUpdateWorker.ACTION_FILTERS_CHANGED)
         }
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        else @Suppress("DEPRECATION") registerReceiver(stateReceiver, filter)
+        ContextCompat.registerReceiver(this, stateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
         refreshStatus()
         // A filter update may finish while this Activity is stopped, when its
