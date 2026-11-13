@@ -29,6 +29,14 @@ class DomainFilterTest {
         assertFalse(DomainFilter.isBlocked("example.com"))
     }
 
+    @Test fun normalizesUppercaseDnsQuestionNamesWithRootLocale() {
+        val query = DnsProbe.buildQuery("doubleclick.net").also {
+            for (i in 13 until 24) it[i] = (it[i].toInt() - 32).toByte()
+            for (i in 25 until 28) it[i] = (it[i].toInt() - 32).toByte()
+        }
+        assertEquals("doubleclick.net", DomainFilter.readQuestionName(query))
+    }
+
     @Test fun matchesLargeDownloadedRuleSetsByDomainSuffix() {
         val rules = (0 until 5000).map { "block=tracker$it.example" } + "block=ads.example"
         DomainFilter.loadRules(rules)
