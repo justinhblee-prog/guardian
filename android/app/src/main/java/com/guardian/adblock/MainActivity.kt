@@ -374,12 +374,12 @@ class MainActivity : Activity() {
         body.addView(text("보호 관리", 25f, white, true))
         body.addView(text("Guardian의 보호 엔진과 적용 범위를 확인합니다.", 13f, muted, false).withTop(5))
         body.addView(infoRow("DNS 보호", "광고 및 추적 도메인 질의 필터링", "활성화는 홈에서 시작", accent))
-        body.addView(infoRow("IPv4 / IPv6", "가상 DNS + 주요 공용 DNS 주소", "UDP/53", accent))
+        body.addView(infoRow("IPv4 / IPv6", "시스템 가상 DNS 기본 · 공용 DNS 직접 포착 선택형", "UDP/53", accent))
         body.addView(infoRow("사용자 규칙", "직접 등록한 차단·허용 도메인", "필터 탭에서 관리", Color.rgb(116,167,255)))
         body.addView(infoRow("암호화 DNS", "DoH / DoT 트래픽", "미지원", red))
         body.addView(infoRow("앱별 보호 제외", "선택한 앱을 VPN 필터에서 제외", "설정에서 관리", accent))
         body.addView(text("보호 범위 안내", 17f, white, true).withTop(24))
-        body.addView(text("현재 Guardian은 Android 가상 DNS와 주요 공용 DNS 주소로 향하는 IPv4/IPv6 UDP 53번 질의를 로컬 VPN으로 전달해 필터링합니다. DoH/DoT, TCP DNS, 목록에 없는 DNS 주소, HTTPS 내부 광고 요소는 필터링하지 못할 수 있습니다.", 13f, muted, false).withTop(8))
+        body.addView(text("현재 Guardian은 Android 시스템 가상 DNS로 들어오는 IPv4/IPv6 UDP 53번 질의를 기본 필터링합니다. 공용 DNS 직접 포착은 고급 옵션이며 IP 단위 경로로 인해 비DNS 연결에 영향을 줄 수 있어 기본 꺼져 있습니다. DoH/DoT, TCP DNS, 목록에 없는 DNS 주소, HTTPS 내부 광고 요소는 필터링하지 못할 수 있습니다.", 13f, muted, false).withTop(8))
     }
 
     private fun buildRules(body: LinearLayout) {
