@@ -314,7 +314,7 @@ class MainActivity : Activity() {
         body.addView(text("Guardian의 보호 엔진과 적용 범위를 확인합니다.", 13f, muted, false).withTop(5))
         body.addView(infoRow("DNS 보호", "광고 및 추적 도메인 질의 필터링", "활성화는 홈에서 시작", accent))
         body.addView(infoRow("IPv4 / IPv6", "가상 DNS + 주요 공용 DNS 주소", "UDP/53", accent))
-        body.addView(infoRow("사용자 규칙", "직접 등록한 차단·허용 도메인", "규칙 탭에서 관리", Color.rgb(116,167,255)))
+        body.addView(infoRow("사용자 규칙", "직접 등록한 차단·허용 도메인", "필터 탭에서 관리", Color.rgb(116,167,255)))
         body.addView(infoRow("암호화 DNS", "DoH / DoT 트래픽", "미지원", red))
         body.addView(infoRow("앱별 보호 제외", "선택한 앱을 VPN 필터에서 제외", "설정에서 관리", accent))
         body.addView(text("보호 범위 안내", 17f, white, true).withTop(24))
@@ -323,8 +323,26 @@ class MainActivity : Activity() {
 
     private fun buildRules(body: LinearLayout) {
         body.addView(text("필터 및 규칙", 25f, white, true))
-        body.addView(text("나만의 차단 및 허용 도메인을 관리합니다.", 13f, muted, false).withTop(5))
-        body.addView(text("차단 도메인", 16f, white, true).withTop(22))
+        body.addView(text("활성 필터 목록과 나만의 차단·허용 규칙을 관리합니다.", 13f, muted, false).withTop(5))
+        val officialFilterCard = card(panel, 16).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("ADGUARD DNS FILTER", 10f, accent, true))
+            addView(text("광고 · 모바일 광고 · 추적 도메인", 14f, white, true).withTop(7))
+            filterStatusText = text(filterStatusDescription(), 11f, muted, false).withTop(7) as TextView
+            addView(filterStatusText!!)
+            filterUpdateButton = Button(this@MainActivity).apply {
+                text = "필터 목록 업데이트"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 12)
+                setOnClickListener { startFilterUpdate() }
+            }
+            addView(filterUpdateButton!!, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+        }
+        body.addView(officialFilterCard.withTop(18))
+        body.addView(text("사용자 규칙", 16f, white, true).withTop(22))
+        body.addView(text("차단 도메인", 14f, white, true).withTop(12))
         body.addView(text("도메인 하나를 한 줄에 입력하세요. 하위 도메인도 함께 차단됩니다.", 12f, muted, false).withTop(5))
         blockRulesInput = domainEditor("ads.example.com\ntracker.example.net")
         body.addView(blockRulesInput, editorHeight().apply { topMargin = dp(10) })
