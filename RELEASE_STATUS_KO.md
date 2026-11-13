@@ -90,3 +90,11 @@
 ## 백그라운드 필터 업데이트
 
 WorkManager 2.12.0을 사용해 6/12/24시간 또는 7일 주기의 네트워크 연결 조건부 필터 갱신을 추가했습니다. 자동 업데이트 비활성화 시 예약 작업을 취소하며, 기본/활성화된 선택 필터를 검증·갱신합니다. 업데이트 중인 캐시 파일은 수동/백그라운드 작업 간 동시 교체되지 않도록 직렬화했습니다. 주기 설정 정책 단위 테스트 2개를 추가했습니다.
+
+
+## Latest WorkManager verification
+
+- [GitHub Actions run 43437792450](https://github.com/justinhblee-prog/guardian/actions/runs/43437792450): **success**
+- Source commit: `5d7624fd445edadb1a1ed24a482b9e2d25f07d41`
+- Android unit tests: **passed**; APK assembly was skipped because this was a push-triggered validation run.
+- Test inventory: **12 suites / 67 test methods**.
