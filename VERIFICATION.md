@@ -90,3 +90,30 @@ When an unblocked DNS query cannot obtain a validated upstream UDP answer, Andro
 - Mandatory IPv6 UDP checksum is validated on ingress and generated on responses.
 - Upstream UDP truncation triggers a protected TCP/53 retry to `1.1.1.1`; response length and DNS transaction/question are validated.
 - Client-originated TCP DNS interception remains unsupported. This release is not production-certified.
+
+## Android CI verification update — 2026-11-13
+
+Latest confirmed successful CI run before the IPv4 packet-length hardening:
+- Workflow run: [43419311161](https://github.com/justinhblee-prog/guardian/actions/runs/43419311161)
+- Tested commit: `ccc5beba3ae8658733ca215708a77115158d78f1`
+- Gradle: `testDebugUnitTest assembleDebug` — **BUILD SUCCESSFUL**
+- APK packaging and artifact upload — **PASS**
+- APK SHA-256: `40593421ba6b8fdf62fd41225a4c8055266da89bd5b17f56eb416085afb85178`
+- The JUnit task completed successfully; this report does not infer a test count from the task summary.
+
+### Current Android implementation scope
+- IPv4 UDP/53 and IPv6 UDP/53 DNS packet parsing through Android `VpnService`.
+- IPv6 UDP checksum validation and response checksum generation.
+- DNS filtering with shared and user-managed block/allow rules; allow rules take precedence.
+- Validated upstream UDP response matching and TCP/53 retry when the upstream UDP reply has TC set.
+- SERVFAIL response for a valid unblocked query when upstream resolution fails.
+- DNS counters and recent activity persisted locally; UI broadcasts are coalesced.
+- IPv4 fragmentation, IPv6 extension headers/fragments, and client-originated TCP DNS interception are unsupported.
+- DoH/DoT traffic is not filtered; the bundled blocklist is a small development baseline.
+
+### Outstanding acceptance gates
+- The IPv4 TUN packet-length consistency hardening added after commit `ccc5beba` requires its own CI run before it is included in a verified APK.
+- Android physical-device installation, VPN permission/start/stop, IPv4/IPv6 DNS behavior, network switching, and real-world blocking remain **NOT VERIFIED**.
+- Windows live adapter/service acceptance and Windows installer remain **NOT VERIFIED / NOT BUILT**.
+
+The successful CI build proves the source at the recorded commit compiled, its configured JUnit task passed, and an APK was packaged. It does not prove runtime behavior on a physical Android device or comprehensive ad blocking.
