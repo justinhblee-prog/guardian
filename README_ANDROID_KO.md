@@ -40,3 +40,5 @@ APK 경로: `android/app/build/outputs/apk/debug/app-debug.apk`
 ## 설치
 Debug APK를 Android 기기로 복사한 후 설치합니다. 출처를 알 수 없는 앱 설치 허용이 필요할 수 있습니다.
 앱 실행 → 보호 시작 → Android VPN 연결 승인.
+
+추가 개선: 앱 제외 검색, 필터 자동 업데이트 주기 선택, 사용자 지정 DNS 라우트, 공식 필터 준비 상태 확인.
