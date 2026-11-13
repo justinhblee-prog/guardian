@@ -51,6 +51,8 @@ class MainActivity : Activity() {
     private var recentText: TextView? = null
     private var diagnosticText: TextView? = null
     private var selfTestText: TextView? = null
+    private var upstreamTestText: TextView? = null
+    private var upstreamTestButton: Button? = null
     private var filterStatusText: TextView? = null
     private var filterUpdateButton: Button? = null
     private var appFilterFeedback: TextView? = null
@@ -64,8 +66,13 @@ class MainActivity : Activity() {
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             refreshStatus()
-            if (intent?.action == FilterUpdateWorker.ACTION_FILTERS_CHANGED) {
-                filterStatusText?.text = filterStatusDescription()
+            when (intent?.action) {
+                FilterUpdateWorker.ACTION_FILTERS_CHANGED -> filterStatusText?.text = filterStatusDescription()
+                GuardianVpnService.ACTION_UPSTREAM_TEST_RESULT -> {
+                    upstreamTestText?.text = upstreamTestDescription()
+                    upstreamTestButton?.isEnabled = true
+                    upstreamTestButton?.text = "업스트림 연결 테스트"
+                }
             }
         }
     }
@@ -107,6 +114,7 @@ class MainActivity : Activity() {
         super.onStart()
         val filter = IntentFilter(GuardianVpnService.ACTION_STATUS_CHANGED).apply {
             addAction(FilterUpdateWorker.ACTION_FILTERS_CHANGED)
+            addAction(GuardianVpnService.ACTION_UPSTREAM_TEST_RESULT)
         }
         ContextCompat.registerReceiver(this, stateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
@@ -115,6 +123,7 @@ class MainActivity : Activity() {
         // package-scoped broadcast receiver is not registered. Re-read persisted
         // cache metadata whenever the screen becomes visible again.
         filterStatusText?.text = filterStatusDescription()
+        upstreamTestText?.text = upstreamTestDescription()
     }
 
     override fun onStop() {
@@ -148,6 +157,8 @@ class MainActivity : Activity() {
         recentText = null
         diagnosticText = null
         selfTestText = null
+        upstreamTestText = null
+        upstreamTestButton = null
         rulesFeedback = null
         filterStatusText = null
         filterUpdateButton = null
@@ -356,6 +367,28 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
         selfTestText = text("VPN 내부 규칙 엔진을 검사합니다. 실기기 네트워크 경로 검증은 별도입니다.", 11f, muted, false).withTop(8) as TextView
         body.addView(selfTestText!!)
+        upstreamTestButton = Button(this).apply {
+            text = "업스트림 연결 테스트"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 12)
+            setOnClickListener {
+                isEnabled = false
+                text = "연결 확인 중..."
+                upstreamTestText?.text = "선택한 DNS 서버와 전송 방식으로 실제 질의를 보내 연결을 확인합니다."
+                try {
+                    startService(Intent(this@MainActivity, GuardianVpnService::class.java)
+                        .setAction(GuardianVpnService.ACTION_TEST_UPSTREAM))
+                } catch (e: Exception) {
+                    isEnabled = true
+                    text = "업스트림 연결 테스트"
+                    upstreamTestText?.text = "테스트 시작 실패: " + e.javaClass.simpleName
+                }
+            }
+        }
+        body.addView(upstreamTestButton!!, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(14) })
+        upstreamTestText = text(upstreamTestDescription(), 11f, muted, false).withTop(8) as TextView
+        body.addView(upstreamTestText!!)
         body.addView(Button(this).apply {
             text = "활동 기록 초기화"
             isAllCaps = false
@@ -390,6 +423,23 @@ class MainActivity : Activity() {
         ).withTop(12) as TextView
         body.addView(diagnosticText!!)
         body.addView(text("이 화면은 DNS 암호화 또는 VPN 우회 트래픽을 집계하지 않습니다.", 11f, muted, false).withTop(14))
+    }
+
+    private fun upstreamTestDescription(): String {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val testedAt = prefs.getLong(GuardianVpnService.KEY_UPSTREAM_TEST_AT, 0L)
+        if (testedAt <= 0L) return "선택한 DNS 서버와 전송 방식으로 실제 질의를 보내 연결을 확인합니다."
+        val success = prefs.getBoolean(GuardianVpnService.KEY_UPSTREAM_TEST_SUCCESS, false)
+        val latency = prefs.getLong(GuardianVpnService.KEY_UPSTREAM_TEST_LATENCY_MS, 0L)
+        val transport = when (prefs.getString(GuardianVpnService.KEY_UPSTREAM_TEST_TRANSPORT, "udp")) {
+            "tcp" -> "TCP/53"
+            "dot" -> "DNS-over-TLS/853"
+            "doh" -> "DNS-over-HTTPS/443"
+            else -> "UDP/53"
+        }
+        val time = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault()).format(Date(testedAt))
+        return if (success) "연결 성공 · $transport · " + latency + "ms · $time"
+        else "연결 실패 · $transport · 서버 주소, 네트워크 또는 TLS 호스트 설정을 확인하세요 · $time"
     }
 
     private fun buildProtection(body: LinearLayout) {
