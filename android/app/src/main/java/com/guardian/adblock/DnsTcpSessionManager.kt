@@ -103,6 +103,14 @@ class DnsTcpSessionManager(
             val remainder = buffered.copyOfRange(offset, buffered.size)
             session.received.reset()
             session.received.write(remainder)
+            if (tcp.fin) {
+                session.clientNext = (session.clientNext + 1L) and MASK
+                replies.add(DnsTcpPacket.response(tcp, session.serverNext,
+                    session.clientNext, DnsTcpPacket.FIN or DnsTcpPacket.ACK))
+                session.serverNext = (session.serverNext + 1L) and MASK
+                sessions.remove(key)
+                return replies
+            }
             if (replies.isEmpty()) replies.add(ack(tcp, session))
             return replies
         }
