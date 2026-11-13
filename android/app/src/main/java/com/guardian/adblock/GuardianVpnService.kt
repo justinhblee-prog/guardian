@@ -14,6 +14,10 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.Socket
+import java.net.InetSocketAddress
+import javax.net.ssl.SNIHostName
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
@@ -43,6 +47,10 @@ class GuardianVpnService : VpnService() {
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
         private const val MAX_UDP_DNS_RESPONSE_BYTES = 1232
         const val KEY_UPSTREAM_DNS = "upstream_dns"
+        const val KEY_UPSTREAM_TRANSPORT = "upstream_transport"
+        const val KEY_UPSTREAM_TLS_HOST = "upstream_tls_host"
+        const val DEFAULT_UPSTREAM_TRANSPORT = "udp"
+        const val DEFAULT_UPSTREAM_TLS_HOST = "cloudflare-dns.com"
         const val KEY_EXCLUDED_APPS = "excluded_apps"
         const val KEY_DIRECT_DNS_CAPTURE = "direct_dns_capture"
         const val DEFAULT_DIRECT_DNS_CAPTURE = false
@@ -418,7 +426,22 @@ class GuardianVpnService : VpnService() {
                 .getString(KEY_UPSTREAM_DNS, DEFAULT_UPSTREAM_DNS).orEmpty()
         ) ?: DEFAULT_UPSTREAM_DNS
 
+    private fun configuredUpstreamTransport(): String {
+        val value = getSharedPreferences(PREFS, MODE_PRIVATE)
+            .getString(KEY_UPSTREAM_TRANSPORT, DEFAULT_UPSTREAM_TRANSPORT)
+        return value?.takeIf { it == "udp" || it == "tcp" || it == "dot" } ?: DEFAULT_UPSTREAM_TRANSPORT
+    }
+
+    private fun configuredUpstreamTlsHost(): String =
+        getSharedPreferences(PREFS, MODE_PRIVATE)
+            .getString(KEY_UPSTREAM_TLS_HOST, DEFAULT_UPSTREAM_TLS_HOST)
+            ?: DEFAULT_UPSTREAM_TLS_HOST
+
     private fun forwardDns(query: ByteArray): ByteArray? {
+        when (configuredUpstreamTransport()) {
+            "tcp" -> return forwardDnsTcp(query)
+            "dot" -> return forwardDnsOverTls(query)
+        }
         var socket: DatagramSocket? = null
         return try {
             socket = DatagramSocket()
@@ -455,6 +478,41 @@ class GuardianVpnService : VpnService() {
             output.write(query)
             output.flush()
             val input = DataInputStream(socket.getInputStream())
+            val length = input.readUnsignedShort()
+            if (length !in 17..4096) return null
+            val answer = ByteArray(length)
+            input.readFully(answer)
+            if (DomainFilter.isMatchingResponse(query, answer)) answer else null
+        } catch (_: Exception) {
+            null
+        } finally {
+            try { socket?.close() } catch (_: Exception) { }
+        }
+    }
+
+    private fun forwardDnsOverTls(query: ByteArray): ByteArray? {
+        if (query.size !in 17..4096) return null
+        val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
+        var socket: SSLSocket? = null
+        return try {
+            val address = InetAddress.getByName(configuredUpstreamDns())
+            val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
+            socket = factory.createSocket() as SSLSocket
+            if (!protect(socket)) return null
+            socket.connect(InetSocketAddress(address, 853), 3500)
+            socket.soTimeout = 3500
+            val parameters = socket.sslParameters
+            parameters.endpointIdentificationAlgorithm = "HTTPS"
+            parameters.serverNames = listOf(SNIHostName(tlsHost))
+            socket.sslParameters = parameters
+            socket.startHandshake()
+
+            val output = DataOutputStream(socket.outputStream)
+            output.writeShort(query.size)
+            output.write(query)
+            output.flush()
+
+            val input = DataInputStream(socket.inputStream)
             val length = input.readUnsignedShort()
             if (length !in 17..4096) return null
             val answer = ByteArray(length)

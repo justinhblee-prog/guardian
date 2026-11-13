@@ -638,6 +638,7 @@ class MainActivity : Activity() {
         )
         val currentDns = dnsPrefs.getString(GuardianVpnService.KEY_UPSTREAM_DNS, GuardianVpnService.DEFAULT_UPSTREAM_DNS)
             ?: GuardianVpnService.DEFAULT_UPSTREAM_DNS
+        var tlsHostInput: EditText? = null
         val dnsOptions = knownDnsOptions.toMutableList()
         if (knownDnsOptions.none { it.second == currentDns }) {
             dnsOptions.add(0, "사용자 지정 · $currentDns" to currentDns)
@@ -654,6 +655,10 @@ class MainActivity : Activity() {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_DNS, dnsOptions[position].second).apply()
+                defaultTlsHostForDns(dnsOptions[position].second)?.let { host ->
+                    dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, host).apply()
+                    tlsHostInput?.setText(host)
+                }
                 if (ProtectionState.isActive(
                         dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
                         GuardianVpnService.isTunnelActive()
@@ -666,6 +671,103 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(5), dp(12), dp(5))
             addView(dnsSpinner)
         }.withTop(10))
+        val transportOptions = listOf(
+            "UDP · 일반 DNS/53" to "udp",
+            "TCP · DNS/53" to "tcp",
+            "DNS-over-TLS · 암호화/853" to "dot"
+        )
+        val currentTransport = dnsPrefs.getString(
+            GuardianVpnService.KEY_UPSTREAM_TRANSPORT,
+            GuardianVpnService.DEFAULT_UPSTREAM_TRANSPORT
+        ) ?: GuardianVpnService.DEFAULT_UPSTREAM_TRANSPORT
+        val transportSpinner = Spinner(this).apply {
+            background = shape(panel2, 12)
+            setPadding(dp(8), dp(3), dp(8), dp(3))
+            setPopupBackgroundDrawable(shape(panel, 12))
+            adapter = darkSpinnerAdapter(transportOptions.map { it.first })
+            setSelection(transportOptions.indexOfFirst { it.second == currentTransport }.coerceAtLeast(0))
+        }
+        body.addView(text("업스트림 전송 방식", 15f, white, true).withTop(16))
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(12), dp(5), dp(12), dp(5))
+            addView(transportSpinner)
+        }.withTop(8))
+
+        val currentTlsHost = dnsPrefs.getString(
+            GuardianVpnService.KEY_UPSTREAM_TLS_HOST,
+            defaultTlsHostForDns(currentDns) ?: GuardianVpnService.DEFAULT_UPSTREAM_TLS_HOST
+        ) ?: GuardianVpnService.DEFAULT_UPSTREAM_TLS_HOST
+        tlsHostInput = EditText(this).apply {
+            hint = "TLS 인증서 호스트 이름 (예: cloudflare-dns.com)"
+            setHintTextColor(muted)
+            setTextColor(white)
+            textSize = 13f
+            setSingleLine(true)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setPadding(dp(13), dp(12), dp(13), dp(12))
+            background = shape(panel2, 12)
+            setText(currentTlsHost)
+            visibility = if (currentTransport == "dot") View.VISIBLE else View.GONE
+        }
+        body.addView(tlsHostInput!!, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+        val tlsHostFeedback = text(
+            "DoT는 TLS 인증서와 호스트 이름을 검증합니다. 사용자 지정 DNS IP를 선택했다면 해당 IP에 맞는 인증서 호스트를 입력하세요.",
+            10f, muted, false
+        ).withTop(6) as TextView
+        tlsHostFeedback.visibility = if (currentTransport == "dot") View.VISIBLE else View.GONE
+        body.addView(tlsHostFeedback)
+        val tlsHostSaveButton = Button(this).apply {
+            text = "TLS 호스트 저장"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 12)
+            visibility = if (currentTransport == "dot") View.VISIBLE else View.GONE
+            setOnClickListener {
+                val normalized = DnsTlsHostValidator.normalize(tlsHostInput?.text?.toString().orEmpty())
+                if (normalized == null) {
+                    tlsHostFeedback.text = "올바른 DNS 호스트 이름을 입력하세요. IP 주소나 밑줄은 사용할 수 없습니다."
+                    tlsHostFeedback.setTextColor(red)
+                } else {
+                    dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, normalized).apply()
+                    tlsHostInput?.setText(normalized)
+                    tlsHostFeedback.text = "TLS 인증서 호스트 저장 완료: $normalized"
+                    tlsHostFeedback.setTextColor(accent)
+                    if (ProtectionState.isActive(
+                            dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                            GuardianVpnService.isTunnelActive()
+                        )) {
+                        startService(Intent(this@MainActivity, GuardianVpnService::class.java)
+                            .setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                    }
+                }
+            }
+        }
+        body.addView(tlsHostSaveButton, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(8) })
+        transportSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val mode = transportOptions[position].second
+                val previous = dnsPrefs.getString(
+                    GuardianVpnService.KEY_UPSTREAM_TRANSPORT,
+                    GuardianVpnService.DEFAULT_UPSTREAM_TRANSPORT
+                )
+                if (previous != mode) {
+                    dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TRANSPORT, mode).apply()
+                    val showTls = mode == "dot"
+                    tlsHostInput?.visibility = if (showTls) View.VISIBLE else View.GONE
+                    tlsHostFeedback.visibility = if (showTls) View.VISIBLE else View.GONE
+                    tlsHostSaveButton.visibility = if (showTls) View.VISIBLE else View.GONE
+                    if (ProtectionState.isActive(
+                            dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                            GuardianVpnService.isTunnelActive()
+                        )) {
+                        startService(Intent(this@MainActivity, GuardianVpnService::class.java)
+                            .setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                    }
+                }
+            }
+        }
+
         body.addView(text(
             "시스템 가상 DNS의 업스트림은 즉시 변경됩니다. 공용 DNS 직접 포착을 사용하는 경우 새 서버 경로는 보호를 중지하고 다시 시작해야 적용됩니다.",
             10f, muted, false
@@ -696,6 +798,10 @@ class MainActivity : Activity() {
                     customDnsFeedback.setTextColor(red)
                 } else {
                     dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_DNS, normalized).apply()
+                    defaultTlsHostForDns(normalized)?.let { host ->
+                        dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, host).apply()
+                        tlsHostInput?.setText(host)
+                    }
                     var index = dnsOptions.indexOfFirst { it.second == normalized }
                     if (index < 0) {
                         dnsOptions.add(0, "사용자 지정 · $normalized" to normalized)
@@ -713,7 +819,16 @@ class MainActivity : Activity() {
         body.addView(text("앱별 보호 제외", 18f, white, true).withTop(24))
         body.addView(text("선택한 앱은 Guardian VPN 필터링에서 제외됩니다. 변경 사항은 보호를 다시 시작하면 적용됩니다.", 12f, muted, false).withTop(5))
         buildAppExclusions(body)
-        body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 앱 내부 광고, DoH/DoT, IPv6 확장 헤더·IP 조각화, 목록에 없는 사용자 지정 DNS 서버는 별도 지원이 필요합니다.", 12f, muted, false).withTop(14))
+        body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP 또는 DNS-over-TLS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
+    }
+
+    private fun defaultTlsHostForDns(address: String): String? = when (address.lowercase()) {
+        "1.1.1.1", "1.0.0.1", "2606:4700:4700::1111", "2606:4700:4700::1001" -> "cloudflare-dns.com"
+        "8.8.8.8", "8.8.4.4", "2001:4860:4860::8888", "2001:4860:4860::8844" -> "dns.google"
+        "9.9.9.9", "149.112.112.112", "2620:fe::fe", "2620:fe::9" -> "dns.quad9.net"
+        "94.140.14.14", "94.140.15.15", "2a10:50c0::ad1:ff", "2a10:50c0::ad2:ff" -> "dns.adguard-dns.com"
+        "94.140.14.15", "94.140.15.16", "2a10:50c0::bad1:ff", "2a10:50c0::bad2:ff" -> "family.dns.adguard.com"
+        else -> null
     }
 
     private fun bottomNav(selected: String): View {
