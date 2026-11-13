@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.6.4-dev
+# Guardian AdBlock Android 0.6.5-dev
 
 ## 포함된 기능
 - Android `VpnService` 기반 로컬 DNS 필터링
