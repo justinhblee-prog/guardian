@@ -93,7 +93,7 @@ Android가 메모리 회수로 VPN 서비스 프로세스를 종료한 뒤 stick
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
 - Source commit: `57f30f68484fa4d6ef716a557efe8a75a4446407`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
-- Inventory: 11 test suites / 65 test methods.
+- Inventory: 12 test suites / 67 test methods.
 
 CI cancels superseded runs within the same branch so rapid pushes do not accumulate redundant builds.
 
@@ -109,7 +109,7 @@ CI cancels superseded runs within the same branch so rapid pushes do not accumul
 - Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
-- Test inventory: 11 suites / 65 test methods.
+- Test inventory: 12 suites / 67 test methods.
 
 
 백그라운드 업데이트는 WorkManager 2.12.0의 네트워크 제약 주기 작업을 사용합니다. 자동 업데이트를 끄면 예약을 취소하며, 수동/백그라운드 캐시 다운로드는 직렬화됩니다.
