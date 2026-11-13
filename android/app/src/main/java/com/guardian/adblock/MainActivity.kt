@@ -708,21 +708,21 @@ class MainActivity : Activity() {
             setPadding(dp(13), dp(12), dp(13), dp(12))
             background = shape(panel2, 12)
             setText(currentTlsHost)
-            visibility = if (currentTransport == "dot") View.VISIBLE else View.GONE
+            visibility = if (currentTransport == "dot" || currentTransport == "doh") View.VISIBLE else View.GONE
         }
         body.addView(tlsHostInput!!, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
         val tlsHostFeedback = text(
             "DoT/DoH는 TLS 인증서와 호스트 이름을 검증합니다. 사용자 지정 DNS IP를 선택했다면 해당 IP에 맞는 인증서 호스트를 입력하세요.",
             10f, muted, false
         ).withTop(6) as TextView
-        tlsHostFeedback.visibility = if (currentTransport == "dot") View.VISIBLE else View.GONE
+        tlsHostFeedback.visibility = if (currentTransport == "dot" || currentTransport == "doh") View.VISIBLE else View.GONE
         body.addView(tlsHostFeedback)
         val tlsHostSaveButton = Button(this).apply {
             text = "TLS 호스트 저장"
             isAllCaps = false
             setTextColor(white)
             background = shape(panel2, 12)
-            visibility = if (currentTransport == "dot") View.VISIBLE else View.GONE
+            visibility = if (currentTransport == "dot" || currentTransport == "doh") View.VISIBLE else View.GONE
             setOnClickListener {
                 val normalized = DnsTlsHostValidator.normalize(tlsHostInput?.text?.toString().orEmpty())
                 if (normalized == null) {
