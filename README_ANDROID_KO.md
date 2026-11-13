@@ -153,3 +153,9 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - [GitHub Actions run 43452443314](https://github.com/justinhblee-prog/guardian/actions/runs/43452443314): **success**, 14개 테스트 스위트 / 86개 테스트 메서드.
 - 이 push CI는 versionCode 15 / 0.7.2-dev APK를 조립·식별·SHA-256 검증했지만 artifact 업로드는 생략했습니다. 기존 배포 artifact는 이 TCP/53 변경 이전 빌드입니다.
 - 실기기에서 Android resolver가 TCP/53으로 재시도하는지 및 실제 DNS 응답 경로는 아직 검증되지 않았습니다.
+
+
+## 보호 화면 개선
+
+- Protection 탭에 실시간 보호 시작/중지, 자동 업데이트, 악성코드·피싱, Android 광고 SDK, 고급 DNS 포착 스위치를 추가하고 필터/앱별 제외 관리로 바로 이동할 수 있도록 했습니다.
+- 각 스위치는 기존 설정 저장·필터 재적용·업데이트 작업과 연결되어 있으며, 공용 DNS 직접 포착은 재시작이 필요하다는 경고를 표시합니다.

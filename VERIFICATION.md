@@ -187,3 +187,5 @@
 - Push CI intentionally skipped artifact upload; this is build verification, not a newly published install file.
 - Regression coverage includes IPv4/IPv6 TCP packet checksums, TCP sequence advancement after SYN, DNS-over-TCP framing, partial-frame reassembly, and FIN+payload.
 - Device-level VPN/resolver routing and real-world ad blocking remain unverified. Exact duplicate client request segments replay cached DNS replies; autonomous retransmission timers/partial-ACK recovery, IPv6 extension headers and IP fragmentation remain unsupported.
+
+- Protection tab quick controls and recovery button behavior are included in source commit `cdaf16b2f45c1a04706083e37c713c1642d13107`; CI run 43453483117 passed.

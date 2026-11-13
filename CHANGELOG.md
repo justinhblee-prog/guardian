@@ -270,3 +270,5 @@
 - Add regression tests for IPv4/IPv6 TCP checksums, handshake sequence numbers, DNS framing, partial-frame reassembly, and FIN cleanup.
 - CI run 43452443314 passed: 14 suites / 86 JUnit tests; debug APK assembly, package identity and SHA-256 checks passed.
 - TCP retransmission/loss recovery, IPv6 extension headers, IP fragmentation, DoH/DoT and physical-device validation remain outstanding.
+
+- Improve the Protection tab with live start/stop control, quick filter switches, and navigation to filter/app exclusion settings.
