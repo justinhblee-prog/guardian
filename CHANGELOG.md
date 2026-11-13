@@ -145,7 +145,8 @@
 - Added a DNS-compatible Adblock/hosts parser for anchored domain block rules, exception rules, hosts entries, and badfilter handling. Unsupported contextual/rewriting modifiers are ignored rather than guessed.
 - Added download, validation, app-private caching, safe cache replacement, and 24-hour launch-triggered auto-update for the official AdGuard DNS filter.
 - Added optional HaGeZi Threat Intelligence malware/phishing list.
-- Added upstream DNS choices (Cloudflare, Google, Quad9, AdGuard DNS), installed-app VPN exclusions, live DNS activity/diagnostics, and log reset.
+- Added upstream DNS choices (Cloudflare, Google, Quad9, AdGuard DNS, custom IPv4/IPv6 literals), installed-app VPN exclusions, live DNS activity/diagnostics, and log reset.
+- Added source-isolated badfilter composition and regression tests so one filter list cannot cancel another list's matching domain rule.
 - Added direct UDP/53 routes for common public DNS resolvers so hardcoded requests to common resolvers can also reach the local filter engine.
 - Added an in-app end-to-end DNS self-test that checks a blocked domain sent directly to 8.8.8.8 and a normal domain sent to the virtual DNS endpoint.
 - Moved large filter parsing and reload work off the VPN service main thread.
