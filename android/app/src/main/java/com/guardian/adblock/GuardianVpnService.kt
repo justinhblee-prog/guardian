@@ -17,6 +17,7 @@ import java.net.Socket
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 
 class GuardianVpnService : VpnService() {
@@ -40,10 +41,12 @@ class GuardianVpnService : VpnService() {
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
         private const val UPSTREAM_DNS = "1.1.1.1"
         private val DNS_STATS_LOCK = Any()
+        private const val DNS_STATS_BROADCAST_INTERVAL_MS = 500L
     }
 
     private var tun: ParcelFileDescriptor? = null
     private val running = AtomicBoolean(false)
+    private val lastStatsBroadcastAt = AtomicLong(0L)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -172,7 +175,14 @@ class GuardianVpnService : VpnService() {
                 .putString(KEY_DNS_RECENT, lines.joinToString("\n"))
                 .apply()
         }
-        sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
+        // Persist every query, but coalesce UI refresh broadcasts to avoid flooding
+        // the main thread when an app generates many DNS requests in a short burst.
+        val now = android.os.SystemClock.elapsedRealtime()
+        val previousBroadcast = lastStatsBroadcastAt.get()
+        if (now - previousBroadcast >= DNS_STATS_BROADCAST_INTERVAL_MS &&
+            lastStatsBroadcastAt.compareAndSet(previousBroadcast, now)) {
+            sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
+        }
     }
 
     private fun loadConfiguredRules() {
