@@ -188,15 +188,17 @@
 - Regression coverage includes IPv4/IPv6 TCP packet checksums, TCP sequence advancement after SYN, DNS-over-TCP framing, partial-frame reassembly, multiple queries per segment, large-response segmentation, and FIN+payload.
 - Device-level VPN/resolver routing and real-world ad blocking remain unverified. Exact duplicate client request segments replay cached DNS replies; autonomous retransmission timers/partial-ACK recovery, IPv6 extension headers and IP fragmentation remain unsupported.
 
-- Protection tab quick controls and recovery button behavior are included in source commit `c84628a15c4776e3c21a2ad47d88b9d05850e2ce`; CI run 43457874805 passed.
+- Protection tab quick controls and recovery button behavior are included in source commit `ccbb8e63c5bb8908d942a92c1012a3751a918ccb`; CI run 43458721003 passed.
 
-- Android lint: `lintDebug` **passed** in CI run 43457874805 after marking the app-private receiver `RECEIVER_NOT_EXPORTED` through `ContextCompat.registerReceiver`.
+- Android lint: `lintDebug` **passed** in CI run 43458721003 after marking the app-private receiver `RECEIVER_NOT_EXPORTED` through `ContextCompat.registerReceiver`.
 
 - Self-test scope: local rule matching and NXDOMAIN generation only; it does not verify the real resolver network path or in-app ad removal.
 
 - DNS upstream modes added: UDP/53, TCP/53 and DoT/853. Provider host mapping and custom TLS-host validation are unit-tested; external TLS handshake/provider connectivity is not device-tested.
-- Latest CI run 43457874805: 16 suites / 98 JUnit tests, lintDebug, debug APK assembly, package identity and SHA-256 checks passed.
+- Latest CI run 43458721003: 16 suites / 98 JUnit tests, lintDebug, debug APK assembly, package identity and SHA-256 checks passed.
 
 - DNS-over-HTTPS codec tests cover binary POST request framing, Content-Length, chunked response decoding, redirects, media type, truncation and size limits.
-- CI run 43457874805: 16 suites / 98 JUnit tests, lintDebug, debug APK assembly, package identity and SHA-256 checks passed.
+- CI run 43458721003: 16 suites / 98 JUnit tests, lintDebug, debug APK assembly, package identity and SHA-256 checks passed.
 - DoH/DoT external server handshake and live DNS provider connectivity are not verified by unit tests or CI.
+
+- Latest source commit `ccbb8e63c5bb8908d942a92c1012a3751a918ccb` passed CI run 43458721003: 16 suites / 98 tests, lint, APK assembly, package identity and checksum.

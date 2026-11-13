@@ -280,3 +280,5 @@
 - Add selectable UDP/TCP/DoT upstream transport, provider TLS host defaults, custom TLS hostname validation, SNI and certificate hostname verification.
 
 - Add DNS-over-HTTPS upstream transport using TLS/443 and HTTP POST binary DNS messages; parse bounded Content-Length and chunked responses, reject redirects and invalid media types.
+
+- Fix DoH TLS-host settings visibility when reopening the settings screen with DoH already selected.

@@ -165,9 +165,9 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 ## Protection UI
 
 - Protection 탭에 실시간 보호 시작/중지, 자동 업데이트, 악성코드·피싱, Android 광고 SDK, 고급 DNS 포착 스위치를 추가하고 필터/앱별 제외 관리로 바로 이동할 수 있도록 했습니다.
-- Push CI run 43457874805 passed with 14 suites / 86 tests and debug APK assembly/package/SHA-256 verification.
+- Push CI run 43458721003 passed with 14 suites / 86 tests and debug APK assembly/package/SHA-256 verification.
 
-- Android lint is now part of CI; latest run 43457874805 passed lint with the broadcast receiver export flag corrected.
+- Android lint is now part of CI; latest run 43458721003 passed lint with the broadcast receiver export flag corrected.
 
 - DNS self-test is explicitly labeled as a local rule-engine check, not a live network-route or in-app ad-blocking test.
 
@@ -183,3 +183,5 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 업스트림은 UDP/53, TCP/53, DNS-over-TLS/853, DNS-over-HTTPS/443 중 선택할 수 있습니다. DoH는 HTTP POST의 application/dns-message 본문을 사용하며 Content-Length와 chunked 응답을 제한된 크기로 검증합니다.
 - HTTP parser rejects redirects, wrong media types, truncated/oversized bodies, and supports bounded chunked responses. TLS certificate hostname verification is enabled.
 - CI validates build, lint and codecs; real provider TLS connectivity/on-device resolver operation remains unverified. App-originated DoH/DoT bypass is not intercepted.
+
+- Fixed the saved-DoH-mode settings screen so TLS host controls remain visible after reopening; CI run 43458721003 passed.

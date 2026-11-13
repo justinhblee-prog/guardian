@@ -160,7 +160,7 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - Protection 탭에 실시간 보호 시작/중지, 자동 업데이트, 악성코드·피싱, Android 광고 SDK, 고급 DNS 포착 스위치를 추가하고 필터/앱별 제외 관리로 바로 이동할 수 있도록 했습니다.
 - 각 스위치는 기존 설정 저장·필터 재적용·업데이트 작업과 연결되어 있으며, 공용 DNS 직접 포착은 재시작이 필요하다는 경고를 표시합니다.
 
-- CI now also runs `lintDebug`; latest run 43457874805 passed Android unit tests, lint, debug APK assembly, package identity and checksum verification.
+- CI now also runs `lintDebug`; latest run 43458721003 passed Android unit tests, lint, debug APK assembly, package identity and checksum verification.
 
 - DNS 규칙 엔진 자체 테스트의 안내문을 명확히 했습니다. 로컬 규칙 매칭/NXDOMAIN 생성만 검사하며 실제 외부 DNS 경로와 앱 내부 광고 차단 검증은 아닙니다.
 
@@ -177,3 +177,5 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - 업스트림은 UDP/53, TCP/53, DNS-over-TLS/853, DNS-over-HTTPS/443 중 선택할 수 있습니다. DoH는 HTTP POST의 application/dns-message 본문을 사용하며 Content-Length와 chunked 응답을 제한된 크기로 검증합니다.
 - DoH/DoT는 TLS SNI 및 인증서 호스트 이름을 검증하고, VPN 서비스 소켓을 보호해 DNS 터널 재귀를 방지합니다.
 - DoH/DoT는 Guardian이 선택한 업스트림으로 나가는 연결만 암호화합니다. 앱 자체 DoH/DoT 우회 요청을 가로채거나 차단하는 기능은 아닙니다. 외부 제공자 TLS 연결은 실기기에서 별도 검증해야 합니다.
+
+- 저장된 DoH 모드로 설정 화면을 다시 열 때도 TLS 호스트 입력·저장 컨트롤이 보이도록 초기 표시 상태를 수정하고 CI에서 재검증했습니다.
