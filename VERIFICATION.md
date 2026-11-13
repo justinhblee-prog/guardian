@@ -13,7 +13,7 @@
 
 | Test suite | Test methods |
 |---|---:|
-| DomainFilterTest | 16 |
+| DomainFilterTest | 17 |
 | Ipv4UdpTest | 6 |
 | Ipv6UdpTest | 4 |
 | ProtectionStateTest | 2 |
@@ -22,7 +22,7 @@
 | FilterRuleComposerTest | 2 |
 | DnsAddressValidatorTest | 2 |
 | FilterListProfilesTest | 3 |
-| Total | 44 |
+| Total | 45 |
 
 ## Covered areas
 
@@ -81,7 +81,7 @@ A successful JUnit run does not prove real-world blocking. The in-app DNS self-t
 - Source commit: 5ef6f94e1c46d760de445d9326bda9711f265083
 - Android JUnit test step: **success**
 - Gradle log: **BUILD SUCCESSFUL** (43 seconds for unit tests; follow-up build step successful)
-- Test inventory at current source: 9 suites / 44 test methods.
+- Test inventory at current source: 9 suites / 45 test methods.
 - APK build and upload: intentionally skipped by push-CI policy.
 
 This validates source compilation and unit tests only. It does not verify the Android VPN on a physical device or real-world ad blocking.
