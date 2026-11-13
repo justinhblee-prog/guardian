@@ -126,3 +126,11 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - 현재 자체 테스트는 로드된 차단 규칙이 `doubleclick.net`에 일치하는지, NXDOMAIN 응답 생성기가 RCODE 3을 만드는지, `example.com`을 차단하지 않는지 검사합니다. 네트워크/TUN 경로 시험으로 표시하지 않습니다.
 - 서비스는 `START_STICKY`로 동작하고, Android가 서비스를 재생성하면서 null intent를 전달했을 때 이전 보호 상태가 활성인 경우에만 VPN 터널을 다시 구성합니다. 사용자가 중지한 경우는 자동 재시작하지 않습니다.
 - 이 복구 정책은 CI 단위 테스트 대상이며 실기기 장시간 유지 여부는 아직 미검증입니다.
+
+
+## Latest CI verification
+
+- [GitHub Actions run 43435647740](https://github.com/justinhblee-prog/guardian/actions/runs/43435647740): **success**
+- Source commit: `592a19d10d6e5b989112d37050425f3c94206e2c`
+- Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
+- Inventory: 11 test suites / 63 test methods.
