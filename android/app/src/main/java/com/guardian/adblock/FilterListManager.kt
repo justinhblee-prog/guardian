@@ -5,6 +5,8 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import javax.net.ssl.HttpsURLConnection
 
 /** Downloads and validates the official AdGuard DNS filter into app-private storage. */
@@ -58,11 +60,17 @@ object FilterListManager {
             val target = File(context.filesDir, CACHE_FILE)
             val temporary = File(context.filesDir, "$CACHE_FILE.tmp")
             temporary.writeBytes(bytes)
-            if (target.exists() && !target.delete()) {
+            try {
+                Files.move(
+                    temporary.toPath(), target.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE
+                )
+            } catch (_: Exception) {
+                // Keep the previous known-good cache if atomic replacement is unavailable.
                 temporary.delete()
-                error("기존 필터 캐시를 교체하지 못했습니다.")
+                throw IllegalStateException("새 필터 캐시를 안전하게 교체하지 못했습니다.")
             }
-            require(temporary.renameTo(target)) { "새 필터 캐시를 저장하지 못했습니다." }
             val now = System.currentTimeMillis()
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putLong(KEY_UPDATED_AT, now)
