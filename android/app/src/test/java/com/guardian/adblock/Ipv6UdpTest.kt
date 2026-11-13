@@ -43,6 +43,7 @@ class Ipv6UdpTest {
         // A generated packet must pass the same strict parser after reversing the
         // endpoint ports so its destination is the virtual DNS service port.
         val loopback = response.copyOf()
+        loopback[46] = 0; loopback[47] = 0 // zero checksum before recomputing after port rewrite
         loopback[40] = 0xCF.toByte(); loopback[41] = 0x08.toByte() // source 53000
         loopback[42] = 0; loopback[43] = 53
         val checksum = udpChecksum(loopback, 40, 11)
