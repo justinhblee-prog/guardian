@@ -664,7 +664,7 @@ class MainActivity : Activity() {
             10f, muted, false
         ).withTop(2))
         val directDnsCheck = CheckBox(this).apply {
-            text = "공용 DNS 직접 질의 포착 (고급)"
+            text = "공용 DNS 직접 질의 포착 (고급 · 일부 비DNS 연결 영향 가능)"
             textSize = 12f
             setTextColor(white)
             isChecked = prefs.getBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, true)
