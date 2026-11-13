@@ -14,6 +14,8 @@ object FilterUpdateScheduler {
     const val DEFAULT_INTERVAL_MS = 24L * 60L * 60L * 1000L
     const val MIN_INTERVAL_MS = 15L * 60L * 1000L
 
+    internal fun normalizeInterval(intervalMs: Long): Long = intervalMs.coerceAtLeast(MIN_INTERVAL_MS)
+
     fun sync(context: Context) {
         val appContext = context.applicationContext
         val prefs = appContext.getSharedPreferences(GuardianVpnService.PREFS, Context.MODE_PRIVATE)
@@ -23,7 +25,7 @@ object FilterUpdateScheduler {
         }
 
         val interval = prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, DEFAULT_INTERVAL_MS)
-            .coerceAtLeast(MIN_INTERVAL_MS)
+            .let(::normalizeInterval)
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
