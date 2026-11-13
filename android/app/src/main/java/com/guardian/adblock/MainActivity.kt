@@ -26,6 +26,7 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var statusTitle: TextView
     private lateinit var statusDot: TextView
+    private var startButton: Button? = null
     private lateinit var blockRulesInput: EditText
     private lateinit var allowRulesInput: EditText
     private var rulesFeedback: TextView? = null
@@ -144,6 +145,11 @@ class MainActivity : Activity() {
             setPadding(0, dp(10), 0, dp(2))
         }
         hero.addView(shield, LinearLayout.LayoutParams(-1, dp(88)))
+        statusDot = text("●  PROTECTION OFF", 10f, red, true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(5), dp(10), dp(5))
+        }
+        hero.addView(statusDot)
         statusTitle = text("보호 상태 확인 중", 21f, white, true).apply { gravity = Gravity.CENTER }
         hero.addView(statusTitle)
         status = text("", 12f, muted, false).apply {
@@ -159,6 +165,7 @@ class MainActivity : Activity() {
             background = shape(accent, 14)
             setOnClickListener { requestProtection() }
         }
+        startButton = start
         hero.addView(start, LinearLayout.LayoutParams(-1, dp(52)))
         val stop = Button(this).apply {
             text = "보호 중지"
@@ -296,6 +303,11 @@ class MainActivity : Activity() {
         // that exist so opening Rules/Protection/Settings cannot crash the app.
         if (::statusTitle.isInitialized) {
             statusTitle.text = if (active) "보호가 실행 중입니다" else "보호가 꺼져 있습니다"
+            statusDot.text = if (active) "●  PROTECTION ACTIVE" else "●  PROTECTION OFF"
+            statusDot.setTextColor(if (active) accent else red)
+            startButton?.text = if (active) "보호 실행 중" else "보호 시작"
+            startButton?.isEnabled = !active
+            startButton?.alpha = if (active) 0.58f else 1f
         }
         if (::status.isInitialized) {
             status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
