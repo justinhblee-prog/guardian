@@ -65,7 +65,13 @@ class MainActivity : Activity() {
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
         showTab("home")
-        if (FilterListManager.cachedLines(this).isEmpty()) startFilterUpdate()
+        val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
+        val lastUpdate = FilterListManager.lastUpdatedAt(this)
+        if (autoUpdate && (FilterListManager.cachedLines(this).isEmpty() ||
+                System.currentTimeMillis() - lastUpdate >= 24L * 60L * 60L * 1000L)) {
+            startFilterUpdate()
+        }
     }
 
     override fun onStart() {
@@ -337,6 +343,18 @@ class MainActivity : Activity() {
         }
         filterStatusText = text(filterStatusDescription(), 12f, muted, false)
         filterCard.addView(filterStatusText!!)
+        val autoUpdateCheck = CheckBox(this).apply {
+            text = "24시간 경과 시 앱 실행 중 자동 업데이트"
+            textSize = 12f
+            setTextColor(white)
+            isChecked = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+                .getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
+            setOnCheckedChangeListener { _, checked ->
+                getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
+                    .putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).apply()
+            }
+        }
+        filterCard.addView(autoUpdateCheck)
         filterUpdateButton = Button(this).apply {
             text = "필터 목록 업데이트"
             isAllCaps = false
