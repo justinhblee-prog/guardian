@@ -443,12 +443,6 @@ class MainActivity : Activity() {
                     customDnsInput.setText(normalized)
                     customDnsFeedback.text = "DNS 서버 저장 완료: $normalized"
                     customDnsFeedback.setTextColor(accent)
-                    if (ProtectionState.isActive(
-                            dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
-                            GuardianVpnService.isTunnelActive()
-                        )) {
-                        startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
-                    }
                 }
             }
         }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
