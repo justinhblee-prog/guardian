@@ -782,12 +782,13 @@ class MainActivity : Activity() {
         }
         filterUpdateButton?.isEnabled = false
         filterUpdateButton?.text = "필터 다운로드 및 검증 중…"
-        filterStatusText?.text = "공식 AdGuard DNS 필터를 내려받아 규칙을 검증합니다."
+        filterStatusText?.text = "${FilterListManager.selectedProfile(this).label} 목록을 내려받아 규칙을 검증합니다."
         thread(name = "guardian-filter-update") {
             try {
                 val result = FilterListManager.update(this)
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
+                val securityWasCached = FilterListManager.hasCachedSecurityList(this)
                 val securityResult = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
                     try {
                         FilterListManager.updateSecurity(this).also {
@@ -811,7 +812,7 @@ class MainActivity : Activity() {
                 filterUpdateRunning.set(false)
                 runOnUiThread {
                     val securityMessage = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
-                        if (securityResult != null) " · 보안 ${securityResult.blocked}개" else " · 보안 목록 업데이트 실패(이전 목록 유지)"
+                        if (securityResult != null) " · 보안 ${securityResult.blocked}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(보안 필터 미적용)"
                     } else ""
                     filterStatusText?.text = "${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage} · ${result.bytes / 1024}KB"
                     filterUpdateButton?.text = "필터 목록 업데이트"
