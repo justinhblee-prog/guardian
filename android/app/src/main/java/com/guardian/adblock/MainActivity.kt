@@ -28,6 +28,7 @@ class MainActivity : Activity() {
     private lateinit var statusDot: TextView
     private lateinit var blockRulesInput: EditText
     private lateinit var allowRulesInput: EditText
+    private var rulesFeedback: TextView? = null
     private var statsText: TextView? = null
     private var recentText: TextView? = null
     private var receiverRegistered = false
@@ -226,8 +227,8 @@ class MainActivity : Activity() {
             background = shape(accent, 14)
             setOnClickListener { saveUserRules() }
         }, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(16) })
-        status = text("규칙은 기기 내부에 안전하게 저장됩니다.", 12f, muted, false).withTop(10) as TextView
-        body.addView(status)
+        rulesFeedback = text("규칙은 기기 내부에 안전하게 저장됩니다.", 12f, muted, false).withTop(10) as TextView
+        body.addView(rulesFeedback)
         loadUserRulesIntoEditors()
     }
 
@@ -311,8 +312,8 @@ class MainActivity : Activity() {
             .putString(GuardianVpnService.KEY_USER_ALLOW, allow.joinToString("\n")).apply()
         if (prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)) {
             startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
-            status.text = "규칙을 저장하고 적용을 요청했습니다."
-        } else status.text = "규칙을 저장했습니다. 다음 보호 시작 시 적용됩니다."
+            rulesFeedback?.text = "규칙을 저장하고 적용을 요청했습니다."
+        } else rulesFeedback?.text = "규칙을 저장했습니다. 다음 보호 시작 시 적용됩니다."
     }
 
     private fun parseEditor(editor: EditText, label: String): List<String>? {
@@ -322,12 +323,12 @@ class MainActivity : Activity() {
             if (value.isEmpty() || value.startsWith("#")) continue
             val domain = DomainFilter.normalizeRuleDomain(value)
             if (domain == null) {
-                status.text = "$label ${index + 1}번째 줄의 도메인을 확인하세요: $value"
+                rulesFeedback?.text = "$label ${index + 1}번째 줄의 도메인을 확인하세요: $value"
                 return null
             }
             domains.add(domain)
             if (domains.size > MAX_USER_RULES) {
-                status.text = "${label}은 최대 ${MAX_USER_RULES}개까지 등록할 수 있습니다."
+                rulesFeedback?.text = "${label}은 최대 ${MAX_USER_RULES}개까지 등록할 수 있습니다."
                 return null
             }
         }
