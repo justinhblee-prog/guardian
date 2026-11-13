@@ -67,7 +67,7 @@
 - DNS matching now evaluates important blocks before allow exceptions, matching Adblock priority semantics; unsupported important exceptions are ignored rather than silently misapplied.
 - `$badfilter` removes matching important block rules from the same source.
 - Cache validation and displayed block counts include important rules.
-- Added parser and composed-engine regression tests. Current source inventory: 10 suites / 59 test methods. CI pending.
+- Added parser and composed-engine regression tests. Current source inventory: 10 suites / 60 test methods. CI pending.
 
 
 ## Modifier-specific `$badfilter` semantics — CI pending
@@ -82,7 +82,7 @@
 - Added an opt-in DNS filter based on the AWAvenue Ads Rule registry asset (`filter_53.txt`).
 - When enabled, the list is downloaded, validated against a minimum rule count, cached atomically, included in cache-readiness checks, and composed into the active VPN rule set.
 - Added cache-readiness and official-source catalog regression tests.
-- Current source inventory: 10 suites / 59 test methods. CI pending.
+- Current source inventory: 10 suites / 60 test methods. CI pending.
 
 
 ## Latest CI recovery — Adblock important/badfilter parser
@@ -92,3 +92,10 @@
 - Result: **success**. `:app:testDebugUnitTest` completed successfully; Gradle reported 59 tests completed with no failures.
 - Root cause of the previous failures: `$badfilter` detection searched for the exact token immediately after `$`, so it missed `$important,badfilter` modifier lists. Modifier parsing now tokenizes the comma-separated list and recognizes each modifier.
 - APK assembly and upload were not run; this was push-triggered test CI only.
+
+
+## Public DNS direct-capture safe default — CI pending
+
+- Routing a resolver IP through Android VPN also captures non-DNS traffic to that same IP because Android VPN routes are IP-prefix based, not UDP-port based. The packet loop is DNS-only, so enabling this option by default could silently break unrelated connections to those resolver IPs.
+- Public DNS IP interception is now opt-in by default; the UI warns about possible non-DNS impact, and the self-test uses the virtual system DNS endpoint unless the advanced option is enabled.
+- Added a regression test for the safe default. Latest expected inventory: 10 suites / 60 tests. CI for the latest source pending.
