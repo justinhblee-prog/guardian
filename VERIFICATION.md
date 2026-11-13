@@ -10,17 +10,17 @@
 | DomainFilterTest | 17 |
 | Ipv4UdpTest | 6 |
 | Ipv6UdpTest | 4 |
-| ProtectionStateTest | 2 |
+| ProtectionStateTest | 3 |
 | FilterRuleParserTest | 11 |
-| DnsProbeTest | 2 |
+| DnsProbeTest | 4 |
 | FilterRuleComposerTest | 3 |
 | DnsAddressValidatorTest | 2 |
 | FilterListProfilesTest | 8 |
 | VpnConfigurationDefaultsTest | 1 |
 | VpnStartCancellationGateTest | 4 |
-| **합계** | **60** |
+| **합계** | **63** |
 
-총 11개 Kotlin 테스트 스위트입니다.
+총 11개 Kotlin 테스트 스위트 / 63개 JUnit 테스트 메서드입니다.
 
 ## 최신 성공 CI
 
@@ -41,7 +41,7 @@
 - `$badfilter`는 같은 출처의 일치하는 modifier 변형만 해제
 - 도메인 차단/허용은 DNS label suffix hash lookup 사용
 - DNS 응답 transaction ID / 질문 이름 / QTYPE / QCLASS 확인
-- DNS 자가 테스트는 VPN 터널 활성 상태에서만 수행
+- DNS 규칙 엔진 자체 테스트는 현재 활성 규칙 매칭과 NXDOMAIN 생성만 검증하며 TUN 네트워크 경로 검증과 구분
 - VPN 시작/중지 취소 경합 회귀 테스트
 - 공용 DNS IP 직접 포착은 기본 비활성화하여 비DNS 트래픽의 부수적 차단 위험 완화
 
@@ -63,3 +63,14 @@
 - 개발 완료 전 중간 APK를 최종본으로 제공하지 않습니다.
 - 최종 APK는 별도 수동 릴리스 workflow에서만 생성합니다.
 - APK 생성 시 package/version, APK/ZIP 무결성, SHA-256을 확인합니다.
+
+
+## Self-test correction and sticky VPN recovery
+
+- Removed the misleading app-owned UDP socket probe: Android excludes the VPN app's own sockets from its VPN route, so querying the virtual DNS IP from the app itself does not prove packets traversed the TUN.
+- The self-test now truthfully validates loaded rule matching, NXDOMAIN RCODE generation, and non-blocking of `example.com` in-process. It does not claim to verify network routing.
+- VPN service now returns `START_STICKY` and rebuilds its TUN only when Android recreates it with a null intent and the persisted protection state was active. Explicit stop remains non-restoring.
+- Latest source CI: https://github.com/justinhblee-prog/guardian/actions/runs/43435146415
+- Source commit under test: `ea97e9482afa009f7f1bc5ff718428ce6c282ec7`
+- Android unit-test step: **success**; full workflow cleanup was still running when recorded.
+- Test inventory at this commit: 11 suites / 63 test methods.
