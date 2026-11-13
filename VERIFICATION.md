@@ -17,12 +17,12 @@
 | Ipv4UdpTest | 6 |
 | Ipv6UdpTest | 4 |
 | ProtectionStateTest | 2 |
-| FilterRuleParserTest | 7 |
+| FilterRuleParserTest | 8 |
 | DnsProbeTest | 2 |
 | FilterRuleComposerTest | 2 |
 | DnsAddressValidatorTest | 2 |
-| FilterListProfilesTest | 3 |
-| Total | 45 |
+| FilterListProfilesTest | 4 |
+| Total | 47 |
 
 ## Covered areas
 
@@ -97,3 +97,11 @@ This validates source compilation and unit tests only. It does not verify the An
 - APK assemble/upload: skipped by push-CI policy.
 - Includes large-list suffix matching regression, selectable official filter profiles, searchable app exclusions, refresh schedule controls, and advanced direct-DNS capture option.
 
+
+
+## Current main source — pending CI
+
+- Latest known source changes include UTF-8 BOM handling for downloaded lists and a startup guard that requires the selected filter profile to match the cached profile.
+- Regression inventory: 9 suites / 47 JUnit test methods.
+- CI for these latest changes has not yet been verified in this record.
+- No APK was generated; physical-device VPN and real-world blocking tests remain outstanding.
