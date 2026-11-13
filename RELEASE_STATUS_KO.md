@@ -37,7 +37,7 @@
 - [GitHub Actions 43434091375](https://github.com/justinhblee-prog/guardian/actions/runs/43434091375): **Success**
 - 소스 커밋: `419356a1ef43ba20c33256b353566da7f42b8f61`
 - Android unit-test 단계: **통과**
-- 테스트 인벤토리: **11개 스위트 / 65개 JUnit 테스트 메서드**
+- 테스트 인벤토리: **12개 스위트 / 67개 JUnit 테스트 메서드**
 - APK 생성/업로드: push CI에서는 의도적으로 생략
 - 직전 파서 오류 원인: `$important,badfilter`처럼 쉼표로 구분된 modifier에서 badfilter 토큰을 인식하지 못했습니다. modifier를 분리해 각각 인식하도록 수정했고 59개 테스트가 통과했습니다. 이후 직접 DNS 안전 기본값 테스트를 추가해 현재 인벤토리는 65개입니다.
 
@@ -62,7 +62,7 @@
 - 앱 자체 소켓은 Android VPN TUN을 우회하므로, 가상 DNS IP에 앱 소켓으로 질의하는 기존 자체 테스트 방식은 제거했습니다.
 - 현재 테스트는 실제 네트워크 경로라고 주장하지 않고 활성 차단 규칙 매칭, NXDOMAIN 생성, 정상 도메인 비차단을 확인합니다.
 - VPN 서비스는 `START_STICKY` 및 persisted-active 확인을 통해 OS 프로세스 회수 후 재생성 시 보호를 복구하도록 변경했습니다. 사용자가 중지한 상태는 복구하지 않습니다.
-- 최신 테스트 인벤토리: 11개 suite / 65개 메서드. 실기기 복구 안정성은 아직 미검증입니다.
+- 최신 테스트 인벤토리: 12개 suite / 67개 메서드. 실기기 복구 안정성은 아직 미검증입니다.
 
 
 ## Latest CI verification
@@ -70,7 +70,7 @@
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
 - Source commit: `57f30f68484fa4d6ef716a557efe8a75a4446407`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
-- Inventory: 11 test suites / 65 test methods.
+- Inventory: 12 test suites / 67 test methods.
 
 
 ## UI polish verification
@@ -85,3 +85,8 @@
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
 - Test inventory: 11 suites / 65 test methods.
+
+
+## 백그라운드 필터 업데이트
+
+WorkManager 2.12.0을 사용해 6/12/24시간 또는 7일 주기의 네트워크 연결 조건부 필터 갱신을 추가했습니다. 자동 업데이트 비활성화 시 예약 작업을 취소하며, 기본/활성화된 선택 필터를 검증·갱신합니다. 업데이트 중인 캐시 파일은 수동/백그라운드 작업 간 동시 교체되지 않도록 직렬화했습니다. 주기 설정 정책 단위 테스트 2개를 추가했습니다.
