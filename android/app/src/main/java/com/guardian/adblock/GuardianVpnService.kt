@@ -43,6 +43,7 @@ class GuardianVpnService : VpnService() {
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
         const val KEY_UPSTREAM_DNS = "upstream_dns"
         const val KEY_EXCLUDED_APPS = "excluded_apps"
+        const val KEY_DIRECT_DNS_CAPTURE = "direct_dns_capture"
         const val DEFAULT_UPSTREAM_DNS = "1.1.1.1"
         private val KNOWN_PUBLIC_DNS_IPV4 = listOf(
             "1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4",
@@ -123,21 +124,21 @@ class GuardianVpnService : VpnService() {
                 .addDnsServer(VIRTUAL_DNS_V6)
                 .addRoute(VIRTUAL_DNS, 32)
                 .addRoute(VIRTUAL_DNS_V6, 128)
-            // Capture direct UDP/53 queries to common public resolvers as well
-            // as requests sent to Android's configured virtual DNS endpoint.
-            KNOWN_PUBLIC_DNS_IPV4.forEach { builder.addRoute(it, 32) }
-            KNOWN_PUBLIC_DNS_IPV6.forEach { builder.addRoute(it, 128) }
-            // Also capture direct UDP/53 queries sent to a user-selected resolver.
-            // The resolver is validated as a numeric IP literal, so this lookup
-            // never performs DNS resolution while the VPN is being established.
-            val selectedResolver = configuredUpstreamDns()
-            val selectedResolverPrefix = if (selectedResolver.contains(":")) 128 else 32
-            val resolverAlreadyRouted = if (selectedResolverPrefix == 128) {
-                selectedResolver in KNOWN_PUBLIC_DNS_IPV6
-            } else selectedResolver in KNOWN_PUBLIC_DNS_IPV4
-            if (!resolverAlreadyRouted) builder.addRoute(selectedResolver, selectedResolverPrefix)
-            getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty()
+            val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+            if (prefs.getBoolean(KEY_DIRECT_DNS_CAPTURE, true)) {
+                // Capture direct DNS requests to common public resolvers. Routes
+                // are IP-based, not port-based, so this is an advanced opt-in
+                // behavior: non-DNS traffic to these IPs can also enter the TUN.
+                KNOWN_PUBLIC_DNS_IPV4.forEach { builder.addRoute(it, 32) }
+                KNOWN_PUBLIC_DNS_IPV6.forEach { builder.addRoute(it, 128) }
+                val selectedResolver = configuredUpstreamDns()
+                val selectedResolverPrefix = if (selectedResolver.contains(":")) 128 else 32
+                val resolverAlreadyRouted = if (selectedResolverPrefix == 128) {
+                    selectedResolver in KNOWN_PUBLIC_DNS_IPV6
+                } else selectedResolver in KNOWN_PUBLIC_DNS_IPV4
+                if (!resolverAlreadyRouted) builder.addRoute(selectedResolver, selectedResolverPrefix)
+            }
+            prefs.getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty()
                 .forEach { packageName ->
                     try { builder.addDisallowedApplication(packageName) } catch (_: Exception) { }
                 }
