@@ -190,3 +190,5 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - Not a complete TCP implementation: retransmission/loss recovery, IPv6 extension headers and IP fragmentation are unsupported. Real Android device resolver behavior remains unverified.
 
 - Protection tab now exposes immediate start/stop and filter quick settings; recovery action text matches its reconnect behavior.
+
+- CI includes Android lint; the receiver export-flag lint error was fixed and the latest lint run passed.

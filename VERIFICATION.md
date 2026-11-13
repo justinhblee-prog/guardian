@@ -188,4 +188,6 @@
 - Regression coverage includes IPv4/IPv6 TCP packet checksums, TCP sequence advancement after SYN, DNS-over-TCP framing, partial-frame reassembly, multiple queries per segment, large-response segmentation, and FIN+payload.
 - Device-level VPN/resolver routing and real-world ad blocking remain unverified. Exact duplicate client request segments replay cached DNS replies; autonomous retransmission timers/partial-ACK recovery, IPv6 extension headers and IP fragmentation remain unsupported.
 
-- Protection tab quick controls and recovery button behavior are included in source commit `f7f35890eb1bc9a5f387ab9a2699beed1159b871`; CI run 43454148857 passed.
+- Protection tab quick controls and recovery button behavior are included in source commit `7d692283556cf9d1d0888a891f265c0440de594c`; CI run 43455334133 passed.
+
+- Android lint: `lintDebug` **passed** in CI run 43455334133 after marking the app-private receiver `RECEIVER_NOT_EXPORTED` through `ContextCompat.registerReceiver`.

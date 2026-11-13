@@ -272,3 +272,5 @@
 - TCP retransmission/loss recovery, IPv6 extension headers, IP fragmentation, DoH/DoT and physical-device validation remain outstanding.
 
 - Improve the Protection tab with live start/stop control, quick filter switches, and navigation to filter/app exclusion settings.
+
+- Add Android `lintDebug` to CI and fix the app-private broadcast receiver registration flag.
