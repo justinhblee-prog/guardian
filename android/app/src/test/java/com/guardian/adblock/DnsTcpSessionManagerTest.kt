@@ -23,6 +23,19 @@ class DnsTcpSessionManagerTest {
         assertEquals(0, manager.activeSessionCount())
     }
 
+    @Test fun boundsBufferedTcpDataAndResetsConnection() {
+        val manager = DnsTcpSessionManager()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 300)
+        manager.handle(syn, syn.size) { null }
+        val oversized = ByteArray(8200)
+        val segment = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH, seq = 301, payload = oversized)
+        val reset = manager.handle(segment, segment.size) { null }.single()
+        val parsed = DnsTcpPacket.parse(reset, reset.size, 53000)
+        assertNotNull(parsed)
+        assertTrue(parsed!!.rst)
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     @Test fun rejectsMalformedDnsLengthAndResetsConnection() {
         val manager = DnsTcpSessionManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 200)

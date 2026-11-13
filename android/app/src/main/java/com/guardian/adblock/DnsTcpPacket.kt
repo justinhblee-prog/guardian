@@ -50,7 +50,6 @@ object DnsTcpPacket {
             if (length < 60 || u16(packet, 4) + 40 != length) return null
             // Extension headers and jumbograms are not supported by this codec.
             if ((packet[6].toInt() and 0xff) != 6) return null
-            ipOffset = 0
             tcpOffset = 40
             source = packet.copyOfRange(8, 24)
             destination = packet.copyOfRange(24, 40)

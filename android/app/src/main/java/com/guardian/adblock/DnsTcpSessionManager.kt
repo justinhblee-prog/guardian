@@ -26,7 +26,9 @@ class DnsTcpSessionManager(
     private val maxSessions = 128
     private val idleTimeoutMs = 60_000L
     private val maxDnsMessage = 4096
-    private val maxSegmentPayload = 1200
+    private val maxBufferedBytes = 8192
+    // Conservative default MSS when the client did not negotiate TCP options.
+    private val maxSegmentPayload = 536
 
     @Synchronized
     fun handle(packet: ByteArray, length: Int, resolve: (ByteArray) -> ByteArray?): List<ByteArray> {
@@ -59,6 +61,11 @@ class DnsTcpSessionManager(
             return listOf(ack(tcp, session))
         }
         if (tcp.payload.isNotEmpty()) {
+            if (session.received.size() + tcp.payload.size > maxBufferedBytes) {
+                sessions.remove(key)
+                return listOf(DnsTcpPacket.response(tcp, session.serverNext,
+                    session.clientNext, DnsTcpPacket.RST or DnsTcpPacket.ACK))
+            }
             session.clientNext = (session.clientNext + tcp.payload.size) and MASK
             session.received.write(tcp.payload)
             val buffered = session.received.toByteArray()
