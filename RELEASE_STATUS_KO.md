@@ -52,3 +52,17 @@
 - IPv4 패킷 프레이밍, DNS 질문 대소문자 비구분 비교, IPv6 UDP 체크섬 회귀 테스트 포함
 
 **판정:** 위 커밋의 Android 개발 APK 빌드와 설정된 자동화 테스트가 통과했습니다. 실기기 VPN 동작 및 실제 광고 차단은 미검증이며 운영 최종판은 아닙니다.
+
+
+## 최신 UI 수정 빌드 — 2026-11-13
+
+- CI: [43421570913](https://github.com/justinhblee-prog/guardian/actions/runs/43421570913)
+- 소스 커밋: `d438442ea45754be0b8faff777497c3308d3cfc7`
+- Gradle `clean testDebugUnitTest assembleDebug`: **PASS**
+- Artifact ID: `14034222440`
+- APK 크기: 846,278 bytes
+- APK SHA-256: `3d8e5aa6b6effe815dbed6f2f8d846d44098eb498de93ddd0807d2eedd2be340`
+- ZIP 무결성 및 내부 APK 체크섬 대조: **PASS**
+- 규칙 탭의 저장/검증 메시지를 VPN 보호 상태 메시지와 분리하는 UI 버그 수정 포함
+
+실기기 설치 및 실제 VPN/광고 차단 검증은 여전히 미완료입니다.
