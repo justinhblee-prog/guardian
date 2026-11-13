@@ -109,4 +109,11 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 소스 커밋: `f518711e559bfb8873128f82c07a1a157a5f2068`
 - Android 테스트: 12개 스위트 / 68개 JUnit 메서드 통과
 - APK 빌드: push 실행이라 생략. 최종 개발 완료 전 수동 APK 빌드를 실행하지 않음.
-\n\n## CI 빌드 검증 정책 보강\n\n- 모든 push에서 Android 단위 테스트 이후 debug APK를 실제 조립하고 package/version 및 SHA-256을 검증하도록 workflow를 변경했습니다.\n- push 실행은 APK를 artifact로 공개하지 않으며, 수동 릴리스 실행만 APK를 업로드합니다.\n- 최신 테스트 기준: 12개 스위트 / 70개 JUnit 메서드.\n- 변경 커밋 `cc9f8bc0530015b16200f2ee3b141610fd9dd22d`의 빌드 검증 CI 실행 결과는 진행 중입니다.\n
+
+
+## CI 빌드 검증 정책 보강
+
+- 모든 push에서 Android 단위 테스트 이후 debug APK를 실제 조립하고 package/version 및 SHA-256을 검증하도록 workflow를 변경했습니다.
+- push 실행은 APK를 artifact로 공개하지 않으며, 수동 릴리스 실행만 APK를 업로드합니다.
+- 최신 테스트 기준: 12개 스위트 / 70개 JUnit 메서드.
+- 변경 커밋 `cc9f8bc0530015b16200f2ee3b141610fd9dd22d`의 빌드 검증 CI 실행 결과는 진행 중입니다.
