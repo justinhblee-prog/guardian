@@ -37,3 +37,22 @@ Latest release CI is expected to verify all of the following:
 - IPv6 extension header and fragment reassembly (not implemented)
 
 CI success is not a substitute for physical-device acceptance. The final APK must be described as a development build until the device checks above have been performed.
+
+
+## Actual latest successful CI result — 2026-11-13
+
+- Workflow: [43423112883](https://github.com/justinhblee-prog/guardian/actions/runs/43423112883)
+- Built source commit: `05dd104a97ea4f9f2bcf908514a6c82bf0e3b5f1`
+- Workflow conclusion: **success**
+- Android Gradle `clean testDebugUnitTest assembleDebug`: **BUILD SUCCESSFUL**
+- Manifest/launcher checks: **PASS**
+- APK package identity: `com.guardian.adblock`, versionCode `11`, versionName `0.6.4-dev` — **PASS**
+- Artifact ID: `14034534107`
+- Artifact ZIP size: 841,764 bytes
+- Artifact ZIP SHA-256: `7b24f3abe7bd676389c32efc0afb1d26f6aa5fdc0038bfedc65c076cf9ab9942`
+- Extracted APK size: 849,811 bytes
+- APK SHA-256: `daded536157e3a71fe205dd0a47513228e8ecacb88be784cda87925c4ee48130`
+- Downloaded ZIP integrity and APK internal checksum comparison: **PASS**
+- JUnit source contains 25 test methods across DNS, IPv4 and IPv6 suites; the Gradle test task passed.
+
+The artifact is an installable Android Debug APK. Physical-device acceptance remains outstanding.
