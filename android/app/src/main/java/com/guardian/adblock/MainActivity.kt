@@ -542,7 +542,7 @@ class MainActivity : Activity() {
             return
         }
         selfTestText?.text = "DNS 테스트 실행 중…"
-        val directCapture = prefs.getBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, true)
+        val directCapture = prefs.getBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, GuardianVpnService.DEFAULT_DIRECT_DNS_CAPTURE)
         val blockedDnsServer = if (directCapture) "8.8.8.8" else "10.13.37.2"
         thread(name = "guardian-dns-self-test") {
             try {
@@ -667,7 +667,7 @@ class MainActivity : Activity() {
             text = "공용 DNS 직접 질의 포착 (고급 · 일부 비DNS 연결 영향 가능)"
             textSize = 12f
             setTextColor(white)
-            isChecked = prefs.getBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, true)
+            isChecked = prefs.getBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, GuardianVpnService.DEFAULT_DIRECT_DNS_CAPTURE)
             setOnCheckedChangeListener { _, checked ->
                 prefs.edit().putBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, checked).apply()
                 filterStatusText?.text = if (checked) {
