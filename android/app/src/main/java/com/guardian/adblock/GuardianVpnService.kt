@@ -30,10 +30,16 @@ class GuardianVpnService : VpnService() {
         const val KEY_USER_ALLOW = "user_allow_domains"
         const val KEY_ACTIVE = "protection_active"
         const val KEY_STATUS = "protection_status"
+        const val KEY_DNS_QUERIES = "dns_queries"
+        const val KEY_DNS_BLOCKED = "dns_blocked"
+        const val KEY_DNS_FORWARDED = "dns_forwarded"
+        const val KEY_DNS_FAILED = "dns_failed"
+        const val KEY_DNS_RECENT = "dns_recent"
         private const val CHANNEL = "guardian_protection"
         private const val VIRTUAL_DNS = "10.13.37.2"
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
         private const val UPSTREAM_DNS = "1.1.1.1"
+        private val DNS_STATS_LOCK = Any()
     }
 
     private var tun: ParcelFileDescriptor? = null
@@ -106,13 +112,11 @@ class GuardianVpnService : VpnService() {
                 val ipv6 = if (ipv4 == null) Ipv6Udp.parseDns(buffer, length) else null
                 val payload = ipv4?.payload ?: ipv6?.payload ?: continue
                 val domain = DomainFilter.readQuestionName(payload) ?: continue
-                val dnsResponse = if (DomainFilter.isBlocked(domain)) {
-                    DomainFilter.makeNxdomain(payload)
-                } else {
-                    // Do not leave the client waiting on a silent packet drop when the
-                    // configured upstream resolver times out or returns an invalid reply.
-                    forwardDns(payload) ?: DomainFilter.makeServfail(payload)
-                } ?: continue
+                val blocked = DomainFilter.isBlocked(domain)
+                val forwarded = if (blocked) null else forwardDns(payload)
+                val dnsResponse = if (blocked) DomainFilter.makeNxdomain(payload)
+                    else forwarded ?: DomainFilter.makeServfail(payload)
+                recordDnsActivity(domain, blocked, forwarded != null)
                 val packet = if (ipv4 != null) Ipv4Udp.response(ipv4, dnsResponse)
                     else Ipv6Udp.response(ipv6!!, dnsResponse)
                 synchronized(output) {
@@ -123,6 +127,31 @@ class GuardianVpnService : VpnService() {
                 if (!running.get()) break
             }
         }
+    }
+
+    private fun recordDnsActivity(domain: String, blocked: Boolean, forwarded: Boolean) {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        synchronized(DNS_STATS_LOCK) {
+            val queries = prefs.getLong(KEY_DNS_QUERIES, 0L) + 1L
+            val blockedCount = prefs.getLong(KEY_DNS_BLOCKED, 0L) + if (blocked) 1L else 0L
+            val forwardedCount = prefs.getLong(KEY_DNS_FORWARDED, 0L) + if (forwarded) 1L else 0L
+            val failedCount = prefs.getLong(KEY_DNS_FAILED, 0L) + if (!blocked && !forwarded) 1L else 0L
+            val outcome = when {
+                blocked -> "차단"
+                forwarded -> "전달"
+                else -> "DNS 응답 실패"
+            }
+            val previous = prefs.getString(KEY_DNS_RECENT, "").orEmpty()
+            val lines = (listOf("$outcome · $domain") + previous.lineSequence().filter { it.isNotBlank() }.toList()).take(8)
+            prefs.edit()
+                .putLong(KEY_DNS_QUERIES, queries)
+                .putLong(KEY_DNS_BLOCKED, blockedCount)
+                .putLong(KEY_DNS_FORWARDED, forwardedCount)
+                .putLong(KEY_DNS_FAILED, failedCount)
+                .putString(KEY_DNS_RECENT, lines.joinToString("\n"))
+                .apply()
+        }
+        sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
     }
 
     private fun loadConfiguredRules() {
