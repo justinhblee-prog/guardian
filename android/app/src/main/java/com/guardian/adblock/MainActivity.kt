@@ -810,6 +810,7 @@ class MainActivity : Activity() {
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
                 val securityWasCached = FilterListManager.hasCachedSecurityList(this)
+                val androidAdsWasCached = FilterListManager.hasCachedAndroidAdsList(this)
                 val securityResult = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
                     try {
                         FilterListManager.updateSecurity(this).also {
@@ -818,6 +819,19 @@ class MainActivity : Activity() {
                     } catch (e: Exception) {
                         prefs.edit().putString(
                             FilterListManager.KEY_SECURITY_LAST_ERROR,
+                            e.message ?: e.javaClass.simpleName
+                        ).apply()
+                        null
+                    }
+                } else null
+                val androidAdsResult = if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)) {
+                    try {
+                        FilterListManager.updateAndroidAds(this).also {
+                            prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
+                        }
+                    } catch (e: Exception) {
+                        prefs.edit().putString(
+                            FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
                         ).apply()
                         null
@@ -835,7 +849,10 @@ class MainActivity : Activity() {
                     val securityMessage = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
                         if (securityResult != null) " · 보안 ${securityResult.blocked}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(보안 필터 미적용)"
                     } else ""
-                    filterStatusText?.text = "${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage} · ${result.bytes / 1024}KB"
+                    val androidAdsMessage = if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)) {
+                        if (androidAdsResult != null) " · Android 앱 광고 ${androidAdsResult.blocked}개" else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)" else " · 앱 광고 필터 다운로드 실패(미적용)"
+                    } else ""
+                    filterStatusText?.text = "${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage}${androidAdsMessage} · ${result.bytes / 1024}KB"
                     filterUpdateButton?.text = "필터 목록 업데이트"
                     filterUpdateButton?.isEnabled = true
                 }
