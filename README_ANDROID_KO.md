@@ -83,8 +83,8 @@ APK 출력:
 
 ## 명확한 제한 및 미검증 사항
 
-- 현재 필터링은 시스템 가상 DNS를 통한 IPv4/IPv6 UDP/53 질의가 중심입니다.
-- 클라이언트 방향 TCP DNS, DoH/DoT, IPv6 확장 헤더 및 IP 조각화 재조립은 지원하지 않습니다.
+- 현재 필터링은 시스템 가상 DNS를 통한 IPv4/IPv6 UDP/53 및 TCP/53 DNS 질의를 처리합니다.
+- DoH/DoT, IPv6 확장 헤더 및 IP 조각화 재조립은 지원하지 않습니다. TCP/53은 제한된 세션 처리이며 재전송·패킷 손실 복구까지 구현한 완전한 TCP 스택은 아닙니다.
 - 공용 DNS 직접 포착은 IP 단위 라우트이므로 DNS가 아닌 트래픽까지 TUN에 들어올 수 있어 기본 꺼짐입니다. Guardian은 DNS 이외 트래픽을 중계하지 않습니다.
 - DNS 수준 필터이므로 웹페이지의 cosmetic filtering, HTTPS 내부 광고 요소 제거, 앱에 직접 포함된 광고 제거를 제공하지 않습니다. 모든 광고 차단을 보장하지 않습니다.
 - 백그라운드 필터 업데이트는 WorkManager의 네트워크 연결 조건과 주기 작업 정책을 사용합니다. Android 전원 관리에 따라 실제 실행 시각은 설정한 시각과 정확히 일치하지 않을 수 있습니다.
@@ -132,7 +132,7 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 
 ## 0.7.2-dev DNS 응답 크기 안전성
 
-업스트림에서 MTU보다 큰 DNS UDP 응답을 받으면 패킷 루프가 과대 IP 패킷을 TUN에 쓰지 않도록, 1232바이트 안전 한도를 적용하고 원본 질문을 유지한 TC 응답을 생성합니다. 이 동작은 단위 테스트로 검증합니다. 클라이언트 TCP/53 재시도 처리는 여전히 지원하지 않습니다.
+업스트림에서 MTU보다 큰 DNS UDP 응답을 받으면 패킷 루프가 과대 IP 패킷을 TUN에 쓰지 않도록, 1232바이트 안전 한도를 적용하고 원본 질문을 유지한 TC 응답을 생성합니다. 이 동작은 단위 테스트로 검증합니다. 현재 소스에는 클라이언트 TCP/53 재시도 처리를 추가했습니다. 단순 SYN/ACK 연결, 순서형 스트림 재조립, DNS 길이 프레이밍 및 응답 분할을 처리합니다. 재전송·패킷 손실 복구와 IPv6 확장 헤더/조각화는 미지원입니다.
 
 
 ## 최종 0.7.2-dev APK 빌드
@@ -143,3 +143,13 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - APK 조립·패키지 식별·SHA-256 검증·artifact 업로드 성공
 - SHA-256: `a1d41cf8937b2c09f7c4ca8d0b02ddf252e95f935b1cee3ed1d485c5470f55d8`
 - 실기기 설치 및 광고 차단 효과는 아직 미검증입니다.
+
+
+## DNS-over-TCP/53 — source CI verified
+
+- TCP/53 패킷 codec과 제한된 연결 상태 관리자를 추가했습니다.
+- SYN/SYN-ACK, ACK, FIN/RST, DNS length-prefix 조립, 분할된 질의 재조립, 다중 DNS 메시지 처리 및 응답 분할을 지원합니다.
+- SYN 이후 서버 시퀀스 번호, payload와 FIN이 함께 온 세그먼트, IPv4/IPv6 TCP checksum을 회귀 테스트합니다.
+- [GitHub Actions run 43450314549](https://github.com/justinhblee-prog/guardian/actions/runs/43450314549): **success**, 14개 테스트 스위트 / 82개 테스트 메서드.
+- 이 push CI는 versionCode 15 / 0.7.2-dev APK를 조립·식별·SHA-256 검증했지만 artifact 업로드는 생략했습니다. 기존 배포 artifact는 이 TCP/53 변경 이전 빌드입니다.
+- 실기기에서 Android resolver가 TCP/53으로 재시도하는지 및 실제 DNS 응답 경로는 아직 검증되지 않았습니다.

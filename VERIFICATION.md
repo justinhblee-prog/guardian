@@ -51,7 +51,7 @@
 - 실제 Android 기기 설치 및 VPN 권한 승인
 - 실기기에서 필터 목록 다운로드, TUN 라우팅 및 실제 광고 차단 성공
 - Wi-Fi↔모바일 데이터 전환, 장시간 실행, 화면 잠금/복귀
-- DoH/DoT, 클라이언트 방향 TCP DNS
+- DoH/DoT; TCP/53은 기본 순서형 스트림 지원만 제공하며 재전송·손실 복구는 미지원
 - IPv6 확장 헤더 및 IP fragment 재조립
 - 웹페이지 요소 숨김, 앱 내부/first-party 광고 제거
 - 앱별 제외 및 고급 공용 DNS 직접 포착의 실기기 검증
@@ -174,3 +174,16 @@
 - Artifact: `Guardian-AdBlock-Android-APK-v0.7.2-dev`, ID `14049565251`
 - Downloaded artifact ZIP integrity: `unzip -t` passed; APK and checksum file extracted and independently verified.
 - This is a debug-signed installable APK. Physical-device VPN routing and real-world ad-block effectiveness remain unverified.
+
+
+## DNS-over-TCP/53 — latest source verification
+
+- GitHub Actions run: https://github.com/justinhblee-prog/guardian/actions/runs/43450314549 — **success**
+- Source commit: `7949cacadef1ec7d4d2ab45561298c6526c9de4d`
+- Android unit tests: **14 suites / 82 JUnit test methods passed**
+- Debug APK assembly, package identity and SHA-256 checks: **success**
+- Package: `com.guardian.adblock`, versionCode `15`, versionName `0.7.2-dev`
+- APK SHA-256: `8697f0a6d6838bd31630537c52d67d22e9c183aed9f8c439b74d6eab6cf57889`
+- Push CI intentionally skipped artifact upload; this is build verification, not a newly published install file.
+- Regression coverage includes IPv4/IPv6 TCP packet checksums, TCP sequence advancement after SYN, DNS-over-TCP framing, partial-frame reassembly, and FIN+payload.
+- Device-level VPN/resolver routing and real-world ad blocking remain unverified. TCP retransmission/loss recovery, IPv6 extension headers and IP fragmentation remain unsupported.

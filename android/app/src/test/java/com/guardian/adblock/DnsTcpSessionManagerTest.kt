@@ -100,6 +100,25 @@ class DnsTcpSessionManagerTest {
         assertTrue(DnsTcpPacket.parse(replies.single(), replies.single().size, 53000)!!.payload.isNotEmpty())
     }
 
+
+    @Test fun processesDnsPayloadAndFinInTheSameTcpSegment() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 900)
+        manager.handle(syn, syn.size) { null }
+        val segment = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH or DnsTcpPacket.FIN,
+            seq = 901, payload = framed)
+        val replies = manager.handle(segment, segment.size) { DomainFilter.makeServfail(it) }
+        assertEquals(2, replies.size)
+        val dataReply = DnsTcpPacket.parse(replies.first(), replies.first().size, 53000)!!
+        assertTrue(dataReply.payload.isNotEmpty())
+        val finReply = DnsTcpPacket.parse(replies.last(), replies.last().size, 53000)!!
+        assertTrue(finReply.fin)
+        assertEquals(902L + framed.size, finReply.acknowledgement)
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     private fun dnsQuery(): ByteArray = byteArrayOf(
         0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,

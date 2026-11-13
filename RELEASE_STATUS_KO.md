@@ -12,7 +12,7 @@
 
 | 영역 | 현재 구현 |
 |---|---|
-| DNS 보호 | Android VpnService, IPv4/IPv6 UDP DNS |
+| DNS 보호 | Android VpnService, IPv4/IPv6 UDP 및 TCP DNS |
 | DNS 응답 | NXDOMAIN / SERVFAIL, upstream transaction/question 검증, truncated upstream UDP의 TCP fallback 및 클라이언트 응답 1232바이트 제한/TC 응답 |
 | 필터 프로필 | AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro |
 | 보안 목록 | 선택형 HaGeZi Threat Intelligence |
@@ -45,7 +45,7 @@
 
 - 실기기 설치, VPN 권한, DNS 라우팅 및 실제 광고 차단 효과 미검증
 - Wi-Fi↔모바일 데이터 전환, 화면 잠금, 장시간 실행 미검증
-- DoH/DoT 및 클라이언트 TCP DNS 미지원
+- DoH/DoT 미지원; TCP/53은 순서형 DNS 스트림 중심의 제한 구현이며 재전송/손실 복구는 미지원
 - IPv6 확장 헤더 및 IP fragment 재조립 미지원
 - 웹페이지 요소 숨김 및 앱 내부/first-party 광고 제거 미지원
 - 공용 DNS 직접 포착의 실기기 라우팅 부작용 검증 필요
@@ -135,7 +135,7 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 
 - IPv6 최소 MTU를 고려해 UDP DNS payload 상한을 1232바이트로 제한합니다.
 - 업스트림 응답이 상한을 넘으면 검증된 질문 섹션을 보존한 TC 응답을 생성해 TUN에 과대 패킷을 쓰지 않습니다.
-- 클라이언트 방향 TCP/53은 아직 지원하지 않으므로, TC 응답 이후 resolver의 TCP 재시도까지 성공한다고 보장하지 않습니다.
+- 클라이언트 방향 TCP/53 연결·프레이밍·순서형 스트림 처리를 소스에 추가했습니다. 다만 TCP 재전송/손실 복구는 구현하지 않아 네트워크 손실 상황까지 보장하지 않으며 실기기 resolver 재시도는 미검증입니다.
 - 추가 회귀 테스트 2개 포함, 전체 12개 스위트 / 72개 테스트.
 
 
@@ -151,3 +151,12 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Artifact ZIP 무결성 검사 및 APK 체크섬 독립 확인 완료.
 - 릴리스 유형: 설치 가능한 debug 서명 APK. Play Store production 서명 빌드는 아닙니다.
 - 실기기 VPN 권한/라우팅, 네트워크 전환 및 실제 광고 차단률은 별도 미검증입니다.
+
+
+## TCP/53 소스 구현 및 CI 검증
+
+- TCP/53 codec 및 bounded session manager를 VPN 패킷 루프에 연결했습니다.
+- SYN/ACK 시퀀스 처리, IPv4/IPv6 checksum, 분할 DNS 프레임 재조립, 다중 질의, DNS 응답 분할, FIN+payload 처리를 회귀 테스트합니다.
+- [GitHub Actions 43450314549](https://github.com/justinhblee-prog/guardian/actions/runs/43450314549): **success** — 14 suites / 82 JUnit tests; debug APK assembly, package identity and SHA-256 checks also passed.
+- 빌드된 검증 APK는 versionCode 15 / 0.7.2-dev이며 push CI 정책상 artifact 업로드는 생략했습니다. 이전 수동 배포 artifact는 TCP/53 변경 전 소스입니다.
+- 제한: TCP 재전송 및 손실 복구, IPv6 extension header, IP fragmentation, DoH/DoT, 실기기 통신 및 실제 광고 차단률은 미검증/미지원입니다.

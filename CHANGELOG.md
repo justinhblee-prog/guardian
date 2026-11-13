@@ -258,3 +258,15 @@
 - Debug APK assembled, package identity and SHA-256 verified, and installable artifact uploaded.
 - Final CI run: https://github.com/justinhblee-prog/guardian/actions/runs/43447121533
 - APK SHA-256: `a1d41cf8937b2c09f7c4ca8d0b02ddf252e95f935b1cee3ed1d485c5470f55d8`
+
+
+## Unreleased — Android DNS-over-TCP/53
+
+- Add a defensive IPv4/IPv6 TCP packet codec for DNS traffic to the virtual resolver.
+- Integrate a bounded TCP session manager into the VPN packet loop.
+- Add DNS-over-TCP length framing, ordered partial-stream reassembly, multi-query parsing, and segmented DNS replies.
+- Apply the existing domain block/allow engine and configured upstream resolver to TCP DNS requests.
+- Correct server sequence advancement after SYN and handle payload+FIN segments.
+- Add regression tests for IPv4/IPv6 TCP checksums, handshake sequence numbers, DNS framing, partial-frame reassembly, and FIN cleanup.
+- CI run 43450314549 passed: 14 suites / 82 JUnit tests; debug APK assembly, package identity and SHA-256 checks passed.
+- TCP retransmission/loss recovery, IPv6 extension headers, IP fragmentation, DoH/DoT and physical-device validation remain outstanding.

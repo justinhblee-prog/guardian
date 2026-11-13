@@ -98,7 +98,7 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 
 ## 8. 제한 및 미검증 범위
 
-- DoH / DoT 및 클라이언트 방향 TCP DNS 미지원
+- DoH / DoT 미지원; TCP/53은 제한된 순서형 DNS 스트림 구현이며 TCP 재전송·손실 복구 미지원
 - IPv6 extension headers 및 IP fragment 재조립 미지원
 - 전체 IP 트래픽을 프록시하는 full-tunnel VPN 아님
 - 웹페이지 요소 숨김 및 앱 내부/first-party 광고 제거 미지원
@@ -179,3 +179,12 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - 검증 소스 커밋: `f518711e559bfb8873128f82c07a1a157a5f2068`
 - Android 단위 테스트 12개 스위트 / 68개 메서드 통과.
 - push 실행이므로 APK 생성·패키지 확인·SHA-256·artifact 업로드는 실행하지 않았습니다.
+
+
+## TCP/53 DNS implementation — source verified
+
+- TCP/53 codec/session manager is integrated in the VPN packet loop for IPv4 and IPv6 base headers.
+- Handles DNS length-prefix framing, ordered stream reassembly, bounded sessions/buffers, DNS filtering/upstream forwarding, segmented replies, and FIN/RST cleanup.
+- CI run 43450314549 passed: 14 test suites / 82 JUnit methods; debug APK assembly, package identity and SHA-256 checks passed.
+- Verified package remains `com.guardian.adblock` versionCode 15 / `0.7.2-dev`; push CI did not upload an artifact.
+- Not a complete TCP implementation: retransmission/loss recovery, IPv6 extension headers and IP fragmentation are unsupported. Real Android device resolver behavior remains unverified.
