@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.7.1-dev
+# Guardian AdBlock Android 0.7.2-dev
 
 ## 제품 개요
 
@@ -8,7 +8,7 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 최소 Android: API 26
 - compile/target SDK: 35
 - 빌드 JDK: 17
-- 현재 버전: `0.7.1-dev` (versionCode 14)
+- 현재 버전: `0.7.2-dev` (versionCode 15)
 
 ## 현재 구현 기능
 
@@ -19,7 +19,8 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 차단 도메인은 NXDOMAIN, 업스트림 장애는 SERVFAIL 응답
 - Cloudflare, Google, Quad9, AdGuard DNS 및 사용자 지정 IPv4/IPv6 숫자 주소를 업스트림으로 사용
 - 보호된 업스트림 UDP 소켓, 응답 발신지·transaction ID·질문 검증
-- UDP 응답이 잘린 경우 업스트림 TCP/53으로 재시도
+- 업스트림 UDP 응답이 잘린 경우 TCP/53으로 재시도
+- 1232바이트를 초과하는 UDP DNS 응답은 IPv6 최소 MTU를 고려해 TC(truncated) 응답으로 축소
 - VPN 시작/중지 경합 제어 및 Android 프로세스 회수 후 sticky service 복구
 - 사용자가 시작 중 보호 중지를 누른 경우에도 저장된 자동 복구 상태를 해제
 - 패킷 처리 루프가 중단되면 활성 상태를 해제하고 실패 사유 기록
@@ -64,7 +65,7 @@ Android는 VPN 앱 자신이 만든 소켓을 자체 TUN 경로에서 제외합�
 
 ## 빌드
 
-GitHub Actions의 `Guardian AdBlock Android APK` 워크플로는 push 시 Android 단위 테스트를 수행합니다. `workflow_dispatch` 실행은 별도로 APK를 조립하고 패키지명·버전·SHA-256을 검증한 뒤 APK artifact를 업로드합니다.
+GitHub Actions의 `Guardian AdBlock Android APK` 워크플로는 모든 push에서 Android 단위 테스트와 debug APK 조립·패키지명·버전·SHA-256 검증을 수행합니다. 일반 push는 artifact를 공개하지 않으며, 수동 실행 또는 `[final-apk]` 커밋에서 설치 APK artifact를 업로드합니다.
 
 로컬 빌드 환경:
 - JDK 17
@@ -87,7 +88,7 @@ APK 출력:
 - 공용 DNS 직접 포착은 IP 단위 라우트이므로 DNS가 아닌 트래픽까지 TUN에 들어올 수 있어 기본 꺼짐입니다. Guardian은 DNS 이외 트래픽을 중계하지 않습니다.
 - DNS 수준 필터이므로 웹페이지의 cosmetic filtering, HTTPS 내부 광고 요소 제거, 앱에 직접 포함된 광고 제거를 제공하지 않습니다. 모든 광고 차단을 보장하지 않습니다.
 - 백그라운드 필터 업데이트는 WorkManager의 네트워크 연결 조건과 주기 작업 정책을 사용합니다. Android 전원 관리에 따라 실제 실행 시각은 설정한 시각과 정확히 일치하지 않을 수 있습니다.
-- 현재 CI는 12개 테스트 스위트 / 70개 테스트 메서드를 실행하고, 모든 변경에서 debug APK 조립·패키지 정체성·SHA-256 검증까지 수행합니다. push에서는 APK artifact를 공개하지 않으며, 수동 릴리스 실행에서만 설치 파일을 업로드합니다. CI 통과는 실기기 네트워크 검증과 다릅니다.
+- 현재 CI는 12개 테스트 스위트 / 72개 테스트 메서드를 실행하고, 모든 변경에서 debug APK 조립·패키지 정체성·SHA-256 검증까지 수행합니다. push에서는 APK artifact를 공개하지 않으며, 수동 릴리스 실행에서만 설치 파일을 업로드합니다. CI 통과는 실기기 네트워크 검증과 다릅니다.
 - 실제 Android 기기에서 VPN 권한, Wi-Fi/모바일 전환, 장시간 백그라운드 유지, 배터리 최적화, 실제 광고 차단률 및 제조사별 동작은 아직 검증되지 않았습니다.
 
 
@@ -127,3 +128,8 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - 테스트: 12개 스위트 / 70개 JUnit 테스트 통과
 - APK 조립, 패키지 식별, SHA-256 확인 완료. 설치 파일은 GitHub Actions artifact로 업로드했습니다.
 - 실기기 설치 및 실제 광고 차단 검증은 별도이며, CI 성공만으로 이를 완료했다고 보지 않습니다.
+
+
+## 0.7.2-dev DNS 응답 크기 안전성
+
+업스트림에서 MTU보다 큰 DNS UDP 응답을 받으면 패킷 루프가 과대 IP 패킷을 TUN에 쓰지 않도록, 1232바이트 안전 한도를 적용하고 원본 질문을 유지한 TC 응답을 생성합니다. 이 동작은 단위 테스트로 검증합니다. 클라이언트 TCP/53 재시도 처리는 여전히 지원하지 않습니다.
