@@ -226,6 +226,23 @@ class MainActivity : Activity() {
         }
         hero.addView(selfTestText!!)
         body.addView(hero.withTop(22))
+        body.addView(card(panel, 18).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(15), dp(16), dp(15))
+            addView(text("광고 차단 필터", 14f, white, true))
+            val filterReady = FilterListManager.hasCachedList(this@MainActivity)
+            addView(text(
+                if (filterReady) filterStatusDescription() else "공식 필터 목록을 아직 설치하지 않았습니다. 필터를 내려받아야 전체 광고 차단이 활성화됩니다.",
+                11f, if (filterReady) accent else red, false
+            ).withTop(8))
+            addView(Button(this@MainActivity).apply {
+                text = "필터 및 차단 옵션 관리"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(panel2, 12)
+                setOnClickListener { showTab("rules") }
+            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(10) })
+        }.withTop(12))
 
         body.addView(text("보호 구성", 18f, white, true).withTop(24))
         val grid = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
