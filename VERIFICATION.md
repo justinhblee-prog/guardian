@@ -11,9 +11,9 @@
 | Ipv4UdpTest | 6 |
 | Ipv6UdpTest | 4 |
 | ProtectionStateTest | 2 |
-| FilterRuleParserTest | 8 |
+| FilterRuleParserTest | 10 |
 | DnsProbeTest | 2 |
-| FilterRuleComposerTest | 2 |
+| FilterRuleComposerTest | 3 |
 | DnsAddressValidatorTest | 2 |
 | FilterListProfilesTest | 6 |
 | VpnStartCancellationGateTest | 4 |
@@ -59,3 +59,12 @@
 - 개발 완료 전 중간 APK를 최종본으로 제공하지 않습니다.
 - 최종 APK는 별도 수동 릴리스 workflow에서만 생성합니다.
 - APK 생성 시 package/version, APK/ZIP 무결성, SHA-256 및 설치 패키지를 확인합니다.
+
+
+## Adblock `$important` priority support — CI pending
+
+- Parsed important block rules are preserved separately from ordinary block rules and remain isolated per source during composition.
+- DNS matching now evaluates important blocks before allow exceptions, matching Adblock priority semantics; unsupported important exceptions are ignored rather than silently misapplied.
+- `$badfilter` removes matching important block rules from the same source.
+- Cache validation and displayed block counts include important rules.
+- Added parser and composed-engine regression tests. Current source inventory: 10 suites / 56 test methods. CI pending.
