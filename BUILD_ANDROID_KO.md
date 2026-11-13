@@ -1,27 +1,41 @@
-# Guardian AdBlock v0.6.3-dev — Android 빌드 안내
+# Guardian AdBlock Android 0.6.4-dev — 빌드 안내
 
-## 필요한 환경
-- Android Studio 안정판
-- JDK 17 이상
-- Android SDK Platform 35 및 Android SDK Build-Tools
-- Gradle Wrapper가 없는 프로젝트이므로 Android Studio 내 Gradle 설치 또는 시스템 Gradle 8.x
+## 필수 환경
 
-## 빌드
-1. ZIP을 Windows PC에 압축 해제합니다.
-2. `android` 폴더를 Android Studio에서 엽니다.
-3. Gradle JDK를 JDK 17 이상으로 지정하고 Sync를 완료합니다.
-4. `:app:testDebugUnitTest` 실행 후 `:app:assembleDebug` 실행.
-5. APK 예상 위치: `android/app/build/outputs/apk/debug/app-debug.apk`.
+- JDK 17
+- Android SDK Platform 35
+- Android SDK Build Tools 35.0.0
+- Gradle 8.9
+- 인터넷 연결(Gradle/Android 빌드 의존성 설치)
 
-PowerShell에서 시스템 Gradle을 사용할 경우:
-```powershell
-cd android
-gradle :app:testDebugUnitTest
-gradle :app:assembleDebug
+## 자동화 빌드
+
+프로젝트 루트에서 실행:
+
+```bash
+gradle -p android --no-daemon clean testDebugUnitTest assembleDebug
 ```
 
-## 기기 검증 전 주의
-- APK 설치 후 VPN 권한을 승인해야 합니다.
-- Wi-Fi/모바일 데이터 전환, 차단/허용 규칙, 업스트림 DNS 장애 시 SERVFAIL, 화면 잠금/복귀를 시험하십시오.
-- Android는 IPv4/IPv6 UDP DNS 질의를 처리합니다. 업스트림 UDP 응답이 잘린 경우에 한해 DNS-over-TCP로 재시도합니다. 클라이언트 방향 TCP DNS 가로채기, IPv6 확장 헤더/조각화 재조립, DoH/DoT 및 실기기 검증은 미완료입니다.
-- 이 개발환경에서는 Android SDK/Gradle이 없어 APK를 생성하지 않았습니다. 위 APK 경로는 빌드 성공 후 생성되는 예상 경로입니다.
+## Android Studio
+
+1. 프로젝트의 `android` 폴더를 Android Studio에서 엽니다.
+2. Gradle JDK를 17로 지정합니다.
+3. Gradle Sync를 완료합니다.
+4. `:app:testDebugUnitTest`를 실행합니다.
+5. `:app:assembleDebug`를 실행합니다.
+
+APK 위치:
+`android/app/build/outputs/apk/debug/app-debug.apk`
+
+## GitHub Actions
+
+저장소 main에 Android 소스가 반영되면 CI가 자동으로 실행됩니다. 테스트/빌드, VPN manifest 권한과 special-use 선언, launcher icon 파일, APK package ID/version, SHA-256을 확인하고 Debug APK artifact를 업로드합니다.
+
+## 설치 및 기기 확인
+
+1. APK를 Android 기기에 복사해 설치합니다.
+2. Guardian AdBlock을 실행하고 보호 시작을 누릅니다.
+3. Android VPN 승인 창에서 허용합니다.
+4. 보호 시작/중지, 차단/허용 도메인, 네트워크 전환, 화면 잠금 후 복귀를 확인합니다.
+
+CI 성공만으로 실기기 동작을 보증하지 않습니다. DoH/DoT, client-side TCP DNS, IPv6 extension header/fragment reassembly는 미지원입니다.
