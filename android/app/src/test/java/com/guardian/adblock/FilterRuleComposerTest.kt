@@ -23,7 +23,7 @@ class FilterRuleComposerTest {
     }
     @Test fun importantBlockOverridesUserAllowException() {
         val composed = FilterRuleComposer.compose(
-            sources = listOf(listOf("||critical.example^$important")),
+            sources = listOf(listOf("||critical.example^\$important")),
             userAllowDomains = listOf("critical.example")
         )
         DomainFilter.loadRules(composed)
