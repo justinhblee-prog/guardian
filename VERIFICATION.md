@@ -105,3 +105,11 @@
 - Worker refreshes selected base list and enabled optional lists, then asks an active VPN service to reload rules.
 - Filter cache downloads are synchronized so manual and periodic workers cannot write the same temporary cache simultaneously.
 - Added two interval policy tests. Current source inventory: 12 suites / 67 test methods.
+
+
+## Latest WorkManager verification
+
+- [GitHub Actions run 43437792450](https://github.com/justinhblee-prog/guardian/actions/runs/43437792450): **success**
+- Source commit: `5d7624fd445edadb1a1ed24a482b9e2d25f07d41`
+- Android unit tests: **passed**; APK assembly was skipped because this was a push-triggered validation run.
+- Test inventory: **12 suites / 67 test methods**.
