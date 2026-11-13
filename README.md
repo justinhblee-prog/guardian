@@ -81,3 +81,15 @@ This build includes IPv4 TUN packet-length hardening and regression tests. Physi
 - APK SHA-256: `9d8ba26f6c9cadad5250e15d3d46456262476b4d5aeb8ac27f023e5eea2fb92b`
 
 The artifact ZIP was integrity-checked and the extracted APK checksum matched the workflow's checksum file. This is a CI-verified development APK; physical-device VPN behavior and real-world ad blocking remain unverified.
+
+
+### Latest Android APK — Rules UI feedback fix
+
+- CI: [43421570913](https://github.com/justinhblee-prog/guardian/actions/runs/43421570913)
+- Source commit: `d438442ea45754be0b8faff777497c3308d3cfc7`
+- Unit-test task and debug APK build: **PASS**
+- Artifact ID: `14034222440`
+- APK size: 846,278 bytes
+- APK SHA-256: `3d8e5aa6b6effe815dbed6f2f8d846d44098eb498de93ddd0807d2eedd2be340`
+
+This build also fixes the Rules tab feedback being overwritten by VPN status refreshes. Physical-device VPN operation remains unverified.
