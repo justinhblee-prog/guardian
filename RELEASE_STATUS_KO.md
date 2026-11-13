@@ -19,10 +19,10 @@
 | NXDOMAIN / SERVFAIL | 구현 |
 | upstream 응답 endpoint / transaction / question 검증 | 구현 |
 | 잘린 upstream UDP 응답의 TCP fallback | 구현 |
-| AdGuard DNS Filter 다운로드 및 캐시 | 구현 중 / CI 확인 필요 |
-| Adblock 도메인 규칙 및 hosts 형식 파싱 | 구현 중 / CI 확인 필요 |
-| 안전하게 처리할 수 없는 고급 규칙 제외 및 개수 표시 | 구현 중 / CI 확인 필요 |
-| 선택형 HaGeZi 악성코드·피싱 목록 | 구현 |
+| AdGuard DNS Filter 및 선택 프로필 다운로드/캐시 | 구현 / 실기기 다운로드 확인 필요 |
+| Adblock 도메인 규칙 및 hosts 형식 파싱 | 구현 / 회귀 테스트 통과 |
+| 안전하게 처리할 수 없는 고급 규칙 제외 및 개수 표시 | 구현 / 회귀 테스트 통과 |
+| 선택형 HaGeZi 악성코드·피싱 목록 | 구현 / 실기기 다운로드 확인 필요 |
 | DNS 업스트림 선택(AdGuard Family 포함) 및 사용자 지정 IPv4/IPv6 주소 | 구현 |
 | 6시간/12시간/24시간/7일 자동 업데이트 주기 | 구현 |
 | 사용자 차단/허용 목록 | 구현 |
@@ -66,7 +66,7 @@
 
 ## 최신 내부 CI 결과
 
-- [GitHub Actions 43430515269](https://github.com/justinhblee-prog/guardian/actions/runs/43429911684): **Success**
+- [GitHub Actions 43430515269](https://github.com/justinhblee-prog/guardian/actions/runs/43430515269): **Success**
 - 소스 커밋: 33bb38ed0abae177b8b24f74890a816a273c5351
 - Gradle clean + testDebugUnitTest: **BUILD SUCCESSFUL**
 - 회귀 테스트 소스 기준: 9개 suite / 44개 테스트 메서드
