@@ -18,7 +18,7 @@ class DnsProbeTest {
             DnsProbe.buildQuery("bad domain.example")
         }
         assertThrows(IllegalArgumentException::class.java) {
-            DnsProbe.buildQuery("localhost")
+            DnsProbe.buildQuery("bad_domain.example")
         }
     }
 }
