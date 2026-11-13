@@ -12,24 +12,14 @@ object DomainFilter {
 
     /** Loads the canonical cross-platform rules shipped as an Android asset. */
     fun loadRules(lines: List<String>) {
-        val blocked = linkedSetOf<String>()
-        val allowed = linkedSetOf<String>()
-        for (raw in lines) {
-            val line = raw.substringBefore('#').trim()
-            if (line.isEmpty()) continue
-            val parts = line.split('=', limit = 2)
-            if (parts.size != 2) continue
-            val domain = parts[1].trim().trimEnd('.').lowercase(java.util.Locale.ROOT)
-            if (!isValidRuleDomain(domain)) continue
-            when (parts[0].trim().lowercase()) {
-                "block" -> blocked.add(domain)
-                "allow" -> allowed.add(domain)
-            }
-        }
-        require(blocked.isNotEmpty()) { "Shared filter rules contain no valid block rules" }
+        val parsed = FilterRuleParser.parse(lines)
+        require(parsed.blocked.isNotEmpty()) { "Filter sources contain no valid DNS block rules" }
         // One volatile swap keeps allow/block precedence consistent during live updates.
-        activeRules = RuleSet(blocked.toSet(), allowed.toSet())
+        activeRules = RuleSet(parsed.blocked, parsed.allowed)
     }
+
+    fun blockedRuleCount(): Int = activeRules.blocked.size
+    fun allowedRuleCount(): Int = activeRules.allowed.size
 
     /** Normalize a user-entered hostname. Only ASCII DNS labels are accepted. */
     fun normalizeRuleDomain(raw: String): String? {
