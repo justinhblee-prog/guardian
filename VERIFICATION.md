@@ -133,3 +133,21 @@ The successful CI build proves the source at the recorded commit compiled, its c
 The IPv4 length hardening and its regression tests are now included in a successful CI-built APK. The test covers caller length beyond the backing buffer, trailing bytes beyond the IPv4 total length, and a valid packet with IPv4 options.
 
 Physical-device acceptance and Windows validation remain outstanding.
+
+
+## Latest Android build — 2026-11-13 (IPv6 regression included)
+
+- Workflow: [43420975704](https://github.com/justinhblee-prog/guardian/actions/runs/43420975704)
+- Source commit: `5b93b93ec36b86c2312c09b95562e396ec6dd890`
+- Gradle command: `clean testDebugUnitTest assembleDebug` — **BUILD SUCCESSFUL**
+- APK checksum step and artifact upload — **PASS**
+- Artifact ID: `14034191808`
+- Artifact ZIP SHA-256: `d691be00fe2d716df9351b5f7183c2cc968533a38d9059dc2977b08e6c7e7c10`
+- APK size: 846,262 bytes
+- APK SHA-256: `9d8ba26f6c9cadad5250e15d3d46456262476b4d5aeb8ac27f023e5eea2fb92b`
+- Downloaded artifact ZIP integrity: **PASS**
+- Extracted APK SHA-256 matched the workflow's `SHA256SUMS.txt`: **PASS**
+
+This build includes IPv4 packet framing hardening, case-insensitive DNS question matching, and IPv6 UDP checksum/packet validation regression coverage. The first IPv6 test run exposed a test-fixture bug (the checksum field was not zeroed before recomputation); that fixture was corrected and the subsequent complete CI run passed.
+
+Physical-device acceptance and Windows validation remain outstanding.
