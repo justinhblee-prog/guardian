@@ -38,7 +38,7 @@ object DnsProbe {
         }
     }
 
-    private fun buildQuery(domain: String): ByteArray {
+    internal fun buildQuery(domain: String): ByteArray {
         val normalized = DomainFilter.normalizeRuleDomain(domain)
             ?: throw IllegalArgumentException("잘못된 테스트 도메인입니다.")
         val output = ByteArrayOutputStream()
