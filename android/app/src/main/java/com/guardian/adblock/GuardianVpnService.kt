@@ -293,14 +293,17 @@ class GuardianVpnService : VpnService() {
         val selectedProfile = FilterListManager.selectedProfile(this)
         val cachedProfile = FilterListManager.cachedProfile(this)
         val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+        val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
         require(FilterListManager.isProfileCacheCurrent(
             FilterListManager.hasCachedList(this),
             selectedProfile.key,
             cachedProfile.key,
             securityEnabled,
-            FilterListManager.hasCachedSecurityList(this)
+            FilterListManager.hasCachedSecurityList(this),
+            androidAdsEnabled,
+            FilterListManager.hasCachedAndroidAdsList(this)
         )) {
-            "선택한 필터 프로필 또는 보안 목록이 검증·준비되지 않았습니다. 앱에서 필터를 업데이트한 후 다시 시작해 주세요."
+            "선택한 필터 프로필, 보안 목록 또는 Android 앱 광고 목록이 검증·준비되지 않았습니다. 앱에서 필터를 업데이트한 후 다시 시작해 주세요."
         }
         val sources = mutableListOf<List<String>>()
         sources.add(assets.open("filter_rules.txt").bufferedReader().use { it.readLines() })
@@ -323,6 +326,18 @@ class GuardianVpnService : VpnService() {
                 "악성코드·피싱 필터 캐시가 유효하지 않습니다. 보안 목록을 다시 내려받으세요."
             }
             sources.add(securityLines)
+        }
+        if (androidAdsEnabled) {
+            val androidAdsLines = FilterListManager.cachedAndroidAdsLines(this)
+            val parsedAndroidAds = FilterRuleParser.parse(androidAdsLines)
+            require(FilterListManager.isCacheValid(
+                androidAdsLines.isNotEmpty(),
+                parsedAndroidAds.blocked.size + parsedAndroidAds.importantBlocked.size,
+                FilterListManager.MIN_ANDROID_ADS_BLOCKS
+            )) {
+                "Android 앱 광고 SDK 필터 캐시가 유효하지 않습니다. 앱 광고 목록을 다시 내려받으세요."
+            }
+            sources.add(androidAdsLines)
         }
         val userBlock = prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
             .map { it.trim() }.filter { it.isNotEmpty() }.toList()
