@@ -566,33 +566,61 @@ class MainActivity : Activity() {
             .filter { it.first != packageName }
             .distinctBy { it.first }
             .sortedBy { it.second.lowercase(Locale.ROOT) }
-            .take(150)
+        val search = EditText(this).apply {
+            hint = "앱 이름 또는 패키지명 검색"
+            setHintTextColor(muted)
+            setTextColor(white)
+            textSize = 13f
+            setSingleLine(true)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            setPadding(dp(13), dp(12), dp(13), dp(12))
+            background = shape(panel2, 12)
+        }
+        body.addView(search, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
         val card = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
-        apps.forEach { (pkg, label) ->
-            val check = CheckBox(this).apply {
-                text = "$label\n$pkg"
-                textSize = 12f
-                setTextColor(white)
-                isChecked = pkg in excluded
-                setPadding(dp(4), dp(5), dp(4), dp(5))
-                setOnCheckedChangeListener { _, checked ->
-                    val latest = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty().toMutableSet()
-                    if (checked) latest.add(pkg) else latest.remove(pkg)
-                    prefs.edit().putStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, latest.toSet()).apply()
-                    appFilterFeedback?.text = "제외 앱 ${latest.size}개 저장됨 · 보호를 중지한 뒤 다시 시작해 적용하세요."
-                }
-            }
-            card.addView(check)
-        }
+        val appList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        card.addView(appList)
         body.addView(card.withTop(10))
         appFilterFeedback = text(
-            "현재 제외 앱 ${excluded.size}개 · 최대 150개 표시",
+            "설치 앱 ${apps.size}개 · 보호 제외 앱 ${excluded.size}개",
             11f, muted, false
         ).withTop(8) as TextView
         body.addView(appFilterFeedback!!)
+        fun renderApps(rawQuery: String) {
+            appList.removeAllViews()
+            val query = rawQuery.trim().lowercase(Locale.ROOT)
+            val visible = apps.filter { (pkg, label) ->
+                query.isEmpty() || label.lowercase(Locale.ROOT).contains(query) || pkg.lowercase(Locale.ROOT).contains(query)
+            }.take(250)
+            visible.forEach { (pkg, label) ->
+                val check = CheckBox(this).apply {
+                    text = "$label\n$pkg"
+                    textSize = 12f
+                    setTextColor(white)
+                    isChecked = pkg in excluded
+                    setPadding(dp(4), dp(5), dp(4), dp(5))
+                    setOnCheckedChangeListener { _, checked ->
+                        if (checked) excluded.add(pkg) else excluded.remove(pkg)
+                        prefs.edit().putStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, excluded.toSet()).apply()
+                        appFilterFeedback?.text = "설치 앱 ${apps.size}개 · 제외 앱 ${excluded.size}개 저장됨 · 보호 재시작 후 적용"
+                    }
+                }
+                appList.addView(check)
+            }
+            if (visible.isEmpty()) {
+                appList.addView(text("검색 결과가 없습니다.", 12f, muted, false).apply { setPadding(dp(8), dp(12), dp(8), dp(12)) })
+            }
+            appFilterFeedback?.text = "검색 결과 ${visible.size}개 / 전체 ${apps.size}개 · 제외 앱 ${excluded.size}개"
+        }
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = renderApps(s?.toString().orEmpty())
+            override fun afterTextChanged(s: android.text.Editable?) = Unit
+        })
+        renderApps("")
     }
 
     private fun filterStatusDescription(): String {
