@@ -23,11 +23,11 @@ object FilterRuleParser {
                 lower.startsWith("block-important=") -> addDomain(line.substringAfter('='), importantBlocked).also { if (!it) ignored++ }
                 lower.startsWith("block=") -> addDomain(line.substringAfter('='), blocked).also { if (!it) ignored++ }
                 lower.startsWith("allow=") -> addDomain(line.substringAfter('='), allowed).also { if (!it) ignored++ }
-                lower.startsWith("@@||") && lower.contains(36.toChar() + "badfilter") -> {
+                lower.startsWith("@@||") && hasModifier(line, "badfilter") -> {
                     val domain = adblockDomain(line.substring(4))
                     if (domain == null) ignored++ else disabledAllowed.add(domain)
                 }
-                lower.startsWith("||") && lower.contains(36.toChar() + "badfilter") -> {
+                lower.startsWith("||") && hasModifier(line, "badfilter") -> {
                     val domain = adblockDomain(line.substring(2))
                     if (domain == null) ignored++
                     else if (hasModifier(line, "important")) disabledImportantBlocked.add(domain)
