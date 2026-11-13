@@ -47,6 +47,9 @@ class MainActivity : Activity() {
     private var filterStatusText: TextView? = null
     private var filterUpdateButton: Button? = null
     private var appFilterFeedback: TextView? = null
+    private var blockRateValue: TextView? = null
+    private var blockedCountValue: TextView? = null
+    private var queryCountValue: TextView? = null
     private var receiverRegistered = false
     private var currentTab = "home"
     private val filterUpdateRunning = AtomicBoolean(false)
@@ -249,6 +252,18 @@ class MainActivity : Activity() {
         }
         hero.addView(selfTestText!!)
         body.addView(hero.withTop(22))
+
+        val metricRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        blockRateValue = text("0%", 22f, white, true)
+        blockedCountValue = text("0", 22f, white, true)
+        queryCountValue = text("0", 22f, white, true)
+        metricRow.addView(metricCard("차단률", blockRateValue!!, accent), LinearLayout.LayoutParams(0, dp(88), 1f))
+        metricRow.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+        metricRow.addView(metricCard("차단된 질의", blockedCountValue!!, Color.rgb(255, 112, 125)), LinearLayout.LayoutParams(0, dp(88), 1f))
+        metricRow.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+        metricRow.addView(metricCard("전체 DNS", queryCountValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(88), 1f))
+        body.addView(metricRow.withTop(12))
+
         body.addView(card(panel, 18).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
@@ -971,6 +986,12 @@ class MainActivity : Activity() {
             status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
         }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
+        val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
+        val blockedQueries = prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)
+        val blockRate = if (totalQueries > 0L) blockedQueries * 100.0 / totalQueries else 0.0
+        blockRateValue?.text = String.format(Locale.getDefault(), "%.1f%%", blockRate)
+        blockedCountValue?.text = String.format(Locale.getDefault(), "%,d", blockedQueries)
+        queryCountValue?.text = String.format(Locale.getDefault(), "%,d", totalQueries)
         recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
         diagnosticText?.text = "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}"
     }
@@ -1014,6 +1035,13 @@ class MainActivity : Activity() {
             }
         }
         return domains.toList()
+    }
+
+    private fun metricCard(label: String, value: TextView, tint: Int) = card(panel, 15).apply {
+        setPadding(dp(12), dp(12), dp(8), dp(10))
+        addView(text(label, 10f, muted, false))
+        value.setTextColor(tint)
+        addView(value.withTop(7))
     }
 
     private fun infoCard(number: String, title: String, subtitle: String, tint: Int) = card(panel2, 16).apply {
