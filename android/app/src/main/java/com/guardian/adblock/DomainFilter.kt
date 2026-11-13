@@ -163,8 +163,8 @@ object DomainFilter {
 
     /**
      * Build a standards-shaped UDP truncation response when an upstream answer
-     * exceeds the safe IPv6-minimum-MTU DNS payload (1232 bytes). The client can
-     * detect TC and retry using DNS-over-TCP when its resolver supports it.
+     * exceeds the safe IPv6-minimum-MTU DNS payload (1232 bytes). The TC bit
+     * signals truncation; client-side TCP/53 handling on the TUN is not implemented.
      */
     fun makeTruncatedResponse(query: ByteArray): ByteArray? {
         val end = questionEnd(query) ?: return null
