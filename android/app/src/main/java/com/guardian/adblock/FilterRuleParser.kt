@@ -14,7 +14,7 @@ object FilterRuleParser {
         var ignored = 0
 
         for (raw in lines) {
-            val line = raw.substringBefore('#').trim()
+            val line = raw.removePrefix("\uFEFF").substringBefore('#').trim()
             if (line.isEmpty() || line.startsWith("!") || line.startsWith("[")) continue
             val lower = line.lowercase(Locale.ROOT)
             when {
