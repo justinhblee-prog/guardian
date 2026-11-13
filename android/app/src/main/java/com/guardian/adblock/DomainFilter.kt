@@ -7,18 +7,18 @@ object DomainFilter {
         "adnxs.com", "adform.net", "taboola.com", "outbrain.com",
         "criteo.com", "scorecardresearch.com", "quantserve.com"
     )
-    private data class RuleSet(val blocked: Set<String>, val allowed: Set<String>)
-    @Volatile private var activeRules = RuleSet(bootstrapBlocked, emptySet())
+    private data class RuleSet(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>)
+    @Volatile private var activeRules = RuleSet(bootstrapBlocked, emptySet(), emptySet())
 
     /** Loads the canonical cross-platform rules shipped as an Android asset. */
     fun loadRules(lines: List<String>) {
         val parsed = FilterRuleParser.parse(lines)
-        require(parsed.blocked.isNotEmpty()) { "Filter sources contain no valid DNS block rules" }
+        require(parsed.blocked.isNotEmpty() || parsed.importantBlocked.isNotEmpty()) { "Filter sources contain no valid DNS block rules" }
         // One volatile swap keeps allow/block precedence consistent during live updates.
-        activeRules = RuleSet(parsed.blocked, parsed.allowed)
+        activeRules = RuleSet(parsed.blocked, parsed.allowed, parsed.importantBlocked)
     }
 
-    fun blockedRuleCount(): Int = activeRules.blocked.size
+    fun blockedRuleCount(): Int = activeRules.blocked.size + activeRules.importantBlocked.size
     fun allowedRuleCount(): Int = activeRules.allowed.size
 
     /** Normalize a user-entered hostname. Only ASCII DNS labels are accepted. */
@@ -43,6 +43,7 @@ object DomainFilter {
         val snapshot = activeRules
         // Hash lookups by DNS label avoid scanning every downloaded rule for
         // every query. Work is bounded by the number of labels in the domain.
+        if (matchesDomainOrParent(d, snapshot.importantBlocked)) return true
         if (matchesDomainOrParent(d, snapshot.allowed)) return false
         return matchesDomainOrParent(d, snapshot.blocked)
     }
