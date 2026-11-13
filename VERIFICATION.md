@@ -21,9 +21,9 @@
 | DnsProbeTest | 2 |
 | FilterRuleComposerTest | 2 |
 | DnsAddressValidatorTest | 2 |
-| FilterListProfilesTest | 5 |
+| FilterListProfilesTest | 6 |
 | VpnStartCancellationGateTest | 4 |
-| Total | 52 |
+| Total | 53 |
 
 ## Covered areas
 
@@ -130,3 +130,11 @@ This validates source compilation and unit tests only. It does not verify the An
 - Protection start also requires the selected security filter cache when the security option is enabled.
 - Filter profile metadata is synchronously committed after successful atomic cache replacement.
 - Current source inventory: 10 suites / 52 test methods. Latest CI pending.
+
+
+## Cache integrity validation and service-side startup guard — CI pending
+
+- Cached primary and security filter files are considered ready only when both file existence and the persisted validated block-count threshold pass.
+- The VPN service independently validates selected profile, cached profile, and enabled security-list readiness before loading rules; this also protects startup paths outside the dashboard button.
+- Added pure regression tests for missing files, insufficient rule counts, and invalid thresholds.
+- Current source inventory: 10 suites / 53 JUnit test methods. CI pending.
