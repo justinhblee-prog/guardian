@@ -150,3 +150,13 @@
 - APK ZIP integrity: verified locally with `unzip -t`; no archive errors.
 - Artifact: `Guardian-AdBlock-Android-APK-v0.7.1-dev` (GitHub artifact ID `14048365232`)
 - This is an installable debug-signed APK. Physical Android installation, VPN route validation, and real ad-block effectiveness remain unverified.
+
+
+## 0.7.2-dev DNS truncation regression verification
+
+- Source under test: `5a3bd8843a74e4c74d4f89926774460736b1bfba`
+- GitHub Actions run: https://github.com/justinhblee-prog/guardian/actions/runs/43446556136
+- Android unit-test step: **success** (12 suites / 72 JUnit test methods).
+- Debug APK assembly, package identity check and SHA-256 step: **success** for the source under test (version still 0.7.1-dev at this commit).
+- Regression: 1232-byte UDP DNS response ceiling and TC response generation for oversized upstream answers.
+- New version 0.7.2-dev is being packaged separately after versionCode/versionName bump; this CI run does not represent that version.
