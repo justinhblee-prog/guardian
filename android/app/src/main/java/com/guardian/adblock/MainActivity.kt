@@ -73,10 +73,12 @@ class MainActivity : Activity() {
         val lastUpdate = FilterListManager.lastUpdatedAt(this)
         val updateInterval = filterPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
         val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+        val profileChanged = FilterListManager.hasCachedList(this) &&
+                FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
         val securityStale = securityEnabled && (!FilterListManager.hasCachedSecurityList(this) ||
                 System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= 24L * 60L * 60L * 1000L)
         if (autoUpdate && (!FilterListManager.hasCachedList(this) ||
-                System.currentTimeMillis() - lastUpdate >= updateInterval || securityStale)) {
+                System.currentTimeMillis() - lastUpdate >= updateInterval || securityStale || profileChanged)) {
             startFilterUpdate()
         }
     }
@@ -502,7 +504,10 @@ class MainActivity : Activity() {
                     filterStatusText?.text = "필터 업데이트 중에는 프로필을 변경할 수 없습니다."
                     return
                 }
-                profilePrefs.edit().putString(FilterListManager.KEY_FILTER_PROFILE, selected.key).apply()
+                profilePrefs.edit()
+                    .putString(FilterListManager.KEY_FILTER_PROFILE, selected.key)
+                    .putLong("filter_list_updated_at", 0L)
+                    .apply()
                 filterStatusText?.text = "선택한 프로필: ${selected.label} · 새 목록을 내려받습니다."
                 startFilterUpdate()
             }
