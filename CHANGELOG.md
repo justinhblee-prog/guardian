@@ -192,7 +192,7 @@
 - Replace the app-owned virtual-DNS UDP self-test (which bypasses the app's own VPN route on Android) with an accurately labelled in-process rule-engine test.
 - Apply consistent dark styling to DNS/profile/update-interval selectors and avoid refreshing detached home views.
 - Serialize CI per branch and cancel superseded push runs.
-- Latest CI: run 43436954231 passed; 11 suites / 65 JUnit test methods.
+- Latest CI: run 43436954231 passed; 12 suites / 67 JUnit test methods.
 
 
 ## Latest verification update
@@ -201,3 +201,12 @@
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
 - Test inventory: 11 suites / 65 test methods.
+
+
+## 0.7.0-dev — persistent filter refresh
+
+- Add WorkManager 2.12.0 periodic background filter refresh with network constraint and selectable cadence.
+- Cancel scheduled refresh when automatic updates are disabled; retry transient failures with exponential backoff.
+- Refresh active filter sources and reload an active VPN service after successful updates.
+- Serialize cache downloads to avoid manual/background write races.
+- Add interval validation tests; inventory grows to 12 suites / 67 test methods.
