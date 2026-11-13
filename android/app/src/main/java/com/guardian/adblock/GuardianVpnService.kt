@@ -149,7 +149,7 @@ class GuardianVpnService : VpnService() {
             establishError = e
             null
         }
-        if (startCancellation.get() && descriptor != null) {
+        if (startCancellation.isCancelled() && descriptor != null) {
             try { descriptor.close() } catch (_: Exception) { }
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             stopSelf()
