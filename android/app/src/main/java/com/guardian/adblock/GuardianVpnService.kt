@@ -66,14 +66,14 @@ class GuardianVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private val running = AtomicBoolean(false)
     private val starting = AtomicBoolean(false)
-    private val startCancelled = AtomicBoolean(false)
+    private val startCancellation = VpnStartCancellationGate()
     private val lastStatsBroadcastAt = AtomicLong(0L)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> stopProtection()
             ACTION_START -> {
-                startCancelled.set(false)
+                startCancellation.onStartRequested()
                 thread(name = "guardian-vpn-start") { startProtection() }
             }
             ACTION_RELOAD_RULES -> thread(name = "guardian-vpn-rule-reload") { reloadUserRules() }
@@ -110,7 +110,7 @@ class GuardianVpnService : VpnService() {
             stopSelf()
             return
         }
-        if (startCancelled.get()) {
+        if (startCancellation.isCancelled()) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             stopSelf()
             return
@@ -149,7 +149,7 @@ class GuardianVpnService : VpnService() {
             establishError = e
             null
         }
-        if (startCancelled.get() && descriptor != null) {
+        if (startCancellation.get() && descriptor != null) {
             try { descriptor.close() } catch (_: Exception) { }
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             stopSelf()
@@ -395,7 +395,7 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun stopProtection() {
-        startCancelled = true
+        startCancellation.cancel()
         tunnelActive = false
         val wasActive = running.getAndSet(false) || tun != null
         try { tun?.close() } catch (_: Exception) { }
