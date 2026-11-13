@@ -11,7 +11,7 @@
 | Ipv4UdpTest | 6 |
 | Ipv6UdpTest | 4 |
 | ProtectionStateTest | 2 |
-| FilterRuleParserTest | 10 |
+| FilterRuleParserTest | 11 |
 | DnsProbeTest | 2 |
 | FilterRuleComposerTest | 3 |
 | DnsAddressValidatorTest | 2 |
@@ -68,3 +68,10 @@
 - `$badfilter` removes matching important block rules from the same source.
 - Cache validation and displayed block counts include important rules.
 - Added parser and composed-engine regression tests. Current source inventory: 10 suites / 56 test methods. CI pending.
+
+
+## Modifier-specific `$badfilter` semantics — CI pending
+
+- `$badfilter` now cancels only the matching normal or `$important` variant, rather than disabling every rule for the same hostname.
+- Added a regression test proving normal and important variants remain independent.
+- Current source inventory: 10 suites / 57 test methods. CI pending.
