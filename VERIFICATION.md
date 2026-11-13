@@ -3,15 +3,9 @@
 기준 버전: 0.7.0-dev  
 기준일: 2026-11-13
 
-## Push CI policy
+## 현재 회귀 테스트 인벤토리
 
-- Push CI runs Gradle clean + Android JUnit tests only.
-- APK assembly and artifact upload are skipped on push.
-- Final APK packaging is available only through manual workflow_dispatch after development is complete.
-
-## Current regression test inventory
-
-| Test suite | Test methods |
+| 테스트 스위트 | 테스트 메서드 |
 |---|---:|
 | DomainFilterTest | 17 |
 | Ipv4UdpTest | 6 |
@@ -23,128 +17,45 @@
 | DnsAddressValidatorTest | 2 |
 | FilterListProfilesTest | 6 |
 | VpnStartCancellationGateTest | 4 |
-| Total | 53 |
+| **합계** | **53** |
 
-## Covered areas
+## 최신 성공 CI
 
-- DNS question validation, NXDOMAIN/SERVFAIL, upstream transaction/question matching
-- DNS QNAME case-insensitive response matching with exact QTYPE/QCLASS
-- IPv4 UDP DNS parse, exact packet length, fragments, options
-- IPv6 UDP DNS mandatory checksum and response checksum
-- stale persisted VPN state and live tunnel requirement
-- Adblock domain anchor, allow exception, hosts entries, badfilter, unsupported modifier rejection
-- DNS self-test query construction and hostname validation
-- Filter-source badfilter isolation and custom DNS IPv4/IPv6 literal validation
-- Official filter profile catalog, unique profile IDs, registry URLs, and minimum validation thresholds
+- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43432189671
+- 소스 커밋: `0213bc28e97e7553d621a75d43108d4f885da67a`
+- 결과: **Success**
+- `clean testDebugUnitTest`: **BUILD SUCCESSFUL**
+- APK assemble / upload: push CI 정책에 따라 **skipped**
+- 검증된 범위: DNS 파서·응답 검증, IPv4/IPv6 UDP 패킷, 필터 규칙 파싱/예외, 필터 프로필 캐시 준비 조건, 대형 목록 도메인 매칭, DNS 주소 검증, VPN 시작/중지 취소 게이트.
 
-## Functional boundaries not covered by CI
+## 내부 검증된 설계 및 코드 경로
 
-- Downloading current remote filter sources on a real Android device
-- VPN permission / TUN establishment on physical devices
-- Actual public DNS direct interception on physical Wi-Fi/mobile networks
-- App exclusion behavior on OEM Android builds
-- DoH/DoT, client-side TCP DNS, IPv6 extension header / fragment handling
-- Actual ad-blocking effectiveness in real apps and browsers
-- Network handover, sleep/wake, battery/lifecycle stability
+- 공식 DNS 필터 프로필: AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro
+- 원자적 파일 교체와 마지막 정상 필터 캐시 보존
+- 선택 프로필 및 보안 필터 캐시가 유효하지 않으면 보호 시작 차단
+- VPN 서비스 시작 직전 실제 캐시 파일을 다시 파싱하고 최소 유효 규칙 수 확인
+- badfilter는 해당 목록 출처 안에서만 적용
+- 도메인 차단/허용은 전체 규칙 선형 검색 대신 DNS label suffix hash lookup 사용
+- DNS 응답 transaction ID / 질문 이름 / QTYPE / QCLASS 확인
+- DNS 자가 테스트는 VPN 터널 활성 상태에서만 수행
+- VPN 시작/중지 순서 및 취소 경합에 대한 회귀 테스트
+- Android 시스템 바 인셋 처리 및 앱 제외 검색 UI
 
-A successful JUnit run does not prove real-world blocking. The in-app DNS self-test is intended to verify the packet-processing path when run on a device.
+## 미검증 / 미지원 범위
 
-## Latest source version
+- 실제 Android 기기 설치 및 VPN 권한 승인
+- 실기기에서 필터 목록 다운로드, TUN 라우팅 및 실제 광고 차단 성공
+- Wi-Fi↔모바일 데이터 전환, 장시간 실행, 화면 잠금/복귀
+- DoH/DoT, 클라이언트 방향 TCP DNS
+- IPv6 확장 헤더 및 IP fragment 재조립
+- 웹페이지 요소 숨김, 앱 내부/first-party 광고 제거
+- 앱별 제외와 고급 공용 DNS 직접 포착의 실기기 검증
 
-- App version: 0.7.0-dev / versionCode 13
-- Package: com.guardian.adblock
-- APK: intentionally not generated during ongoing development
-- Source repository: https://github.com/justinhblee-prog/guardian
+공용 DNS 직접 포착은 Android VPN의 IP 단위 라우팅을 사용합니다. 선택된 DNS 서버 IP로 가는 비-DNS 트래픽도 TUN에 들어올 수 있으며, 앱은 이를 중계하지 않습니다. 이 기능은 고급 옵션으로 노출하고 비활성화 방법을 안내합니다.
 
+## APK 정책
 
-## Latest successful push CI — 2026-11-13
-
-- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43428069445
-- Source commit: e681062ee2cc3a3573aa4597e2eb545420fa81e1
-- Result: **success**
-- Android Gradle clean + testDebugUnitTest: **BUILD SUCCESSFUL**
-- Source inventory: 40 JUnit test methods across 8 suites.
-- APK assemble / upload: **skipped by policy**; this was a push test run, not a release build.
-
-
-## Latest internal CI after DNS route and UI hardening
-
-- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43429078993
-- Source commit: da40d5a3d8abecbfbc7855f484e547ee097adbd6
-- Android unit-test step: **success**
-- APK build/upload: skipped because this is a push CI run.
-- Changes covered by compilation: custom resolver route inclusion, searchable installed-app exclusion list, configurable refresh interval, startup gate until official filter cache is available, and live-tunnel requirement for DNS self-test.
-
-
-## Latest successful internal CI — 2026-11-13
-
-- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43429911684
-- Source commit: 5ef6f94e1c46d760de445d9326bda9711f265083
-- Android JUnit test step: **success**
-- Gradle log: **BUILD SUCCESSFUL** (43 seconds for unit tests; follow-up build step successful)
-- Test inventory at current source: 9 suites / 45 test methods.
-- APK build and upload: intentionally skipped by push-CI policy.
-
-This validates source compilation and unit tests only. It does not verify the Android VPN on a physical device or real-world ad blocking.
-
-
-## Latest successful CI after filter profile and DNS engine hardening
-
-- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43430515269
-- Source commit: 33bb38ed0abae177b8b24f74890a816a273c5351
-- Result: **success**
-- Android JUnit: **BUILD SUCCESSFUL**
-- Test source inventory: 9 suites / 44 test methods.
-- APK assemble/upload: skipped by push-CI policy.
-- Includes large-list suffix matching regression, selectable official filter profiles, searchable app exclusions, refresh schedule controls, and advanced direct-DNS capture option.
-
-
-
-## Current main source — pending CI
-
-- Latest known source changes include UTF-8 BOM handling for downloaded lists and a startup guard that requires the selected filter profile to match the cached profile.
-- Regression inventory: 10 suites / 49 JUnit test methods.
-- CI for these latest changes has not yet been verified in this record.
-- No APK was generated; physical-device VPN and real-world blocking tests remain outstanding.
-
-
-## VPN lifecycle race fix — CI pending
-
-- Fixed the startup/stop ordering race: a stop request arriving after ACTION_START but before the startup worker begins is no longer overwritten by a worker-side reset.
-- Added a dedicated cancellation gate and two deterministic regression tests for stop-before-worker and explicit restart behavior.
-- Latest source inventory: 10 suites / 49 test methods. CI result not yet confirmed.
-
-
-## Enabled security-list readiness guard — CI pending
-
-- Protection startup now also requires a valid cached HaGeZi Threat Intelligence list whenever the malware/phishing option is enabled; a failed first download can no longer silently start without the selected security layer.
-- Filter profile metadata is synchronously committed after atomic cache replacement so a successful update is not reported before its selected-profile marker is persisted.
-- Added regression coverage for security enabled/disabled and cache present/missing.
-- Latest known source test inventory: 10 suites / 50 test methods (subject to repository inventory reconciliation); latest CI result pending.
-
-
-## Atomic VPN activation and security-list gate — CI pending
-
-- Final TUN descriptor activation is now serialized with stop/revoke cancellation; a stop cannot land between the last cancellation check and publishing the active tunnel state.
-- Cancellation gate tests now cover early stop, restart, cancelled commit rejection, and stop-after-commit ordering.
-- Protection start also requires the selected security filter cache when the security option is enabled.
-- Filter profile metadata is synchronously committed after successful atomic cache replacement.
-- Current source inventory: 10 suites / 52 test methods. Latest CI pending.
-
-
-## Cache integrity validation and service-side startup guard — CI pending
-
-- Cached primary and security filter files are considered ready only when both file existence and the persisted validated block-count threshold pass.
-- The VPN service independently validates selected profile, cached profile, and enabled security-list readiness before loading rules; this also protects startup paths outside the dashboard button.
-- Added pure regression tests for missing files, insufficient rule counts, and invalid thresholds.
-- Current source inventory: 10 suites / 53 JUnit test methods. CI pending.
-
-
-## Latest successful CI — cache readiness hardening
-
-- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43432124054
-- Source commit: fd1a10329ab69aa7cfb4b769f5722313bc7c7c94
-- Result: **success**; Android unit-test step passed.
-- Test inventory at that commit: 10 suites / 53 JUnit methods.
-- APK assemble and upload: skipped by policy.
-- A subsequent change adds actual cached-file content re-parsing inside VPN service startup; CI for that newer commit is pending.
+- 개발 중 push CI에서는 테스트만 수행합니다.
+- 개발 완료 전 중간 APK를 최종본으로 제공하지 않습니다.
+- 최종 APK는 별도 수동 릴리스 workflow에서만 생성합니다.
+- APK 생성 시 package/version, APK/ZIP 무결성, SHA-256 및 설치 패키지를 확인합니다.
