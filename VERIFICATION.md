@@ -138,3 +138,13 @@ This validates source compilation and unit tests only. It does not verify the An
 - The VPN service independently validates selected profile, cached profile, and enabled security-list readiness before loading rules; this also protects startup paths outside the dashboard button.
 - Added pure regression tests for missing files, insufficient rule counts, and invalid thresholds.
 - Current source inventory: 10 suites / 53 JUnit test methods. CI pending.
+
+
+## Latest successful CI — cache readiness hardening
+
+- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43432124054
+- Source commit: fd1a10329ab69aa7cfb4b769f5722313bc7c7c94
+- Result: **success**; Android unit-test step passed.
+- Test inventory at that commit: 10 suites / 53 JUnit methods.
+- APK assemble and upload: skipped by policy.
+- A subsequent change adds actual cached-file content re-parsing inside VPN service startup; CI for that newer commit is pending.
