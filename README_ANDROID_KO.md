@@ -133,3 +133,13 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 ## 0.7.2-dev DNS 응답 크기 안전성
 
 업스트림에서 MTU보다 큰 DNS UDP 응답을 받으면 패킷 루프가 과대 IP 패킷을 TUN에 쓰지 않도록, 1232바이트 안전 한도를 적용하고 원본 질문을 유지한 TC 응답을 생성합니다. 이 동작은 단위 테스트로 검증합니다. 클라이언트 TCP/53 재시도 처리는 여전히 지원하지 않습니다.
+
+
+## 최종 0.7.2-dev APK 빌드
+- [최종 GitHub Actions 실행](https://github.com/justinhblee-prog/guardian/actions/runs/43447121533): **성공**
+- 소스 커밋: `50e768e253ae3ee7d77d3cdc07b5f23ccd970eab`
+- APK: `com.guardian.adblock` / versionCode 15 / `0.7.2-dev`
+- 단위 테스트: 12개 스위트 / 72개 JUnit 테스트 통과
+- APK 조립·패키지 식별·SHA-256 검증·artifact 업로드 성공
+- SHA-256: `a1d41cf8937b2c09f7c4ca8d0b02ddf252e95f935b1cee3ed1d485c5470f55d8`
+- 실기기 설치 및 광고 차단 효과는 아직 미검증입니다.
