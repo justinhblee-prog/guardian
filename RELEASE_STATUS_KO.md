@@ -41,7 +41,7 @@
 
 ## 내부 검증 체크리스트
 
-- [x] 최신 main 소스의 Android JUnit 테스트 성공 (44개)
+- [x] 최신 main 소스의 Android JUnit 테스트 성공 (45개)
 - [ ] Adblock parser: 차단/예외/hosts/badfilter/unsupported modifier 회귀 테스트 통과
 - [ ] DNS 자가 테스트 query/response 패킷 형식 및 매칭 테스트 통과
 - [ ] VPN start/stop/restart race 및 stale 상태 검증
@@ -69,7 +69,7 @@
 - [GitHub Actions 43430515269](https://github.com/justinhblee-prog/guardian/actions/runs/43430515269): **Success**
 - 소스 커밋: 33bb38ed0abae177b8b24f74890a816a273c5351
 - Gradle clean + testDebugUnitTest: **BUILD SUCCESSFUL**
-- 회귀 테스트 소스 기준: 9개 suite / 44개 테스트 메서드
+- 회귀 테스트 소스 기준: 9개 suite / 45개 테스트 메서드
 - APK 빌드/업로드: **정책에 따라 생략** (push CI는 테스트 전용)
 
 실기기 VPN/광고 차단 수용 테스트는 아직 미완료입니다.
@@ -93,7 +93,7 @@
 - 업스트림 DNS에 AdGuard Family DNS 추가
 - 설치 앱 제외 목록 검색 및 홈 대시보드의 필터 준비 상태 카드
 
-현재 테스트 소스: 9개 테스트 스위트 / 44개 JUnit 테스트 메서드. 최신 CI는 성공했습니다. APK는 개발 완료 전까지 생성하지 않습니다.
+현재 테스트 소스: 9개 테스트 스위트 / 45개 JUnit 테스트 메서드. 최신 CI는 성공했습니다. APK는 개발 완료 전까지 생성하지 않습니다.
 
 
 ## 최신 44개 테스트 CI
@@ -102,3 +102,6 @@
 - 소스 커밋: 33bb38ed0abae177b8b24f74890a816a273c5351
 - Gradle unit tests: **BUILD SUCCESSFUL**
 - APK 빌드/업로드: 개발 중 push CI 정책에 따라 생략
+
+
+- DNS 질문 도메인 대소문자 정규화는 터키어 시스템 로케일에서도 Locale.ROOT 기준으로 처리하도록 수정하고 회귀 테스트를 추가했습니다.
