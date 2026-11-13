@@ -11,6 +11,7 @@ object FilterRuleParser {
         val allowed = linkedSetOf<String>()
         val importantBlocked = linkedSetOf<String>()
         val disabledBlocked = linkedSetOf<String>()
+        val disabledImportantBlocked = linkedSetOf<String>()
         val disabledAllowed = linkedSetOf<String>()
         var ignored = 0
 
@@ -28,7 +29,9 @@ object FilterRuleParser {
                 }
                 lower.startsWith("||") && lower.contains(36.toChar() + "badfilter") -> {
                     val domain = adblockDomain(line.substring(2))
-                    if (domain == null) ignored++ else disabledBlocked.add(domain)
+                    if (domain == null) ignored++
+                    else if (hasModifier(line, "important")) disabledImportantBlocked.add(domain)
+                    else disabledBlocked.add(domain)
                 }
                 lower.startsWith("@@||") -> {
                     val domain = adblockDomain(line.substring(4))
@@ -54,7 +57,7 @@ object FilterRuleParser {
             }
         }
         blocked.removeAll(disabledBlocked)
-        importantBlocked.removeAll(disabledBlocked)
+        importantBlocked.removeAll(disabledImportantBlocked)
         allowed.removeAll(disabledAllowed)
         return Parsed(blocked, allowed, importantBlocked, ignored)
     }
