@@ -19,7 +19,7 @@ object FilterListManager {
     private const val CACHE_FILE = "adguard_dns_filter.txt"
     private const val SECURITY_CACHE_FILE = "hagezi_threat_intelligence.txt"
     private const val MAX_BYTES = 10 * 1024 * 1024
-    private const val MIN_SECURITY_BLOCKS = 100
+    const val MIN_SECURITY_BLOCKS = 100
     private const val PREFS = "guardian_settings"
     const val KEY_UPDATED_AT = "filter_list_updated_at"
     private const val KEY_BLOCK_COUNT = "filter_list_block_count"
