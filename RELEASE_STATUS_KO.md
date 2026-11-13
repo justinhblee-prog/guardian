@@ -117,3 +117,14 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - push 실행은 APK를 artifact로 공개하지 않으며, 수동 릴리스 실행만 APK를 업로드합니다.
 - 최신 테스트 기준: 12개 스위트 / 70개 JUnit 메서드.
 - 변경 커밋 `cc9f8bc0530015b16200f2ee3b141610fd9dd22d`의 빌드 검증 CI 실행 결과는 진행 중입니다.
+
+
+## 최종 APK 빌드 산출물 — 2026-11-13
+- [최종 빌드 실행](https://github.com/justinhblee-prog/guardian/actions/runs/43445545156): **success**
+- 최종 소스 커밋: `29a10e46f27dd1bafdde72a62ddd984b9965a537`
+- 테스트: **12개 스위트 / 70개 테스트 통과**
+- APK 조립 및 패키지 식별 검증: 성공 (`com.guardian.adblock`, versionCode 14, `0.7.1-dev`)
+- APK SHA-256: `4ee62c89678f0cef2b75d96a019a5700064538efaff4c82e9768a9bbf28ddb75`
+- GitHub artifact: `Guardian-AdBlock-Android-APK-v0.7.1-dev`
+- APK ZIP 무결성: 로컬 추출 후 `unzip -t` 통과
+- 릴리스 판정: 설치 가능한 debug APK 산출 완료. 단, 실기기 설치·VPN 권한·Wi-Fi/모바일 전환·실제 광고 차단률은 아직 미검증이며, 완전한 AdGuard 대체품이나 모든 광고 차단을 보장하지 않습니다.
