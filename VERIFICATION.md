@@ -15,7 +15,7 @@
 | DnsProbeTest | 2 |
 | FilterRuleComposerTest | 3 |
 | DnsAddressValidatorTest | 2 |
-| FilterListProfilesTest | 6 |
+| FilterListProfilesTest | 8 |
 | VpnStartCancellationGateTest | 4 |
 | **합계** | **53** |
 
@@ -75,3 +75,11 @@
 - `$badfilter` now cancels only the matching normal or `$important` variant, rather than disabling every rule for the same hostname.
 - Added a regression test proving normal and important variants remain independent.
 - Current source inventory: 10 suites / 57 test methods. CI pending.
+
+
+## Optional AWAvenue Android app ads list — CI pending
+
+- Added an opt-in DNS filter based on the AWAvenue Ads Rule registry asset (`filter_53.txt`).
+- When enabled, the list is downloaded, validated against a minimum rule count, cached atomically, included in cache-readiness checks, and composed into the active VPN rule set.
+- Added cache-readiness and official-source catalog regression tests.
+- Current source inventory: 10 suites / 59 test methods. CI pending.
