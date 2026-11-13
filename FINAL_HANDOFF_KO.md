@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.6.4-dev — 인수인계
+# Guardian AdBlock Android 0.6.5-dev — 인수인계
 
 작성일: 2026-11-13
 
@@ -37,7 +37,7 @@
 - 잘린 UDP upstream 응답의 TCP fallback
 - 사용자 규칙 화면 메시지와 VPN 보호 상태 메시지 분리
 - Android 프로세스가 죽어 저장 상태만 남은 경우 보호가 실행 중이라고 표시하지 않도록 수정
-- Guardian 전용 adaptive launcher icon과 버전 0.6.4-dev
+- Guardian 전용 adaptive launcher icon과 버전 0.6.5-dev
 
 ## 5. 명시적 제한
 
@@ -73,14 +73,14 @@ JDK 17, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9가 필요합니�
 실제 Android 기기에서 실행하지 않은 항목은 완료로 처리하지 않습니다.
 
 
-## 8. 0.6.4-dev 최종 CI 빌드 산출물
+## 8. 0.6.5-dev 최종 CI 빌드 산출물
 
 - CI 실행: [43423112883](https://github.com/justinhblee-prog/guardian/actions/runs/43423112883) — **Success**
 - 빌드 대상 소스 커밋: `05dd104a97ea4f9f2bcf908514a6c82bf0e3b5f1`
 - Android Gradle test + assemble: **BUILD SUCCESSFUL**
 - Manifest / launcher resources / package ID / version 검사: **PASS**
 - Package: `com.guardian.adblock`
-- Version: `0.6.4-dev` / versionCode `11`
+- Version: `0.6.5-dev` / versionCode `11`
 - Artifact ID: `14034534107`
 - APK size: 849,811 bytes
 - APK SHA-256: `daded536157e3a71fe205dd0a47513228e8ecacb88be784cda87925c4ee48130`
@@ -88,3 +88,10 @@ JDK 17, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9가 필요합니�
 - ZIP test and extracted APK checksum match: **PASS**
 
 25개 Android JUnit 테스트 메서드가 DNS/IPv4/IPv6 영역에 포함되어 있으며 Gradle test task가 성공했습니다. APK는 설치 가능한 Debug APK입니다. 실기기 수용 테스트는 별도이며 아직 완료로 간주하지 않습니다.
+
+
+## 9. 0.6.5-dev 변경 사항
+- `ProtectionState.kt`로 실제 VPN 터널 상태 판정을 분리하고 단위 테스트 추가.
+- 앱 재시작 후 stale active flag 감지 시 저장된 active flag를 즉시 false로 정리.
+- 사용자 규칙 저장 시 실제 VPN 터널이 실행 중인 경우에만 실시간 reload를 요청하도록 수정.
+- 버전 0.6.5-dev / versionCode 12.
