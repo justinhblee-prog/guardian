@@ -1,6 +1,6 @@
 # Guardian AdBlock Android — Verification Record
 
-기준 버전: 0.6.4-dev  
+기준 버전: 0.6.5-dev  
 기준일: 2026-11-13
 
 ## Automated verification gates
@@ -12,7 +12,7 @@ Latest release CI is expected to verify all of the following:
 3. Guardian launcher icon resources exist for adaptive and legacy launchers.
 4. JDK 17 / Android SDK 35 / Build Tools 35.0.0 / Gradle 8.9 setup succeeds.
 5. `clean testDebugUnitTest assembleDebug` succeeds.
-6. Built APK reports package ID `com.guardian.adblock`, versionCode 11, versionName `0.6.4-dev`.
+6. Built APK reports package ID `com.guardian.adblock`, versionCode 12, versionName `0.6.5-dev`.
 7. APK exists, SHA-256 is calculated, and the installable artifact is uploaded.
 
 ## Test coverage
@@ -46,7 +46,7 @@ CI success is not a substitute for physical-device acceptance. The final APK mus
 - Workflow conclusion: **success**
 - Android Gradle `clean testDebugUnitTest assembleDebug`: **BUILD SUCCESSFUL**
 - Manifest/launcher checks: **PASS**
-- APK package identity: `com.guardian.adblock`, versionCode `11`, versionName `0.6.4-dev` — **PASS**
+- APK package identity: `com.guardian.adblock`, versionCode `11`, versionName `0.6.5-dev` — **PASS**
 - Artifact ID: `14034534107`
 - Artifact ZIP size: 841,764 bytes
 - Artifact ZIP SHA-256: `7b24f3abe7bd676389c32efc0afb1d26f6aa5fdc0038bfedc65c076cf9ab9942`
@@ -56,3 +56,7 @@ CI success is not a substitute for physical-device acceptance. The final APK mus
 - JUnit source contains 25 test methods across DNS, IPv4 and IPv6 suites; the Gradle test task passed.
 
 The artifact is an installable Android Debug APK. Physical-device acceptance remains outstanding.
+
+
+## v0.6.5-dev regression coverage
+- `ProtectionStateTest`: verifies persisted-active + no live tunnel is inactive, and both persisted flag and live tunnel are required.
