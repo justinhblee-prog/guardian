@@ -173,3 +173,8 @@
 - Ignore unsupported important exceptions rather than applying incorrect allow semantics.
 - Include important rules in downloaded-cache validation and visible block counts.
 - Add parser and composed-engine regression tests; latest source CI pending.
+
+
+### CI fix — `$important,badfilter` modifier parsing
+- Fixed detection of `$badfilter` when it appears after another comma-separated modifier.
+- Latest Android unit-test CI passed: 59 tests completed, 0 failures (run 43433588312).
