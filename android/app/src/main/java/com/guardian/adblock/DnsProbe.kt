@@ -13,11 +13,11 @@ object DnsProbe {
 
     data class Result(val domain: String, val responseCode: Int)
 
-    fun query(domain: String, timeoutMs: Int = 5000): Result {
+    fun query(domain: String, dnsServer: String = VIRTUAL_DNS, timeoutMs: Int = 5000): Result {
         val query = buildQuery(domain)
         DatagramSocket().use { socket ->
             socket.soTimeout = timeoutMs
-            val target = InetAddress.getByName(VIRTUAL_DNS)
+            val target = InetAddress.getByName(dnsServer)
             socket.send(DatagramPacket(query, query.size, target, DNS_PORT))
             val buffer = ByteArray(4096)
             val responsePacket = DatagramPacket(buffer, buffer.size)
