@@ -94,3 +94,11 @@ APK 출력:
 ## Background filter refresh
 
 WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7일 간격으로 필터를 갱신합니다. 네트워크 연결이 없으면 실행을 미루고, 실패하면 지수형 backoff로 재시도합니다. 자동 업데이트를 끄면 예약 작업을 취소합니다. 수동 업데이트와 백그라운드 업데이트가 동일한 캐시 임시 파일을 동시에 교체하지 않도록 다운로드를 직렬화했습니다.
+
+
+## Latest WorkManager verification
+
+- [GitHub Actions run 43437792450](https://github.com/justinhblee-prog/guardian/actions/runs/43437792450): **success**
+- Source commit: `5d7624fd445edadb1a1ed24a482b9e2d25f07d41`
+- Android unit tests: **passed**; APK assembly was skipped because this was a push-triggered validation run.
+- Test inventory: **12 suites / 67 test methods**.
