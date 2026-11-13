@@ -54,3 +54,6 @@ fef00e1cb9e044ec5fee492ea93d1e56ae0cf246c8034c6e5821366a1a4a8574  ./windows_engi
 d923bd7e5de215dd8d5a10147d5ca397f3c743ea2f8edc959cdc92ef2b04c86d  ./windows_engine/requirements-windows.txt
 d1d5c19da8af5363134d1fc28f92034c4d66373b7823b3cef2a4278efe5e5e77  ./windows_engine/test_windows_protection.py
 875fc70b7f9b026d492d74dd083be7b86fef1228a272273f2ba07c45e1e07e6c  ./windows_engine/windows_protection.py
+# Verified Android 0.6.4-dev CI release artifact (2026-11-13)
+daded536157e3a71fe205dd0a47513228e8ecacb88be784cda87925c4ee48130  Guardian-AdBlock-v0.6.4-dev.apk
+7b24f3abe7bd676389c32efc0afb1d26f6aa5fdc0038bfedc65c076cf9ab9942  Guardian-AdBlock-Android-APK-v0.6.4-dev.zip
