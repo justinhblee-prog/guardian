@@ -67,7 +67,7 @@
 - DNS matching now evaluates important blocks before allow exceptions, matching Adblock priority semantics; unsupported important exceptions are ignored rather than silently misapplied.
 - `$badfilter` removes matching important block rules from the same source.
 - Cache validation and displayed block counts include important rules.
-- Added parser and composed-engine regression tests. Current source inventory: 10 suites / 56 test methods. CI pending.
+- Added parser and composed-engine regression tests. Current source inventory: 10 suites / 59 test methods. CI pending.
 
 
 ## Modifier-specific `$badfilter` semantics — CI pending
@@ -83,3 +83,12 @@
 - When enabled, the list is downloaded, validated against a minimum rule count, cached atomically, included in cache-readiness checks, and composed into the active VPN rule set.
 - Added cache-readiness and official-source catalog regression tests.
 - Current source inventory: 10 suites / 59 test methods. CI pending.
+
+
+## Latest CI recovery — Adblock important/badfilter parser
+
+- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43433588312
+- Commit: `fbc3f5a392cbab666ec11c605fa662c3d30baae0`
+- Result: **success**. `:app:testDebugUnitTest` completed successfully; Gradle reported 59 tests completed with no failures.
+- Root cause of the previous failures: `$badfilter` detection searched for the exact token immediately after `$`, so it missed `$important,badfilter` modifier lists. Modifier parsing now tokenizes the comma-separated list and recognizes each modifier.
+- APK assembly and upload were not run; this was push-triggered test CI only.
