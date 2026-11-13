@@ -30,4 +30,10 @@ class FilterListProfilesTest {
         assertFalse(FilterListManager.isProfileCacheCurrent(false, "adguard", "adguard"))
         assertFalse(FilterListManager.isProfileCacheCurrent(true, "hagezi_pro", "adguard"))
     }
+    @Test fun enabledSecurityProtectionRequiresItsOwnCachedList() {
+        assertTrue(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", false, false))
+        assertTrue(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", true, true))
+        assertFalse(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", true, false))
+    }
+
 }
