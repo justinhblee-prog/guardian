@@ -295,10 +295,17 @@ class MainActivity : Activity() {
         // A persisted flag can outlive an Android process kill. Confirm this
         // process still owns the VPN tunnel before showing protection as active.
         val persistedActive = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)
-        val active = persistedActive && GuardianVpnService.isTunnelActive()
-        val message = if (persistedActive && !active) {
+        val active = ProtectionState.isActive(persistedActive, GuardianVpnService.isTunnelActive())
+        val staleSession = persistedActive && !active
+        val message = if (staleSession) {
             "앱 프로세스가 재시작되어 VPN 보호가 중단되었습니다. 다시 시작해 주세요."
         } else prefs.getString(GuardianVpnService.KEY_STATUS, null)
+        if (staleSession) {
+            // Clear stale persisted state so subsequent rule saves do not try to
+            // reload a service that no longer owns a TUN descriptor.
+            prefs.edit().putBoolean(GuardianVpnService.KEY_ACTIVE, false)
+                .putString(GuardianVpnService.KEY_STATUS, message).apply()
+        }
         // Not every tab creates the dashboard status views. Update only views
         // that exist so opening Rules/Protection/Settings cannot crash the app.
         if (::statusTitle.isInitialized) {
@@ -328,7 +335,11 @@ class MainActivity : Activity() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         prefs.edit().putString(GuardianVpnService.KEY_USER_BLOCK, block.joinToString("\n"))
             .putString(GuardianVpnService.KEY_USER_ALLOW, allow.joinToString("\n")).apply()
-        if (prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)) {
+        val protectionActive = ProtectionState.isActive(
+            prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+            GuardianVpnService.isTunnelActive()
+        )
+        if (protectionActive) {
             startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
             rulesFeedback?.text = "규칙을 저장하고 적용을 요청했습니다."
         } else rulesFeedback?.text = "규칙을 저장했습니다. 다음 보호 시작 시 적용됩니다."
