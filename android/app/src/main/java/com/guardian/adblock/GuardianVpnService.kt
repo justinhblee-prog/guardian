@@ -125,6 +125,12 @@ class GuardianVpnService : VpnService() {
             // as requests sent to Android's configured virtual DNS endpoint.
             KNOWN_PUBLIC_DNS_IPV4.forEach { builder.addRoute(it, 32) }
             KNOWN_PUBLIC_DNS_IPV6.forEach { builder.addRoute(it, 128) }
+            // Also capture direct UDP/53 queries sent to a user-selected resolver.
+            // The resolver is validated as a numeric IP literal, so this lookup
+            // never performs DNS resolution while the VPN is being established.
+            val selectedResolver = configuredUpstreamDns()
+            val selectedResolverPrefix = if (selectedResolver.contains(":")) 128 else 32
+            builder.addRoute(selectedResolver, selectedResolverPrefix)
             getSharedPreferences(PREFS, MODE_PRIVATE)
                 .getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty()
                 .forEach { packageName ->
