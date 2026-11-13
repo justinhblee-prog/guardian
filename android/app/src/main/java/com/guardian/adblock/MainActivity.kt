@@ -371,7 +371,7 @@ class MainActivity : Activity() {
         val count = FilterListManager.cachedBlockCount(this)
         val updated = FilterListManager.lastUpdatedAt(this)
         val time = if (updated > 0L) SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(updated)) else "아직 업데이트되지 않음"
-        return "차단 도메인 $count개 · 마지막 업데이트: $time"
+        return "차단 도메인 ${count}개 · 마지막 업데이트: $time"
     }
 
     private fun startFilterUpdate() {
