@@ -41,8 +41,20 @@ object DomainFilter {
         val d = domain.trim().trimEnd('.').lowercase(java.util.Locale.ROOT)
         if (d.isEmpty() || d.length > 253) return false
         val snapshot = activeRules
-        if (snapshot.allowed.any { d == it || d.endsWith(".$it") }) return false
-        return snapshot.blocked.any { d == it || d.endsWith(".$it") }
+        // Hash lookups by DNS label avoid scanning every downloaded rule for
+        // every query. Work is bounded by the number of labels in the domain.
+        if (matchesDomainOrParent(d, snapshot.allowed)) return false
+        return matchesDomainOrParent(d, snapshot.blocked)
+    }
+
+    private fun matchesDomainOrParent(domain: String, rules: Set<String>): Boolean {
+        var candidate = domain
+        while (true) {
+            if (candidate in rules) return true
+            val separator = candidate.indexOf('.')
+            if (separator < 0) return false
+            candidate = candidate.substring(separator + 1)
+        }
     }
 
     /**
