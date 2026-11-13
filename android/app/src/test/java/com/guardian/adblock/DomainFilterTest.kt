@@ -70,6 +70,14 @@ class DomainFilterTest {
         assertTrue(DomainFilter.isBlocked("ads.stable.example"))
     }
 
+    @Test fun rejectsDotsEmbeddedInsideSingleDnsWireLabel() {
+        val ambiguous = intArrayOf(
+            0,1,0x01,0,0,1,0,0,0,0,0,0,
+            3,0x61,0x2e,0x62,0,0,1,0,1
+        ).map { it.toByte() }.toByteArray()
+        assertNull(DomainFilter.readQuestionName(ambiguous))
+    }
+
     @Test fun rejectsMalformedName() {
         assertNull(DomainFilter.readQuestionName(byteArrayOf(0,1,2)))
     }
