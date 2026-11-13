@@ -37,9 +37,9 @@
 - [GitHub Actions 43434091375](https://github.com/justinhblee-prog/guardian/actions/runs/43434091375): **Success**
 - 소스 커밋: `419356a1ef43ba20c33256b353566da7f42b8f61`
 - Android unit-test 단계: **통과**
-- 테스트 인벤토리: **11개 스위트 / 60개 JUnit 테스트 메서드**
+- 테스트 인벤토리: **11개 스위트 / 65개 JUnit 테스트 메서드**
 - APK 생성/업로드: push CI에서는 의도적으로 생략
-- 직전 파서 오류 원인: `$important,badfilter`처럼 쉼표로 구분된 modifier에서 badfilter 토큰을 인식하지 못했습니다. modifier를 분리해 각각 인식하도록 수정했고 59개 테스트가 통과했습니다. 이후 직접 DNS 안전 기본값 테스트를 추가해 현재 인벤토리는 60개입니다.
+- 직전 파서 오류 원인: `$important,badfilter`처럼 쉼표로 구분된 modifier에서 badfilter 토큰을 인식하지 못했습니다. modifier를 분리해 각각 인식하도록 수정했고 59개 테스트가 통과했습니다. 이후 직접 DNS 안전 기본값 테스트를 추가해 현재 인벤토리는 65개입니다.
 
 ## 남은 검증 및 제한
 
@@ -68,7 +68,7 @@
 ## Latest CI verification
 
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
-- Source commit: `da7e9fab22a38fc90e1c20739358239a5c994a0b`
+- Source commit: `57f30f68484fa4d6ef716a557efe8a75a4446407`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
 - Inventory: 11 test suites / 65 test methods.
 
