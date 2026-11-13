@@ -147,7 +147,8 @@
 - Added optional HaGeZi Threat Intelligence malware/phishing list.
 - Added upstream DNS choices (Cloudflare, Google, Quad9, AdGuard DNS, custom IPv4/IPv6 literals), installed-app VPN exclusions, live DNS activity/diagnostics, and log reset.
 - Added source-isolated badfilter composition and regression tests so one filter list cannot cancel another list's matching domain rule.
-- Added direct UDP/53 routes for common public DNS resolvers so hardcoded requests to common resolvers can also reach the local filter engine.
+- Added optional direct DNS capture for common public resolvers. Because Android VPN routes are IP-based rather than port-based, the UI exposes this as an advanced option and warns that non-DNS traffic to those resolver IPs may also be captured.
+- Optimized block/allow matching to use bounded DNS-label suffix lookups instead of scanning the full downloaded list for every query.
 - Added an in-app end-to-end DNS self-test that checks a blocked domain sent directly to 8.8.8.8 and a normal domain sent to the virtual DNS endpoint.
 - Moved large filter parsing and reload work off the VPN service main thread.
 - Changed push CI to run tests only; final APK packaging is gated behind a manual release workflow.
