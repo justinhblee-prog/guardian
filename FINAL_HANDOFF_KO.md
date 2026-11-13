@@ -73,7 +73,7 @@
 - `DnsProbe.kt`: DNS 자체 테스트 질의
 - `Ipv4Udp.kt` / `Ipv6Udp.kt`: IPv4/IPv6 UDP 패킷 처리
 - `MainActivity.kt`: 홈, 보호, 활동, 필터, 설정 UI
-- `android/app/src/test`: **11개 테스트 스위트 / 65개 JUnit 테스트 메서드**
+- `android/app/src/test`: **12개 테스트 스위트 / 67개 JUnit 테스트 메서드**
 
 ## 6. 필터 출처
 
@@ -90,7 +90,7 @@
 - 성공 CI: https://github.com/justinhblee-prog/guardian/actions/runs/43434091375
 - 소스 커밋: `419356a1ef43ba20c33256b353566da7f42b8f61`
 - Android unit-test 단계: **Success**
-- 테스트 소스 인벤토리: 11 suites / 65 test methods
+- 테스트 소스 인벤토리: 12 suites / 67 test methods
 - APK build/upload: push CI 정책에 따라 skipped
 - 최신 후속 UI 안내문 수정 커밋은 CI 재검증 중일 수 있으므로 최종 상태를 Actions에서 확인해야 합니다.
 
@@ -148,3 +148,13 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
 - Test inventory: 11 suites / 65 test methods.
+
+
+## WorkManager 백그라운드 필터 업데이트
+
+- WorkManager 2.12.0을 추가해 6/12/24시간 또는 7일 주기의 네트워크 연결 조건부 업데이트를 예약합니다.
+- 자동 업데이트를 끄면 고유 예약 작업을 취소하고, 다시 켜면 설정 간격으로 예약을 갱신합니다.
+- 앱 실행 시 만료 필터 업데이트도 기존대로 유지합니다.
+- 업데이트 Worker는 활성화된 기본/보안/Android 앱 광고 목록을 검증·갱신하며, 활성 VPN 서비스에 새 규칙을 다시 읽도록 요청합니다.
+- 수동/백그라운드 업데이트 간 캐시 파일 경합을 막기 위해 필터 다운로드를 동기화했습니다.
+- 설정 주기 검증 테스트 2개를 추가했습니다. 현재 인벤토리 12개 스위트 / 67개 메서드.
