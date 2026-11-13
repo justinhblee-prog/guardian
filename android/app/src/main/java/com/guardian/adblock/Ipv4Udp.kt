@@ -15,6 +15,8 @@ object Ipv4Udp {
         if ((packet[9].toInt() and 0xff) != 17) return null
         val total = u16(packet, 2)
         if (total != length || total < ihl + 8) return null
+        // Reject corrupted IPv4 headers before trusting addresses, offsets or ports.
+        if (!checksumValid(packet, 0, ihl)) return null
         // DNS datagrams must not be IP-fragmented; reassembly is not implemented.
         val fragment = u16(packet, 6)
         if ((fragment and 0x3fff) != 0) return null
@@ -25,6 +27,10 @@ object Ipv4Udp {
         if (dstPort != 53) return null
         val udpLen = u16(packet, ihl + 4)
         if (udpLen < 8 || ihl + udpLen != total) return null
+        // IPv4 permits an omitted UDP checksum (zero); a supplied checksum must
+        // validate against the IPv4 pseudo-header and the complete UDP datagram.
+        val udpChecksum = u16(packet, ihl + 6)
+        if (udpChecksum != 0 && !validUdpChecksum(packet, ihl, udpLen)) return null
         return Parsed(src, dst, srcPort, dstPort, packet.copyOfRange(ihl + 8, ihl + udpLen))
     }
 
@@ -50,6 +56,28 @@ object Ipv4Udp {
 
     fun u16(b: ByteArray, i: Int) = ((b[i].toInt() and 0xff) shl 8) or (b[i + 1].toInt() and 0xff)
     private fun put16(b: ByteArray, i: Int, v: Int) { b[i] = (v ushr 8).toByte(); b[i + 1] = v.toByte() }
+    private fun validUdpChecksum(packet: ByteArray, offset: Int, length: Int): Boolean {
+        var sum = 0L
+        // IPv4 pseudo-header: source, destination, zero, protocol, UDP length.
+        for (i in 12 until 20 step 2) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or (packet[i + 1].toInt() and 0xff)).toLong()
+        }
+        sum += 17L
+        sum += length.toLong()
+        var i = offset
+        val end = offset + length
+        while (i + 1 < end) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or (packet[i + 1].toInt() and 0xff)).toLong()
+            i += 2
+        }
+        if (i < end) sum += ((packet[i].toInt() and 0xff) shl 8).toLong()
+        while ((sum ushr 16) != 0L) sum = (sum and 0xffff) + (sum ushr 16)
+        return (sum.toInt() and 0xffff) == 0xffff
+    }
+
+    private fun checksumValid(b: ByteArray, start: Int, length: Int): Boolean =
+        checksum(b, start, length) == 0
+
     private fun checksum(b: ByteArray, start: Int, length: Int): Int {
         var sum = 0L
         var i = start
