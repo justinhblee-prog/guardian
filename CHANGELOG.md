@@ -200,7 +200,7 @@
 - Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
-- Test inventory: 11 suites / 65 test methods.
+- Test inventory: 12 suites / 67 test methods.
 
 
 ## 0.7.0-dev — persistent filter refresh
