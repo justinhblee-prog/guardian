@@ -60,3 +60,12 @@ Custom filter downloads are read with a 5 MB streaming cap and a 15-second timeo
 
 ### Browser extension permissions
 The extension no longer requests access to every website during installation. When you configure a remote filter, Chrome asks for optional access to that filter's HTTPS origin only. If you deny access, the download is not attempted and the currently active rules remain unchanged.
+
+### Latest verified Android APK — 2026-11-13
+
+The latest Android CI run is [43420229693](https://github.com/justinhblee-prog/guardian/actions/runs/43420229693), built from commit `d6191812b51cf97a288186901435608280bab1f8`. The configured Android unit-test task and debug APK build passed, the APK checksum step passed, and the artifact was uploaded successfully (artifact ID `14034125411`).
+
+- APK size: 845,986 bytes
+- SHA-256: `c17a91a518e39e9ec9681c8cb90d645f589ebbbb0276152299299d5c321bfff9`
+
+This build includes IPv4 TUN packet-length hardening and regression tests. Physical-device VPN behavior and real-world ad blocking remain unverified.
