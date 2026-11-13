@@ -503,7 +503,7 @@ class MainActivity : Activity() {
         }
         filterCard.addView(profileSpinner)
         val autoUpdateCheck = CheckBox(this).apply {
-            text = "24시간 경과 시 앱 실행 중 자동 업데이트"
+            text = "앱 실행 시 자동으로 최신 필터 확인"
             textSize = 12f
             setTextColor(white)
             isChecked = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
