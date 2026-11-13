@@ -161,6 +161,25 @@ object DomainFilter {
     /** Return a standards-shaped SERVFAIL for a valid query when upstream DNS is unavailable. */
     fun makeServfail(query: ByteArray): ByteArray? = makeErrorResponse(query, 2)
 
+    /**
+     * Build a standards-shaped UDP truncation response when an upstream answer
+     * exceeds the safe IPv6-minimum-MTU DNS payload (1232 bytes). The client can
+     * detect TC and retry using DNS-over-TCP when its resolver supports it.
+     */
+    fun makeTruncatedResponse(query: ByteArray): ByteArray? {
+        val end = questionEnd(query) ?: return null
+        val out = query.copyOfRange(0, end)
+        val flags = u16(query, 2)
+        val responseFlags = (flags and 0x7910) or 0x8280 // QR + TC + RA; preserve RD/CD
+        out[2] = (responseFlags ushr 8).toByte()
+        out[3] = responseFlags.toByte()
+        out[4] = 0; out[5] = 1 // QDCOUNT
+        out[6] = 0; out[7] = 0 // ANCOUNT
+        out[8] = 0; out[9] = 0 // NSCOUNT
+        out[10] = 0; out[11] = 0 // ARCOUNT
+        return out
+    }
+
     private fun makeErrorResponse(query: ByteArray, rcode: Int): ByteArray? {
         if (rcode !in 0..15) return null
         val end = questionEnd(query) ?: return null
