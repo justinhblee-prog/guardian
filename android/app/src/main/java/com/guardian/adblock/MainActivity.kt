@@ -227,8 +227,9 @@ class MainActivity : Activity() {
             background = shape(accent, 14)
             setOnClickListener { saveUserRules() }
         }, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(16) })
-        rulesFeedback = text("규칙은 기기 내부에 안전하게 저장됩니다.", 12f, muted, false).withTop(10) as TextView
-        body.addView(rulesFeedback)
+        val feedback = text("규칙은 기기 내부에 안전하게 저장됩니다.", 12f, muted, false).withTop(10) as TextView
+        rulesFeedback = feedback
+        body.addView(feedback)
         loadUserRulesIntoEditors()
     }
 
