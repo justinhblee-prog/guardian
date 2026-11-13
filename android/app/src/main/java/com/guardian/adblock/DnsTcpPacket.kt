@@ -31,10 +31,9 @@ object DnsTcpPacket {
     const val PSH = 0x08
     const val ACK = 0x10
 
-    fun parse(packet: ByteArray, length: Int): Parsed? {
+    fun parse(packet: ByteArray, length: Int, expectedDestinationPort: Int = 53): Parsed? {
         if (length < 40 || length > packet.size) return null
         val version = (packet[0].toInt() ushr 4) and 0x0f
-        val ipOffset: Int
         val tcpOffset: Int
         val source: ByteArray
         val destination: ByteArray
@@ -44,7 +43,6 @@ object DnsTcpPacket {
             if ((packet[9].toInt() and 0xff) != 6) return null
             if (u16(packet, 2) != length || !checksumValid(packet, 0, ihl)) return null
             if ((u16(packet, 6) and 0x3fff) != 0) return null
-            ipOffset = 0
             tcpOffset = ihl
             source = packet.copyOfRange(12, 16)
             destination = packet.copyOfRange(16, 20)
@@ -64,7 +62,7 @@ object DnsTcpPacket {
         val checksum = u16(packet, tcpOffset + 16)
         if (checksum == 0 || !tcpChecksumValid(packet, version, tcpOffset, tcpLength, source, destination)) return null
         val destinationPort = u16(packet, tcpOffset + 2)
-        if (destinationPort != 53) return null
+        if (destinationPort != expectedDestinationPort) return null
         return Parsed(
             version, source, destination, u16(packet, tcpOffset), destinationPort,
             u32(packet, tcpOffset + 4), u32(packet, tcpOffset + 8),

@@ -15,7 +15,7 @@ class DnsTcpPacketTest {
 
         val response = DnsTcpPacket.response(parsed, 0x87654321L, 0x12345679L,
             DnsTcpPacket.SYN or DnsTcpPacket.ACK)
-        val reply = DnsTcpPacket.parse(response, response.size)
+        val reply = DnsTcpPacket.parse(response, response.size, expectedDestinationPort = 53000)
         assertNotNull(reply)
         assertEquals(53, reply!!.sourcePort)
         assertEquals(53000, reply.destinationPort)
