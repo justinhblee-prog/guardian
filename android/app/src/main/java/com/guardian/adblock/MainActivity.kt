@@ -101,7 +101,13 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Android API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_VPN && resultCode == RESULT_OK) startProtection()
+        if (requestCode == REQUEST_VPN) {
+            if (resultCode == RESULT_OK) startProtection()
+            else {
+                statusTitle.text = "VPN 권한이 필요합니다"
+                status.text = "Android VPN 연결 요청이 승인되지 않아 DNS 보호를 시작하지 않았습니다."
+            }
+        }
     }
 
     private fun showTab(tab: String) {
