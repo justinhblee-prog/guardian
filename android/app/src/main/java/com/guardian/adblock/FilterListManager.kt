@@ -16,10 +16,13 @@ object FilterListManager {
     const val KEY_FILTER_PROFILE = "filter_profile"
     const val KEY_CACHED_PROFILE = "filter_cached_profile"
     const val SECURITY_FILTER_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_44.txt"
+    const val ANDROID_ADS_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_53.txt"
     private const val CACHE_FILE = "adguard_dns_filter.txt"
     private const val SECURITY_CACHE_FILE = "hagezi_threat_intelligence.txt"
+    private const val ANDROID_ADS_CACHE_FILE = "awavenue_android_ads.txt"
     private const val MAX_BYTES = 10 * 1024 * 1024
     const val MIN_SECURITY_BLOCKS = 100
+    const val MIN_ANDROID_ADS_BLOCKS = 100
     private const val PREFS = "guardian_settings"
     const val KEY_UPDATED_AT = "filter_list_updated_at"
     private const val KEY_BLOCK_COUNT = "filter_list_block_count"
@@ -32,6 +35,11 @@ object FilterListManager {
     const val KEY_LAST_ERROR = "filter_list_last_error"
     const val KEY_SECURITY_LAST_ERROR = "security_filter_last_error"
     const val KEY_SECURITY_ENABLED = "security_filter_enabled"
+    const val KEY_ANDROID_ADS_ENABLED = "android_ads_filter_enabled"
+    const val KEY_ANDROID_ADS_UPDATED_AT = "android_ads_filter_updated_at"
+    const val KEY_ANDROID_ADS_BLOCK_COUNT = "android_ads_filter_block_count"
+    const val KEY_ANDROID_ADS_IGNORED_COUNT = "android_ads_filter_ignored_count"
+    const val KEY_ANDROID_ADS_LAST_ERROR = "android_ads_filter_last_error"
 
     data class UpdateResult(val blocked: Int, val allowed: Int, val ignored: Int, val bytes: Int, val updatedAt: Long)
     data class FilterProfile(val key: String, val label: String, val url: String, val minimumRules: Int)
@@ -76,8 +84,14 @@ object FilterListManager {
         val fileExists = File(context.filesDir, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
         return isCacheValid(fileExists, cachedSecurityBlockCount(context), MIN_SECURITY_BLOCKS)
     }
+
+    fun hasCachedAndroidAdsList(context: Context): Boolean {
+        val fileExists = File(context.filesDir, ANDROID_ADS_CACHE_FILE).let { it.isFile && it.length() > 0L }
+        return isCacheValid(fileExists, cachedAndroidAdsBlockCount(context), MIN_ANDROID_ADS_BLOCKS)
+    }
     fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
     fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
+    fun cachedAndroidAdsLines(context: Context): List<String> = readCache(context, ANDROID_ADS_CACHE_FILE)
 
     fun update(context: Context): UpdateResult {
         val profile = selectedProfile(context)
@@ -86,6 +100,10 @@ object FilterListManager {
 
     fun updateSecurity(context: Context): UpdateResult =
         download(context, SECURITY_FILTER_URL, SECURITY_CACHE_FILE, MIN_SECURITY_BLOCKS, KEY_SECURITY_UPDATED_AT, KEY_SECURITY_BLOCK_COUNT, KEY_SECURITY_IGNORED_COUNT)
+
+    fun updateAndroidAds(context: Context): UpdateResult =
+        download(context, ANDROID_ADS_URL, ANDROID_ADS_CACHE_FILE, MIN_ANDROID_ADS_BLOCKS,
+            KEY_ANDROID_ADS_UPDATED_AT, KEY_ANDROID_ADS_BLOCK_COUNT, KEY_ANDROID_ADS_IGNORED_COUNT)
 
     private fun readCache(context: Context, name: String): List<String> {
         val file = File(context.filesDir, name)
@@ -181,4 +199,13 @@ object FilterListManager {
 
     fun cachedSecurityIgnoredCount(context: Context): Int =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_SECURITY_IGNORED_COUNT, 0)
+
+    fun lastAndroidAdsUpdatedAt(context: Context): Long =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_ANDROID_ADS_UPDATED_AT, 0L)
+
+    fun cachedAndroidAdsBlockCount(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_ANDROID_ADS_BLOCK_COUNT, 0)
+
+    fun cachedAndroidAdsIgnoredCount(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_ANDROID_ADS_IGNORED_COUNT, 0)
 }
