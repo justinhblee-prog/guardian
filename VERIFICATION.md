@@ -188,8 +188,11 @@
 - Regression coverage includes IPv4/IPv6 TCP packet checksums, TCP sequence advancement after SYN, DNS-over-TCP framing, partial-frame reassembly, multiple queries per segment, large-response segmentation, and FIN+payload.
 - Device-level VPN/resolver routing and real-world ad blocking remain unverified. Exact duplicate client request segments replay cached DNS replies; autonomous retransmission timers/partial-ACK recovery, IPv6 extension headers and IP fragmentation remain unsupported.
 
-- Protection tab quick controls and recovery button behavior are included in source commit `6f220d540aaef1417a738d812093875d28a166fa`; CI run 43456102310 passed.
+- Protection tab quick controls and recovery button behavior are included in source commit `c29d2b7d02ad4aa8d5ba21ecc4cff538f0849048`; CI run 43457043232 passed.
 
-- Android lint: `lintDebug` **passed** in CI run 43456102310 after marking the app-private receiver `RECEIVER_NOT_EXPORTED` through `ContextCompat.registerReceiver`.
+- Android lint: `lintDebug` **passed** in CI run 43457043232 after marking the app-private receiver `RECEIVER_NOT_EXPORTED` through `ContextCompat.registerReceiver`.
 
 - Self-test scope: local rule matching and NXDOMAIN generation only; it does not verify the real resolver network path or in-app ad removal.
+
+- DNS upstream modes added: UDP/53, TCP/53 and DoT/853. Provider host mapping and custom TLS-host validation are unit-tested; external TLS handshake/provider connectivity is not device-tested.
+- Latest CI run 43457043232: 15 suites / 92 JUnit tests, lintDebug, debug APK assembly, package identity and SHA-256 checks passed.
