@@ -77,7 +77,7 @@ class MainActivity : Activity() {
         val profileChanged = FilterListManager.hasCachedList(this) &&
                 FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
         val securityStale = securityEnabled && (!FilterListManager.hasCachedSecurityList(this) ||
-                System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= 24L * 60L * 60L * 1000L)
+                System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval)
         if (autoUpdate && (!FilterListManager.hasCachedList(this) ||
                 System.currentTimeMillis() - lastUpdate >= updateInterval || securityStale || profileChanged)) {
             startFilterUpdate()
