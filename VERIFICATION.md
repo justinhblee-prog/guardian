@@ -204,3 +204,17 @@
 - Latest source commit `af9b8714b4c56f98c9541a065e9b217a6c33551d` passed CI run 43459666939: 16 suites / 99 tests, lint, APK assembly, package identity and checksum.
 
 - IPv6 TCP session integration test: **passed**. Latest CI run 43459666939: 16 suites / 99 JUnit tests; lintDebug and debug APK package/checksum checks passed.
+
+
+## Latest CI — 2026-11-13
+
+- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43525073201
+- Source commit: `827198814d0b4441afe72c2ddb81b6d1a41a8f19`
+- Android unit tests: **passed**
+- Android lint: **passed**
+- Debug APK assembly: **passed**
+- Package identity/version: `com.guardian.adblock`, versionCode `15`, versionName `0.7.2-dev` — **passed**
+- APK file existence and SHA-256: **passed**
+- SHA-256: `c40229d5c3a25173092233b2e23ace19d9c3d6f831837d6d6684c20f156495ee`
+- Push-triggered workflow skipped the manual-release-only artifact upload. No new installable artifact was published by this run.
+- CI does not validate actual Android VPN routing, live upstream reachability on the user's device, TCP/53 resolver fallback, or real-world ad removal.

@@ -187,3 +187,14 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Fixed the saved-DoH-mode settings screen so TLS host controls remain visible after reopening; CI run 43459666939 passed.
 
 - Added an end-to-end IPv6 DNS-over-TCP session regression test; latest CI run 43459666939 passed 16 suites / 99 tests, lint, APK identity and SHA-256 verification.
+
+
+## 최신 CI 확인 — 2026-11-13
+
+- [Run 43525073201](https://github.com/justinhblee-prog/guardian/actions/runs/43525073201) — **success**
+- Android unit tests / lint / debug APK assemble / package identity / SHA-256 검증 성공
+- 검증 소스: `827198814d0b4441afe72c2ddb81b6d1a41a8f19`
+- 산출 APK 메타데이터: `com.guardian.adblock`, versionCode 15, `0.7.2-dev`
+- SHA-256: `c40229d5c3a25173092233b2e23ace19d9c3d6f831837d6d6684c20f156495ee`
+- 이 push 실행에서는 수동 배포 artifact 업로드가 skip되어 별도 설치 파일을 배포하지 않았습니다.
+- CI 빌드 성공은 실기기 동작 검증이나 실제 광고 차단 성공을 의미하지 않습니다.

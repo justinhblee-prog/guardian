@@ -181,3 +181,14 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - 저장된 DoH 모드로 설정 화면을 다시 열 때도 TLS 호스트 입력·저장 컨트롤이 보이도록 초기 표시 상태를 수정하고 CI에서 재검증했습니다.
 
 - IPv6 TCP 세션의 SYN→DNS 질의→응답 흐름을 통합 회귀 테스트에 추가했습니다.
+
+
+## 최신 통합 CI 검증 — 2026-11-13
+
+- [GitHub Actions run 43525073201](https://github.com/justinhblee-prog/guardian/actions/runs/43525073201): **success**
+- Android unit tests, Android lint, debug APK assemble, package identity/version check 및 SHA-256 검증 모두 통과
+- 검증 커밋: `827198814d0b4441afe72c2ddb81b6d1a41a8f19`
+- 검증 APK 식별: `com.guardian.adblock` / versionCode 15 / `0.7.2-dev`
+- 검증 APK SHA-256: `c40229d5c3a25173092233b2e23ace19d9c3d6f831837d6d6684c20f156495ee`
+- Push CI는 수동 배포용 artifact 업로드를 건너뜁니다. 따라서 이 검증으로 새 설치용 APK가 공개/업로드된 것은 아닙니다.
+- 실제 Android 기기에서 VPN 라우팅, Android resolver TCP 재시도, 앱별 광고 제거 효과는 아직 미검증입니다.

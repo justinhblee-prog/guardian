@@ -284,3 +284,10 @@
 - Fix DoH TLS-host settings visibility when reopening the settings screen with DoH already selected.
 
 - Add an end-to-end IPv6 TCP DNS session regression test.
+
+
+## 0.7.2-dev — CI verification refresh (2026-11-13)
+- Re-ran Android unit tests and lint on source commit `827198814d0b4441afe72c2ddb81b6d1a41a8f19`.
+- Debug APK assembly, package identity/version check, and SHA-256 verification passed in GitHub Actions run 43525073201.
+- CI-built APK SHA-256: `c40229d5c3a25173092233b2e23ace19d9c3d6f831837d6d6684c20f156495ee`.
+- Push workflow intentionally skipped manual-release artifact upload; this is not a new installable APK release.
