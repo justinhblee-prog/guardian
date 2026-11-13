@@ -66,13 +66,16 @@ object FilterListManager {
     fun hasCachedFile(context: Context): Boolean =
         File(context.filesDir, CACHE_FILE).let { it.isFile && it.length() > 0L }
 
-    fun hasCachedList(context: Context): Boolean =
-        hasCachedFile(context) && cachedBlockCount(context) >= selectedProfile(context).minimumRules
+    internal fun isCacheValid(fileExists: Boolean, blockCount: Int, minimumRules: Int): Boolean =
+        fileExists && minimumRules > 0 && blockCount >= minimumRules
 
-    fun hasCachedSecurityList(context: Context): Boolean =
-        File(context.filesDir, SECURITY_CACHE_FILE).let {
-            it.isFile && it.length() > 0L && cachedSecurityBlockCount(context) >= MIN_SECURITY_BLOCKS
-        }
+    fun hasCachedList(context: Context): Boolean =
+        isCacheValid(hasCachedFile(context), cachedBlockCount(context), selectedProfile(context).minimumRules)
+
+    fun hasCachedSecurityList(context: Context): Boolean {
+        val fileExists = File(context.filesDir, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
+        return isCacheValid(fileExists, cachedSecurityBlockCount(context), MIN_SECURITY_BLOCKS)
+    }
     fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
     fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
 
