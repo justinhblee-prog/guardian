@@ -41,7 +41,7 @@
 
 ## 내부 검증 체크리스트
 
-- [x] 최신 main 소스의 Android JUnit 테스트 성공 (43개)
+- [x] 최신 main 소스의 Android JUnit 테스트 성공 (44개)
 - [ ] Adblock parser: 차단/예외/hosts/badfilter/unsupported modifier 회귀 테스트 통과
 - [ ] DNS 자가 테스트 query/response 패킷 형식 및 매칭 테스트 통과
 - [ ] VPN start/stop/restart race 및 stale 상태 검증
@@ -66,10 +66,10 @@
 
 ## 최신 내부 CI 결과
 
-- [GitHub Actions 43429911684](https://github.com/justinhblee-prog/guardian/actions/runs/43429911684): **Success**
-- 소스 커밋: 5ef6f94e1c46d760de445d9326bda9711f265083
+- [GitHub Actions 43430515269](https://github.com/justinhblee-prog/guardian/actions/runs/43429911684): **Success**
+- 소스 커밋: 33bb38ed0abae177b8b24f74890a816a273c5351
 - Gradle clean + testDebugUnitTest: **BUILD SUCCESSFUL**
-- 회귀 테스트 소스 기준: 9개 suite / 43개 테스트 메서드
+- 회귀 테스트 소스 기준: 9개 suite / 44개 테스트 메서드
 - APK 빌드/업로드: **정책에 따라 생략** (push CI는 테스트 전용)
 
 실기기 VPN/광고 차단 수용 테스트는 아직 미완료입니다.
@@ -78,9 +78,10 @@
 
 - 앱별 보호 제외 목록에 앱 이름/패키지명 검색 추가
 - 필터 자동 업데이트 주기: 6시간 / 12시간 / 24시간 / 7일
-- 사용자 지정 IPv4/IPv6 DNS 주소로 향하는 직접 DNS 질의도 VPN 라우트에 포함
+- 사용자 지정 IPv4/IPv6 DNS 주소로 향하는 직접 DNS 질의 포착은 고급 옵션으로 제공(비-DNS 트래픽 영향 경고 포함)
 - 공식 AdGuard DNS 필터 캐시가 검증되기 전에는 보호 시작을 제한
 - DNS 자체 테스트는 실제 VPN 터널이 활성화된 경우에만 실행
+- 다운로드된 대형 차단 목록에서 도메인별 suffix hash lookup을 사용해 전체 목록 선형 검색을 제거
 
 
 ## 필터 프로필 및 UI 옵션 확장
@@ -92,4 +93,12 @@
 - 업스트림 DNS에 AdGuard Family DNS 추가
 - 설치 앱 제외 목록 검색 및 홈 대시보드의 필터 준비 상태 카드
 
-현재 테스트 소스: 9개 테스트 스위트 / 43개 JUnit 테스트 메서드. 최신 CI는 성공했습니다. APK는 개발 완료 전까지 생성하지 않습니다.
+현재 테스트 소스: 9개 테스트 스위트 / 44개 JUnit 테스트 메서드. 최신 CI는 성공했습니다. APK는 개발 완료 전까지 생성하지 않습니다.
+
+
+## 최신 44개 테스트 CI
+
+- [GitHub Actions 43430515269](https://github.com/justinhblee-prog/guardian/actions/runs/43430515269): **Success**
+- 소스 커밋: 33bb38ed0abae177b8b24f74890a816a273c5351
+- Gradle unit tests: **BUILD SUCCESSFUL**
+- APK 빌드/업로드: 개발 중 push CI 정책에 따라 생략
