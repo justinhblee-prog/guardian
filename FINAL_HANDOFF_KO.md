@@ -95,3 +95,18 @@ JDK 17, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9가 필요합니�
 - 앱 재시작 후 stale active flag 감지 시 저장된 active flag를 즉시 false로 정리.
 - 사용자 규칙 저장 시 실제 VPN 터널이 실행 중인 경우에만 실시간 reload를 요청하도록 수정.
 - 버전 0.6.5-dev / versionCode 12.
+
+
+## 10. 0.6.5-dev 검증 산출물
+
+- CI 실행: [43423810481](https://github.com/justinhblee-prog/guardian/actions/runs/43423810481) — **Success**
+- 소스 커밋: `7fe4620c141e17e5735e18101982d6eb5059adf9`
+- Gradle unit tests + APK assemble: **BUILD SUCCESSFUL**
+- Package: `com.guardian.adblock`, versionCode `12`, versionName `0.6.5-dev`
+- Artifact ID: `14035456605`
+- APK size: 850,111 bytes; SHA-256: `df0180f41fa697be32bf0c83cbe0ffffc2147314159d4a3e0e482d7166051ed6`
+- ZIP size: 842,081 bytes; SHA-256: `8208a69ccd413d8e46f3bd45fa1bea47be336b372ff7931cdf45f1cb5c5f106d`
+- ZIP integrity and extracted APK checksum: **PASS**
+- ProtectionState regression tests included and test task passed.
+
+실기기 VPN 승인, 연결, 네트워크 전환 및 광고 차단 효과는 아직 검증되지 않았습니다.
