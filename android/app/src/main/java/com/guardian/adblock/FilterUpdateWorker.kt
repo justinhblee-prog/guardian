@@ -55,13 +55,23 @@ class FilterUpdateWorker(
                         .setAction(GuardianVpnService.ACTION_RELOAD_RULES)
                 )
             }
+            applicationContext.sendBroadcast(
+                Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
+            )
             if (optionalFailure) Result.retry() else Result.success()
         } catch (e: Exception) {
             prefs.edit().putString(
                 FilterListManager.KEY_LAST_ERROR,
                 e.message ?: e.javaClass.simpleName
             ).apply()
+            applicationContext.sendBroadcast(
+                Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
+            )
             Result.retry()
         }
+    }
+
+    companion object {
+        const val ACTION_FILTERS_CHANGED = "com.guardian.adblock.FILTERS_CHANGED"
     }
 }
