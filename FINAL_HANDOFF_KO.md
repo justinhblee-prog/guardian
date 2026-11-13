@@ -66,3 +66,19 @@ Android APK를 GitHub Actions에서 빌드하고 업로드한 이력이 확인�
 ## 7. 최종 주의
 
 GitHub Actions 성공은 컴파일, 자동화 테스트 task 및 APK 패키징 성공을 의미합니다. Android 기기에서 VPN이 정상 동작하거나 모든 광고가 차단된다는 보증은 아닙니다. 실기기 수용 테스트 전에는 운영 최종판 또는 상용 수준으로 표시하지 않습니다.
+
+
+## 최신 인수인계 갱신 — 2026-11-13
+
+이 섹션은 위의 이전 CI 대기 문구를 대체합니다.
+
+- 최신 CI: [43420229693](https://github.com/justinhblee-prog/guardian/actions/runs/43420229693)
+- 최신 소스 커밋: `d6191812b51cf97a288186901435608280bab1f8`
+- Android JUnit task + Debug APK 빌드: **PASS**
+- APK ZIP 무결성 검사: **PASS**
+- Artifact ID: `14034125411`
+- APK 크기: 845,986 bytes
+- APK SHA-256: `c17a91a518e39e9ec9681c8cb90d645f589ebbbb0276152299299d5c321bfff9`
+- IPv4 입력 버퍼 경계, IP total-length 불일치, IPv4 options 케이스 회귀 테스트가 최신 빌드에 포함되어 통과했습니다.
+
+실기기 설치·VPN 승인·보호 시작/중지·IPv4/IPv6 실제 DNS·네트워크 변경 안정성 및 Windows 통합 검증은 미완료입니다. 따라서 현재 산출물은 검증된 Android 개발 APK이지, 모든 환경에서 동작이 확인된 상용 최종판은 아닙니다.
