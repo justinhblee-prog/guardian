@@ -62,3 +62,12 @@ A successful JUnit run does not prove real-world blocking. The in-app DNS self-t
 - Android Gradle clean + testDebugUnitTest: **BUILD SUCCESSFUL**
 - Source inventory: 40 JUnit test methods across 8 suites.
 - APK assemble / upload: **skipped by policy**; this was a push test run, not a release build.
+
+
+## Latest internal CI after DNS route and UI hardening
+
+- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43429078993
+- Source commit: da40d5a3d8abecbfbc7855f484e547ee097adbd6
+- Android unit-test step: **success**
+- APK build/upload: skipped because this is a push CI run.
+- Changes covered by compilation: custom resolver route inclusion, searchable installed-app exclusion list, configurable refresh interval, startup gate until official filter cache is available, and live-tunnel requirement for DNS self-test.
