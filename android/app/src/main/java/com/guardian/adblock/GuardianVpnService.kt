@@ -56,6 +56,7 @@ class GuardianVpnService : VpnService() {
             "2606:4700:4700::1111", "2606:4700:4700::1001",
             "2001:4860:4860::8888", "2001:4860:4860::8844",
             "2620:fe::fe", "2620:fe::9",
+            "2a10:50c0::ad1:ff", "2a10:50c0::ad2:ff",
             "2a10:50c0::bad1:ff", "2a10:50c0::bad2:ff"
         )
         private val DNS_STATS_LOCK = Any()
