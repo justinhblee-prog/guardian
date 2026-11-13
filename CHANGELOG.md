@@ -192,7 +192,7 @@
 - Replace the app-owned virtual-DNS UDP self-test (which bypasses the app's own VPN route on Android) with an accurately labelled in-process rule-engine test.
 - Apply consistent dark styling to DNS/profile/update-interval selectors and avoid refreshing detached home views.
 - Serialize CI per branch and cancel superseded push runs.
-- Latest CI: run 43436954231 passed; 12 suites / 67 JUnit test methods.
+- Latest CI: run 43436954231 passed; 12 suites / 68 JUnit test methods.
 
 
 ## Latest verification update
@@ -200,7 +200,7 @@
 - Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
-- Test inventory: 12 suites / 67 test methods.
+- Test inventory: 12 suites / 68 test methods.
 
 
 ## 0.7.1-dev — background filter refresh and lifecycle reliability
@@ -209,7 +209,7 @@
 - Cancel scheduled refresh when automatic updates are disabled; retry transient failures with exponential backoff.
 - Refresh active filter sources and reload an active VPN service after successful updates.
 - Serialize cache downloads to avoid manual/background write races.
-- Add interval validation tests; inventory grows to 12 suites / 67 test methods.
+- Add interval validation tests; inventory grows to 12 suites / 68 test methods.
 
 
 ## Latest WorkManager verification
@@ -217,4 +217,10 @@
 - [GitHub Actions run 43437792450](https://github.com/justinhblee-prog/guardian/actions/runs/43437792450): **success**
 - Source commit: `5d7624fd445edadb1a1ed24a482b9e2d25f07d41`
 - Android unit tests: **passed**; APK assembly was skipped because this was a push-triggered validation run.
-- Test inventory: **12 suites / 67 test methods**.
+- Test inventory: **12 suites / 68 test methods**.
+
+
+## IPv6 DNS upstream presets
+- Add IPv6 presets for Cloudflare, Google, Quad9 and AdGuard DNS (default and family protection).
+- Include AdGuard default IPv6 resolver addresses in optional direct-DNS capture routes.
+- Add regression coverage for the official IPv6 resolver literals.
