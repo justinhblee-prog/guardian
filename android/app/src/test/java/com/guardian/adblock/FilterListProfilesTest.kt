@@ -37,6 +37,17 @@ class FilterListProfilesTest {
         assertFalse(FilterListManager.isProfileCacheCurrent(false, "adguard", "adguard"))
         assertFalse(FilterListManager.isProfileCacheCurrent(true, "hagezi_pro", "adguard"))
     }
+    @Test fun enabledAndroidAppAdsFilterRequiresItsOwnCachedList() {
+        assertTrue(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", false, false, false, false))
+        assertTrue(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", false, true, true, true))
+        assertFalse(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", false, true, true, false))
+    }
+
+    @Test fun androidAppAdsFilterUsesOfficialAwaVenueRegistrySource() {
+        assertTrue(FilterListManager.ANDROID_ADS_URL.endsWith("/filter_53.txt"))
+        assertTrue(FilterListManager.MIN_ANDROID_ADS_BLOCKS >= 100)
+    }
+
     @Test fun enabledSecurityProtectionRequiresItsOwnCachedList() {
         assertTrue(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", false, false))
         assertTrue(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", true, true))
