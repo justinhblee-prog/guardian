@@ -65,7 +65,7 @@
 - `$badfilter`는 같은 출처의 important 규칙도 정확히 해제합니다.
 - 구현하지 않은 important 허용 예외는 임의로 일반 허용 규칙으로 처리하지 않고 미지원 규칙으로 제외합니다.
 - 필터 목록 검증 수와 UI 차단 규칙 수에 important 차단 규칙도 포함합니다.
-- 현재 테스트 소스: 10개 suite / 56개 테스트 메서드. 최신 변경 CI 대기.
+- 현재 테스트 소스: 10개 suite / 59개 테스트 메서드. 최신 변경 CI 대기.
 
 
 - 추가 수정: `$badfilter`가 같은 도메인의 일반 차단 규칙과 `$important` 규칙을 구분하여 해당 modifier 변형만 해제하도록 수정하고 회귀 테스트를 추가했습니다. 최신 테스트 소스는 10개 suite / 57개 메서드이며 CI 대기 중입니다.
@@ -78,3 +78,13 @@
 - VPN 서비스가 실제 캐시 내용을 다시 검증한 뒤 해당 목록을 차단 엔진에 합칩니다.
 - 캐시 미준비 시 보호 시작을 제한하고, 다운로드 오류와 적용 규칙 수를 화면에 표시합니다.
 - 최신 테스트 소스: 10개 suite / 59개 테스트 메서드. CI 대기 중.
+
+
+## GitHub Actions 재검증 통과 — 2026-11-13
+
+- [검증 실행 결과](https://github.com/justinhblee-prog/guardian/actions/runs/43433588312)
+- 커밋: `fbc3f5a392cbab666ec11c605fa662c3d30baae0`
+- `:app:testDebugUnitTest`: **성공**, Gradle 로그 기준 59개 테스트 완료 / 실패 0개
+- 직전 실패 원인: `$important,badfilter`처럼 쉼표로 구분된 modifier에서 `$badfilter` 토큰을 찾지 못했습니다. modifier 목록을 분리해 각각 인식하도록 수정했습니다.
+- 이번 실행은 push 테스트 CI이며 APK 조립 및 업로드는 수행하지 않았습니다.
+- 실기기 설치, VPN 연결 및 실제 광고 차단 검증은 별도 단계로 남아 있습니다.
