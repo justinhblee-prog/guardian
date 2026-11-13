@@ -282,12 +282,17 @@ class MainActivity : Activity() {
     }
 
     private fun refreshStatus() {
-        if (!::status.isInitialized) return
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val active = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)
         val message = prefs.getString(GuardianVpnService.KEY_STATUS, null)
-        statusTitle.text = if (active) "보호가 실행 중입니다" else "보호가 꺼져 있습니다"
-        status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
+        // Not every tab creates the dashboard status views. Update only views
+        // that exist so opening Rules/Protection/Settings cannot crash the app.
+        if (::statusTitle.isInitialized) {
+            statusTitle.text = if (active) "보호가 실행 중입니다" else "보호가 꺼져 있습니다"
+        }
+        if (::status.isInitialized) {
+            status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
+        }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)}"
         recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
     }
