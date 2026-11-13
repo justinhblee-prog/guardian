@@ -1,73 +1,64 @@
-# Guardian AdBlock Android — 릴리스 상태
+# Guardian AdBlock Android — 개발/릴리스 상태
 
-기준 버전: **0.6.5-dev**  
+기준 버전: **0.7.0-dev**  
 기준일: 2026-11-13
 
-## 현재 개발 범위
+## 확인된 문제 원인
 
-현재 저장소의 실제 구현 범위는 Android 앱과 공유 DNS 규칙 파일입니다. 이 저장소에 포함되지 않은 Windows 서비스, 브라우저 확장, Python DNS 엔진은 본 릴리스의 완료 항목으로 계산하지 않습니다.
+이전 0.6.5-dev 구현은 실제 차단 목록이 10개 도메인에 불과했고, AdGuard DNS Filter와 같은 Adblock 형식의 목록을 다운로드하거나 해석하는 기능이 없었습니다. 따라서 VPN 상태가 활성으로 표시되어도 대부분의 광고 도메인은 목록에 없어서 차단되지 않는 구조였습니다. 일부 앱이 8.8.8.8 등 공용 DNS 서버를 직접 지정하면 VPN 라우트 밖으로 나갈 가능성도 있었습니다.
 
-## 기능 상태
+이번 개발에서는 필터 목록을 실제로 확보·해석하고, 주요 공용 DNS 서버의 UDP/53 경로를 VPN으로 유도하며, 결과를 확인하는 내부 DNS 자가 테스트를 추가하고 있습니다.
 
-| 영역 | 구현 상태 |
+## 0.7.0-dev 구현 항목
+
+| 영역 | 상태 |
 |---|---|
-| Android VpnService 기반 보호 | 구현 |
-| IPv4 UDP DNS | 구현 및 패킷 경계 회귀 테스트 |
-| IPv6 UDP DNS | 구현, 필수 체크섬 검증 |
-| 업스트림 UDP DNS | 구현, endpoint/transaction/question 검증 |
-| 잘린 응답의 upstream TCP 재시도 | 구현 |
+| Android VpnService 기반 DNS 보호 | 구현 |
+| IPv4 / IPv6 UDP DNS 파싱 | 구현 |
+| 주요 공용 DNS 서버 직접 UDP/53 질의 라우팅 | 구현 |
 | NXDOMAIN / SERVFAIL | 구현 |
-| 공용 차단 규칙 / 사용자 차단·허용 규칙 | 구현 |
-| 규칙 입력 검증 및 실행 중 재적용 | 구현 |
-| 보호 상태 / DNS 통계 / 최근 활동 | 구현 |
-| 프로세스 재시작 후 stale 보호 표시 방지 | 구현 |
-| Guardian adaptive launcher icon | 구현 |
+| upstream 응답 endpoint / transaction / question 검증 | 구현 |
+| 잘린 upstream UDP 응답의 TCP fallback | 구현 |
+| AdGuard DNS Filter 다운로드 및 캐시 | 구현 중 / CI 확인 필요 |
+| Adblock 도메인 규칙 및 hosts 형식 파싱 | 구현 중 / CI 확인 필요 |
+| 안전하게 처리할 수 없는 고급 규칙 제외 및 개수 표시 | 구현 중 / CI 확인 필요 |
+| 선택형 HaGeZi 악성코드·피싱 목록 | 구현 중 / CI 확인 필요 |
+| DNS 업스트림 선택 | 구현 |
+| 24시간 경과 후 앱 실행 시 자동 업데이트 | 구현 |
+| 사용자 차단/허용 목록 | 구현 |
+| 앱별 VPN 제외 | 구현 |
+| DNS 활동/통계/진단/초기화 | 구현 |
+| 가상 DNS 및 직접 공용 DNS 자가 테스트 | 구현 중 / 실기기 확인 필요 |
 | DoH/DoT 및 client-side TCP DNS | 미지원 |
 | IPv6 확장 헤더 및 fragment 재조립 | 미지원 |
 
-## 최종 검증 게이트
+## APK 생성 정책
 
-- [ ] 최신 main 커밋의 Android JUnit 테스트 및 APK 빌드 성공
-- [ ] manifest / FGS special-use / 패키지 ID / versionName 검사 성공
-- [ ] artifact ZIP 무결성 및 APK SHA-256 확인
-- [ ] 실기기 설치 및 VPN 권한 승인
-- [ ] 보호 시작·중지와 앱 재시작 상태 검증
-- [ ] Wi-Fi↔모바일 데이터 전환 및 장시간 실행 검증
-- [ ] IPv4/IPv6 실제 DNS 차단·허용·일반 질의 검증
+- 개발 중 push CI는 테스트만 실행합니다.
+- 개발이 끝나기 전에는 APK를 만들거나 중간 APK를 최종본으로 제공하지 않습니다.
+- 최종 릴리스 수동 workflow 실행에서만 APK를 빌드합니다.
+- APK 생성 후 package/version, ZIP 무결성, SHA-256, 설치 패키지를 확인합니다.
 
-**릴리스 판정:** 자동화 검증이 통과하더라도 실기기 수용 테스트 전에는 운영/상용 최종판으로 표시하지 않습니다. APK는 개발 설치본으로 명확히 표시합니다.
+## 내부 검증 체크리스트
 
+- [ ] 최신 main 소스의 Android JUnit 테스트 성공
+- [ ] Adblock parser: 차단/예외/hosts/badfilter/unsupported modifier 회귀 테스트 통과
+- [ ] DNS 자가 테스트 query/response 패킷 형식 및 매칭 테스트 통과
+- [ ] VPN start/stop/restart race 및 stale 상태 검증
+- [ ] filter cache 교체 실패 시 이전 캐시 유지
+- [ ] 주요 공용 DNS 직접 질의 라우팅 회귀 확인
+- [ ] UI의 모든 저장 옵션이 실제 VPN 엔진에 반영되는지 확인
+- [ ] 최종 APK 수동 빌드, package/version 및 checksum 검증
 
-## 최신 0.6.5-dev APK 빌드 결과 — 2026-11-13
+## 실기기 수용 테스트
 
-- [GitHub Actions 실행 43423112883](https://github.com/justinhblee-prog/guardian/actions/runs/43423112883): **Success**
-- 빌드 소스 커밋: `05dd104a97ea4f9f2bcf908514a6c82bf0e3b5f1`
-- Gradle `clean testDebugUnitTest assembleDebug`: **BUILD SUCCESSFUL**
-- Manifest / FGS special-use / launcher icon 검사: **PASS**
-- APK package ID: `com.guardian.adblock`
-- versionCode: `12`, versionName: `0.6.5-dev`
-- Artifact ID: `14034534107`
-- APK 크기: 849,811 bytes
-- APK SHA-256: `daded536157e3a71fe205dd0a47513228e8ecacb88be784cda87925c4ee48130`
-- Artifact ZIP SHA-256: `7b24f3abe7bd676389c32efc0afb1d26f6aa5fdc0038bfedc65c076cf9ab9942`
-- ZIP 무결성 검사 및 내부 APK checksum 대조: **PASS**
-- Android JUnit 25개 테스트 메서드 포함, Gradle 테스트 작업 통과
+- [ ] APK 설치 및 VPN 권한 승인
+- [ ] 보호 시작/중지 반복
+- [ ] DNS 자가 테스트 통과
+- [ ] 브라우저와 일반 앱에서 실제 차단 확인
+- [ ] 앱별 제외 동작 확인
+- [ ] Wi-Fi↔모바일 데이터 전환
+- [ ] IPv4 / IPv6 환경 각각 확인
+- [ ] 화면 잠금 및 장시간 실행
 
-**판정:** Android 0.6.5-dev 설치용 Debug APK 생성 및 CI 검증 완료. 실기기 설치/VPN 승인/네트워크 전환/장시간 실행은 아직 사용자 기기에서 확인되지 않았으므로 운영판 검증은 별도입니다.
-
-
-## 최신 0.6.5-dev APK 빌드 결과 — 2026-11-13
-
-- [GitHub Actions 실행 43423810481](https://github.com/justinhblee-prog/guardian/actions/runs/43423810481): **Success**
-- 빌드 소스 커밋: `7fe4620c141e17e5735e18101982d6eb5059adf9`
-- Gradle `clean testDebugUnitTest assembleDebug`: **BUILD SUCCESSFUL**
-- Manifest / FGS / launcher 검사: **PASS**
-- APK package ID: `com.guardian.adblock`, versionCode `12`, versionName `0.6.5-dev`
-- Artifact ID: `14035456605`
-- APK 크기: 850,111 bytes
-- APK SHA-256: `df0180f41fa697be32bf0c83cbe0ffffc2147314159d4a3e0e482d7166051ed6`
-- ZIP 크기: 842,081 bytes
-- ZIP SHA-256: `8208a69ccd413d8e46f3bd45fa1bea47be336b372ff7931cdf45f1cb5c5f106d`
-- ZIP 무결성 및 내부 APK checksum 대조: **PASS**
-
-**판정:** 0.6.5-dev 설치용 Debug APK 생성 및 CI 검증 완료. 실기기 설치와 VPN 네트워크 수용 테스트는 별도입니다.
+**현재 판정:** 개발 진행 중. 최종 APK는 아직 생성하지 않습니다. 자동화 테스트 및 실기기 검증 전에는 광고 차단 기능 완료 또는 상용 제품 완료로 표시하지 않습니다.
