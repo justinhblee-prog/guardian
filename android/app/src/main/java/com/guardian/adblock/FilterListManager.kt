@@ -113,6 +113,7 @@ object FilterListManager {
         return if (file.isFile && file.length() > 0L) file.readLines(Charsets.UTF_8) else emptyList()
     }
 
+    @Synchronized
     private fun download(
         context: Context,
         url: String,
