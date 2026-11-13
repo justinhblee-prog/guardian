@@ -39,6 +39,7 @@ class MainActivity : Activity() {
     private var rulesFeedback: TextView? = null
     private var statsText: TextView? = null
     private var recentText: TextView? = null
+    private var diagnosticText: TextView? = null
     private var filterStatusText: TextView? = null
     private var filterUpdateButton: Button? = null
     private var receiverRegistered = false
@@ -93,6 +94,7 @@ class MainActivity : Activity() {
         startButton = null
         statsText = null
         recentText = null
+        diagnosticText = null
         rulesFeedback = null
         filterStatusText = null
         filterUpdateButton = null
@@ -229,7 +231,7 @@ class MainActivity : Activity() {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("실시간 DNS 통계", 14f, white, true))
             statsText = text(
-                "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L)}",
+                "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)}",
                 12f, accent, true
             ).withTop(10) as TextView
             addView(statsText!!)
@@ -245,6 +247,11 @@ class MainActivity : Activity() {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(recentText!!)
         }.withTop(10))
+        diagnosticText = text(
+            "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}",
+            11f, muted, false
+        ).withTop(12) as TextView
+        body.addView(diagnosticText!!)
         body.addView(text("이 화면은 DNS 암호화 또는 VPN 우회 트래픽을 집계하지 않습니다.", 11f, muted, false).withTop(14))
     }
 
@@ -451,8 +458,9 @@ class MainActivity : Activity() {
         if (::status.isInitialized) {
             status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
         }
-        statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)}"
+        statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
         recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
+        diagnosticText?.text = "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}"
     }
 
     private fun loadUserRulesIntoEditors() {
