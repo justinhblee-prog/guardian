@@ -125,3 +125,10 @@ CI cancels superseded runs within the same branch so rapid pushes do not accumul
 
 ## IPv6 DNS upstream choices
 Settings include IPv4 and IPv6 resolver presets for Cloudflare, Google, Quad9 and AdGuard DNS. AdGuard default IPv6 resolver routes are included in the optional direct-DNS capture set. IPv6 resolver use still depends on IPv6 connectivity provided by the current network.
+
+
+## Latest verification — IPv6 DNS presets
+- [GitHub Actions run 43443209122](https://github.com/justinhblee-prog/guardian/actions/runs/43443209122): **success**
+- Source commit: `f518711e559bfb8873128f82c07a1a157a5f2068`
+- Android unit tests: **passed**; APK assembly/upload skipped on push as intended.
+- Test inventory: **12 suites / 68 JUnit test methods**.
