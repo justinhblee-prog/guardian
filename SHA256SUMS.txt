@@ -57,3 +57,7 @@ d1d5c19da8af5363134d1fc28f92034c4d66373b7823b3cef2a4278efe5e5e77  ./windows_engi
 # Verified Android 0.6.4-dev CI release artifact (2026-11-13)
 daded536157e3a71fe205dd0a47513228e8ecacb88be784cda87925c4ee48130  Guardian-AdBlock-v0.6.4-dev.apk
 7b24f3abe7bd676389c32efc0afb1d26f6aa5fdc0038bfedc65c076cf9ab9942  Guardian-AdBlock-Android-APK-v0.6.4-dev.zip
+
+# Verified Android 0.6.5-dev CI release artifact (2026-11-13)
+df0180f41fa697be32bf0c83cbe0ffffc2147314159d4a3e0e482d7166051ed6  Guardian-AdBlock-v0.6.5-dev.apk
+8208a69ccd413d8e46f3bd45fa1bea47be336b372ff7931cdf45f1cb5c5f106d  Guardian-AdBlock-Android-APK-v0.6.5-dev.zip
