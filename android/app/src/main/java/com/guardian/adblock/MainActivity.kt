@@ -223,28 +223,29 @@ class MainActivity : Activity() {
 
     private fun buildActivity(body: LinearLayout) {
         body.addView(text("활동 및 통계", 25f, white, true))
-        body.addView(text("실제 VPN DNS 엔진에서 처리한 요청 기록입니다.", 13f, muted, false).withTop(5))
+        body.addView(text("VPN DNS 엔진이 실제 처리한 요청만 기록합니다.", 13f, muted, false).withTop(5))
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-        val grid = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        grid.addView(infoCard(prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L).toString(), "전체 DNS 질의", "가상 DNS로 수신한 요청", accent), LinearLayout.LayoutParams(0, dp(112), 1f))
-        grid.addView(space(10), LinearLayout.LayoutParams(dp(10), 1))
-        grid.addView(infoCard(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L).toString(), "차단된 요청", "필터 규칙 일치", red), LinearLayout.LayoutParams(0, dp(112), 1f))
-        body.addView(grid.withTop(18))
-        val grid2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        grid2.addView(infoCard(prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L).toString(), "정상 전달", "업스트림 응답 수신", accent), LinearLayout.LayoutParams(0, dp(112), 1f))
-        grid2.addView(space(10), LinearLayout.LayoutParams(dp(10), 1))
-        grid2.addView(infoCard(prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L).toString(), "응답 실패", "업스트림/처리 오류", red), LinearLayout.LayoutParams(0, dp(112), 1f))
-        body.addView(grid2.withTop(10))
+        val summary = card(panel, 16).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("실시간 DNS 통계", 14f, white, true))
+            statsText = text(
+                "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L)}",
+                12f, accent, true
+            ).withTop(10) as TextView
+            addView(statsText!!)
+        }
+        body.addView(summary.withTop(18))
         body.addView(text("최근 DNS 요청", 18f, white, true).withTop(24))
         recentText = text(
-            prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 DNS 요청 기록이 없습니다. 보호를 시작한 뒤 앱이나 웹사이트를 이용해 주세요.",
+            prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null)
+                ?: "아직 DNS 요청 기록이 없습니다. 보호를 시작한 뒤 앱이나 웹사이트를 이용해 주세요.",
             12f, muted, false
         ).withTop(10) as TextView
         body.addView(card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(recentText!!)
         }.withTop(10))
-        body.addView(text("참고: 이 화면의 수치는 VPN 패킷 처리 엔진이 기록한 DNS 요청만 집계합니다. DNS 암호화 또는 VPN 우회 트래픽은 포함되지 않습니다.", 11f, muted, false).withTop(14))
+        body.addView(text("이 화면은 DNS 암호화 또는 VPN 우회 트래픽을 집계하지 않습니다.", 11f, muted, false).withTop(14))
     }
 
     private fun buildProtection(body: LinearLayout) {
