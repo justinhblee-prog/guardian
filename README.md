@@ -71,7 +71,7 @@ VPN 앱 자신이 만든 소켓은 Android에서 자체 VPN 경로를 우회하�
 gradle -p android --no-daemon clean testDebugUnitTest
 ```
 
-현재 테스트 소스 인벤토리: **12개 Kotlin 테스트 스위트 / 67개 JUnit 테스트 메서드**.
+현재 테스트 소스 인벤토리: **12개 Kotlin 테스트 스위트 / 68개 JUnit 테스트 메서드**.
 
 최근 성공 CI:
 - https://github.com/justinhblee-prog/guardian/actions/runs/43434091375
@@ -93,7 +93,7 @@ Android가 메모리 회수로 VPN 서비스 프로세스를 종료한 뒤 stick
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
 - Source commit: `57f30f68484fa4d6ef716a557efe8a75a4446407`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
-- Inventory: 12 test suites / 67 test methods.
+- Inventory: 12 test suites / 68 test methods.
 
 CI cancels superseded runs within the same branch so rapid pushes do not accumulate redundant builds.
 
@@ -109,7 +109,7 @@ CI cancels superseded runs within the same branch so rapid pushes do not accumul
 - Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
-- Test inventory: 12 suites / 67 test methods.
+- Test inventory: 12 suites / 68 test methods.
 
 
 백그라운드 업데이트는 WorkManager 2.12.0의 네트워크 제약 주기 작업을 사용합니다. 자동 업데이트를 끄면 예약을 취소하며, 수동/백그라운드 캐시 다운로드는 직렬화됩니다.
@@ -120,4 +120,8 @@ CI cancels superseded runs within the same branch so rapid pushes do not accumul
 - [GitHub Actions run 43437792450](https://github.com/justinhblee-prog/guardian/actions/runs/43437792450): **success**
 - Source commit: `5d7624fd445edadb1a1ed24a482b9e2d25f07d41`
 - Android unit tests: **passed**; APK assembly was skipped because this was a push-triggered validation run.
-- Test inventory: **12 suites / 67 test methods**.
+- Test inventory: **12 suites / 68 test methods**.
+
+
+## IPv6 DNS upstream choices
+Settings include IPv4 and IPv6 resolver presets for Cloudflare, Google, Quad9 and AdGuard DNS. AdGuard default IPv6 resolver routes are included in the optional direct-DNS capture set. IPv6 resolver use still depends on IPv6 connectivity provided by the current network.
