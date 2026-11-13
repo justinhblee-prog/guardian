@@ -44,6 +44,7 @@ class GuardianVpnService : VpnService() {
         const val KEY_UPSTREAM_DNS = "upstream_dns"
         const val KEY_EXCLUDED_APPS = "excluded_apps"
         const val KEY_DIRECT_DNS_CAPTURE = "direct_dns_capture"
+        const val DEFAULT_DIRECT_DNS_CAPTURE = false
         const val DEFAULT_UPSTREAM_DNS = "1.1.1.1"
         private val KNOWN_PUBLIC_DNS_IPV4 = listOf(
             "1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4",
@@ -141,7 +142,7 @@ class GuardianVpnService : VpnService() {
                 .addRoute(VIRTUAL_DNS, 32)
                 .addRoute(VIRTUAL_DNS_V6, 128)
             val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-            if (prefs.getBoolean(KEY_DIRECT_DNS_CAPTURE, false)) {
+            if (prefs.getBoolean(KEY_DIRECT_DNS_CAPTURE, DEFAULT_DIRECT_DNS_CAPTURE)) {
                 // Capture direct DNS requests to common public resolvers. Routes
                 // are IP-based, not port-based, so this is an advanced opt-in
                 // behavior: non-DNS traffic to these IPs can also enter the TUN.
