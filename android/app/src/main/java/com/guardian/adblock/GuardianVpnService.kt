@@ -141,7 +141,7 @@ class GuardianVpnService : VpnService() {
                 .addRoute(VIRTUAL_DNS, 32)
                 .addRoute(VIRTUAL_DNS_V6, 128)
             val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-            if (prefs.getBoolean(KEY_DIRECT_DNS_CAPTURE, true)) {
+            if (prefs.getBoolean(KEY_DIRECT_DNS_CAPTURE, false)) {
                 // Capture direct DNS requests to common public resolvers. Routes
                 // are IP-based, not port-based, so this is an advanced opt-in
                 // behavior: non-DNS traffic to these IPs can also enter the TUN.
