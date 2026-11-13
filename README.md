@@ -1,95 +1,60 @@
-# Guardian AdBlock v0.6.3-dev
+# Guardian AdBlock Android — 0.6.4-dev
 
-Cross-platform ad/tracker domain filtering development package: browser extension, shared domain rules, Python DNS engine, guarded Windows DNS integration, and Android `VpnService` app. Android handles IPv4/IPv6 UDP DNS; truncated upstream UDP replies retry over TCP.
+Guardian AdBlock은 Android `VpnService`를 이용해 기기 DNS 질의를 로컬에서 검사하고, 지정된 광고·추적 도메인을 차단하는 개발 버전입니다.
 
-## Quick verification
+## 구현된 기능
 
-```bash
-python -m pip install -r requirements-dev.txt
-./RUN_TESTS.sh
-```
+- Android VPN 권한을 받은 뒤 동작하는 로컬 DNS 보호 서비스
+- IPv4 및 IPv6 UDP/53 DNS 질의 파싱
+- IPv6 UDP 필수 체크섬 검증 및 응답 체크섬 생성
+- 업스트림 Cloudflare DNS(1.1.1.1) 전달과 응답 transaction/question 검증
+- 업스트림 UDP 응답이 잘린 경우 TCP/53 재시도
+- 차단 도메인에 NXDOMAIN, 업스트림 실패 시 SERVFAIL 응답
+- 공용 규칙 파일 `shared/filter_rules.txt` 및 기기 내 사용자 차단/허용 목록
+- 허용 규칙 우선 적용, 규칙 입력 검증, 보호 중 규칙 재적용
+- DNS 통계 및 최근 활동 저장
+- 앱 프로세스가 재시작되어 VPN이 끊겼는데 저장된 상태만 남아 있는 경우 잘못된 '보호 중' 표시 방지
+- Guardian 전용 adaptive launcher icon
 
-`RUN_TESTS.sh` runs Python tests, browser extension Node.js tests (when Node.js is installed), and the pure Kotlin DNS-core smoke check (when Kotlin/JDK are installed).
-
-On Windows PowerShell, `VERIFY_WINDOWS_TESTS.ps1` runs the same checks and does **not** change adapter DNS settings.
-
-## Shared filter rules
-
-Canonical file: `shared/filter_rules.txt`
+## 규칙 형식
 
 ```text
-block=ads.example
-allow=trusted.ads.example
+block=doubleclick.net
+allow=trusted.doubleclick.net
 ```
 
-Rules match exact domains and subdomains. `allow=` takes precedence over `block=`. The Python DNS engine and Android app consume this shared file; browser declarative rules remain a separate adapter.
+규칙은 정확한 도메인과 하위 도메인에 적용됩니다. 허용 규칙은 차단 규칙보다 우선합니다. 사용자 규칙은 목록별 최대 1,000개이며 기기 내부에 저장됩니다.
 
-## Components
+## 현재 미지원 범위
 
-- `dns_engine/`: local Python UDP/TCP DNS proxy. Default development listener is `127.0.0.1:5353`.
-- `windows_engine/`: Windows DPAPI backup/restore, explicit DNS activation guard, and pywin32 service host.
-- `android/`: Kotlin Android VPN DNS filtering app with on-device custom block/allow lists and live rule reload; requires Android Studio/SDK and JDK 17+ to build.
-- Browser extension: Manifest V3 static and dynamic rule support. The custom filter adapter accepts a safe subset of domain rules (full EasyList syntax is not supported), caps custom rules at 4,000 while reserving 1,000 allowlist slots, limits downloads to 5 MB/15 seconds, requests optional access only to the selected HTTPS filter host, rejects cross-origin redirects, and preserves previous active rules if a downloaded list has no supported rules.
+- 클라이언트 방향 TCP/53 DNS 가로채기
+- DNS-over-HTTPS(DoH), DNS-over-TLS(DoT)
+- IPv6 확장 헤더 및 IP fragment 재조립
+- 앱별 제외/허용, 원격 필터 목록 자동 업데이트
+- 포괄적인 상용 광고 차단 목록 및 모든 앱 내부 광고 차단
 
-## Platform status
+따라서 모든 광고가 차단되는 제품으로 간주하면 안 됩니다. DNS 기반 필터링을 우회하는 앱이나 자체 암호화 DNS를 쓰는 앱은 차단되지 않을 수 있습니다.
 
-- Python automated tests: 18 passing in the packaged workspace.
-- Browser extension parser/limit/state/permission regression tests: 11 passing with Node.js.
-- Android JUnit: `testDebugUnitTest` passed in GitHub Actions for commit `ccc5beba3ae8658733ca215708a77115158d78f1`.
-- Android debug APK: built successfully with Gradle 8.9 / JDK 17 / Android SDK 35; uploaded as the `Guardian-AdBlock-Android-APK-v0.6.3-dev` workflow artifact. The APK SHA-256 is `40593421ba6b8fdf62fd41225a4c8055266da89bd5b17f56eb416085afb85178`.
-- APK archive integrity and checksum: verified after download.
-- Android physical-device installation, VPN startup, and real-world ad-blocking acceptance: not yet verified.
-- Windows live adapter/service acceptance: not executed on a Windows host.
-- Windows EXE/installer: not built or included.
+## 빌드
 
-Android client-side TCP DNS interception is not implemented; only upstream TCP fallback for truncated UDP answers is implemented. IPv6 extension headers and fragment reassembly are not implemented. DNS-over-HTTPS (DoH) and DNS-over-TLS (DoT) are not filtered. This is a development build, not a production-ready or comprehensive ad-blocking product. Read `VERIFICATION.md` and `NEXT_STAGE_GUIDE_KO.md` before enabling system protection.
+필요 환경: JDK 17, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9.
 
-## Android APK installation
+```bash
+gradle -p android --no-daemon clean testDebugUnitTest assembleDebug
+```
 
-1. Download the APK artifact from the successful [GitHub Actions run](https://github.com/justinhblee-prog/guardian/actions/runs/43419311161).
-2. On the Android device, open the downloaded APK and allow installation from the source app if Android requests it.
-3. Launch **Guardian AdBlock**, tap **보호 시작**, and approve Android's VPN permission prompt.
-4. Confirm the app shows the active protection state. Android permits one active VPN connection per user; stop any other VPN app first if connection setup fails.
+APK 경로: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-The CI build proves compilation, unit tests, and APK packaging only. It does not prove that VPN protection starts successfully on every device or that all in-app advertisements are blocked.
+GitHub Actions는 Android 단위 테스트, APK 빌드, VPN manifest 선언, launcher asset, 패키지 ID/버전, APK SHA-256을 확인한 후 설치용 Debug APK를 artifact로 보관합니다.
 
+## 설치
 
-### Browser filter download safety
-Custom filter downloads are read with a 5 MB streaming cap and a 15-second timeout. Oversized response streams are cancelled before the complete body is buffered. The extension accepts only HTTPS filter URLs and rejects redirects that end on non-HTTPS URLs. The supported filter syntax is intentionally a limited domain-rule subset, not full EasyList compatibility.
+1. Android 기기에 최종 제공된 APK를 다운로드합니다.
+2. Android가 요청하면 다운로드 앱의 알 수 없는 앱 설치 권한을 허용합니다.
+3. Guardian AdBlock을 실행하고 **보호 시작**을 누릅니다.
+4. Android VPN 연결 승인 창에서 허용합니다.
+5. 앱에 표시되는 보호 상태를 확인합니다. 다른 VPN 앱이 실행 중이면 먼저 중지해야 할 수 있습니다.
 
+## 검증 경계
 
-### Browser extension permissions
-The extension no longer requests access to every website during installation. When you configure a remote filter, Chrome asks for optional access to that filter's HTTPS origin only. If you deny access, the download is not attempted and the currently active rules remain unchanged.
-
-### Latest verified Android APK — 2026-11-13
-
-The latest Android CI run is [43420229693](https://github.com/justinhblee-prog/guardian/actions/runs/43420229693), built from commit `d6191812b51cf97a288186901435608280bab1f8`. The configured Android unit-test task and debug APK build passed, the APK checksum step passed, and the artifact was uploaded successfully (artifact ID `14034125411`).
-
-- APK size: 845,986 bytes
-- SHA-256: `c17a91a518e39e9ec9681c8cb90d645f589ebbbb0276152299299d5c321bfff9`
-
-This build includes IPv4 TUN packet-length hardening and regression tests. Physical-device VPN behavior and real-world ad blocking remain unverified.
-
-
-### Latest Android APK (IPv6 regression build)
-
-- CI: [43420975704](https://github.com/justinhblee-prog/guardian/actions/runs/43420975704)
-- Source: `5b93b93ec36b86c2312c09b95562e396ec6dd890`
-- `clean testDebugUnitTest assembleDebug`: successful
-- Artifact ID: `14034191808`
-- APK size: 846,262 bytes
-- APK SHA-256: `9d8ba26f6c9cadad5250e15d3d46456262476b4d5aeb8ac27f023e5eea2fb92b`
-
-The artifact ZIP was integrity-checked and the extracted APK checksum matched the workflow's checksum file. This is a CI-verified development APK; physical-device VPN behavior and real-world ad blocking remain unverified.
-
-
-### Latest Android APK — Rules UI feedback fix
-
-- CI: [43421570913](https://github.com/justinhblee-prog/guardian/actions/runs/43421570913)
-- Source commit: `d438442ea45754be0b8faff777497c3308d3cfc7`
-- Unit-test task and debug APK build: **PASS**
-- Artifact ID: `14034222440`
-- APK size: 846,278 bytes
-- APK SHA-256: `3d8e5aa6b6effe815dbed6f2f8d846d44098eb498de93ddd0807d2eedd2be340`
-
-This build also fixes the Rules tab feedback being overwritten by VPN status refreshes. Physical-device VPN operation remains unverified.
+CI 성공은 소스 컴파일, 자동화 테스트, APK 패키징 및 checksum 확인을 의미합니다. 실기기 설치, VPN 승인/시작/중지, Wi-Fi↔모바일 데이터 전환, 장시간 실행, 실제 광고 차단 범위는 별도 기기 수용 테스트가 필요합니다. 검증하지 않은 기기 동작을 완료로 표시하지 않습니다.
