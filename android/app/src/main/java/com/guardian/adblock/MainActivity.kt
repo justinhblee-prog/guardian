@@ -16,6 +16,9 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.ArrayAdapter
+import android.widget.AdapterView
+import android.widget.Spinner
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -251,9 +254,37 @@ class MainActivity : Activity() {
         body.addView(text("설정", 25f, white, true))
         body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
         body.addView(infoRow("앱 버전", "Guardian AdBlock", "0.6.5-dev", accent))
-        body.addView(infoRow("DNS 서버", "필터링되지 않은 질의 전달", "1.1.1.1", accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        body.addView(text("DNS 업스트림 서버", 18f, white, true).withTop(24))
+        body.addView(text("차단되지 않은 DNS 질의를 전달할 서버를 선택합니다.", 12f, muted, false).withTop(5))
+        val dnsOptions = listOf(
+            "Cloudflare · 1.1.1.1" to "1.1.1.1",
+            "Google · 8.8.8.8" to "8.8.8.8",
+            "Quad9 · 9.9.9.9" to "9.9.9.9",
+            "AdGuard DNS · 94.140.14.14" to "94.140.14.14"
+        )
+        val dnsSpinner = Spinner(this)
+        dnsSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, dnsOptions.map { it.first })
+        val dnsPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val selectedDns = dnsOptions.indexOfFirst { it.second == dnsPrefs.getString(GuardianVpnService.KEY_UPSTREAM_DNS, GuardianVpnService.DEFAULT_UPSTREAM_DNS) }.coerceAtLeast(0)
+        dnsSpinner.setSelection(selectedDns)
+        dnsSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_DNS, dnsOptions[position].second).apply()
+                if (ProtectionState.isActive(
+                        dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                        GuardianVpnService.isTunnelActive()
+                    )) {
+                    startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                }
+            }
+        }
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(12), dp(5), dp(12), dp(5))
+            addView(dnsSpinner)
+        }.withTop(10))
         body.addView(text("광고 차단 필터", 18f, white, true).withTop(24))
         body.addView(text("AdGuard DNS Filter · 광고, 모바일 광고, 추적 도메인 목록", 12f, muted, false).withTop(5))
         val filterCard = card(panel, 16).apply {
