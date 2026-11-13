@@ -71,3 +71,20 @@ JDK 17, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9가 필요합니�
 - IPv4 및 IPv6 네트워크 환경 각각 확인
 
 실제 Android 기기에서 실행하지 않은 항목은 완료로 처리하지 않습니다.
+
+
+## 8. 0.6.4-dev 최종 CI 빌드 산출물
+
+- CI 실행: [43423112883](https://github.com/justinhblee-prog/guardian/actions/runs/43423112883) — **Success**
+- 빌드 대상 소스 커밋: `05dd104a97ea4f9f2bcf908514a6c82bf0e3b5f1`
+- Android Gradle test + assemble: **BUILD SUCCESSFUL**
+- Manifest / launcher resources / package ID / version 검사: **PASS**
+- Package: `com.guardian.adblock`
+- Version: `0.6.4-dev` / versionCode `11`
+- Artifact ID: `14034534107`
+- APK size: 849,811 bytes
+- APK SHA-256: `daded536157e3a71fe205dd0a47513228e8ecacb88be784cda87925c4ee48130`
+- Artifact ZIP SHA-256: `7b24f3abe7bd676389c32efc0afb1d26f6aa5fdc0038bfedc65c076cf9ab9942`
+- ZIP test and extracted APK checksum match: **PASS**
+
+25개 Android JUnit 테스트 메서드가 DNS/IPv4/IPv6 영역에 포함되어 있으며 Gradle test task가 성공했습니다. APK는 설치 가능한 Debug APK입니다. 실기기 수용 테스트는 별도이며 아직 완료로 간주하지 않습니다.
