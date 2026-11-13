@@ -55,7 +55,12 @@ class MainActivity : Activity() {
     private val filterUpdateRunning = AtomicBoolean(false)
 
     private val stateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) = refreshStatus()
+        override fun onReceive(context: Context?, intent: Intent?) {
+            refreshStatus()
+            if (intent?.action == FilterUpdateWorker.ACTION_FILTERS_CHANGED) {
+                filterStatusText?.text = filterStatusDescription()
+            }
+        }
     }
 
     private val bg = Color.rgb(10, 16, 30)
@@ -93,7 +98,9 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
-        val filter = IntentFilter(GuardianVpnService.ACTION_STATUS_CHANGED)
+        val filter = IntentFilter(GuardianVpnService.ACTION_STATUS_CHANGED).apply {
+            addAction(FilterUpdateWorker.ACTION_FILTERS_CHANGED)
+        }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else @Suppress("DEPRECATION") registerReceiver(stateReceiver, filter)
         receiverRegistered = true
