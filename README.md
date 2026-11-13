@@ -86,3 +86,13 @@ CI 테스트 통과는 소스 컴파일과 자동화 테스트 통과를 의미�
 ## VPN 서비스 복구 정책
 
 Android가 메모리 회수로 VPN 서비스 프로세스를 종료한 뒤 sticky service를 재생성하면, 직전 보호 상태가 활성화였을 때 TUN과 DNS 엔진을 다시 구성하도록 했습니다. 사용자가 보호를 중지했거나 권한이 해제된 상태에서는 자동 재시작하지 않습니다. 이 정책은 CI 단위 테스트로 검증했으며, 제조사별 절전 정책과 실제 기기의 장시간 안정성은 별도 검증 대상입니다.
+
+
+## Latest CI verification
+
+- [GitHub Actions run 43435647740](https://github.com/justinhblee-prog/guardian/actions/runs/43435647740): **success**
+- Source commit: `592a19d10d6e5b989112d37050425f3c94206e2c`
+- Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
+- Inventory: 11 test suites / 63 test methods.
+
+CI cancels superseded runs within the same branch so rapid pushes do not accumulate redundant builds.
