@@ -23,4 +23,7 @@ android {
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
-dependencies { testImplementation("junit:junit:4.13.2") }
+dependencies {
+    implementation("androidx.work:work-runtime:2.12.0")
+    testImplementation("junit:junit:4.13.2")
+}
