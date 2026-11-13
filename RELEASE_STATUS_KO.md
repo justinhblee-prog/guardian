@@ -102,3 +102,10 @@ WorkManager 2.12.0을 사용해 6/12/24시간 또는 7일 주기의 네트워크
 
 ## 최신 DNS 설정 변경
 Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard 기본 IPv6 직접 포착 경로를 추가했습니다. IPv6 리터럴 검증 테스트를 포함했으며 CI 결과는 최신 실행 확인 후 기록합니다.
+
+
+## 최신 CI — IPv6 DNS 프리셋
+- 실행: [43443209122](https://github.com/justinhblee-prog/guardian/actions/runs/43443209122) — **성공**
+- 소스 커밋: `f518711e559bfb8873128f82c07a1a157a5f2068`
+- Android 테스트: 12개 스위트 / 68개 JUnit 메서드 통과
+- APK 빌드: push 실행이라 생략. 최종 개발 완료 전 수동 APK 빌드를 실행하지 않음.
