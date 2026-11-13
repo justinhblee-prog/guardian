@@ -26,6 +26,8 @@ fun main() {
         0x03,0x63,0x6f,0x6d,0,0,1,0,1
     ).map { it.toByte() }.toByteArray()
     verify(DomainFilter.readQuestionName(query) == "example.com", "question decode")
+    val ambiguousName = intArrayOf(0,1,0x01,0,0,1,0,0,0,0,0,0,3,0x61,0x2e,0x62,0,0,1,0,1).map { it.toByte() }.toByteArray()
+    verify(DomainFilter.readQuestionName(ambiguousName) == null, "reject ambiguous dot inside DNS label")
     val reply = query.copyOf().also { it[2] = 0x81.toByte(); it[3] = 0x80.toByte() }
     verify(DomainFilter.isMatchingResponse(query, reply), "matching reply")
     verify(!DomainFilter.isMatchingResponse(query, reply.copyOf().also { it[1] = 0x35 }), "transaction mismatch")
