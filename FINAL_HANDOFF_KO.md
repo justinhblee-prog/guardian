@@ -41,7 +41,7 @@
 - 사용자 지정 IPv4 / IPv6 DNS 주소
 - 공용 DNS 직접 포착 고급 옵션(기본 꺼짐)
 - VPN 시작/중지/재시작 취소 경합 보호
-- DNS 자가 테스트
+- DNS 규칙 엔진 자체 테스트
 
 ### UI / 옵션
 - 홈: 보호 상태, 시작/중지, 필터 준비 상태, 통계, DNS 자체 테스트
@@ -73,7 +73,7 @@
 - `DnsProbe.kt`: DNS 자체 테스트 질의
 - `Ipv4Udp.kt` / `Ipv6Udp.kt`: IPv4/IPv6 UDP 패킷 처리
 - `MainActivity.kt`: 홈, 보호, 활동, 필터, 설정 UI
-- `android/app/src/test`: **11개 테스트 스위트 / 60개 JUnit 테스트 메서드**
+- `android/app/src/test`: **11개 테스트 스위트 / 63개 JUnit 테스트 메서드**
 
 ## 6. 필터 출처
 
@@ -90,7 +90,7 @@
 - 성공 CI: https://github.com/justinhblee-prog/guardian/actions/runs/43434091375
 - 소스 커밋: `419356a1ef43ba20c33256b353566da7f42b8f61`
 - Android unit-test 단계: **Success**
-- 테스트 소스 인벤토리: 11 suites / 60 test methods
+- 테스트 소스 인벤토리: 11 suites / 63 test methods
 - APK build/upload: push CI 정책에 따라 skipped
 - 최신 후속 UI 안내문 수정 커밋은 CI 재검증 중일 수 있으므로 최종 상태를 Actions에서 확인해야 합니다.
 
@@ -118,3 +118,11 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 8. 실기기 수용 테스트는 CI와 구분해 별도 보고
 
 개발 완료 전 중간 APK를 최종본으로 제공하지 않습니다. 검증되지 않은 기능을 완료로 표시하지 않습니다.
+
+
+## 10. DNS 자체 테스트의 정확한 범위와 VPN 자동 복구
+
+- Android VPN 앱 자신이 생성한 소켓은 기본적으로 자체 TUN 경로를 우회합니다. 기존의 앱 내부 UDP 소켓으로 가상 DNS 주소를 조회하는 방식은 실제 TUN 경로를 검증하지 못하므로 제거했습니다.
+- 현재 자체 테스트는 로드된 차단 규칙이 `doubleclick.net`에 일치하는지, NXDOMAIN 응답 생성기가 RCODE 3을 만드는지, `example.com`을 차단하지 않는지 검사합니다. 네트워크/TUN 경로 시험으로 표시하지 않습니다.
+- 서비스는 `START_STICKY`로 동작하고, Android가 서비스를 재생성하면서 null intent를 전달했을 때 이전 보호 상태가 활성인 경우에만 VPN 터널을 다시 구성합니다. 사용자가 중지한 경우는 자동 재시작하지 않습니다.
+- 이 복구 정책은 CI 단위 테스트 대상이며 실기기 장시간 유지 여부는 아직 미검증입니다.
