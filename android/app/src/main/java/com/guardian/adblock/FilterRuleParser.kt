@@ -4,11 +4,12 @@ import java.util.Locale
 
 /** Parser for DNS-compatible Adblock rules and hosts-file entries. */
 object FilterRuleParser {
-    data class Parsed(val blocked: Set<String>, val allowed: Set<String>, val ignored: Int)
+    data class Parsed(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>, val ignored: Int)
 
     fun parse(lines: List<String>): Parsed {
         val blocked = linkedSetOf<String>()
         val allowed = linkedSetOf<String>()
+        val importantBlocked = linkedSetOf<String>()
         val disabledBlocked = linkedSetOf<String>()
         val disabledAllowed = linkedSetOf<String>()
         var ignored = 0
@@ -30,11 +31,13 @@ object FilterRuleParser {
                 }
                 lower.startsWith("@@||") -> {
                     val domain = adblockDomain(line.substring(4))
-                    if (domain == null) ignored++ else allowed.add(domain)
+                    if (domain == null || hasModifier(line, "important")) ignored++ else allowed.add(domain)
                 }
                 lower.startsWith("||") -> {
                     val domain = adblockDomain(line.substring(2))
-                    if (domain == null) ignored++ else blocked.add(domain)
+                    if (domain == null) ignored++
+                    else if (hasModifier(line, "important")) importantBlocked.add(domain)
+                    else blocked.add(domain)
                 }
                 else -> {
                     val fields = line.split(Regex("\\s+"))
@@ -50,9 +53,13 @@ object FilterRuleParser {
             }
         }
         blocked.removeAll(disabledBlocked)
+        importantBlocked.removeAll(disabledBlocked)
         allowed.removeAll(disabledAllowed)
-        return Parsed(blocked, allowed, ignored)
+        return Parsed(blocked, allowed, importantBlocked, ignored)
     }
+
+    private fun hasModifier(rule: String, modifier: String): Boolean =
+        rule.substringAfter(36.toChar(), "").split(',').any { it.equals(modifier, ignoreCase = true) }
 
     private fun adblockDomain(expression: String): String? {
         // Context-sensitive, cosmetic, regex, URL/path, and rewriting rules
