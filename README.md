@@ -71,7 +71,7 @@ VPN 앱 자신이 만든 소켓은 Android에서 자체 VPN 경로를 우회하�
 gradle -p android --no-daemon clean testDebugUnitTest
 ```
 
-현재 테스트 소스 인벤토리: **11개 Kotlin 테스트 스위트 / 63개 JUnit 테스트 메서드**.
+현재 테스트 소스 인벤토리: **11개 Kotlin 테스트 스위트 / 65개 JUnit 테스트 메서드**.
 
 최근 성공 CI:
 - https://github.com/justinhblee-prog/guardian/actions/runs/43434091375
@@ -90,10 +90,10 @@ Android가 메모리 회수로 VPN 서비스 프로세스를 종료한 뒤 stick
 
 ## Latest CI verification
 
-- [GitHub Actions run 43435647740](https://github.com/justinhblee-prog/guardian/actions/runs/43436286243): **success**
+- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
 - Source commit: `da7e9fab22a38fc90e1c20739358239a5c994a0b`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
-- Inventory: 11 test suites / 63 test methods.
+- Inventory: 11 test suites / 65 test methods.
 
 CI cancels superseded runs within the same branch so rapid pushes do not accumulate redundant builds.
 
@@ -102,3 +102,11 @@ CI cancels superseded runs within the same branch so rapid pushes do not accumul
 
 - DNS upstream, filter profile and update interval selectors now use dark themed selected/dropdown rows consistent with the Guardian dashboard palette.
 - Status refreshes no longer retain/update detached home-screen views while the user is on other tabs.
+
+
+## Latest verification update
+
+- Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
+- Added two unit tests for this stop/start race policy.
+- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
+- Test inventory: 11 suites / 65 test methods.
