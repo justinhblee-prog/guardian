@@ -5,7 +5,7 @@ import org.junit.Test
 
 class FilterRuleComposerTest {
     @Test fun badfilterOnlyDisablesRuleFromItsOwnSource() {
-        val sourceA = listOf("||ads.example.com^", "||ads.example.com^\\$badfilter")
+        val sourceA = listOf("||ads.example.com^", "||ads.example.com^\$badfilter")
         val sourceB = listOf("||ads.example.com^")
         val composed = FilterRuleComposer.compose(listOf(sourceA, sourceB))
         DomainFilter.loadRules(composed)
