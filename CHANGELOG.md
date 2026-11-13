@@ -107,3 +107,10 @@
 - Added upstream DNS-over-TCP retry when a UDP response is truncated (RFC 7766 length framing, bounded connect/read timeout, transaction/question validation).
 - Added standalone Kotlin regression checks for IPv6 query parsing, generated responses, and invalid checksum rejection.
 - Client-side DNS-over-TCP interception, IPv6 extension-header/fragment reassembly, DoH/DoT, Android APK build, and device validation remain outstanding.
+
+## 2026-11-13 — Android packet-loop resilience and IPv4 length validation
+- Coalesced status broadcasts to at most one UI refresh per 500 ms while persisting every DNS event.
+- Published a clear inactive state if the VPN packet-processing thread exits unexpectedly.
+- Added explicit IPv4 TUN buffer-bound checks and required the IPv4 total-length field to match the complete packet length.
+- Added a regression test for oversized caller lengths and trailing packet bytes.
+- The IPv4 length hardening is awaiting a CI run on the latest main commit; do not treat it as part of the previously verified APK until that run succeeds.
