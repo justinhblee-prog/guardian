@@ -36,3 +36,21 @@
 - [ ] IPv4/IPv6 실제 DNS 차단·허용·일반 질의 검증
 
 **릴리스 판정:** 자동화 검증이 통과하더라도 실기기 수용 테스트 전에는 운영/상용 최종판으로 표시하지 않습니다. APK는 개발 설치본으로 명확히 표시합니다.
+
+
+## 최신 0.6.4-dev APK 빌드 결과 — 2026-11-13
+
+- [GitHub Actions 실행 43423112883](https://github.com/justinhblee-prog/guardian/actions/runs/43423112883): **Success**
+- 빌드 소스 커밋: `05dd104a97ea4f9f2bcf908514a6c82bf0e3b5f1`
+- Gradle `clean testDebugUnitTest assembleDebug`: **BUILD SUCCESSFUL**
+- Manifest / FGS special-use / launcher icon 검사: **PASS**
+- APK package ID: `com.guardian.adblock`
+- versionCode: `11`, versionName: `0.6.4-dev`
+- Artifact ID: `14034534107`
+- APK 크기: 849,811 bytes
+- APK SHA-256: `daded536157e3a71fe205dd0a47513228e8ecacb88be784cda87925c4ee48130`
+- Artifact ZIP SHA-256: `7b24f3abe7bd676389c32efc0afb1d26f6aa5fdc0038bfedc65c076cf9ab9942`
+- ZIP 무결성 검사 및 내부 APK checksum 대조: **PASS**
+- Android JUnit 25개 테스트 메서드 포함, Gradle 테스트 작업 통과
+
+**판정:** Android 0.6.4-dev 설치용 Debug APK 생성 및 CI 검증 완료. 실기기 설치/VPN 승인/네트워크 전환/장시간 실행은 아직 사용자 기기에서 확인되지 않았으므로 운영판 검증은 별도입니다.
