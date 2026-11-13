@@ -287,9 +287,11 @@ class MainActivity : Activity() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         // A persisted flag can outlive an Android process kill. Confirm this
         // process still owns the VPN tunnel before showing protection as active.
-        val active = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false) &&
-            GuardianVpnService.isTunnelActive()
-        val message = prefs.getString(GuardianVpnService.KEY_STATUS, null)
+        val persistedActive = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)
+        val active = persistedActive && GuardianVpnService.isTunnelActive()
+        val message = if (persistedActive && !active) {
+            "앱 프로세스가 재시작되어 VPN 보호가 중단되었습니다. 다시 시작해 주세요."
+        } else prefs.getString(GuardianVpnService.KEY_STATUS, null)
         // Not every tab creates the dashboard status views. Update only views
         // that exist so opening Rules/Protection/Settings cannot crash the app.
         if (::statusTitle.isInitialized) {
