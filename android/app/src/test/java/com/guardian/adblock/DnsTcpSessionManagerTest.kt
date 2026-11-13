@@ -103,6 +103,66 @@ class DnsTcpSessionManagerTest {
 
 
 
+
+    @Test fun handlesDnsOverTcpSessionWithIpv6Packets() {
+        val manager = DnsTcpSessionManager()
+        val syn = ipv6Packet(DnsTcpPacket.SYN, 11000)
+        val synAckBytes = manager.handle(syn, syn.size) { null }.single()
+        val synAck = DnsTcpPacket.parse(synAckBytes, synAckBytes.size, 53000)!!
+        assertEquals(6, synAck.version)
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val request = ipv6Packet(DnsTcpPacket.ACK or DnsTcpPacket.PSH, 11001, framed)
+        val replies = manager.handle(request, request.size) { DomainFilter.makeServfail(it) }
+        assertEquals(1, replies.size)
+        val response = DnsTcpPacket.parse(replies.single(), replies.single().size, 53000)!!
+        assertEquals(6, response.version)
+        assertTrue(response.ack)
+        assertEquals(11001L + framed.size, response.acknowledgement)
+        assertTrue(response.payload.isNotEmpty())
+    }
+
+    private fun ipv6Packet(flags: Int, seq: Long, payload: ByteArray = byteArrayOf()): ByteArray {
+        val tcpLength = 20 + payload.size
+        val p = ByteArray(40 + tcpLength)
+        p[0] = 0x60
+        p[4] = (tcpLength ushr 8).toByte()
+        p[5] = tcpLength.toByte()
+        p[6] = 6
+        p[7] = 64
+        p[8] = 0x20; p[9] = 0x01; p[10] = 0x0d; p[11] = 0xb8.toByte(); p[23] = 1
+        p[24] = 0xfd.toByte(); p[25] = 0x13; p[26] = 0; p[27] = 0x37; p[39] = 2
+        p[40] = 0xcf.toByte(); p[41] = 0x08; p[42] = 0; p[43] = 53
+        p[44] = (seq ushr 24).toByte(); p[45] = (seq ushr 16).toByte()
+        p[46] = (seq ushr 8).toByte(); p[47] = seq.toByte()
+        p[52] = 0x50; p[53] = flags.toByte()
+        p[54] = 0xff.toByte(); p[55] = 0xff.toByte()
+        payload.copyInto(p, 60)
+        sealTcp6(p, tcpLength)
+        return p
+    }
+
+    private fun sealTcp6(p: ByteArray, tcpLength: Int) {
+        p[56] = 0; p[57] = 0
+        var sum = 0L
+        fun add(start: Int, length: Int) {
+            var i = start
+            while (i + 1 < start + length) {
+                sum += (((p[i].toInt() and 255) shl 8) or (p[i + 1].toInt() and 255)).toLong()
+                i += 2
+            }
+            if (i < start + length) sum += ((p[i].toInt() and 255) shl 8).toLong()
+        }
+        add(8, 32)
+        sum += tcpLength.toLong()
+        sum += 6L
+        add(40, tcpLength)
+        while ((sum ushr 16) != 0L) sum = (sum and 65535) + (sum ushr 16)
+        val value = sum.inv().toInt() and 65535
+        p[56] = (value ushr 8).toByte()
+        p[57] = value.toByte()
+    }
+
     @Test fun processesMultipleDnsMessagesFromOneTcpPayload() {
         val manager = DnsTcpSessionManager()
         val query = dnsQuery()
