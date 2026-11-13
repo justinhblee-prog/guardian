@@ -599,6 +599,10 @@ class MainActivity : Activity() {
             }
         }
         options.addView(intervalSpinner)
+        options.addView(text(
+            "업데이트 확인은 앱을 실행할 때 수행됩니다. 앱을 닫은 동안의 백그라운드 자동 업데이트는 아직 지원하지 않습니다.",
+            10f, muted, false
+        ).withTop(3))
         val securityCheck = CheckBox(this).apply {
             text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence)"
             textSize = 12f
