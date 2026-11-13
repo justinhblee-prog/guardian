@@ -79,8 +79,21 @@ class GuardianVpnService : VpnService() {
                 thread(name = "guardian-vpn-start") { startProtection() }
             }
             ACTION_RELOAD_RULES -> thread(name = "guardian-vpn-rule-reload") { reloadUserRules() }
+            null -> {
+                val shouldRestore = ProtectionState.shouldRestoreAfterServiceRestart(
+                    getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_ACTIVE, false)
+                )
+                if (shouldRestore) {
+                    startCancellation.onStartRequested()
+                    thread(name = "guardian-vpn-restore") { startProtection() }
+                } else {
+                    stopSelf(startId)
+                }
+            }
         }
-        return START_NOT_STICKY
+        // If Android reclaims the process, recreate the service and TUN when
+        // the last persisted state says the user had protection enabled.
+        return START_STICKY
     }
 
     private fun startProtection() {
