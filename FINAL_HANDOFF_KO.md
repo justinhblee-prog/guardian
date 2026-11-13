@@ -1,62 +1,68 @@
-# Guardian AdBlock v0.6.3-dev 최종 인수인계
+# Guardian AdBlock v0.6.3-dev 인수인계
 
 작성일: 2026-11-13
 
-## 릴리스 상태
+## 1. 현재 릴리스 판정
 
-이 패키지는 v0.6.2-dev 소스를 기반으로 IPv6 DNS 처리와 업스트림 DNS-over-TCP 재시도를 추가한 통합 개발 릴리스입니다. 소스와 자동화 검증은 패키징했지만, Android SDK/Gradle이 없는 현재 빌드 환경에서 Android APK 및 Windows EXE를 만들 수 없었습니다. 따라서 설치 실행파일을 포함한 상용/운영 최종판이라고 표시하지 않습니다.
+Android APK를 GitHub Actions에서 빌드하고 업로드한 이력이 확인됩니다. 다만 현재 main에는 그 성공 빌드 이후 IPv4 패킷 길이 검증 수정이 추가되어 있습니다. 이 최신 수정까지 포함한 빌드가 다시 성공하기 전에는 아래 APK를 최신 main의 APK라고 간주하면 안 됩니다.
 
-## v0.6.3-dev 주요 구현
+- 확인된 성공 CI: [run 43419311161](https://github.com/justinhblee-prog/guardian/actions/runs/43419311161)
+- 해당 CI 커밋: `ccc5beba3ae8658733ca215708a77115158d78f1`
+- Gradle: `testDebugUnitTest assembleDebug` 성공
+- artifact: `Guardian-AdBlock-Android-APK-v0.6.3-dev`
+- APK SHA-256: `40593421ba6b8fdf62fd41225a4c8055266da89bd5b17f56eb416085afb85178`
 
-1. Android VPN에 IPv6 가상 DNS 주소 `fd13:37::2/128` 및 전용 경로 추가
-2. IPv6 UDP/53 패킷의 길이, next-header, 목적지 포트 검증
-3. IPv6 UDP checksum 필수 검증 및 응답 checksum 생성
-4. IPv6 확장 헤더 및 fragment는 미지원으로 명시적 거부
-5. 업스트림 UDP DNS 응답에 TC 비트가 있으면 보호된 TCP/53 연결로 재시도
-6. TCP DNS 응답 길이, transaction ID, QR/opcode, 질문 섹션 및 질문 바이트 검증
-7. Android 앱 버전 `0.6.3-dev`, versionCode `10`
-8. 브라우저 확장 manifest 버전 `0.6.3`
+## 2. Android 구현 범위
 
-## 검증 결과
+1. Android `VpnService` 기반 로컬 DNS 필터링
+2. IPv4 UDP/53 및 IPv6 UDP/53 처리
+3. IPv6 UDP 체크섬 검증 및 응답 체크섬 생성
+4. 공용 규칙 파일과 기기 내 사용자 차단/허용 목록 지원
+5. 허용 규칙이 차단 규칙보다 우선
+6. 업스트림 DNS 응답의 transaction ID 및 질문 일치 검증
+7. 업스트림 UDP 응답이 잘린 경우 보호된 TCP/53으로 재시도
+8. 업스트림 장애 시 유효한 DNS 질의에 SERVFAIL 응답
+9. DNS 통계와 최근 활동 저장, UI 갱신 브로드캐스트 제한
 
-- Python DNS 엔진: 6 PASS
-- Windows 보호 안전성 테스트: 12 PASS
-- Browser extension Node.js 회귀 테스트: 11 PASS
-- Kotlin 순수 DNS 핵심부: 18 assertions PASS
-- Python compileall: PASS
-- Browser JavaScript syntax: PASS
-- JSON 및 AndroidManifest XML 파싱: PASS
+## 3. 명시적 제한
 
-위 테스트는 로컬 자동화 검증입니다. 실제 Android 기기, Chrome 브라우저, Windows 네트워크 어댑터에서의 수용 테스트를 의미하지 않습니다.
+- 앱이 직접 수신하는 DNS TCP 질의 가로채기 미지원
+- DoH(HTTPS DNS) 및 DoT(TLS DNS) 필터링 미지원
+- IPv6 확장 헤더 및 IP fragment 재조립 미지원
+- 번들 차단 목록은 소규모 개발용 기본 목록이며 포괄적인 광고 DB가 아님
+- 일부 앱 내부 광고, 자체 DoH를 사용하는 앱, DNS 이외 방식의 광고 요청은 차단되지 않을 수 있음
 
-## 아직 실행하지 못한 출시 게이트
+## 4. 검증 현황
 
-- Android Gradle/JUnit 16개: 미실행
-- Android 앱 전체 컴파일 및 APK 생성: 미실행
-- Android 실기기 VPN/DNS/IPv6 테스트: 미실행
-- Windows 서비스/관리자 권한 DNS 변경 및 복구 테스트: 미실행
-- Windows EXE/설치 프로그램: 미생성
-- 클라이언트 방향 TCP DNS 가로채기: 미구현
-- IPv6 확장 헤더/fragment 재조립: 미구현
-- DoH/DoT 필터링: 미구현
+| 항목 | 상태 |
+|---|---|
+| Python / Browser / Kotlin 핵심부 자동화 검증 | 이전 검증 기록 PASS |
+| Android Gradle JUnit task | CI PASS (위 커밋 기준) |
+| Android APK 빌드 및 업로드 | CI PASS (위 커밋 기준) |
+| APK 체크섬 | 위 커밋 산출물 확인 |
+| 이후 IPv4 TUN 길이 방어 수정 | 후속 CI 확인 필요 |
+| Android 실기기 설치 및 VPN 시작/중지 | 미검증 |
+| 실제 IPv4/IPv6 DNS 및 광고 차단 | 미검증 |
+| Windows 실환경 DNS 어댑터/서비스 | 미검증 |
+| Windows EXE/설치 프로그램 | 미생성 |
 
-## Android 빌드
+## 5. Android 설치 절차
 
-필요: Android Studio, JDK 17+, Android SDK Platform 35, Android Gradle Plugin 8.7.3 및 Kotlin plugin 2.0.21 의존성을 내려받을 수 있는 네트워크.
+1. 성공한 GitHub Actions 실행에서 APK artifact를 내려받습니다.
+2. Android에서 APK를 열고 필요 시 해당 다운로드 앱의 '알 수 없는 앱 설치' 권한을 허용합니다.
+3. Guardian AdBlock을 실행하고 '보호 시작'을 누릅니다.
+4. Android VPN 연결 승인 창에서 허용합니다.
+5. 화면의 보호 상태가 실행 중으로 바뀌는지 확인합니다.
+6. 문제가 있으면 다른 VPN 앱이 활성화되어 있는지 확인합니다. Android는 일반적으로 사용자 프로필당 활성 VPN을 하나만 허용합니다.
 
-1. `android` 폴더를 Android Studio에서 엽니다.
-2. Gradle Sync를 완료합니다.
-3. `:app:testDebugUnitTest`를 실행합니다.
-4. `:app:assembleDebug`를 실행합니다.
-5. APK 예상 위치: `android/app/build/outputs/apk/debug/app-debug.apk`.
-6. 실제 기기에서 VPN 권한, IPv4/IPv6 DNS, 차단/허용, 업스트림 장애, 네트워크 전환 및 화면 잠금 후 동작을 확인합니다.
+## 6. 다음 우선순위
 
-이 경로는 빌드 후 예상 산출 위치이며 현재 ZIP에 APK가 들어 있다는 뜻이 아닙니다.
+1. 최신 main 커밋의 Android JUnit 및 APK 빌드 재검증
+2. TUN 패킷 처리와 VPN 서비스 수명주기 회귀 검토
+3. 실기기 검증 체크리스트를 따라 설치·권한·DNS·네트워크 변경 확인
+4. 실제 동작 증거를 반영해 릴리스 상태와 변경 이력 갱신
+5. Windows 기능은 별도 Windows 호스트에서 검증하고 설치 패키지를 별도 제작
 
-## Windows
+## 7. 최종 주의
 
-Windows 호스트에서 Python 의존성 설치 후 `VERIFY_WINDOWS_TESTS.ps1`을 먼저 실행하십시오. 시스템 DNS 변경은 별도 관리자 승인·백업·복구 절차가 필요합니다. 이 패키지에는 Windows EXE 설치 프로그램이 포함되어 있지 않습니다.
-
-## 최종 판단
-
-개발 소스와 자동화 테스트 패키지는 생성했습니다. APK와 Windows 설치파일, 실제 기기/OS 통합 검증이 완료되어야 사용자 설치용 정식 최종판으로 승격할 수 있습니다.
+GitHub Actions 성공은 컴파일, 자동화 테스트 task 및 APK 패키징 성공을 의미합니다. Android 기기에서 VPN이 정상 동작하거나 모든 광고가 차단된다는 보증은 아닙니다. 실기기 수용 테스트 전에는 운영 최종판 또는 상용 수준으로 표시하지 않습니다.
