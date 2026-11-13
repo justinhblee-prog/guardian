@@ -27,6 +27,7 @@ object FilterListManager {
     private const val KEY_SECURITY_BLOCK_COUNT = "security_filter_block_count"
     private const val KEY_SECURITY_IGNORED_COUNT = "security_filter_ignored_count"
     const val KEY_AUTO_UPDATE = "filter_auto_update"
+    const val KEY_UPDATE_INTERVAL_MS = "filter_update_interval_ms"
     const val KEY_LAST_ERROR = "filter_list_last_error"
     const val KEY_SECURITY_ENABLED = "security_filter_enabled"
 
