@@ -341,7 +341,8 @@ class MainActivity : Activity() {
             addView(text("현재 보호 범위", 14f, white, true))
             addView(text("IPv4 / IPv6 · UDP/53 + TCP/53 DNS", 12f, muted, false).withTop(7))
             addView(text("DNS 이외 트래픽, DoH/DoT는 아직 필터링하지 않습니다.", 11f, muted, false).withTop(5))
-        }.withTop(12))        val privateDns = privateDnsCompatibilityStatus()
+        }.withTop(12))
+        val privateDns = privateDnsCompatibilityStatus()
         body.addView(card(panel, 14).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(12), dp(14), dp(12))
