@@ -114,3 +114,9 @@
 - Added explicit IPv4 TUN buffer-bound checks and required the IPv4 total-length field to match the complete packet length.
 - Added a regression test for oversized caller lengths and trailing packet bytes.
 - The IPv4 length hardening is awaiting a CI run on the latest main commit; do not treat it as part of the previously verified APK until that run succeeds.
+
+
+## 2026-11-13 — Rules tab feedback isolation
+- Separated custom-rule validation/save feedback from the dashboard VPN status view.
+- Prevented status refresh broadcasts from replacing rule-editor success and validation messages.
+- Verified with Android unit-test task and debug APK CI build (run 43421570913).
