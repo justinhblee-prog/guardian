@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.6.3-dev
+# Guardian AdBlock Android 0.6.4-dev
 
 ## 포함된 기능
 - Android `VpnService` 기반 로컬 DNS 필터링
@@ -29,7 +29,7 @@
 - 내장 차단 목록은 개발용 소규모 목록입니다. 광고 전체 차단을 보장하지 않습니다.
 - DNS 이외의 트래픽은 VPN 라우팅 대상이 아닙니다.
 - DNS 업스트림 장애 시 유효한 SERVFAIL 응답을 반환합니다.
-- 실제 Android 기기에서 패킷 호환성, 백그라운드 지속성, 배터리, Android 15 이상 정책 검증이 필요합니다.
+- 앱 프로세스 재시작 시 stale 상태 표시를 방지하며, 실제 Android 기기에서 패킷 호환성, 백그라운드 지속성, 배터리, Android 15 이상 정책 검증이 필요합니다.
 
 ## 빌드
 공통 규칙 원본은 프로젝트의 `shared/filter_rules.txt`입니다. Gradle은 이 파일을 Android assets에 포함합니다. Android Studio에서 `android` 폴더를 열고 Gradle Sync 후 `:app:testDebugUnitTest` 및 `:app:assembleDebug`를 실행합니다.
