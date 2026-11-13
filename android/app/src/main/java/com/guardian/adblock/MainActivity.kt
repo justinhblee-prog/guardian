@@ -20,6 +20,10 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import kotlin.concurrent.thread
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : Activity() {
     private lateinit var root: LinearLayout
@@ -32,6 +36,8 @@ class MainActivity : Activity() {
     private var rulesFeedback: TextView? = null
     private var statsText: TextView? = null
     private var recentText: TextView? = null
+    private var filterStatusText: TextView? = null
+    private var filterUpdateButton: Button? = null
     private var receiverRegistered = false
     private var currentTab = "home"
 
@@ -53,6 +59,7 @@ class MainActivity : Activity() {
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
         showTab("home")
+        if (FilterListManager.cachedLines(this).isEmpty()) startFilterUpdate()
     }
 
     override fun onStart() {
@@ -247,7 +254,24 @@ class MainActivity : Activity() {
         body.addView(infoRow("DNS 서버", "필터링되지 않은 질의 전달", "1.1.1.1", accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
-        body.addView(text("디자인 및 기능은 개발 중이며 실제 차단 범위는 보호 엔진의 지원 항목에 한정됩니다.", 12f, muted, false).withTop(20))
+        body.addView(text("광고 차단 필터", 18f, white, true).withTop(24))
+        body.addView(text("AdGuard DNS Filter · 광고, 모바일 광고, 추적 도메인 목록", 12f, muted, false).withTop(5))
+        val filterCard = card(panel, 16).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+        }
+        filterStatusText = text(filterStatusDescription(), 12f, muted, false)
+        filterCard.addView(filterStatusText!!)
+        filterUpdateButton = Button(this).apply {
+            text = "필터 목록 업데이트"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 13)
+            setOnClickListener { startFilterUpdate() }
+        }
+        filterCard.addView(filterUpdateButton!!, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
+        body.addView(filterCard.withTop(10))
+        body.addView(text("현재 차단 엔진은 DNS 요청을 기준으로 동작합니다. 앱 내부에 직접 삽입된 광고, DoH/DoT 등은 별도 지원이 필요합니다.", 12f, muted, false).withTop(14))
     }
 
     private fun bottomNav(selected: String): View {
@@ -271,6 +295,43 @@ class MainActivity : Activity() {
             nav.addView(item, LinearLayout.LayoutParams(0, dp(48), 1f))
         }
         return nav
+    }
+
+    private fun filterStatusDescription(): String {
+        val count = FilterListManager.cachedBlockCount(this)
+        val updated = FilterListManager.lastUpdatedAt(this)
+        val time = if (updated > 0L) SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(updated)) else "아직 업데이트되지 않음"
+        return "차단 도메인 $count개 · 마지막 업데이트: $time"
+    }
+
+    private fun startFilterUpdate() {
+        filterUpdateButton?.isEnabled = false
+        filterUpdateButton?.text = "필터 다운로드 및 검증 중…"
+        filterStatusText?.text = "공식 AdGuard DNS 필터를 내려받아 규칙을 검증합니다."
+        thread(name = "guardian-filter-update") {
+            try {
+                val result = FilterListManager.update(this)
+                val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+                val active = ProtectionState.isActive(
+                    prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                    GuardianVpnService.isTunnelActive()
+                )
+                if (active) {
+                    startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                }
+                runOnUiThread {
+                    filterStatusText?.text = "차단 도메인 ${result.blocked}개 검증 완료 · ${result.bytes / 1024}KB · 지금 업데이트"
+                    filterUpdateButton?.text = "필터 목록 업데이트"
+                    filterUpdateButton?.isEnabled = true
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    filterStatusText?.text = "업데이트 실패: ${e.message ?: e.javaClass.simpleName} · 기존 필터 유지"
+                    filterUpdateButton?.text = "다시 시도"
+                    filterUpdateButton?.isEnabled = true
+                }
+            }
+        }
     }
 
     private fun requestProtection() {
