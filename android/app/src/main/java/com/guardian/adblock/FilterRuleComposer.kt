@@ -11,6 +11,7 @@ object FilterRuleComposer {
         sources.forEach { source ->
             val parsed = FilterRuleParser.parse(source)
             parsed.blocked.forEach { combined.add("block=$it") }
+            parsed.importantBlocked.forEach { combined.add("block-important=$it") }
             parsed.allowed.forEach { combined.add("allow=$it") }
         }
         userBlockDomains.forEach { combined.add("block=$it") }
