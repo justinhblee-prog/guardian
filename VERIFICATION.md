@@ -85,3 +85,15 @@ A successful JUnit run does not prove real-world blocking. The in-app DNS self-t
 - APK build and upload: intentionally skipped by push-CI policy.
 
 This validates source compilation and unit tests only. It does not verify the Android VPN on a physical device or real-world ad blocking.
+
+
+## Latest successful CI after filter profile and DNS engine hardening
+
+- Workflow: https://github.com/justinhblee-prog/guardian/actions/runs/43430515269
+- Source commit: 33bb38ed0abae177b8b24f74890a816a273c5351
+- Result: **success**
+- Android JUnit: **BUILD SUCCESSFUL**
+- Test source inventory: 9 suites / 44 test methods.
+- APK assemble/upload: skipped by push-CI policy.
+- Includes large-list suffix matching regression, selectable official filter profiles, searchable app exclusions, refresh schedule controls, and advanced direct-DNS capture option.
+
