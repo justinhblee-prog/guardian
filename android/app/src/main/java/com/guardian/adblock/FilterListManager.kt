@@ -47,8 +47,13 @@ object FilterListManager {
     fun availableProfiles(): List<FilterProfile> = profiles
 
     /** A cached list is usable for protection only when it matches the selected profile. */
-    internal fun isProfileCacheCurrent(hasCache: Boolean, selectedKey: String, cachedKey: String): Boolean =
-        hasCache && selectedKey == cachedKey
+    internal fun isProfileCacheCurrent(
+        hasCache: Boolean,
+        selectedKey: String,
+        cachedKey: String,
+        securityEnabled: Boolean = false,
+        hasSecurityCache: Boolean = true
+    ): Boolean = hasCache && selectedKey == cachedKey && (!securityEnabled || hasSecurityCache)
     fun cachedProfile(context: Context): FilterProfile {
         val key = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CACHED_PROFILE, null)
         return profiles.firstOrNull { it.key == key } ?: profiles.first()
@@ -141,7 +146,7 @@ object FilterListManager {
                 .putInt(countKey, parsed.blocked.size)
                 .putInt(ignoredKey, parsed.ignored)
             if (cachedProfileKey != null) metadata.putString(KEY_CACHED_PROFILE, cachedProfileKey)
-            metadata.apply()
+            check(metadata.commit()) { "필터 캐시 메타데이터를 저장하지 못했습니다." }
             return UpdateResult(parsed.blocked.size, parsed.allowed.size, parsed.ignored, bytes.size, now)
         } finally {
             connection.disconnect()
