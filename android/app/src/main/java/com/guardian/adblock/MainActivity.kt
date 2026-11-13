@@ -15,6 +15,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.ArrayAdapter
@@ -127,6 +128,16 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
         }
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            if (Build.VERSION.SDK_INT >= 30) {
+                val bars = insets.getInsets(WindowInsets.Type.systemBars())
+                view.setPadding(0, bars.top, 0, bars.bottom)
+            } else {
+                @Suppress("DEPRECATION")
+                view.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom)
+            }
+            insets
+        }
         val scroll = ScrollView(this).apply { isFillViewport = true }
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -144,6 +155,7 @@ class MainActivity : Activity() {
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(bottomNav(tab))
         setContentView(root)
+        root.requestApplyInsets()
         refreshStatus()
     }
 
