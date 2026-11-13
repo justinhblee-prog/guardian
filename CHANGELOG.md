@@ -192,7 +192,7 @@
 - Replace the app-owned virtual-DNS UDP self-test (which bypasses the app's own VPN route on Android) with an accurately labelled in-process rule-engine test.
 - Apply consistent dark styling to DNS/profile/update-interval selectors and avoid refreshing detached home views.
 - Serialize CI per branch and cancel superseded push runs.
-- Latest CI: run 43436954231 passed; 11 suites / 63 JUnit test methods.
+- Latest CI: run 43436954231 passed; 11 suites / 65 JUnit test methods.
 
 
 ## Latest verification update
