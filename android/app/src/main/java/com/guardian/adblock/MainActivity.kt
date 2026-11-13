@@ -834,12 +834,18 @@ class MainActivity : Activity() {
         val hasCachedList = FilterListManager.hasCachedList(this)
         val selectedProfile = FilterListManager.selectedProfile(this)
         val cachedProfile = FilterListManager.cachedProfile(this)
-        if (!FilterListManager.isProfileCacheCurrent(hasCachedList, selectedProfile.key, cachedProfile.key)) {
+        val securityEnabled = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            .getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+        val hasSecurityCache = FilterListManager.hasCachedSecurityList(this)
+        if (!FilterListManager.isProfileCacheCurrent(
+                hasCachedList, selectedProfile.key, cachedProfile.key, securityEnabled, hasSecurityCache
+            )) {
             statusTitle.text = "광고 필터 준비 필요"
-            status.text = if (!hasCachedList) {
-                "공식 광고 차단 목록을 아직 내려받지 못했습니다. 인터넷 연결 후 필터를 준비해야 정상적인 광고 차단이 가능합니다."
-            } else {
-                "선택한 ${selectedProfile.label} 목록이 아직 적용되지 않았습니다. 이전 프로필로 보호를 시작하지 않도록 다운로드 완료 후 다시 시작해 주세요."
+            status.text = when {
+                !hasCachedList -> "공식 광고 차단 목록을 아직 내려받지 못했습니다. 인터넷 연결 후 필터를 준비해야 정상적인 광고 차단이 가능합니다."
+                selectedProfile.key != cachedProfile.key -> "선택한 ${selectedProfile.label} 목록이 아직 적용되지 않았습니다. 이전 프로필로 보호를 시작하지 않도록 다운로드 완료 후 다시 시작해 주세요."
+                securityEnabled && !hasSecurityCache -> "악성코드·피싱 보호 목록이 준비되지 않았습니다. 보안 목록 다운로드를 완료한 후 다시 시작해 주세요."
+                else -> "선택한 필터 구성을 아직 준비하지 못했습니다. 필터 업데이트를 완료한 후 다시 시작해 주세요."
             }
             showTab("rules")
             startFilterUpdate()
