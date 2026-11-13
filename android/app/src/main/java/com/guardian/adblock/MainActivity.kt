@@ -70,9 +70,9 @@ class MainActivity : Activity() {
         val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
         val lastUpdate = FilterListManager.lastUpdatedAt(this)
         val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-        val securityStale = securityEnabled && (FilterListManager.cachedSecurityLines(this).isEmpty() ||
+        val securityStale = securityEnabled && (!FilterListManager.hasCachedSecurityList(this) ||
                 System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= 24L * 60L * 60L * 1000L)
-        if (autoUpdate && (FilterListManager.cachedLines(this).isEmpty() ||
+        if (autoUpdate && (!FilterListManager.hasCachedList(this) ||
                 System.currentTimeMillis() - lastUpdate >= 24L * 60L * 60L * 1000L || securityStale)) {
             startFilterUpdate()
         }
@@ -416,7 +416,7 @@ class MainActivity : Activity() {
                     )) {
                     startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
                 }
-                if (checked && FilterListManager.cachedSecurityLines(this@MainActivity).isEmpty()) startFilterUpdate()
+                if (checked && !FilterListManager.hasCachedSecurityList(this@MainActivity)) startFilterUpdate()
                 else filterStatusText?.text = filterStatusDescription()
             }
         }
