@@ -260,13 +260,20 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun loadConfiguredRules() {
-        val rules = assets.open("filter_rules.txt").bufferedReader().use { it.readLines().toMutableList() }
-        // The downloaded official DNS list is cached in app-private storage.
-        // A failed or absent update never replaces the last known-good filter.
-        rules.addAll(FilterListManager.cachedLines(this))
+        val rules = mutableListOf<String>()
+        fun appendSource(sourceLines: List<String>) {
+            // Apply badfilter within each source only. A source must not cancel
+            // an identical domain rule contributed by a different enabled list.
+            val parsed = FilterRuleParser.parse(sourceLines)
+            parsed.blocked.forEach { rules.add("block=$it") }
+            parsed.allowed.forEach { rules.add("allow=$it") }
+        }
+        appendSource(assets.open("filter_rules.txt").bufferedReader().use { it.readLines() })
+        // A failed or absent update never replaces the last known-good filter cache.
+        appendSource(FilterListManager.cachedLines(this))
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
-            rules.addAll(FilterListManager.cachedSecurityLines(this))
+            appendSource(FilterListManager.cachedSecurityLines(this))
         }
         prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
             .map { it.trim() }.filter { it.isNotEmpty() }.forEach { rules.add("block=$it") }
