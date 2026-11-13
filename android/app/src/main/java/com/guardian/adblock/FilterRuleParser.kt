@@ -19,6 +19,7 @@ object FilterRuleParser {
             if (line.isEmpty() || line.startsWith("!") || line.startsWith("[")) continue
             val lower = line.lowercase(Locale.ROOT)
             when {
+                lower.startsWith("block-important=") -> addDomain(line.substringAfter('='), importantBlocked).also { if (!it) ignored++ }
                 lower.startsWith("block=") -> addDomain(line.substringAfter('='), blocked).also { if (!it) ignored++ }
                 lower.startsWith("allow=") -> addDomain(line.substringAfter('='), allowed).also { if (!it) ignored++ }
                 lower.startsWith("@@||") && lower.contains(36.toChar() + "badfilter") -> {
