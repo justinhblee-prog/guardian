@@ -69,3 +69,15 @@ The latest Android CI run is [43420229693](https://github.com/justinhblee-prog/g
 - SHA-256: `c17a91a518e39e9ec9681c8cb90d645f589ebbbb0276152299299d5c321bfff9`
 
 This build includes IPv4 TUN packet-length hardening and regression tests. Physical-device VPN behavior and real-world ad blocking remain unverified.
+
+
+### Latest Android APK (IPv6 regression build)
+
+- CI: [43420975704](https://github.com/justinhblee-prog/guardian/actions/runs/43420975704)
+- Source: `5b93b93ec36b86c2312c09b95562e396ec6dd890`
+- `clean testDebugUnitTest assembleDebug`: successful
+- Artifact ID: `14034191808`
+- APK size: 846,262 bytes
+- APK SHA-256: `9d8ba26f6c9cadad5250e15d3d46456262476b4d5aeb8ac27f023e5eea2fb92b`
+
+The artifact ZIP was integrity-checked and the extracted APK checksum matched the workflow's checksum file. This is a CI-verified development APK; physical-device VPN behavior and real-world ad blocking remain unverified.
