@@ -172,3 +172,10 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - DNS 설정에 Cloudflare/Google/Quad9/AdGuard DNS의 IPv6 프리셋을 추가했습니다.
 - AdGuard 기본 IPv6 주소를 고급 직접 DNS 포착 주소에 포함했습니다.
 - IPv6 리터럴 검증 회귀 테스트를 추가했습니다. 네트워크별 IPv6 연결 가능 여부는 실기기에서 확인해야 합니다.
+
+
+## 최신 인계 검증 — IPv6 DNS 프리셋
+- [GitHub Actions run 43443209122](https://github.com/justinhblee-prog/guardian/actions/runs/43443209122): **success**
+- 검증 소스 커밋: `f518711e559bfb8873128f82c07a1a157a5f2068`
+- Android 단위 테스트 12개 스위트 / 68개 메서드 통과.
+- push 실행이므로 APK 생성·패키지 확인·SHA-256·artifact 업로드는 실행하지 않았습니다.
