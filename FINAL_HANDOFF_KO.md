@@ -73,7 +73,7 @@
 - `DnsProbe.kt`: DNS 자체 테스트 질의
 - `Ipv4Udp.kt` / `Ipv6Udp.kt`: IPv4/IPv6 UDP 패킷 처리
 - `MainActivity.kt`: 홈, 보호, 활동, 필터, 설정 UI
-- `android/app/src/test`: **12개 테스트 스위트 / 67개 JUnit 테스트 메서드**
+- `android/app/src/test`: **12개 테스트 스위트 / 68개 JUnit 테스트 메서드**
 
 ## 6. 필터 출처
 
@@ -90,7 +90,7 @@
 - 성공 CI: https://github.com/justinhblee-prog/guardian/actions/runs/43434091375
 - 소스 커밋: `419356a1ef43ba20c33256b353566da7f42b8f61`
 - Android unit-test 단계: **Success**
-- 테스트 소스 인벤토리: 12 suites / 67 test methods
+- 테스트 소스 인벤토리: 12 suites / 68 test methods
 - APK build/upload: push CI 정책에 따라 skipped
 - 최신 후속 UI 안내문 수정 커밋은 CI 재검증 중일 수 있으므로 최종 상태를 Actions에서 확인해야 합니다.
 
@@ -133,7 +133,7 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
 - Source commit: `57f30f68484fa4d6ef716a557efe8a75a4446407`
 - Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
-- Inventory: 12 test suites / 67 test methods.
+- Inventory: 12 test suites / 68 test methods.
 
 
 ## UI polish verification
@@ -147,7 +147,7 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
-- Test inventory: 12 suites / 67 test methods.
+- Test inventory: 12 suites / 68 test methods.
 
 
 ## WorkManager 백그라운드 필터 업데이트
@@ -157,7 +157,7 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - 앱 실행 시 만료 필터 업데이트도 기존대로 유지합니다.
 - 업데이트 Worker는 활성화된 기본/보안/Android 앱 광고 목록을 검증·갱신하며, 활성 VPN 서비스에 새 규칙을 다시 읽도록 요청합니다.
 - 수동/백그라운드 업데이트 간 캐시 파일 경합을 막기 위해 필터 다운로드를 동기화했습니다.
-- 설정 주기 검증 테스트 2개를 추가했습니다. 현재 인벤토리 12개 스위트 / 67개 메서드.
+- 설정 주기 검증 테스트 2개를 추가했습니다. 현재 인벤토리 12개 스위트 / 68개 메서드.
 
 
 ## Latest WorkManager verification
@@ -165,4 +165,10 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - [GitHub Actions run 43437792450](https://github.com/justinhblee-prog/guardian/actions/runs/43437792450): **success**
 - Source commit: `5d7624fd445edadb1a1ed24a482b9e2d25f07d41`
 - Android unit tests: **passed**; APK assembly was skipped because this was a push-triggered validation run.
-- Test inventory: **12 suites / 67 test methods**.
+- Test inventory: **12 suites / 68 test methods**.
+
+
+## IPv6 업스트림 옵션 추가
+- DNS 설정에 Cloudflare/Google/Quad9/AdGuard DNS의 IPv6 프리셋을 추가했습니다.
+- AdGuard 기본 IPv6 주소를 고급 직접 DNS 포착 주소에 포함했습니다.
+- IPv6 리터럴 검증 회귀 테스트를 추가했습니다. 네트워크별 IPv6 연결 가능 여부는 실기기에서 확인해야 합니다.
