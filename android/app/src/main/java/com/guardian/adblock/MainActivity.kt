@@ -811,9 +811,16 @@ class MainActivity : Activity() {
     }
 
     private fun requestProtection() {
-        if (!FilterListManager.hasCachedList(this)) {
+        val hasCachedList = FilterListManager.hasCachedList(this)
+        val selectedProfile = FilterListManager.selectedProfile(this)
+        val cachedProfile = FilterListManager.cachedProfile(this)
+        if (!FilterListManager.isProfileCacheCurrent(hasCachedList, selectedProfile.key, cachedProfile.key)) {
             statusTitle.text = "광고 필터 준비 필요"
-            status.text = "공식 광고 차단 목록을 아직 내려받지 못했습니다. 인터넷 연결 후 필터를 준비해야 정상적인 광고 차단이 가능합니다."
+            status.text = if (!hasCachedList) {
+                "공식 광고 차단 목록을 아직 내려받지 못했습니다. 인터넷 연결 후 필터를 준비해야 정상적인 광고 차단이 가능합니다."
+            } else {
+                "선택한 ${selectedProfile.label} 목록이 아직 적용되지 않았습니다. 이전 프로필로 보호를 시작하지 않도록 다운로드 완료 후 다시 시작해 주세요."
+            }
             showTab("rules")
             startFilterUpdate()
             return
