@@ -14,11 +14,11 @@ import javax.net.ssl.HttpsURLConnection
 object FilterListManager {
     const val FILTER_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt"
     const val KEY_FILTER_PROFILE = "filter_profile"
+    const val KEY_CACHED_PROFILE = "filter_cached_profile"
     const val SECURITY_FILTER_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_44.txt"
     private const val CACHE_FILE = "adguard_dns_filter.txt"
     private const val SECURITY_CACHE_FILE = "hagezi_threat_intelligence.txt"
     private const val MAX_BYTES = 10 * 1024 * 1024
-    private const val MIN_VALID_BLOCKS = 1000
     private const val MIN_SECURITY_BLOCKS = 100
     private const val PREFS = "guardian_settings"
     private const val KEY_UPDATED_AT = "filter_list_updated_at"
@@ -45,6 +45,10 @@ object FilterListManager {
     )
 
     fun availableProfiles(): List<FilterProfile> = profiles
+    fun cachedProfile(context: Context): FilterProfile {
+        val key = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CACHED_PROFILE, null)
+        return profiles.firstOrNull { it.key == key } ?: profiles.first()
+    }
     fun selectedProfile(context: Context): FilterProfile {
         val key = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_FILTER_PROFILE, "adguard")
         return profiles.firstOrNull { it.key == key } ?: profiles.first()
@@ -57,7 +61,7 @@ object FilterListManager {
 
     fun update(context: Context): UpdateResult {
         val profile = selectedProfile(context)
-        return download(context, profile.url, CACHE_FILE, profile.minimumRules, KEY_UPDATED_AT, KEY_BLOCK_COUNT, KEY_IGNORED_COUNT)
+        return download(context, profile.url, CACHE_FILE, profile.minimumRules, KEY_UPDATED_AT, KEY_BLOCK_COUNT, KEY_IGNORED_COUNT, profile.key)
     }
 
     fun updateSecurity(context: Context): UpdateResult =
@@ -75,7 +79,8 @@ object FilterListManager {
         minimumRules: Int,
         updatedKey: String,
         countKey: String,
-        ignoredKey: String
+        ignoredKey: String,
+        cachedProfileKey: String? = null
     ): UpdateResult {
         val connection = (URL(url).openConnection() as HttpsURLConnection).apply {
             requestMethod = "GET"
@@ -127,11 +132,12 @@ object FilterListManager {
                 throw IllegalStateException("새 필터 캐시를 안전하게 교체하지 못했습니다.", e)
             }
             val now = System.currentTimeMillis()
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            val metadata = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putLong(updatedKey, now)
                 .putInt(countKey, parsed.blocked.size)
                 .putInt(ignoredKey, parsed.ignored)
-                .apply()
+            if (cachedProfileKey != null) metadata.putString(KEY_CACHED_PROFILE, cachedProfileKey)
+            metadata.apply()
             return UpdateResult(parsed.blocked.size, parsed.allowed.size, parsed.ignored, bytes.size, now)
         } finally {
             connection.disconnect()
