@@ -1,4 +1,4 @@
-# Guardian AdBlock Android — 모바일 설치 안내 (0.6.4-dev)
+# Guardian AdBlock Android — 모바일 설치 안내 (0.6.5-dev)
 
 이 저장소는 이미 GitHub Actions에 연결되어 있습니다. 저장소를 새로 만들거나 소스 파일을 수동으로 업로드할 필요가 없습니다.
 
@@ -7,7 +7,7 @@
 1. GitHub 저장소 `justinhblee-prog/guardian`의 **Actions** 탭을 엽니다.
 2. **Guardian AdBlock Android APK** workflow를 선택합니다.
 3. 가장 최근 main 커밋의 실행 결과가 **Success**인지 확인합니다.
-4. 성공한 실행의 **Artifacts**에서 `Guardian-AdBlock-Android-APK-v0.6.4-dev`를 선택해 다운로드합니다.
+4. 성공한 실행의 **Artifacts**에서 `Guardian-AdBlock-Android-APK-v0.6.5-dev`를 선택해 다운로드합니다.
 5. 내려받은 ZIP을 압축 해제하면 `app-debug.apk`와 `SHA256SUMS.txt`가 있습니다.
 
 저장소에 Android 소스가 반영되면 push 기반 workflow가 자동 실행됩니다. 실패한 실행의 APK를 최종 설치본으로 사용하지 마십시오.
