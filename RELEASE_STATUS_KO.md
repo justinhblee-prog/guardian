@@ -24,3 +24,17 @@
 - Windows 실환경 어댑터/서비스 검증 및 Windows EXE/설치 프로그램 미생성
 
 **판정:** APK를 빌드할 수 있는 개발 릴리스입니다. 실기기 및 Windows 통합 검증 전에는 상용/운영 최종판으로 판정하지 않습니다.
+
+
+## 최신 빌드 갱신 — 2026-11-13
+
+- CI 실행: [43420229693](https://github.com/justinhblee-prog/guardian/actions/runs/43420229693)
+- 소스 커밋: `d6191812b51cf97a288186901435608280bab1f8`
+- Gradle `testDebugUnitTest assembleDebug`: **PASS**
+- APK 체크섬 검사 및 Artifact 업로드: **PASS**
+- Artifact ID: `14034125411`
+- APK 크기: 845,986 bytes
+- APK SHA-256: `c17a91a518e39e9ec9681c8cb90d645f589ebbbb0276152299299d5c321bfff9`
+- IPv4 TUN 패킷 길이 회귀 테스트: 최신 CI에 포함되어 통과
+
+**갱신 판정:** 최신 IPv4 길이 검증 수정까지 포함한 Android 개발 APK 빌드/자동화 검증 성공. 실기기 VPN·실제 광고 차단 검증은 여전히 미완료이며, 운영 최종판 판정은 보류합니다.
