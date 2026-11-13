@@ -62,3 +62,14 @@
 - [ ] 화면 잠금 및 장시간 실행
 
 **현재 판정:** 개발 진행 중. 최종 APK는 아직 생성하지 않습니다. 자동화 테스트 및 실기기 검증 전에는 광고 차단 기능 완료 또는 상용 제품 완료로 표시하지 않습니다.
+
+
+## 최신 내부 CI 결과
+
+- [GitHub Actions 43428069445](https://github.com/justinhblee-prog/guardian/actions/runs/43428069445): **Success**
+- 소스 커밋: e681062ee2cc3a3573aa4597e2eb545420fa81e1
+- Gradle clean + testDebugUnitTest: **BUILD SUCCESSFUL**
+- 회귀 테스트 소스 기준: 8개 suite / 40개 테스트 메서드
+- APK 빌드/업로드: **정책에 따라 생략** (push CI는 테스트 전용)
+
+실기기 VPN/광고 차단 수용 테스트는 아직 미완료입니다.
