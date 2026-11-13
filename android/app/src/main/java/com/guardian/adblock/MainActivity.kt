@@ -68,8 +68,11 @@ class MainActivity : Activity() {
         val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
         val lastUpdate = FilterListManager.lastUpdatedAt(this)
+        val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+        val securityStale = securityEnabled && (FilterListManager.cachedSecurityLines(this).isEmpty() ||
+                System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= 24L * 60L * 60L * 1000L)
         if (autoUpdate && (FilterListManager.cachedLines(this).isEmpty() ||
-                System.currentTimeMillis() - lastUpdate >= 24L * 60L * 60L * 1000L)) {
+                System.currentTimeMillis() - lastUpdate >= 24L * 60L * 60L * 1000L || securityStale)) {
             startFilterUpdate()
         }
     }
@@ -355,6 +358,27 @@ class MainActivity : Activity() {
             }
         }
         filterCard.addView(autoUpdateCheck)
+        val securityCheck = CheckBox(this).apply {
+            text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence)"
+            textSize = 12f
+            setTextColor(white)
+            isChecked = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+                .getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+            setOnCheckedChangeListener { _, checked ->
+                getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
+                    .putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
+                val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+                if (ProtectionState.isActive(
+                        prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                        GuardianVpnService.isTunnelActive()
+                    )) {
+                    startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                }
+                if (checked && FilterListManager.cachedSecurityLines(this@MainActivity).isEmpty()) startFilterUpdate()
+                else filterStatusText?.text = filterStatusDescription()
+            }
+        }
+        filterCard.addView(securityCheck)
         filterUpdateButton = Button(this).apply {
             text = "필터 목록 업데이트"
             isAllCaps = false
@@ -441,7 +465,10 @@ class MainActivity : Activity() {
         val count = FilterListManager.cachedBlockCount(this)
         val updated = FilterListManager.lastUpdatedAt(this)
         val time = if (updated > 0L) SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(updated)) else "아직 업데이트되지 않음"
-        return "차단 도메인 ${count}개 · 마지막 업데이트: $time"
+        val securityCount = FilterListManager.cachedSecurityBlockCount(this)
+        val securityOn = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            .getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+        return "광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 마지막 업데이트: $time"
     }
 
     private fun startFilterUpdate() {
@@ -452,6 +479,9 @@ class MainActivity : Activity() {
             try {
                 val result = FilterListManager.update(this)
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+                val securityResult = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
+                    try { FilterListManager.updateSecurity(this) } catch (e: Exception) { null }
+                } else null
                 val active = ProtectionState.isActive(
                     prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
                     GuardianVpnService.isTunnelActive()
@@ -460,7 +490,10 @@ class MainActivity : Activity() {
                     startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
                 }
                 runOnUiThread {
-                    filterStatusText?.text = "차단 도메인 ${result.blocked}개 검증 완료 · ${result.bytes / 1024}KB · 지금 업데이트"
+                    val securityMessage = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
+                        if (securityResult != null) " · 보안 ${securityResult.blocked}개" else " · 보안 목록 업데이트 실패(이전 목록 유지)"
+                    } else ""
+                    filterStatusText?.text = "광고·추적 ${result.blocked}개 검증 완료${securityMessage} · ${result.bytes / 1024}KB"
                     filterUpdateButton?.text = "필터 목록 업데이트"
                     filterUpdateButton?.isEnabled = true
                 }
