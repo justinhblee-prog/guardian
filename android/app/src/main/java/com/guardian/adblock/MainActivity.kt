@@ -783,6 +783,7 @@ class MainActivity : Activity() {
         filterUpdateButton?.isEnabled = false
         filterUpdateButton?.text = "필터 다운로드 및 검증 중…"
         filterStatusText?.text = "${FilterListManager.selectedProfile(this).label} 목록을 내려받아 규칙을 검증합니다."
+        val hadPreviousMainCache = FilterListManager.hasCachedList(this)
         thread(name = "guardian-filter-update") {
             try {
                 val result = FilterListManager.update(this)
@@ -823,7 +824,12 @@ class MainActivity : Activity() {
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
                     .putString(FilterListManager.KEY_LAST_ERROR, e.message ?: e.javaClass.simpleName).apply()
                 runOnUiThread {
-                    filterStatusText?.text = "업데이트 실패: ${e.message ?: e.javaClass.simpleName} · 기존 필터 유지"
+                    val cacheMessage = if (hadPreviousMainCache) {
+                        "이전 정상 필터를 계속 사용합니다."
+                    } else {
+                        "정상 필터가 없어 보호를 시작할 수 없습니다."
+                    }
+                    filterStatusText?.text = "업데이트 실패: ${e.message ?: e.javaClass.simpleName} · $cacheMessage"
                     filterUpdateButton?.text = "다시 시도"
                     filterUpdateButton?.isEnabled = true
                 }
