@@ -71,7 +71,7 @@ VPN 앱 자신이 만든 소켓은 Android에서 자체 VPN 경로를 우회하�
 gradle -p android --no-daemon clean testDebugUnitTest
 ```
 
-현재 테스트 소스 인벤토리: **11개 Kotlin 테스트 스위트 / 65개 JUnit 테스트 메서드**.
+현재 테스트 소스 인벤토리: **12개 Kotlin 테스트 스위트 / 67개 JUnit 테스트 메서드**.
 
 최근 성공 CI:
 - https://github.com/justinhblee-prog/guardian/actions/runs/43434091375
@@ -110,3 +110,6 @@ CI cancels superseded runs within the same branch so rapid pushes do not accumul
 - Added two unit tests for this stop/start race policy.
 - [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
 - Test inventory: 11 suites / 65 test methods.
+
+
+백그라운드 업데이트는 WorkManager 2.12.0의 네트워크 제약 주기 작업을 사용합니다. 자동 업데이트를 끄면 예약을 취소하며, 수동/백그라운드 캐시 다운로드는 직렬화됩니다.
