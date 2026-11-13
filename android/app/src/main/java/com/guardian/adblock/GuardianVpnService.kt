@@ -289,12 +289,24 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun loadConfiguredRules() {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val selectedProfile = FilterListManager.selectedProfile(this)
+        val cachedProfile = FilterListManager.cachedProfile(this)
+        val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+        require(FilterListManager.isProfileCacheCurrent(
+            FilterListManager.hasCachedList(this),
+            selectedProfile.key,
+            cachedProfile.key,
+            securityEnabled,
+            FilterListManager.hasCachedSecurityList(this)
+        )) {
+            "선택한 필터 프로필 또는 보안 목록이 검증·준비되지 않았습니다. 앱에서 필터를 업데이트한 후 다시 시작해 주세요."
+        }
         val sources = mutableListOf<List<String>>()
         sources.add(assets.open("filter_rules.txt").bufferedReader().use { it.readLines() })
         // A failed or absent update never replaces the last known-good filter cache.
         sources.add(FilterListManager.cachedLines(this))
-        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
+        if (securityEnabled) {
             sources.add(FilterListManager.cachedSecurityLines(this))
         }
         val userBlock = prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
