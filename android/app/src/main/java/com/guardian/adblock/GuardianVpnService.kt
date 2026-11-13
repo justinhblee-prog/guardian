@@ -30,6 +30,8 @@ class GuardianVpnService : VpnService() {
         const val ACTION_STOP = "com.guardian.adblock.STOP"
         const val ACTION_RELOAD_RULES = "com.guardian.adblock.RELOAD_RULES"
         const val ACTION_STATUS_CHANGED = "com.guardian.adblock.STATUS_CHANGED"
+        const val ACTION_TEST_UPSTREAM = "com.guardian.adblock.TEST_UPSTREAM"
+        const val ACTION_UPSTREAM_TEST_RESULT = "com.guardian.adblock.UPSTREAM_TEST_RESULT"
         const val PREFS = "guardian_settings"
         const val KEY_USER_BLOCK = "user_block_domains"
         const val KEY_USER_ALLOW = "user_allow_domains"
@@ -89,6 +91,9 @@ class GuardianVpnService : VpnService() {
                 thread(name = "guardian-vpn-start") { startProtection() }
             }
             ACTION_RELOAD_RULES -> thread(name = "guardian-vpn-rule-reload") { reloadUserRules() }
+            ACTION_TEST_UPSTREAM -> thread(name = "guardian-upstream-test") {
+                runUpstreamConnectivityTest(startId)
+            }
             null -> {
                 val shouldRestore = ProtectionState.shouldRestoreAfterServiceRestart(
                     getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_ACTIVE, false)
@@ -488,6 +493,25 @@ class GuardianVpnService : VpnService() {
             null
         } finally {
             try { socket?.close() } catch (_: Exception) { }
+        }
+    }
+
+    private fun runUpstreamConnectivityTest(startId: Int) {
+        val query = DnsUpstreamProbe.query()
+        val transport = configuredUpstreamTransport()
+        val startedAt = System.nanoTime()
+        val response = forwardDns(query)
+        val latencyMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+        val success = DnsUpstreamProbe.isValidResponse(query, response)
+        sendBroadcast(Intent(ACTION_UPSTREAM_TEST_RESULT).apply {
+            setPackage(packageName)
+            putExtra("success", success)
+            putExtra("latency_ms", latencyMs)
+            putExtra("transport", transport)
+        })
+        if (!isTunnelActive() &&
+            !getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_ACTIVE, false)) {
+            stopSelf(startId)
         }
     }
 
