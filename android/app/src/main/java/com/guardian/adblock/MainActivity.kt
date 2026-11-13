@@ -347,8 +347,8 @@ class MainActivity : Activity() {
         val officialFilterCard = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("ADGUARD DNS FILTER", 10f, accent, true))
-            addView(text("광고 · 모바일 광고 · 추적 도메인", 14f, white, true).withTop(7))
+            addView(text("DNS FILTER PROFILE", 10f, accent, true))
+            addView(text(FilterListManager.selectedProfile(this@MainActivity).label, 14f, white, true).withTop(7))
             filterStatusText = text(filterStatusDescription(), 11f, muted, false).withTop(7) as TextView
             addView(filterStatusText!!)
             filterUpdateButton = Button(this@MainActivity).apply {
@@ -468,7 +468,7 @@ class MainActivity : Activity() {
             }
         }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
         body.addView(text("광고 차단 필터", 18f, white, true).withTop(24))
-        body.addView(text("AdGuard DNS Filter · 광고, 모바일 광고, 추적 도메인 목록", 12f, muted, false).withTop(5))
+        body.addView(text("선택한 DNS 필터 목록과 보안 차단 옵션을 관리합니다.", 12f, muted, false).withTop(5))
         val filterCard = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(15), dp(15), dp(15), dp(15))
