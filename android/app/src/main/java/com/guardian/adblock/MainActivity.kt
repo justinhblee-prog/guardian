@@ -637,6 +637,32 @@ class MainActivity : Activity() {
             }
         }
         options.addView(securityCheck)
+        val androidAdsCheck = CheckBox(this).apply {
+            text = "Android 앱 광고 SDK 차단 (AWAvenue Ads Rule)"
+            textSize = 12f
+            setTextColor(white)
+            isChecked = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, checked).apply()
+                if (checked && !FilterListManager.hasCachedAndroidAdsList(this@MainActivity)) {
+                    filterStatusText?.text = "Android 앱 광고 SDK 필터를 다운로드합니다."
+                    startFilterUpdate()
+                } else {
+                    if (ProtectionState.isActive(
+                            prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                            GuardianVpnService.isTunnelActive()
+                        )) {
+                        startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                    }
+                    filterStatusText?.text = filterStatusDescription()
+                }
+            }
+        }
+        options.addView(androidAdsCheck)
+        options.addView(text(
+            "Android 앱 광고 SDK 도메인을 추가로 차단합니다. DNS 수준 필터이므로 모든 앱 내부 광고가 제거되는 것은 아닙니다.",
+            10f, muted, false
+        ).withTop(2))
         val directDnsCheck = CheckBox(this).apply {
             text = "공용 DNS 직접 질의 포착 (고급)"
             textSize = 12f
