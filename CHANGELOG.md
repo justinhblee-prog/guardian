@@ -157,3 +157,11 @@
 
 ### 0.7.0-dev 추가 변경
 - 앱 제외 검색, 업데이트 주기 선택, 커스텀 DNS 라우트, 필터 준비 확인을 추가했습니다.
+
+
+### 0.7.0-dev — VPN activation and filter readiness hardening
+- Serialized the final TUN activation commit against stop/revoke cancellation to close a check-then-activate race.
+- Added deterministic regression tests for cancelled activation rejection and activation/stop ordering.
+- Require the optional malware/phishing list cache before protection starts when that layer is enabled.
+- Commit selected filter-profile metadata synchronously after atomic cache replacement.
+- Latest source: 10 test suites / 52 JUnit methods; CI pending; no APK generated.
