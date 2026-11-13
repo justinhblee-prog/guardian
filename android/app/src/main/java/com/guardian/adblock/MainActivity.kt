@@ -271,7 +271,7 @@ class MainActivity : Activity() {
             setOnClickListener { runDnsSelfTest() }
         }
         hero.addView(selfTestButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(9) })
-        selfTestText = text("현재 적용된 차단 규칙과 NXDOMAIN 응답 생성 로직을 검사합니다.", 11f, muted, false).apply {
+        selfTestText = text("로컬 규칙 엔진과 NXDOMAIN 생성만 검사합니다. 실제 DNS 네트워크 경로와 앱 내부 광고 차단은 검증하지 않습니다.", 11f, muted, false).apply {
             gravity = Gravity.CENTER
             setPadding(0, dp(8), 0, 0)
         }
@@ -760,7 +760,7 @@ class MainActivity : Activity() {
             try {
                 val result = DnsProbe.evaluateRules()
                 val message = if (result.passed) {
-                    "통과 · ${result.blockedDomain} 차단 규칙 일치 및 NXDOMAIN 생성 · ${result.normalDomain} 정상 허용"
+                    "규칙 엔진 통과 · ${result.blockedDomain} 차단 규칙 일치 및 NXDOMAIN 생성 · ${result.normalDomain} 정상 허용"
                 } else {
                     "실패 · 차단 일치=${result.blockedRuleMatched}, RCODE=${result.blockedResponseCode}, 정상 도메인 차단=${result.normalDomainBlocked}"
                 }
