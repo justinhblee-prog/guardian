@@ -6,6 +6,7 @@ import java.io.File
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.StandardCopyOption
 import javax.net.ssl.HttpsURLConnection
 
@@ -66,10 +67,16 @@ object FilterListManager {
                     StandardCopyOption.REPLACE_EXISTING,
                     StandardCopyOption.ATOMIC_MOVE
                 )
-            } catch (_: Exception) {
-                // Keep the previous known-good cache if atomic replacement is unavailable.
+            } catch (_: AtomicMoveNotSupportedException) {
+                try {
+                    Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                } catch (e: Exception) {
+                    temporary.delete()
+                    throw IllegalStateException("새 필터 캐시를 안전하게 교체하지 못했습니다.", e)
+                }
+            } catch (e: Exception) {
                 temporary.delete()
-                throw IllegalStateException("새 필터 캐시를 안전하게 교체하지 못했습니다.")
+                throw IllegalStateException("새 필터 캐시를 안전하게 교체하지 못했습니다.", e)
             }
             val now = System.currentTimeMillis()
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
