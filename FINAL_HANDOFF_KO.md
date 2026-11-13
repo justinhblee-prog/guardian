@@ -30,12 +30,13 @@
 
 - AdGuard DNS Filter 목록 자동/수동 업데이트
 - 선택형 HaGeZi Threat Intelligence malware/phishing 필터
-- Cloudflare / Google / Quad9 / AdGuard DNS upstream 선택
+- Cloudflare / Google / Quad9 / AdGuard DNS / 사용자 지정 IPv4·IPv6 upstream 선택
 - 사용자 차단/허용 도메인 목록
 - 설치된 앱의 VPN 제외
 - DNS 활동 통계와 최근 요청, 무시된 패킷 및 마지막 진단
 - 활동 기록 초기화
 - 앱 내부 DNS 차단 자가 테스트
+- filter source별 badfilter 격리 및 사용자 지정 DNS 주소 검증
 
 ## 5. 필터 처리 경계
 
