@@ -506,7 +506,7 @@ class MainActivity : Activity() {
                 }
                 profilePrefs.edit()
                     .putString(FilterListManager.KEY_FILTER_PROFILE, selected.key)
-                    .putLong("filter_list_updated_at", 0L)
+                    .putLong(FilterListManager.KEY_UPDATED_AT, 0L)
                     .apply()
                 filterStatusText?.text = "선택한 프로필: ${selected.label} · 새 목록을 내려받습니다."
                 startFilterUpdate()
