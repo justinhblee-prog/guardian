@@ -101,6 +101,36 @@ class DnsTcpSessionManagerTest {
     }
 
 
+
+    @Test fun retransmittedSynReceivesTheSameServerSequence() {
+        val manager = DnsTcpSessionManager()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 5000)
+        val firstBytes = manager.handle(syn, syn.size) { null }.single()
+        val first = DnsTcpPacket.parse(firstBytes, firstBytes.size, 53000)!!
+        val secondBytes = manager.handle(syn, syn.size) { null }.single()
+        val second = DnsTcpPacket.parse(secondBytes, secondBytes.size, 53000)!!
+        assertEquals(first.sequence, second.sequence)
+        assertEquals(first.acknowledgement, second.acknowledgement)
+        assertEquals(1, manager.activeSessionCount())
+    }
+
+    @Test fun retransmittedDnsRequestReplaysTheCachedAnswerWithoutResolvingAgain() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 6000)
+        manager.handle(syn, syn.size) { null }
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH, seq = 6001, payload = framed)
+        var calls = 0
+        val first = manager.handle(request, request.size) {
+            calls++
+            DomainFilter.makeServfail(it)
+        }.single()
+        val replay = manager.handle(request, request.size) { calls++; null }.single()
+        assertEquals(1, calls)
+        assertArrayEquals(first, replay)
+    }
+
     @Test fun processesDnsPayloadAndFinInTheSameTcpSegment() {
         val manager = DnsTcpSessionManager()
         val query = dnsQuery()

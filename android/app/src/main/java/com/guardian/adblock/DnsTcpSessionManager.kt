@@ -18,8 +18,12 @@ class DnsTcpSessionManager(
     private data class Session(
         var clientNext: Long,
         var serverNext: Long,
+        val serverInitial: Long,
         val received: ByteArrayOutputStream = ByteArrayOutputStream(),
-        var lastActivity: Long
+        var lastActivity: Long,
+        var lastClientSegmentStart: Long? = null,
+        var lastClientPayload: ByteArray = byteArrayOf(),
+        var lastServerReplies: List<ByteArray> = emptyList()
     )
 
     private val sessions = LinkedHashMap<Key, Session>()
@@ -43,13 +47,20 @@ class DnsTcpSessionManager(
         }
 
         if (tcp.syn && !tcp.ack) {
-            if (sessions.size >= maxSessions) {
+            val existing = sessions[key]
+            val expectedClientNext = (tcp.sequence + 1L) and MASK
+            if (existing != null && existing.clientNext == expectedClientNext) {
+                existing.lastActivity = now
+                return listOf(DnsTcpPacket.response(tcp, existing.serverInitial,
+                    existing.clientNext, DnsTcpPacket.SYN or DnsTcpPacket.ACK))
+            }
+            if (sessions.size >= maxSessions && existing == null) {
                 val oldest = sessions.minByOrNull { it.value.lastActivity }?.key
                 if (oldest != null) sessions.remove(oldest)
             }
             val serverInitial = random.nextInt().toLong() and 0xffffffffL
             val session = Session((tcp.sequence + 1L) and MASK,
-                (serverInitial + 1L) and MASK, lastActivity = now)
+                (serverInitial + 1L) and MASK, serverInitial, lastActivity = now)
             sessions[key] = session
             return listOf(DnsTcpPacket.response(tcp, serverInitial, session.clientNext,
                 DnsTcpPacket.SYN or DnsTcpPacket.ACK))
@@ -58,10 +69,19 @@ class DnsTcpSessionManager(
         val session = sessions[key] ?: return emptyList()
         session.lastActivity = now
         if (tcp.sequence != session.clientNext) {
-            // Duplicate or out-of-order segments are not re-applied to the DNS stream.
+            // Re-serve the last DNS reply when the client retransmits the exact
+            // request segment after losing the corresponding response packet.
+            if (tcp.payload.isNotEmpty() &&
+                tcp.sequence == session.lastClientSegmentStart &&
+                tcp.payload.contentEquals(session.lastClientPayload)) {
+                return if (session.lastServerReplies.isNotEmpty()) session.lastServerReplies
+                    else listOf(ack(tcp, session))
+            }
             return listOf(ack(tcp, session))
         }
         if (tcp.payload.isNotEmpty()) {
+            session.lastClientSegmentStart = tcp.sequence
+            session.lastClientPayload = tcp.payload.copyOf()
             if (session.received.size() + tcp.payload.size > maxBufferedBytes) {
                 sessions.remove(key)
                 return listOf(DnsTcpPacket.response(tcp, session.serverNext,
@@ -113,6 +133,7 @@ class DnsTcpSessionManager(
                 return replies
             }
             if (replies.isEmpty()) replies.add(ack(tcp, session))
+            session.lastServerReplies = replies.map { it.copyOf() }
             return replies
         }
 
