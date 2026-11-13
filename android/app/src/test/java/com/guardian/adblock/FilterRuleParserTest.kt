@@ -54,6 +54,12 @@ class FilterRuleParserTest {
         assertTrue(parsed.ignored >= 1)
     }
 
+    @Test fun acceptsUtf8BomBeforeFirstFilterRule() {
+        val parsed = FilterRuleParser.parse(listOf("\uFEFF||ads.example.com^"))
+        assertEquals(setOf("ads.example.com"), parsed.blocked)
+        assertEquals(0, parsed.ignored)
+    }
+
     @Test fun acceptsSingleLabelOnlyForExplicitGuardianRules() {
         val parsed = FilterRuleParser.parse(listOf(
             "block=localhost",
