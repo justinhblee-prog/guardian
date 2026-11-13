@@ -449,8 +449,10 @@ class MainActivity : Activity() {
             dnsOptions.add(0, "사용자 지정 · $currentDns" to currentDns)
         }
         val dnsSpinner = Spinner(this)
-        val dnsAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, dnsOptions.map { it.first })
-        dnsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val dnsAdapter = darkSpinnerAdapter(dnsOptions.map { it.first })
+        dnsSpinner.background = shape(panel2, 12)
+        dnsSpinner.setPadding(dp(8), dp(3), dp(8), dp(3))
+        dnsSpinner.setPopupBackgroundDrawable(shape(panel, 12))
         dnsSpinner.adapter = dnsAdapter
         val selectedDns = dnsOptions.indexOfFirst { it.second == currentDns }.coerceAtLeast(0)
         dnsSpinner.setSelection(selectedDns)
@@ -615,8 +617,10 @@ class MainActivity : Activity() {
             "7일마다" to 7L * 24L * 60L * 60L * 1000L
         )
         val intervalSpinner = Spinner(this)
-        val intervalAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, intervals.map { it.first })
-        intervalAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val intervalAdapter = darkSpinnerAdapter(intervals.map { it.first })
+        intervalSpinner.background = shape(panel2, 12)
+        intervalSpinner.setPadding(dp(8), dp(3), dp(8), dp(3))
+        intervalSpinner.setPopupBackgroundDrawable(shape(panel, 12))
         intervalSpinner.adapter = intervalAdapter
         val currentInterval = prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
         intervalSpinner.setSelection(intervals.indexOfFirst { it.second == currentInterval }.coerceAtLeast(2))
@@ -705,8 +709,10 @@ class MainActivity : Activity() {
         val profilePrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val filterProfiles = FilterListManager.availableProfiles()
         val profileSpinner = Spinner(this)
-        val profileAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, filterProfiles.map { it.label })
-        profileAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val profileAdapter = darkSpinnerAdapter(filterProfiles.map { it.label })
+        profileSpinner.background = shape(panel2, 12)
+        profileSpinner.setPadding(dp(8), dp(3), dp(8), dp(3))
+        profileSpinner.setPopupBackgroundDrawable(shape(panel, 12))
         profileSpinner.adapter = profileAdapter
         val selectedProfileKey = FilterListManager.selectedProfile(this).key
         profileSpinner.setSelection(filterProfiles.indexOfFirst { it.key == selectedProfileKey }.coerceAtLeast(0))
@@ -1027,6 +1033,27 @@ class MainActivity : Activity() {
         }
         return domains.toList()
     }
+
+    private fun darkSpinnerAdapter(items: List<String>): ArrayAdapter<String> =
+        object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, items) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                return (super.getView(position, convertView, parent) as TextView).apply {
+                    setTextColor(white)
+                    textSize = 13f
+                    setPadding(dp(12), dp(9), dp(12), dp(9))
+                    background = shape(panel2, 10)
+                }
+            }
+
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                return (super.getDropDownView(position, convertView, parent) as TextView).apply {
+                    setTextColor(white)
+                    textSize = 13f
+                    setPadding(dp(14), dp(12), dp(14), dp(12))
+                    background = shape(panel, 0)
+                }
+            }
+        }
 
     private fun metricCard(label: String, value: TextView, tint: Int) = card(panel, 15).apply {
         setPadding(dp(12), dp(12), dp(8), dp(10))
