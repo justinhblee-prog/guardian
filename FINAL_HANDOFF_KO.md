@@ -82,3 +82,18 @@ GitHub Actions 성공은 컴파일, 자동화 테스트 task 및 APK 패키징 �
 - IPv4 입력 버퍼 경계, IP total-length 불일치, IPv4 options 케이스 회귀 테스트가 최신 빌드에 포함되어 통과했습니다.
 
 실기기 설치·VPN 승인·보호 시작/중지·IPv4/IPv6 실제 DNS·네트워크 변경 안정성 및 Windows 통합 검증은 미완료입니다. 따라서 현재 산출물은 검증된 Android 개발 APK이지, 모든 환경에서 동작이 확인된 상용 최종판은 아닙니다.
+
+
+## 최신 성공 빌드 — 2026-11-13
+
+- [GitHub Actions 43420975704](https://github.com/justinhblee-prog/guardian/actions/runs/43420975704)
+- 소스 커밋: `5b93b93ec36b86c2312c09b95562e396ec6dd890`
+- Gradle `clean testDebugUnitTest assembleDebug`: **BUILD SUCCESSFUL**
+- Artifact ID: `14034191808`
+- APK: 846,262 bytes
+- APK SHA-256: `9d8ba26f6c9cadad5250e15d3d46456262476b4d5aeb8ac27f023e5eea2fb92b`
+- Artifact ZIP SHA-256: `d691be00fe2d716df9351b5f7183c2cc968533a38d9059dc2977b08e6c7e7c10`
+- 다운로드 ZIP 무결성 및 내부 APK 체크섬 일치 확인 완료
+- IPv4 packet framing, DNS question case-insensitive matching, IPv6 UDP checksum regression tests included
+
+실기기 설치/VPN/실제 광고 차단 검증과 Windows 통합 검증은 여전히 별도 수용 테스트 항목입니다.
