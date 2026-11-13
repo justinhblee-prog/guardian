@@ -1,4 +1,4 @@
-# Guardian AdBlock v0.6.3-dev — 다음 단계 및 실행 안내
+# Guardian AdBlock Android v0.6.4-dev — 설치 및 기기 수용 테스트
 
 ## 1. 현재 패키지에서 확인된 내용
 - 공통 규칙 파일 `shared/filter_rules.txt`를 Windows DNS 엔진과 Android VPN 앱이 함께 사용합니다.
