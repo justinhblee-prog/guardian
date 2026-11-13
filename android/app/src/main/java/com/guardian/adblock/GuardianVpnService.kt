@@ -265,6 +265,9 @@ class GuardianVpnService : VpnService() {
         // A failed or absent update never replaces the last known-good filter.
         rules.addAll(FilterListManager.cachedLines(this))
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
+            rules.addAll(FilterListManager.cachedSecurityLines(this))
+        }
         prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
             .map { it.trim() }.filter { it.isNotEmpty() }.forEach { rules.add("block=$it") }
         prefs.getString(KEY_USER_ALLOW, "").orEmpty().lineSequence()
