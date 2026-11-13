@@ -198,7 +198,7 @@ class DomainFilterTest {
         assertTrue((flags and 0x0080) != 0) // RA
         assertTrue((flags and 0x0100) != 0) // RD preserved
         assertTrue((flags and 0x0010) != 0) // CD preserved
-        assertEquals("large-answer.example", DomainFilter.readQuestionName(truncated))
+        assertArrayEquals(query.copyOfRange(12, query.size), truncated.copyOfRange(12, truncated.size))
         assertEquals(1, ((truncated[4].toInt() and 0xff) shl 8) or (truncated[5].toInt() and 0xff))
         assertEquals(0, ((truncated[6].toInt() and 0xff) shl 8) or (truncated[7].toInt() and 0xff))
         assertTrue(truncated.size <= 1232)
