@@ -42,6 +42,7 @@ class GuardianVpnService : VpnService() {
         private const val VIRTUAL_DNS = "10.13.37.2"
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
         const val KEY_UPSTREAM_DNS = "upstream_dns"
+        const val KEY_EXCLUDED_APPS = "excluded_apps"
         const val DEFAULT_UPSTREAM_DNS = "1.1.1.1"
         private val KNOWN_PUBLIC_DNS_IPV4 = listOf(
             "1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4",
@@ -124,6 +125,11 @@ class GuardianVpnService : VpnService() {
             // as requests sent to Android's configured virtual DNS endpoint.
             KNOWN_PUBLIC_DNS_IPV4.forEach { builder.addRoute(it, 32) }
             KNOWN_PUBLIC_DNS_IPV6.forEach { builder.addRoute(it, 128) }
+            getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty()
+                .forEach { packageName ->
+                    try { builder.addDisallowedApplication(packageName) } catch (_: Exception) { }
+                }
             builder.setBlocking(true).establish()
         } catch (e: Exception) {
             establishError = e
