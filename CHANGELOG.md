@@ -224,3 +224,10 @@
 - Add IPv6 presets for Cloudflare, Google, Quad9 and AdGuard DNS (default and family protection).
 - Include AdGuard default IPv6 resolver addresses in optional direct-DNS capture routes.
 - Add regression coverage for the official IPv6 resolver literals.
+
+
+### IPv6 DNS presets — CI verified
+- Added IPv6 upstream presets for Cloudflare, Google, Quad9 and AdGuard DNS default/family protection.
+- Added AdGuard default IPv6 addresses to optional direct-DNS capture routes and IPv6 validation regression coverage.
+- [CI run 43443209122](https://github.com/justinhblee-prog/guardian/actions/runs/43443209122) passed on `f518711e559bfb8873128f82c07a1a157a5f2068`; 12 suites / 68 methods.
+- APK build intentionally skipped on push.
