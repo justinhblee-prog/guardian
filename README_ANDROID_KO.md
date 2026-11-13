@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.7.0-dev
+# Guardian AdBlock Android 0.7.1-dev
 
 ## 제품 개요
 
@@ -8,7 +8,7 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 최소 Android: API 26
 - compile/target SDK: 35
 - 빌드 JDK: 17
-- 현재 버전: `0.7.0-dev` (versionCode 13)
+- 현재 버전: `0.7.1-dev` (versionCode 14)
 
 ## 현재 구현 기능
 
