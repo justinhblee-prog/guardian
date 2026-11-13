@@ -73,7 +73,7 @@ class DnsTcpSessionManagerTest {
         val answer = segment.payload
         val answerLength = ((answer[0].toInt() and 255) shl 8) or (answer[1].toInt() and 255)
         assertEquals(answerLength, answer.size - 2)
-        assertEquals(2, answer[3].toInt() and 0x0f)
+        assertEquals(2, answer[5].toInt() and 0x0f)
     }
 
     @Test fun reassemblesPartialDnsFrameAcrossTcpSegments() {
