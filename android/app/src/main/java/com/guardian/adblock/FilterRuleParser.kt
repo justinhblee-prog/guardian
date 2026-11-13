@@ -12,6 +12,7 @@ object FilterRuleParser {
         val disabledBlocked = linkedSetOf<String>()
         val disabledAllowed = linkedSetOf<String>()
         var ignored = 0
+
         for (raw in lines) {
             val line = raw.substringBefore('#').trim()
             if (line.isEmpty() || line.startsWith("!") || line.startsWith("[")) continue
@@ -19,11 +20,11 @@ object FilterRuleParser {
             when {
                 lower.startsWith("block=") -> addDomain(line.substringAfter('='), blocked).also { if (!it) ignored++ }
                 lower.startsWith("allow=") -> addDomain(line.substringAfter('='), allowed).also { if (!it) ignored++ }
-                lower.startsWith("@@||") && lower.contains("\$badfilter") -> {
+                lower.startsWith("@@||") && lower.contains(36.toChar() + "badfilter") -> {
                     val domain = adblockDomain(line.substring(4))
                     if (domain == null) ignored++ else disabledAllowed.add(domain)
                 }
-                lower.startsWith("||") && lower.contains("\$badfilter") -> {
+                lower.startsWith("||") && lower.contains(36.toChar() + "badfilter") -> {
                     val domain = adblockDomain(line.substring(2))
                     if (domain == null) ignored++ else disabledBlocked.add(domain)
                 }
@@ -36,7 +37,7 @@ object FilterRuleParser {
                     if (domain == null) ignored++ else blocked.add(domain)
                 }
                 else -> {
-                    val fields = line.split(Regex("\\s+"), limit = 3)
+                    val fields = line.split(Regex("\\s+"))
                     if (fields.size >= 2 && (fields[0] == "0.0.0.0" || fields[0] == "127.0.0.1" ||
                                 fields[0] == "::" || fields[0] == "::1")) {
                         var added = false
@@ -54,36 +55,11 @@ object FilterRuleParser {
     }
 
     private fun adblockDomain(expression: String): String? {
-        // DNS-compatible domain anchors only. Cosmetic, regex, URL/path and
-        // wildcard rules are intentionally ignored rather than misapplied.
-        val parts = expression.split('
-    }
-
-    private fun addDomain(raw: String, destination: MutableSet<String>): Boolean {
-        val domain = normalize(raw.trim())
-        if (domain == null) return false
-        destination.add(domain)
-        return true
-    }
-
-    private fun normalize(raw: String): String? {
-        val domain = raw.trim().trimEnd('.').lowercase(Locale.ROOT)
-        if (domain.length !in 1..253) return null
-        val labels = domain.split('.')
-        if (labels.size < 2) return null
-        if (!labels.all { label ->
-                label.isNotEmpty() && label.length <= 63 &&
-                    (label.first() in 'a'..'z' || label.first() in '0'..'9') &&
-                    (label.last() in 'a'..'z' || label.last() in '0'..'9') &&
-                    label.all { it in 'a'..'z' || it in '0'..'9' || it == '-' }
-            }) return null
-        return domain
-    }
-}
-, limit = 2)
+        // Context-sensitive, cosmetic, regex, URL/path, and rewriting rules
+        // are not guessed at DNS level; only safe hostname anchors are used.
+        val parts = expression.split(36.toChar(), limit = 2)
         val host = parts[0].substringBefore('^').trimEnd('.')
         val modifiers = parts.getOrNull(1)?.split(',').orEmpty()
-        // Context-sensitive and rewriting modifiers are not guessed at DNS level.
         val supportedModifiers = setOf("important", "all", "badfilter")
         if (modifiers.any { it.isNotBlank() && it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
         if (host.isEmpty() || host.contains('*') || host.contains('/') || host.contains('|')) return null
@@ -91,8 +67,7 @@ object FilterRuleParser {
     }
 
     private fun addDomain(raw: String, destination: MutableSet<String>): Boolean {
-        val domain = normalize(raw.trim())
-        if (domain == null) return false
+        val domain = normalize(raw.trim()) ?: return false
         destination.add(domain)
         return true
     }
