@@ -142,8 +142,16 @@ class MainActivity : Activity() {
         if (requestCode == REQUEST_VPN) {
             if (resultCode == RESULT_OK) startProtection()
             else {
-                statusTitle.text = "VPN 권한이 필요합니다"
-                status.text = "Android VPN 연결 요청이 승인되지 않아 DNS 보호를 시작하지 않았습니다."
+                val message = "Android VPN 연결 요청이 승인되지 않아 DNS 보호를 시작하지 않았습니다."
+                if (currentTab == "home" && ::statusTitle.isInitialized && ::status.isInitialized) {
+                    statusTitle.text = "VPN 권한이 필요합니다"
+                    status.text = message
+                } else if (currentTab == "protection") {
+                    protectionStatusText?.text = "VPN 권한이 필요합니다"
+                    protectionFeedback?.text = message
+                } else {
+                    filterStatusText?.text = message
+                }
             }
         }
     }
