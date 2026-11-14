@@ -9,8 +9,8 @@ import java.security.Signature
 import java.util.Base64
 
 class FilterManifestVerifierTest {
-    private fun keyPair(): KeyPair = KeyPairGenerator.getInstance("RSA").apply {
-        initialize(2048)
+    private fun keyPair(bits: Int = 2048): KeyPair = KeyPairGenerator.getInstance("RSA").apply {
+        initialize(bits)
     }.generateKeyPair()
 
     private fun payload(): ByteArray {
@@ -112,4 +112,28 @@ class FilterManifestVerifierTest {
             fail("oversized manifest must be rejected")
         } catch (_: IllegalArgumentException) { }
     }
+    @Test fun rejectsWeakRsaSigningKey() {
+        val pair = keyPair(1024)
+        val bytes = payload()
+        try {
+            FilterManifestVerifier.parseAndVerify(
+                bytes, signed(bytes, pair), Base64.getEncoder().encodeToString(pair.public.encoded)
+            )
+            fail("RSA keys below 2048 bits must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
+    @Test fun rejectsBlankSourceVersionEvenWhenSigned() {
+        val pair = keyPair()
+        val bytes = String(payload(), StandardCharsets.UTF_8)
+            .replace("sourceVersion=2026.11.14", "sourceVersion=")
+            .toByteArray(StandardCharsets.UTF_8)
+        try {
+            FilterManifestVerifier.parseAndVerify(
+                bytes, signed(bytes, pair), Base64.getEncoder().encodeToString(pair.public.encoded)
+            )
+            fail("blank source version must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
 }
