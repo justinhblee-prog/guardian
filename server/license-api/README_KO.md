@@ -9,6 +9,7 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - 앱 검증기와 호환되는 정확한 UTF-8 key=value payload 및 RSA-SHA256 PKCS#1 v1.5 서명 토큰
 - 24시간 수명 토큰, 서버 재접속 시 refresh로 갱신
 - 감사 이벤트, 파라미터 바인딩 SQL, 16KB 요청 제한, no-store 응답
+- 라이선스 발급/활성화/갱신/상태 및 정지 API에 프로세스 단위 요청 제한과 `429 Retry-After` 응답
 - 반응형 모바일 관리자 페이지: `/admin`. 관리자 토큰은 페이지 메모리에서만 유지하고 localStorage/sessionStorage에 저장하지 않습니다.
 
 ## 환경 변수
@@ -28,7 +29,7 @@ npm test
 npm start
 ```
 
-운영에서는 반드시 HTTPS reverse proxy 또는 HTTPS를 제공하는 호스팅 플랫폼 뒤에 배치하고, 관리자 페이지도 HTTPS로만 접근시켜야 합니다. 데이터베이스 백업, Secret Manager, 로그 접근통제, 요청 rate limit/WAF, 모니터링, 복구 계획을 추가로 구성한 후 공개해야 합니다. 이 저장소의 서버는 운영 호스팅에 배포된 상태가 아닙니다.
+운영에서는 반드시 HTTPS reverse proxy 또는 HTTPS를 제공하는 호스팅 플랫폼 뒤에 배치하고, 관리자 페이지도 HTTPS로만 접근시켜야 합니다. 앱 내부 제한은 단일 프로세스의 보조 방어이며 재시작·다중 인스턴스 사이에 공유되지 않습니다. 프록시 뒤에서는 소켓 peer 기준이 프록시 주소가 될 수 있으므로, 공개 운영 환경에서는 프록시/WAF에서 실제 클라이언트 IP 기준 분산 rate limit을 반드시 적용해야 합니다. `GUARDIAN_RATE_LIMIT_WINDOW_MS`(기본 60000)와 `GUARDIAN_RATE_LIMIT_MAX`(기본 30)로 앱 내부 창과 요청 수를 조정할 수 있습니다. 데이터베이스 백업, Secret Manager, 로그 접근통제, 분산 rate limit/WAF, 모니터링, 복구 계획을 추가로 구성한 후 공개해야 합니다. 이 저장소의 서버는 운영 호스팅에 배포된 상태가 아닙니다.
 
 ## API
 - `POST /v1/licenses/activate`: `{ "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`

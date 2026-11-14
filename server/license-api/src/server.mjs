@@ -2,6 +2,7 @@ import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
+import { createRateLimiter } from './rate-limit.mjs';
 import {
   adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey,
   validateDeviceBinding, verifyLicenseKey
@@ -15,6 +16,14 @@ const PRIVATE_KEY = process.env.GUARDIAN_LICENSE_PRIVATE_KEY;
 const LOOKUP_SECRET = process.env.GUARDIAN_LICENSE_LOOKUP_SECRET;
 const TOKEN_TTL_SECONDS = 24 * 60 * 60;
 const BODY_LIMIT = 16 * 1024;
+const rateLimit = createRateLimiter({
+  windowMs: Number(process.env.GUARDIAN_RATE_LIMIT_WINDOW_MS || 60_000),
+  maxRequests: Number(process.env.GUARDIAN_RATE_LIMIT_MAX || 30)
+});
+const RATE_LIMITED_PATHS = new Set([
+  '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
+  '/v1/licenses/status', '/v1/admin/licenses'
+]);
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 10, ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: true } : undefined }) : null;
 
 function json(res, status, value) {
@@ -196,6 +205,17 @@ async function revokeLicense(id, req) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
+    if (RATE_LIMITED_PATHS.has(url.pathname) || (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke'))) {
+      // Use the socket peer address; do not trust caller-supplied X-Forwarded-For.
+      const peer = req.socket.remoteAddress || 'unknown';
+      const decision = rateLimit(`${peer}:${url.pathname}`);
+      res.setHeader('RateLimit-Limit', String(decision.limit));
+      res.setHeader('RateLimit-Remaining', String(decision.remaining));
+      if (!decision.allowed) {
+        res.setHeader('Retry-After', String(decision.retryAfterSeconds));
+        return json(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' });
+      }
+    }
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
     if (req.method === 'GET' && url.pathname === '/admin.js') {
       const script = await readFile(new URL('../admin/admin.js', import.meta.url));
