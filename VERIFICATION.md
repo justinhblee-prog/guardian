@@ -1,7 +1,7 @@
 # Guardian AdBlock Android — Verification Record
 
-기준 버전: 0.7.2-dev  
-기준일: 2026-11-13
+기준 버전: 0.7.3-dev  
+기준일: 2026-11-14
 
 ## 현재 회귀 테스트 인벤토리
 
@@ -288,3 +288,20 @@
 - Changed active-session detail to always derive from observed DNS counters and Private DNS mode; inactive sessions still preserve a specific service failure message.
 - Added two regression tests for active generic-message override and inactive failure-message preservation.
 - Previous commit `745751208cc4e970818aa0a3bd730643541f03e0` CI run 43535030810 succeeded: unit tests, lint, debug APK assembly, package/version verification, and SHA-256 generation all passed. APK SHA-256: `b222fcc3b89d7c47265eb0caa9781beb628fe4c097666ea927b01f6c9bb3e75a`. This checksum belongs to that source revision, not the follow-up fix.
+
+
+## 2026-11-14 — Guardian 0.7.3-dev APK 최종 CI 검증
+
+- GitHub Actions: [run 43562402511](https://github.com/justinhblee-prog/guardian/actions/runs/43562402511) — **success**
+- 소스 커밋: `484670a6c6db36bf3cce11c3d438dd2d17741bad`
+- Android 단위 테스트: **19개 Kotlin 테스트 스위트 / 127개 JUnit 테스트 메서드 통과**
+- Android `lintDebug`: **통과**
+- Android `assembleDebug`: **통과**
+- 패키지: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev`
+- APK 파일 존재, 패키지 식별, SHA-256 계산 및 artifact 업로드: **통과**
+- APK SHA-256: `355080e2a1d8f64fc9720858c889368229db7b4365cc753732275c88f6c3cf11`
+- GitHub artifact: `Guardian-AdBlock-Android-APK-v0.7.3-dev`, ID `14100743136`
+- Artifact ZIP SHA-256: `0666514555d869c5e3c25a4e44d1d9aa423c9d7143fcef4960b286d66f1b1aff`
+- README 변경이 push 경로 필터에서 누락되어 APK 업로드 workflow가 실행되지 않던 문제를 수정했습니다. README를 workflow paths에 포함했고, `[final-apk]` 커밋에서 전체 검증 및 artifact 업로드가 실행되도록 확인했습니다.
+- 릴리스 구분: 설치 가능한 debug 서명 APK입니다. production keystore 서명 및 Play Store 배포 검증은 포함하지 않습니다.
+- **실기기 미검증:** VPN 권한 승인, 실제 DNS 패킷 경로, 실제 필터 다운로드/적용, Wi-Fi↔모바일 데이터 전환, 절전/장시간 실행, 앱별 제외 및 실제 광고 제거 효과는 CI로 검증되지 않았습니다.
