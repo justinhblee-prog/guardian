@@ -48,7 +48,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
       signal: AbortSignal.timeout(30_000)
     });
     const { bytes, text } = await readResponse(response);
-    const ruleCount = text.split(/\\r?\\n/).filter(line => {
+    const ruleCount = text.split(/\r?\n/).filter(line => {
       const value = line.trim();
       return value && !value.startsWith('!') && !value.startsWith('#') &&
         !value.startsWith('[') && !value.startsWith('@@');
@@ -85,12 +85,12 @@ async function main() {
   const configPath = path.resolve(process.argv[2] || 'sources.json');
   const config = JSON.parse(await readFile(configPath, 'utf8'));
   const results = await updateFilters({ config });
-  process.stdout.write(JSON.stringify(results, null, 2) + '\\n');
+  process.stdout.write(JSON.stringify(results, null, 2) + '\n');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   main().catch(error => {
-    process.stderr.write(`Filter update failed: ${error.message}\\n`);
+    process.stderr.write(`Filter update failed: ${error.message}\n`);
     process.exitCode = 1;
   });
 }
