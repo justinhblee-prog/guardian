@@ -22,9 +22,8 @@ object Ipv4Udp {
         // Check the reserved flag, MF flag, and fragment offset independently.
         // The DF flag (0x4000) is valid and intentionally remains accepted.
         val fragment = u16(packet, 6)
-        if ((fragment and 0x8000) != 0) return null // Reserved flag.
-        if ((fragment and 0x2000) != 0) return null // More Fragments.
-        if ((fragment and 0x1fff) != 0) return null // Fragment offset.
+        if ((packet[6].toInt() and 0x80) != 0) return null // Reserved flag (high bit of first flags byte).
+        if ((fragment and 0x3fff) != 0) return null // MF flag or fragment offset; DF (0x4000) remains valid.
         val src = packet.copyOfRange(12, 16)
         val dst = packet.copyOfRange(16, 20)
         val srcPort = u16(packet, ihl)
