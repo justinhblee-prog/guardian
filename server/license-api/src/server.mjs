@@ -12,6 +12,7 @@ const PORT = Number(process.env.PORT || 8787);
 const DATABASE_URL = process.env.DATABASE_URL;
 const ADMIN_TOKEN = process.env.GUARDIAN_ADMIN_TOKEN;
 const PRIVATE_KEY = process.env.GUARDIAN_LICENSE_PRIVATE_KEY;
+const LOOKUP_SECRET = process.env.GUARDIAN_LICENSE_LOOKUP_SECRET;
 const TOKEN_TTL_SECONDS = 24 * 60 * 60;
 const BODY_LIMIT = 16 * 1024;
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 10, ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: true } : undefined }) : null;
@@ -34,6 +35,7 @@ async function readBody(req) {
 }
 function requireEnv() {
   if (!pool) throw Object.assign(new Error('서버 데이터베이스가 구성되지 않았습니다.'), { status: 503 });
+  if (!LOOKUP_SECRET || LOOKUP_SECRET.length < 32) throw Object.assign(new Error('라이선스 조회용 서버 비밀값이 구성되지 않았습니다.'), { status: 503 });
 }
 function requireAdmin(req) {
   const supplied = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -65,16 +67,15 @@ async function activate(body) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const candidate = await hashLicenseKey(body.licenseKey, LOOKUP_SECRET, '00000000000000000000000000000000');
     const found = await client.query(
       `SELECT l.*, p.code AS product_code, p.active AS product_active
        FROM licenses l JOIN products p ON p.id=l.product_id
-       WHERE l.status='active' AND l.expires_at>now() AND p.active=true
-       FOR UPDATE OF l`
+       WHERE l.key_lookup=$1 AND l.status='active' AND l.expires_at>now() AND p.active=true
+       FOR UPDATE OF l`, [candidate.keyLookup]
     );
     let license = null;
-    for (const row of found.rows) {
-      if (await verifyLicenseKey(body.licenseKey, row.key_salt, row.key_hash)) { license = row; break; }
-    }
+    if (found.rowCount && await verifyLicenseKey(body.licenseKey, found.rows[0].key_salt, found.rows[0].key_hash, LOOKUP_SECRET)) license = found.rows[0];
     if (!license) throw Object.assign(new Error('라이선스 키를 찾을 수 없거나 만료·정지되었습니다.'), { status: 403 });
     const existing = await client.query(
       'SELECT id FROM activations WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL FOR UPDATE',
@@ -141,7 +142,7 @@ async function createLicense(body) {
     throw Object.assign(new Error('기기 수 또는 유효 기간 설정이 범위를 벗어났습니다.'), { status: 400 });
   }
   const key = newLicenseKey();
-  const hashed = await hashLicenseKey(key);
+  const hashed = await hashLicenseKey(key, LOOKUP_SECRET);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -149,10 +150,10 @@ async function createLicense(body) {
     if (!product.rowCount) throw new Error('활성 제품을 찾을 수 없습니다.');
     const ref = randomUUID();
     const inserted = await client.query(
-      `INSERT INTO licenses(license_ref,product_id,key_salt,key_hash,expires_at,max_devices)
-       VALUES($1,$2,$3,$4,now()+($5::int * interval '1 day'),$6)
+      `INSERT INTO licenses(license_ref,product_id,key_salt,key_hash,key_lookup,expires_at,max_devices)
+       VALUES($1,$2,$3,$4,$5,now()+($6::int * interval '1 day'),$7)
        RETURNING id,license_ref,status,expires_at,max_devices,created_at`,
-      [ref, product.rows[0].id, hashed.saltHex, hashed.hashHex, days, maxDevices]
+      [ref, product.rows[0].id, hashed.saltHex, hashed.hashHex, hashed.keyLookup, days, maxDevices]
     );
     await recordEvent(client, inserted.rows[0].id, 'issued', 'admin', { maxDevices, days });
     await client.query('COMMIT');
