@@ -1287,8 +1287,10 @@ class MainActivity : Activity() {
             "선택: ${selectedProfile.label} · 적용 중: ${cachedProfile.label}"
         } else selectedProfile.label
         val summary = "$profileLabel · 광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 앱 광고 ${if (androidAdsOn) androidAdsCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored + androidAdsIgnored}개 제외 · 업데이트: $time"
+        val signedManifestStatus = FilterListManager.signedManifestStatus(this)
         return listOfNotNull(
             summary,
+            signedManifestStatus,
             lastError?.takeIf { it.isNotBlank() }?.let { "광고 필터 업데이트 실패(이전 목록 유지): $it" },
             securityError?.takeIf { it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): $it" },
             androidAdsError?.takeIf { it.isNotBlank() }?.let { "Android 앱 광고 필터 업데이트 실패(이전 목록 유지): $it" }
