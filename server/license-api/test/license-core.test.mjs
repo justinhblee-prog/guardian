@@ -5,24 +5,25 @@ import { adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey
 
 const device = randomBytes(32).toString('hex');
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const pepper = 'test-only-lookup-secret-32-chars-min';
 const expiresAt = new Date(Date.now() + 86400000).toISOString();
 
 test('license keys are random and formatted', () => {
   const a = newLicenseKey();
   const b = newLicenseKey();
-  assert.match(a, /^GDN-(?:[A-F0-9]{8}-){2}[A-F0-9]{8}$/);
+  assert.match(a, /^GDN-(?:[A-F0-9]{8}-){5}[A-F0-9]{8}$/);
   assert.notEqual(a, b);
 });
 
 test('license key hashes verify without storing plaintext', async () => {
   const key = newLicenseKey();
-  const hashed = await hashLicenseKey(key);
-  assert.equal(await verifyLicenseKey(key, hashed.saltHex, hashed.hashHex), true);
-  assert.equal(await verifyLicenseKey(newLicenseKey(), hashed.saltHex, hashed.hashHex), false);
+  const hashed = await hashLicenseKey(key, pepper);
+  assert.equal(await verifyLicenseKey(key, hashed.saltHex, hashed.hashHex, pepper), true);
+  assert.equal(await verifyLicenseKey(newLicenseKey(), hashed.saltHex, hashed.hashHex, pepper), false);
   assert.equal(hashed.hashHex.includes(key), false);
 });
 
-test('entitlement payload matches Android verifier schema and is RSA signed', () => {
+test('entitlement payload matches Android verifier schema and is RSA signed', async () => {
   const token = issueEntitlementToken({ licenseRef: '12345678-abcd', deviceBinding: device, expiresAt, privateKey });
   const payload = Buffer.from(token.payload, 'utf8');
   const { verify } = await import('node:crypto');
