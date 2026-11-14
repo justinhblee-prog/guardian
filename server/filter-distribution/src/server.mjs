@@ -28,8 +28,8 @@ async function readBounded(filePath, maxBytes) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      return send(res, 405, 'method_not_allowed', { allow: 'GET, HEAD' });
+    if (req.method !== 'GET') {
+      return send(res, 405, 'method_not_allowed', { allow: 'GET' });
     }
     const url = new URL(req.url, 'http://localhost');
     if (url.search || url.hash) return send(res, 400, 'invalid_request');
@@ -53,7 +53,7 @@ const server = http.createServer(async (req, res) => {
       if (!/^[A-Za-z0-9+/]+={0,2}$/.test(signatureText)) {
         return send(res, 404, 'manifest_not_found');
       }
-      return send(res, 200, req.method === 'HEAD' ? '' : manifest, {
+      return send(res, 200, manifest, {
         'content-type': 'text/plain; charset=utf-8',
         'x-guardian-signature': signatureText,
         'cache-control': 'no-store'
@@ -65,7 +65,7 @@ const server = http.createServer(async (req, res) => {
       const [, sourceId, version] = filterMatch;
       const filterPath = path.join(DIST_DIR, 'filters', sourceId, `${version}.txt`);
       const content = await readBounded(filterPath, MAX_FILTER_BYTES);
-      return send(res, 200, req.method === 'HEAD' ? '' : content, {
+      return send(res, 200, content, {
         'content-type': 'text/plain; charset=utf-8',
         'cache-control': 'public, max-age=31536000, immutable'
       });
