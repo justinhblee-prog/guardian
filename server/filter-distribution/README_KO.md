@@ -82,6 +82,8 @@ node scripts/publish-manifest.mjs \
 
 각 sourceId/version에 대해 같은 버전의 다른 콘텐츠로 덮어쓰는 것을 publisher가 거부합니다. 새 필터는 반드시 새 sourceVersion으로 발행하세요. 동일 초 내 연속 발행도 anti-rollback 조건을 만족하도록 generatedAt을 증가시킵니다.
 
+Publisher는 output directory 안에 source별 배타적 lock 파일(`.<sourceId>.publish.lock`)을 만들어 같은 source의 동시 발행을 거부합니다. 정상 종료 시 lock을 제거합니다. 프로세스 강제 종료로 lock이 남으면 해당 source의 발행 프로세스가 실행 중이지 않음을 확인한 뒤에만 수동 삭제하세요. 다른 발행 프로세스의 lock을 잘못 제거할 위험 때문에 자동 stale-lock 회수는 하지 않습니다.
+
 Publisher가 출력하는 `publicKey` 또는 `guardian-filter-public-key.x509.b64` 내용은 X.509 SubjectPublicKeyInfo Base64 공개키입니다. 이 값만 앱 빌드의 `GUARDIAN_MANIFEST_PUBLIC_KEY`에 설정합니다. `GUARDIAN_MANIFEST_BASE_URL`에는 `https://filters.example.com`을 설정합니다. 공개키를 바꿀 때는 앱 업데이트와 키 교체 절차를 함께 계획하세요.
 
 ## 3. 배포 서버 시작
