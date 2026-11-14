@@ -15,7 +15,7 @@ class FilterCacheStoreTest {
         val folder = newFolder()
         val target = File(folder, "filter.txt").apply { writeText("old") }
 
-        FilterCacheStore.replace(target, "new".toByteArray()) { }
+        FilterCacheStore.replace(target, "new".toByteArray(), commitMetadata = { })
 
         assertArrayEquals("new".toByteArray(), target.readBytes())
         assertFalse(File(folder, "filter.txt.bak").exists())
