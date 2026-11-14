@@ -20,7 +20,12 @@ internal object FilterCacheStore {
     }
 
     @Synchronized
-    fun replace(target: File, bytes: ByteArray, commitMetadata: () -> Unit) {
+    fun replace(
+        target: File,
+        bytes: ByteArray,
+        commitMetadata: () -> Unit,
+        rollbackMetadata: () -> Unit = {}
+    ) {
         recover(target)
         val temporary = File(target.parentFile, "${target.name}.tmp")
         val backup = File(target.parentFile, "${target.name}.bak")
@@ -40,6 +45,11 @@ internal object FilterCacheStore {
                 } catch (restoreFailure: Exception) {
                     failure.addSuppressed(restoreFailure)
                 }
+            }
+            try {
+                rollbackMetadata()
+            } catch (metadataRestoreFailure: Exception) {
+                failure.addSuppressed(metadataRestoreFailure)
             }
             temporary.delete()
             throw failure
