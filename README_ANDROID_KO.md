@@ -221,3 +221,12 @@ IPv6 DNS 업스트림 주소를 정규화할 때 주소 문자열이 제공되�
 - Package: `com.guardian.adblock`, versionCode `19`, versionName `0.7.6-dev`.
 - CI debug APK SHA-256: `b5ed0b9ee635eadc1ba5c337f94eed9c47767215198e2b60df5748fbf53e1e91` (about 2.9 MB). Ordinary push workflow skipped artifact upload.
 - This is automated CI evidence, not physical-device validation; APK is debug-signed and not a production-signed release.
+
+
+## 0.7.7-dev — Filter option update-race fix (2026-11-14)
+- Prevent changes to optional security and Android-app advertising filter toggles while a filter update is in progress. Both the Protection screen Switches and Filters screen CheckBoxes are disabled, including when navigating between screens during an update; controls are restored on success or failure.
+- When a first-time optional list download fails and no valid cache exists, the matching control is switched off so the UI and persisted configuration remain aligned.
+- CI [43572504150](https://github.com/justinhblee-prog/guardian/actions/runs/43572504150) completed successfully: unit tests, lint, debug APK assembly, package identity/version and checksum checks passed.
+- Package: `com.guardian.adblock`, versionCode `20`, versionName `0.7.7-dev`.
+- CI debug APK SHA-256: `1dbfd5b33e134ad25c949e24c0750793c9d43c83ec9888230f107e93c49754c4` (about 2.9 MB). This ordinary push run skipped artifact upload.
+- Final package workflow now creates a source ZIP containing source, tests, workflow and project documentation, plus a Korean verification summary alongside the installable debug APK and SHA-256 file.

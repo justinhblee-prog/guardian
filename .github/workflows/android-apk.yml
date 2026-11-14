@@ -80,13 +80,45 @@ jobs:
           sha256sum "$APK" | tee android/app/build/outputs/apk/debug/SHA256SUMS.txt
           ls -lh "$APK"
 
-      - name: Upload installable debug APK (manual release dispatch only)
+      - name: Package source and release verification summary
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[final-apk]')
+        shell: bash
+        run: |
+          mkdir -p release
+          APK='android/app/build/outputs/apk/debug/app-debug.apk'
+          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
+          # Guardian AdBlock v0.7.7-dev — 빌드 검증 결과
+
+          - 저장소 커밋: ${GITHUB_SHA}
+          - GitHub Actions 실행: ${GITHUB_RUN_ID}
+          - 패키지: com.guardian.adblock
+          - versionCode: 20
+          - versionName: 0.7.7-dev
+          - Android 단위 테스트: 통과
+          - Android lintDebug: 통과
+          - assembleDebug: 통과
+          - APK 패키지명·버전 검사: 통과
+          - APK SHA-256: ${APK_SHA256}
+          - 서명 유형: Android debug 서명 (배포용 production 서명 아님)
+          - 실기기 VPN·DNS 라우팅·실제 광고 제거 테스트: 미실시
+
+          이 결과는 GitHub Actions 자동화 검증이며, 물리 기기 수용 테스트나 모든 앱의 광고 제거를 보증하지 않습니다.
+          EOF
+          zip -qr 'release/Guardian-AdBlock-Source-v0.7.7-dev.zip' . \\
+            -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' \\
+               '*/local.properties' '*/.idea/*' '*.apk' 'release/*.zip'
+          ls -lh release/Guardian-AdBlock-Source-v0.7.7-dev.zip release/VERIFICATION_SUMMARY_KO.md
+
+      - name: Upload installable debug APK and complete source package (final build only)
         if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[final-apk]')
         uses: actions/upload-artifact@v4
         with:
-          name: Guardian-AdBlock-Android-APK-v0.7.7-dev
+          name: Guardian-AdBlock-Android-Full-Package-v0.7.7-dev
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/debug/SHA256SUMS.txt
+            release/Guardian-AdBlock-Source-v0.7.7-dev.zip
+            release/VERIFICATION_SUMMARY_KO.md
           if-no-files-found: error
           retention-days: 30
