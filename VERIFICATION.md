@@ -280,3 +280,11 @@
 - Opportunistic and hostname Private DNS modes now appear in the protection detail as possible encrypted-DNS bypass conditions.
 - Added five unit tests covering zero traffic, observed counters, both Private DNS modes, and inactive tunnel behavior.
 - CI validation is pending for this commit. No real-device or actual ad-removal validation is implied.
+
+
+## 2026-11-14 — 보호 상세 상태 갱신 경로 수정
+
+- Follow-up review found that the Protection screen's refresh path preferred the persisted generic service message over the new observed-traffic diagnostic. This could hide the real DNS counters even though the initial screen render was correct.
+- Changed active-session detail to always derive from observed DNS counters and Private DNS mode; inactive sessions still preserve a specific service failure message.
+- Added two regression tests for active generic-message override and inactive failure-message preservation.
+- Previous commit `745751208cc4e970818aa0a3bd730643541f03e0` CI run 43535030810 succeeded: unit tests, lint, debug APK assembly, package/version verification, and SHA-256 generation all passed. APK SHA-256: `b222fcc3b89d7c47265eb0caa9781beb628fe4c097666ea927b01f6c9bb3e75a`. This checksum belongs to that source revision, not the follow-up fix.

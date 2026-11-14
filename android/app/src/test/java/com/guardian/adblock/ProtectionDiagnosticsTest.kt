@@ -35,4 +35,16 @@ class ProtectionDiagnosticsTest {
         val detail = ProtectionDiagnostics.statusDetail(false, 99, 80, 19, 0, "off")
         assertTrue(detail.contains("보호를 시작하면"))
     }
+
+    @Test fun activeTunnelDiagnosticsCannotBeOverriddenByGenericServiceMessage() {
+        val detail = ProtectionDiagnostics.statusDetail(true, 12, 3, 8, 1, "off", "DNS 보호 실행 중")
+        assertTrue(detail.contains("DNS 질의 12건"))
+        assertTrue(detail.contains("차단 3"))
+        assertTrue(detail.contains("앱 내부 광고"))
+    }
+
+    @Test fun inactiveTunnelPreservesSpecificServiceFailureMessage() {
+        val detail = ProtectionDiagnostics.statusDetail(false, 0, 0, 0, 0, "off", "VPN 연결 실패: 권한 거부")
+        assertTrue(detail.contains("VPN 연결 실패"))
+    }
 }

@@ -329,3 +329,9 @@
 - Protection screen detail now reflects observed DNS request, block, forward, and failure counters instead of claiming DNS is being filtered solely because the VPN tunnel is active.
 - Zero observed DNS requests are clearly reported; opportunistic/hostname Android Private DNS modes warn about possible encrypted DNS bypass.
 - Added five unit tests for diagnostic state combinations. CI validation pending.
+
+
+## 2026-11-14 — Protection detail refresh consistency
+- Fixed the Protection tab refresh path so an active VPN session cannot replace observed DNS counters with a generic persisted service message.
+- Inactive sessions continue to show specific service failure messages.
+- Added two regression tests for both paths.

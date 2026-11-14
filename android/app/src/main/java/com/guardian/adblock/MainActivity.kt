@@ -1390,13 +1390,14 @@ class MainActivity : Activity() {
                 staleSession -> "보호 복구 대기 중"
                 else -> "보호가 꺼져 있습니다"
             }
-            protectionStatusDetail?.text = message ?: ProtectionDiagnostics.statusDetail(
+            protectionStatusDetail?.text = ProtectionDiagnostics.statusDetail(
                 active,
                 prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
                 prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
                 prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
                 prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
-                privateDnsMode()
+                privateDnsMode(),
+                message
             )
             protectionActionButton?.text = when { active -> "보호 중지"; staleSession -> "보호 다시 연결"; else -> "보호 시작" }
             protectionActionButton?.setTextColor(if (active) white else bg)
