@@ -105,7 +105,7 @@ export async function publishManifest(options, env = process.env) {
 
   const normalizedPrivateKey = privateKeyText.replace(/\\n/g, '\n');
   const signature = rsaSign('RSA-SHA256', manifestBytes, normalizedPrivateKey).toString('base64');
-  const signaturePath = path.join(outputDir, `${sourceId}.sig`);
+  const signaturePath = path.join(outputDir, `${sourceId}.${sourceVersion}.${generatedAt}.sig`);
   await atomicWrite(signaturePath, Buffer.from(signature, 'ascii'));
   // Publish manifest last: it is the commit marker consumed by clients.
   await atomicWrite(manifestPath, manifestBytes);
