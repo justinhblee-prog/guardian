@@ -272,4 +272,4 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`Guardian License API listening on :${PORT}`);
   });
 }
-export { server };
+export { server, pool };
