@@ -22,7 +22,7 @@ const rateLimit = createRateLimiter({
 });
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses'
+  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events'
 ]);
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 10, ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: true } : undefined }) : null;
 
@@ -183,6 +183,16 @@ async function listLicenses(req) {
   );
   return { licenses: result.rows };
 }
+async function listAuditEvents(req) {
+  requireEnv();
+  requireAdmin(req);
+  const result = await pool.query(
+    `SELECT e.id,e.event_type,e.actor,e.metadata,e.created_at,l.license_ref
+     FROM license_events e LEFT JOIN licenses l ON l.id=e.license_id
+     ORDER BY e.created_at DESC,e.id DESC LIMIT 100`
+  );
+  return { events: result.rows };
+}
 async function revokeLicense(id, req) {
   requireEnv();
   requireAdmin(req);
@@ -228,6 +238,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(html);
     }
     if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
+    if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
     if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
     const body = await readBody(req);
     let result;

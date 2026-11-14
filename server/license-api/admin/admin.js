@@ -35,9 +35,35 @@ function renderLicenses(items) {
     root.append(row);
   }
 }
+function renderEvents(items) {
+  const root = $('events');
+  root.replaceChildren();
+  if (!items.length) { root.textContent = '감사 기록이 없습니다.'; return; }
+  const labels = {
+    issued: '라이선스 발급', activated: '기기 활성화',
+    deactivated: '기기 비활성화', revoked: '라이선스 정지'
+  };
+  for (const item of items) {
+    const row = document.createElement('div'); row.className = 'row';
+    const info = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = labels[item.event_type] || item.event_type;
+    const detail = document.createElement('div'); detail.className = 'muted';
+    const ref = item.license_ref || '연결된 라이선스 없음';
+    const when = new Date(item.created_at).toLocaleString();
+    const metadata = item.metadata && Object.keys(item.metadata).length
+      ? ` · ${JSON.stringify(item.metadata)}` : '';
+    detail.textContent = `${when} · ${ref} · ${item.actor}${metadata}`;
+    info.append(title, detail); row.append(info); root.append(row);
+  }
+}
 async function load() {
-  const data = await api('/v1/admin/licenses');
-  renderLicenses(data.licenses || []);
+  const [licenses, audit] = await Promise.all([
+    api('/v1/admin/licenses'),
+    api('/v1/admin/events')
+  ]);
+  renderLicenses(licenses.licenses || []);
+  renderEvents(audit.events || []);
 }
 $('connect').addEventListener('click', async () => {
   adminToken = $('token').value.trim();
