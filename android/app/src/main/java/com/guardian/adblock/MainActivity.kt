@@ -155,6 +155,8 @@ class MainActivity : Activity() {
         protectionStatusDetail = null
         protectionActionButton = null
         protectionFeedback = null
+        securityFilterSwitch = null
+        androidAdsFilterSwitch = null
         statsText = null
         recentText = null
         diagnosticText = null
@@ -551,7 +553,10 @@ class MainActivity : Activity() {
             "악성코드 · 피싱 보호",
             "HaGeZi Threat Intelligence 도메인 목록을 추가로 적용합니다.",
             prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
-            onToggleCreated = { securityFilterSwitch = it }
+            onToggleCreated = {
+                securityFilterSwitch = it
+                it.isEnabled = !filterUpdateRunning.get()
+            }
         ) { checked ->
             prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
             if (checked && !FilterListManager.hasCachedSecurityList(this)) {
@@ -567,7 +572,10 @@ class MainActivity : Activity() {
             "Android 앱 광고 SDK 필터",
             "AWAvenue 목록으로 알려진 앱 광고 SDK 도메인을 추가 차단합니다. 모든 앱 내부 광고를 제거하는 기능은 아닙니다.",
             prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false),
-            onToggleCreated = { androidAdsFilterSwitch = it }
+            onToggleCreated = {
+                androidAdsFilterSwitch = it
+                it.isEnabled = !filterUpdateRunning.get()
+            }
         ) { checked ->
             prefs.edit().putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, checked).apply()
             if (checked && !FilterListManager.hasCachedAndroidAdsList(this)) {
