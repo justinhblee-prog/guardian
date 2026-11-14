@@ -66,6 +66,18 @@ jobs:
       - name: Assemble debug APK for build verification
         run: gradle -p android --no-daemon assembleDebug
 
+      - name: Install and launch APK on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell monkey -p com.guardian.adblock 1
+            adb shell pidof com.guardian.adblock
+
       - name: Verify APK package identity and version
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
