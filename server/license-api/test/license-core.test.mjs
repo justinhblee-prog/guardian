@@ -32,6 +32,23 @@ test('entitlement payload matches Android verifier schema and is RSA signed', as
   assert.match(token.payload, new RegExp(`deviceBinding=${device}$`));
 });
 
+test('signed entitlement is capped at 24 hours even for a long-lived license', () => {
+  const now = 1_800_000_000_000;
+  const longLicenseExpiry = new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString();
+  const token = issueEntitlementToken({
+    licenseRef: '12345678-abcd',
+    deviceBinding: device,
+    expiresAt: longLicenseExpiry,
+    privateKey,
+    now
+  });
+  const issuedAt = Number(token.payload.match(/issuedAt=(\\d+)/)?.[1]);
+  const expires = Number(token.payload.match(/expiresAt=(\\d+)/)?.[1]);
+  assert.equal(expires - issuedAt, 24 * 60 * 60);
+  const { verify } = await import('node:crypto');
+  assert.equal(verify('RSA-SHA256', Buffer.from(token.payload), publicKey, Buffer.from(token.signature, 'base64')), true);
+});
+
 test('invalid device binding is rejected', () => {
   assert.throws(() => validateDeviceBinding('bad'));
 });
