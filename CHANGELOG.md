@@ -309,3 +309,9 @@
 - Added six unit tests for relative/absolute HTTPS redirects and rejection cases.
 - GitHub Actions run 43531095663: 18 test suites / 110 test methods passed; lint, debug APK assembly, package identity and checksum checks succeeded.
 - APK artifact upload remains disabled for push-triggered CI; this is build verification, not a final APK release.
+
+
+## 2026-11-14 — Android version display and build configuration
+- Settings now displays the app's actual Gradle `versionName` through `BuildConfig.VERSION_NAME` instead of a hard-coded version string.
+- Explicitly enabled Android `BuildConfig` generation in the app module.
+- Verified by GitHub Actions run 43531690119: Android unit tests, lintDebug, assembleDebug, package/version identity, and APK SHA-256 checks all passed for commit `1616c8fdd11c92c1c982c3b24c4661242433d366`.

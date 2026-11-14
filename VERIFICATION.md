@@ -244,3 +244,16 @@
 - CI APK package/version: `com.guardian.adblock` / `15` / `0.7.2-dev`.
 - CI APK SHA-256: `902b8045209dc0d73ae34bb6d8740673b7f3fc45df0da9d5f6a6d3331826aada`.
 - Push workflow intentionally skipped artifact upload. Physical Android VPN and ad-blocking acceptance remain unverified.
+
+
+## 2026-11-14 — Dynamic Android version display
+
+- Source commit: `1616c8fdd11c92c1c982c3b24c4661242433d366`
+- GitHub Actions run: https://github.com/justinhblee-prog/guardian/actions/runs/43531690119 — **success**
+- `testDebugUnitTest`: passed.
+- `lintDebug`: passed.
+- `assembleDebug`: passed.
+- APK package/version check: `com.guardian.adblock`, versionCode `15`, versionName `0.7.2-dev` — passed.
+- APK file existence and SHA-256 calculation: passed.
+- BuildConfig generation is explicitly enabled; Settings reads `BuildConfig.VERSION_NAME`.
+- Push workflow intentionally skipped artifact upload. No physical-device validation is implied.

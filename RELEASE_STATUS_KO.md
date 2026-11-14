@@ -227,3 +227,16 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - APK artifact upload: push 검증 정책에 따라 생략
 - 필터 다운로드는 HTTPS 전용 수동 리디렉션을 사용하며 HTTP 다운그레이드, URL 사용자정보, 미지원 리디렉션 상태 및 5회 초과 체인을 거부합니다. 관련 정책 단위 테스트 6개 추가.
 - CI 성공은 실기기 설치, VPN 라우팅 또는 실제 광고 차단 효과 검증을 의미하지 않습니다.
+
+
+## 2026-11-14 최신 내부 빌드 검증
+
+- GitHub Actions: https://github.com/justinhblee-prog/guardian/actions/runs/43531690119 — **success**
+- 검증 소스 커밋: `1616c8fdd11c92c1c982c3b24c4661242433d366`
+- Android 단위 테스트: **통과** (`testDebugUnitTest`)
+- Android 린트: **통과** (`lintDebug`)
+- Debug APK 조립: **통과** (`assembleDebug`)
+- 패키지/버전: `com.guardian.adblock`, versionCode `15`, versionName `0.7.2-dev` 확인
+- APK 존재 및 SHA-256 산출: **통과**
+- 설정 화면의 앱 버전 표기를 고정 문자열에서 `BuildConfig.VERSION_NAME`으로 변경하고 BuildConfig 생성을 활성화했습니다.
+- 이번 push CI는 설치 APK artifact 업로드를 생략했습니다. 실제 기기 설치·VPN 라우팅·광고 차단 효과는 여전히 미검증입니다.
