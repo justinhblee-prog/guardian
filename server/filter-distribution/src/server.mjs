@@ -44,11 +44,13 @@ const server = http.createServer(async (req, res) => {
     if (manifestMatch) {
       const sourceId = manifestMatch[1];
       const manifestPath = path.join(DIST_DIR, `${sourceId}.manifest`);
-      const signaturePath = path.join(DIST_DIR, `${sourceId}.sig`);
-      const [manifest, signature] = await Promise.all([
-        readBounded(manifestPath, MAX_MANIFEST_BYTES),
-        readBounded(signaturePath, MAX_SIGNATURE_BYTES)
-      ]);
+      const manifest = await readBounded(manifestPath, MAX_MANIFEST_BYTES);
+      const manifestText = manifest.toString('utf8');
+      const versionMatch = /^sourceVersion=([a-zA-Z0-9._+-]{1,64})$/m.exec(manifestText);
+      const generatedMatch = /^generatedAt=(\\d+)$/m.exec(manifestText);
+      if (!versionMatch || !generatedMatch) return send(res, 404, 'manifest_not_found');
+      const signaturePath = path.join(DIST_DIR, `${sourceId}.${versionMatch[1]}.${generatedMatch[1]}.sig`);
+      const signature = await readBounded(signaturePath, MAX_SIGNATURE_BYTES);
       const signatureText = signature.toString('ascii').trim();
       if (!/^[A-Za-z0-9+/]+={0,2}$/.test(signatureText)) {
         return send(res, 404, 'manifest_not_found');
