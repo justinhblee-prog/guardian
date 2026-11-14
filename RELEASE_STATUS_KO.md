@@ -285,3 +285,16 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 보호가 꺼진 경우에는 VPN 권한 거부 등 구체적인 서비스 오류 문구를 유지합니다.
 - 활성/비활성 갱신 경로 회귀 테스트 2개를 추가했습니다.
 - 직전 진단 커밋 CI run 43535030810은 단위 테스트, lint, debug APK 조립, package/version, SHA-256 검증 모두 성공했습니다. 후속 수정 커밋의 CI는 별도 검증 예정입니다.
+
+
+## 2026-11-14 — 다중 탭 보호 시작/권한 거부 크래시 수정
+
+- 수정 커밋: `019a4bdf576e56c0f893b68822efcc4c77846c41` (이전 관련 수정: `f22cc99d02b80d38916bafaa3fe943be581a68c3`)
+- GitHub Actions: [run 43563225658](https://github.com/justinhblee-prog/guardian/actions/runs/43563225658) — **success**
+- Android 단위 테스트, `lintDebug`, `assembleDebug`, 패키지 식별 및 APK SHA-256 확인 단계 모두 성공
+- 패키지: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev`
+- Home 탭 전용 lateinit 상태 뷰가 아직 생성되지 않은 상태에서 Protection 등 다른 탭에서 보호 시작 또는 VPN 권한 거부를 처리할 때 발생할 수 있는 크래시를 수정했습니다.
+- 필터 캐시 미준비 시 필터 탭을 먼저 생성한 뒤 안내하도록 변경했습니다. 보호 시작/실패/권한 거부 메시지는 현재 탭에 존재하는 UI만 갱신합니다.
+- `refreshStatus()`도 Home 전용 뷰의 초기화 여부와 현재 탭을 확인하며, Protection 화면은 별도 상태 위젯을 갱신합니다.
+- 이 push 실행은 수동 배포 전용 APK artifact 업로드를 skip했습니다. CI 조립 성공은 이 커밋의 APK가 사용자에게 배포되었다는 뜻이 아닙니다.
+- 실기기 VPN 권한, 실제 DNS 라우팅, 앱별 동작 및 광고 제거 효과는 여전히 미검증입니다.
