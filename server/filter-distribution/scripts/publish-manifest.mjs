@@ -140,13 +140,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   try {
     const options = argsFrom(process.argv.slice(2));
     if (options.help) {
-      process.stdout.write('Usage: node scripts/publish-manifest.mjs --source-id adguard --source-version 2026.11.15 --input ./filter.txt --base-url https://filters.example.com --minimum-rules 1000 [--output-dir dist] [--public-key-out ./public-key.x509.b64]\\n');
+      process.stdout.write('Usage: node scripts/publish-manifest.mjs --source-id adguard --source-version 2026.11.15 --input ./filter.txt --base-url https://filters.example.com --minimum-rules 1000 [--output-dir dist] [--public-key-out ./public-key.x509.b64]\n');
     } else {
       const result = await publishManifest(options);
       process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     }
   } catch (error) {
-    process.stderr.write(`Manifest publish failed: ${error.message}\\n`);
+    process.stderr.write(`Manifest publish failed: ${error.message}\n`);
     process.exitCode = 1;
   }
 }
