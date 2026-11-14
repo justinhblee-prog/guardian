@@ -163,4 +163,24 @@ if (!databaseUrl) {
     assert.ok(events.some(event => event.event_type === 'activated' && event.license_ref === created.license.license_ref));
     assert.ok(events.some(event => event.event_type === 'revoked' && event.license_ref === created.license.license_ref));
   });
+  test('status does not report Pro while the product is disabled', async () => {
+    const created = await issue(1);
+    const device = '9'.repeat(64);
+    const activation = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'product-disable-test'
+    });
+    assert.equal(activation.status, 200);
+    const licenseRef = created.license.license_ref;
+    try {
+      await pool.query("UPDATE products SET active=false WHERE code='guardian-android-pro'");
+      const status = await post('/v1/licenses/status', { deviceBinding: device, licenseRef });
+      assert.equal(status.status, 200);
+      assert.equal((await status.json()).status, 'free');
+      const refresh = await post('/v1/licenses/refresh', { deviceBinding: device, licenseRef });
+      assert.equal(refresh.status, 403);
+    } finally {
+      await pool.query("UPDATE products SET active=true WHERE code='guardian-android-pro'");
+    }
+  });
+
 }
