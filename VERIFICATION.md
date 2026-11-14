@@ -368,3 +368,13 @@
 - Regression test covers `||path.example^/ads/`, `||suffix.example^tracker`, `@@||trusted.example^/login`, and valid `||safe.example^`. Only `safe.example` is expected in the blocked set; three unsupported rules are counted as ignored.
 - CI [43569255957](https://github.com/justinhblee-prog/guardian/actions/runs/43569255957) completed successfully. Unit tests, Android lint, debug APK assembly, package identity/version validation, and APK checksum generation all passed. Artifact upload was skipped on this ordinary push.
 - CI does not replace physical-device VPN, live DNS routing, or real-world ad-removal testing.
+
+
+## 2026-11-14 — Per-source filter refresh retry regression
+
+- Worker now checks each enabled source independently against cache validity and its own `updatedAt` timestamp. A retry caused by a failed optional source no longer re-downloads a base or optional list that already succeeded and remains fresh.
+- Tests cover missing cache/timestamp, fresh cache retry, stale cache boundary, future timestamps and WorkManager minimum interval clamping.
+- [CI run 43570828960](https://github.com/justinhblee-prog/guardian/actions/runs/43570828960) completed successfully: Android unit tests, `lintDebug`, `assembleDebug`, package identity/version and checksum checks passed.
+- Verified package: `com.guardian.adblock`, versionCode `17`, versionName `0.7.4-dev`.
+- CI debug APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577`. Artifact upload was skipped under the push workflow policy.
+- This does not constitute physical-device acceptance or proof of real-world ad removal.
