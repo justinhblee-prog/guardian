@@ -96,4 +96,23 @@ class DnsDohHttpCodecTest {
         assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(malformedTrailer)))
         assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(controlInChunkLine)))
     }
+
+    @Test fun handlesStreamsThatTemporarilyReturnZeroForBulkReads() {
+        val response = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nContent-Length: 29\\r\\n\\r\\n"
+            .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
+        val intermittentZeroStream = object : java.io.InputStream() {
+            private val delegate = ByteArrayInputStream(response)
+            private var returnZero = true
+            override fun read(): Int = delegate.read()
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                if (returnZero) {
+                    returnZero = false
+                    return 0
+                }
+                returnZero = true
+                return delegate.read(buffer, offset, length)
+            }
+        }
+        assertArrayEquals(dnsMessage, DnsDohHttpCodec.readResponse(intermittentZeroStream))
+    }
 }

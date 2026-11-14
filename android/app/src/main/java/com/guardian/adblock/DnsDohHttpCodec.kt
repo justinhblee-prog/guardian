@@ -142,8 +142,13 @@ object DnsDohHttpCodec {
         while (offset < length) {
             val count = input.read(result, offset, length - offset)
             if (count < 0) return null
-            if (count == 0) continue
-            offset += count
+            if (count == 0) {
+                val value = input.read()
+                if (value < 0) return null
+                result[offset++] = value.toByte()
+            } else {
+                offset += count
+            }
         }
         return result
     }
@@ -154,6 +159,13 @@ object DnsDohHttpCodec {
         while (true) {
             val count = input.read(buffer)
             if (count < 0) break
+            if (count == 0) {
+                val value = input.read()
+                if (value < 0) break
+                if (output.size() >= MAX_DNS_BYTES) return null
+                output.write(value)
+                continue
+            }
             if (output.size() + count > MAX_DNS_BYTES) return null
             output.write(buffer, 0, count)
         }
