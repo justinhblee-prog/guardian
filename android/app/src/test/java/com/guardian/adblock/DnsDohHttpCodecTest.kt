@@ -101,7 +101,7 @@ class DnsDohHttpCodecTest {
         fun responseWithTrailer(trailer: String): ByteArray {
             val header = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nTransfer-Encoding: chunked\r\n\r\n1d\r\n"
             return header.toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage +
-                "\r\n0\r\n$trailer\r\n".toByteArray(StandardCharsets.ISO_8859_1)
+                "\r\n0\r\n$trailer\r\n\r\n".toByteArray(StandardCharsets.ISO_8859_1)
         }
 
         assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(responseWithTrailer("Content-Length: 29"))))
