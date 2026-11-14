@@ -1,0 +1,52 @@
+-- PostgreSQL schema for Guardian license issuance and device activations.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE TABLE IF NOT EXISTS products (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code text NOT NULL UNIQUE,
+  name text NOT NULL,
+  entitlement text NOT NULL CHECK (entitlement IN ('pro')),
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO products(code, name, entitlement)
+VALUES ('guardian-android-pro', 'Guardian Android Pro', 'pro')
+ON CONFLICT (code) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS licenses (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  license_ref text NOT NULL UNIQUE,
+  product_id uuid NOT NULL REFERENCES products(id),
+  key_salt text NOT NULL,
+  key_hash text NOT NULL,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked','expired')),
+  expires_at timestamptz NOT NULL,
+  max_devices integer NOT NULL DEFAULT 1 CHECK (max_devices BETWEEN 1 AND 20),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  revoked_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS licenses_status_expiry_idx ON licenses(status, expires_at);
+
+CREATE TABLE IF NOT EXISTS activations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  license_id uuid NOT NULL REFERENCES licenses(id),
+  device_binding text NOT NULL,
+  app_version text NOT NULL DEFAULT '',
+  activated_at timestamptz NOT NULL DEFAULT now(),
+  last_seen_at timestamptz NOT NULL DEFAULT now(),
+  deactivated_at timestamptz,
+  UNIQUE (license_id, device_binding)
+);
+CREATE INDEX IF NOT EXISTS activations_active_license_idx
+  ON activations(license_id) WHERE deactivated_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS license_events (
+  id bigserial PRIMARY KEY,
+  license_id uuid REFERENCES licenses(id),
+  event_type text NOT NULL,
+  actor text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS license_events_license_time_idx ON license_events(license_id, created_at DESC);
