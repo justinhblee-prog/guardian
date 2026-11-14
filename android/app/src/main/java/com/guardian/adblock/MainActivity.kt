@@ -781,7 +781,8 @@ class MainActivity : Activity() {
                 10f, muted, false
             ).withTop(8) as TextView
             addView(licenseFeedback)
-            val activateButton = Button(this@MainActivity).apply {
+            lateinit var activateButton: Button
+            activateButton = Button(this@MainActivity).apply {
                 text = "라이선스 활성화"
                 isAllCaps = false
                 setTextColor(bg)
