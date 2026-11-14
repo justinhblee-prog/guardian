@@ -172,6 +172,24 @@ test('publisher fails closed when another process holds the source publication l
   await rm(lockPath, { force: true });
 });
 
+test('publisher releases its source lock when validation fails after acquisition', async () => {
+  const input = path.join(root, 'failed-lock.txt');
+  const outputDir = path.join(root, 'failed-lock-dist');
+  await writeFile(input, '||failed-lock.example^\\n');
+  await assert.rejects(
+    publishManifest({
+      'source-id': 'failed',
+      'source-version': 'failed-v1',
+      input,
+      'base-url': 'https://filters.example.com',
+      'minimum-rules': '1',
+      'output-dir': outputDir
+    }, {}),
+    /GUARDIAN_FILTER_SIGNING_PRIVATE_KEY is required/
+  );
+  await assert.rejects(readFile(path.join(outputDir, '.failed.publish.lock')), { code: 'ENOENT' });
+});
+
 test('publisher releases its source lock after a successful publication', async () => {
   const input = path.join(root, 'unlock.txt');
   const outputDir = path.join(root, 'unlock-dist');
