@@ -36,8 +36,6 @@ object DnsDohHttpCodec {
             val name = line.substring(0, separator)
             if (!name.matches(Regex("[!#$%&'*+.^_`|~0-9A-Za-z-]+"))) return null
             val key = name.lowercase()
-            // Reject duplicate fields instead of silently trusting the last
-            // Content-Length/Transfer-Encoding value supplied by the peer.
             if (headers.containsKey(key)) return null
             val value = line.substring(separator + 1).trim()
             if (value.any { it.code == 13 || it.code == 10 || (it.code < 0x20 && it.code != 9) }) return null
@@ -47,13 +45,13 @@ object DnsDohHttpCodec {
         if (!contentType.equals("application/dns-message", ignoreCase = true)) return null
         val transferEncoding = headers["transfer-encoding"]
         val contentLengthHeader = headers["content-length"]
-        // RFC 9112 forbids combining these framing mechanisms. This client
-        // accepts only a single, explicitly supported chunked coding.
         if (transferEncoding != null && contentLengthHeader != null) return null
         if (transferEncoding != null && !transferEncoding.equals("chunked", ignoreCase = true)) return null
         val body = if (transferEncoding != null) {
             readChunked(input) ?: return null
         } else {
+            // Content-Length is an unsigned decimal field, not a signed integer.
+            if (contentLengthHeader != null && !contentLengthHeader.matches(Regex("[0-9]+"))) return null
             val contentLength = contentLengthHeader?.toIntOrNull()
             if (contentLengthHeader != null && contentLength == null) return null
             if (contentLength != null) {
@@ -92,8 +90,10 @@ object DnsDohHttpCodec {
         while (output.size() <= MAX_DNS_BYTES) {
             val line = readAsciiLine(input, 128) ?: return null
             val token = line.substringBefore(';').trim()
+            // A chunk-size is one or more hexadecimal digits; signs and prefixes are invalid.
+            if (!token.matches(Regex("[0-9A-Fa-f]+"))) return null
             val size = token.toLongOrNull(16) ?: return null
-            if (size < 0 || size > MAX_DNS_BYTES || output.size() + size > MAX_DNS_BYTES) return null
+            if (size > MAX_DNS_BYTES || output.size() + size > MAX_DNS_BYTES) return null
             if (size == 0L) {
                 var trailerBytes = 0
                 while (true) {
@@ -101,6 +101,12 @@ object DnsDohHttpCodec {
                     trailerBytes += trailer.length + 2
                     if (trailerBytes > MAX_HEADER_BYTES) return null
                     if (trailer.isEmpty()) break
+                    val separator = trailer.indexOf(':')
+                    if (separator <= 0) return null
+                    val name = trailer.substring(0, separator)
+                    if (!name.matches(Regex("[!#$%&'*+.^_`|~0-9A-Za-z-]+"))) return null
+                    val value = trailer.substring(separator + 1)
+                    if (value.any { it.code == 13 || it.code == 10 || (it.code < 0x20 && it.code != 9) }) return null
                 }
                 return output.toByteArray()
             }
@@ -119,7 +125,10 @@ object DnsDohHttpCodec {
             if (value < 0) return null
             if (previous == 13 && value == 10) {
                 val data = bytes.toByteArray()
-                return String(data.copyOf(data.size - 1), StandardCharsets.ISO_8859_1)
+                val line = data.copyOf(data.size - 1)
+                if (line.any { (it.toInt() and 255) < 0x20 && it.toInt() != 9 }) return null
+                if (line.any { (it.toInt() and 255) > 0x7e }) return null
+                return String(line, StandardCharsets.ISO_8859_1)
             }
             bytes.write(value)
             previous = value

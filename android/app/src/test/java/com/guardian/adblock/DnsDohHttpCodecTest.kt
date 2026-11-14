@@ -75,4 +75,25 @@ class DnsDohHttpCodecTest {
         assertNull(DnsDohHttpCodec.buildPostRequest("bad_host.example", "/dns-query", dnsMessage))
         assertNull(DnsDohHttpCodec.buildPostRequest("dns.google", "/dns-query\r\nHost: evil", dnsMessage))
     }
+
+    @Test fun rejectsSignedContentLengthAndChunkSizes() {
+        val signedLength = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: +29\r\n\r\n"
+            .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
+        val signedChunk = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nTransfer-Encoding: chunked\r\n\r\n+1d\r\n"
+            .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage + "\r\n0\r\n\r\n".toByteArray(StandardCharsets.ISO_8859_1)
+        val prefixedChunk = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nTransfer-Encoding: chunked\r\n\r\n0x1d\r\n"
+            .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage + "\r\n0\r\n\r\n".toByteArray(StandardCharsets.ISO_8859_1)
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(signedLength)))
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(signedChunk)))
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(prefixedChunk)))
+    }
+
+    @Test fun rejectsMalformedChunkTrailersAndControlCharacters() {
+        val malformedTrailer = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nTransfer-Encoding: chunked\r\n\r\n1d\r\n"
+            .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage + "\r\n0\r\nNot-A-Header\r\n\r\n".toByteArray(StandardCharsets.ISO_8859_1)
+        val controlInChunkLine = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nTransfer-Encoding: chunked\r\n\r\n1d;bad\u0001x\r\n"
+            .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage + "\r\n0\r\n\r\n".toByteArray(StandardCharsets.ISO_8859_1)
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(malformedTrailer)))
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(controlInChunkLine)))
+    }
 }
