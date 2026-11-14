@@ -20,7 +20,7 @@ internal object DnsQueryPolicy {
         }
 
         val forwardedResponse = try {
-            upstream(query)
+            upstream(query)?.takeIf { DomainFilter.isMatchingResponse(query, it) }
         } catch (_: Exception) {
             null
         }
