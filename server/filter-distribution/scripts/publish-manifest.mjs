@@ -91,7 +91,7 @@ export async function publishManifest(options, env = process.env) {
   let previousGeneratedAt = 0;
   try {
     const previous = await readFile(manifestPath, 'utf8');
-    const match = /^generatedAt=(\\d+)$/m.exec(previous);
+    const match = /^generatedAt=(\d+)$/m.exec(previous);
     if (!match) throw new Error('Existing manifest has no valid generatedAt; refusing to reset anti-rollback time.');
     previousGeneratedAt = Number(match[1]);
     if (!Number.isSafeInteger(previousGeneratedAt) || previousGeneratedAt <= 0 ||
@@ -143,7 +143,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
       process.stdout.write('Usage: node scripts/publish-manifest.mjs --source-id adguard --source-version 2026.11.15 --input ./filter.txt --base-url https://filters.example.com --minimum-rules 1000 [--output-dir dist] [--public-key-out ./public-key.x509.b64]\\n');
     } else {
       const result = await publishManifest(options);
-      process.stdout.write(JSON.stringify(result, null, 2) + '\\n');
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     }
   } catch (error) {
     process.stderr.write(`Manifest publish failed: ${error.message}\\n`);
