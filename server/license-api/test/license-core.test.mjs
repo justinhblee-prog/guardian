@@ -41,10 +41,9 @@ test('signed entitlement is capped at 24 hours even for a long-lived license', (
     privateKey,
     now
   });
-  const issuedAt = Number(token.payload.match(/issuedAt=(\\d+)/)?.[1]);
-  const expires = Number(token.payload.match(/expiresAt=(\\d+)/)?.[1]);
+  const issuedAt = Number(token.payload.match(/issuedAt=(\d+)/)?.[1]);
+  const expires = Number(token.payload.match(/expiresAt=(\d+)/)?.[1]);
   assert.equal(expires - issuedAt, 24 * 60 * 60);
-  const { verify } = await import('node:crypto');
   assert.equal(verify('RSA-SHA256', Buffer.from(token.payload), publicKey, Buffer.from(token.signature, 'base64')), true);
 });
 
