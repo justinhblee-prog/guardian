@@ -12,7 +12,7 @@ on:
 # Keep only the newest branch run; rapid source commits should not waste runners.
 concurrency:
   group: guardian-android-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
