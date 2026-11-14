@@ -128,7 +128,7 @@ class DnsTcpSessionManager(
                 }
                 if (buffered.size - offset < messageLength + 2) break
                 val query = buffered.copyOfRange(offset + 2, offset + 2 + messageLength)
-                val dnsAnswer = resolve(query)
+                // Resolver failures must not escape the packet loop and tear down the VPN.\n                val dnsAnswer = try { resolve(query) } catch (_: Exception) { null }
                 val answer = dnsAnswer ?: DomainFilter.makeServfail(query)
                 if (answer != null && answer.size <= maxDnsMessage) {
                     val framed = ByteArray(answer.size + 2)

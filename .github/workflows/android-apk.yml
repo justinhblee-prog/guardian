@@ -70,7 +70,7 @@ jobs:
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='18' versionName='0.7.5-dev'"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='19' versionName='0.7.6-dev'"
 
       - name: Verify APK exists and calculate checksum
         shell: bash
@@ -84,7 +84,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[final-apk]')
         uses: actions/upload-artifact@v4
         with:
-          name: Guardian-AdBlock-Android-APK-v0.7.5-dev
+          name: Guardian-AdBlock-Android-APK-v0.7.6-dev
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/debug/SHA256SUMS.txt

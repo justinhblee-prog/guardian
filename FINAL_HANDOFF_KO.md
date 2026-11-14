@@ -225,3 +225,9 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - [CI 43571389815](https://github.com/justinhblee-prog/guardian/actions/runs/43571389815): unit tests, lint, debug APK assembly, package/version and SHA-256 checks passed.
 - CI APK SHA-256: `f756ab65ce8d74cc7a7da45457b0cc2987b83acc83e9c993eab0a3f624492e1a`. Push CI skipped artifact upload.
 - Remaining acceptance boundary: physical Android installation, VPN permission and DNS routing, Wi-Fi/mobile handoff, long-run stability, app exclusions and actual ad-removal effectiveness remain unverified.
+
+
+## 0.7.6-dev — DNS-over-TCP resolver exception isolation (2026-11-14)
+- Catch unexpected resolver callback exceptions inside the DNS TCP session manager and convert them to a DNS SERVFAIL response instead of allowing the packet loop to terminate the entire VPN service.
+- Add regression coverage proving a thrown resolver exception returns SERVFAIL and the established TCP session continues to process the next DNS request.
+- Package versionCode 19 / `0.7.6-dev`. CI verification pending.

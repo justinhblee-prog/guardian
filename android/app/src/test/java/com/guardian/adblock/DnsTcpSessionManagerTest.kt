@@ -412,6 +412,32 @@ class DnsTcpSessionManagerTest {
         assertEquals(0, manager.activeSessionCount())
     }
 
+
+    @Test fun resolverExceptionReturnsServfailAndKeepsTcpSessionAlive() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 2400)
+        manager.handle(syn, syn.size) { null }
+
+        val first = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH, seq = 2401, payload = framed)
+        val firstReply = manager.handle(first, first.size) {
+            throw IllegalStateException("simulated resolver failure")
+        }.single()
+        val firstSegment = DnsTcpPacket.parse(firstReply, firstReply.size, 53000)!!
+        val firstLength = ((firstSegment.payload[0].toInt() and 255) shl 8) or
+            (firstSegment.payload[1].toInt() and 255)
+        assertEquals(firstLength, firstSegment.payload.size - 2)
+        assertEquals(2, firstSegment.payload[5].toInt() and 0x0f) // SERVFAIL
+        assertEquals(1, manager.activeSessionCount())
+
+        val next = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 2401L + framed.size, payload = framed)
+        val nextReply = manager.handle(next, next.size) { DomainFilter.makeServfail(it) }
+        assertTrue(nextReply.isNotEmpty())
+        assertEquals(1, manager.activeSessionCount())
+    }
+
     private fun dnsQuery(): ByteArray = byteArrayOf(
         0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00,

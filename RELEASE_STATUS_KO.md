@@ -368,3 +368,9 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - [GitHub Actions run 43571389815](https://github.com/justinhblee-prog/guardian/actions/runs/43571389815): 성공. Android 단위 테스트, lint, Debug APK 조립, 패키지 식별/버전 및 SHA-256 검사 통과.
 - CI 검증 APK SHA-256: `f756ab65ce8d74cc7a7da45457b0cc2987b83acc83e9c993eab0a3f624492e1a`. 일반 push이므로 artifact 업로드는 생략했습니다.
 - 실기기 VPN·실제 광고 제거 효과는 여전히 미검증입니다.
+
+
+## 0.7.6-dev — DNS-over-TCP resolver exception isolation (2026-11-14)
+- Catch unexpected resolver callback exceptions inside the DNS TCP session manager and convert them to a DNS SERVFAIL response instead of allowing the packet loop to terminate the entire VPN service.
+- Add regression coverage proving a thrown resolver exception returns SERVFAIL and the established TCP session continues to process the next DNS request.
+- Package versionCode 19 / `0.7.6-dev`. CI verification pending.

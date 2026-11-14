@@ -359,3 +359,9 @@
 - Clarify in the home protection-scope card that app-originated DoH/DoT bypass requests are not intercepted; this is distinct from Guardian's own encrypted upstream transports.
 - CI run 43571389815 passed unit tests, lint, debug APK assembly, package identity and checksum validation.
 - Package: versionCode 18 / `0.7.5-dev`; CI APK SHA-256: `f756ab65ce8d74cc7a7da45457b0cc2987b83acc83e9c993eab0a3f624492e1a`. Push CI skipped artifact upload.
+
+
+## 0.7.6-dev — DNS-over-TCP resolver exception isolation (2026-11-14)
+- Catch unexpected resolver callback exceptions inside the DNS TCP session manager and convert them to a DNS SERVFAIL response instead of allowing the packet loop to terminate the entire VPN service.
+- Add regression coverage proving a thrown resolver exception returns SERVFAIL and the established TCP session continues to process the next DNS request.
+- Package versionCode 19 / `0.7.6-dev`. CI verification pending.

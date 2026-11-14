@@ -17,8 +17,8 @@ android {
         applicationId = "com.guardian.adblock"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.7.5-dev"
+        versionCode = 19
+        versionName = "0.7.6-dev"
     }
     sourceSets.getByName("main").assets.srcDir("../../shared")
     testOptions { unitTests.isIncludeAndroidResources = true }
