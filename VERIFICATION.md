@@ -257,3 +257,17 @@
 - APK file existence and SHA-256 calculation: passed.
 - BuildConfig generation is explicitly enabled; Settings reads `BuildConfig.VERSION_NAME`.
 - Push workflow intentionally skipped artifact upload. No physical-device validation is implied.
+
+
+## 2026-11-14 — DNS-over-TCP FIN 재전송 신뢰성
+
+- Source commit: `a76491c4846f4eeb01bc0fc9cf2c0dd1e01fb183`
+- GitHub Actions run: https://github.com/justinhblee-prog/guardian/actions/runs/43533452981 — **success**
+- `testDebugUnitTest`: passed.
+- `lintDebug`: passed.
+- `assembleDebug`: passed.
+- APK package/version: `com.guardian.adblock`, versionCode `15`, versionName `0.7.2-dev` — passed.
+- APK existence and SHA-256: passed; CI output hash `b7a35a98f76ce20aa272358c9b0d2f5584a8ec7dd6f88308427840fbe7613b89`.
+- DNS-over-TCP half-close now retains session state until the client's ACK of the server FIN; exact retransmissions of the final client data/FIN replay the prior server response instead of resolving the DNS query again.
+- Added regression coverage for retransmitted data+FIN and retransmitted client FIN while the server FIN remains unacknowledged.
+- Push CI skipped APK artifact upload. Device installation, VPN routing, live resolver behavior, and real app ad removal remain unverified.

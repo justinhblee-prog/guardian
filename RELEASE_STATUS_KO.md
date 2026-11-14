@@ -240,3 +240,17 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - APK 존재 및 SHA-256 산출: **통과**
 - 설정 화면의 앱 버전 표기를 고정 문자열에서 `BuildConfig.VERSION_NAME`으로 변경하고 BuildConfig 생성을 활성화했습니다.
 - 이번 push CI는 설치 APK artifact 업로드를 생략했습니다. 실제 기기 설치·VPN 라우팅·광고 차단 효과는 여전히 미검증입니다.
+
+
+## 2026-11-14 DNS-over-TCP 재전송 안정성 검증
+
+- GitHub Actions: https://github.com/justinhblee-prog/guardian/actions/runs/43533452981 — **success**
+- 검증 소스 커밋: `a76491c4846f4eeb01bc0fc9cf2c0dd1e01fb183`
+- Android 단위 테스트(`testDebugUnitTest`): **통과**
+- Android 린트(`lintDebug`): **통과**
+- Debug APK 조립(`assembleDebug`): **통과**
+- 패키지/버전: `com.guardian.adblock`, versionCode `15`, versionName `0.7.2-dev`
+- CI APK SHA-256: `b7a35a98f76ce20aa272358c9b0d2f5584a8ec7dd6f88308427840fbe7613b89`
+- DNS-over-TCP 마지막 데이터/FIN 응답이 유실된 경우, 클라이언트의 정확한 재전송에 기존 응답 패킷을 재전송하도록 수정했습니다. 서버 FIN에 대한 ACK를 받을 때까지 half-close 세션을 유지합니다.
+- 재전송 회귀 테스트 2개를 추가했습니다.
+- push CI에서는 APK artifact 업로드를 생략했습니다. 실기기 설치, VPN 라우팅, 실제 광고 차단 효과는 검증되지 않았습니다.

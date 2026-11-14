@@ -315,3 +315,11 @@
 - Settings now displays the app's actual Gradle `versionName` through `BuildConfig.VERSION_NAME` instead of a hard-coded version string.
 - Explicitly enabled Android `BuildConfig` generation in the app module.
 - Verified by GitHub Actions run 43531690119: Android unit tests, lintDebug, assembleDebug, package/version identity, and APK SHA-256 checks all passed for commit `1616c8fdd11c92c1c982c3b24c4661242433d366`.
+
+
+## 2026-11-14 — DNS-over-TCP FIN retransmission reliability
+- Keep a half-closed DNS-over-TCP session until the client acknowledges the server FIN, allowing a lost final response/FIN to be replayed on an exact retransmission.
+- Replay cached server packets for retransmitted final client data/FIN segments, avoiding duplicate DNS resolution.
+- Added regression tests for data+FIN and pure FIN retransmission paths.
+- Verified by GitHub Actions run 43533452981: `testDebugUnitTest`, `lintDebug`, `assembleDebug`, package/version checks, and APK SHA-256 generation passed. APK SHA-256: `b7a35a98f76ce20aa272358c9b0d2f5584a8ec7dd6f88308427840fbe7613b89`.
+- Push workflow skipped artifact upload; no device-level ad-blocking claim is made.
