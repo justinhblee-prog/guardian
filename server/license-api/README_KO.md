@@ -3,7 +3,7 @@
 Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 모바일 관리자 웹 화면입니다.
 
 ## 포함 기능
-- 관리자 인증이 필요한 Pro 라이선스 발급, 최근 200건 조회, 정지/활성 기기 해제
+- 관리자 인증이 필요한 Pro 라이선스 발급, 최근 200건 조회, 최근 100건 감사 기록 조회, 정지/활성 기기 해제
 - 라이선스 키는 화면에 발급 순간 한 번만 노출합니다. DB에는 임의 salt 기반 scrypt 해시와 서버 HMAC 조회 인덱스만 저장합니다.
 - 기기별 활성화 수 제한, 동일 기기 재활성화, 만료/정지 라이선스 거부
 - 앱 검증기와 호환되는 정확한 UTF-8 key=value payload 및 RSA-SHA256 PKCS#1 v1.5 서명 토큰
@@ -37,6 +37,7 @@ npm start
 - `POST /v1/licenses/deactivate`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
 - `POST /v1/licenses/status`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
 - `GET /v1/admin/licenses`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>`
+- `GET /v1/admin/events`: 최근 발급/활성화/비활성화/정지 감사 기록 100건
 - `POST /v1/admin/licenses`: 관리자 인증 + `{ "validDays": 365, "maxDevices": 1 }`
 - `POST /v1/admin/licenses/{uuid}/revoke`: 관리자 인증
 - `GET /health`: 기본 상태
