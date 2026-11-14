@@ -17,6 +17,9 @@ internal object LicenseRefreshScheduler {
     const val REFRESH_INTERVAL_HOURS = 12L
     const val RENEWAL_WINDOW_SECONDS = 12L * 60L * 60L
 
+    internal fun shouldRenew(expiresAt: Long, nowEpochSeconds: Long): Boolean =
+        expiresAt - nowEpochSeconds <= RENEWAL_WINDOW_SECONDS
+
     fun sync(context: Context) {
         if (BuildConfig.LICENSE_API_BASE_URL.isBlank() || BuildConfig.LICENSE_PUBLIC_KEY.isBlank()) {
             WorkManager.getInstance(context.applicationContext).cancelUniqueWork(UNIQUE_WORK_NAME)
@@ -55,7 +58,7 @@ class LicenseRefreshWorker(
         val now = System.currentTimeMillis() / 1000L
         val entitlement = LicenseEntitlementStore.currentForRefresh(applicationContext, now)
             ?: return Result.success()
-        if (entitlement.expiresAt - now > LicenseRefreshScheduler.RENEWAL_WINDOW_SECONDS) {
+        if (!LicenseRefreshScheduler.shouldRenew(entitlement.expiresAt, now)) {
             return Result.success()
         }
         return try {
