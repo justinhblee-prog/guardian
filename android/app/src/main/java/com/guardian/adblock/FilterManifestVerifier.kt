@@ -96,7 +96,7 @@ internal object FilterManifestVerifier {
     fun matchesSha256(content: ByteArray, expectedHex: String): Boolean {
         if (!expectedHex.matches(Regex("[a-fA-F0-9]{64}"))) return false
         val actual = MessageDigest.getInstance("SHA-256").digest(content)
-            .joinToString("") { "%02x".format(it) }
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
         return MessageDigest.isEqual(
             actual.toByteArray(StandardCharsets.US_ASCII),
             expectedHex.lowercase().toByteArray(StandardCharsets.US_ASCII)
