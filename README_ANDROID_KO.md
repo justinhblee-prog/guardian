@@ -202,3 +202,13 @@ WorkManager가 선택 목록 다운로드 실패로 재시도할 때, 이미 정
 - CI: [43570828960](https://github.com/justinhblee-prog/guardian/actions/runs/43570828960) — 단위 테스트, lint, Debug APK 조립, 패키지 식별 및 SHA-256 검증 통과
 - CI 검증 APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577`
 - push 검증은 artifact 업로드를 생략합니다. 실기기 설치와 실제 광고 차단 효과는 별도 검증 대상입니다.
+
+
+## 0.7.5-dev — DNS 주소 처리 및 보호 범위 안내 개선
+
+IPv6 DNS 업스트림 주소를 정규화할 때 주소 문자열이 제공되지 않는 예외 경로를 안전하게 처리합니다. 홈 화면의 보호 범위 안내도 더 구체화해, Guardian이 자체 업스트림 DNS를 DoT/DoH로 암호화할 수 있다는 점과 각 앱이 직접 보내는 DoH/DoT 요청을 Guardian이 가로채지 못한다는 점을 구분합니다.
+
+- 버전: `com.guardian.adblock` / versionCode 18 / `0.7.5-dev`
+- CI: [43571389815](https://github.com/justinhblee-prog/guardian/actions/runs/43571389815) — 단위 테스트, lint, Debug APK 조립, 패키지 식별 및 SHA-256 검증 통과
+- CI APK SHA-256: `f756ab65ce8d74cc7a7da45457b0cc2987b83acc83e9c993eab0a3f624492e1a`
+- 실기기 VPN/광고 차단 효과 검증은 별도입니다.
