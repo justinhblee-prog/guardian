@@ -24,6 +24,8 @@ class DomainFilterTest {
     }
 
     @Test fun blocksExactAndSubdomains() {
+        // DomainFilter keeps process-wide rules; do not depend on another test's state.
+        DomainFilter.loadRules(listOf("block=doubleclick.net"))
         assertTrue(DomainFilter.isBlocked("doubleclick.net"))
         assertTrue(DomainFilter.isBlocked("ads.doubleclick.net"))
         assertFalse(DomainFilter.isBlocked("notdoubleclick.net"))
