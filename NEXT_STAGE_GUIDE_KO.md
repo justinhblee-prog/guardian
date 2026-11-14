@@ -71,3 +71,11 @@ JDK와 Kotlin compiler(`kotlinc`)가 설치된 환경에서는 프로젝트 루�
 - WorkManager 필터 업데이트는 소스별 캐시 유효성/갱신 시각을 판단하며, 선택 목록 하나가 실패해 재시도할 때 성공한 최신 목록을 중복 다운로드하지 않습니다.
 - 최신 CI [43570828960](https://github.com/justinhblee-prog/guardian/actions/runs/43570828960): 단위 테스트, lint, debug APK 조립, package/version 및 SHA-256 검사 성공. `com.guardian.adblock` versionCode 17 / `0.7.4-dev`.
 - CI debug APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577`. 실기기 검증은 미완료입니다.
+
+
+## 0.7.5-dev 보충 — 2026-11-14
+
+- IPv6 업스트림 주소 정규화에서 nullable host-address를 안전하게 처리합니다.
+- 홈 화면에서 앱 자체 DoH/DoT 우회 미지원 범위를 명확하게 안내합니다.
+- [CI 43571389815](https://github.com/justinhblee-prog/guardian/actions/runs/43571389815) 성공: Android unit tests, lint, assembleDebug, package/version, SHA-256 검사 통과.
+- 패키지 versionCode 18 / `0.7.5-dev`; CI debug APK SHA-256 `f756ab65ce8d74cc7a7da45457b0cc2987b83acc83e9c993eab0a3f624492e1a`.
