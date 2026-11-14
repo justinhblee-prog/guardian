@@ -63,6 +63,21 @@ object FilterListManager {
         return ManifestInfo(version, hash, generatedAt)
     }
 
+    fun signedManifestStatus(context: Context): String? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val entries = listOf(
+            "광고·추적" to CACHE_FILE,
+            "보안" to SECURITY_CACHE_FILE,
+            "Android 앱 광고" to ANDROID_ADS_CACHE_FILE
+        ).mapNotNull { (label, cacheName) ->
+            val info = manifestInfo(context, cacheName) ?: return@mapNotNull null
+            val date = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                .format(java.util.Date(info.generatedAt * 1000L))
+            "$label 서명 버전 ${info.sourceVersion} · ${info.sha256.take(12)}… · $date"
+        }
+        return entries.takeIf { it.isNotEmpty() }?.joinToString(" / ")
+    }
+
     private fun manifestPreferenceKeys(cacheName: String): Triple<String, String, String> {
         val prefix = when (cacheName) {
             SECURITY_CACHE_FILE -> "security"
