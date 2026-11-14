@@ -51,6 +51,46 @@ object FilterListManager {
 
     fun availableProfiles(): List<FilterProfile> = profiles
 
+    data class ManifestInfo(val sourceVersion: String, val sha256: String, val generatedAt: Long)
+
+    fun manifestInfo(context: Context, cacheName: String): ManifestInfo? {
+        val keys = manifestPreferenceKeys(cacheName)
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val version = prefs.getString(keys.first, null) ?: return null
+        val hash = prefs.getString(keys.second, null) ?: return null
+        val generatedAt = prefs.getLong(keys.third, 0L)
+        if (version.isBlank() || !hash.matches(Regex("[a-fA-F0-9]{64}")) || generatedAt <= 0L) return null
+        return ManifestInfo(version, hash, generatedAt)
+    }
+
+    fun signedManifestStatus(context: Context): String? {
+        val entries = listOf(
+            "광고·추적" to CACHE_FILE,
+            "보안" to SECURITY_CACHE_FILE,
+            "Android 앱 광고" to ANDROID_ADS_CACHE_FILE
+        ).mapNotNull { (label, cacheName) ->
+            val info = manifestInfo(context, cacheName) ?: return@mapNotNull null
+            val date = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+                .format(java.util.Date(info.generatedAt * 1000L))
+            "$label 서명 버전 ${info.sourceVersion} · ${info.sha256.take(12)}… · $date"
+        }
+        return entries.takeIf { it.isNotEmpty() }?.joinToString(" / ")
+    }
+
+    private fun manifestPreferenceKeys(cacheName: String): Triple<String, String, String> {
+        val prefix = when (cacheName) {
+            SECURITY_CACHE_FILE -> "security"
+            ANDROID_ADS_CACHE_FILE -> "android_ads"
+            else -> "main"
+        }
+        return Triple(
+            "manifest_${prefix}_source_version",
+            "manifest_${prefix}_sha256",
+            "manifest_${prefix}_generated_at"
+        )
+    }
+
+
     /** A cached list is usable for protection only when it matches the selected profile. */
     internal fun isProfileCacheCurrent(
         hasCache: Boolean,
@@ -275,10 +315,17 @@ object FilterListManager {
         val previousBlockCount = preferences.getInt(countKey, 0)
         val previousIgnoredCount = preferences.getInt(ignoredKey, 0)
         val previousCachedProfile = preferences.getString(KEY_CACHED_PROFILE, null)
+        val infoKeys = manifestPreferenceKeys(cacheName)
+        val previousManifestVersion = preferences.getString(infoKeys.first, null)
+        val previousManifestHash = preferences.getString(infoKeys.second, null)
+        val previousManifestGeneratedAt = preferences.getLong(infoKeys.third, 0L)
         val metadata = preferences.edit()
             .putLong(updatedKey, now)
             .putInt(countKey, parsed.blocked.size + parsed.importantBlocked.size)
             .putInt(ignoredKey, parsed.ignored)
+            .putString(infoKeys.first, download.manifest.sourceVersion)
+            .putString(infoKeys.second, download.manifest.sha256)
+            .putLong(infoKeys.third, download.manifest.generatedAt)
         if (cachedProfileKey != null) metadata.putString(KEY_CACHED_PROFILE, cachedProfileKey)
         FilterCacheStore.replace(
             target,
@@ -292,6 +339,11 @@ object FilterListManager {
                     .putLong(updatedKey, previousUpdatedAt)
                     .putInt(countKey, previousBlockCount)
                     .putInt(ignoredKey, previousIgnoredCount)
+                    .putLong(infoKeys.third, previousManifestGeneratedAt)
+                if (previousManifestVersion == null) rollback.remove(infoKeys.first)
+                else rollback.putString(infoKeys.first, previousManifestVersion)
+                if (previousManifestHash == null) rollback.remove(infoKeys.second)
+                else rollback.putString(infoKeys.second, previousManifestHash)
                 if (cachedProfileKey != null) {
                     if (previousCachedProfile == null) rollback.remove(KEY_CACHED_PROFILE)
                     else rollback.putString(KEY_CACHED_PROFILE, previousCachedProfile)
