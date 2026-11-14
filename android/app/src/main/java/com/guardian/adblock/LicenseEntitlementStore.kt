@@ -7,10 +7,8 @@ import java.util.UUID
 
 /**
  * Device-bound storage for server-signed Pro entitlements.
- *
- * The token is never trusted merely because it is present in preferences:
- * every read re-verifies the signature, expiry and installation binding.
- * DNS protection is deliberately independent from this store.
+ * Expired but correctly signed tokens are retained only as renewal credentials;
+ * they never grant Pro access.
  */
 internal object LicenseEntitlementStore {
     private const val PREFS = "guardian_license_v1"
@@ -39,18 +37,16 @@ internal object LicenseEntitlementStore {
     ): LicenseEntitlementVerifier.Entitlement {
         val publicKey = BuildConfig.LICENSE_PUBLIC_KEY
         require(publicKey.isNotBlank()) { "라이선스 검증 공개키가 앱에 설정되지 않았습니다." }
-        val binding = deviceBinding(context)
         val entitlement = LicenseEntitlementVerifier.verify(
             payload = payload,
             signatureBase64 = signatureBase64,
             publicKeyX509Base64 = publicKey,
-            expectedDeviceBinding = binding,
+            expectedDeviceBinding = deviceBinding(context),
             nowEpochSeconds = nowEpochSeconds
         )
-        val encodedPayload = Base64.encodeToString(payload, Base64.NO_WRAP)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         check(prefs.edit()
-            .putString(KEY_PAYLOAD, encodedPayload)
+            .putString(KEY_PAYLOAD, Base64.encodeToString(payload, Base64.NO_WRAP))
             .putString(KEY_SIGNATURE, signatureBase64)
             .commit()) { "라이선스 정보를 안전하게 저장하지 못했습니다." }
         return entitlement
@@ -60,22 +56,41 @@ internal object LicenseEntitlementStore {
         context: Context,
         nowEpochSeconds: Long = System.currentTimeMillis() / 1000L
     ): LicenseEntitlementVerifier.Entitlement? {
+        val verified = readVerified(context, nowEpochSeconds) ?: return null
+        // An expired token is never an active entitlement.
+        return verified.takeIf { it.expiresAt > nowEpochSeconds }
+    }
+
+    /**
+     * Returns the last correctly signed device-bound token even after expiry.
+     * Callers may use its licenseRef only to request server-side renewal.
+     */
+    fun currentForRefresh(
+        context: Context,
+        nowEpochSeconds: Long = System.currentTimeMillis() / 1000L
+    ): LicenseEntitlementVerifier.Entitlement? = readVerified(context, nowEpochSeconds)
+
+    @Synchronized
+    private fun readVerified(
+        context: Context,
+        nowEpochSeconds: Long
+    ): LicenseEntitlementVerifier.Entitlement? {
         val publicKey = BuildConfig.LICENSE_PUBLIC_KEY
         if (publicKey.isBlank()) return null
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val encodedPayload = prefs.getString(KEY_PAYLOAD, null) ?: return null
         val signature = prefs.getString(KEY_SIGNATURE, null) ?: return null
         return try {
-            val payload = Base64.decode(encodedPayload, Base64.DEFAULT)
             LicenseEntitlementVerifier.verify(
-                payload = payload,
+                payload = Base64.decode(encodedPayload, Base64.DEFAULT),
                 signatureBase64 = signature,
                 publicKeyX509Base64 = publicKey,
                 expectedDeviceBinding = deviceBinding(context),
-                nowEpochSeconds = nowEpochSeconds
+                nowEpochSeconds = nowEpochSeconds,
+                allowExpired = true
             )
         } catch (_: Exception) {
-            // Fail closed for Pro while retaining no invalid entitlement.
+            // Invalid signatures, malformed tokens and wrong-device tokens are discarded.
             prefs.edit().remove(KEY_PAYLOAD).remove(KEY_SIGNATURE).commit()
             null
         }
