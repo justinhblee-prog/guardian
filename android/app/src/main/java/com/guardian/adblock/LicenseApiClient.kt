@@ -28,8 +28,8 @@ internal object LicenseApiClient {
     }
 
     fun refresh(context: Context): LicenseEntitlementVerifier.Entitlement {
-        val current = LicenseEntitlementStore.current(context)
-            ?: throw IllegalStateException("갱신할 활성 라이선스가 없습니다.")
+        val current = LicenseEntitlementStore.currentForRefresh(context)
+            ?: throw IllegalStateException("갱신할 라이선스 정보가 없습니다.")
         val response = post(
             "/v1/licenses/refresh",
             JSONObject()
