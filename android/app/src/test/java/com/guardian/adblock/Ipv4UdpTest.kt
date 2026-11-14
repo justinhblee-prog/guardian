@@ -112,7 +112,27 @@ class Ipv4UdpTest {
         assertNull(Ipv4Udp.parseDns(packet, packet.size))
     }
 
-    private fun sealHeader(packet: ByteArray, headerLength: Int) {
+
+    @Test fun rejectsReservedIpv4FlagButAllowsDontFragment() {
+        val reserved = ByteArray(28)
+        reserved[0] = 0x45
+        reserved[2] = 0
+        reserved[3] = 28
+        reserved[6] = 0x80 // Reserved IPv4 flag must be zero.
+        reserved[9] = 17
+        reserved[22] = 0
+        reserved[23] = 53
+        reserved[24] = 0
+        reserved[25] = 8
+        sealHeader(reserved, 20)
+        assertNull(Ipv4Udp.parseDns(reserved, reserved.size))
+
+        val dontFragment = reserved.copyOf()
+        dontFragment[6] = 0x40 // DF is valid and must remain accepted.
+        sealHeader(dontFragment, 20)
+        assertNotNull(Ipv4Udp.parseDns(dontFragment, dontFragment.size))
+    }
+\n    private fun sealHeader(packet: ByteArray, headerLength: Int) {
         packet[10] = 0
         packet[11] = 0
         var sum = 0L
