@@ -53,6 +53,32 @@ internal class ManifestTimestampStore(private val stateFile: File) {
         }
     }
 
+
+    @Synchronized
+    fun restore(sourceId: String, generatedAt: Long) {
+        validateSourceId(sourceId)
+        require(generatedAt >= 0L) { "manifest 복구 시각은 음수일 수 없습니다." }
+        val properties = Properties()
+        if (stateFile.isFile) stateFile.inputStream().use(properties::load)
+        if (generatedAt == 0L) properties.remove(sourceId)
+        else properties.setProperty(sourceId, generatedAt.toString())
+        val parent = stateFile.absoluteFile.parentFile
+            ?: throw IllegalStateException("manifest 상태 저장 경로가 올바르지 않습니다.")
+        check(parent.exists() || parent.mkdirs()) { "manifest 상태 디렉터리를 만들 수 없습니다." }
+        val temporary = File(parent, stateFile.name + ".tmp")
+        try {
+            temporary.outputStream().use { properties.store(it, "Guardian accepted filter manifest timestamps") }
+            try {
+                Files.move(temporary.toPath(), stateFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+                Files.move(temporary.toPath(), stateFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            temporary.delete()
+        }
+    }
+
     private fun validateSourceId(sourceId: String) {
         require(sourceId.matches(Regex("[a-zA-Z0-9._-]{1,64}"))) {
             "manifest sourceId 형식이 올바르지 않습니다."
