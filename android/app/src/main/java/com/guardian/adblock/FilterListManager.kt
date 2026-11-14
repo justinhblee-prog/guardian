@@ -5,9 +5,6 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.URL
 import java.nio.charset.StandardCharsets
-import java.nio.file.AtomicMoveNotSupportedException
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import javax.net.ssl.HttpsURLConnection
 
 /** Downloads and validates DNS-compatible community filters into app-private storage. */
