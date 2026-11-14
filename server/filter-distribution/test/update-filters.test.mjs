@@ -57,7 +57,7 @@ test('updater rejects non-HTTPS sources and underfilled upstream responses', asy
         { id: 'short', url: 'https://upstream.example/filter.txt', minimumRules: 2 }
       ] },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
-      fetchImpl: async () => new Response('||one.example^\\n', { status: 200 })
+      fetchImpl: async () => new Response('||one.example^\n', { status: 200 })
     }), /minimum is 2/);
   } finally {
     await rm(root, { recursive: true, force: true });
