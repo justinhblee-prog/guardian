@@ -110,6 +110,20 @@ if (!databaseUrl) {
     assert.equal(refreshAfterDeactivate.status, 403);
   });
 
+  test('concurrent activations cannot exceed the license device limit', async () => {
+    const created = await issue(1);
+    const activate = deviceBinding => post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding, appVersion: 'concurrency-test'
+    });
+    const responses = await Promise.all([activate('e'.repeat(64)), activate('f'.repeat(64))]);
+    assert.deepEqual(responses.map(response => response.status).sort(), [200, 409]);
+    const count = await pool.query(
+      'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND deactivated_at IS NULL',
+      [created.license.id]
+    );
+    assert.equal(count.rows[0].n, 1);
+  });
+
   test('revocation disables all device activations and is visible in audit history', async () => {
     const created = await issue(2);
     const device = 'd'.repeat(64);
