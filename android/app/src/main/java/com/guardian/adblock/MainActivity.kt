@@ -1072,8 +1072,14 @@ class MainActivity : Activity() {
                     )) {
                     startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
                 }
-                if (checked && !FilterListManager.hasCachedSecurityList(this@MainActivity)) startFilterUpdate()
-                else filterStatusText?.text = filterStatusDescription()
+                if (checked && !FilterListManager.hasCachedSecurityList(this@MainActivity)) {
+                    filterStatusText?.text = "보안 필터 목록을 다운로드합니다."
+                    startFilterUpdate()
+                } else {
+                    // Apply both enabling and disabling immediately when protection is already active.
+                    reloadProtectionRulesIfActive(prefs)
+                    filterStatusText?.text = filterStatusDescription()
+                }
             }
         }
         options.addView(securityCheck)
