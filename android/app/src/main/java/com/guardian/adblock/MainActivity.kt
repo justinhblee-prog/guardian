@@ -749,6 +749,13 @@ class MainActivity : Activity() {
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        val verifiedLicense = LicenseEntitlementStore.current(this)
+        body.addView(infoRow(
+            "라이선스",
+            if (verifiedLicense != null) "서버 서명 및 이 기기 등록을 확인했습니다" else "서명 라이선스 미등록 · 무료 보호 기능 사용 중",
+            if (verifiedLicense != null) "PRO" else "FREE",
+            if (verifiedLicense != null) accent else muted
+        ))
         body.addView(text("DNS 업스트림 서버", 18f, white, true).withTop(24))
         body.addView(text("차단되지 않은 DNS 질의를 전달할 서버를 선택합니다.", 12f, muted, false).withTop(5))
         val dnsPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
