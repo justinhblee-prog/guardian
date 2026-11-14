@@ -33,11 +33,22 @@ export async function verifyLicenseKey(licenseKey, saltHex, expectedHashHex, pep
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-export function issueEntitlementToken({ licenseRef, deviceBinding, expiresAt, privateKey, now = Date.now() }) {
+export function issueEntitlementToken({
+  licenseRef, deviceBinding, expiresAt, privateKey, now = Date.now(),
+  maxTtlSeconds = 24 * 60 * 60
+}) {
   const device = validateDeviceBinding(deviceBinding);
-  const expiry = Math.floor(new Date(expiresAt).getTime() / 1000);
+  const licenseExpiry = Math.floor(new Date(expiresAt).getTime() / 1000);
   const issued = Math.floor(now / 1000);
-  if (!Number.isFinite(expiry) || expiry <= issued) throw new Error('라이선스 만료 시각이 올바르지 않습니다.');
+  if (!Number.isInteger(maxTtlSeconds) || maxTtlSeconds < 1) {
+    throw new Error('토큰 최대 유효기간이 올바르지 않습니다.');
+  }
+  if (!Number.isFinite(licenseExpiry) || licenseExpiry <= issued) {
+    throw new Error('라이선스 만료 시각이 올바르지 않습니다.');
+  }
+  // A signed offline entitlement must never outlive the short refresh window,
+  // even when the underlying license is valid for months or years.
+  const expiry = Math.min(licenseExpiry, issued + maxTtlSeconds);
   if (typeof licenseRef !== 'string' || !/^[a-zA-Z0-9._-]{8,128}$/.test(licenseRef)) {
     throw new Error('라이선스 참조 값이 올바르지 않습니다.');
   }
