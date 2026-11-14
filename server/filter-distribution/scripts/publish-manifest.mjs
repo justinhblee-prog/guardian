@@ -80,15 +80,24 @@ export async function publishManifest(options, env = process.env) {
   }
 
   const manifestPath = path.join(outputDir, `${sourceId}.manifest`);
+  const nowEpochSeconds = Math.floor(Date.now() / 1000);
   let previousGeneratedAt = 0;
   try {
     const previous = await readFile(manifestPath, 'utf8');
     const match = /^generatedAt=(\\d+)$/m.exec(previous);
-    if (match) previousGeneratedAt = Number(match[1]);
+    if (!match) throw new Error('Existing manifest has no valid generatedAt; refusing to reset anti-rollback time.');
+    previousGeneratedAt = Number(match[1]);
+    if (!Number.isSafeInteger(previousGeneratedAt) || previousGeneratedAt <= 0 ||
+        previousGeneratedAt > nowEpochSeconds + 600) {
+      throw new Error('Existing manifest generatedAt is invalid or too far in the future.');
+    }
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
-  const generatedAt = Math.max(Math.floor(Date.now() / 1000), previousGeneratedAt + 1);
+  const generatedAt = Math.max(nowEpochSeconds, previousGeneratedAt + 1);
+  if (generatedAt > nowEpochSeconds + 600) {
+    throw new Error('Cannot publish within the app accepted future timestamp window.');
+  }
   const sha256 = (await import('node:crypto')).createHash('sha256').update(content).digest('hex');
   const filterUrl = new URL(filterRelativePath.split(path.sep).join('/'), publicBase.href.endsWith('/') ? publicBase : new URL(`${publicBase.href}/`)).href;
   const manifestText = [
