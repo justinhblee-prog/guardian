@@ -96,6 +96,7 @@ object DnsDohHttpCodec {
             if (size > MAX_DNS_BYTES || output.size() + size > MAX_DNS_BYTES) return null
             if (size == 0L) {
                 var trailerBytes = 0
+                val trailerNames = mutableSetOf<String>()
                 while (true) {
                     val trailer = readAsciiLine(input, 1024) ?: return null
                     trailerBytes += trailer.length + 2
@@ -105,6 +106,10 @@ object DnsDohHttpCodec {
                     if (separator <= 0) return null
                     val name = trailer.substring(0, separator)
                     if (!name.matches(Regex("[!#$%&'*+.^_`|~0-9A-Za-z-]+"))) return null
+                    val key = name.lowercase()
+                    // Trailer fields must not redefine message framing or routing metadata.
+                    if (key in setOf("content-length", "transfer-encoding", "host")) return null
+                    if (!trailerNames.add(key)) return null
                     val value = trailer.substring(separator + 1)
                     if (value.any { it.code == 13 || it.code == 10 || (it.code < 0x20 && it.code != 9) }) return null
                 }
