@@ -101,7 +101,7 @@ GUARDIAN_RELEASE_KEY_ALIAS=guardian-release
 GUARDIAN_RELEASE_KEY_PASSWORD=<key password>
 ```
 
-`GUARDIAN_RELEASE_STORE_FILE`의 상대 경로 기준은 `android/app` 모듈 디렉터리입니다. CI에서는 위 값을 GitHub Actions Secrets에 직접 등록한 뒤 release job에 주입해야 합니다. 실제 운영 키를 저장소에 커밋하거나 로그에 출력하지 마세요.
+`GUARDIAN_RELEASE_STORE_FILE`의 상대 경로 기준은 `android/app` 모듈 디렉터리입니다. CI에서는 위 값을 GitHub Actions Secrets에 직접 등록한 뒤 release job에 주입해야 합니다. 추가로 Repository Variables에 `GUARDIAN_MANIFEST_BASE_URL`, `GUARDIAN_MANIFEST_PUBLIC_KEY`, `GUARDIAN_LICENSE_PUBLIC_KEY`, `GUARDIAN_LICENSE_API_BASE_URL`을 설정해야 합니다. 배포 워크플로는 manifest/라이선스 URL의 HTTPS 여부와 공개키 Base64를 확인하고, 설정이 없으면 production release를 중단합니다. 실제 운영 키를 저장소에 커밋하거나 로그에 출력하지 마세요.
 
 4. 아래 명령으로 서명된 release APK/AAB를 빌드합니다.
 
