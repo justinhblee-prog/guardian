@@ -24,6 +24,9 @@ class DnsTcpSessionManager(
         var lastActivity: Long,
         var lastClientSegmentStart: Long? = null,
         var lastClientPayload: ByteArray = byteArrayOf(),
+        var lastClientFin: Boolean = false,
+        var clientFinReceived: Boolean = false,
+        var serverFinSent: Boolean = false,
         var lastServerReplies: List<ByteArray> = emptyList()
     )
 
@@ -70,12 +73,18 @@ class DnsTcpSessionManager(
 
         val session = sessions[key] ?: return emptyList()
         session.lastActivity = now
+        // Keep a half-closed session until the client acknowledges our FIN.
+        // This lets a lost FIN/data response be replayed on an exact retransmission.
+        if (tcp.ack && session.serverFinSent && tcp.acknowledgement == session.serverNext) {
+            sessions.remove(key)
+            return emptyList()
+        }
         if (tcp.sequence != session.clientNext) {
-            // Re-serve the last DNS reply when the client retransmits the exact
-            // request segment after losing the corresponding response packet.
-            if (tcp.payload.isNotEmpty() &&
-                tcp.sequence == session.lastClientSegmentStart &&
-                tcp.payload.contentEquals(session.lastClientPayload)) {
+            // Re-serve the last reply when the client retransmits the exact
+            // request/FIN segment after losing the corresponding response.
+            if (tcp.sequence == session.lastClientSegmentStart &&
+                tcp.payload.contentEquals(session.lastClientPayload) &&
+                tcp.fin == session.lastClientFin) {
                 return if (session.lastServerReplies.isNotEmpty()) session.lastServerReplies
                     else listOf(ack(tcp, session))
             }
@@ -84,6 +93,7 @@ class DnsTcpSessionManager(
         if (tcp.payload.isNotEmpty()) {
             session.lastClientSegmentStart = tcp.sequence
             session.lastClientPayload = tcp.payload.copyOf()
+            session.lastClientFin = tcp.fin
             if (session.received.size() + tcp.payload.size > maxBufferedBytes) {
                 sessions.remove(key)
                 return listOf(DnsTcpPacket.response(tcp, session.serverNext,
@@ -131,7 +141,9 @@ class DnsTcpSessionManager(
                 replies.add(DnsTcpPacket.response(tcp, session.serverNext,
                     session.clientNext, DnsTcpPacket.FIN or DnsTcpPacket.ACK))
                 session.serverNext = (session.serverNext + 1L) and MASK
-                sessions.remove(key)
+                session.clientFinReceived = true
+                session.serverFinSent = true
+                session.lastServerReplies = replies.map { it.copyOf() }
                 return replies
             }
             if (replies.isEmpty()) replies.add(ack(tcp, session))
@@ -144,7 +156,12 @@ class DnsTcpSessionManager(
             val fin = DnsTcpPacket.response(tcp, session.serverNext, session.clientNext,
                 DnsTcpPacket.FIN or DnsTcpPacket.ACK)
             session.serverNext = (session.serverNext + 1L) and MASK
-            sessions.remove(key)
+            session.lastClientSegmentStart = tcp.sequence
+            session.lastClientPayload = byteArrayOf()
+            session.lastClientFin = true
+            session.clientFinReceived = true
+            session.serverFinSent = true
+            session.lastServerReplies = listOf(fin.copyOf())
             return listOf(fin)
         }
         return emptyList()

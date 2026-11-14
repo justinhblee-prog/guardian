@@ -275,7 +275,7 @@ class DnsTcpSessionManagerTest {
         assertArrayEquals(first, replay)
     }
 
-    @Test fun processesDnsPayloadAndFinInTheSameTcpSegment() {
+    @Test fun retransmittedDataAndFinReplaysRepliesUntilClientAcknowledgesServerFin() {
         val manager = DnsTcpSessionManager()
         val query = dnsQuery()
         val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
@@ -283,13 +283,52 @@ class DnsTcpSessionManagerTest {
         manager.handle(syn, syn.size) { null }
         val segment = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH or DnsTcpPacket.FIN,
             seq = 901, payload = framed)
-        val replies = manager.handle(segment, segment.size) { DomainFilter.makeServfail(it) }
+        var resolveCalls = 0
+        val replies = manager.handle(segment, segment.size) {
+            resolveCalls++
+            DomainFilter.makeServfail(it)
+        }
         assertEquals(2, replies.size)
         val dataReply = DnsTcpPacket.parse(replies.first(), replies.first().size, 53000)!!
         assertTrue(dataReply.payload.isNotEmpty())
         val finReply = DnsTcpPacket.parse(replies.last(), replies.last().size, 53000)!!
         assertTrue(finReply.fin)
         assertEquals(902L + framed.size, finReply.acknowledgement)
+        assertEquals(1, manager.activeSessionCount())
+
+        val replay = manager.handle(segment, segment.size) {
+            resolveCalls++
+            null
+        }
+        assertEquals(2, replay.size)
+        replay.zip(replies).forEach { (actual, expected) -> assertArrayEquals(expected, actual) }
+        assertEquals(1, resolveCalls)
+
+        val finalAck = packet(
+            flags = DnsTcpPacket.ACK,
+            seq = 902L + framed.size,
+            acknowledgment = (finReply.sequence + 1L) and 0xffffffffL
+        )
+        assertTrue(manager.handle(finalAck, finalAck.size) { null }.isEmpty())
+        assertEquals(0, manager.activeSessionCount())
+    }
+
+    @Test fun retransmittedClientFinReplaysServerFinUntilAcknowledged() {
+        val manager = DnsTcpSessionManager()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 1200)
+        manager.handle(syn, syn.size) { null }
+        val fin = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.FIN, seq = 1201)
+        val first = manager.handle(fin, fin.size) { null }.single()
+        val replay = manager.handle(fin, fin.size) { null }.single()
+        assertArrayEquals(first, replay)
+        assertEquals(1, manager.activeSessionCount())
+        val serverFin = DnsTcpPacket.parse(first, first.size, 53000)!!
+        val ack = packet(
+            flags = DnsTcpPacket.ACK,
+            seq = 1202,
+            acknowledgment = (serverFin.sequence + 1L) and 0xffffffffL
+        )
+        manager.handle(ack, ack.size) { null }
         assertEquals(0, manager.activeSessionCount())
     }
 
@@ -300,7 +339,8 @@ class DnsTcpSessionManagerTest {
         0x03, 0x63, 0x6f, 0x6d, 0x00, 0x00, 0x01, 0x00, 0x01
     )
 
-    private fun packet(flags: Int, seq: Long, payload: ByteArray = byteArrayOf()): ByteArray {
+    private fun packet(flags: Int, seq: Long, payload: ByteArray = byteArrayOf(),
+                       acknowledgment: Long = 0L): ByteArray {
         val tcpLength = 20 + payload.size
         val p = ByteArray(20 + tcpLength)
         p[0] = 0x45; p[2] = (p.size ushr 8).toByte(); p[3] = p.size.toByte(); p[9] = 6
@@ -308,6 +348,8 @@ class DnsTcpSessionManagerTest {
         p[20] = 0xcf.toByte(); p[21] = 0x08; p[22] = 0; p[23] = 53
         p[24] = (seq ushr 24).toByte(); p[25] = (seq ushr 16).toByte()
         p[26] = (seq ushr 8).toByte(); p[27] = seq.toByte()
+        p[28] = (acknowledgment ushr 24).toByte(); p[29] = (acknowledgment ushr 16).toByte()
+        p[30] = (acknowledgment ushr 8).toByte(); p[31] = acknowledgment.toByte()
         p[32] = 0x50; p[33] = flags.toByte()
         p[34] = 0x20; p[35] = 0
         System.arraycopy(payload, 0, p, 40, payload.size)
