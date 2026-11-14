@@ -36,6 +36,18 @@ class FilterRuleParserTest {
         assertTrue(parsed.ignored >= 2)
     }
 
+    @Test fun doesNotBroadenPathOrSuffixConstrainedRulesToWholeDomains() {
+        val parsed = FilterRuleParser.parse(listOf(
+            "||path.example^/ads/",
+            "||suffix.example^tracker",
+            "@@||trusted.example^/login",
+            "||safe.example^"
+        ))
+        assertEquals(setOf("safe.example"), parsed.blocked)
+        assertTrue(parsed.allowed.isEmpty())
+        assertEquals(3, parsed.ignored)
+    }
+
     @Test fun lowercasesAndDeduplicatesDomains() {
         val parsed = FilterRuleParser.parse(listOf(
             "||ADS.Example.COM^",
