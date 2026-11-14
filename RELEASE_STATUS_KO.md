@@ -298,3 +298,17 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - `refreshStatus()`도 Home 전용 뷰의 초기화 여부와 현재 탭을 확인하며, Protection 화면은 별도 상태 위젯을 갱신합니다.
 - 이 push 실행은 수동 배포 전용 APK artifact 업로드를 skip했습니다. CI 조립 성공은 이 커밋의 APK가 사용자에게 배포되었다는 뜻이 아닙니다.
 - 실기기 VPN 권한, 실제 DNS 라우팅, 앱별 동작 및 광고 제거 효과는 여전히 미검증입니다.
+
+
+## 2026-11-14 — 보안 필터 즉시 재적용 회귀 수정
+
+- Source commit: `d2e3689212280e5149c9b44012285edf323a971d`
+- GitHub Actions: [run 43567779995](https://github.com/justinhblee-prog/guardian/actions/runs/43567779995) — **success**
+- Android unit tests: **passed** (전체 테스트 단계 성공)
+- Android `lintDebug`: **passed**
+- Android `assembleDebug`: **passed**
+- APK package/version: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev` — verified
+- APK existence and SHA-256 generation: **passed**
+- 보안 필터를 설정 화면에서 켜거나 끌 때 활성 VPN 규칙을 즉시 다시 불러오도록 수정했습니다. 캐시가 없으면 다운로드를 시작하고, 캐시가 있으면 VPN을 중단하지 않고 현재 규칙을 재적용합니다.
+- 일반 push 검증이므로 artifact 업로드는 의도적으로 skip되었습니다. 이 CI 결과만으로 새 APK 파일이 배포된 것은 아닙니다.
+- 실기기 VPN/DNS 경로와 실제 광고 제거 효과는 여전히 미검증입니다.
