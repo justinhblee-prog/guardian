@@ -426,3 +426,11 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 미검증: 실기기 설치 및 VPN 승인, 실제 DNS 경로/광고 차단 효과, 네트워크 전환, 장시간 안정성.
 
 주의: CI 자동화 성공은 실기기 수용 시험의 대체가 아닙니다. 정식 출시 완료로 판정하지 않습니다.
+
+
+## 0.7.8-dev — TCP/IP reserved-header validation (2026-11-14)
+- Hardened the DNS TCP packet parser: reject IPv4 packets with the reserved fragmentation flag set, and reject TCP headers with nonzero reserved/NS bits instead of silently accepting unsupported header semantics.
+- Added regression coverage for both malformed-header cases.
+- Package versionCode 21 / `0.7.8-dev`.
+- CI run: https://github.com/justinhblee-prog/guardian/actions/runs/43573908206 — pending at documentation update time. Do not treat this source change as verified until that run completes successfully.
+- This is parser hardening only; it does not prove physical-device VPN routing or real ad-removal effectiveness.
