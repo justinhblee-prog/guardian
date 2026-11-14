@@ -38,14 +38,14 @@ export async function publishManifest(options, env = process.env) {
   const outputDir = path.resolve(options['output-dir'] || 'dist');
   const privateKeyText = env.GUARDIAN_FILTER_SIGNING_PRIVATE_KEY;
 
-  if (typeof sourceId !== 'string' || !/^[a-zA-Z0-9._-]{1,64}$/.test(sourceId)) {
+  if (typeof sourceId !== 'string' || sourceId === '.' || sourceId === '..' || !/^[a-zA-Z0-9._-]{1,64}$/.test(sourceId)) {
     throw new Error('source-id must contain 1-64 letters, digits, dot, underscore or hyphen.');
   }
-  if (typeof sourceVersion !== 'string' || !/^[a-zA-Z0-9._+-]{1,64}$/.test(sourceVersion)) {
+  if (typeof sourceVersion !== 'string' || sourceVersion === '.' || sourceVersion === '..' || !/^[a-zA-Z0-9._+-]{1,64}$/.test(sourceVersion)) {
     throw new Error('source-version must contain 1-64 safe version characters.');
   }
   if (!input) throw new Error('--input is required.');
-  if (!Number.isSafeInteger(minimumRules) || minimumRules < 1) {
+  if (!Number.isSafeInteger(minimumRules) || minimumRules < 1 || minimumRules > 2147483647) {
     throw new Error('--minimum-rules must be a positive integer.');
   }
   if (typeof privateKeyText !== 'string' || !privateKeyText.trim()) {
