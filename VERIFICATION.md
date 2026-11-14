@@ -360,3 +360,11 @@
 - `2d966987`: Filters 화면 진입 시 업데이트 주기 Spinner의 초기 콜백이 WorkManager 주기 작업을 불필요하게 재예약하지 않도록 수정했습니다. [CI 43569003248](https://github.com/justinhblee-prog/guardian/actions/runs/43569003248) 성공.
 - 두 CI 모두 Android 단위 테스트, Lint, Debug APK 조립, package identity/version 검사, APK 존재 및 SHA-256 검사를 통과했습니다. 일반 push이므로 배포용 artifact 업로드는 수행하지 않았습니다.
 - `83501c1` / `d5fea43`: DNS 규칙으로 표현할 수 없는 URL 경로·후행 조건 규칙을 전체 도메인 규칙으로 넓혀 적용하지 않도록 파서를 보완하고 회귀 테스트를 추가했습니다. CI 실행 결과 확인 전입니다.
+
+
+## 2026-11-14 — DNS parser path-constrained rule regression
+
+- Parser behavior: URL path and suffix constraints after the Adblock separator are not representable as DNS hostname rules and are rejected rather than broadened to a whole-domain block.
+- Regression test covers `||path.example^/ads/`, `||suffix.example^tracker`, `@@||trusted.example^/login`, and valid `||safe.example^`. Only `safe.example` is expected in the blocked set; three unsupported rules are counted as ignored.
+- CI [43569255957](https://github.com/justinhblee-prog/guardian/actions/runs/43569255957) completed successfully. Unit tests, Android lint, debug APK assembly, package identity/version validation, and APK checksum generation all passed. Artifact upload was skipped on this ordinary push.
+- CI does not replace physical-device VPN, live DNS routing, or real-world ad-removal testing.
