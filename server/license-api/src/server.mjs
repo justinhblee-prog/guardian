@@ -88,7 +88,7 @@ async function activate(body) {
       );
       if (count.rows[0].n >= license.max_devices) throw Object.assign(new Error('허용된 활성화 기기 수를 초과했습니다.'), { status: 409 });
       await client.query(
-        'INSERT INTO activations(license_id,device_binding,app_version) VALUES($1,$2,$3)',
+        'INSERT INTO activations(license_id,device_binding,app_version) VALUES($1,$2,$3) ON CONFLICT (license_id,device_binding) DO UPDATE SET app_version=EXCLUDED.app_version,activated_at=now(),last_seen_at=now(),deactivated_at=NULL',
         [license.id, device, appVersion]
       );
       await recordEvent(client, license.id, 'activated', 'device', { appVersion });
