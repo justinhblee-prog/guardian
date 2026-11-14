@@ -110,3 +110,10 @@ JDK와 Kotlin compiler(`kotlinc`)가 설치된 환경에서는 프로젝트 루�
 - 해당 APK는 com.guardian.adblock, versionCode 20, versionName 0.7.7-dev의 debug 서명본입니다.
 - 실기기 테스트 결과, production keystore 서명, 실제 광고 제거 성능은 위 CI에 포함되지 않습니다.
 - 2~4단계는 연결된 실제 Android 기기와 기기에서 수집한 로그가 있어야 완료 판정할 수 있습니다. 6단계는 release keystore 없이는 production 서명 완료 판정할 수 없습니다.
+
+
+## 0.7.8-dev 소스 보안 보강 (2026-11-14)
+- DNS TCP 패킷 파서가 IPv4 reserved fragmentation flag 및 TCP reserved/NS 비트를 0이 아닌 경우 거부하도록 수정했습니다.
+- 두 malformed header 유형에 대한 회귀 테스트를 추가했습니다.
+- versionCode 21 / 0.7.8-dev.
+- CI run 43573908206은 문서 반영 시점에 실행 중입니다. 성공 확인 전에는 검증 완료로 표시하지 않습니다.
