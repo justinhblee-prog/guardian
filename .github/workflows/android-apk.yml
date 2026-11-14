@@ -78,11 +78,27 @@ jobs:
             timeout 180s adb wait-for-device
             for attempt in $(seq 1 90); do if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')" = "1" ]; then break; fi; sleep 2; done
             test "$(adb shell getprop sys.boot_completed | tr -d '\\r')" = "1"
-            # sys.boot_completed can become 1 before PackageManager/Settings are responsive.
-            # Wait for both Binder services before attempting streamed APK installation.
+            # sys.boot_completed can precede PackageManager and Settings Binder readiness.
             services_ready=0
             for attempt in $(seq 1 60); do
-              if adb shell cmd package list packages 2>/dev/null | grep -q '^package:com.android.settings
+              if adb shell cmd package list packages 2>/dev/null | grep -Fq 'package:com.android.settings' &&
+                 adb shell settings get system screen_off_timeout 2>/dev/null | grep -Eq '^[0-9]+'; then
+                services_ready=1
+                break
+              fi
+              sleep 3
+            done
+            test "$services_ready" -eq 1
+            adb logcat -c
+            installed=0
+            for attempt in $(seq 1 5); do
+              if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then installed=1; break; fi
+              echo "ADB package-manager install attempt $attempt failed; waiting for PackageManager recovery."
+              adb wait-for-device
+              sleep 10
+            done
+            test "$installed" -eq 1
+            adb shell cmd package list packages com.guardian.adblock | grep -Fq 'package:com.guardian.adblock'
             adb shell am start -n com.guardian.adblock/.MainActivity
             sleep 8
             adb shell dumpsys activity activities | tee /tmp/guardian-activities.txt
