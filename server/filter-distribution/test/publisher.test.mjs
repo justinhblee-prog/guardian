@@ -1,0 +1,114 @@
+import test, { before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { createHash, generateKeyPairSync, verify } from 'node:crypto';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { publishManifest } from '../scripts/publish-manifest.mjs';
+
+let root;
+let privateKey;
+let publicKey;
+
+before(async () => {
+  root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-publisher-'));
+  const pair = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  privateKey = pair.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  publicKey = pair.publicKey;
+});
+
+after(async () => {
+  await rm(root, { recursive: true, force: true });
+});
+
+test('publisher creates a detached RSA signature and a hash-bound immutable filter URL', async () => {
+  const input = path.join(root, 'filter.txt');
+  const outputDir = path.join(root, 'dist');
+  const publicKeyPath = path.join(root, 'public-key.x509.b64');
+  const content = Buffer.from('||ads.example^\n||tracker.example^\n', 'utf8');
+  await writeFile(input, content);
+
+  const result = await publishManifest({
+    'source-id': 'adguard',
+    'source-version': '2026.11.15',
+    input,
+    'base-url': 'https://filters.example.com/guardian',
+    'minimum-rules': '2',
+    'output-dir': outputDir,
+    'public-key-out': publicKeyPath
+  }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey });
+
+  const manifestBytes = await readFile(result.manifestPath);
+  const signature = (await readFile(result.signaturePath, 'ascii')).trim();
+  assert.equal(verify('RSA-SHA256', manifestBytes, publicKey, Buffer.from(signature, 'base64')), true);
+  const manifest = Object.fromEntries(manifestBytes.toString('utf8').trim().split('\n').map(line => {
+    const index = line.indexOf('=');
+    return [line.slice(0, index), line.slice(index + 1)];
+  }));
+  assert.equal(manifest.sourceId, 'adguard');
+  assert.equal(manifest.sourceVersion, '2026.11.15');
+  assert.equal(manifest.minimumRules, '2');
+  assert.equal(manifest.url, 'https://filters.example.com/guardian/filters/adguard/2026.11.15.txt');
+  assert.equal(manifest.sha256, createHash('sha256').update(content).digest('hex'));
+  assert.deepEqual(await readFile(result.filterPath), content);
+  assert.equal((await readFile(publicKeyPath, 'ascii')).trim(), result.publicKey);
+});
+
+test('publisher advances generatedAt even when publishing twice within one second', async () => {
+  const input = path.join(root, 'repeat.txt');
+  const outputDir = path.join(root, 'repeat-dist');
+  await writeFile(input, '||one.example^\n');
+  const options = {
+    'source-id': 'security',
+    'source-version': 'v1',
+    input,
+    'base-url': 'https://filters.example.com',
+    'minimum-rules': '1',
+    'output-dir': outputDir
+  };
+  const first = await publishManifest(options, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey });
+  const second = await publishManifest(options, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey });
+  assert.ok(second.generatedAt > first.generatedAt);
+});
+
+test('publisher refuses to overwrite immutable version with different content', async () => {
+  const input = path.join(root, 'immutable.txt');
+  const outputDir = path.join(root, 'immutable-dist');
+  await writeFile(input, '||first.example^\n');
+  const options = {
+    'source-id': 'adguard',
+    'source-version': 'immutable-1',
+    input,
+    'base-url': 'https://filters.example.com',
+    'minimum-rules': '1',
+    'output-dir': outputDir
+  };
+  await publishManifest(options, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey });
+  await writeFile(input, '||changed.example^\n');
+  await assert.rejects(
+    publishManifest(options, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
+    /immutable sourceVersion/
+  );
+});
+
+test('publisher rejects insecure URLs, path segments and missing signing keys', async () => {
+  const input = path.join(root, 'invalid.txt');
+  await writeFile(input, '||example.test^\n');
+  const base = {
+    'source-id': 'adguard',
+    'source-version': 'v1',
+    input,
+    'base-url': 'http://filters.example.com',
+    'minimum-rules': '1',
+    'output-dir': path.join(root, 'invalid-dist')
+  };
+  await assert.rejects(publishManifest(base, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }), /HTTPS/);
+  await assert.rejects(
+    publishManifest({ ...base, 'source-id': '..', 'base-url': 'https://filters.example.com' }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
+    /source-id/
+  );
+  await assert.rejects(
+    publishManifest({ ...base, 'base-url': 'https://filters.example.com' }, {}),
+    /GUARDIAN_FILTER_SIGNING_PRIVATE_KEY/
+  );
+});
