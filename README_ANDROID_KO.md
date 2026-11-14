@@ -192,3 +192,13 @@ WorkManager 2.12.0의 고유 주기 작업이 설정한 6/12/24시간 또는 7�
 - 검증 APK SHA-256: `c40229d5c3a25173092233b2e23ace19d9c3d6f831837d6d6684c20f156495ee`
 - Push CI는 수동 배포용 artifact 업로드를 건너뜁니다. 따라서 이 검증으로 새 설치용 APK가 공개/업로드된 것은 아닙니다.
 - 실제 Android 기기에서 VPN 라우팅, Android resolver TCP 재시도, 앱별 광고 제거 효과는 아직 미검증입니다.
+
+
+## 0.7.4-dev — 백그라운드 필터 업데이트 재시도 최적화
+
+WorkManager가 선택 목록 다운로드 실패로 재시도할 때, 이미 정상적으로 갱신된 다른 목록을 다시 내려받지 않습니다. 기본 프로필, 보안 목록, Android 앱 광고 SDK 목록의 캐시 유효성과 마지막 갱신 시각을 각각 확인하고, 캐시가 없거나 손상/만료되었거나 선택 프로필이 달라진 목록만 갱신합니다.
+
+- 버전: `com.guardian.adblock` / versionCode 17 / `0.7.4-dev`
+- CI: [43570828960](https://github.com/justinhblee-prog/guardian/actions/runs/43570828960) — 단위 테스트, lint, Debug APK 조립, 패키지 식별 및 SHA-256 검증 통과
+- CI 검증 APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577`
+- push 검증은 artifact 업로드를 생략합니다. 실기기 설치와 실제 광고 차단 효과는 별도 검증 대상입니다.
