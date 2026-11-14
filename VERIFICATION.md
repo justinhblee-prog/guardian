@@ -232,3 +232,15 @@
 - CI 생성 APK SHA-256: `071fd9fc18288ba3144c747fb2a92beb9a93e3f58557ee49e9b086811f97f7ec`
 - 새 회귀 테스트는 연결 완료 후 도착한 동일 SYN이 세션 상태를 초기화하지 않는지 확인합니다.
 - CI 검증은 실기기 설치, 실제 VPN 라우팅, 실제 광고 제거 성공을 대체하지 않습니다.
+
+
+## 2026-11-14 — HTTPS 필터 리디렉션 정책 검증
+
+- Source commit: `7988ced0500324df91900017993882e7cb10893b`
+- [GitHub Actions run 43531095663](https://github.com/justinhblee-prog/guardian/actions/runs/43531095663): **success**
+- Android unit tests: passed; lintDebug: passed; assembleDebug: passed; package/version/checksum checks: passed.
+- Test inventory: **18 Kotlin test suites / 110 JUnit test methods**.
+- Filter downloads now follow redirects manually and only over HTTPS, reject embedded URL credentials, unsupported redirect statuses, missing/invalid locations, and chains longer than five hops.
+- CI APK package/version: `com.guardian.adblock` / `15` / `0.7.2-dev`.
+- CI APK SHA-256: `902b8045209dc0d73ae34bb6d8740673b7f3fc45df0da9d5f6a6d3331826aada`.
+- Push workflow intentionally skipped artifact upload. Physical Android VPN and ad-blocking acceptance remain unverified.

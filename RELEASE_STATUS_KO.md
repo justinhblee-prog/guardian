@@ -213,3 +213,17 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 이번 회귀 수정: 이미 연결된 DNS TCP 세션에 지연 도착한 동일 SYN이 들어와도 세션의 sequence state를 초기화하지 않도록 수정하고, 동일 SYNACK 재응답 및 이후 DNS 질의 처리를 검증하는 테스트를 추가했습니다. TCP SYN/FIN/RST의 모순된 조합도 거부합니다.
 - Android 비공개 DNS 모드가 자동/호스트명으로 설정된 경우 DNS 필터 우회 가능성을 화면에 안내합니다.
 - 위 결과는 CI 내부 검증이며, 실기기 설치·VPN 라우팅·실제 광고 차단 성공을 의미하지 않습니다.
+
+
+## 2026-11-14 — 필터 다운로드 리디렉션 보안 강화 및 전체 CI 검증
+
+- Source commit: `7988ced0500324df91900017993882e7cb10893b`
+- GitHub Actions: [run 43531095663](https://github.com/justinhblee-prog/guardian/actions/runs/43531095663) — **success**
+- Android unit tests: 통과 (**18개 테스트 스위트 / 110개 JUnit 테스트 메서드**)
+- Android lintDebug: 통과
+- assembleDebug: 통과
+- APK package: `com.guardian.adblock`, versionCode `15`, versionName `0.7.2-dev`
+- CI 생성 APK SHA-256: `902b8045209dc0d73ae34bb6d8740673b7f3fc45df0da9d5f6a6d3331826aada`
+- APK artifact upload: push 검증 정책에 따라 생략
+- 필터 다운로드는 HTTPS 전용 수동 리디렉션을 사용하며 HTTP 다운그레이드, URL 사용자정보, 미지원 리디렉션 상태 및 5회 초과 체인을 거부합니다. 관련 정책 단위 테스트 6개 추가.
+- CI 성공은 실기기 설치, VPN 라우팅 또는 실제 광고 차단 효과 검증을 의미하지 않습니다.

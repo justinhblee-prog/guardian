@@ -301,3 +301,11 @@
 - GitHub Actions run 43530335902: Android unit tests, lint, debug APK assembly, package/version and SHA-256 checks all succeeded.
 - Test inventory: 17 suites / 104 JUnit test methods.
 - CI artifact upload was skipped by push policy; this is not a final APK release. Device-level VPN and ad-blocking acceptance remains outstanding.
+
+
+## 2026-11-14 — Filter download redirect security
+- Replaced automatic HTTPS connection redirects with a bounded manual redirect policy.
+- Reject HTTP downgrade redirects, embedded URL credentials, missing or malformed locations, unsupported 3xx responses, and redirect chains exceeding five hops.
+- Added six unit tests for relative/absolute HTTPS redirects and rejection cases.
+- GitHub Actions run 43531095663: 18 test suites / 110 test methods passed; lint, debug APK assembly, package identity and checksum checks succeeded.
+- APK artifact upload remains disabled for push-triggered CI; this is build verification, not a final APK release.
