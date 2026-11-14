@@ -1,0 +1,38 @@
+name: Guardian Signed Filter Distribution
+on:
+  push:
+    paths:
+      - 'server/filter-distribution/**'
+      - '.github/workflows/filter-distribution.yml'
+  pull_request:
+    paths:
+      - 'server/filter-distribution/**'
+      - '.github/workflows/filter-distribution.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-filter-distribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server/filter-distribution
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          node --check src/server.mjs
+          node --check scripts/publish-manifest.mjs
+          node --check test/server.test.mjs
+          node --check test/publisher.test.mjs
+      - name: Validate container deployment configuration
+        run: |
+          cp .env.example .env
+          mkdir -p dist
+          docker compose config --quiet
+      - name: Run signing and distribution tests
+        run: npm test
