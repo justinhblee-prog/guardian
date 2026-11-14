@@ -1,5 +1,5 @@
 import {
-  createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual,
+  createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual,
   sign as rsaSign
 } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -16,16 +16,18 @@ export function validateDeviceBinding(value) {
   return value.toLowerCase();
 }
 
-export async function hashLicenseKey(licenseKey, saltHex = randomBytes(16).toString('hex')) {
+export async function hashLicenseKey(licenseKey, pepper, saltHex = randomBytes(16).toString('hex')) {
   if (typeof licenseKey !== 'string' || !KEY_PATTERN.test(licenseKey)) {
     throw Object.assign(new Error('라이선스 키 형식이 올바르지 않습니다.'), { status: 400 });
   }
+  if (typeof pepper !== 'string' || pepper.length < 32) throw new Error('GUARDIAN_LICENSE_LOOKUP_SECRET must be at least 32 characters.');
   const derived = await scrypt(licenseKey, Buffer.from(saltHex, 'hex'), KEY_BYTES);
-  return { saltHex, hashHex: Buffer.from(derived).toString('hex') };
+  const keyLookup = createHmac('sha256', pepper).update(licenseKey).digest('hex');
+  return { saltHex, hashHex: Buffer.from(derived).toString('hex'), keyLookup };
 }
 
-export async function verifyLicenseKey(licenseKey, saltHex, expectedHashHex) {
-  const { hashHex } = await hashLicenseKey(licenseKey, saltHex);
+export async function verifyLicenseKey(licenseKey, saltHex, expectedHashHex, pepper) {
+  const { hashHex } = await hashLicenseKey(licenseKey, pepper, saltHex);
   const actual = Buffer.from(hashHex, 'hex');
   const expected = Buffer.from(expectedHashHex, 'hex');
   return actual.length === expected.length && timingSafeEqual(actual, expected);
