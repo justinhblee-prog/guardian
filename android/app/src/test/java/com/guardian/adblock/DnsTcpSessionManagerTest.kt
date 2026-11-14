@@ -313,6 +313,36 @@ class DnsTcpSessionManagerTest {
         assertEquals(0, manager.activeSessionCount())
     }
 
+    @Test fun rejectsFinWhenDnsTcpFrameIsTruncated() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 1300)
+        manager.handle(syn, syn.size) { null }
+        val partial = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 1301, payload = framed.copyOfRange(0, 10))
+        val ack = manager.handle(partial, partial.size) { null }.single()
+        assertTrue(DnsTcpPacket.parse(ack, ack.size, 53000)!!.ack)
+        val fin = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.FIN,
+            seq = 1311)
+        val reset = manager.handle(fin, fin.size) { null }.single()
+        assertTrue(DnsTcpPacket.parse(reset, reset.size, 53000)!!.rst)
+        assertEquals(0, manager.activeSessionCount())
+    }
+
+    @Test fun rejectsFinPayloadWithTrailingIncompleteDnsFrame() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 1400)
+        manager.handle(syn, syn.size) { null }
+        val partial = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH or DnsTcpPacket.FIN,
+            seq = 1401, payload = framed.copyOfRange(0, 10))
+        val reset = manager.handle(partial, partial.size) { null }.single()
+        assertTrue(DnsTcpPacket.parse(reset, reset.size, 53000)!!.rst)
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     @Test fun retransmittedClientFinReplaysServerFinUntilAcknowledged() {
         val manager = DnsTcpSessionManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 1200)

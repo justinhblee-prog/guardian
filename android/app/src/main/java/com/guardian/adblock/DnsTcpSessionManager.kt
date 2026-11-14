@@ -139,6 +139,13 @@ class DnsTcpSessionManager(
             val remainder = buffered.copyOfRange(offset, buffered.size)
             session.received.reset()
             session.received.write(remainder)
+            if (tcp.fin && remainder.isNotEmpty()) {
+                // FIN terminates the byte stream: an incomplete DNS length prefix
+                // or message must not be silently accepted as a clean close.
+                sessions.remove(key)
+                return listOf(DnsTcpPacket.response(tcp, session.serverNext,
+                    session.clientNext, DnsTcpPacket.RST or DnsTcpPacket.ACK))
+            }
             if (tcp.fin) {
                 session.clientNext = (session.clientNext + 1L) and MASK
                 replies.add(DnsTcpPacket.response(tcp, session.serverNext,
@@ -155,6 +162,12 @@ class DnsTcpSessionManager(
         }
 
         if (tcp.fin) {
+            if (session.received.size() != 0) {
+                // A FIN without the remainder of a framed DNS message is a truncated stream.
+                sessions.remove(key)
+                return listOf(DnsTcpPacket.response(tcp, session.serverNext,
+                    session.clientNext, DnsTcpPacket.RST or DnsTcpPacket.ACK))
+            }
             session.clientNext = (session.clientNext + 1L) and MASK
             val fin = DnsTcpPacket.response(tcp, session.serverNext, session.clientNext,
                 DnsTcpPacket.FIN or DnsTcpPacket.ACK)
