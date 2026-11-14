@@ -1373,15 +1373,18 @@ class MainActivity : Activity() {
                 hasCachedList, selectedProfile.key, cachedProfile.key,
                 securityEnabled, hasSecurityCache, androidAdsEnabled, hasAndroidAdsCache
             )) {
-            statusTitle.text = "광고 필터 준비 필요"
-            status.text = when {
+            val message = when {
                 !hasCachedList -> "공식 광고 차단 목록을 아직 내려받지 못했습니다. 인터넷 연결 후 필터를 준비해야 정상적인 광고 차단이 가능합니다."
                 selectedProfile.key != cachedProfile.key -> "선택한 ${selectedProfile.label} 목록이 아직 적용되지 않았습니다. 이전 프로필로 보호를 시작하지 않도록 다운로드 완료 후 다시 시작해 주세요."
-                securityEnabled && !hasSecurityCache -> "악성코드·피싱 보호 목록이 준비되지 않았습니다. 보안 목록 다운로드를 완료한 후 다시 시작해 주세요."
-                androidAdsEnabled && !hasAndroidAdsCache -> "Android 앱 광고 SDK 필터가 준비되지 않았습니다. 앱 광고 목록 다운로드를 완료한 후 다시 시작해 주세요."
+                securityEnabled && !hasSecurityCache -> "악성코드·피싱 보호 목록을 내려받은 후 다시 시작해 주세요."
+                androidAdsEnabled && !hasAndroidAdsCache -> "Android 앱 광고 SDK 필터를 내려받은 후 다시 시작해 주세요."
                 else -> "선택한 필터 구성을 아직 준비하지 못했습니다. 필터 업데이트를 완료한 후 다시 시작해 주세요."
             }
+            // The start action is available from multiple tabs. Build the
+            // Filters screen first, then report the missing cache there;
+            // Home-only lateinit views may not exist when another tab is open.
             showTab("rules")
+            setFilterUpdateStatus(message)
             startFilterUpdate()
             return
         }
@@ -1393,11 +1396,25 @@ class MainActivity : Activity() {
         val service = Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_START)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service) else startService(service)
-            status.text = "보호 시작 요청을 전달했습니다. VPN 연결을 확인하고 있습니다."
-            statusTitle.text = "연결 확인 중"
+            val message = "보호 시작 요청을 전달했습니다. VPN 연결을 확인하고 있습니다."
+            if (currentTab == "home" && ::status.isInitialized && ::statusTitle.isInitialized) {
+                status.text = message
+                statusTitle.text = "연결 확인 중"
+            } else if (currentTab == "protection") {
+                protectionStatusText?.text = "연결 확인 중"
+                protectionFeedback?.text = message
+            }
         } catch (e: Exception) {
-            statusTitle.text = "시작하지 못했습니다"
-            status.text = e.message ?: "Android가 VPN 서비스를 시작하지 못했습니다."
+            val message = e.message ?: "Android가 VPN 서비스를 시작하지 못했습니다."
+            if (currentTab == "home" && ::status.isInitialized && ::statusTitle.isInitialized) {
+                statusTitle.text = "시작하지 못했습니다"
+                status.text = message
+            } else if (currentTab == "protection") {
+                protectionStatusText?.text = "시작하지 못했습니다"
+                protectionFeedback?.text = message
+            } else {
+                filterStatusText?.text = "보호를 시작하지 못했습니다: $message"
+            }
         }
     }
 
