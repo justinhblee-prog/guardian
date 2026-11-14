@@ -131,6 +131,22 @@ object FilterListManager {
         ignoredKey: String,
         cachedProfileKey: String? = null
     ): UpdateResult {
+        val manifestBaseUrl = BuildConfig.FILTER_MANIFEST_BASE_URL.trimEnd('/')
+        val manifestPublicKey = BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
+        if (manifestBaseUrl.isNotBlank() || manifestPublicKey.isNotBlank()) {
+            require(manifestBaseUrl.isNotBlank() && manifestPublicKey.isNotBlank()) {
+                "서명 manifest 서버 주소와 공개키를 함께 설정해야 합니다."
+            }
+            val sourceId = cachedProfileKey ?: when (cacheName) {
+                SECURITY_CACHE_FILE -> "security"
+                ANDROID_ADS_CACHE_FILE -> "android_ads"
+                else -> "adguard"
+            }
+            return downloadSignedManifest(
+                context, manifestBaseUrl, manifestPublicKey, sourceId, cacheName,
+                minimumRules, updatedKey, countKey, ignoredKey, cachedProfileKey
+            )
+        }
         var connection: HttpsURLConnection? = null
         try {
             var currentUrl = URL(url)
@@ -221,6 +237,73 @@ object FilterListManager {
         } finally {
             connection?.disconnect()
         }
+    }
+
+
+    private fun downloadSignedManifest(
+        context: Context,
+        manifestBaseUrl: String,
+        publicKey: String,
+        sourceId: String,
+        cacheName: String,
+        minimumRules: Int,
+        updatedKey: String,
+        countKey: String,
+        ignoredKey: String,
+        cachedProfileKey: String?
+    ): UpdateResult {
+        val stateStore = ManifestTimestampStore(File(context.filesDir, "manifest_timestamps.properties"))
+        val previousGeneratedAt = stateStore.lastAccepted(sourceId)
+        val manifestUrl = "$manifestBaseUrl/$sourceId.manifest"
+        val download = SignedManifestHttpClient().download(
+            manifestUrl, sourceId, publicKey, previousGeneratedAt
+        )
+        require(download.manifest.minimumRules >= minimumRules) {
+            "서명 manifest의 최소 규칙 수가 앱 정책보다 낮습니다."
+        }
+        val bytes = download.content
+        val parsed = FilterRuleParser.parse(String(bytes, StandardCharsets.UTF_8).lineSequence().toList())
+        val effectiveMinimum = maxOf(minimumRules, download.manifest.minimumRules)
+        require(parsed.blocked.size + parsed.importantBlocked.size >= effectiveMinimum) {
+            "서명 필터의 유효한 차단 도메인이 최소 규칙 수보다 적습니다."
+        }
+
+        val target = File(context.filesDir, cacheName)
+        val now = System.currentTimeMillis()
+        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val previousUpdatedAt = preferences.getLong(updatedKey, 0L)
+        val previousBlockCount = preferences.getInt(countKey, 0)
+        val previousIgnoredCount = preferences.getInt(ignoredKey, 0)
+        val previousCachedProfile = preferences.getString(KEY_CACHED_PROFILE, null)
+        val metadata = preferences.edit()
+            .putLong(updatedKey, now)
+            .putInt(countKey, parsed.blocked.size + parsed.importantBlocked.size)
+            .putInt(ignoredKey, parsed.ignored)
+        if (cachedProfileKey != null) metadata.putString(KEY_CACHED_PROFILE, cachedProfileKey)
+        FilterCacheStore.replace(
+            target,
+            bytes,
+            commitMetadata = {
+                check(metadata.commit()) { "필터 캐시 메타데이터를 저장하지 못했습니다." }
+                stateStore.recordAccepted(sourceId, download.manifest.generatedAt)
+            },
+            rollbackMetadata = {
+                val rollback = preferences.edit()
+                    .putLong(updatedKey, previousUpdatedAt)
+                    .putInt(countKey, previousBlockCount)
+                    .putInt(ignoredKey, previousIgnoredCount)
+                if (cachedProfileKey != null) {
+                    if (previousCachedProfile == null) rollback.remove(KEY_CACHED_PROFILE)
+                    else rollback.putString(KEY_CACHED_PROFILE, previousCachedProfile)
+                }
+                check(rollback.commit()) { "이전 필터 메타데이터를 복구하지 못했습니다." }
+                stateStore.restore(sourceId, previousGeneratedAt)
+            }
+        )
+        return UpdateResult(
+            parsed.blocked.size + parsed.importantBlocked.size, parsed.allowed.size,
+            parsed.ignored, bytes.size, now
+        )
     }
 
     fun lastUpdatedAt(context: Context): Long =
