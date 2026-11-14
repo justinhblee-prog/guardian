@@ -49,6 +49,16 @@ class ManifestTimestampStoreTest {
     }
 
     @Test
+    fun restoreRollsBackTimestampAndCanRemoveFirstAcceptedValue() {
+        val (file, store) = newStore()
+        store.recordAccepted("base-adblock", 3000L)
+        store.restore("base-adblock", 2000L)
+        assertEquals(2000L, ManifestTimestampStore(file).lastAccepted("base-adblock"))
+        store.restore("base-adblock", 0L)
+        assertEquals(0L, ManifestTimestampStore(file).lastAccepted("base-adblock"))
+    }
+
+    @Test
     fun missingStateStartsAtZeroAndDoesNotCreateAFile() {
         val (file, store) = newStore()
 
