@@ -38,7 +38,8 @@ internal object FilterManifestVerifier {
         manifestBytes: ByteArray,
         signatureBase64: String,
         publicKeyX509Base64: String,
-        nowEpochSeconds: Long = System.currentTimeMillis() / 1000L
+        nowEpochSeconds: Long = System.currentTimeMillis() / 1000L,
+        minimumGeneratedAtExclusive: Long = 0L
     ): Manifest {
         require(manifestBytes.isNotEmpty() && manifestBytes.size <= MAX_MANIFEST_BYTES) {
             "필터 manifest 크기가 올바르지 않습니다."
@@ -89,6 +90,9 @@ internal object FilterManifestVerifier {
         )
         require(manifest.manifestVersion == 1) { "지원하지 않는 manifest 버전입니다." }
         require(manifest.generatedAt > 0L && manifest.minimumRules > 0) { "manifest 숫자 값이 범위를 벗어났습니다." }
+        require(minimumGeneratedAtExclusive >= 0L && manifest.generatedAt > minimumGeneratedAtExclusive) {
+            "이전 manifest보다 오래되었거나 동일한 manifest는 적용할 수 없습니다."
+        }
         require(nowEpochSeconds > 0L && manifest.generatedAt <= nowEpochSeconds + MAX_FUTURE_SKEW_SECONDS) {
             "manifest 생성 시각이 현재보다 지나치게 미래입니다."
         }
