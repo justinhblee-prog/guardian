@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { createPrivateKey, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { createRateLimiter } from './rate-limit.mjs';
@@ -45,6 +45,7 @@ async function readBody(req) {
 function requireEnv() {
   if (!pool) throw Object.assign(new Error('서버 데이터베이스가 구성되지 않았습니다.'), { status: 503 });
   if (!LOOKUP_SECRET || LOOKUP_SECRET.length < 32) throw Object.assign(new Error('라이선스 조회용 서버 비밀값이 구성되지 않았습니다.'), { status: 503 });
+  if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 32) throw Object.assign(new Error('관리자 인증 토큰이 구성되지 않았습니다.'), { status: 503 });
 }
 function requireAdmin(req) {
   const supplied = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -52,7 +53,15 @@ function requireAdmin(req) {
 }
 function requireSigner() {
   if (!PRIVATE_KEY) throw Object.assign(new Error('라이선스 서명 키가 서버에 구성되지 않았습니다.'), { status: 503 });
-  return PRIVATE_KEY.replace(/\\n/g, '\n');
+  try {
+    const key = createPrivateKey(PRIVATE_KEY.replace(/\\n/g, '\n'));
+    if (key.asymmetricKeyType !== 'rsa' || (key.asymmetricKeyDetails?.modulusLength || 0) < 2048) {
+      throw new Error('weak_or_non_rsa_key');
+    }
+    return key;
+  } catch {
+    throw Object.assign(new Error('RSA 2048비트 이상의 라이선스 서명 키 구성이 올바르지 않습니다.'), { status: 503 });
+  }
 }
 function tokenFor(row, deviceBinding) {
   return issueEntitlementToken({
@@ -237,6 +246,16 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
+    if (req.method === 'GET' && url.pathname === '/ready') {
+      try {
+        requireEnv();
+        requireSigner();
+        await pool.query('SELECT 1');
+        return json(res, 200, { ok: true, service: 'guardian-license-api', database: 'ready', signer: 'ready' });
+      } catch {
+        return json(res, 503, { ok: false, error: 'not_ready' });
+      }
+    }
     if (req.method === 'GET' && url.pathname === '/admin.js') {
       const script = await readFile(new URL('../admin/admin.js', import.meta.url));
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
