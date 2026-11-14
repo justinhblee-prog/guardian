@@ -69,7 +69,15 @@ object FilterRuleParser {
         // Context-sensitive, cosmetic, regex, URL/path, and rewriting rules
         // are not guessed at DNS level; only safe hostname anchors are used.
         val parts = expression.split(36.toChar(), limit = 2)
-        val host = parts[0].substringBefore('^').trimEnd('.')
+        val hostExpression = parts[0].trimEnd('.')
+        // A DNS filter can safely apply a hostname anchor, but not an Adblock
+        // rule constrained to a URL path or to text following the separator.
+        // Reject those rules instead of broadening them to the entire domain.
+        val host = when {
+            hostExpression.endsWith('^') -> hostExpression.dropLast(1)
+            '^' in hostExpression -> return null
+            else -> hostExpression
+        }
         val modifiers = parts.getOrNull(1)?.split(',').orEmpty()
         val supportedModifiers = setOf("important", "all", "badfilter")
         if (modifiers.any { it.isNotBlank() && it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
