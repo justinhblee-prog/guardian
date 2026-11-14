@@ -44,6 +44,8 @@ class MainActivity : Activity() {
     private var protectionStatusDetail: TextView? = null
     private var protectionActionButton: Button? = null
     private var protectionFeedback: TextView? = null
+    private var securityFilterSwitch: Switch? = null
+    private var androidAdsFilterSwitch: Switch? = null
     private lateinit var blockRulesInput: EditText
     private lateinit var allowRulesInput: EditText
     private var rulesFeedback: TextView? = null
@@ -548,7 +550,8 @@ class MainActivity : Activity() {
         body.addView(protectionSwitchCard(
             "악성코드 · 피싱 보호",
             "HaGeZi Threat Intelligence 도메인 목록을 추가로 적용합니다.",
-            prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+            prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
+            onToggleCreated = { securityFilterSwitch = it }
         ) { checked ->
             prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
             if (checked && !FilterListManager.hasCachedSecurityList(this)) {
@@ -563,7 +566,8 @@ class MainActivity : Activity() {
         body.addView(protectionSwitchCard(
             "Android 앱 광고 SDK 필터",
             "AWAvenue 목록으로 알려진 앱 광고 SDK 도메인을 추가 차단합니다. 모든 앱 내부 광고를 제거하는 기능은 아닙니다.",
-            prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+            prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false),
+            onToggleCreated = { androidAdsFilterSwitch = it }
         ) { checked ->
             prefs.edit().putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, checked).apply()
             if (checked && !FilterListManager.hasCachedAndroidAdsList(this)) {
@@ -625,6 +629,7 @@ class MainActivity : Activity() {
         title: String,
         description: String,
         checked: Boolean,
+        onToggleCreated: ((Switch) -> Unit)? = null,
         onChanged: (Boolean) -> Unit
     ): View {
         val card = card(panel, 14).apply {
@@ -643,6 +648,7 @@ class MainActivity : Activity() {
             contentDescription = title
             setOnCheckedChangeListener { _, enabled -> onChanged(enabled) }
         }
+        onToggleCreated?.invoke(toggle)
         row.addView(toggle, LinearLayout.LayoutParams(dp(58), dp(42)))
         card.addView(row)
         card.addView(text(description, 10f, muted, false).withTop(4))
@@ -1260,9 +1266,11 @@ class MainActivity : Activity() {
                 val result = FilterListManager.update(this)
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
+                val securityWasEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                val androidAdsWasEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
                 val securityWasCached = FilterListManager.hasCachedSecurityList(this)
                 val androidAdsWasCached = FilterListManager.hasCachedAndroidAdsList(this)
-                val securityResult = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
+                val securityResult = if (securityWasEnabled) {
                     try {
                         FilterListManager.updateSecurity(this).also {
                             prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
@@ -1272,10 +1280,12 @@ class MainActivity : Activity() {
                             FilterListManager.KEY_SECURITY_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
                         ).apply()
+                        if (!securityWasCached) prefs.edit()
+                            .putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false).apply()
                         null
                     }
                 } else null
-                val androidAdsResult = if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)) {
+                val androidAdsResult = if (androidAdsWasEnabled) {
                     try {
                         FilterListManager.updateAndroidAds(this).also {
                             prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
@@ -1285,6 +1295,8 @@ class MainActivity : Activity() {
                             FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
                         ).apply()
+                        if (!androidAdsWasCached) prefs.edit()
+                            .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
                         null
                     }
                 } else null
@@ -1297,11 +1309,17 @@ class MainActivity : Activity() {
                 }
                 filterUpdateRunning.set(false)
                 runOnUiThread {
-                    val securityMessage = if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)) {
-                        if (securityResult != null) " · 보안 ${securityResult.blocked}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(보안 필터 미적용)"
+                    if (securityWasEnabled && securityResult == null && !securityWasCached) {
+                        securityFilterSwitch?.isChecked = false
+                    }
+                    if (androidAdsWasEnabled && androidAdsResult == null && !androidAdsWasCached) {
+                        androidAdsFilterSwitch?.isChecked = false
+                    }
+                    val securityMessage = if (securityWasEnabled) {
+                        if (securityResult != null) " · 보안 ${securityResult.blocked}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(캐시 없음 · 자동 비활성화)"
                     } else ""
-                    val androidAdsMessage = if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)) {
-                        if (androidAdsResult != null) " · Android 앱 광고 ${androidAdsResult.blocked}개" else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)" else " · 앱 광고 필터 다운로드 실패(미적용)"
+                    val androidAdsMessage = if (androidAdsWasEnabled) {
+                        if (androidAdsResult != null) " · Android 앱 광고 ${androidAdsResult.blocked}개" else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)" else " · 앱 광고 필터 다운로드 실패(캐시 없음 · 자동 비활성화)"
                     } else ""
                     setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage}${androidAdsMessage} · ${result.bytes / 1024}KB")
                     filterUpdateButton?.text = "필터 목록 업데이트"
