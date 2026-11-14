@@ -374,3 +374,9 @@
 - Package: `com.guardian.adblock`, versionCode `19`, versionName `0.7.6-dev`.
 - CI debug APK SHA-256: `b5ed0b9ee635eadc1ba5c337f94eed9c47767215198e2b60df5748fbf53e1e91` (about 2.9 MB). Ordinary push workflow skipped artifact upload.
 - This is automated CI evidence, not physical-device validation; APK is debug-signed and not a production-signed release.
+
+
+## 0.7.7-dev — Filter screen option race prevention (2026-11-14)
+- The Rules/Filters screen uses CheckBox controls for optional security and Android-ad filters. Previously, an update started from that screen only disabled the corresponding Switch controls on the Protection screen, leaving the CheckBoxes interactive while the worker snapshot was downloading. This could change an option after its cache snapshot and leave an enabled filter without a validated cache.
+- Track and disable both screen variants during the complete update, restore interaction afterward, and synchronize the control off when a first-time optional-list download fails.
+- Package versionCode 20 / `0.7.7-dev`. CI verification pending.

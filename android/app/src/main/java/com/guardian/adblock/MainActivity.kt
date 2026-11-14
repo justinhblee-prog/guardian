@@ -46,6 +46,8 @@ class MainActivity : Activity() {
     private var protectionFeedback: TextView? = null
     private var securityFilterSwitch: Switch? = null
     private var androidAdsFilterSwitch: Switch? = null
+    private var securityFilterCheckBox: CheckBox? = null
+    private var androidAdsFilterCheckBox: CheckBox? = null
     private lateinit var blockRulesInput: EditText
     private lateinit var allowRulesInput: EditText
     private var rulesFeedback: TextView? = null
@@ -165,6 +167,8 @@ class MainActivity : Activity() {
         protectionFeedback = null
         securityFilterSwitch = null
         androidAdsFilterSwitch = null
+        securityFilterCheckBox = null
+        androidAdsFilterCheckBox = null
         statsText = null
         recentText = null
         diagnosticText = null
@@ -1086,6 +1090,7 @@ class MainActivity : Activity() {
                 }
             }
         }
+        securityFilterCheckBox = securityCheck
         options.addView(securityCheck)
         val androidAdsCheck = CheckBox(this).apply {
             text = "Android 앱 광고 SDK 차단 (AWAvenue Ads Rule)"
@@ -1108,6 +1113,7 @@ class MainActivity : Activity() {
                 }
             }
         }
+        androidAdsFilterCheckBox = androidAdsCheck
         options.addView(androidAdsCheck)
         options.addView(text(
             "Android 앱 광고 SDK 도메인을 추가로 차단합니다. DNS 수준 필터이므로 모든 앱 내부 광고가 제거되는 것은 아닙니다.",
@@ -1290,6 +1296,8 @@ class MainActivity : Activity() {
         // after the snapshot, leaving protection configured with no cache.
         securityFilterSwitch?.isEnabled = false
         androidAdsFilterSwitch?.isEnabled = false
+        securityFilterCheckBox?.isEnabled = false
+        androidAdsFilterCheckBox?.isEnabled = false
         setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} 목록을 내려받아 규칙을 검증합니다.")
         val hadPreviousMainCache = FilterListManager.hasCachedList(this)
         thread(name = "guardian-filter-update") {
@@ -1342,9 +1350,11 @@ class MainActivity : Activity() {
                 runOnUiThread {
                     if (securityWasEnabled && securityResult == null && !securityWasCached) {
                         securityFilterSwitch?.isChecked = false
+                        securityFilterCheckBox?.isChecked = false
                     }
                     if (androidAdsWasEnabled && androidAdsResult == null && !androidAdsWasCached) {
                         androidAdsFilterSwitch?.isChecked = false
+                        androidAdsFilterCheckBox?.isChecked = false
                     }
                     val securityMessage = if (securityWasEnabled) {
                         if (securityResult != null) " · 보안 ${securityResult.blocked}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(캐시 없음 · 자동 비활성화)"
@@ -1357,6 +1367,10 @@ class MainActivity : Activity() {
                     filterUpdateButton?.isEnabled = true
                     securityFilterSwitch?.isEnabled = true
                     androidAdsFilterSwitch?.isEnabled = true
+                    securityFilterCheckBox?.isEnabled = true
+                    androidAdsFilterCheckBox?.isEnabled = true
+                    securityFilterCheckBox?.isEnabled = true
+                    androidAdsFilterCheckBox?.isEnabled = true
                 }
             } catch (e: Exception) {
                 filterUpdateRunning.set(false)
