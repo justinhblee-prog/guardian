@@ -109,7 +109,6 @@ class DnsDohHttpCodecTest {
                     returnZero = false
                     return 0
                 }
-                returnZero = true
                 return delegate.read(buffer, offset, length)
             }
         }
