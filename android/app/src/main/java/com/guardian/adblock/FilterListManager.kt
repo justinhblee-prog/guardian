@@ -189,14 +189,34 @@ object FilterListManager {
             }
             val target = File(context.filesDir, cacheName)
             val now = System.currentTimeMillis()
-            val metadata = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val previousUpdatedAt = preferences.getLong(updatedKey, 0L)
+            val previousBlockCount = preferences.getInt(countKey, 0)
+            val previousIgnoredCount = preferences.getInt(ignoredKey, 0)
+            val previousCachedProfile = preferences.getString(KEY_CACHED_PROFILE, null)
+            val metadata = preferences.edit()
                 .putLong(updatedKey, now)
                 .putInt(countKey, parsed.blocked.size + parsed.importantBlocked.size)
                 .putInt(ignoredKey, parsed.ignored)
             if (cachedProfileKey != null) metadata.putString(KEY_CACHED_PROFILE, cachedProfileKey)
-            FilterCacheStore.replace(target, bytes) {
-                check(metadata.commit()) { "필터 캐시 메타데이터를 저장하지 못했습니다." }
-            }
+            FilterCacheStore.replace(
+                target,
+                bytes,
+                commitMetadata = {
+                    check(metadata.commit()) { "필터 캐시 메타데이터를 저장하지 못했습니다." }
+                },
+                rollbackMetadata = {
+                    val rollback = preferences.edit()
+                        .putLong(updatedKey, previousUpdatedAt)
+                        .putInt(countKey, previousBlockCount)
+                        .putInt(ignoredKey, previousIgnoredCount)
+                    if (cachedProfileKey != null) {
+                        if (previousCachedProfile == null) rollback.remove(KEY_CACHED_PROFILE)
+                        else rollback.putString(KEY_CACHED_PROFILE, previousCachedProfile)
+                    }
+                    check(rollback.commit()) { "이전 필터 메타데이터를 복구하지 못했습니다." }
+                }
+            )
             return UpdateResult(parsed.blocked.size + parsed.importantBlocked.size, parsed.allowed.size, parsed.ignored, bytes.size, now)
         } finally {
             connection?.disconnect()
