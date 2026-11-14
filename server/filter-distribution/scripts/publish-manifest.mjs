@@ -2,6 +2,7 @@ import { createPublicKey, sign as rsaSign } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 const MAX_FILTER_BYTES = 10 * 1024 * 1024;
 const MAX_MANIFEST_BYTES = 16 * 1024;
@@ -120,7 +121,7 @@ export async function publishManifest(options, env = process.env) {
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
     const options = argsFrom(process.argv.slice(2));
     if (options.help) {
