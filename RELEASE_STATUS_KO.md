@@ -348,3 +348,13 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - `d5fea43`: 경로 조건, 후행 조건, 예외 규칙, 정상 호스트 앵커를 함께 검증하는 회귀 테스트를 추가했습니다. 기대 결과는 정상 호스트 규칙만 차단 목록에 남고 나머지 3개는 무시되는 것입니다.
 - [GitHub Actions run 43569255957](https://github.com/justinhblee-prog/guardian/actions/runs/43569255957) 성공: Android 단위 테스트, Lint, Debug APK 조립, 패키지 식별/버전 검사 및 APK 존재·SHA-256 검사가 통과했습니다. 일반 push이므로 APK artifact 업로드는 생략되었습니다.
 - 자동화 CI 검증이며 실기기 네트워크·실제 광고 제거 효과를 입증하지는 않습니다.
+
+
+## 2026-11-14 — 필터 업데이트 재시도 중 중복 다운로드 방지 / v0.7.4-dev
+
+- `12c3cbf`: 백그라운드 Worker가 기본·보안·Android 앱 광고 목록의 캐시 유효성과 각 목록의 마지막 갱신 시각을 개별 판단하도록 변경했습니다. 선택 프로필이 바뀌었거나 캐시가 없거나 설정 주기를 넘긴 목록만 갱신합니다. 선택 목록 하나가 실패해 재시도하더라도 이미 성공한 다른 목록을 다시 내려받지 않습니다.
+- 회귀 테스트에서 캐시 없음/메타데이터 없음, 주기 내 재시도, 갱신 주기 도달, 미래 시각, WorkManager 최소 간격을 확인했습니다.
+- 버전: `com.guardian.adblock`, versionCode `17`, versionName `0.7.4-dev`.
+- [GitHub Actions run 43570828960](https://github.com/justinhblee-prog/guardian/actions/runs/43570828960): 성공. Android 단위 테스트, Android lint, Debug APK 조립, package/version 검사 및 APK SHA-256 생성 모두 통과했습니다.
+- CI 검증 APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577` (약 2.9MB). 일반 push이므로 설치용 artifact 업로드는 건너뛰었습니다.
+- 해당 APK는 CI 검증용 debug 빌드입니다. 최종 배포 APK가 아니며 실기기 VPN/DNS·실제 광고 제거 효과는 아직 검증하지 않았습니다.
