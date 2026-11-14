@@ -110,15 +110,16 @@ jobs:
           - Android 단위 테스트: 통과
           - Android lintDebug: 통과
           - assembleDebug: 통과
+          - Android API 35 에뮬레이터 APK 설치·앱 실행 smoke test: 통과
           - APK 패키지명·버전 검사: 통과
           - APK SHA-256: ${APK_SHA256}
           - 서명 유형: Android debug 서명 (배포용 production 서명 아님)
-          - 실기기 VPN·DNS 라우팅·실제 광고 제거 테스트: 미실시
+          - 물리 기기 VPN 승인·실제 DNS 라우팅·광고 제거 테스트: 미실시
 
           이 결과는 GitHub Actions 자동화 검증이며, 물리 기기 수용 테스트나 모든 앱의 광고 제거를 보증하지 않습니다.
           EOF
           zip -qr 'release/Guardian-AdBlock-Source-v0.7.8-dev.zip' . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' 'release/*.zip'
-          ls -lh release/Guardian-AdBlock-Source-v0.7.7-dev.zip release/VERIFICATION_SUMMARY_KO.md
+          ls -lh release/Guardian-AdBlock-Source-v0.7.8-dev.zip release/VERIFICATION_SUMMARY_KO.md
 
       - name: Upload installable debug APK and complete source package (final build only)
         if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[final-apk]')
@@ -128,7 +129,7 @@ jobs:
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/debug/SHA256SUMS.txt
-            release/Guardian-AdBlock-Source-v0.7.7-dev.zip
+            release/Guardian-AdBlock-Source-v0.7.8-dev.zip
             release/VERIFICATION_SUMMARY_KO.md
           if-no-files-found: error
           retention-days: 30
