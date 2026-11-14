@@ -29,6 +29,7 @@ jobs:
         run: |
           node --check src/server.mjs
           node --check src/license-core.mjs
+          node --check src/rate-limit.mjs
           node --check admin/admin.js
       - name: Run cryptographic and token compatibility tests
         run: npm test
