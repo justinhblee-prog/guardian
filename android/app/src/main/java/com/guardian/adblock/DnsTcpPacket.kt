@@ -42,7 +42,9 @@ object DnsTcpPacket {
             if (ihl < 20 || length < ihl + 20) return null
             if ((packet[9].toInt() and 0xff) != 6) return null
             if (u16(packet, 2) != length || !checksumValid(packet, 0, ihl)) return null
-            if ((u16(packet, 6) and 0x3fff) != 0) return null
+            val fragmentField = u16(packet, 6)
+            // The IPv4 reserved flag must be zero; reject fragments and malformed reserved-bit use.
+            if ((fragmentField and 0x8000) != 0 || (fragmentField and 0x3fff) != 0) return null
             tcpOffset = ihl
             source = packet.copyOfRange(12, 16)
             destination = packet.copyOfRange(16, 20)
@@ -56,7 +58,11 @@ object DnsTcpPacket {
         } else return null
 
         val tcpLength = length - tcpOffset
-        val headerLength = ((packet[tcpOffset + 12].toInt() ushr 4) and 0x0f) * 4
+        val headerLengthByte = packet[tcpOffset + 12].toInt() and 0xff
+        // The low nibble contains TCP reserved bits and the experimental NS bit.
+        // Guardian does not implement these semantics, so reject rather than silently ignore them.
+        if ((headerLengthByte and 0x0f) != 0) return null
+        val headerLength = ((headerLengthByte ushr 4) and 0x0f) * 4
         if (headerLength < 20 || headerLength > tcpLength) return null
         val checksum = u16(packet, tcpOffset + 16)
         if (checksum == 0 || !tcpChecksumValid(packet, version, tcpOffset, tcpLength, source, destination)) return null
