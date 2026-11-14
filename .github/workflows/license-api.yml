@@ -1,6 +1,7 @@
 name: Guardian License API
 on:
   push:
+    branches: [main]
     paths:
       - 'server/license-api/**'
       - '.github/workflows/license-api.yml'
