@@ -72,7 +72,10 @@ object FilterListManager {
     }
 
     fun hasCachedFile(context: Context): Boolean =
-        File(context.filesDir, CACHE_FILE).let { it.isFile && it.length() > 0L }
+        File(context.filesDir, CACHE_FILE).let {
+            FilterCacheStore.recover(it)
+            it.isFile && it.length() > 0L
+        }
 
     internal fun isCacheValid(fileExists: Boolean, blockCount: Int, minimumRules: Int): Boolean =
         fileExists && minimumRules > 0 && blockCount >= minimumRules
@@ -81,12 +84,18 @@ object FilterListManager {
         isCacheValid(hasCachedFile(context), cachedBlockCount(context), selectedProfile(context).minimumRules)
 
     fun hasCachedSecurityList(context: Context): Boolean {
-        val fileExists = File(context.filesDir, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
+        val fileExists = File(context.filesDir, SECURITY_CACHE_FILE).let {
+            FilterCacheStore.recover(it)
+            it.isFile && it.length() > 0L
+        }
         return isCacheValid(fileExists, cachedSecurityBlockCount(context), MIN_SECURITY_BLOCKS)
     }
 
     fun hasCachedAndroidAdsList(context: Context): Boolean {
-        val fileExists = File(context.filesDir, ANDROID_ADS_CACHE_FILE).let { it.isFile && it.length() > 0L }
+        val fileExists = File(context.filesDir, ANDROID_ADS_CACHE_FILE).let {
+            FilterCacheStore.recover(it)
+            it.isFile && it.length() > 0L
+        }
         return isCacheValid(fileExists, cachedAndroidAdsBlockCount(context), MIN_ANDROID_ADS_BLOCKS)
     }
     fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
