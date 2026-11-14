@@ -106,15 +106,16 @@ async function activate(body) {
 async function refresh(body) {
   requireEnv();
   const device = validateDeviceBinding(body.deviceBinding);
+  if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
   const client = await pool.connect();
   try {
     const result = await client.query(
       `SELECT l.* FROM licenses l JOIN activations a ON a.license_id=l.id
        JOIN products p ON p.id=l.product_id
-       WHERE a.device_binding=$1 AND a.deactivated_at IS NULL
+       WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
        AND l.status='active' AND l.expires_at>now() AND p.active=true
-       ORDER BY a.last_seen_at DESC LIMIT 1`,
-      [device]
+       LIMIT 1`,
+      [device, body.licenseRef]
     );
     if (!result.rowCount) throw Object.assign(new Error('활성 라이선스를 찾을 수 없습니다.'), { status: 403 });
     await client.query('UPDATE activations SET last_seen_at=now() WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL', [result.rows[0].id, device]);
@@ -124,9 +125,10 @@ async function refresh(body) {
 async function deactivate(body) {
   requireEnv();
   const device = validateDeviceBinding(body.deviceBinding);
+  if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
   const result = await pool.query(
-    'UPDATE activations SET deactivated_at=now() WHERE device_binding=$1 AND deactivated_at IS NULL RETURNING license_id',
-    [device]
+    'UPDATE activations a SET deactivated_at=now() FROM licenses l WHERE a.license_id=l.id AND a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL RETURNING a.license_id',
+    [device, body.licenseRef]
   );
   for (const row of result.rows) await pool.query(
     "INSERT INTO license_events(license_id,event_type,actor) VALUES($1,'deactivated','device')", [row.license_id]
@@ -214,11 +216,12 @@ const server = http.createServer(async (req, res) => {
     else if (url.pathname === '/v1/licenses/deactivate') result = await deactivate(body);
     else if (url.pathname === '/v1/licenses/status') {
       const device = validateDeviceBinding(body.deviceBinding);
+      if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
       requireEnv();
       const r = await pool.query(
         `SELECT l.status,l.expires_at,l.license_ref FROM licenses l JOIN activations a ON a.license_id=l.id
-         WHERE a.device_binding=$1 AND a.deactivated_at IS NULL AND l.status='active' AND l.expires_at>now()
-         ORDER BY a.last_seen_at DESC LIMIT 1`, [device]);
+         WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL AND l.status='active' AND l.expires_at>now()
+         LIMIT 1`, [device, body.licenseRef]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
     } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
     else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
