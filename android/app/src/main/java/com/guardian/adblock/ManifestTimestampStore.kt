@@ -31,7 +31,9 @@ internal class ManifestTimestampStore(private val stateFile: File) {
         require(generatedAt > 0L) { "manifest 생성 시각은 양수여야 합니다." }
         val properties = Properties()
         if (stateFile.isFile) stateFile.inputStream().use(properties::load)
-        val previous = properties.getProperty(sourceId)?.toLongOrNull() ?: 0L
+        val stored = properties.getProperty(sourceId)
+        val previous = stored?.toLongOrNull()
+            ?: if (stored == null) 0L else throw IllegalStateException("저장된 manifest 시각 데이터가 손상되었습니다.")
         require(generatedAt > previous) { "이전 manifest보다 오래되었거나 동일한 버전입니다." }
         properties.setProperty(sourceId, generatedAt.toString())
         val parent = stateFile.absoluteFile.parentFile
