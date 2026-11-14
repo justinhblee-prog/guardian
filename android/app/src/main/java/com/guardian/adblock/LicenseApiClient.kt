@@ -47,7 +47,9 @@ internal object LicenseApiClient {
     }
 
     fun deactivate(context: Context): Boolean {
-        val current = LicenseEntitlementStore.current(context)
+        // Expired signed tokens do not grant Pro access, but their verified licenseRef
+        // is still required to release the server-side device activation slot.
+        val current = LicenseEntitlementStore.currentForRefresh(context)
             ?: return LicenseEntitlementStore.clear(context)
         post(
             "/v1/licenses/deactivate",
