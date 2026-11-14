@@ -39,7 +39,7 @@ npm start
 2. 이 디렉터리에서 `.env.example`을 `.env`로 복사합니다.
 3. `.env`의 모든 `REPLACE_...` 값을 서로 다른 무작위 비밀값으로 교체합니다. PostgreSQL 비밀번호는 URL 인코딩 문제가 없도록 영문·숫자만 사용합니다.
 4. RSA 개인키를 생성하고 PEM 전체를 `GUARDIAN_LICENSE_PRIVATE_KEY`에 `\n` 줄바꿈 형태로 넣습니다. 개인키는 이 서버의 Secret Manager 또는 보호된 환경 파일에만 두고 Git에 커밋하지 않습니다.
-5. `docker compose up -d --build`로 시작한 뒤 `docker compose ps`와 `curl http://127.0.0.1:8787/health`로 상태를 확인합니다.
+5. `docker compose up -d --build`로 시작한 뒤 `docker compose ps`와 `curl http://127.0.0.1:8787/health`는 프로세스 생존, `curl http://127.0.0.1:8787/ready`는 DB·서명키까지 포함한 준비 상태를 확인합니다.
 
 RSA 키 생성 예:
 ```sh
