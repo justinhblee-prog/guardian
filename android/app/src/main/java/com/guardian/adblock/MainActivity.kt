@@ -781,8 +781,7 @@ class MainActivity : Activity() {
                 10f, muted, false
             ).withTop(8) as TextView
             addView(licenseFeedback)
-            lateinit var activateButton: Button
-            activateButton = Button(this@MainActivity).apply {
+            val activateButton = Button(this@MainActivity).apply {
                 text = "라이선스 활성화"
                 isAllCaps = false
                 setTextColor(bg)
@@ -802,7 +801,7 @@ class MainActivity : Activity() {
                         } catch (error: Exception) {
                             runOnUiThread {
                                 licenseFeedback.text = error.message ?: "라이선스 활성화에 실패했습니다."
-                                activateButton.isEnabled = true
+                                isEnabled = true
                             }
                         }
                     }
