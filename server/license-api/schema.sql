@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS licenses (
   product_id uuid NOT NULL REFERENCES products(id),
   key_salt text NOT NULL,
   key_hash text NOT NULL,
+  key_lookup text NOT NULL UNIQUE,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked','expired')),
   expires_at timestamptz NOT NULL,
   max_devices integer NOT NULL DEFAULT 1 CHECK (max_devices BETWEEN 1 AND 20),
