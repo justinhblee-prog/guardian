@@ -11,10 +11,11 @@ process.env.GUARDIAN_FILTER_DIST_DIR = root;
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const sourceId = 'adguard';
 const version = 'test-v1';
+const generatedAt = Math.floor(Date.now() / 1000);
 const content = Buffer.from('||ads.example^\n', 'utf8');
 const manifest = Buffer.from([
   'manifestVersion=1',
-  `generatedAt=${Math.floor(Date.now() / 1000)}`,
+  `generatedAt=${generatedAt}`,
   `sourceId=${sourceId}`,
   `sourceVersion=${version}`,
   `url=https://filters.example.test/filters/${sourceId}/${version}.txt`,
@@ -25,7 +26,7 @@ const manifest = Buffer.from([
 const signature = rsaSign('RSA-SHA256', manifest, privateKey).toString('base64');
 await mkdir(path.join(root, 'filters', sourceId), { recursive: true });
 await writeFile(path.join(root, `${sourceId}.manifest`), manifest);
-await writeFile(path.join(root, `${sourceId}.${version}.${Math.floor(Date.now() / 1000)}.sig`), signature);
+await writeFile(path.join(root, `${sourceId}.${version}.${generatedAt}.sig`), signature);
 await writeFile(path.join(root, 'filters', sourceId, `${version}.txt`), content);
 const { server } = await import('../src/server.mjs');
 let baseUrl;
