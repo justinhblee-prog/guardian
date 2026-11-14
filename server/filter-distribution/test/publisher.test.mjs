@@ -91,6 +91,24 @@ test('publisher refuses to overwrite immutable version with different content', 
   );
 });
 
+test('publisher rejects RSA signing keys below 2048 bits', async () => {
+  const weakKey = generateKeyPairSync('rsa', { modulusLength: 1024 }).privateKey
+    .export({ type: 'pkcs8', format: 'pem' }).toString();
+  const input = path.join(root, 'weak-key.txt');
+  await writeFile(input, '||weak.example^\\n');
+  await assert.rejects(
+    publishManifest({
+      'source-id': 'adguard',
+      'source-version': 'weak-key',
+      input,
+      'base-url': 'https://filters.example.com',
+      'minimum-rules': '1',
+      'output-dir': path.join(root, 'weak-key-dist')
+    }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: weakKey }),
+    /at least 2048 bits/
+  );
+});
+
 test('publisher refuses to inherit a corrupt future anti-rollback timestamp', async () => {
   const input = path.join(root, 'future.txt');
   const outputDir = path.join(root, 'future-dist');
