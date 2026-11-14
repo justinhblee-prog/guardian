@@ -810,6 +810,28 @@ class MainActivity : Activity() {
             }
             addView(activateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
             if (verifiedLicense != null) {
+                val refreshButton = Button(this@MainActivity).apply {
+                    text = "라이선스 상태 갱신"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(panel2, 12)
+                    setOnClickListener {
+                        isEnabled = false
+                        licenseFeedback.text = "서버에서 라이선스 상태를 확인하고 있습니다."
+                        thread {
+                            try {
+                                LicenseApiClient.refresh(this@MainActivity)
+                                runOnUiThread { showTab("settings") }
+                            } catch (error: Exception) {
+                                runOnUiThread {
+                                    licenseFeedback.text = error.message ?: "라이선스 갱신에 실패했습니다."
+                                    isEnabled = true
+                                }
+                            }
+                        }
+                    }
+                }
+                addView(refreshButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
                 val deactivateButton = Button(this@MainActivity).apply {
                     text = "이 기기 라이선스 해제"
                     isAllCaps = false
