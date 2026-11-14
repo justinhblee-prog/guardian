@@ -110,6 +110,7 @@ object FilterListManager {
 
     private fun readCache(context: Context, name: String): List<String> {
         val file = File(context.filesDir, name)
+        FilterCacheStore.recover(file)
         return if (file.isFile && file.length() > 0L) file.readLines(Charsets.UTF_8) else emptyList()
     }
 
@@ -181,32 +182,15 @@ object FilterListManager {
                 "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size + parsed.importantBlocked.size}개뿐입니다."
             }
             val target = File(context.filesDir, cacheName)
-            val temporary = File(context.filesDir, "$cacheName.tmp")
-            temporary.writeBytes(bytes)
-            try {
-                Files.move(
-                    temporary.toPath(), target.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE
-                )
-            } catch (_: AtomicMoveNotSupportedException) {
-                try {
-                    Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
-                } catch (e: Exception) {
-                    temporary.delete()
-                    throw IllegalStateException("새 필터 캐시를 안전하게 교체하지 못했습니다.", e)
-                }
-            } catch (e: Exception) {
-                temporary.delete()
-                throw IllegalStateException("새 필터 캐시를 안전하게 교체하지 못했습니다.", e)
-            }
             val now = System.currentTimeMillis()
             val metadata = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putLong(updatedKey, now)
                 .putInt(countKey, parsed.blocked.size + parsed.importantBlocked.size)
                 .putInt(ignoredKey, parsed.ignored)
             if (cachedProfileKey != null) metadata.putString(KEY_CACHED_PROFILE, cachedProfileKey)
-            check(metadata.commit()) { "필터 캐시 메타데이터를 저장하지 못했습니다." }
+            FilterCacheStore.replace(target, bytes) {
+                check(metadata.commit()) { "필터 캐시 메타데이터를 저장하지 못했습니다." }
+            }
             return UpdateResult(parsed.blocked.size + parsed.importantBlocked.size, parsed.allowed.size, parsed.ignored, bytes.size, now)
         } finally {
             connection?.disconnect()
