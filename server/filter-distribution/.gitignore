@@ -4,3 +4,4 @@ dist/
 *.key
 *.tmp
 node_modules/
+\n.guardian-filter-update/\n
