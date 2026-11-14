@@ -123,6 +123,19 @@ class FilterManifestVerifierTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun rejectsOlderOrReplayedManifestTimestamp() {
+        val pair = keyPair()
+        val bytes = payload()
+        try {
+            FilterManifestVerifier.parseAndVerify(
+                bytes, signed(bytes, pair), Base64.getEncoder().encodeToString(pair.public.encoded),
+                nowEpochSeconds = 1794650000L,
+                minimumGeneratedAtExclusive = 1794650000L
+            )
+            fail("replayed manifest must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun rejectsManifestGeneratedTooFarInTheFuture() {
         val pair = keyPair()
         val bytes = String(payload(), StandardCharsets.UTF_8)
