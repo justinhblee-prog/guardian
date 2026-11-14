@@ -99,6 +99,7 @@ class MainActivity : Activity() {
         val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
         FilterUpdateScheduler.sync(this)
+        LicenseRefreshScheduler.sync(this)
         val lastUpdate = FilterListManager.lastUpdatedAt(this)
         val updateInterval = filterPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
         val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
