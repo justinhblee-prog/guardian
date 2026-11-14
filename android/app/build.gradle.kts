@@ -6,6 +6,8 @@ val guardianManifestBaseUrl = providers.gradleProperty("guardianManifestBaseUrl"
     .orElse(providers.environmentVariable("GUARDIAN_MANIFEST_BASE_URL")).getOrElse("")
 val guardianManifestPublicKey = providers.gradleProperty("guardianManifestPublicKey")
     .orElse(providers.environmentVariable("GUARDIAN_MANIFEST_PUBLIC_KEY")).getOrElse("")
+val guardianLicensePublicKey = providers.gradleProperty("guardianLicensePublicKey")
+    .orElse(providers.environmentVariable("GUARDIAN_LICENSE_PUBLIC_KEY")).getOrElse("")
 android {
     buildFeatures { buildConfig = true }
     namespace = "com.guardian.adblock"
