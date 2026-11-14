@@ -1090,6 +1090,7 @@ class MainActivity : Activity() {
                 }
             }
         }
+        securityCheck.isEnabled = !filterUpdateRunning.get()
         securityFilterCheckBox = securityCheck
         options.addView(securityCheck)
         val androidAdsCheck = CheckBox(this).apply {
@@ -1113,6 +1114,7 @@ class MainActivity : Activity() {
                 }
             }
         }
+        androidAdsCheck.isEnabled = !filterUpdateRunning.get()
         androidAdsFilterCheckBox = androidAdsCheck
         options.addView(androidAdsCheck)
         options.addView(text(
