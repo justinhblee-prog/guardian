@@ -22,6 +22,12 @@ test('health endpoint returns no-store service status', async () => {
   assert.deepEqual(await response.json(), { ok: true, service: 'guardian-license-api' });
 });
 
+test('readiness endpoint fails closed when database and signing configuration are absent', async () => {
+  const response = await fetch(`${baseUrl}/ready`);
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { ok: false, error: 'not_ready' });
+});
+
 test('malformed JSON is rejected with a client error', async () => {
   const response = await fetch(`${baseUrl}/v1/unknown`, {
     method: 'POST',
