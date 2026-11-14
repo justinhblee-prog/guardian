@@ -82,7 +82,7 @@ const server = http.createServer(async (req, res) => {
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, '0.0.0.0', () => {
-    process.stdout.write(\`Guardian filter distribution listening on :\${PORT}\n\`);
+    process.stdout.write(`Guardian filter distribution listening on :${PORT}\n`);
   });
 }
 export { server };
