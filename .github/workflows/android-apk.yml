@@ -73,7 +73,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
           script: |
             timeout 120s adb wait-for-device
             for attempt in $(seq 1 60); do if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')" = "1" ]; then break; fi; sleep 2; done
