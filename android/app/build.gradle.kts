@@ -2,6 +2,13 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+val guardianManifestBaseUrl = providers.gradleProperty("guardianManifestBaseUrl")
+    .orElse(providers.environmentVariable("GUARDIAN_MANIFEST_BASE_URL")).getOrElse("")
+val guardianManifestPublicKey = providers.gradleProperty("guardianManifestPublicKey")
+    .orElse(providers.environmentVariable("GUARDIAN_MANIFEST_PUBLIC_KEY")).getOrElse("")
+fun buildConfigString(value: String): String =
+    "\"\u0024{value.replace("\\\\", "\\\\\\\\").replace("\"", "\\\\\"")}\""
+
 android {
     buildFeatures { buildConfig = true }
     namespace = "com.guardian.adblock"
@@ -19,6 +26,8 @@ android {
         targetSdk = 35
         versionCode = 21
         versionName = "0.7.8-dev"
+        buildConfigField("String", "FILTER_MANIFEST_BASE_URL", buildConfigString(guardianManifestBaseUrl))
+        buildConfigField("String", "FILTER_MANIFEST_PUBLIC_KEY", buildConfigString(guardianManifestPublicKey))
     }
     sourceSets.getByName("main").assets.srcDir("../../shared")
     testOptions { unitTests.isIncludeAndroidResources = true }
