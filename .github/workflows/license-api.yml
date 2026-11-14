@@ -15,6 +15,22 @@ jobs:
   test-license-api:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: guardian
+          POSTGRES_PASSWORD: guardian_test_password
+          POSTGRES_DB: guardian_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U guardian -d guardian_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://guardian:guardian_test_password@localhost:5432/guardian_test
     defaults:
       run:
         working-directory: server/license-api
@@ -35,5 +51,7 @@ jobs:
         run: |
           cp .env.example .env
           docker compose config --quiet
-      - name: Run cryptographic and token compatibility tests
+      - name: Initialize PostgreSQL integration schema
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
+      - name: Run cryptographic, HTTP and PostgreSQL integration tests
         run: npm test
