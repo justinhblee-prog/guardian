@@ -74,9 +74,31 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
+            set -eu
+            adb logcat -c
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            adb shell monkey -p com.guardian.adblock 1
-            adb shell pidof com.guardian.adblock
+            START_OUTPUT="$(adb shell am start -W -n com.guardian.adblock/.MainActivity 2>&1)" || {
+              echo "$START_OUTPUT"
+              adb logcat -d -t 3000
+              exit 1
+            }
+            echo "$START_OUTPUT"
+            echo "$START_OUTPUT" | grep -q 'Status: ok' || {
+              echo "MainActivity did not report a successful launch."
+              adb logcat -d -t 3000
+              exit 1
+            }
+            sleep 3
+            ACTIVITY_STATE="$(adb shell dumpsys activity activities)"
+            echo "$ACTIVITY_STATE" | grep -F 'com.guardian.adblock' || {
+              echo "Guardian activity is not present in ActivityManager after launch."
+              adb logcat -d -t 3000
+              exit 1
+            }
+            if adb logcat -d -t 3000 | grep -E 'FATAL EXCEPTION|Process: com\\.guardian\\.adblock.*has died'; then
+              echo "Guardian crashed during emulator launch."
+              exit 1
+            fi
 
       - name: Verify APK package identity and version
         run: |
