@@ -365,3 +365,12 @@
 - Catch unexpected resolver callback exceptions inside the DNS TCP session manager and convert them to a DNS SERVFAIL response instead of allowing the packet loop to terminate the entire VPN service.
 - Add regression coverage proving a thrown resolver exception returns SERVFAIL and the established TCP session continues to process the next DNS request.
 - Package versionCode 19 / `0.7.6-dev`. CI verification pending.
+
+
+## 0.7.6-dev — DNS-over-TCP resolver exception isolation (2026-11-14)
+- DNS TCP session manager now catches unexpected exceptions from the resolver callback and returns a standards-shaped SERVFAIL response; a resolver exception no longer escapes to the VPN packet loop and terminates the tunnel.
+- Regression test confirms SERVFAIL and successful processing of a subsequent query in the same TCP session.
+- CI [43572032012](https://github.com/justinhblee-prog/guardian/actions/runs/43572032012) completed successfully: shared DNS rules and manifest checks, Android unit tests, Android lint, Debug APK assembly, package identity/version and APK checksum checks passed.
+- Package: `com.guardian.adblock`, versionCode `19`, versionName `0.7.6-dev`.
+- CI debug APK SHA-256: `b5ed0b9ee635eadc1ba5c337f94eed9c47767215198e2b60df5748fbf53e1e91` (about 2.9 MB). Ordinary push workflow skipped artifact upload.
+- This is automated CI evidence, not physical-device validation; APK is debug-signed and not a production-signed release.

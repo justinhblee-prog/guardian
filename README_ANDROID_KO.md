@@ -212,3 +212,12 @@ IPv6 DNS 업스트림 주소를 정규화할 때 주소 문자열이 제공되�
 - CI: [43571389815](https://github.com/justinhblee-prog/guardian/actions/runs/43571389815) — 단위 테스트, lint, Debug APK 조립, 패키지 식별 및 SHA-256 검증 통과
 - CI APK SHA-256: `f756ab65ce8d74cc7a7da45457b0cc2987b83acc83e9c993eab0a3f624492e1a`
 - 실기기 VPN/광고 차단 효과 검증은 별도입니다.
+
+
+## 0.7.6-dev — DNS-over-TCP resolver exception isolation (2026-11-14)
+- DNS TCP session manager now catches unexpected exceptions from the resolver callback and returns a standards-shaped SERVFAIL response; a resolver exception no longer escapes to the VPN packet loop and terminates the tunnel.
+- Regression test confirms SERVFAIL and successful processing of a subsequent query in the same TCP session.
+- CI [43572032012](https://github.com/justinhblee-prog/guardian/actions/runs/43572032012) completed successfully: shared DNS rules and manifest checks, Android unit tests, Android lint, Debug APK assembly, package identity/version and APK checksum checks passed.
+- Package: `com.guardian.adblock`, versionCode `19`, versionName `0.7.6-dev`.
+- CI debug APK SHA-256: `b5ed0b9ee635eadc1ba5c337f94eed9c47767215198e2b60df5748fbf53e1e91` (about 2.9 MB). Ordinary push workflow skipped artifact upload.
+- This is automated CI evidence, not physical-device validation; APK is debug-signed and not a production-signed release.
