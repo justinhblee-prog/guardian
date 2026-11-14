@@ -1259,6 +1259,11 @@ class MainActivity : Activity() {
         }
         filterUpdateButton?.isEnabled = false
         filterUpdateButton?.text = "필터 다운로드 및 검증 중…"
+        // Freeze optional-filter choices while their enabled/cache snapshot is
+        // being processed. Otherwise a user could enable a list mid-update,
+        // after the snapshot, leaving protection configured with no cache.
+        securityFilterSwitch?.isEnabled = false
+        androidAdsFilterSwitch?.isEnabled = false
         setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} 목록을 내려받아 규칙을 검증합니다.")
         val hadPreviousMainCache = FilterListManager.hasCachedList(this)
         thread(name = "guardian-filter-update") {
@@ -1324,6 +1329,8 @@ class MainActivity : Activity() {
                     setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage}${androidAdsMessage} · ${result.bytes / 1024}KB")
                     filterUpdateButton?.text = "필터 목록 업데이트"
                     filterUpdateButton?.isEnabled = true
+                    securityFilterSwitch?.isEnabled = true
+                    androidAdsFilterSwitch?.isEnabled = true
                 }
             } catch (e: Exception) {
                 filterUpdateRunning.set(false)
@@ -1338,6 +1345,8 @@ class MainActivity : Activity() {
                     setFilterUpdateStatus("업데이트 실패: ${e.message ?: e.javaClass.simpleName} · $cacheMessage")
                     filterUpdateButton?.text = "다시 시도"
                     filterUpdateButton?.isEnabled = true
+                    securityFilterSwitch?.isEnabled = true
+                    androidAdsFilterSwitch?.isEnabled = true
                 }
             }
         }
