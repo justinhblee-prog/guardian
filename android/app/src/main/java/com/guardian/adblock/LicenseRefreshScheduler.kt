@@ -9,6 +9,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /** Schedules renewal before the server-signed 24-hour entitlement expires. */
@@ -19,6 +20,9 @@ internal object LicenseRefreshScheduler {
 
     internal fun shouldRenew(expiresAt: Long, nowEpochSeconds: Long): Boolean =
         expiresAt - nowEpochSeconds <= RENEWAL_WINDOW_SECONDS
+
+    internal fun shouldRetryHttpStatus(statusCode: Int): Boolean =
+        statusCode == 408 || statusCode == 429 || statusCode >= 500
 
     fun sync(context: Context) {
         if (BuildConfig.LICENSE_API_BASE_URL.isBlank() || BuildConfig.LICENSE_PUBLIC_KEY.isBlank()) {
@@ -42,11 +46,7 @@ internal object LicenseRefreshScheduler {
     }
 }
 
-/**
- * Renews only a cryptographically verified token. If the device was offline
- * past expiry, the expired token remains non-authoritative and is used solely
- * to identify the licenseRef for a server-validated renewal request.
- */
+/** Renews only a cryptographically verified token; expiry never grants Pro access. */
 class LicenseRefreshWorker(
     appContext: Context,
     params: WorkerParameters
@@ -64,8 +64,14 @@ class LicenseRefreshWorker(
         return try {
             LicenseApiClient.refresh(applicationContext)
             Result.success()
-        } catch (_: Exception) {
+        } catch (error: LicenseApiException) {
+            if (error.isRetryable) Result.retry() else Result.failure()
+        } catch (_: IOException) {
+            // DNS, socket and timeout failures are transient and use WorkManager backoff.
             Result.retry()
+        } catch (_: Exception) {
+            // Invalid payloads, signatures or permanent local configuration errors must not loop.
+            Result.failure()
         }
     }
 }
