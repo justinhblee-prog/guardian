@@ -76,6 +76,32 @@ class DnsQueryPolicyTest {
         assertArrayEquals(expected, result.response)
     }
 
+    @Test fun mismatchedUpstreamTransactionReturnsServfailInsteadOfForwarding() {
+        DomainFilter.loadRules(listOf("block=ads.example"))
+        val request = query("news.example")
+        val mismatched = DomainFilter.makeServfail(request)!!.also {
+            it[1] = (it[1].toInt() xor 0x01).toByte()
+        }
+        val result = DnsQueryPolicy.resolve(request) { mismatched }
+        assertNotNull(result)
+        assertFalse(result!!.forwarded)
+        assertEquals(2, result.response[3].toInt() and 0x0f)
+        assertEquals(request[1].toInt() and 0xff, result.response[1].toInt() and 0xff)
+    }
+
+    @Test fun truncatedUpstreamUdpReplyIsNotForwardedAsFinalAnswer() {
+        DomainFilter.loadRules(listOf("block=ads.example"))
+        val request = query("news.example")
+        val truncated = DomainFilter.makeServfail(request)!!.also {
+            it[2] = (it[2].toInt() or 0x02).toByte()
+        }
+        val result = DnsQueryPolicy.resolve(request) { truncated }
+        assertNotNull(result)
+        assertFalse(result!!.forwarded)
+        assertEquals(2, result.response[3].toInt() and 0x0f)
+        assertEquals(0, result.response[2].toInt() and 0x02)
+    }
+
     @Test fun malformedQueryIsRejectedWithoutCallingUpstream() {
         DomainFilter.loadRules(listOf("block=ads.example"))
         var calls = 0
