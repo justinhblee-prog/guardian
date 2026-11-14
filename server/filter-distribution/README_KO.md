@@ -35,7 +35,9 @@ npm run update -- ./sources.json
 
 Updater는 HTTPS만 허용하고 redirect는 거부하며, 요청당 30초 timeout, 10 MiB 상한, UTF-8/NUL 검사, 최소 규칙 수 검사를 통과한 파일만 서명합니다. 버전은 UTC 날짜와 콘텐츠 SHA-256 앞 12자리 조합으로 생성하므로 같은 날짜의 변경도 별도 immutable 버전으로 발행됩니다. 실패한 upstream은 기존 manifest를 교체하지 않습니다.
 
-정기 실행은 배포/서명 PC의 작업 스케줄러에 위 명령을 등록하면 됩니다. Windows 작업 스케줄러에서는 매일 실행할 배치 파일에 `npm run update -- ./sources.json`을 넣고, 개인키는 작업 사용자만 읽을 수 있는 보호된 위치에서 환경 변수로 주입하세요. Windows에서는 `UPDATE_FILTERS.bat`을 작업 스케줄러에 등록해 매일 실행할 수 있습니다. 실행 계정의 환경 변수 `GUARDIAN_FILTER_SIGNING_PRIVATE_KEY`에 개인키를 안전하게 주입하세요. 배치 파일이나 작업 인수에 PEM/비밀번호를 직접 적지 마세요.\n\nLinux cron 예시는 다음과 같습니다.
+정기 실행은 배포/서명 PC의 작업 스케줄러에 위 명령을 등록하면 됩니다. Windows에서는 `UPDATE_FILTERS.bat`을 작업 스케줄러에 등록해 매일 실행할 수 있습니다. 실행 계정의 환경 변수 `GUARDIAN_FILTER_SIGNING_PRIVATE_KEY`에 개인키를 안전하게 주입하세요. 배치 파일이나 작업 인수에 PEM/비밀번호를 직접 적지 마세요.
+
+Linux cron 예시는 다음과 같습니다.
 
 ```cron
 17 4 * * * cd /opt/guardian/server/filter-distribution && /usr/bin/npm run update -- ./sources.json >> /var/log/guardian-filter-update.log 2>&1
