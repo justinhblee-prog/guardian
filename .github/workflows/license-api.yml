@@ -31,5 +31,9 @@ jobs:
           node --check src/license-core.mjs
           node --check src/rate-limit.mjs
           node --check admin/admin.js
+      - name: Validate Docker Compose deployment configuration
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
       - name: Run cryptographic and token compatibility tests
         run: npm test
