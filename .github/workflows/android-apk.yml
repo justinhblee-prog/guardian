@@ -105,9 +105,7 @@ jobs:
 
           이 결과는 GitHub Actions 자동화 검증이며, 물리 기기 수용 테스트나 모든 앱의 광고 제거를 보증하지 않습니다.
           EOF
-          zip -qr 'release/Guardian-AdBlock-Source-v0.7.7-dev.zip' . \\
-            -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' \\
-               '*/local.properties' '*/.idea/*' '*.apk' 'release/*.zip'
+          zip -qr 'release/Guardian-AdBlock-Source-v0.7.7-dev.zip' . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' 'release/*.zip'
           ls -lh release/Guardian-AdBlock-Source-v0.7.7-dev.zip release/VERIFICATION_SUMMARY_KO.md
 
       - name: Upload installable debug APK and complete source package (final build only)
