@@ -323,6 +323,14 @@ class DnsTcpSessionManagerTest {
         assertArrayEquals(first, replay)
         assertEquals(1, manager.activeSessionCount())
         val serverFin = DnsTcpPacket.parse(first, first.size, 53000)!!
+        val staleAck = packet(
+            flags = DnsTcpPacket.ACK,
+            seq = 1201, // Wrong client sequence: must not close the session.
+            acknowledgment = (serverFin.sequence + 1L) and 0xffffffffL
+        )
+        manager.handle(staleAck, staleAck.size) { null }
+        assertEquals(1, manager.activeSessionCount())
+
         val ack = packet(
             flags = DnsTcpPacket.ACK,
             seq = 1202,
