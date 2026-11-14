@@ -1,8 +1,21 @@
 # Guardian AdBlock Android — 개발/릴리스 상태
 
-기준 버전: **0.7.2-dev**  
-기준일: 2026-11-13  
+기준 버전: **0.7.3-dev**  
+기준일: 2026-11-14  
 저장소: https://github.com/justinhblee-prog/guardian
+
+## 현재 기준 — 0.7.3-dev (2026-11-14)
+
+- 최신 소스: `484670a6c6db36bf3cce11c3d438dd2d17741bad`
+- 최신 CI: [GitHub Actions run 43562402511](https://github.com/justinhblee-prog/guardian/actions/runs/43562402511) — **success**
+- Android JUnit: **19개 Kotlin 테스트 스위트 / 127개 테스트 메서드 통과**
+- Android lintDebug, assembleDebug, 패키지 식별 및 SHA-256 검증: **모두 통과**
+- APK 패키지: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev`
+- 설치 APK artifact: `Guardian-AdBlock-Android-APK-v0.7.3-dev` (ID `14100743136`)
+- Artifact ZIP SHA-256: `0666514555d869c5e3c25a4e44d1d9aa423c9d7143fcef4960b286d66f1b1aff`
+- APK SHA-256: `355080e2a1d8f64fc9720858c889368229db7b4365cc753732275c88f6c3cf11`
+- 이 APK는 설치 가능한 debug 서명 빌드입니다. Play Store용 production 서명본은 아닙니다.
+- 실기기 VPN 권한, DNS 경로, Wi-Fi/모바일 전환, 실제 광고 차단률은 아직 검증되지 않았습니다.
 
 ## 기존 차단 실패 원인
 
