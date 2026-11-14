@@ -358,3 +358,13 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - [GitHub Actions run 43570828960](https://github.com/justinhblee-prog/guardian/actions/runs/43570828960): 성공. Android 단위 테스트, Android lint, Debug APK 조립, package/version 검사 및 APK SHA-256 생성 모두 통과했습니다.
 - CI 검증 APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577` (약 2.9MB). 일반 push이므로 설치용 artifact 업로드는 건너뛰었습니다.
 - 해당 APK는 CI 검증용 debug 빌드입니다. 최종 배포 APK가 아니며 실기기 VPN/DNS·실제 광고 제거 효과는 아직 검증하지 않았습니다.
+
+
+## 2026-11-14 — DNS 주소 안전성 및 보호 범위 UI 문구 정리 / v0.7.5-dev
+
+- `df7cfbd`: IPv6 주소 정규화 결과의 `hostAddress`가 nullable일 수 있는 경로를 안전하게 처리했습니다. Kotlin 컴파일 경고도 제거했습니다.
+- `39eec62`: 홈 대시보드의 보호 범위 설명을 명확히 했습니다. Guardian 업스트림 DoT/DoH 지원과 앱 자체 암호화 DNS 우회 요청 미지원이 혼동되지 않도록, 앱이 직접 사용하는 DoH/DoT는 필터링하지 않는다고 구체화했습니다.
+- 버전: `com.guardian.adblock`, versionCode `18`, versionName `0.7.5-dev`.
+- [GitHub Actions run 43571389815](https://github.com/justinhblee-prog/guardian/actions/runs/43571389815): 성공. Android 단위 테스트, lint, Debug APK 조립, 패키지 식별/버전 및 SHA-256 검사 통과.
+- CI 검증 APK SHA-256: `f756ab65ce8d74cc7a7da45457b0cc2987b83acc83e9c993eab0a3f624492e1a`. 일반 push이므로 artifact 업로드는 생략했습니다.
+- 실기기 VPN·실제 광고 제거 효과는 여전히 미검증입니다.
