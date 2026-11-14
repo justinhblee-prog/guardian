@@ -3,13 +3,20 @@ package com.guardian.adblock
 import android.content.Context
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-/**
- * HTTPS-only client for the Guardian license service.
- * Call from a worker thread; never blocks the UI thread.
- */
+/** HTTP failures retain their status so background work can distinguish retryable outages. */
+internal class LicenseApiException(
+    val statusCode: Int,
+    message: String
+) : IOException(message) {
+    val isRetryable: Boolean
+        get() = statusCode == 408 || statusCode == 429 || statusCode >= 500
+}
+
+/** HTTPS-only client for the Guardian license service. Call from a worker thread. */
 internal object LicenseApiClient {
     private const val MAX_RESPONSE_BYTES = 8192
     private const val CONNECT_TIMEOUT_MS = 10_000
@@ -110,7 +117,7 @@ internal object LicenseApiClient {
                 } catch (_: Exception) {
                     "라이선스 서버 요청에 실패했습니다. (HTTP $code)"
                 }
-                throw IllegalStateException(message)
+                throw LicenseApiException(code, message)
             }
             return JSONObject(responseText)
         } finally {
