@@ -94,6 +94,13 @@ class DnsTcpSessionManager(
             }
             return listOf(ack(tcp, session))
         }
+        // Once the client has sent FIN, its byte stream is closed.
+        // Do not accept new payload at the FIN sequence boundary; otherwise a
+        // stray ACK+data can advance clientNext and prevent the final ACK closing
+        // the half-closed session.
+        if (session.clientFinReceived && tcp.payload.isNotEmpty()) {
+            return listOf(ack(tcp, session))
+        }
         if (tcp.payload.isNotEmpty()) {
             session.lastClientSegmentStart = tcp.sequence
             session.lastClientPayload = tcp.payload.copyOf()
