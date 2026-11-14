@@ -344,3 +344,11 @@
 - Fixed the Protection tab refresh path so an active VPN session cannot replace observed DNS counters with a generic persisted service message.
 - Inactive sessions continue to show specific service failure messages.
 - Added two regression tests for both paths.
+
+
+## 0.7.4-dev — Filter refresh retry efficiency (2026-11-14)
+- Refresh each enabled filter source only when its own cache is missing/invalid or its configured update interval has elapsed.
+- Avoid downloading already-successful, still-fresh lists again when WorkManager retries after an optional source failure.
+- Add regression coverage for retry freshness, stale boundaries, missing metadata, future timestamps and minimum interval behavior.
+- Advance Android package to versionCode 17 / versionName `0.7.4-dev`.
+- CI run 43570828960 passed unit tests, lint, debug APK assembly, package identity and checksum validation. APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577`. Push CI skipped artifact upload.
