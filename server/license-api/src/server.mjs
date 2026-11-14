@@ -127,17 +127,30 @@ async function refresh(body) {
   if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
   const client = await pool.connect();
   try {
+    // Serialize refresh against deactivation/revocation. Without the row lock,
+    // a refresh could read an active slot, race with deactivation, then issue
+    // a fresh signed token after the slot had already been released.
+    await client.query('BEGIN');
     const result = await client.query(
       `SELECT l.* FROM licenses l JOIN activations a ON a.license_id=l.id
        JOIN products p ON p.id=l.product_id
        WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
        AND l.status='active' AND l.expires_at>now() AND p.active=true
-       LIMIT 1`,
+       LIMIT 1 FOR UPDATE OF l, a`,
       [device, body.licenseRef]
     );
     if (!result.rowCount) throw Object.assign(new Error('활성 라이선스를 찾을 수 없습니다.'), { status: 403 });
-    await client.query('UPDATE activations SET last_seen_at=now() WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL', [result.rows[0].id, device]);
-    return { ...tokenFor(result.rows[0], device), expiresIn: TOKEN_TTL_SECONDS, licenseStatus: 'pro', licenseRef: result.rows[0].license_ref };
+    const touched = await client.query(
+      'UPDATE activations SET last_seen_at=now() WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL',
+      [result.rows[0].id, device]
+    );
+    if (touched.rowCount !== 1) throw Object.assign(new Error('활성 라이선스를 찾을 수 없습니다.'), { status: 403 });
+    const token = tokenFor(result.rows[0], device);
+    await client.query('COMMIT');
+    return { ...token, expiresIn: TOKEN_TTL_SECONDS, licenseStatus: 'pro', licenseRef: result.rows[0].license_ref };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
   } finally { client.release(); }
 }
 async function deactivate(body) {
