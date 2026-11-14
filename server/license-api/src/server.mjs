@@ -263,6 +263,17 @@ const server = http.createServer(async (req, res) => {
       try {
         requireEnv();
         requireSigner();
+        const schema = await pool.query(
+          `SELECT
+             to_regclass('public.products') AS products,
+             to_regclass('public.licenses') AS licenses,
+             to_regclass('public.activations') AS activations,
+             to_regclass('public.license_events') AS license_events`
+        );
+        const requiredTables = ['products', 'licenses', 'activations', 'license_events'];
+        if (requiredTables.some(table => !schema.rows[0]?.[table])) {
+          throw new Error('license_database_schema_not_initialized');
+        }
         await pool.query('SELECT 1');
         return json(res, 200, { ok: true, service: 'guardian-license-api', database: 'ready', signer: 'ready' });
       } catch {
