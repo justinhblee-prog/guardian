@@ -25,6 +25,7 @@ import android.widget.Spinner
 import android.widget.Switch
 import androidx.core.content.ContextCompat
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -197,9 +198,11 @@ class MainActivity : Activity() {
             insets
         }
         val scroll = ScrollView(this).apply { isFillViewport = true }
+        val screenWidthDp = resources.configuration.screenWidthDp
+        val horizontalPadding = dp(ResponsiveLayoutPolicy.horizontalPaddingDp(screenWidthDp))
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(20), dp(22), dp(24))
+            setPadding(horizontalPadding, dp(20), horizontalPadding, dp(24))
         }
         body.addView(header())
         when (tab) {
@@ -209,7 +212,18 @@ class MainActivity : Activity() {
             "activity" -> buildActivity(body)
             else -> buildSettings(body)
         }
-        scroll.addView(body)
+        val contentWidth = ResponsiveLayoutPolicy.contentWidthPx(
+            screenWidthDp.coerceAtLeast(1),
+            resources.displayMetrics.density
+        )
+        scroll.addView(
+            body,
+            FrameLayout.LayoutParams(
+                contentWidth,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            )
+        )
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(bottomNav(tab))
         setContentView(root)
