@@ -343,3 +343,12 @@
 - Removed redundant VPN rule reload before starting a missing security-list download. Cached-list toggles still reload immediately; download-required toggles reload after the update path completes.
 - Artifact upload skipped for normal push; no new APK artifact was published.
 - Physical-device VPN behavior and real ad-removal effectiveness remain unverified.
+
+
+## 2026-11-14 — 설정 화면 초기 이벤트 회귀 수정
+
+- 소스 커밋 `2d96698`: 필터 업데이트 주기 Spinner의 초기 선택 콜백이 같은 주기의 WorkManager 작업을 불필요하게 재예약하지 않도록 수정했습니다. 실제 선택값이 변경된 경우에만 설정을 저장하고 `FilterUpdateScheduler.sync()`를 호출합니다.
+- 회귀 검토 중 프로필 변경은 이미 다운로드 진행 중 차단되고 있음을 확인했습니다.
+- [GitHub Actions run 43569003248](https://github.com/justinhblee-prog/guardian/actions/runs/43569003248): Android 단위 테스트, Lint, Debug APK 조립, 패키지명·버전 확인 및 APK SHA-256 생성 단계가 모두 성공했습니다. 일반 push이므로 APK artifact 업로드는 건너뛰었습니다.
+- APK package: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev`.
+- 이 검증은 자동화 CI 결과이며 실기기 설치·VPN 라우팅·실제 광고 차단 검증은 아닙니다.
