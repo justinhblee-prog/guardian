@@ -25,7 +25,7 @@ const manifest = Buffer.from([
 const signature = rsaSign('RSA-SHA256', manifest, privateKey).toString('base64');
 await mkdir(path.join(root, 'filters', sourceId), { recursive: true });
 await writeFile(path.join(root, `${sourceId}.manifest`), manifest);
-await writeFile(path.join(root, `${sourceId}.sig`), signature);
+await writeFile(path.join(root, `${sourceId}.${version}.${Math.floor(Date.now() / 1000)}.sig`), signature);
 await writeFile(path.join(root, 'filters', sourceId, `${version}.txt`), content);
 const { server } = await import('../src/server.mjs');
 let baseUrl;
