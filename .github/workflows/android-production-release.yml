@@ -48,10 +48,19 @@ jobs:
           test -n "$GUARDIAN_RELEASE_STORE_PASSWORD"
           test -n "$GUARDIAN_RELEASE_KEY_ALIAS"
           test -n "$GUARDIAN_RELEASE_KEY_PASSWORD"
+          test -n "$GUARDIAN_MANIFEST_BASE_URL"
+          test -n "$GUARDIAN_MANIFEST_PUBLIC_KEY"
+          test -n "$GUARDIAN_LICENSE_PUBLIC_KEY"
+          test -n "$GUARDIAN_LICENSE_API_BASE_URL"
+          case "$GUARDIAN_MANIFEST_BASE_URL" in https://*) ;; *) echo "Manifest base URL must use HTTPS."; exit 1 ;; esac
+          case "$GUARDIAN_LICENSE_API_BASE_URL" in https://*) ;; *) echo "License API URL must use HTTPS."; exit 1 ;; esac
+          printf '%s' "$GUARDIAN_MANIFEST_PUBLIC_KEY" | base64 --decode >/dev/null
+          printf '%s' "$GUARDIAN_LICENSE_PUBLIC_KEY" | base64 --decode >/dev/null
           mkdir -p android/app
           printf '%s' "$GUARDIAN_RELEASE_KEYSTORE_BASE64" | base64 --decode > android/app/guardian-release.jks
           test -s android/app/guardian-release.jks
           chmod 600 android/app/guardian-release.jks
+          keytool -list -keystore android/app/guardian-release.jks -storepass "$GUARDIAN_RELEASE_STORE_PASSWORD" -alias "$GUARDIAN_RELEASE_KEY_ALIAS" >/dev/null
 
       - name: Run tests, lint and signed release builds
         run: gradle -p android --no-daemon clean testDebugUnitTest lintRelease assembleRelease bundleRelease
@@ -63,7 +72,8 @@ jobs:
           test -s "$APK"
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
           echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='21' versionName='0.7.8-dev'"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee release-signature.txt
+          mkdir -p release
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee release/signature-verification.txt
 
       - name: Create release verification package
         shell: bash
@@ -101,6 +111,7 @@ jobs:
             android/app/build/outputs/bundle/release/app-release.aab
             release/SHA256SUMS.txt
             release/VERIFICATION_SUMMARY_KO.md
+            release/signature-verification.txt
             release/Guardian-AdBlock-Source-v0.7.8-dev.zip
           if-no-files-found: error
           retention-days: 30
