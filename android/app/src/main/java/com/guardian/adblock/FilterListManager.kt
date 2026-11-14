@@ -64,7 +64,6 @@ object FilterListManager {
     }
 
     fun signedManifestStatus(context: Context): String? {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val entries = listOf(
             "광고·추적" to CACHE_FILE,
             "보안" to SECURITY_CACHE_FILE,
