@@ -19,4 +19,15 @@ class LicenseRefreshPolicyTest {
         val now = 1_800_000_000L
         assertTrue(LicenseRefreshScheduler.shouldRenew(now - 1L, now))
     }
+
+    @Test fun retriesOnlyTransientHttpFailures() {
+        assertTrue(LicenseRefreshScheduler.shouldRetryHttpStatus(408))
+        assertTrue(LicenseRefreshScheduler.shouldRetryHttpStatus(429))
+        assertTrue(LicenseRefreshScheduler.shouldRetryHttpStatus(500))
+        assertTrue(LicenseRefreshScheduler.shouldRetryHttpStatus(503))
+        assertFalse(LicenseRefreshScheduler.shouldRetryHttpStatus(400))
+        assertFalse(LicenseRefreshScheduler.shouldRetryHttpStatus(401))
+        assertFalse(LicenseRefreshScheduler.shouldRetryHttpStatus(403))
+        assertFalse(LicenseRefreshScheduler.shouldRetryHttpStatus(404))
+    }
 }
