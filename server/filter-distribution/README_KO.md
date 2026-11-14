@@ -20,7 +20,7 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out guardian-filte
 Publisher는 PEM 개인키를 `GUARDIAN_FILTER_SIGNING_PRIVATE_KEY` 환경 변수로 받습니다. Linux/macOS 예:
 
 ```sh
-export GUARDIAN_FILTER_SIGNING_PRIVATE_KEY="$(awk '{printf "%s\\\\n", $0}' guardian-filter-private.pem)"
+export GUARDIAN_FILTER_SIGNING_PRIVATE_KEY="$(awk '{printf "%s\\n", $0}' guardian-filter-private.pem)"
 ```
 
 ## 2. 필터 파일 준비 및 manifest 서명
