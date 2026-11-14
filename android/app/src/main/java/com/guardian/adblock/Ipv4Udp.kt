@@ -18,8 +18,13 @@ object Ipv4Udp {
         // Reject corrupted IPv4 headers before trusting addresses, offsets or ports.
         if (!checksumValid(packet, 0, ihl)) return null
         // DNS datagrams must not be IP-fragmented; reassembly is not implemented.
+        // DNS datagrams must not be IP-fragmented; reassembly is not implemented.
+        // Check the reserved flag, MF flag, and fragment offset independently.
+        // The DF flag (0x4000) is valid and intentionally remains accepted.
         val fragment = u16(packet, 6)
-        // The reserved IPv4 flag must be zero; DF is supported, but MF/offset are not.\n        if ((fragment and 0xbfff) != 0) return null
+        if ((fragment and 0x8000) != 0) return null // Reserved flag.
+        if ((fragment and 0x2000) != 0) return null // More Fragments.
+        if ((fragment and 0x1fff) != 0) return null // Fragment offset.
         val src = packet.copyOfRange(12, 16)
         val dst = packet.copyOfRange(16, 20)
         val srcPort = u16(packet, ihl)
