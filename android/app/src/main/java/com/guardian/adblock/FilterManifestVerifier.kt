@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets
 import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.Signature
+import java.security.interfaces.RSAPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 
@@ -64,7 +65,9 @@ internal object FilterManifestVerifier {
             throw IllegalArgumentException("필터 서명 인코딩이 올바르지 않습니다.", e)
         }
         val publicKey = KeyFactory.getInstance("RSA")
-            .generatePublic(X509EncodedKeySpec(publicKeyBytes))
+            .generatePublic(X509EncodedKeySpec(publicKeyBytes)) as? RSAPublicKey
+            ?: throw IllegalArgumentException("필터 서명 공개키 형식이 올바르지 않습니다.")
+        require(publicKey.modulus.bitLength() >= 2048) { "필터 서명 공개키가 너무 짧습니다." }
         val verifier = Signature.getInstance("SHA256withRSA")
         verifier.initVerify(publicKey)
         verifier.update(manifestBytes)
@@ -85,7 +88,9 @@ internal object FilterManifestVerifier {
         require(manifest.manifestVersion == 1) { "지원하지 않는 manifest 버전입니다." }
         require(manifest.generatedAt > 0L && manifest.minimumRules > 0) { "manifest 숫자 값이 범위를 벗어났습니다." }
         require(manifest.sourceId.matches(Regex("[a-zA-Z0-9._-]{1,64}"))) { "sourceId 형식이 올바르지 않습니다." }
-        require(manifest.sourceVersion.length <= 64) { "sourceVersion이 너무 깁니다." }
+        require(manifest.sourceVersion.isNotBlank() && manifest.sourceVersion.length <= 64) {
+            "sourceVersion 형식이 올바르지 않습니다."
+        }
         require(manifest.sha256.matches(Regex("[a-f0-9]{64}"))) { "SHA-256 해시 형식이 올바르지 않습니다." }
         val uri = URI(manifest.url)
         require(uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank() &&
