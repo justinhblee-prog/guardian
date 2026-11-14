@@ -123,6 +123,20 @@ class FilterManifestVerifierTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun rejectsManifestGeneratedTooFarInTheFuture() {
+        val pair = keyPair()
+        val bytes = String(payload(), StandardCharsets.UTF_8)
+            .replace("generatedAt=1794650000", "generatedAt=1900000000")
+            .toByteArray(StandardCharsets.UTF_8)
+        try {
+            FilterManifestVerifier.parseAndVerify(
+                bytes, signed(bytes, pair), Base64.getEncoder().encodeToString(pair.public.encoded),
+                nowEpochSeconds = 1794650000L
+            )
+            fail("future-dated manifest must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun rejectsBlankSourceVersionEvenWhenSigned() {
         val pair = keyPair()
         val bytes = String(payload(), StandardCharsets.UTF_8)
