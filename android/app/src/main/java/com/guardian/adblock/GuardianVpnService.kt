@@ -231,17 +231,13 @@ class GuardianVpnService : VpnService() {
                     if (length == 0) continue
 
                     val tcpReplies = tcpDns.handle(buffer, length) { query ->
-                        val domain = DomainFilter.readQuestionName(query)
-                        if (domain == null) {
+                        val result = DnsQueryPolicy.resolve(query, ::forwardDns)
+                        if (result == null) {
                             recordIgnoredPacket("TCP DNS 질의 형식 또는 질문 영역 검증 실패")
                             null
                         } else {
-                            val blocked = DomainFilter.isBlocked(domain)
-                            val forwarded = if (blocked) null else forwardDns(query)
-                            val answer = if (blocked) DomainFilter.makeNxdomain(query)
-                                else forwarded ?: DomainFilter.makeServfail(query)
-                            recordDnsActivity(domain, blocked, forwarded != null)
-                            answer
+                            recordDnsActivity(result.domain, result.blocked, result.forwarded)
+                            result.response
                         }
                     }
                     if (tcpReplies.isNotEmpty()) {
@@ -260,22 +256,18 @@ class GuardianVpnService : VpnService() {
                         // packets when their IP protocol explicitly identifies UDP.
                         continue
                     }
-                    val domain = DomainFilter.readQuestionName(payload)
-                    if (domain == null) {
+                    val result = DnsQueryPolicy.resolve(payload, ::forwardDns)
+                    if (result == null) {
                         recordIgnoredPacket("IPv4/IPv6 UDP DNS 질의 형식 또는 질문 영역 검증 실패")
                         continue
                     }
-                    val blocked = DomainFilter.isBlocked(domain)
-                    val forwarded = if (blocked) null else forwardDns(payload)
-                    val dnsResponse = (if (blocked) DomainFilter.makeNxdomain(payload)
-                        else forwarded ?: DomainFilter.makeServfail(payload)) ?: continue
                     // Keep UDP DNS replies within the IPv6 minimum-MTU safe payload.
                     // Oversized upstream answers are returned as TC responses instead
                     // of emitting an IP packet that exceeds the VPN interface MTU.
-                    val boundedDnsResponse = if (dnsResponse.size > MAX_UDP_DNS_RESPONSE_BYTES) {
+                    val boundedDnsResponse = if (result.response.size > MAX_UDP_DNS_RESPONSE_BYTES) {
                         DomainFilter.makeTruncatedResponse(payload) ?: continue
-                    } else dnsResponse
-                    recordDnsActivity(domain, blocked, forwarded != null)
+                    } else result.response
+                    recordDnsActivity(result.domain, result.blocked, result.forwarded)
                     val responsePacket = if (ipv4 != null) Ipv4Udp.response(ipv4, boundedDnsResponse)
                         else Ipv6Udp.response(ipv6!!, boundedDnsResponse)
                     synchronized(output) {
