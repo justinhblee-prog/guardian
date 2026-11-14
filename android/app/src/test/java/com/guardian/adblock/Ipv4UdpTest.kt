@@ -118,7 +118,7 @@ class Ipv4UdpTest {
         reserved[0] = 0x45
         reserved[2] = 0
         reserved[3] = 28
-        reserved[6] = 0x80 // Reserved IPv4 flag must be zero.
+        reserved[6] = 0x80.toByte() // Reserved IPv4 flag must be zero.
         reserved[9] = 17
         reserved[22] = 0
         reserved[23] = 53
@@ -128,7 +128,7 @@ class Ipv4UdpTest {
         assertNull(Ipv4Udp.parseDns(reserved, reserved.size))
 
         val dontFragment = reserved.copyOf()
-        dontFragment[6] = 0x40 // DF is valid and must remain accepted.
+        dontFragment[6] = 0x40.toByte() // DF is valid and must remain accepted.
         sealHeader(dontFragment, 20)
         assertNotNull(Ipv4Udp.parseDns(dontFragment, dontFragment.size))
     }
