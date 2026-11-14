@@ -98,7 +98,7 @@ class DnsDohHttpCodecTest {
     }
 
     @Test fun handlesStreamsThatTemporarilyReturnZeroForBulkReads() {
-        val response = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nContent-Length: 29\\r\\n\\r\\n"
+        val response = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: 29\r\n\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
         val headerEnd = response.indices.firstOrNull { index ->
             index + 3 < response.size &&
