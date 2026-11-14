@@ -164,8 +164,12 @@ export async function publishManifest(options, env = process.env) {
     await lock.writeFile(JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() }) + '\n');
     return await publishManifestUnlocked(options, env);
   } finally {
-    await lock.close();
-    await rm(lockPath, { force: true });
+    // Attempt lock-file cleanup even if closing the descriptor itself fails.
+    try {
+      await lock.close();
+    } finally {
+      await rm(lockPath, { force: true });
+    }
   }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
