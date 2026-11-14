@@ -23,6 +23,26 @@ Publisher는 PEM 개인키를 `GUARDIAN_FILTER_SIGNING_PRIVATE_KEY` 환경 변�
 export GUARDIAN_FILTER_SIGNING_PRIVATE_KEY="$(awk '{printf "%s\\n", $0}' guardian-filter-private.pem)"
 ```
 
+## 2-A. 자동 업데이트 (upstream 다운로드 + 검증 + 서명)
+
+수동 발행과 자동 수집을 모두 지원합니다. `sources.example.json`을 복사해 `sources.json`을 만들고, 신뢰할 upstream HTTPS 주소와 각 필터의 최소 규칙 수를 등록합니다. 예제에는 검증된 형식의 AdGuard DNS Filter 주소 1개만 넣었습니다. 나머지 필터 주소는 공급자 공식 배포처를 확인한 뒤 직접 추가하세요.
+
+```sh
+cp sources.example.json sources.json
+export GUARDIAN_FILTER_SIGNING_PRIVATE_KEY="$(awk '{printf "%s\\n", $0}' guardian-filter-private.pem)"
+npm run update -- ./sources.json
+```
+
+Updater는 HTTPS만 허용하고 redirect는 거부하며, 요청당 30초 timeout, 10 MiB 상한, UTF-8/NUL 검사, 최소 규칙 수 검사를 통과한 파일만 서명합니다. 버전은 UTC 날짜와 콘텐츠 SHA-256 앞 12자리 조합으로 생성하므로 같은 날짜의 변경도 별도 immutable 버전으로 발행됩니다. 실패한 upstream은 기존 manifest를 교체하지 않습니다.
+
+정기 실행은 배포/서명 PC의 작업 스케줄러에 위 명령을 등록하면 됩니다. Windows 작업 스케줄러에서는 매일 실행할 배치 파일에 `npm run update -- ./sources.json`을 넣고, 개인키는 작업 사용자만 읽을 수 있는 보호된 위치에서 환경 변수로 주입하세요. Linux cron 예시는 다음과 같습니다.
+
+```cron
+17 4 * * * cd /opt/guardian/server/filter-distribution && /usr/bin/npm run update -- ./sources.json >> /var/log/guardian-filter-update.log 2>&1
+```
+
+이 자동 수집 방식은 필터 파일을 가져오고 서명하는 단계까지 자동화합니다. 실제 인터넷 배포 서버 반영은 별도의 안전한 배포 절차로 `dist/` 산출물을 복사해야 합니다. 개인키를 운영 웹 서버나 Android 앱에 복사하지 마세요.
+
 ## 2. 필터 파일 준비 및 manifest 서명
 
 필터 파일은 HTTPS upstream에서 별도 검토·다운로드한 UTF-8 원본이어야 합니다. 예:
