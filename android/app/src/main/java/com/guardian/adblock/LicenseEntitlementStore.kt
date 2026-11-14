@@ -72,10 +72,34 @@ internal object LicenseEntitlementStore {
                 signatureBase64 = signature,
                 publicKeyX509Base64 = publicKey,
                 expectedDeviceBinding = deviceBinding(context),
-                nowEpochSeconds = nowEpochSeconds
-            )
+                nowEpochSeconds = nowEpochSeconds,
+                allowExpired = true
+            ).takeIf { it.expiresAt > nowEpochSeconds }
         } catch (_: Exception) {
-            // Fail closed for Pro while retaining no invalid entitlement.
+            // Invalid signatures or device bindings are removed; a valid expired token is retained for server renewal.
+            prefs.edit().remove(KEY_PAYLOAD).remove(KEY_SIGNATURE).commit()
+            null
+        }
+    }
+
+    /** Returns a verified device-bound reference even after expiry, solely so the server can renew it. */
+    fun refreshableLicenseRef(context: Context): String? {
+        val publicKey = BuildConfig.LICENSE_PUBLIC_KEY
+        if (publicKey.isBlank()) return null
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val encodedPayload = prefs.getString(KEY_PAYLOAD, null) ?: return null
+        val signature = prefs.getString(KEY_SIGNATURE, null) ?: return null
+        return try {
+            val payload = Base64.decode(encodedPayload, Base64.DEFAULT)
+            LicenseEntitlementVerifier.verify(
+                payload = payload,
+                signatureBase64 = signature,
+                publicKeyX509Base64 = publicKey,
+                expectedDeviceBinding = deviceBinding(context),
+                nowEpochSeconds = System.currentTimeMillis() / 1000L,
+                allowExpired = true
+            ).licenseRef
+        } catch (_: Exception) {
             prefs.edit().remove(KEY_PAYLOAD).remove(KEY_SIGNATURE).commit()
             null
         }
