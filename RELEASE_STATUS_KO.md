@@ -332,3 +332,11 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - [GitHub Actions run 43569003248](https://github.com/justinhblee-prog/guardian/actions/runs/43569003248): Android 단위 테스트, Lint, Debug APK 조립, 패키지명·버전 확인 및 APK SHA-256 생성 단계가 모두 성공했습니다. 일반 push이므로 APK artifact 업로드는 건너뛰었습니다.
 - APK package: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev`.
 - 이 검증은 자동화 CI 결과이며 실기기 설치·VPN 라우팅·실제 광고 차단 검증은 아닙니다.
+
+
+## 2026-11-14 — DNS 필터 규칙 및 설정 회귀 검증
+
+- `5db62fa`: Settings 화면을 열 때 DNS 선택 Spinner의 초기 콜백이 사용자 지정 DoT TLS 호스트명을 기본값으로 덮어쓰지 않도록 수정했습니다. [CI 43568689717](https://github.com/justinhblee-prog/guardian/actions/runs/43568689717) 성공.
+- `2d966987`: Filters 화면 진입 시 업데이트 주기 Spinner의 초기 콜백이 WorkManager 주기 작업을 불필요하게 재예약하지 않도록 수정했습니다. [CI 43569003248](https://github.com/justinhblee-prog/guardian/actions/runs/43569003248) 성공.
+- 두 CI 모두 Android 단위 테스트, Lint, Debug APK 조립, package identity/version 검사, APK 존재 및 SHA-256 검사를 통과했습니다. 일반 push이므로 배포용 artifact 업로드는 수행하지 않았습니다.
+- `83501c1` / `d5fea43`: DNS 규칙으로 표현할 수 없는 URL 경로·후행 조건 규칙을 전체 도메인 규칙으로 넓혀 적용하지 않도록 파서를 보완하고 회귀 테스트를 추가했습니다. CI 실행 결과 확인 전입니다.
