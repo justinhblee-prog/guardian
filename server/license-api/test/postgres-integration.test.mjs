@@ -14,7 +14,7 @@ if (!databaseUrl) {
 
   const { default: pg } = await import('pg');
   const pool = new pg.Pool({ connectionString: databaseUrl });
-  const { server } = await import('../src/server.mjs');
+  const { server, pool: apiPool } = await import('../src/server.mjs');
   let baseUrl;
   const adminHeaders = {
     'content-type': 'application/json',
@@ -49,6 +49,7 @@ if (!databaseUrl) {
 
   after(async () => {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    await apiPool.end();
     await pool.end();
   });
 
