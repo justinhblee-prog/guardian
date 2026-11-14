@@ -12,7 +12,7 @@ object DnsAddressValidator {
             if (!value.matches(Regex("^[0-9a-fA-F:.]+$"))) return null
             return try {
                 val address = InetAddress.getByName(value)
-                if (address is Inet6Address) address.hostAddress.substringBefore('%') else null
+                if (address is Inet6Address) address.hostAddress?.substringBefore('%') else null
             } catch (_: Exception) {
                 null
             }
