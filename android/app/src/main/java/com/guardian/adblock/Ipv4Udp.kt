@@ -19,7 +19,7 @@ object Ipv4Udp {
         if (!checksumValid(packet, 0, ihl)) return null
         // DNS datagrams must not be IP-fragmented; reassembly is not implemented.
         val fragment = u16(packet, 6)
-        if ((fragment and 0x3fff) != 0) return null
+        // The reserved IPv4 flag must be zero; DF is supported, but MF/offset are not.\n        if ((fragment and 0xbfff) != 0) return null
         val src = packet.copyOfRange(12, 16)
         val dst = packet.copyOfRange(16, 20)
         val srcPort = u16(packet, ihl)
