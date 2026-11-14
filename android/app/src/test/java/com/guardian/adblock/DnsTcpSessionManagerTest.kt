@@ -313,6 +313,24 @@ class DnsTcpSessionManagerTest {
         assertEquals(0, manager.activeSessionCount())
     }
 
+    @Test fun doesNotTreatAckWithPayloadAsFinalFinAcknowledgement() {
+        val manager = DnsTcpSessionManager()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 1500)
+        manager.handle(syn, syn.size) { null }
+        val fin = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.FIN, seq = 1501)
+        val finReply = manager.handle(fin, fin.size) { null }.single()
+        val serverFin = DnsTcpPacket.parse(finReply, finReply.size, 53000)!!
+        val strayPayloadAck = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 1502, acknowledgment = (serverFin.sequence + 1L) and 0xffffffffL,
+            payload = byteArrayOf(0x55))
+        manager.handle(strayPayloadAck, strayPayloadAck.size) { null }
+        assertEquals(1, manager.activeSessionCount())
+        val finalAck = packet(flags = DnsTcpPacket.ACK, seq = 1502,
+            acknowledgment = (serverFin.sequence + 1L) and 0xffffffffL)
+        manager.handle(finalAck, finalAck.size) { null }
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     @Test fun rejectsFinWhenDnsTcpFrameIsTruncated() {
         val manager = DnsTcpSessionManager()
         val query = dnsQuery()

@@ -77,7 +77,8 @@ class DnsTcpSessionManager(
         // This lets a lost FIN/data response be replayed on an exact retransmission.
         // A FIN is complete only when the ACK belongs to the current client stream.
         // Ignore stale/out-of-window ACKs so they cannot evict a live half-closed session.
-        if (tcp.ack && tcp.sequence == session.clientNext && session.serverFinSent &&
+        if (tcp.ack && tcp.payload.isEmpty() && !tcp.fin &&
+            tcp.sequence == session.clientNext && session.serverFinSent &&
             tcp.acknowledgement == session.serverNext) {
             sessions.remove(key)
             return emptyList()
