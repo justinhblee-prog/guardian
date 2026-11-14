@@ -3,6 +3,13 @@ name: Guardian AdBlock Android APK
 on:
   workflow_dispatch:
   push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'shared/**'
+      - 'README.md'
+      - '.github/workflows/android-apk.yml'
+  pull_request:
     paths:
       - 'android/**'
       - 'shared/**'
