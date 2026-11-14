@@ -91,3 +91,22 @@ JDK와 Kotlin compiler(`kotlinc`)가 설치된 환경에서는 프로젝트 루�
 - 검증 요약: `release/VERIFICATION_SUMMARY_KO.md`.
 - GitHub Actions artifact: `Guardian-AdBlock-Android-Full-Package-v0.7.7-dev`, artifact ID `14105371888`, archive SHA-256 `d5f4555603756f5b0cf97a6725ecc5ff942e98ede9c626ef91227bfa2cf12d3f`, 만료 예정 2026-12-14.
 - APK는 Android debug 서명 빌드입니다. production 서명과 실기기 VPN/DNS 라우팅·Wi-Fi/모바일 전환·실제 광고 제거 수용 테스트는 수행하지 않았습니다. DNS 수준 차단 범위 및 앱 자체 DoH/DoT 우회 등 알려진 한계는 검증 문서에 명시했습니다.
+
+
+# 0.7.7-dev 기준 실제 잔여 6단계 실행표 (2026-11-14)
+
+이 절이 문서 앞부분의 0.7.4-dev 설치 안내보다 우선합니다. CI 자동화 성공과 실기기 수용 테스트를 구분합니다.
+
+1. **소스/빌드 기준 고정** — 완료: main 최신 문서와 0.7.7-dev APK 빌드 커밋을 구분하고 README 및 RELEASE_STATUS_KO.md의 오래된 버전 표기를 정정했습니다.
+2. **실기기 설치 및 VPN 승인** — 미완료: Android 물리 기기에서 APK 설치, VPN 승인, 보호 시작/중지, 재부팅 후 상태 확인이 필요합니다. CI 에뮬레이터/빌드만으로 대체하지 않습니다.
+3. **실제 DNS 차단/허용 검증** — 미완료: 기기에서 차단 테스트 도메인의 NXDOMAIN, 허용 예외와 일반 도메인의 정상 해석, 업스트림 장애 시 SERVFAIL 및 앱별 제외를 확인해야 합니다.
+4. **네트워크/수명주기 안정성** — 미완료: Wi-Fi↔모바일 데이터, 화면 잠금/해제, 비행기 모드, VPN revoke, 앱/프로세스 재시작 및 장시간 실행을 확인해야 합니다.
+5. **결함 수정 및 회귀 검증** — 진행 기준: 2~4단계에서 관찰된 로그와 재현 절차를 근거로 수정하고 Android unit tests, lintDebug, assembleDebug 및 APK 체크섬을 다시 통과시킵니다. 관찰되지 않은 실기기 결함을 통과했다고 기록하지 않습니다.
+6. **정식 서명 및 최종 패키지** — 미완료: 소유자가 안전하게 보관한 Android release keystore로 서명된 APK/AAB를 생성하고 서명 검증, 패키지/version 확인, SHA-256 및 설치/업데이트 호환성을 확인합니다. 서명 키나 비밀번호를 채팅/저장소에 올리지 않습니다.
+
+## 자동화 검증 기준
+
+- 2026-11-14 CI run 43572937308: Android 단위 테스트, lintDebug, assembleDebug, package/version, SHA-256 및 소스 패키지 업로드 성공.
+- 해당 APK는 com.guardian.adblock, versionCode 20, versionName 0.7.7-dev의 debug 서명본입니다.
+- 실기기 테스트 결과, production keystore 서명, 실제 광고 제거 성능은 위 CI에 포함되지 않습니다.
+- 2~4단계는 연결된 실제 Android 기기와 기기에서 수집한 로그가 있어야 완료 판정할 수 있습니다. 6단계는 release keystore 없이는 production 서명 완료 판정할 수 없습니다.
