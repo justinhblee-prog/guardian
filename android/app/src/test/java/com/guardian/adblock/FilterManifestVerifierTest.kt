@@ -96,7 +96,7 @@ class FilterManifestVerifierTest {
     @Test fun checksFilterContentSha256() {
         val bytes = "block=ads.example".toByteArray(StandardCharsets.UTF_8)
         val digest = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
-            .joinToString("") { "%02x".format(it) }
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
         assertTrue(FilterManifestVerifier.matchesSha256(bytes, digest))
         assertFalse(FilterManifestVerifier.matchesSha256(bytes, "0".repeat(64)))
         assertFalse(FilterManifestVerifier.matchesSha256(bytes, "invalid"))
