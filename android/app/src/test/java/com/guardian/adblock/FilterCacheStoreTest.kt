@@ -27,15 +27,20 @@ class FilterCacheStoreTest {
         val folder = newFolder()
         val target = File(folder, "filter.txt").apply { writeText("known-good") }
 
+        var metadataRestored = false
         try {
-            FilterCacheStore.replace(target, "uncommitted".toByteArray()) {
-                throw IllegalStateException("metadata disk failure")
-            }
+            FilterCacheStore.replace(
+                target,
+                "uncommitted".toByteArray(),
+                commitMetadata = { throw IllegalStateException("metadata disk failure") },
+                rollbackMetadata = { metadataRestored = true }
+            )
             throw AssertionError("Expected metadata failure")
         } catch (expected: IllegalStateException) {
             assertTrue(expected.message!!.contains("metadata"))
         }
 
+        assertTrue(metadataRestored)
         assertArrayEquals("known-good".toByteArray(), target.readBytes())
         assertFalse(File(folder, "filter.txt.bak").exists())
         assertFalse(File(folder, "filter.txt.tmp").exists())
