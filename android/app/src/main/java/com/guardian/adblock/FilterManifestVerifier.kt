@@ -18,6 +18,7 @@ import java.util.Base64
  */
 internal object FilterManifestVerifier {
     private const val MAX_MANIFEST_BYTES = 16 * 1024
+    private const val MAX_FUTURE_SKEW_SECONDS = 10 * 60L
     private val REQUIRED_KEYS = setOf(
         "manifestVersion", "generatedAt", "sourceId", "sourceVersion",
         "url", "sha256", "minimumRules"
@@ -36,7 +37,8 @@ internal object FilterManifestVerifier {
     fun parseAndVerify(
         manifestBytes: ByteArray,
         signatureBase64: String,
-        publicKeyX509Base64: String
+        publicKeyX509Base64: String,
+        nowEpochSeconds: Long = System.currentTimeMillis() / 1000L
     ): Manifest {
         require(manifestBytes.isNotEmpty() && manifestBytes.size <= MAX_MANIFEST_BYTES) {
             "필터 manifest 크기가 올바르지 않습니다."
@@ -87,6 +89,9 @@ internal object FilterManifestVerifier {
         )
         require(manifest.manifestVersion == 1) { "지원하지 않는 manifest 버전입니다." }
         require(manifest.generatedAt > 0L && manifest.minimumRules > 0) { "manifest 숫자 값이 범위를 벗어났습니다." }
+        require(nowEpochSeconds > 0L && manifest.generatedAt <= nowEpochSeconds + MAX_FUTURE_SKEW_SECONDS) {
+            "manifest 생성 시각이 현재보다 지나치게 미래입니다."
+        }
         require(manifest.sourceId.matches(Regex("[a-zA-Z0-9._-]{1,64}"))) { "sourceId 형식이 올바르지 않습니다." }
         require(manifest.sourceVersion.isNotBlank() && manifest.sourceVersion.length <= 64) {
             "sourceVersion 형식이 올바르지 않습니다."
