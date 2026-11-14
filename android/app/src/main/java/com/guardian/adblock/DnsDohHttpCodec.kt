@@ -40,7 +40,7 @@ object DnsDohHttpCodec {
             // Content-Length/Transfer-Encoding value supplied by the peer.
             if (headers.containsKey(key)) return null
             val value = line.substring(separator + 1).trim()
-            if (value.any { it == '\\r' || it == '\\n' || (it.code < 0x20 && it != '\\t') }) return null
+            if (value.any { it.code == 13 || it.code == 10 || (it.code < 0x20 && it.code != 9) }) return null
             headers[key] = value
         }
         val contentType = headers["content-type"]?.substringBefore(';')?.trim()
