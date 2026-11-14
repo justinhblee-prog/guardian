@@ -34,6 +34,18 @@ jobs:
           gradle-version: '8.9'
       - name: Validate Gradle release configuration without production secrets
         run: gradle -p android --no-daemon tasks --all
+      - name: Confirm release build is blocked without a private keystore
+        shell: bash
+        run: |
+          set +e
+          gradle -p android --no-daemon assembleRelease > /tmp/guardian-release-without-key.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "Release build unexpectedly succeeded without a production keystore."
+            exit 1
+          fi
+          grep -F "Release APK/AAB requires" /tmp/guardian-release-without-key.log
 
   production-release:
     if: github.event_name == 'workflow_dispatch'
