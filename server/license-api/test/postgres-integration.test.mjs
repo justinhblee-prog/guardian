@@ -47,6 +47,12 @@ if (!databaseUrl) {
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
 
+  test('readiness endpoint requires a reachable database and valid RSA signer', async () => {
+    const response = await fetch(`${baseUrl}/ready`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true, service: 'guardian-license-api', database: 'ready', signer: 'ready' });
+  });
+
   after(async () => {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     await apiPool.end();
