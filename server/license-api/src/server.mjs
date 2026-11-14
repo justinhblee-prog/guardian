@@ -161,6 +161,17 @@ async function createLicense(body) {
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
 }
+async function listLicenses(req) {
+  requireEnv();
+  requireAdmin(req);
+  const result = await pool.query(
+    `SELECT l.id,l.license_ref,l.status,l.expires_at,l.max_devices,l.created_at,
+      count(a.id) FILTER (WHERE a.deactivated_at IS NULL)::int AS active_devices
+     FROM licenses l LEFT JOIN activations a ON a.license_id=l.id
+     GROUP BY l.id ORDER BY l.created_at DESC LIMIT 200`
+  );
+  return { licenses: result.rows };
+}
 async function revokeLicense(id, req) {
   requireEnv();
   requireAdmin(req);
@@ -184,6 +195,12 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
+    if (req.method === 'GET' && url.pathname === '/admin') {
+      const html = await readFile(new URL('../admin/index.html', import.meta.url));
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      return res.end(html);
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
     if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
     const body = await readBody(req);
     let result;
@@ -195,7 +212,8 @@ const server = http.createServer(async (req, res) => {
       requireEnv();
       const r = await pool.query(
         `SELECT l.status,l.expires_at,l.license_ref FROM licenses l JOIN activations a ON a.license_id=l.id
-         WHERE a.device_binding=$1 AND a.deactivated_at IS NULL ORDER BY a.last_seen_at DESC LIMIT 1`, [device]);
+         WHERE a.device_binding=$1 AND a.deactivated_at IS NULL AND l.status='active' AND l.expires_at>now()
+         ORDER BY a.last_seen_at DESC LIMIT 1`, [device]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
     } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
     else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
