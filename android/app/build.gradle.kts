@@ -61,9 +61,9 @@ android {
         if (guardianReleaseSigningConfigured) {
             create("guardianRelease") {
                 storeFile = file(guardianReleaseStoreFile!!)
-                storePassword = guardianReleaseStorePassword
-                keyAlias = guardianReleaseKeyAlias
-                keyPassword = guardianReleaseKeyPassword
+                storePassword = guardianReleaseStorePassword!!
+                keyAlias = guardianReleaseKeyAlias!!
+                keyPassword = guardianReleaseKeyPassword!!
             }
         }
     }
