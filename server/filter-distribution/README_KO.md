@@ -11,7 +11,7 @@ Node.js 22 기반의 서명 manifest 및 버전 고정 필터 배포 서버입�
 
 ## 1. 서명키 준비 (오프라인 서명 PC)
 
-RSA 3072비트 키를 생성합니다. 개인키는 암호화된 이동식 저장소 또는 비밀 관리자에 보관하고 Git, 서버 컨테이너, Android APK, 채팅에 올리지 마세요.
+RSA 3072비트 키를 생성합니다. Publisher는 RSA 2048비트 미만 키와 RSA 이외의 키 유형을 거부합니다. 개인키는 암호화된 이동식 저장소 또는 비밀 관리자에 보관하고 Git, 서버 컨테이너, Android APK, 채팅에 올리지 마세요.
 
 ```sh
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out guardian-filter-private.pem
@@ -78,7 +78,7 @@ Compose는 API를 `127.0.0.1:8788`에만 바인딩합니다. 인터넷에 공개
 
 - 서명은 manifest 원문 UTF-8 바이트에 RSA-SHA256을 적용합니다. 서버는 manifest와 detached signature를 함께 읽고 signature를 `X-Guardian-Signature`로 전달합니다.
 - manifest는 `no-store`, 버전 고정 필터 파일은 `immutable` 캐시 정책을 사용합니다.
-- 새 버전 콘텐츠와 signature를 먼저 기록하고 manifest를 마지막에 원자적으로 교체합니다. manifest는 공개 배포의 commit marker입니다.
+- 새 버전 콘텐츠와 `sourceId.sourceVersion.generatedAt.sig` 형식의 버전별 signature를 먼저 기록하고 manifest를 마지막에 원자적으로 교체합니다. 이전 manifest는 이전 버전 signature를 계속 참조하므로 발행 중에도 signature/manifest 불일치 구간을 만들지 않습니다. manifest는 공개 배포의 commit marker입니다.
 - 필터 파일 최대 10 MiB, manifest 최대 16 KiB, sourceId/version 경로는 허용 문자로 제한합니다.
 - 서명 개인키는 오프라인 발행 환경에서만 사용합니다. 운영 웹 서버에는 개인키가 필요하지 않습니다.
 - 필터 콘텐츠의 실제 DNS 규칙 수와 유효성은 앱의 parser가 다시 검사합니다. Publisher의 `minimumRules` 값은 앱이 검증할 기준값이며, 앱은 기준 미달 콘텐츠를 거부합니다.
