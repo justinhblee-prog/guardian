@@ -1066,12 +1066,6 @@ class MainActivity : Activity() {
             isChecked = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
             setOnCheckedChangeListener { _, checked ->
                 prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
-                if (ProtectionState.isActive(
-                        prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
-                        GuardianVpnService.isTunnelActive()
-                    )) {
-                    startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
-                }
                 if (checked && !FilterListManager.hasCachedSecurityList(this@MainActivity)) {
                     filterStatusText?.text = "보안 필터 목록을 다운로드합니다."
                     startFilterUpdate()
