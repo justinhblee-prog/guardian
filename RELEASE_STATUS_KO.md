@@ -340,3 +340,11 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - `2d966987`: Filters 화면 진입 시 업데이트 주기 Spinner의 초기 콜백이 WorkManager 주기 작업을 불필요하게 재예약하지 않도록 수정했습니다. [CI 43569003248](https://github.com/justinhblee-prog/guardian/actions/runs/43569003248) 성공.
 - 두 CI 모두 Android 단위 테스트, Lint, Debug APK 조립, package identity/version 검사, APK 존재 및 SHA-256 검사를 통과했습니다. 일반 push이므로 배포용 artifact 업로드는 수행하지 않았습니다.
 - `83501c1` / `d5fea43`: DNS 규칙으로 표현할 수 없는 URL 경로·후행 조건 규칙을 전체 도메인 규칙으로 넓혀 적용하지 않도록 파서를 보완하고 회귀 테스트를 추가했습니다. CI 실행 결과 확인 전입니다.
+
+
+## 2026-11-14 — DNS 경로 제한 규칙 과잉 차단 회귀 수정
+
+- `83501c1`: `||domain^/path` 및 `||domain^suffix`처럼 URL 경로·구분자 뒤 조건이 붙은 규칙을 DNS 전체 도메인 차단으로 확대하지 않도록 파서에서 제외했습니다.
+- `d5fea43`: 경로 조건, 후행 조건, 예외 규칙, 정상 호스트 앵커를 함께 검증하는 회귀 테스트를 추가했습니다. 기대 결과는 정상 호스트 규칙만 차단 목록에 남고 나머지 3개는 무시되는 것입니다.
+- [GitHub Actions run 43569255957](https://github.com/justinhblee-prog/guardian/actions/runs/43569255957) 성공: Android 단위 테스트, Lint, Debug APK 조립, 패키지 식별/버전 검사 및 APK 존재·SHA-256 검사가 통과했습니다. 일반 push이므로 APK artifact 업로드는 생략되었습니다.
+- 자동화 CI 검증이며 실기기 네트워크·실제 광고 제거 효과를 입증하지는 않습니다.
