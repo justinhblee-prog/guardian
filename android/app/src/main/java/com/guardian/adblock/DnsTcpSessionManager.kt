@@ -72,6 +72,9 @@ class DnsTcpSessionManager(
         }
 
         val session = sessions[key] ?: return emptyList()
+        // Every segment after the SYN handshake must carry ACK. Ignore
+        // malformed ACK-less data/FIN so it cannot mutate the DNS stream.
+        if (!tcp.ack) return emptyList()
         session.lastActivity = now
         // Keep a half-closed session until the client acknowledges our FIN.
         // This lets a lost FIN/data response be replayed on an exact retransmission.

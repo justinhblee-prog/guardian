@@ -313,6 +313,30 @@ class DnsTcpSessionManagerTest {
         assertEquals(0, manager.activeSessionCount())
     }
 
+    @Test fun ignoresPayloadWithoutAckAndAcceptsValidRetransmissionAtSameSequence() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 1600)
+        manager.handle(syn, syn.size) { null }
+
+        val malformed = packet(flags = DnsTcpPacket.PSH, seq = 1601, payload = framed)
+        var calls = 0
+        assertTrue(manager.handle(malformed, malformed.size) { calls++; null }.isEmpty())
+        assertEquals(0, calls)
+        assertEquals(1, manager.activeSessionCount())
+
+        val valid = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 1601, payload = framed)
+        val replies = manager.handle(valid, valid.size) {
+            calls++
+            DomainFilter.makeServfail(it)
+        }
+        assertEquals(1, calls)
+        assertTrue(replies.isNotEmpty())
+        assertTrue(DnsTcpPacket.parse(replies.single(), replies.single().size, 53000)!!.payload.isNotEmpty())
+    }
+
     @Test fun doesNotTreatAckWithPayloadAsFinalFinAcknowledgement() {
         val manager = DnsTcpSessionManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 1500)
