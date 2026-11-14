@@ -764,16 +764,20 @@ class MainActivity : Activity() {
         dnsSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_DNS, dnsOptions[position].second).apply()
-                defaultTlsHostForDns(dnsOptions[position].second)?.let { host ->
-                    dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, host).apply()
-                    tlsHostInput?.setText(host)
-                }
-                if (ProtectionState.isActive(
-                        dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
-                        GuardianVpnService.isTunnelActive()
-                    )) {
-                    startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                val selectedAddress = dnsOptions[position].second
+                val previousAddress = dnsPrefs.getString(
+                    GuardianVpnService.KEY_UPSTREAM_DNS,
+                    GuardianVpnService.DEFAULT_UPSTREAM_DNS
+                )
+                // Spinner emits an initial selection when Settings is rendered.
+                // Do not overwrite a user's custom TLS hostname or reload filter
+                // rules unless the resolver address actually changed.
+                if (previousAddress != selectedAddress) {
+                    dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_DNS, selectedAddress).apply()
+                    defaultTlsHostForDns(selectedAddress)?.let { host ->
+                        dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, host).apply()
+                        tlsHostInput?.setText(host)
+                    }
                 }
             }
         }
