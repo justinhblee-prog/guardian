@@ -65,7 +65,8 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 - `GET /v1/admin/events`: 최근 발급/활성화/비활성화/정지 감사 기록 100건
 - `POST /v1/admin/licenses`: 관리자 인증 + `{ "validDays": 365, "maxDevices": 1 }`
 - `POST /v1/admin/licenses/{uuid}/revoke`: 관리자 인증
-- `GET /health`: 기본 상태
+- `GET /health`: 프로세스 생존 상태
+- `GET /ready`: DB 연결, 관리자 토큰, HMAC 비밀값 및 RSA 2048비트 이상 서명키 준비 상태 확인. Docker health check에서 사용
 
 활성화/갱신 성공 시 `payload`와 `signature`를 반환합니다. Android 앱에는 개인키가 아닌 동일 RSA 키쌍의 X.509 공개키를 `GUARDIAN_LICENSE_PUBLIC_KEY` 빌드 환경 변수로 주입해야 합니다. 앱은 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증합니다.
 
