@@ -401,3 +401,11 @@
 - 검증 요약: `release/VERIFICATION_SUMMARY_KO.md`.
 - GitHub Actions artifact: `Guardian-AdBlock-Android-Full-Package-v0.7.7-dev`, artifact ID `14105371888`, archive SHA-256 `d5f4555603756f5b0cf97a6725ecc5ff942e98ede9c626ef91227bfa2cf12d3f`, 만료 예정 2026-12-14.
 - APK는 Android debug 서명 빌드입니다. production 서명과 실기기 VPN/DNS 라우팅·Wi-Fi/모바일 전환·실제 광고 제거 수용 테스트는 수행하지 않았습니다. DNS 수준 차단 범위 및 앱 자체 DoH/DoT 우회 등 알려진 한계는 검증 문서에 명시했습니다.
+
+
+## 0.7.8-dev — TCP/IP reserved-header validation (2026-11-14)
+- Hardened the DNS TCP packet parser: reject IPv4 packets with the reserved fragmentation flag set, and reject TCP headers with nonzero reserved/NS bits instead of silently accepting unsupported header semantics.
+- Added regression coverage for both malformed-header cases.
+- Package versionCode 21 / `0.7.8-dev`.
+- CI run: https://github.com/justinhblee-prog/guardian/actions/runs/43573908206 — pending at documentation update time. Do not treat this source change as verified until that run completes successfully.
+- This is parser hardening only; it does not prove physical-device VPN routing or real ad-removal effectiveness.
