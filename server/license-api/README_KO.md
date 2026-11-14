@@ -16,7 +16,7 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - `DATABASE_URL`: PostgreSQL 접속 URL
 - `GUARDIAN_ADMIN_TOKEN`: 최소 32자 이상의 무작위 관리자 bearer token
 - `GUARDIAN_LICENSE_LOOKUP_SECRET`: 최소 32자 이상의 별도 무작위 HMAC 비밀값
-- `GUARDIAN_LICENSE_PRIVATE_KEY`: RSA 2048비트 이상 개인키 PEM. Secret Manager에서 주입하고 Git/앱에 넣지 않습니다. 환경 변수의 줄바꿈은 `\\n` 형태를 지원합니다.
+- `GUARDIAN_LICENSE_PRIVATE_KEY`: RSA 2048비트 이상 개인키 PEM. Secret Manager에서 주입하고 Git/앱에 넣지 않습니다. 환경 변수의 줄바꿈은 `\n` 형태를 지원합니다.
 - `PORT`: 기본 8787
 - `PGSSLMODE=require`: PostgreSQL TLS 사용 시 설정
 
@@ -38,7 +38,7 @@ npm start
 1. Docker Engine과 Docker Compose 플러그인을 설치합니다.
 2. 이 디렉터리에서 `.env.example`을 `.env`로 복사합니다.
 3. `.env`의 모든 `REPLACE_...` 값을 서로 다른 무작위 비밀값으로 교체합니다. PostgreSQL 비밀번호는 URL 인코딩 문제가 없도록 영문·숫자만 사용합니다.
-4. RSA 개인키를 생성하고 PEM 전체를 `GUARDIAN_LICENSE_PRIVATE_KEY`에 `\\n` 줄바꿈 형태로 넣습니다. 개인키는 이 서버의 Secret Manager 또는 보호된 환경 파일에만 두고 Git에 커밋하지 않습니다.
+4. RSA 개인키를 생성하고 PEM 전체를 `GUARDIAN_LICENSE_PRIVATE_KEY`에 `\n` 줄바꿈 형태로 넣습니다. 개인키는 이 서버의 Secret Manager 또는 보호된 환경 파일에만 두고 Git에 커밋하지 않습니다.
 5. `docker compose up -d --build`로 시작한 뒤 `docker compose ps`와 `curl http://127.0.0.1:8787/health`로 상태를 확인합니다.
 
 RSA 키 생성 예:
