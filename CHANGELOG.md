@@ -352,3 +352,10 @@
 - Add regression coverage for retry freshness, stale boundaries, missing metadata, future timestamps and minimum interval behavior.
 - Advance Android package to versionCode 17 / versionName `0.7.4-dev`.
 - CI run 43570828960 passed unit tests, lint, debug APK assembly, package identity and checksum validation. APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577`. Push CI skipped artifact upload.
+
+
+## 0.7.5-dev — DNS address safety and protection scope copy (2026-11-14)
+- Safely handle a nullable IPv6 `hostAddress` during numeric resolver normalization.
+- Clarify in the home protection-scope card that app-originated DoH/DoT bypass requests are not intercepted; this is distinct from Guardian's own encrypted upstream transports.
+- CI run 43571389815 passed unit tests, lint, debug APK assembly, package identity and checksum validation.
+- Package: versionCode 18 / `0.7.5-dev`; CI APK SHA-256: `f756ab65ce8d74cc7a7da45457b0cc2987b83acc83e9c993eab0a3f624492e1a`. Push CI skipped artifact upload.
