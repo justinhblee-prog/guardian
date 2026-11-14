@@ -1,0 +1,34 @@
+name: Guardian License API
+on:
+  push:
+    paths:
+      - 'server/license-api/**'
+      - '.github/workflows/license-api.yml'
+  pull_request:
+    paths:
+      - 'server/license-api/**'
+      - '.github/workflows/license-api.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-license-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server/license-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install API dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Check server and admin JavaScript syntax
+        run: |
+          node --check src/server.mjs
+          node --check src/license-core.mjs
+          node --check admin/admin.js
+      - name: Run cryptographic and token compatibility tests
+        run: npm test

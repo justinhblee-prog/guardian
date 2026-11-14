@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Guardian License Admin</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0a101e;color:#f1f6ff}
+*{box-sizing:border-box}body{margin:0;padding:20px;max-width:900px;margin-inline:auto}
+h1{font-size:24px;margin:4px 0 8px}.muted{color:#9aaac4;font-size:13px}
+.panel{background:#141d30;border:1px solid #273653;border-radius:16px;padding:16px;margin:16px 0}
+input,button{font:inherit;border-radius:10px;padding:12px;border:1px solid #344663;background:#1b273d;color:#fff;width:100%;margin:6px 0}
+button{background:#48dcae;color:#0a101e;font-weight:700;border:0;cursor:pointer}
+button.secondary{background:#344663;color:#fff}button.danger{background:#7e3445;color:white;width:auto}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row{border-top:1px solid #344663;padding:12px 0;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.key{overflow-wrap:anywhere;background:#0a101e;padding:12px;border-radius:8px}
+@media(max-width:560px){body{padding:14px}.grid{grid-template-columns:1fr}.row{align-items:flex-start}}
+</style>
+</head>
+<body>
+<h1>GUARDIAN · 라이선스 관리자</h1>
+<p class="muted">관리자 API에 직접 연결됩니다. HTTPS 환경에서만 사용하고 인증 토큰은 브라우저에 저장하지 않습니다.</p>
+<section class="panel">
+<label for="token">관리자 API 토큰</label>
+<input id="token" type="password" autocomplete="off" placeholder="GUARDIAN_ADMIN_TOKEN">
+<button id="connect">인증 및 목록 불러오기</button>
+<p id="status" class="muted" aria-live="polite">인증 전</p>
+</section>
+<section class="panel">
+<h2>라이선스 발급</h2>
+<div class="grid">
+<label>유효 기간(일)<input id="days" type="number" min="1" max="36500" value="365"></label>
+<label>최대 활성 기기<input id="devices" type="number" min="1" max="20" value="1"></label>
+</div>
+<button id="issue">새 라이선스 발급</button>
+<div id="issued" hidden><p>발급된 키 — 이 화면을 벗어나면 다시 표시되지 않습니다.</p><div class="key" id="key"></div><button class="secondary" id="copy">키 복사</button></div>
+</section>
+<section class="panel">
+<h2>최근 라이선스</h2>
+<div id="licenses" class="muted">관리자 인증 후 표시됩니다.</div>
+</section>
+<script src="/admin.js" defer></script>
+</body></html>
