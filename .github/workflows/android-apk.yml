@@ -78,11 +78,12 @@ jobs:
             timeout 180s adb wait-for-device
             for attempt in $(seq 1 90); do if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')" = "1" ]; then break; fi; sleep 2; done
             test "$(adb shell getprop sys.boot_completed | tr -d '\\r')" = "1"
-            # sys.boot_completed can precede PackageManager and Settings Binder readiness.
+            # Wait until Android system services have finished starting, not just the boot property.
             services_ready=0
             for attempt in $(seq 1 60); do
-              if adb shell cmd package list packages 2>/dev/null | grep -Fq 'package:com.android.settings' &&
-                 adb shell settings get system screen_off_timeout 2>/dev/null | grep -Eq '^[0-9]+'; then
+              package_state="$(adb shell cmd package list packages 2>/dev/null || true)"
+              settings_state="$(adb shell settings get system screen_off_timeout 2>/dev/null || true)"
+              if echo "$package_state" | grep -q "com.android.settings" && echo "$settings_state" | grep -q "[0-9]"; then
                 services_ready=1
                 break
               fi
@@ -93,12 +94,12 @@ jobs:
             installed=0
             for attempt in $(seq 1 5); do
               if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then installed=1; break; fi
-              echo "ADB package-manager install attempt $attempt failed; waiting for PackageManager recovery."
+              echo "ADB install attempt $attempt failed; waiting for PackageManager recovery."
               adb wait-for-device
               sleep 10
             done
             test "$installed" -eq 1
-            adb shell cmd package list packages com.guardian.adblock | grep -Fq 'package:com.guardian.adblock'
+            adb shell cmd package list packages com.guardian.adblock | grep -q "com.guardian.adblock"
             adb shell am start -n com.guardian.adblock/.MainActivity
             sleep 8
             adb shell dumpsys activity activities | tee /tmp/guardian-activities.txt
