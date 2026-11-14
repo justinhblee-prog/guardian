@@ -352,7 +352,7 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(15), dp(16), dp(15))
             addView(text("현재 보호 범위", 14f, white, true))
             addView(text("IPv4 / IPv6 · UDP/53 + TCP/53 DNS", 12f, muted, false).withTop(7))
-            addView(text("DNS 이외 트래픽, DoH/DoT는 아직 필터링하지 않습니다.", 11f, muted, false).withTop(5))
+            addView(text("DNS 이외 트래픽과 앱이 직접 사용하는 암호화 DNS(DoH/DoT)는 필터링하지 않습니다.", 11f, muted, false).withTop(5))
         }.withTop(12))
         val privateDns = privateDnsCompatibilityStatus()
         body.addView(card(panel, 14).apply {
