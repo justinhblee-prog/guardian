@@ -1,4 +1,4 @@
-# Guardian AdBlock Android v0.6.4-dev — 설치 및 기기 수용 테스트
+# Guardian AdBlock Android v0.7.4-dev — 설치 및 기기 수용 테스트
 
 ## 1. 현재 패키지에서 확인된 내용
 - 공통 규칙 파일 `shared/filter_rules.txt`를 Windows DNS 엔진과 Android VPN 앱이 함께 사용합니다.
@@ -48,7 +48,7 @@ APK 예상 경로: `android/app/build/outputs/apk/debug/app-debug.apk`
 - Android JUnit 실행, APK 빌드, 실기기 검증은 이 개발환경에서 실행되지 않았습니다.
 - Windows 실환경 DNS 변경/복구 및 Windows 서비스 설치 검증도 실행되지 않았습니다.
 - Windows EXE 설치 프로그램은 포함하지 않았습니다.
-- Android 클라이언트 방향 TCP DNS 가로채기, DoH/DoT, IPv6 확장 헤더/조각화 재조립, 앱별 제외, 원격 필터 목록 갱신, 포괄적인 상용 광고 차단 목록은 미구현입니다. Android 업스트림 DNS 응답이 UDP에서 잘리면 TCP로 재시도합니다.
+- Android는 클라이언트 DNS UDP/53 및 TCP/53, IPv4/IPv6 기본 헤더를 처리하고, 업스트림 전송은 UDP/TCP/DoT/DoH를 지원합니다. 단, 앱이 자체 TLS 연결로 직접 전송하는 DoH/DoT를 가로채는 기능, IPv6 확장 헤더/IP 조각화 재조립, 비DNS 트래픽 처리, 포괄적인 웹 요소·앱 내부 광고 제거는 지원하지 않습니다. 앱별 VPN 제외와 공식 DNS 필터 목록 갱신은 구현되어 있습니다.
 - 이 버전은 개발/검증용입니다. 실기기와 실제 Windows 환경의 승인 테스트 전에는 일상 보호용으로 배포하지 마십시오.
 
 
@@ -63,3 +63,11 @@ JDK와 Kotlin compiler(`kotlinc`)가 설치된 환경에서는 프로젝트 루�
 3. Chrome 권한 대화상자에서 해당 HTTPS 필터 서버 접근을 허용합니다.
 4. 다른 서버로 리디렉션되는 필터 URL은 거부되므로 최종 HTTPS 주소를 직접 입력합니다.
 5. 실제 Chrome에서 권한 거부/허용, 필터 업데이트, 광고 요청 차단, 허용 목록 동작을 확인합니다.
+
+## 0.7.4-dev 최신 상태 보충 (2026-11-14)
+
+- Android TCP/53은 제한된 DNS TCP 세션 구현이며, 전체 TCP 스택이 아닙니다. 재전송/손실 복구는 제한적이고 IPv6 확장 헤더 및 IP 조각화는 지원하지 않습니다.
+- DoT/DoH는 Guardian에서 지정한 업스트림 DNS 서버로 나가는 요청을 암호화합니다. 앱이 직접 사용하는 DoH/DoT 우회 연결을 차단하거나 가로채지 않습니다.
+- WorkManager 필터 업데이트는 소스별 캐시 유효성/갱신 시각을 판단하며, 선택 목록 하나가 실패해 재시도할 때 성공한 최신 목록을 중복 다운로드하지 않습니다.
+- 최신 CI [43570828960](https://github.com/justinhblee-prog/guardian/actions/runs/43570828960): 단위 테스트, lint, debug APK 조립, package/version 및 SHA-256 검사 성공. `com.guardian.adblock` versionCode 17 / `0.7.4-dev`.
+- CI debug APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577`. 실기기 검증은 미완료입니다.
