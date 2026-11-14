@@ -26,21 +26,36 @@ object DnsDohHttpCodec {
         val headerBytes = readHeaders(input) ?: return null
         val headerText = String(headerBytes, StandardCharsets.ISO_8859_1)
         val lines = headerText.split("\r\n")
-        val status = lines.firstOrNull()?.split(' ')?.getOrNull(1)?.toIntOrNull() ?: return null
-        if (status != 200) return null
+        val statusLine = lines.firstOrNull() ?: return null
+        if (!statusLine.matches(Regex("HTTP/1\\.[01] 200(?: .*)?"))) return null
         val headers = mutableMapOf<String, String>()
         lines.drop(1).forEach { line ->
+            if (line.isEmpty()) return@forEach
             val separator = line.indexOf(':')
-            if (separator > 0) headers[line.substring(0, separator).trim().lowercase()] =
-                line.substring(separator + 1).trim()
+            if (separator <= 0) return null
+            val name = line.substring(0, separator)
+            if (!name.matches(Regex("[!#$%&'*+.^_`|~0-9A-Za-z-]+"))) return null
+            val key = name.lowercase()
+            // Reject duplicate fields instead of silently trusting the last
+            // Content-Length/Transfer-Encoding value supplied by the peer.
+            if (headers.containsKey(key)) return null
+            val value = line.substring(separator + 1).trim()
+            if (value.any { it == '\\r' || it == '\\n' || (it.code < 0x20 && it != '\\t') }) return null
+            headers[key] = value
         }
         val contentType = headers["content-type"]?.substringBefore(';')?.trim()
         if (!contentType.equals("application/dns-message", ignoreCase = true)) return null
-        val transferEncoding = headers["transfer-encoding"].orEmpty()
-        val body = if (transferEncoding.split(',').any { it.trim().equals("chunked", true) }) {
+        val transferEncoding = headers["transfer-encoding"]
+        val contentLengthHeader = headers["content-length"]
+        // RFC 9112 forbids combining these framing mechanisms. This client
+        // accepts only a single, explicitly supported chunked coding.
+        if (transferEncoding != null && contentLengthHeader != null) return null
+        if (transferEncoding != null && !transferEncoding.equals("chunked", ignoreCase = true)) return null
+        val body = if (transferEncoding != null) {
             readChunked(input) ?: return null
         } else {
-            val contentLength = headers["content-length"]?.toIntOrNull()
+            val contentLength = contentLengthHeader?.toIntOrNull()
+            if (contentLengthHeader != null && contentLength == null) return null
             if (contentLength != null) {
                 if (contentLength !in 17..MAX_DNS_BYTES) return null
                 readExactly(input, contentLength) ?: return null
