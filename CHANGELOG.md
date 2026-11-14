@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.4-dev — Filter cache rollback safety (2026-11-14)
+- Replace downloaded filter caches with a backup-preserving swap; if metadata persistence fails, restore the previous known-good cache.
+- Recover a cache interrupted between the backup and replacement moves before cache reads and cache-validity checks.
+- Add JVM regression tests for successful replacement, metadata failure rollback, and interrupted-swap recovery.
+- CI verification is running for this change; physical-device behavior remains unverified.
+
 ## v0.7.3-dev — Android protection reliability candidate (2026-11-14)
 - Prevent optional security and Android-ad filter switches from changing while their cache snapshot is being downloaded and validated.
 - Reapply the locked state when the Protection screen is recreated during an active filter update, and clear stale view references when switching tabs.
