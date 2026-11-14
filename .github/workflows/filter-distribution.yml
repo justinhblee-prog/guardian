@@ -1,6 +1,7 @@
 name: Guardian Signed Filter Distribution
 on:
   push:
+    branches: [main]
     paths:
       - 'server/filter-distribution/**'
       - '.github/workflows/filter-distribution.yml'
