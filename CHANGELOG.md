@@ -323,3 +323,9 @@
 - Added regression tests for data+FIN and pure FIN retransmission paths.
 - Verified by GitHub Actions run 43533452981: `testDebugUnitTest`, `lintDebug`, `assembleDebug`, package/version checks, and APK SHA-256 generation passed. APK SHA-256: `b7a35a98f76ce20aa272358c9b0d2f5584a8ec7dd6f88308427840fbe7613b89`.
 - Push workflow skipped artifact upload; no device-level ad-blocking claim is made.
+
+
+## 2026-11-14 — Truthful protection status diagnostics
+- Protection screen detail now reflects observed DNS request, block, forward, and failure counters instead of claiming DNS is being filtered solely because the VPN tunnel is active.
+- Zero observed DNS requests are clearly reported; opportunistic/hostname Android Private DNS modes warn about possible encrypted DNS bypass.
+- Added five unit tests for diagnostic state combinations. CI validation pending.

@@ -271,3 +271,12 @@
 - DNS-over-TCP half-close now retains session state until the client's ACK of the server FIN; exact retransmissions of the final client data/FIN replay the prior server response instead of resolving the DNS query again.
 - Added regression coverage for retransmitted data+FIN and retransmitted client FIN while the server FIN remains unacknowledged.
 - Push CI skipped APK artifact upload. Device installation, VPN routing, live resolver behavior, and real app ad removal remain unverified.
+
+
+## 2026-11-14 — 관측 기반 보호 상태 진단
+
+- Replaced the unconditional “system DNS is passing through Guardian” claim with status text derived from live tunnel state, observed DNS query counters, and Android Private DNS mode.
+- An active tunnel with zero observed DNS requests now explicitly reports that no DNS traffic has been observed and asks the user to generate traffic; it does not claim filtering is working.
+- Opportunistic and hostname Private DNS modes now appear in the protection detail as possible encrypted-DNS bypass conditions.
+- Added five unit tests covering zero traffic, observed counters, both Private DNS modes, and inactive tunnel behavior.
+- CI validation is pending for this commit. No real-device or actual ad-removal validation is implied.

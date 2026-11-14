@@ -449,13 +449,18 @@ class MainActivity : Activity() {
         else "연결 실패 · $transport · 서버 주소, 네트워크 또는 TLS 호스트 설정을 확인하세요 · $time"
     }
 
+    private fun privateDnsMode(): String? {
+        if (Build.VERSION.SDK_INT < 28) return null
+        return android.provider.Settings.Global.getString(
+            contentResolver, "private_dns_mode"
+        )?.lowercase(Locale.ROOT)
+    }
+
     private fun privateDnsCompatibilityStatus(): Pair<String, Int> {
         if (Build.VERSION.SDK_INT < 28) {
             return "Android 비공개 DNS 상태 확인은 Android 9 이상에서 지원됩니다." to muted
         }
-        val mode = android.provider.Settings.Global.getString(
-            contentResolver, "private_dns_mode"
-        )?.lowercase(Locale.ROOT)
+        val mode = privateDnsMode()
         val provider = android.provider.Settings.Global.getString(
             contentResolver, "private_dns_specifier"
         )?.takeIf { it.isNotBlank() }
@@ -486,8 +491,14 @@ class MainActivity : Activity() {
             ).withTop(12) as TextView
             addView(protectionStatusText!!)
             protectionStatusDetail = text(
-                if (active) "시스템 DNS 질의가 Guardian 필터를 통과하고 있습니다."
-                else "보호를 시작하면 시스템 가상 DNS를 통해 필터링합니다.",
+                ProtectionDiagnostics.statusDetail(
+                    active,
+                    prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
+                    prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
+                    prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
+                    prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
+                    privateDnsMode()
+                ),
                 12f, muted, false
             ).withTop(6) as TextView
             addView(protectionStatusDetail!!)
@@ -1379,11 +1390,14 @@ class MainActivity : Activity() {
                 staleSession -> "보호 복구 대기 중"
                 else -> "보호가 꺼져 있습니다"
             }
-            protectionStatusDetail?.text = message ?: if (active) {
-                "시스템 DNS 질의가 Guardian 필터를 통과하고 있습니다."
-            } else {
-                "보호를 시작하면 시스템 가상 DNS를 통해 필터링합니다."
-            }
+            protectionStatusDetail?.text = message ?: ProtectionDiagnostics.statusDetail(
+                active,
+                prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
+                prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
+                prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
+                prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
+                privateDnsMode()
+            )
             protectionActionButton?.text = when { active -> "보호 중지"; staleSession -> "보호 다시 연결"; else -> "보호 시작" }
             protectionActionButton?.setTextColor(if (active) white else bg)
             protectionActionButton?.background = shape(if (active) panel2 else accent, 13)
