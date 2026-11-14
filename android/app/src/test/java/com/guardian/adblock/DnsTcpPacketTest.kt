@@ -44,6 +44,24 @@ class DnsTcpPacketTest {
         assertNull(DnsTcpPacket.parse(rstFin, rstFin.size))
     }
 
+
+    @Test fun rejectsReservedIpv4FlagAndTcpHeaderBits() {
+        val reservedIpFlag = ipv4Request().also {
+            it[6] = 0x80.toByte()
+            it[7] = 0
+            sealTcp4(it)
+            sealIp4(it)
+        }
+        assertNull(DnsTcpPacket.parse(reservedIpFlag, reservedIpFlag.size))
+
+        val reservedTcpBit = ipv4Request().also {
+            it[32] = 0x51 // data offset 5, nonzero reserved/NS nibble
+            sealTcp4(it)
+            sealIp4(it)
+        }
+        assertNull(DnsTcpPacket.parse(reservedTcpBit, reservedTcpBit.size))
+    }
+
     @Test fun rejectsCorruptTcpChecksum() {
         val packet = ipv4Request()
         packet[packet.size - 1] = 1
