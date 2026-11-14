@@ -279,8 +279,11 @@ const server = http.createServer(async (req, res) => {
       if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
       requireEnv();
       const r = await pool.query(
-        `SELECT l.status,l.expires_at,l.license_ref FROM licenses l JOIN activations a ON a.license_id=l.id
-         WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL AND l.status='active' AND l.expires_at>now()
+        `SELECT l.status,l.expires_at,l.license_ref FROM licenses l
+         JOIN activations a ON a.license_id=l.id
+         JOIN products p ON p.id=l.product_id AND p.active=true
+         WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
+           AND l.status='active' AND l.expires_at>now()
          LIMIT 1`, [device, body.licenseRef]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
     } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
