@@ -70,7 +70,7 @@ jobs:
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='20' versionName='0.7.7-dev'"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='21' versionName='0.7.8-dev'"
 
       - name: Verify APK exists and calculate checksum
         shell: bash
@@ -88,7 +88,7 @@ jobs:
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
-          # Guardian AdBlock v0.7.7-dev — 빌드 검증 결과
+          # Guardian AdBlock v0.7.8-dev — 빌드 검증 결과
 
           - 저장소 커밋: ${GITHUB_SHA}
           - GitHub Actions 실행: ${GITHUB_RUN_ID}
