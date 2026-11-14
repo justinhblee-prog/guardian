@@ -333,3 +333,13 @@
 - Settings의 악성코드·피싱 보안 필터 스위치를 변경할 때 활성 VPN의 규칙을 재적용하도록 수정했습니다. 보안 목록 캐시가 없을 때는 다운로드를 시작하며, 캐시가 준비된 경우 보호 세션을 중단하지 않고 규칙을 다시 불러옵니다.
 - Push CI이므로 APK artifact 업로드는 manual release dispatch 전용 정책에 따라 skip되었습니다. 이 run은 APK 빌드 검증이며 배포용 artifact 발행을 의미하지 않습니다.
 - 실기기 설치, VPN 라우팅, 실제 광고 차단 효과는 검증 범위 밖입니다.
+
+
+## 2026-11-14 — 보안 필터 중복 재적용 제거 회귀 검증
+
+- Source commit: `170b4e96371b9f4072570ac06fb2e4d69f8f173e`
+- [GitHub Actions run 43568131394](https://github.com/justinhblee-prog/guardian/actions/runs/43568131394): **success**
+- Android unit tests, `lintDebug`, `assembleDebug`, package/version check, APK existence and SHA-256: **passed**.
+- Removed redundant VPN rule reload before starting a missing security-list download. Cached-list toggles still reload immediately; download-required toggles reload after the update path completes.
+- Artifact upload skipped for normal push; no new APK artifact was published.
+- Physical-device VPN behavior and real ad-removal effectiveness remain unverified.
