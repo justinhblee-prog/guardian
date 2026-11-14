@@ -312,3 +312,14 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 보안 필터를 설정 화면에서 켜거나 끌 때 활성 VPN 규칙을 즉시 다시 불러오도록 수정했습니다. 캐시가 없으면 다운로드를 시작하고, 캐시가 있으면 VPN을 중단하지 않고 현재 규칙을 재적용합니다.
 - 일반 push 검증이므로 artifact 업로드는 의도적으로 skip되었습니다. 이 CI 결과만으로 새 APK 파일이 배포된 것은 아닙니다.
 - 실기기 VPN/DNS 경로와 실제 광고 제거 효과는 여전히 미검증입니다.
+
+
+## 2026-11-14 — 보안 필터 중복 재적용 제거 및 검증
+
+- Source commit: `170b4e96371b9f4072570ac06fb2e4d69f8f173e`
+- GitHub Actions: [run 43568131394](https://github.com/justinhblee-prog/guardian/actions/runs/43568131394) — **success**
+- Android unit tests, `lintDebug`, `assembleDebug`, package/version 검사 및 APK SHA-256 생성: **all passed**
+- 패키지: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev`
+- 보안 필터 캐시가 없어 다운로드가 필요한 경우 다운로드 전에 중복 VPN 규칙 재적용 요청을 보내던 경로를 제거했습니다. 캐시가 있는 경우에는 즉시 재적용하고, 다운로드가 필요한 경우에는 다운로드 완료 후 재적용합니다.
+- 일반 push이므로 artifact 업로드는 skip되었습니다. 새 APK 배포는 아닙니다.
+- 실기기 VPN/DNS 및 실제 광고 차단 효과는 미검증입니다.
