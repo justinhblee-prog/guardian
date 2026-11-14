@@ -32,9 +32,9 @@ npm start
 
 ## API
 - `POST /v1/licenses/activate`: `{ "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`
-- `POST /v1/licenses/refresh`: `{ "deviceBinding": "<64 hex>" }`
-- `POST /v1/licenses/deactivate`: `{ "deviceBinding": "<64 hex>" }`
-- `POST /v1/licenses/status`: `{ "deviceBinding": "<64 hex>" }`
+- `POST /v1/licenses/refresh`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
+- `POST /v1/licenses/deactivate`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
+- `POST /v1/licenses/status`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
 - `GET /v1/admin/licenses`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>`
 - `POST /v1/admin/licenses`: 관리자 인증 + `{ "validDays": 365, "maxDevices": 1 }`
 - `POST /v1/admin/licenses/{uuid}/revoke`: 관리자 인증
