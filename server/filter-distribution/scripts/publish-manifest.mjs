@@ -1,4 +1,4 @@
-import { createPublicKey, sign as rsaSign } from 'node:crypto';
+import { createPrivateKey, createPublicKey, randomUUID, sign as rsaSign } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -24,7 +24,7 @@ function argsFrom(argv) {
 
 async function atomicWrite(filePath, bytes) {
   await mkdir(path.dirname(filePath), { recursive: true });
-  const temporary = `${filePath}.${process.pid}.tmp`;
+  const temporary = `${filePath}.${randomUUID()}.tmp`;
   await writeFile(temporary, bytes, { flag: 'wx', mode: 0o644 });
   await rename(temporary, filePath);
 }
@@ -50,6 +50,13 @@ export async function publishManifest(options, env = process.env) {
   }
   if (typeof privateKeyText !== 'string' || !privateKeyText.trim()) {
     throw new Error('GUARDIAN_FILTER_SIGNING_PRIVATE_KEY is required.');
+  }
+
+  const normalizedPrivateKey = privateKeyText.replace(/\\n/g, '\n');
+  const signingKey = createPrivateKey(normalizedPrivateKey);
+  if (signingKey.asymmetricKeyType !== 'rsa' ||
+      (signingKey.asymmetricKeyDetails?.modulusLength || 0) < 2048) {
+    throw new Error('Signing key must be RSA with a modulus of at least 2048 bits.');
   }
 
   const publicBase = new URL(baseUrl);
@@ -112,14 +119,13 @@ export async function publishManifest(options, env = process.env) {
   const manifestBytes = Buffer.from(manifestText, 'utf8');
   if (manifestBytes.length > MAX_MANIFEST_BYTES) throw new Error('Generated manifest exceeds 16 KiB.');
 
-  const normalizedPrivateKey = privateKeyText.replace(/\\n/g, '\n');
-  const signature = rsaSign('RSA-SHA256', manifestBytes, normalizedPrivateKey).toString('base64');
+  const signature = rsaSign('RSA-SHA256', manifestBytes, signingKey).toString('base64');
   const signaturePath = path.join(outputDir, `${sourceId}.${sourceVersion}.${generatedAt}.sig`);
   await atomicWrite(signaturePath, Buffer.from(signature, 'ascii'));
   // Publish manifest last: it is the commit marker consumed by clients.
   await atomicWrite(manifestPath, manifestBytes);
 
-  const publicKey = createPublicKey(normalizedPrivateKey)
+  const publicKey = createPublicKey(signingKey)
     .export({ type: 'spki', format: 'der' }).toString('base64');
   if (options['public-key-out']) {
     await atomicWrite(path.resolve(options['public-key-out']), Buffer.from(publicKey + '\n', 'ascii'));
