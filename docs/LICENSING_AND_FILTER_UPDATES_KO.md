@@ -89,7 +89,7 @@
 7. 테스트: 만료, 취소, 중복 활성화, 기기 한도, 서버 장애, 토큰 위조/만료, 오프라인 유예, 결제 환불, 필터 서명 실패/롤백을 회귀 테스트합니다.
 
 ## 5. 현재 미완료 경계
-- 앱에는 서버 발급 Pro entitlement 토큰의 RSA-2048 이상/SHA256 서명 검증기가 추가되었습니다. 정확한 원문 payload 서명, 토큰 버전·상품·권한·발급/만료 시각·기기 바인딩·라이선스 참조를 검증하며 위조, 만료, 미래 발급, 다른 기기 바인딩, 약한 공개키를 거부합니다. JVM 회귀 테스트가 추가되었습니다. 다만 이 검증기는 아직 앱의 권한/UI 흐름에 연결되지 않았고 운영 공개키도 고정되지 않았습니다.\n- 라이선스 서버/API/관리자 콘솔/결제 검증은 아직 구현되어 있지 않습니다. 이 문서는 구현 계약이며 실제 발급 가능한 서비스가 아닙니다.
+- 앱에는 서버 발급 Pro entitlement 토큰의 RSA-2048 이상/SHA256 서명 검증기와 기기별 안전 저장소가 추가되었습니다. 토큰 서명·상품·권한·발급/만료 시각·설치 기기 바인딩을 검증하고, 설정 화면에서 검증된 PRO/FREE 상태를 표시합니다. 운영 공개키 설정 전에는 Pro 권한을 부여하지 않습니다.\n- Node.js/PostgreSQL 라이선스 API와 모바일 관리자 화면의 소스 구현 및 암호학 CI는 추가되었으나, 실제 호스팅·DB 배포·앱의 activate/refresh/deactivate 네트워크 연결은 아직 완료되지 않았습니다. Google Play Billing/결제 webhook도 미구현입니다.
 - 서명 manifest가 승인되면 필터별 sourceVersion, SHA-256, generatedAt을 캐시 메타데이터와 함께 저장하고, 캐시 교체가 실패하면 이전 메타데이터로 복구합니다. 필터 상태 화면에는 승인된 서명 버전·해시 앞부분·생성 시각을 표시합니다.
 - Guardian 서명 manifest 다운로드 경로를 추가했습니다. `GUARDIAN_MANIFEST_BASE_URL`과 `GUARDIAN_MANIFEST_PUBLIC_KEY`(또는 동등한 Gradle properties)를 함께 설정하면 앱은 `{baseUrl}/{sourceId}.manifest`를 조회하고 `X-Guardian-Signature` 헤더의 RSA-2048/SHA-256 서명을 검증한 뒤, manifest의 HTTPS 필터 URL에서 내려받은 콘텐츠의 SHA-256과 최소 규칙 수를 검사하고 캐시를 교체합니다. 마지막 승인 `generatedAt`은 소스별로 앱 내부 파일에 저장하며 캐시/메타데이터 교체 실패 시 이전 시각도 복구합니다. 둘 다 비어 있으면 기존 커뮤니티 필터 직접 다운로드 경로를 유지하고, 하나만 설정되면 업데이트를 거부합니다. 따라서 실제 운영 서버·공개키 배포는 아직 미구성이고, 서버 연동 end-to-end 검증도 남아 있습니다.
 - 실제 운영 도메인, 서버 계정, 결제 계정 및 production 서명키는 아직 구성되지 않았습니다. 비밀키를 Git 저장소나 채팅에 입력하지 않습니다.
@@ -100,3 +100,10 @@
 - Android 앱 검증기와 호환되는 서명 payload를 반환합니다. 앱 공개키는 `GUARDIAN_LICENSE_PUBLIC_KEY`, 서버 개인키는 `GUARDIAN_LICENSE_PRIVATE_KEY` Secret으로 분리합니다.
 - API 전용 GitHub Actions에서 JavaScript 구문 검사와 암호학/토큰 호환성 테스트를 수행하도록 추가했습니다.
 - 아직 호스팅 배포, 실제 PostgreSQL 연결 검증, Android 앱의 activate/refresh/deactivate 네트워크 연결, Google Play Billing 및 결제 webhook은 완료되지 않았습니다. 운영 서버가 존재한다고 간주하지 않습니다.
+
+### Android 앱 통합 진행 사항
+- 앱 설치별 무작위 UUID를 생성하고 SHA-256 기기 바인딩 값으로 변환합니다. Android ID·광고 ID는 사용하지 않습니다.
+- 서버 서명 entitlement를 저장하기 전에 RSA 서명, 상품/권한, 발급·만료 시각 및 현재 설치 기기 바인딩을 검증합니다. 저장된 토큰도 앱 설정 화면을 표시할 때마다 다시 검증하며 만료·위조·다른 설치 토큰은 Pro 권한에서 제외합니다.
+- 공개키는 `GUARDIAN_LICENSE_PUBLIC_KEY` 환경 변수 또는 `guardianLicensePublicKey` Gradle 속성으로 빌드 시 주입하도록 연결했습니다. 실제 운영 공개키가 비어 있으면 Pro 라이선스는 활성화되지 않습니다.
+- 설정 화면은 검증된 Pro 토큰이 있을 때만 PRO로 표시하고, 그 외에는 FREE로 표시합니다. DNS 보호 기능은 라이선스 상태와 독립적으로 유지됩니다.
+- 아직 라이선스 활성화 API 호출/키 입력 UI/관리자 콘솔/결제 검증은 연결되지 않았습니다. 따라서 이 단계는 검증된 토큰의 기기 종속 저장·재검증 기반이며, 사용자 라이선스 발급/활성화 서비스가 완성된 것은 아닙니다.
