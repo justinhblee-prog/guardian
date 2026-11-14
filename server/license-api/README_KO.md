@@ -31,6 +31,31 @@ npm start
 
 운영에서는 반드시 HTTPS reverse proxy 또는 HTTPS를 제공하는 호스팅 플랫폼 뒤에 배치하고, 관리자 페이지도 HTTPS로만 접근시켜야 합니다. 앱 내부 제한은 단일 프로세스의 보조 방어이며 재시작·다중 인스턴스 사이에 공유되지 않습니다. 프록시 뒤에서는 소켓 peer 기준이 프록시 주소가 될 수 있으므로, 공개 운영 환경에서는 프록시/WAF에서 실제 클라이언트 IP 기준 분산 rate limit을 반드시 적용해야 합니다. `GUARDIAN_RATE_LIMIT_WINDOW_MS`(기본 60000)와 `GUARDIAN_RATE_LIMIT_MAX`(기본 30)로 앱 내부 창과 요청 수를 조정할 수 있습니다. 데이터베이스 백업, Secret Manager, 로그 접근통제, 분산 rate limit/WAF, 모니터링, 복구 계획을 추가로 구성한 후 공개해야 합니다. 이 저장소의 서버는 운영 호스팅에 배포된 상태가 아닙니다.
 
+## Docker Compose 배포 준비
+
+이 저장소에는 API와 PostgreSQL을 함께 구동하는 컨테이너 구성이 포함되어 있습니다. 실제 공개 배포가 아니라 **운영 환경에 올리기 전 자체 서버에서 검증하는 배포 템플릿**입니다.
+
+1. Docker Engine과 Docker Compose 플러그인을 설치합니다.
+2. 이 디렉터리에서 `.env.example`을 `.env`로 복사합니다.
+3. `.env`의 모든 `REPLACE_...` 값을 서로 다른 무작위 비밀값으로 교체합니다. PostgreSQL 비밀번호는 URL 인코딩 문제가 없도록 영문·숫자만 사용합니다.
+4. RSA 개인키를 생성하고 PEM 전체를 `GUARDIAN_LICENSE_PRIVATE_KEY`에 `\\n` 줄바꿈 형태로 넣습니다. 개인키는 이 서버의 Secret Manager 또는 보호된 환경 파일에만 두고 Git에 커밋하지 않습니다.
+5. `docker compose up -d --build`로 시작한 뒤 `docker compose ps`와 `curl http://127.0.0.1:8787/health`로 상태를 확인합니다.
+
+RSA 키 생성 예:
+```sh
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out guardian-license-private.pem
+openssl pkey -in guardian-license-private.pem -pubout -out guardian-license-public.pem
+```
+
+공개키는 앱 빌드 시 `GUARDIAN_LICENSE_PUBLIC_KEY`에 주입하고, 서버 주소는 HTTPS 도메인으로 `GUARDIAN_LICENSE_API_BASE_URL`에 주입합니다. 개인키를 앱에 포함하지 않습니다. Compose는 API 포트를 `127.0.0.1:8787`에만 노출하므로 외부 공개 전 HTTPS reverse proxy/WAF를 별도로 구성해야 합니다. 프록시에서 실제 클라이언트 IP 기준 분산 rate limit을 설정합니다.
+
+데이터베이스 백업 예:
+```sh
+docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup.sql
+```
+
+`schema.sql`은 빈 데이터 볼륨 최초 생성 시에만 자동 실행됩니다. 이후 스키마 변경은 별도 migration으로 적용해야 합니다. 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
+
 ## API
 - `POST /v1/licenses/activate`: `{ "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`
 - `POST /v1/licenses/refresh`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
