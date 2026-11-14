@@ -1241,14 +1241,19 @@ class MainActivity : Activity() {
         ).joinToString(" · ")
     }
 
+    private fun setFilterUpdateStatus(message: String) {
+        filterStatusText?.text = message
+        protectionFeedback?.text = message
+    }
+
     private fun startFilterUpdate() {
         if (!filterUpdateRunning.compareAndSet(false, true)) {
-            filterStatusText?.text = "필터 목록을 이미 다운로드하고 있습니다."
+            setFilterUpdateStatus("필터 목록을 이미 다운로드하고 있습니다.")
             return
         }
         filterUpdateButton?.isEnabled = false
         filterUpdateButton?.text = "필터 다운로드 및 검증 중…"
-        filterStatusText?.text = "${FilterListManager.selectedProfile(this).label} 목록을 내려받아 규칙을 검증합니다."
+        setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} 목록을 내려받아 규칙을 검증합니다.")
         val hadPreviousMainCache = FilterListManager.hasCachedList(this)
         thread(name = "guardian-filter-update") {
             try {
@@ -1298,7 +1303,7 @@ class MainActivity : Activity() {
                     val androidAdsMessage = if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)) {
                         if (androidAdsResult != null) " · Android 앱 광고 ${androidAdsResult.blocked}개" else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)" else " · 앱 광고 필터 다운로드 실패(미적용)"
                     } else ""
-                    filterStatusText?.text = "${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage}${androidAdsMessage} · ${result.bytes / 1024}KB"
+                    setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage}${androidAdsMessage} · ${result.bytes / 1024}KB")
                     filterUpdateButton?.text = "필터 목록 업데이트"
                     filterUpdateButton?.isEnabled = true
                 }
@@ -1312,7 +1317,7 @@ class MainActivity : Activity() {
                     } else {
                         "정상 필터가 없어 보호를 시작할 수 없습니다."
                     }
-                    filterStatusText?.text = "업데이트 실패: ${e.message ?: e.javaClass.simpleName} · $cacheMessage"
+                    setFilterUpdateStatus("업데이트 실패: ${e.message ?: e.javaClass.simpleName} · $cacheMessage")
                     filterUpdateButton?.text = "다시 시도"
                     filterUpdateButton?.isEnabled = true
                 }
