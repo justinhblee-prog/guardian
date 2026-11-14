@@ -100,16 +100,22 @@ class DnsDohHttpCodecTest {
     @Test fun handlesStreamsThatTemporarilyReturnZeroForBulkReads() {
         val response = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nContent-Length: 29\\r\\n\\r\\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
+        val headerEnd = response.indices.firstOrNull { index ->
+            index + 3 < response.size &&
+                response[index] == 13.toByte() && response[index + 1] == 10.toByte() &&
+                response[index + 2] == 13.toByte() && response[index + 3] == 10.toByte()
+        }?.plus(4) ?: error("HTTP header terminator missing")
         val intermittentZeroStream = object : java.io.InputStream() {
             private val delegate = ByteArrayInputStream(response)
+            private var bytesConsumed = 0
             private var returnZero = true
-            override fun read(): Int = delegate.read()
+            override fun read(): Int = delegate.read().also { if (it >= 0) bytesConsumed++ }
             override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-                if (returnZero) {
+                if (returnZero && bytesConsumed >= headerEnd) {
                     returnZero = false
                     return 0
                 }
-                return delegate.read(buffer, offset, length)
+                return delegate.read(buffer, offset, length).also { if (it > 0) bytesConsumed += it }
             }
         }
         assertArrayEquals(dnsMessage, DnsDohHttpCodec.readResponse(intermittentZeroStream))
