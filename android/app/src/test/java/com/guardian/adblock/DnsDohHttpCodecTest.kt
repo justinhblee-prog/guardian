@@ -48,13 +48,13 @@ class DnsDohHttpCodecTest {
     }
 
     @Test fun rejectsAmbiguousOrMalformedResponseFraming() {
-        val duplicateLength = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nContent-Length: 29\\r\\nContent-Length: 30\\r\\n\\r\\n"
+        val duplicateLength = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: 29\r\nContent-Length: 30\r\n\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
-        val conflictingFraming = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nTransfer-Encoding: chunked\\r\\nContent-Length: 29\\r\\n\\r\\n"
+        val conflictingFraming = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nTransfer-Encoding: chunked\r\nContent-Length: 29\r\n\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
-        val unsupportedTransferCoding = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nTransfer-Encoding: gzip, chunked\\r\\n\\r\\n"
+        val unsupportedTransferCoding = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nTransfer-Encoding: gzip, chunked\r\n\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1)
-        val malformedHeader = "HTTP/1.1 200 OK\\r\\nContent-Type application/dns-message\\r\\nContent-Length: 29\\r\\n\\r\\n"
+        val malformedHeader = "HTTP/1.1 200 OK\r\nContent-Type application/dns-message\r\nContent-Length: 29\r\n\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
         assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(duplicateLength)))
         assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(conflictingFraming)))
