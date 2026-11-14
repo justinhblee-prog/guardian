@@ -749,6 +749,111 @@ class MainActivity : Activity() {
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        val verifiedLicense = LicenseEntitlementStore.current(this)
+        body.addView(infoRow(
+            "라이선스",
+            if (verifiedLicense != null) "서버 서명 및 이 기기 등록을 확인했습니다" else "서명 라이선스 미등록 · 무료 보호 기능 사용 중",
+            if (verifiedLicense != null) "PRO" else "FREE",
+            if (verifiedLicense != null) accent else muted
+        ))
+
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("PRO 라이선스 활성화", 15f, white, true))
+            addView(text(
+                "발급받은 라이선스 키를 입력하면 서버에서 기기 등록 후 서명 토큰을 발급합니다.",
+                11f, muted, false
+            ).withTop(5))
+            val licenseKeyInput = EditText(this@MainActivity).apply {
+                hint = "GDN-XXXX-XXXX-..."
+                setHintTextColor(muted)
+                setTextColor(white)
+                textSize = 13f
+                setSingleLine(true)
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                background = shape(panel2, 11)
+            }
+            addView(licenseKeyInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
+            val licenseFeedback = text(
+                if (BuildConfig.LICENSE_API_BASE_URL.isBlank()) "운영 라이선스 서버 주소가 아직 앱 빌드에 설정되지 않았습니다."
+                else "라이선스 키는 서버에서 확인하며 앱에는 원문을 저장하지 않습니다.",
+                10f, muted, false
+            ).withTop(8) as TextView
+            addView(licenseFeedback)
+            val activateButton = Button(this@MainActivity).apply {
+                text = "라이선스 활성화"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 12)
+                setOnClickListener {
+                    val key = licenseKeyInput.text.toString().trim()
+                    if (key.isBlank()) {
+                        licenseFeedback.text = "라이선스 키를 입력하세요."
+                        return@setOnClickListener
+                    }
+                    isEnabled = false
+                    licenseFeedback.text = "서버에 라이선스 활성화를 요청하고 있습니다."
+                    thread {
+                        try {
+                            LicenseApiClient.activate(this@MainActivity, key, BuildConfig.VERSION_NAME)
+                            runOnUiThread { showTab("settings") }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                licenseFeedback.text = error.message ?: "라이선스 활성화에 실패했습니다."
+                                isEnabled = true
+                            }
+                        }
+                    }
+                }
+            }
+            addView(activateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
+            if (verifiedLicense != null) {
+                val refreshButton = Button(this@MainActivity).apply {
+                    text = "라이선스 상태 갱신"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(panel2, 12)
+                    setOnClickListener {
+                        isEnabled = false
+                        licenseFeedback.text = "서버에서 라이선스 상태를 확인하고 있습니다."
+                        thread {
+                            try {
+                                LicenseApiClient.refresh(this@MainActivity)
+                                runOnUiThread { showTab("settings") }
+                            } catch (error: Exception) {
+                                runOnUiThread {
+                                    licenseFeedback.text = error.message ?: "라이선스 갱신에 실패했습니다."
+                                    isEnabled = true
+                                }
+                            }
+                        }
+                    }
+                }
+                addView(refreshButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+                val deactivateButton = Button(this@MainActivity).apply {
+                    text = "이 기기 라이선스 해제"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(panel2, 12)
+                    setOnClickListener {
+                        isEnabled = false
+                        thread {
+                            try {
+                                LicenseApiClient.deactivate(this@MainActivity)
+                                runOnUiThread { showTab("settings") }
+                            } catch (error: Exception) {
+                                runOnUiThread {
+                                    licenseFeedback.text = error.message ?: "기기 등록 해제에 실패했습니다."
+                                    isEnabled = true
+                                }
+                            }
+                        }
+                    }
+                }
+                addView(deactivateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            }
+        }.withTop(12))
         body.addView(text("DNS 업스트림 서버", 18f, white, true).withTop(24))
         body.addView(text("차단되지 않은 DNS 질의를 전달할 서버를 선택합니다.", 12f, muted, false).withTop(5))
         val dnsPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)

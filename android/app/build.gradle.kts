@@ -6,6 +6,10 @@ val guardianManifestBaseUrl = providers.gradleProperty("guardianManifestBaseUrl"
     .orElse(providers.environmentVariable("GUARDIAN_MANIFEST_BASE_URL")).getOrElse("")
 val guardianManifestPublicKey = providers.gradleProperty("guardianManifestPublicKey")
     .orElse(providers.environmentVariable("GUARDIAN_MANIFEST_PUBLIC_KEY")).getOrElse("")
+val guardianLicensePublicKey = providers.gradleProperty("guardianLicensePublicKey")
+    .orElse(providers.environmentVariable("GUARDIAN_LICENSE_PUBLIC_KEY")).getOrElse("")
+val guardianLicenseApiBaseUrl = providers.gradleProperty("guardianLicenseApiBaseUrl")
+    .orElse(providers.environmentVariable("GUARDIAN_LICENSE_API_BASE_URL")).getOrElse("")
 android {
     buildFeatures { buildConfig = true }
     namespace = "com.guardian.adblock"
@@ -25,6 +29,8 @@ android {
         versionName = "0.7.8-dev"
         buildConfigField("String", "FILTER_MANIFEST_BASE_URL", "\"$guardianManifestBaseUrl\"")
         buildConfigField("String", "FILTER_MANIFEST_PUBLIC_KEY", "\"$guardianManifestPublicKey\"")
+        buildConfigField("String", "LICENSE_PUBLIC_KEY", "\"$guardianLicensePublicKey\"")
+        buildConfigField("String", "LICENSE_API_BASE_URL", "\"$guardianLicenseApiBaseUrl\"")
     }
     sourceSets.getByName("main").assets.srcDir("../../shared")
     testOptions { unitTests.isIncludeAndroidResources = true }
