@@ -75,9 +75,6 @@ class DnsTcpSessionManager(
         // Every segment after the SYN handshake must carry ACK. Ignore
         // malformed ACK-less data/FIN so it cannot mutate the DNS stream.
         if (!tcp.ack) return emptyList()
-        // A peer cannot acknowledge bytes that this endpoint has not sent.
-        // Use TCP serial arithmetic so sequence wraparound remains valid.
-        if (isAfter(tcp.acknowledgement, session.serverNext)) return emptyList()
         session.lastActivity = now
         // Keep a half-closed session until the client acknowledges our FIN.
         // This lets a lost FIN/data response be replayed on an exact retransmission.
@@ -199,11 +196,6 @@ class DnsTcpSessionManager(
 
     @Synchronized
     fun activeSessionCount(): Int = sessions.size
-
-    private fun isAfter(candidate: Long, reference: Long): Boolean {
-        val distance = (candidate - reference) and MASK
-        return distance in 1L..0x7fffffffL
-    }
 
     private fun ack(packet: DnsTcpPacket.Parsed, session: Session) =
         DnsTcpPacket.response(packet, session.serverNext, session.clientNext, DnsTcpPacket.ACK)

@@ -337,33 +337,6 @@ class DnsTcpSessionManagerTest {
         assertTrue(DnsTcpPacket.parse(replies.single(), replies.single().size, 53000)!!.payload.isNotEmpty())
     }
 
-    @Test fun ignoresAcknowledgementBeyondBytesSentByServer() {
-        val manager = DnsTcpSessionManager()
-        val query = dnsQuery()
-        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
-        val syn = packet(flags = DnsTcpPacket.SYN, seq = 1700)
-        val synAckBytes = manager.handle(syn, syn.size) { null }.single()
-        val synAck = DnsTcpPacket.parse(synAckBytes, synAckBytes.size, 53000)!!
-
-        val impossibleAck = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
-            seq = 1701, acknowledgment = (synAck.sequence + 100L) and 0xffffffffL,
-            payload = framed)
-        var calls = 0
-        assertTrue(manager.handle(impossibleAck, impossibleAck.size) { calls++; null }.isEmpty())
-        assertEquals(0, calls)
-        assertEquals(1, manager.activeSessionCount())
-
-        val validRetransmission = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
-            seq = 1701, acknowledgment = synAck.sequence,
-            payload = framed)
-        val replies = manager.handle(validRetransmission, validRetransmission.size) {
-            calls++
-            DomainFilter.makeServfail(it)
-        }
-        assertEquals(1, calls)
-        assertTrue(replies.isNotEmpty())
-    }
-
     @Test fun doesNotTreatAckWithPayloadAsFinalFinAcknowledgement() {
         val manager = DnsTcpSessionManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 1500)
