@@ -1369,8 +1369,6 @@ class MainActivity : Activity() {
                     androidAdsFilterSwitch?.isEnabled = true
                     securityFilterCheckBox?.isEnabled = true
                     androidAdsFilterCheckBox?.isEnabled = true
-                    securityFilterCheckBox?.isEnabled = true
-                    androidAdsFilterCheckBox?.isEnabled = true
                 }
             } catch (e: Exception) {
                 filterUpdateRunning.set(false)
@@ -1387,6 +1385,8 @@ class MainActivity : Activity() {
                     filterUpdateButton?.isEnabled = true
                     securityFilterSwitch?.isEnabled = true
                     androidAdsFilterSwitch?.isEnabled = true
+                    securityFilterCheckBox?.isEnabled = true
+                    androidAdsFilterCheckBox?.isEnabled = true
                 }
             }
         }
