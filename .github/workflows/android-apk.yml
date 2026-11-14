@@ -73,8 +73,11 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            adb wait-for-device
+            timeout 120s adb wait-for-device
+            for attempt in $(seq 1 60); do if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')" = "1" ]; then break; fi; sleep 2; done
+            test "$(adb shell getprop sys.boot_completed | tr -d '\\r')" = "1"
             adb logcat -c
             installed=0; for attempt in 1 2 3; do if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then installed=1; break; fi; echo "ADB package-manager install attempt ${attempt} failed; waiting for system services before retry."; adb wait-for-device; adb shell cmd package list packages >/dev/null 2>&1 || true; sleep 5; done; test "$installed" -eq 1
             adb shell am start -n com.guardian.adblock/.MainActivity
