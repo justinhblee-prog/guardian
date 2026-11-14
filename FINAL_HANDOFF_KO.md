@@ -214,3 +214,14 @@ CI 성공은 실기기 VPN 동작이나 실제 광고 차단 성공을 증명하
 - 검증 APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577`. 일반 push CI이므로 artifact 업로드는 생략했습니다.
 - APK는 debug 서명 검증 빌드이며 최종 설치 패키지 배포가 아닙니다. 아직 실기기 VPN 승인/라우팅, Wi-Fi↔모바일 전환, 장시간 안정성, 앱별 제외 효과 및 실제 앱 광고 제거를 물리 기기에서 확인하지 않았습니다.
 - 계속 진행할 작업: UI/옵션 완성도 점검, VPN/DNS 재연결 및 예외 경로 검증, 전체 회귀와 문서/패키지 통합, 최종 APK 수동 배포 workflow 실행 및 산출물 무결성 확인.
+
+
+## 2026-11-14 — 최신 개발 인계 (v0.7.5-dev)
+
+- 최신 검증 소스 커밋: `beed7f96e35f714ff9263a26a9f3fe1c4efc0918`
+- Android package: `com.guardian.adblock`, versionCode `18`, versionName `0.7.5-dev`.
+- IPv6 resolver normalization now safely handles nullable `Inet6Address.hostAddress`.
+- Home dashboard explicitly explains that app-originated DoH/DoT bypass traffic is not intercepted, separate from Guardian's own DoH/DoT upstream modes.
+- [CI 43571389815](https://github.com/justinhblee-prog/guardian/actions/runs/43571389815): unit tests, lint, debug APK assembly, package/version and SHA-256 checks passed.
+- CI APK SHA-256: `f756ab65ce8d74cc7a7da45457b0cc2987b83acc83e9c993eab0a3f624492e1a`. Push CI skipped artifact upload.
+- Remaining acceptance boundary: physical Android installation, VPN permission and DNS routing, Wi-Fi/mobile handoff, long-run stability, app exclusions and actual ad-removal effectiveness remain unverified.
