@@ -1,25 +1,30 @@
-# Guardian AdBlock Android — 0.7.1-dev
+# Guardian AdBlock Android — 0.7.3-dev
 
-Guardian AdBlock은 Android VpnService 기반 DNS 필터링 앱입니다. 공식 DNS 필터 목록을 내려받아 검증하고, 가상 DNS 경로로 들어오는 도메인 질의를 차단합니다.
+Guardian AdBlock은 Android `VpnService` 기반 DNS 필터링 앱입니다. Android의 VPN 가상 인터페이스로 전달되는 DNS 질의를 로컬 규칙으로 판정하고, 허용된 질의는 선택한 업스트림 DNS로 전달합니다.
 
-> 개발 정책: 기능 개발과 내부 검증이 끝나기 전에는 최종 APK를 만들지 않습니다. GitHub push CI는 테스트만 수행하며, APK 패키징은 최종 릴리스 수동 실행으로 제한합니다.
+> 개발·배포 정책: CI의 디버그 APK 조립 성공은 빌드 산출물 검증이지, 실제 기기에서의 광고 차단 수용 테스트나 서명된 정식 릴리스 완료를 뜻하지 않습니다. 실기기 검증이 끝나기 전에는 최종 릴리스로 표시하지 않습니다.
 
-## 구현 범위
+## 현재 구현 범위
 
-- Android VpnService 기반 IPv4 / IPv6 UDP DNS 처리
-- Android 가상 DNS 엔드포인트를 통한 시스템 DNS 필터링
-- 선택형 고급 공용 DNS 직접 포착(기본 꺼짐)
-- 차단 도메인에 NXDOMAIN, 업스트림 실패 시 SERVFAIL 응답
-- upstream DNS 선택: Cloudflare, Google, Quad9, AdGuard DNS, AdGuard Family DNS, 사용자 지정 IPv4/IPv6
+- Android `VpnService` 기반 IPv4/IPv6 UDP DNS 처리
+- 가상 DNS 주소(`10.13.37.2`, `fd13:37::2`)로 지정된 시스템 DNS 질의 필터링
+- 가상 DNS 엔드포인트로 들어오는 클라이언트 DNS-over-TCP(53) 처리: TCP 세션, 길이 프레이밍, 순서가 맞는 스트림, 재전송 및 FIN 처리
+- 업스트림 전송 방식: UDP/53, TCP/53, DNS-over-TLS(DoT/853), DNS-over-HTTPS(DoH/443)
+- UDP 업스트림 응답이 잘린 경우 TCP DNS로 재시도
+- DoT/DoH TLS 인증서 호스트명 검증 및 SNI 설정
+- DoH HTTP 응답의 상태 코드, 헤더 중복·형식, 본문 길이, chunked framing 및 trailer 검증
+- UDP DNS 응답은 안전한 페이로드 한도(1232바이트)를 넘으면 TC 응답으로 대체
+- 차단 도메인에는 NXDOMAIN, 업스트림 실패에는 SERVFAIL 응답
+- 업스트림 DNS 선택: Cloudflare, Google, Quad9, AdGuard DNS 및 사용자 지정 IPv4/IPv6 주소
 - 필터 프로필: AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro
 - 선택형 HaGeZi Threat Intelligence 악성코드·피싱 목록
-- 선택형 AWAvenue Ads Rule Android 광고 SDK 목록
-- Adblock 도메인 규칙, 예외, `$important`, `$badfilter`, hosts, Guardian `block=` / `allow=` 규칙 지원
-- 사용자 차단/허용 도메인 목록, 앱별 VPN 제외
-- 필터 다운로드 검증, 임시 파일 기반 원자적 캐시 교체, 이전 정상 캐시 보존
-- 선택 프로필 및 활성화된 보조 목록의 캐시 준비 여부 확인
-- DNS 활동, 차단/전달/실패/무시 통계, 최근 요청, 진단 및 기록 초기화
-- DNS 규칙 엔진 자체 테스트: 현재 적용된 차단 규칙 매칭 및 NXDOMAIN 응답 생성 확인
+- 선택형 AWAvenue Android 광고 SDK 목록
+- 도메인 규칙, 예외, `$important`, `$badfilter`, hosts, Guardian `block=` / `allow=` 규칙 지원
+- 사용자 차단·허용 도메인 및 앱별 VPN 제외
+- 필터 다운로드 HTTPS 강제, 제한된 안전 리디렉션, 다운로드 크기·규칙 수 검증, 임시 파일 기반 원자적 캐시 교체 및 이전 정상 캐시 보존
+- WorkManager 네트워크 제약 기반 주기 업데이트, 사용자 설정에 따른 예약 취소 및 수동·백그라운드 다운로드 직렬화
+- DNS 활동·차단·전달·실패 통계, 최근 요청, 업스트림 연결 테스트 및 진단
+- Android Private DNS 설정 진단 표시(기기 전역 Private DNS 설정을 앱이 변경하지는 않음)
 
 ## 필터 출처
 
@@ -28,107 +33,60 @@ Guardian AdBlock은 Android VpnService 기반 DNS 필터링 앱입니다. 공식
 - AWAvenue Ads Rule: https://adguardteam.github.io/HostlistsRegistry/assets/filter_53.txt
 - 추가 프로필은 AdGuard Hostlists Registry의 공식 배포 파일을 사용합니다.
 
-AdGuard DNS Filter는 DNS 필터링에 맞게 단순화된 목록입니다. Guardian은 안전하게 해석할 수 있는 도메인 기반 규칙을 적용하고, 문맥 의존·재작성 등 미지원 규칙은 임의 해석하지 않고 제외 수를 기록합니다.
+Guardian은 DNS 필터링에 안전하게 적용할 수 있는 도메인 기반 규칙을 해석합니다. 문맥 의존·재작성 등 지원하지 않는 규칙은 임의로 변환하지 않고 제외 수에 반영합니다.
 
-## DNS 자가 테스트
+## 화면과 주요 옵션
 
-홈 또는 활동 화면에서 **DNS 규칙 엔진 테스트**를 실행합니다.
+- **홈:** 보호 상태, 보호 시작·중지, DNS 규칙 엔진 자체 테스트, 필터 준비 상태 및 통계
+- **보호:** 보호 범위, Private DNS 진단, 업스트림 연결 테스트 및 미지원 범위 안내
+- **활동:** DNS 질의·차단·전달·실패·무시 통계, 최근 요청, 진단 및 기록 초기화
+- **필터:** 프로필 선택, 보안·Android 앱 광고 목록, 자동 업데이트 및 업데이트 주기, 사용자 차단·허용 규칙
+- **설정:** 업스트림 DNS 주소·전송 방식·TLS 호스트명, 사용자 지정 DNS 및 앱별 VPN 제외
 
-1. 활성 규칙에서 `doubleclick.net` 차단 여부를 확인합니다.
-2. 차단 시 NXDOMAIN 응답 패킷 생성 결과가 맞는지 확인합니다.
-3. `example.com`이 차단되지 않는지 확인합니다.
+공용 DNS 직접 포착은 선택형 고급 기능이며 기본값은 꺼짐입니다. IP 주소 기반 경로이므로 해당 DNS 서버 IP로 향하는 비DNS 연결도 VPN에 들어올 수 있습니다. 이 기능은 포트 53 트래픽만을 분리해서 포착하는 기능이 아닙니다.
 
-VPN 앱 자신이 만든 소켓은 Android에서 자체 VPN 경로를 우회하므로, 앱 내부에서 가상 DNS 주소로 UDP 질의를 보내는 방식은 실제 TUN 통과 시험이 되지 않습니다. 따라서 이 테스트는 네트워크 연결을 가장하지 않고, 로드된 규칙 매칭과 NXDOMAIN 응답 생성만 검사합니다. 실기기 네트워크 경로와 실제 광고 차단은 별도 수용 테스트가 필요합니다.
+## DNS 자체 테스트의 범위
 
-## 화면 및 옵션
+홈 화면의 **DNS 규칙 엔진 테스트**는 현재 로드된 규칙의 도메인 매칭과 NXDOMAIN 응답 생성 여부를 검사합니다. VPN TUN을 통한 실제 네트워크 질의나 광고가 표시되지 않는지를 시험하는 테스트는 아닙니다.
 
-- 홈: 보호 상태, 시작/중지, DNS 자가 테스트, 필터 준비 상태 및 통계
-- 보호: DNS 보호 범위와 미지원 범위
-- 활동: DNS 질의/차단/전달/실패/무시, 최근 요청, 진단, 기록 초기화
-- 필터: 프로필 선택, 보안/Android 앱 광고 목록, 자동 업데이트, 업데이트 주기, 사용자 차단/허용 규칙
-- 설정: DNS 업스트림, 사용자 지정 DNS, 앱별 VPN 보호 제외
+보호 화면의 업스트림 연결 테스트는 설정된 업스트림 전송 방식으로 실제 DNS 질의를 전송하고 응답을 검증합니다. 이 테스트 역시 타 앱 트래픽의 광고 차단 수용 테스트와는 구분됩니다.
 
-자동 업데이트 확인은 앱 실행 시 수행됩니다. 앱이 닫힌 동안의 예약 백그라운드 업데이트는 아직 지원하지 않습니다.
+## 현재 제한 및 미검증 범위
 
-## 현재 제한 / 미지원
+- 앱 자체 DoH/DoT 터널, VPN 외부로 직접 전송되는 앱별 암호화 DNS는 가로채지 못할 수 있습니다.
+- 일반 웹 트래픽의 프록시·전달 기능은 제공하지 않습니다.
+- IPv6 확장 헤더 및 IP fragment 재조립은 지원하지 않습니다.
+- 웹페이지 요소 숨김, 동일 도메인(first-party) 광고 제거, 앱 화면 내부 광고 제거는 DNS 필터만으로 보장할 수 없습니다.
+- 모든 광고·추적 요청이 차단되는 것을 보장하지 않습니다.
+- 실제 기기에서 VPN 승인·연결, 필터 다운로드, DNS 경로, 앱 제외, Wi-Fi↔모바일 데이터 전환, Private DNS 조합 및 장시간 안정성은 별도 수용 테스트가 필요합니다.
 
-- 클라이언트 방향 TCP/53 DNS 가로채기
-- DNS-over-HTTPS(DoH), DNS-over-TLS(DoT), 앱 자체 DNS 터널
-- 목록에 없는 사용자 지정 DNS 주소로 직접 전송된 질의 가로채기
-- IPv6 확장 헤더 및 IP fragment 재조립
-- 전체 IP 트래픽의 VPN 프록시/전달
-- 웹페이지 요소 숨김, 동일 도메인(first-party) 광고 제거, 앱 화면 내부 광고 제거
-- 모든 광고가 차단되는 것을 보장하지 않음
-
-공용 DNS 직접 포착은 Android VPN의 IP 단위 경로를 사용합니다. DNS 서버 IP로 향하는 비DNS 연결도 TUN에 들어올 수 있으므로 기본값은 꺼져 있으며, 고급 옵션에서만 켤 수 있습니다. 비DNS 연결에 문제가 생기면 해당 옵션을 끄십시오.
-
-## 개발 및 검증
+## 개발 환경 및 검증
 
 필요 환경: JDK 17, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9.
 
 로컬 테스트:
+
 ```bash
 gradle -p android --no-daemon clean testDebugUnitTest
+gradle -p android --no-daemon lintDebug
+gradle -p android --no-daemon assembleDebug
 ```
 
-현재 테스트 소스 인벤토리: **12개 Kotlin 테스트 스위트 / 68개 JUnit 테스트 메서드**.
+현재 테스트 소스 인벤토리: **19개 Kotlin 테스트 파일 / 127개 JUnit 테스트 메서드**.
 
-최근 성공 CI:
-- https://github.com/justinhblee-prog/guardian/actions/runs/43434091375
-- 소스 커밋: `419356a1ef43ba20c33256b353566da7f42b8f61`
-- Android unit-test 단계: 성공
+### 최신 CI 검증
 
-## 실기기 검증 경계
+- 실행: https://github.com/justinhblee-prog/guardian/actions/runs/43562045324
+- 소스 커밋: `8537fe013e45b7d901410606867feabf6cf96533`
+- Android 단위 테스트: 성공
+- Android lint: 성공
+- Debug APK 조립: 성공
+- 패키지 식별자·버전 확인: 성공 (`com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev`)
+- APK 파일 존재 및 SHA-256 체크섬 생성: 성공
+- 이 push 실행에서는 APK 업로드 단계가 조건에 따라 건너뛰어졌습니다. 따라서 이 실행의 APK 바이너리를 다운로드할 수 있는 릴리스 아티팩트가 생성된 것은 아닙니다.
 
-CI 테스트 통과는 소스 컴파일과 자동화 테스트 통과를 의미합니다. 실기기 VPN 승인/연결, 실제 필터 다운로드, DNS 라우팅, 광고 차단 효과, 앱 제외, Wi-Fi↔모바일 데이터 전환 및 장시간 실행은 별도 확인이 필요합니다. 실제 기기에서 실행하지 않은 항목은 완료로 보고하지 않습니다.
+## APK 및 검증의 의미
 
+CI에서 생성되는 `app-debug.apk`는 Android 디버그 키로 서명된 설치 검증용 APK입니다. 정식 배포용 키로 서명된 릴리스 APK와는 다릅니다. 실기기 설치 및 광고 차단 수용 테스트, 릴리스 서명 절차를 마치기 전에는 정식 최종 APK라고 표시하지 않습니다.
 
-## VPN 서비스 복구 정책
-
-Android가 메모리 회수로 VPN 서비스 프로세스를 종료한 뒤 sticky service를 재생성하면, 직전 보호 상태가 활성화였을 때 TUN과 DNS 엔진을 다시 구성하도록 했습니다. 사용자가 보호를 중지했거나 권한이 해제된 상태에서는 자동 재시작하지 않습니다. 이 정책은 CI 단위 테스트로 검증했으며, 제조사별 절전 정책과 실제 기기의 장시간 안정성은 별도 검증 대상입니다.
-
-
-## Latest CI verification
-
-- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success**
-- Source commit: `57f30f68484fa4d6ef716a557efe8a75a4446407`
-- Android unit tests: passed; APK assembly/upload skipped because this was a push-triggered validation run.
-- Inventory: 12 test suites / 68 test methods.
-
-CI cancels superseded runs within the same branch so rapid pushes do not accumulate redundant builds.
-
-
-## UI polish verification
-
-- DNS upstream, filter profile and update interval selectors now use dark themed selected/dropdown rows consistent with the Guardian dashboard palette.
-- Status refreshes no longer retain/update detached home-screen views while the user is on other tabs.
-
-
-## Latest verification update
-
-- Explicit user stop now clears the persisted sticky-service restart flag even if VPN startup has not yet committed a TUN descriptor. Routine service cleanup without a live tunnel does not overwrite the original startup failure reason.
-- Added two unit tests for this stop/start race policy.
-- [GitHub Actions run 43436954231](https://github.com/justinhblee-prog/guardian/actions/runs/43436954231): **success** (Android unit tests passed; APK assembly intentionally skipped on push).
-- Test inventory: 12 suites / 68 test methods.
-
-
-백그라운드 업데이트는 WorkManager 2.12.0의 네트워크 제약 주기 작업을 사용합니다. 자동 업데이트를 끄면 예약을 취소하며, 수동/백그라운드 캐시 다운로드는 직렬화됩니다.
-
-
-## Latest WorkManager verification
-
-- [GitHub Actions run 43437792450](https://github.com/justinhblee-prog/guardian/actions/runs/43437792450): **success**
-- Source commit: `5d7624fd445edadb1a1ed24a482b9e2d25f07d41`
-- Android unit tests: **passed**; APK assembly was skipped because this was a push-triggered validation run.
-- Test inventory: **12 suites / 68 test methods**.
-
-
-## IPv6 DNS upstream choices
-Settings include IPv4 and IPv6 resolver presets for Cloudflare, Google, Quad9 and AdGuard DNS. AdGuard default IPv6 resolver routes are included in the optional direct-DNS capture set. IPv6 resolver use still depends on IPv6 connectivity provided by the current network.
-
-
-## Latest verification — IPv6 DNS presets
-- [GitHub Actions run 43443209122](https://github.com/justinhblee-prog/guardian/actions/runs/43443209122): **success**
-- Source commit: `f518711e559bfb8873128f82c07a1a157a5f2068`
-- Android unit tests: **passed**; APK assembly/upload skipped on push as intended.
-- Test inventory: **12 suites / 68 JUnit test methods**.
+CI 통과는 소스의 자동화 테스트·정적 검사·APK 조립과 메타데이터 확인을 뜻합니다. 실제 기기에서의 VPN 동작이나 광고 차단 효과가 확인되었다는 뜻은 아닙니다.
