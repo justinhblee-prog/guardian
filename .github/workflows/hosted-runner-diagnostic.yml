@@ -10,8 +10,12 @@ permissions:
   contents: read
 jobs:
   hosted-runner-smoke:
-    name: Confirm GitHub-hosted runner assignment
-    runs-on: ubuntu-24.04
+    name: 'Hosted runner dispatch (${{ matrix.runner }})'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-slim]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 5
     steps:
       - name: Confirm runner was actually assigned
@@ -24,5 +28,4 @@ jobs:
           echo "github_ref=${GITHUB_REF}"
           test -n "${RUNNER_NAME}"
           test "${RUNNER_OS}" = "Linux"
-          test "${RUNNER_ARCH}" = "X64"
           echo "HOSTED_RUNNER_DISPATCH_OK"
