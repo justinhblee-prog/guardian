@@ -91,6 +91,25 @@ test('publisher refuses to overwrite immutable version with different content', 
   );
 });
 
+test('publisher refuses to inherit a corrupt future anti-rollback timestamp', async () => {
+  const input = path.join(root, 'future.txt');
+  const outputDir = path.join(root, 'future-dist');
+  await mkdir(outputDir, { recursive: true });
+  await writeFile(input, '||future.example^\\n');
+  await writeFile(path.join(outputDir, 'adguard.manifest'), 'generatedAt=9999999999\\n');
+  await assert.rejects(
+    publishManifest({
+      'source-id': 'adguard',
+      'source-version': 'v1',
+      input,
+      'base-url': 'https://filters.example.com',
+      'minimum-rules': '1',
+      'output-dir': outputDir
+    }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
+    /too far in the future/
+  );
+});
+
 test('publisher rejects insecure URLs, path segments and missing signing keys', async () => {
   const input = path.join(root, 'invalid.txt');
   await writeFile(input, '||example.test^\n');
