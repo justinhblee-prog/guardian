@@ -10,6 +10,31 @@ val guardianLicensePublicKey = providers.gradleProperty("guardianLicensePublicKe
     .orElse(providers.environmentVariable("GUARDIAN_LICENSE_PUBLIC_KEY")).getOrElse("")
 val guardianLicenseApiBaseUrl = providers.gradleProperty("guardianLicenseApiBaseUrl")
     .orElse(providers.environmentVariable("GUARDIAN_LICENSE_API_BASE_URL")).getOrElse("")
+val guardianReleaseStoreFile = providers.gradleProperty("guardianReleaseStoreFile")
+    .orElse(providers.environmentVariable("GUARDIAN_RELEASE_STORE_FILE")).orNull
+val guardianReleaseStorePassword = providers.gradleProperty("guardianReleaseStorePassword")
+    .orElse(providers.environmentVariable("GUARDIAN_RELEASE_STORE_PASSWORD")).orNull
+val guardianReleaseKeyAlias = providers.gradleProperty("guardianReleaseKeyAlias")
+    .orElse(providers.environmentVariable("GUARDIAN_RELEASE_KEY_ALIAS")).orNull
+val guardianReleaseKeyPassword = providers.gradleProperty("guardianReleaseKeyPassword")
+    .orElse(providers.environmentVariable("GUARDIAN_RELEASE_KEY_PASSWORD")).orNull
+val guardianReleaseSigningConfigured = listOf(
+    guardianReleaseStoreFile, guardianReleaseStorePassword,
+    guardianReleaseKeyAlias, guardianReleaseKeyPassword
+).all { !it.isNullOrBlank() }
+
+val validateGuardianReleaseSigning by tasks.registering {
+    doLast {
+        check(guardianReleaseSigningConfigured) {
+            "Release APK/AAB requires GUARDIAN_RELEASE_STORE_FILE, GUARDIAN_RELEASE_STORE_PASSWORD, GUARDIAN_RELEASE_KEY_ALIAS and GUARDIAN_RELEASE_KEY_PASSWORD."
+        }
+        check(file(guardianReleaseStoreFile!!).isFile) {
+            "Configured Guardian release keystore file does not exist."
+        }
+    }
+}
+tasks.matching { it.name in setOf("assembleRelease", "bundleRelease", "packageRelease") }
+    .configureEach { dependsOn(validateGuardianReleaseSigning) }
 android {
     buildFeatures { buildConfig = true }
     namespace = "com.guardian.adblock"
@@ -31,6 +56,26 @@ android {
         buildConfigField("String", "FILTER_MANIFEST_PUBLIC_KEY", "\"$guardianManifestPublicKey\"")
         buildConfigField("String", "LICENSE_PUBLIC_KEY", "\"$guardianLicensePublicKey\"")
         buildConfigField("String", "LICENSE_API_BASE_URL", "\"$guardianLicenseApiBaseUrl\"")
+    }
+    signingConfigs {
+        if (guardianReleaseSigningConfigured) {
+            create("guardianRelease") {
+                storeFile = file(guardianReleaseStoreFile!!)
+                storePassword = guardianReleaseStorePassword
+                keyAlias = guardianReleaseKeyAlias
+                keyPassword = guardianReleaseKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = if (guardianReleaseSigningConfigured) {
+                signingConfigs.getByName("guardianRelease")
+            } else {
+                null
+            }
+        }
     }
     sourceSets.getByName("main").assets.srcDir("../../shared")
     testOptions { unitTests.isIncludeAndroidResources = true }
