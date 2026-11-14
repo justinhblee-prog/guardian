@@ -78,6 +78,25 @@ class LicenseEntitlementVerifierTest {
         }
     }
 
+    @Test fun expiredTokenIsAcceptedOnlyForExplicitRenewalLookup() {
+        val pair = keyPair()
+        val expired = payload(issuedAt = now - 90000, expiresAt = now - 1)
+        try {
+            verify(expired, pair)
+            fail("expired token must not grant Pro access")
+        } catch (_: IllegalArgumentException) { }
+        val renewalCredential = LicenseEntitlementVerifier.verify(
+            expired,
+            sign(expired, pair),
+            Base64.getEncoder().encodeToString(pair.public.encoded),
+            device,
+            now,
+            allowExpired = true
+        )
+        assertEquals("lic_test_0001", renewalCredential.licenseRef)
+        assertTrue(renewalCredential.expiresAt < now)
+    }
+
     @Test fun rejectsTokenBoundToAnotherDevice() {
         val pair = keyPair()
         try {

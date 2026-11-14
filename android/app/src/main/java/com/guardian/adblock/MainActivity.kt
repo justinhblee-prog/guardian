@@ -96,6 +96,7 @@ class MainActivity : Activity() {
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
         showTab("home")
+        LicenseRefreshScheduler.sync(this)
         val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
         FilterUpdateScheduler.sync(this)

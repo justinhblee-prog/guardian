@@ -33,7 +33,8 @@ internal object LicenseEntitlementVerifier {
         signatureBase64: String,
         publicKeyX509Base64: String,
         expectedDeviceBinding: String,
-        nowEpochSeconds: Long
+        nowEpochSeconds: Long,
+        allowExpired: Boolean = false
     ): Entitlement {
         require(payload.isNotEmpty() && payload.size <= MAX_TOKEN_BYTES) {
             "라이선스 토큰 크기가 올바르지 않습니다."
@@ -94,7 +95,7 @@ internal object LicenseEntitlementVerifier {
         }
         require(issuedAt > 0L && expiresAt > issuedAt) { "라이선스 유효 기간이 올바르지 않습니다." }
         require(issuedAt <= nowEpochSeconds + CLOCK_SKEW_SECONDS) { "라이선스 토큰 발급 시각이 미래입니다." }
-        require(expiresAt > nowEpochSeconds) { "라이선스가 만료되었습니다." }
+        if (!allowExpired) require(expiresAt > nowEpochSeconds) { "라이선스가 만료되었습니다." }
         require(entitlement.licenseRef.matches(Regex("[a-zA-Z0-9._-]{8,128}"))) {
             "라이선스 참조 값이 올바르지 않습니다."
         }
