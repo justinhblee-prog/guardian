@@ -305,3 +305,17 @@
 - README 변경이 push 경로 필터에서 누락되어 APK 업로드 workflow가 실행되지 않던 문제를 수정했습니다. README를 workflow paths에 포함했고, `[final-apk]` 커밋에서 전체 검증 및 artifact 업로드가 실행되도록 확인했습니다.
 - 릴리스 구분: 설치 가능한 debug 서명 APK입니다. production keystore 서명 및 Play Store 배포 검증은 포함하지 않습니다.
 - **실기기 미검증:** VPN 권한 승인, 실제 DNS 패킷 경로, 실제 필터 다운로드/적용, Wi-Fi↔모바일 데이터 전환, 절전/장시간 실행, 앱별 제외 및 실제 광고 제거 효과는 CI로 검증되지 않았습니다.
+
+
+## 2026-11-14 — 다중 탭 보호 시작/권한 거부 회귀 검증
+
+- Source commit: `019a4bdf576e56c0f893b68822efcc4c77846c41`
+- [GitHub Actions run 43563225658](https://github.com/justinhblee-prog/guardian/actions/runs/43563225658): **success**
+- `testDebugUnitTest`: passed.
+- `lintDebug`: passed.
+- `assembleDebug`: passed.
+- APK package/version: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev` — passed.
+- APK existence and SHA-256 generation: passed.
+- Fixed Home-only view access from Protection/other tabs during protection start and VPN permission denial. Status refresh now guards Home-only views and updates Protection-specific status views separately.
+- The workflow skipped artifact upload because this was a normal push, not a manual release dispatch. CI assembly is not a published APK artifact.
+- Physical-device VPN routing, actual DNS filtering, and real ad-removal acceptance remain unverified.
