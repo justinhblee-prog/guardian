@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPairSync, randomBytes } from 'node:crypto';
+import { generateKeyPairSync, randomBytes, verify } from 'node:crypto';
 import { adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey, validateDeviceBinding, verifyLicenseKey } from '../src/license-core.mjs';
 
 const device = randomBytes(32).toString('hex');
@@ -26,7 +26,6 @@ test('license key hashes verify without storing plaintext', async () => {
 test('entitlement payload matches Android verifier schema and is RSA signed', async () => {
   const token = issueEntitlementToken({ licenseRef: '12345678-abcd', deviceBinding: device, expiresAt, privateKey });
   const payload = Buffer.from(token.payload, 'utf8');
-  const { verify } = await import('node:crypto');
   assert.equal(verify('RSA-SHA256', payload, publicKey, Buffer.from(token.signature, 'base64')), true);
   assert.match(token.payload, /^tokenVersion=1\nproduct=guardian-android\nentitlement=pro\n/);
   assert.match(token.payload, new RegExp(`deviceBinding=${device}$`));
