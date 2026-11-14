@@ -1051,10 +1051,16 @@ class MainActivity : Activity() {
         intervalSpinner.setSelection(
             FilterUpdateScheduler.selectionIndex(currentInterval, intervals.map { it.second }, defaultIndex = 2)
         )
+        // Spinner may emit the initial selection while the filters screen is being rendered.
+        // Only persist and reschedule when the user actually changes the interval.
+        var selectedInterval = currentInterval
         intervalSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                prefs.edit().putLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, intervals[position].second).apply()
+                val nextInterval = intervals[position].second
+                if (nextInterval == selectedInterval) return
+                selectedInterval = nextInterval
+                prefs.edit().putLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, nextInterval).apply()
                 FilterUpdateScheduler.sync(this@MainActivity)
             }
         }
