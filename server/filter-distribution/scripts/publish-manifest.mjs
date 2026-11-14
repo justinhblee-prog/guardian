@@ -1,5 +1,5 @@
 import { createPrivateKey, createPublicKey, randomUUID, sign as rsaSign } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -29,7 +29,7 @@ async function atomicWrite(filePath, bytes) {
   await rename(temporary, filePath);
 }
 
-export async function publishManifest(options, env = process.env) {
+async function publishManifestUnlocked(options, env = process.env) {
   const sourceId = options['source-id'];
   const sourceVersion = options['source-version'];
   const input = options.input;
@@ -136,6 +136,38 @@ export async function publishManifest(options, env = process.env) {
   };
 }
 
+/**
+ * A single writer per source is required because generatedAt is monotonic state.
+ * The lock is exclusive across processes sharing the same output directory.
+ * A stale lock is deliberately not auto-broken: operators must first verify that
+ * no publisher is running, then remove .<sourceId>.publish.lock manually.
+ */
+export async function publishManifest(options, env = process.env) {
+  const sourceId = options['source-id'];
+  if (typeof sourceId !== 'string' || sourceId === '.' || sourceId === '..' ||
+      !/^[a-zA-Z0-9._-]{1,64}$/.test(sourceId)) {
+    throw new Error('source-id must contain 1-64 letters, digits, dot, underscore or hyphen.');
+  }
+  const outputDir = path.resolve(options['output-dir'] || 'dist');
+  await mkdir(outputDir, { recursive: true });
+  const lockPath = path.join(outputDir, `.${sourceId}.publish.lock`);
+  let lock;
+  try {
+    lock = await open(lockPath, 'wx', 0o600);
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      throw new Error(`Publication for source "${sourceId}" is already locked; refusing concurrent publish.`);
+    }
+    throw error;
+  }
+  try {
+    await lock.writeFile(JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() }) + '\n');
+    return await publishManifestUnlocked(options, env);
+  } finally {
+    await lock.close();
+    await rm(lockPath, { force: true });
+  }
+}
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
     const options = argsFrom(process.argv.slice(2));
