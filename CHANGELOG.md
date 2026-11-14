@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.7.3-dev — Android protection reliability candidate (2026-11-14)
+- Prevent optional security and Android-ad filter switches from changing while their cache snapshot is being downloaded and validated.
+- Reapply the locked state when the Protection screen is recreated during an active filter update, and clear stale view references when switching tabs.
+- Keep filter update feedback synchronized across the Protection and Filters screens.
+- Automatically disable optional lists only when their first download fails and no last-known-good cache exists; preserve existing valid caches on update failure.
+- CI release candidate increments Android versionCode to 16 and versionName to 0.7.3-dev.
+- Limitations remain: no autonomous DNS-over-TCP retransmission timer/partial-ACK recovery, no IPv6 extension-header/IP-fragment reassembly, and no real-device acceptance evidence yet.
+
+
 ## v0.4.0
 - Local UDP/TCP DNS development proxy with block/allow rules and bounded TTL cache.
 
