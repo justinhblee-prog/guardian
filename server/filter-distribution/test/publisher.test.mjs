@@ -149,3 +149,40 @@ test('publisher rejects insecure URLs, path segments and missing signing keys', 
     /GUARDIAN_FILTER_SIGNING_PRIVATE_KEY/
   );
 });
+
+test('publisher fails closed when another process holds the source publication lock', async () => {
+  const input = path.join(root, 'locked.txt');
+  const outputDir = path.join(root, 'locked-dist');
+  await mkdir(outputDir, { recursive: true });
+  await writeFile(input, '||locked.example^\\n');
+  const lockPath = path.join(outputDir, '.adguard.publish.lock');
+  await writeFile(lockPath, JSON.stringify({ pid: 99999 }), { flag: 'wx' });
+  await assert.rejects(
+    publishManifest({
+      'source-id': 'adguard',
+      'source-version': 'locked-v1',
+      input,
+      'base-url': 'https://filters.example.com',
+      'minimum-rules': '1',
+      'output-dir': outputDir
+    }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
+    /already locked; refusing concurrent publish/
+  );
+  await assert.rejects(readFile(path.join(outputDir, 'adguard.manifest')), { code: 'ENOENT' });
+  await rm(lockPath, { force: true });
+});
+
+test('publisher releases its source lock after a successful publication', async () => {
+  const input = path.join(root, 'unlock.txt');
+  const outputDir = path.join(root, 'unlock-dist');
+  await writeFile(input, '||unlock.example^\\n');
+  await publishManifest({
+    'source-id': 'security',
+    'source-version': 'unlock-v1',
+    input,
+    'base-url': 'https://filters.example.com',
+    'minimum-rules': '1',
+    'output-dir': outputDir
+  }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey });
+  await assert.rejects(readFile(path.join(outputDir, '.security.publish.lock')), { code: 'ENOENT' });
+});
