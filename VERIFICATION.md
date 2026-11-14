@@ -378,3 +378,12 @@
 - Verified package: `com.guardian.adblock`, versionCode `17`, versionName `0.7.4-dev`.
 - CI debug APK SHA-256: `d60df611f004d5114d9e1aaeb832a5837ce4287c5dd1b7c51c5909c8a4cfb577`. Artifact upload was skipped under the push workflow policy.
 - This does not constitute physical-device acceptance or proof of real-world ad removal.
+
+
+## 2026-11-14 — IPv6 address normalization safety and protection-scope copy
+
+- IPv6 `Inet6Address.hostAddress` is handled as nullable during normalization; null is returned safely rather than dereferenced.
+- Home dashboard wording now distinguishes encrypted DNS sent directly by apps (not intercepted) from Guardian's own encrypted upstream transport options.
+- CI [43571389815](https://github.com/justinhblee-prog/guardian/actions/runs/43571389815) succeeded: unit tests, Android lint, debug APK assembly, package identity/version and SHA-256 checks all passed.
+- Package: `com.guardian.adblock`, versionCode `18`, versionName `0.7.5-dev`.
+- CI debug APK SHA-256: `f756ab65ce8d74cc7a7da45457b0cc2987b83acc83e9c993eab0a3f624492e1a`. Push CI skipped artifact upload.
