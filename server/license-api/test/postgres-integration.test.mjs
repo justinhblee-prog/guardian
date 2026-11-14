@@ -103,6 +103,11 @@ if (!databaseUrl) {
     const deactivate = await post('/v1/licenses/deactivate', { deviceBinding: 'a'.repeat(64), licenseRef });
     assert.equal(deactivate.status, 200);
     assert.equal((await deactivate.json()).deactivated, 1);
+    const deactivationEvent = await pool.query(
+      "SELECT count(*)::int AS n FROM license_events WHERE event_type='deactivated' AND license_id=(SELECT id FROM licenses WHERE license_ref=$1)",
+      [licenseRef]
+    );
+    assert.equal(deactivationEvent.rows[0].n, 1);
 
     const afterDeactivate = await post('/v1/licenses/status', { deviceBinding: 'a'.repeat(64), licenseRef });
     assert.equal((await afterDeactivate.json()).status, 'free');
