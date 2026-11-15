@@ -263,7 +263,7 @@ test('updater rejects upstream bodies that disagree with Content-Length', async 
       })
     }), /Content-Length mismatch/);
     await assert.rejects(readFile(path.join(root, 'dist', '.guardian-update.lock')));
-    assert.equal((await readdir(path.join(root, 'tmp'))).length, 0);
+    await assert.rejects(readdir(path.join(root, 'tmp')), { code: 'ENOENT' });
   } finally {
     await rm(root, { recursive: true, force: true });
   }
