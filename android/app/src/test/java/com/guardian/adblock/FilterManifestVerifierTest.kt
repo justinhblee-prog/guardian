@@ -150,6 +150,20 @@ class FilterManifestVerifierTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun rejectsUnsupportedSourceIdCharactersEvenWhenSigned() {
+        val pair = keyPair()
+        val publicKey = Base64.getEncoder().encodeToString(pair.public.encoded)
+        listOf("../escape", "source/name", "source.name", ".", "..").forEach { sourceId ->
+            val bytes = String(payload(), StandardCharsets.UTF_8)
+                .replace("sourceId=base-adblock", "sourceId=$sourceId")
+                .toByteArray(StandardCharsets.UTF_8)
+            try {
+                FilterManifestVerifier.parseAndVerify(bytes, signed(bytes, pair), publicKey)
+                fail("unsupported source id must be rejected: $sourceId")
+            } catch (_: IllegalArgumentException) { }
+        }
+    }
+
     @Test fun rejectsBlankSourceVersionEvenWhenSigned() {
         val pair = keyPair()
         val bytes = String(payload(), StandardCharsets.UTF_8)
