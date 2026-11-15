@@ -99,7 +99,7 @@ internal object FilterManifestVerifier {
         require(nowEpochSeconds > 0L && manifest.generatedAt <= nowEpochSeconds + MAX_FUTURE_SKEW_SECONDS) {
             "manifest 생성 시각이 현재보다 지나치게 미래입니다."
         }
-        require(manifest.sourceId.matches(Regex("[a-zA-Z0-9._-]{1,64}"))) { "sourceId 형식이 올바르지 않습니다." }
+        require(manifest.sourceId.matches(Regex("[a-zA-Z0-9_-]{1,64}"))) { "sourceId 형식이 올바르지 않습니다." }
         require(manifest.sourceVersion.matches(Regex("[a-zA-Z0-9._+-]{1,64}")) &&
             manifest.sourceVersion != "." && manifest.sourceVersion != "..") {
             "sourceVersion 형식이 올바르지 않습니다."
