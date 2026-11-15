@@ -18,6 +18,10 @@
 - PR #43: main push 릴리스 설정 검증과 manual-only production signing gate. Android CI 및 release configuration CI 성공. 운영 signing secrets가 없어 production signing은 skipped.
 - PR #44: License API HTTP timeout/header 제한 및 nosniff 응답 헤더. PostgreSQL 통합 CI 성공.
 - PR #46: signed filter publisher가 본인이 생성하지 않은 replacement lock을 삭제하지 않도록 소유권 확인. Filter Distribution CI 성공.
+- PR #47: unsigned Android filter cache의 크기 제한·손상 캐시 정리 fail-closed. Android CI `43699497055` 전체 성공.
+- PR #48: Android license activate/refresh/deactivate/status 직렬화로 refresh/deactivate 응답 경합 방지. Android CI `43698680084` 전체 성공.
+- PR #49: 서버 refresh 403 시 Android 로컬 entitlement 제거 및 UI/worker 상태 정리. Android CI `43699268819` 전체 성공.
+- PR #50: PostgreSQL 공유 rate limiter, migration, timeout/nosniff 보강. License API CI `43700615872` 전체 성공.
 - PR #45: 버전/인수인계/멀티 디바이스 로드맵 문서 정합성 갱신 중.
 
 미병합 PR의 CI 성공은 main 반영 또는 운영 배포 완료를 뜻하지 않습니다.
