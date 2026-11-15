@@ -28,7 +28,12 @@ const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 10, 
 
 function json(res, status, value) {
   const body = JSON.stringify(value);
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'content-length': Buffer.byteLength(body) });
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+    'content-length': Buffer.byteLength(body)
+  });
   res.end(body);
 }
 async function readBody(req) {
