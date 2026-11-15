@@ -94,7 +94,7 @@ const server = http.createServer(async (req, res) => {
       const manifest = await readBounded(manifestPath, MAX_MANIFEST_BYTES);
       const manifestText = manifest.toString('utf8');
       if (!Buffer.from(manifestText, 'utf8').equals(manifest)) return send(res, 404, 'manifest_not_found');
-      const sourceMatch = /^sourceId=([a-zA-Z0-9._-]{1,64})$/m.exec(manifestText);
+      const sourceMatch = /^sourceId=([a-zA-Z0-9_-]{1,64})$/m.exec(manifestText);
       const versionMatch = /^sourceVersion=([a-zA-Z0-9._+-]{1,64})$/m.exec(manifestText);
       const generatedMatch = /^generatedAt=(\d+)$/m.exec(manifestText);
       if (!sourceMatch || sourceMatch[1] !== sourceId || !versionMatch || !generatedMatch) return send(res, 404, 'manifest_not_found');
