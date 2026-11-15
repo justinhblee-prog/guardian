@@ -199,7 +199,7 @@ class MainActivity : Activity() {
             insets
         }
         val scroll = ScrollView(this).apply { isFillViewport = true }
-        val screenWidthDp = resources.configuration.screenWidthDp
+        val screenWidthDp = resources.configuration.screenWidthDp.coerceAtLeast(1)
         val horizontalPadding = dp(ResponsiveLayoutPolicy.horizontalPaddingDp(screenWidthDp))
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -213,8 +213,9 @@ class MainActivity : Activity() {
             "activity" -> buildActivity(body)
             else -> buildSettings(body)
         }
+        val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
         val contentWidth = ResponsiveLayoutPolicy.contentWidthPx(
-            screenWidthDp.coerceAtLeast(1),
+            ResponsiveLayoutPolicy.contentAreaWidthDp(screenWidthDp),
             resources.displayMetrics.density
         )
         scroll.addView(
@@ -225,8 +226,18 @@ class MainActivity : Activity() {
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL
             )
         )
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(bottomNav(tab))
+        if (usesNavigationRail) {
+            val workspace = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setBackgroundColor(bg)
+            }
+            workspace.addView(bottomNav(tab, asRail = true), LinearLayout.LayoutParams(dp(88), -1))
+            workspace.addView(scroll, LinearLayout.LayoutParams(0, -1, 1f))
+            root.addView(workspace, LinearLayout.LayoutParams(-1, 0, 1f))
+        } else {
+            root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+            root.addView(bottomNav(tab))
+        }
         setContentView(root)
         root.requestApplyInsets()
         refreshStatus()
@@ -1070,12 +1081,12 @@ class MainActivity : Activity() {
         else -> null
     }
 
-    private fun bottomNav(selected: String): View {
+    private fun bottomNav(selected: String, asRail: Boolean = false): View {
         val nav = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+            orientation = if (asRail) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setBackgroundColor(Color.rgb(15, 23, 39))
-            setPadding(dp(5), dp(8), dp(5), dp(8))
+            setPadding(if (asRail) dp(7) else dp(5), dp(8), if (asRail) dp(7) else dp(5), dp(8))
         }
         val items = listOf(
             Triple("home", "⌂", "홈"),
@@ -1089,12 +1100,17 @@ class MainActivity : Activity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(0, dp(4), 0, dp(4))
+                setPadding(if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4), if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4))
                 setOnClickListener { showTab(id) }
+                if (active) background = shape(Color.rgb(31, 54, 76), 14)
             }
-            item.addView(text(icon, 21f, if (active) accent else muted, true).apply { gravity = Gravity.CENTER })
-            item.addView(text(label, 10f, if (active) white else muted, active).apply { gravity = Gravity.CENTER; setPadding(0, dp(2), 0, 0) })
-            nav.addView(item, LinearLayout.LayoutParams(0, dp(48), 1f))
+            item.addView(text(icon, if (asRail) 24f else 21f, if (active) accent else muted, true).apply { gravity = Gravity.CENTER })
+            item.addView(text(label, if (asRail) 11f else 10f, if (active) white else muted, active).apply { gravity = Gravity.CENTER; setPadding(0, dp(2), 0, 0) })
+            if (asRail) {
+                nav.addView(item, LinearLayout.LayoutParams(-1, dp(68)))
+            } else {
+                nav.addView(item, LinearLayout.LayoutParams(0, dp(48), 1f))
+            }
         }
         return nav
     }
