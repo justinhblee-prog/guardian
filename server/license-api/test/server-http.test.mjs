@@ -49,6 +49,28 @@ test('malformed UTF-8 request bodies are rejected with a client error', async ()
   assert.match((await response.json()).error, /UTF-8/);
 });
 
+test('rejects invalid UTF-8 scalar encodings and truncated multibyte sequences', async () => {
+  const invalidSequences = [
+    Buffer.from([0x80]),                         // isolated continuation byte
+    Buffer.from([0xc0, 0xaf]),                   // overlong encoding
+    Buffer.from([0xe2, 0x82]),                   // truncated three-byte sequence
+    Buffer.from([0xed, 0xa0, 0x80]),             // UTF-8 encoded surrogate
+    Buffer.from([0xf4, 0x90, 0x80, 0x80])        // code point above U+10FFFF
+  ];
+  const prefix = Buffer.from('{"value":"');
+  const suffix = Buffer.from('"}');
+
+  for (const invalid of invalidSequences) {
+    const response = await fetch(`${baseUrl}/v1/unknown`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: Buffer.concat([prefix, invalid, suffix])
+    });
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /UTF-8/);
+  }
+});
+
 test('oversized request bodies are rejected', async () => {
   const response = await fetch(`${baseUrl}/v1/unknown`, {
     method: 'POST',
