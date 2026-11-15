@@ -80,7 +80,7 @@ internal class ManifestTimestampStore(private val stateFile: File) {
     }
 
     private fun validateSourceId(sourceId: String) {
-        require(sourceId.matches(Regex("[a-zA-Z0-9._-]{1,64}"))) {
+        require(sourceId.matches(Regex("[a-zA-Z0-9_-]{1,64}"))) {
             "manifest sourceId 형식이 올바르지 않습니다."
         }
     }
