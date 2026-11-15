@@ -53,6 +53,16 @@ class ResponsiveLayoutPolicyTest {
     }
 
     @Test
+    fun dashboardRemainsSingleColumnBelowWideTabletBreakpoint() {
+        assertEquals(false, ResponsiveLayoutPolicy.usesTwoColumnDashboard(999))
+    }
+
+    @Test
+    fun dashboardUsesTwoColumnsAtWideTabletBreakpoint() {
+        assertEquals(true, ResponsiveLayoutPolicy.usesTwoColumnDashboard(1000))
+    }
+
+    @Test
     fun contentWidthScalesWithDisplayDensity() {
         assertEquals(1680, ResponsiveLayoutPolicy.contentWidthPx(1200, 2f))
     }
