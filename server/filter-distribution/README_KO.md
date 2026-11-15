@@ -100,6 +100,7 @@ Docker 컨테이너 내부 프로세스는 포트 포워딩을 위해 `0.0.0.0:8
 
 - 서명은 manifest 원문 UTF-8 바이트에 RSA-SHA256을 적용합니다. 서버는 manifest와 detached signature를 함께 읽고 signature를 `X-Guardian-Signature`로 전달합니다.
 - manifest는 `no-store`, 버전 고정 필터 파일은 `immutable` 캐시 정책을 사용합니다.
+- 배포 서버는 detached RSA 서명 Base64의 canonical 형식과 2048~4096비트 RSA 서명 길이를 확인합니다. sourceId는 영문·숫자·밑줄·하이픈만 허용하며 publisher와 updater의 검증 규칙도 동일하게 적용합니다.
 - 새 버전 콘텐츠와 `sourceId.sourceVersion.generatedAt.sig` 형식의 버전별 signature를 먼저 기록하고 manifest를 마지막에 원자적으로 교체합니다. 이전 manifest는 이전 버전 signature를 계속 참조하므로 발행 중에도 signature/manifest 불일치 구간을 만들지 않습니다. manifest는 공개 배포의 commit marker입니다.
 - 필터 파일 최대 10 MiB, manifest 최대 16 KiB, sourceId/version 경로는 허용 문자로 제한합니다. sourceId는 영문·숫자·밑줄·하이픈만 허용해 점 세그먼트 경로를 차단합니다.
 - HTTP 서버는 헤더 수를 32개로 제한하고 headers timeout 10초, request timeout 15초, keep-alive timeout 5초를 적용합니다.
