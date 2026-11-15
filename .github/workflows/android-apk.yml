@@ -8,6 +8,8 @@ on:
       - 'android/**'
       - 'shared/**'
       - 'README.md'
+      - 'VERIFY_ANDROID_CORE.sh'
+      - 'android/core-checks/**'
       - '.github/workflows/android-apk.yml'
   pull_request:
     paths:
@@ -35,6 +37,9 @@ jobs:
 
       - name: Verify shared DNS filter rules
         run: test -s shared/filter_rules.txt
+
+      - name: Validate standalone Android core smoke script syntax
+        run: bash -n VERIFY_ANDROID_CORE.sh
 
       - name: Verify VPN manifest and branded launcher assets
         run: |
