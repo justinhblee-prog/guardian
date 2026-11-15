@@ -19,6 +19,7 @@ class LicenseApiClientTest {
             "https://user:pass@licenses.example.com",
             "https://licenses.example.com/path",
             "https://licenses.example.com/path/",
+            "https://licenses.example.com///",
             "https://licenses.example.com?tenant=1",
             "https://licenses.example.com#fragment",
             "",
