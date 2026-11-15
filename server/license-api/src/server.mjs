@@ -68,12 +68,19 @@ function requireSigner() {
   }
 }
 function tokenFor(row, deviceBinding) {
-  return issueEntitlementToken({
+  const token = issueEntitlementToken({
     licenseRef: row.license_ref,
     deviceBinding,
     expiresAt: row.expires_at,
-    privateKey: requireSigner()
+    privateKey: requireSigner(),
+    maxTtlSeconds: TOKEN_TTL_SECONDS
   });
+  const issuedAt = Number(/^issuedAt=(\\d+)$/m.exec(token.payload)?.[1]);
+  const expiresAt = Number(/^expiresAt=(\\d+)$/m.exec(token.payload)?.[1]);
+  if (!Number.isFinite(issuedAt) || !Number.isFinite(expiresAt) || expiresAt <= issuedAt) {
+    throw new Error('entitlement_token_expiry_invalid');
+  }
+  return { ...token, expiresIn: expiresAt - issuedAt };
 }
 async function recordEvent(client, licenseId, type, actor, metadata = {}) {
   await client.query(
@@ -119,7 +126,7 @@ async function activate(body) {
     }
     const token = tokenFor(license, device);
     await client.query('COMMIT');
-    return { ...token, expiresIn: TOKEN_TTL_SECONDS, licenseStatus: 'pro', licenseRef: license.license_ref };
+    return { ...token, licenseStatus: 'pro', licenseRef: license.license_ref };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -151,7 +158,7 @@ async function refresh(body) {
     if (touched.rowCount !== 1) throw Object.assign(new Error('활성 라이선스를 찾을 수 없습니다.'), { status: 403 });
     const token = tokenFor(result.rows[0], device);
     await client.query('COMMIT');
-    return { ...token, expiresIn: TOKEN_TTL_SECONDS, licenseStatus: 'pro', licenseRef: result.rows[0].license_ref };
+    return { ...token, licenseStatus: 'pro', licenseRef: result.rows[0].license_ref };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
