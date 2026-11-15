@@ -3,6 +3,7 @@ package com.guardian.adblock
 import android.content.Context
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.file.Files
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import javax.net.ssl.HttpsURLConnection
@@ -111,6 +112,21 @@ object FilterListManager {
         return profiles.firstOrNull { it.key == key } ?: profiles.first()
     }
 
+    /** Delete invalid cache generations or fail closed if storage refuses cleanup. */
+    private fun discardCacheFiles(target: File) {
+        listOf(
+            target,
+            File(target.parentFile, "${target.name}.bak"),
+            File(target.parentFile, "${target.name}.tmp")
+        ).forEach { candidate ->
+            try {
+                Files.deleteIfExists(candidate.toPath())
+            } catch (error: Exception) {
+                throw IllegalStateException("손상된 필터 캐시 파일을 안전하게 제거하지 못했습니다.", error)
+            }
+        }
+    }
+
     private fun recoverCache(context: Context, cacheName: String): File {
         val target = File(context.filesDir, cacheName)
         val signedConfigured = BuildConfig.FILTER_MANIFEST_BASE_URL.isNotBlank() &&
@@ -128,9 +144,7 @@ object FilterListManager {
                     throw IllegalStateException("필터 캐시 크기가 허용 범위를 벗어났습니다.")
                 }
             } catch (_: IllegalStateException) {
-                target.delete()
-                File(target.parentFile, "${target.name}.bak").delete()
-                File(target.parentFile, "${target.name}.tmp").delete()
+                discardCacheFiles(target)
                 val countKeys = when (cacheName) {
                     SECURITY_CACHE_FILE -> KEY_SECURITY_BLOCK_COUNT to KEY_SECURITY_IGNORED_COUNT
                     ANDROID_ADS_CACHE_FILE -> KEY_ANDROID_ADS_BLOCK_COUNT to KEY_ANDROID_ADS_IGNORED_COUNT
@@ -149,9 +163,7 @@ object FilterListManager {
         if (expectedHash == null || !expectedHash.matches(Regex("[a-fA-F0-9]{64}"))) {
             // A cache without a committed signed hash may be a partially replaced first install
             // or an old unsigned cache. Neither is trusted once signed delivery is configured.
-            target.delete()
-            File(target.parentFile, "${target.name}.bak").delete()
-            File(target.parentFile, "${target.name}.tmp").delete()
+            discardCacheFiles(target)
             return target
         }
         fun matchesCommittedHash(candidate: File): Boolean =
@@ -179,9 +191,7 @@ object FilterListManager {
                 }
             }
         } catch (_: IllegalStateException) {
-            target.delete()
-            File(target.parentFile, "${target.name}.bak").delete()
-            File(target.parentFile, "${target.name}.tmp").delete()
+            discardCacheFiles(target)
             preferences.edit()
                 .remove(keys.first).remove(keys.second).remove(keys.third)
                 .putInt(when (cacheName) {
