@@ -49,11 +49,25 @@ async function readBounded(filePath, maxBytes) {
     if (!info.isFile() || info.size <= 0 || info.size > maxBytes) {
       throw Object.assign(new Error('Invalid distribution asset size.'), { status: 404 });
     }
-    const content = await handle.readFile();
-    if (content.length <= 0 || content.length !== info.size || content.length > maxBytes) {
+    // Do not use readFile() here: a concurrently replaced/growing file could
+    // exceed the size observed by stat() and allocate unbounded memory before
+    // the post-read size check. Read at most the observed size plus one byte.
+    const content = Buffer.allocUnsafe(info.size + 1);
+    let bytesRead = 0;
+    while (bytesRead < content.length) {
+      const result = await handle.read(
+        content,
+        bytesRead,
+        content.length - bytesRead,
+        bytesRead
+      );
+      if (result.bytesRead === 0) break;
+      bytesRead += result.bytesRead;
+    }
+    if (bytesRead <= 0 || bytesRead !== info.size || bytesRead > maxBytes) {
       throw Object.assign(new Error('Invalid distribution asset size.'), { status: 404 });
     }
-    return content;
+    return content.subarray(0, bytesRead);
   } finally {
     await handle.close();
   }
