@@ -1,3 +1,9 @@
+import java.net.URI
+import java.security.KeyFactory
+import java.security.interfaces.RSAPublicKey
+import java.security.spec.X509EncodedKeySpec
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -53,8 +59,66 @@ val validateGuardianReleaseSigning by tasks.registering {
         }
     }
 }
+
+fun validateGuardianRsaPublicKey(encoded: String, variableName: String) {
+    val decoded = try {
+        Base64.getDecoder().decode(encoded)
+    } catch (error: IllegalArgumentException) {
+        throw GradleException("$variableName must be a Base64-encoded X.509 RSA public key.", error)
+    }
+    val key = try {
+        KeyFactory.getInstance("RSA").generatePublic(X509EncodedKeySpec(decoded)) as? RSAPublicKey
+    } catch (error: Exception) {
+        throw GradleException("$variableName must be a valid X.509 RSA public key.", error)
+    } ?: throw GradleException("$variableName must be an RSA public key.")
+    check(key.modulus.bitLength() >= 2048) {
+        "$variableName must use an RSA key of at least 2048 bits."
+    }
+}
+
+val validateGuardianReleaseServices by tasks.registering {
+    doLast {
+        check(guardianManifestBaseUrl.isNotBlank()) {
+            "Release APK/AAB requires GUARDIAN_MANIFEST_BASE_URL for signed filter delivery."
+        }
+        val manifestUri = try {
+            URI(guardianManifestBaseUrl.trimEnd('/'))
+        } catch (error: Exception) {
+            throw GradleException("GUARDIAN_MANIFEST_BASE_URL must be a valid HTTPS URL.", error)
+        }
+        check(manifestUri.scheme.equals("https", ignoreCase = true) &&
+            !manifestUri.host.isNullOrBlank() && manifestUri.userInfo == null &&
+            manifestUri.query == null && manifestUri.fragment == null) {
+            "GUARDIAN_MANIFEST_BASE_URL must be an HTTPS origin/path without credentials, query or fragment."
+        }
+        check(guardianManifestPublicKey.isNotBlank()) {
+            "Release APK/AAB requires GUARDIAN_MANIFEST_PUBLIC_KEY."
+        }
+        check(guardianLicenseApiBaseUrl.isNotBlank()) {
+            "Release APK/AAB requires GUARDIAN_LICENSE_API_BASE_URL."
+        }
+        val licenseUri = try {
+            URI(guardianLicenseApiBaseUrl.trimEnd('/'))
+        } catch (error: Exception) {
+            throw GradleException("GUARDIAN_LICENSE_API_BASE_URL must be a valid HTTPS URL.", error)
+        }
+        check(licenseUri.scheme.equals("https", ignoreCase = true) &&
+            !licenseUri.host.isNullOrBlank() && licenseUri.userInfo == null &&
+            licenseUri.query == null && licenseUri.fragment == null) {
+            "GUARDIAN_LICENSE_API_BASE_URL must be an HTTPS origin/path without credentials, query or fragment."
+        }
+        check(guardianLicensePublicKey.isNotBlank()) {
+            "Release APK/AAB requires GUARDIAN_LICENSE_PUBLIC_KEY."
+        }
+        validateGuardianRsaPublicKey(guardianManifestPublicKey, "GUARDIAN_MANIFEST_PUBLIC_KEY")
+        validateGuardianRsaPublicKey(guardianLicensePublicKey, "GUARDIAN_LICENSE_PUBLIC_KEY")
+    }
+}
 tasks.matching { it.name in setOf("assembleRelease", "bundleRelease", "packageRelease") }
-    .configureEach { dependsOn(validateGuardianReleaseSigning) }
+    .configureEach {
+        dependsOn(validateGuardianReleaseSigning)
+        dependsOn(validateGuardianReleaseServices)
+    }
 android {
     buildFeatures { buildConfig = true }
     namespace = "com.guardian.adblock"
