@@ -26,7 +26,7 @@ internal fun parseLicenseApiBaseUrl(value: String): URL {
     ) {
         "라이선스 API 주소는 경로·인증 정보·쿼리·fragment가 없는 HTTPS origin이어야 합니다."
     }
-    return parsed
+    return URL(parsed.protocol, parsed.host, parsed.port, "")
 }
 
 
