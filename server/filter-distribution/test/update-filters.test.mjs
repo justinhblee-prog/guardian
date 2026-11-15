@@ -181,3 +181,22 @@ test('updater does not remove a replacement lock it no longer owns', async () =>
     await rm(root, { recursive: true, force: true });
   }
 });
+
+
+test('updater rejects RSA signing keys larger than 4096 bits before network access', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 8192 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  let fetchCalled = false;
+  await assert.rejects(updateFilters({
+    config: {
+      baseUrl: 'https://filters.example.com',
+      sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1 }]
+    },
+    env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+    fetchImpl: async () => {
+      fetchCalled = true;
+      return new Response('||first.example^', { status: 200 });
+    }
+  }), /between 2048 and 4096 bits/);
+  assert.equal(fetchCalled, false);
+});
