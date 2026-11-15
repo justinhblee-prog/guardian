@@ -152,10 +152,10 @@ export async function publishManifest(options, env = process.env) {
   let previousGeneratedAt = 0;
   try {
     const previous = await readExistingManifest(manifestPath);
-    const previousLines = previous.trimEnd().split('\\n');
+    const previousLines = previous.trimEnd().split('\n');
     const previousSourceIds = previousLines.filter(line => line.startsWith('sourceId='));
     const generatedAtLines = previousLines.filter(line => line.startsWith('generatedAt='));
-    const match = /^generatedAt=(\\d+)$/.exec(generatedAtLines[0] || '');
+    const match = /^generatedAt=(\d+)$/.exec(generatedAtLines[0] || '');
     if (previousSourceIds.length !== 1 || previousSourceIds[0] !== `sourceId=${sourceId}` ||
         generatedAtLines.length !== 1 || !match) {
       throw new Error('Existing manifest identity or generatedAt is invalid; refusing to reset anti-rollback time.');
