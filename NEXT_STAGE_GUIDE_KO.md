@@ -9,6 +9,7 @@
 - PR #41은 만료된 서명 라이선스에서도 Pro 권한을 주지 않으면서 기기 등록 해제를 허용하는 변경입니다. Android CI run `43696306115` 전체 성공(단위 테스트, lint, debug APK, API 35 에뮬레이터 설치·실행, package/version/SHA-256). PR은 미병합입니다.
 - PR #43은 main push 시 릴리스 설정 검증을 실행하고 production signing은 수동 실행으로 제한합니다. Android CI run `43696645579` 및 release config run `43696645556` 성공. production signing job은 운영 secrets 미설정으로 의도적 skipped. PR은 미병합입니다.
 - PR #44는 License API의 HTTP timeout/header 제한과 JSON nosniff 헤더를 추가합니다. 최종 API CI run `43697583427`의 Node·Docker Compose·PostgreSQL 통합 테스트 전체 성공. PR은 미병합입니다.
+- PR #46은 signed filter publisher의 source lock cleanup이 교체된 다른 실행자의 lock을 삭제하지 않도록 보강합니다. Filter Distribution CI run `43698002553` 성공. PR은 미병합입니다.
 - PR #16과 PR #40은 최신 main 재적용본(PR #41, #43)으로 대체되어 닫혔습니다.
 - 위 PR #41/#43/#44는 검증 성공이어도 main에 병합된 기능으로 계산하지 않습니다.
 - 운영 keystore/secrets, production API 주소/공개키/DB 및 도메인/TLS는 실제 운영 환경에 설정·검증되지 않았습니다.
