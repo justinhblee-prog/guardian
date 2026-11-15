@@ -143,4 +143,43 @@ class LicenseEntitlementVerifierTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+
+    @Test fun expiredLookupStillRejectsTamperedSignatureAndWrongDevice() {
+        val pair = keyPair()
+        val expired = payload(issuedAt = now - 90000, expiresAt = now - 1)
+        val signature = sign(expired, pair)
+        val publicKey = Base64.getEncoder().encodeToString(pair.public.encoded)
+
+        val tampered = expired.copyOf().also { it[it.lastIndex - 1] = 'x'.code.toByte() }
+        try {
+            LicenseEntitlementVerifier.verify(
+                tampered, signature, publicKey, device, now, allowExpired = true
+            )
+            fail("allowExpired must not bypass signature verification")
+        } catch (_: IllegalArgumentException) { }
+
+        try {
+            LicenseEntitlementVerifier.verify(
+                expired, signature, publicKey, "e".repeat(64), now, allowExpired = true
+            )
+            fail("allowExpired must not bypass device binding")
+        } catch (_: IllegalArgumentException) { }
+    }
+
+    @Test fun expiredLookupStillRejectsFutureIssuedToken() {
+        val pair = keyPair()
+        val futureIssued = payload(issuedAt = now + 301, expiresAt = now + 900)
+        try {
+            LicenseEntitlementVerifier.verify(
+                futureIssued,
+                sign(futureIssued, pair),
+                Base64.getEncoder().encodeToString(pair.public.encoded),
+                device,
+                now,
+                allowExpired = true
+            )
+            fail("allowExpired must not bypass issuedAt validation")
+        } catch (_: IllegalArgumentException) { }
+    }
+
 }
