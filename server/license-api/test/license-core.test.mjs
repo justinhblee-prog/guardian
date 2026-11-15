@@ -58,8 +58,8 @@ test('signed entitlement never outlives an earlier license expiry', () => {
     privateKey,
     now
   });
-  const issuedAt = Number(token.payload.match(/issuedAt=(\\d+)/)?.[1]);
-  const expires = Number(token.payload.match(/expiresAt=(\\d+)/)?.[1]);
+  const issuedAt = Number(token.payload.match(/issuedAt=(\d+)/)?.[1]);
+  const expires = Number(token.payload.match(/expiresAt=(\d+)/)?.[1]);
   assert.equal(expires - issuedAt, 15 * 60);
   assert.equal(verify('RSA-SHA256', Buffer.from(token.payload), publicKey, Buffer.from(token.signature, 'base64')), true);
 });
