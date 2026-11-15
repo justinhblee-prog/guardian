@@ -1,6 +1,6 @@
 import { createPrivateKey, createPublicKey, randomUUID, sign as rsaSign } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
-import { mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -219,6 +219,23 @@ async function publishManifestUnlocked(options, env = process.env) {
 }
 
 /**
+ * Remove a source lock only when its pathname still identifies the file this
+ * publisher opened. This avoids deleting a replacement owner's lock during
+ * cleanup after a concurrent unlink/recreate operation.
+ */
+export async function removeOwnedPublishLock(lockHandle, lockPath) {
+  const owned = await lockHandle.stat({ bigint: true });
+  try {
+    const current = await lstat(lockPath, { bigint: true });
+    if (current.isFile() && current.dev === owned.dev && current.ino === owned.ino) {
+      await rm(lockPath);
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+}
+
+/**
  * Serialize manifest publication for each source in a shared output directory.
  * Stale locks are intentionally not auto-recovered; an operator must verify
  * that no publisher is running before removing one manually.
@@ -245,10 +262,11 @@ export async function publishManifest(options, env = process.env) {
     await lock.writeFile(JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() }) + '\\n');
     return await publishManifestUnlocked(options, env);
   } finally {
-    await lock.close();
-    // Pathname cleanup assumes the output directory is writable only by the
-    // trusted publisher account; Node does not expose atomic unlink-by-inode.
-    await rm(lockPath, { force: true });
+    try {
+      await removeOwnedPublishLock(lock, lockPath);
+    } finally {
+      await lock.close();
+    }
   }
 }
 
