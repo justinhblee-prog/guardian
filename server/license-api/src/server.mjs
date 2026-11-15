@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { createPrivateKey, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { createRateLimiter } from './rate-limit.mjs';
@@ -39,28 +39,67 @@ async function readBody(req) {
     if (size > BODY_LIMIT) throw Object.assign(new Error('요청 크기가 너무 큽니다.'), { status: 413 });
     chunks.push(chunk);
   }
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
-  catch { throw Object.assign(new Error('JSON 요청 형식이 올바르지 않습니다.'), { status: 400 }); }
+  let parsed;
+  try {
+    parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    throw Object.assign(new Error('JSON 요청 형식이 올바르지 않습니다.'), { status: 400 });
+  }
+  // Every API route consumes named request fields. Reject null, arrays and
+  // primitive JSON values here so malformed shapes never become server 500s.
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw Object.assign(new Error('JSON 요청 본문은 객체여야 합니다.'), { status: 400 });
+  }
+  return parsed;
 }
 function requireEnv() {
   if (!pool) throw Object.assign(new Error('서버 데이터베이스가 구성되지 않았습니다.'), { status: 503 });
   if (!LOOKUP_SECRET || LOOKUP_SECRET.length < 32) throw Object.assign(new Error('라이선스 조회용 서버 비밀값이 구성되지 않았습니다.'), { status: 503 });
+  if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 32) throw Object.assign(new Error('관리자 인증 토큰이 구성되지 않았습니다.'), { status: 503 });
 }
 function requireAdmin(req) {
-  const supplied = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!adminTokenMatches(supplied, ADMIN_TOKEN)) throw Object.assign(new Error('관리자 인증에 실패했습니다.'), { status: 401 });
+  const authorization = req.headers.authorization || '';
+  const match = /^Bearer\s+([^\s]+)$/i.exec(authorization);
+  const supplied = match?.[1] || '';
+  if (!adminTokenMatches(supplied, ADMIN_TOKEN)) {
+    throw Object.assign(new Error('관리자 인증에 실패했습니다.'), { status: 401 });
+  }
+}
+function validateLicenseRef(value) {
+  // license_ref values are generated with crypto.randomUUID(); reject malformed
+  // or oversized references before they reach PostgreSQL queries.
+  if (typeof value !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    throw Object.assign(new Error('라이선스 참조 값이 올바르지 않습니다.'), { status: 400 });
+  }
+  return value.toLowerCase();
 }
 function requireSigner() {
   if (!PRIVATE_KEY) throw Object.assign(new Error('라이선스 서명 키가 서버에 구성되지 않았습니다.'), { status: 503 });
-  return PRIVATE_KEY.replace(/\\n/g, '\n');
+  try {
+    const key = createPrivateKey(PRIVATE_KEY.replace(/\\n/g, '\n'));
+    if (key.asymmetricKeyType !== 'rsa' || (key.asymmetricKeyDetails?.modulusLength || 0) < 2048) {
+      throw new Error('weak_or_non_rsa_key');
+    }
+    return key;
+  } catch {
+    throw Object.assign(new Error('RSA 2048비트 이상의 라이선스 서명 키 구성이 올바르지 않습니다.'), { status: 503 });
+  }
 }
 function tokenFor(row, deviceBinding) {
-  return issueEntitlementToken({
+  const token = issueEntitlementToken({
     licenseRef: row.license_ref,
     deviceBinding,
     expiresAt: row.expires_at,
-    privateKey: requireSigner()
+    privateKey: requireSigner(),
+    maxTtlSeconds: TOKEN_TTL_SECONDS
   });
+  const issuedAt = Number(/^issuedAt=(\d+)$/m.exec(token.payload)?.[1]);
+  const expiresAt = Number(/^expiresAt=(\d+)$/m.exec(token.payload)?.[1]);
+  if (!Number.isFinite(issuedAt) || !Number.isFinite(expiresAt) || expiresAt <= issuedAt) {
+    throw new Error('entitlement_token_expiry_invalid');
+  }
+  return { ...token, expiresIn: expiresAt - issuedAt };
 }
 async function recordEvent(client, licenseId, type, actor, metadata = {}) {
   await client.query(
@@ -106,7 +145,7 @@ async function activate(body) {
     }
     const token = tokenFor(license, device);
     await client.query('COMMIT');
-    return { ...token, expiresIn: TOKEN_TTL_SECONDS, licenseStatus: 'pro', licenseRef: license.license_ref };
+    return { ...token, licenseStatus: 'pro', licenseRef: license.license_ref };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -115,34 +154,57 @@ async function activate(body) {
 async function refresh(body) {
   requireEnv();
   const device = validateDeviceBinding(body.deviceBinding);
-  if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
+  const licenseRef = validateLicenseRef(body.licenseRef);
   const client = await pool.connect();
   try {
+    // Serialize refresh against deactivation/revocation. Without the row lock,
+    // a refresh could read an active slot, race with deactivation, then issue
+    // a fresh signed token after the slot had already been released.
+    await client.query('BEGIN');
     const result = await client.query(
       `SELECT l.* FROM licenses l JOIN activations a ON a.license_id=l.id
        JOIN products p ON p.id=l.product_id
        WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
        AND l.status='active' AND l.expires_at>now() AND p.active=true
-       LIMIT 1`,
-      [device, body.licenseRef]
+       LIMIT 1 FOR UPDATE OF l, a`,
+      [device, licenseRef]
     );
     if (!result.rowCount) throw Object.assign(new Error('활성 라이선스를 찾을 수 없습니다.'), { status: 403 });
-    await client.query('UPDATE activations SET last_seen_at=now() WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL', [result.rows[0].id, device]);
-    return { ...tokenFor(result.rows[0], device), expiresIn: TOKEN_TTL_SECONDS, licenseStatus: 'pro', licenseRef: result.rows[0].license_ref };
+    const touched = await client.query(
+      'UPDATE activations SET last_seen_at=now() WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL',
+      [result.rows[0].id, device]
+    );
+    if (touched.rowCount !== 1) throw Object.assign(new Error('활성 라이선스를 찾을 수 없습니다.'), { status: 403 });
+    const token = tokenFor(result.rows[0], device);
+    await client.query('COMMIT');
+    return { ...token, licenseStatus: 'pro', licenseRef: result.rows[0].license_ref };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
   } finally { client.release(); }
 }
 async function deactivate(body) {
   requireEnv();
   const device = validateDeviceBinding(body.deviceBinding);
-  if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
-  const result = await pool.query(
-    'UPDATE activations a SET deactivated_at=now() FROM licenses l WHERE a.license_id=l.id AND a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL RETURNING a.license_id',
-    [device, body.licenseRef]
-  );
-  for (const row of result.rows) await pool.query(
-    "INSERT INTO license_events(license_id,event_type,actor) VALUES($1,'deactivated','device')", [row.license_id]
-  );
-  return { deactivated: result.rowCount };
+  const licenseRef = validateLicenseRef(body.licenseRef);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      'UPDATE activations a SET deactivated_at=now() FROM licenses l WHERE a.license_id=l.id AND a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL RETURNING a.license_id',
+      [device, licenseRef]
+    );
+    for (const row of result.rows) {
+      await recordEvent(client, row.license_id, 'deactivated', 'device');
+    }
+    await client.query('COMMIT');
+    return { deactivated: result.rowCount };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 async function createLicense(body) {
   requireEnv();
@@ -196,6 +258,9 @@ async function listAuditEvents(req) {
 async function revokeLicense(id, req) {
   requireEnv();
   requireAdmin(req);
+  if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    throw Object.assign(new Error('라이선스 ID 형식이 올바르지 않습니다.'), { status: 400 });
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -227,6 +292,27 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
+    if (req.method === 'GET' && url.pathname === '/ready') {
+      try {
+        requireEnv();
+        requireSigner();
+        const schema = await pool.query(
+          `SELECT
+             to_regclass('public.products') AS products,
+             to_regclass('public.licenses') AS licenses,
+             to_regclass('public.activations') AS activations,
+             to_regclass('public.license_events') AS license_events`
+        );
+        const requiredTables = ['products', 'licenses', 'activations', 'license_events'];
+        if (requiredTables.some(table => !schema.rows[0]?.[table])) {
+          throw new Error('license_database_schema_not_initialized');
+        }
+        await pool.query('SELECT 1');
+        return json(res, 200, { ok: true, service: 'guardian-license-api', database: 'ready', signer: 'ready' });
+      } catch {
+        return json(res, 503, { ok: false, error: 'not_ready' });
+      }
+    }
     if (req.method === 'GET' && url.pathname === '/admin.js') {
       const script = await readFile(new URL('../admin/admin.js', import.meta.url));
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
@@ -247,12 +333,15 @@ const server = http.createServer(async (req, res) => {
     else if (url.pathname === '/v1/licenses/deactivate') result = await deactivate(body);
     else if (url.pathname === '/v1/licenses/status') {
       const device = validateDeviceBinding(body.deviceBinding);
-      if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
+      const licenseRef = validateLicenseRef(body.licenseRef);
       requireEnv();
       const r = await pool.query(
-        `SELECT l.status,l.expires_at,l.license_ref FROM licenses l JOIN activations a ON a.license_id=l.id
-         WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL AND l.status='active' AND l.expires_at>now()
-         LIMIT 1`, [device, body.licenseRef]);
+        `SELECT l.status,l.expires_at,l.license_ref FROM licenses l
+         JOIN activations a ON a.license_id=l.id
+         JOIN products p ON p.id=l.product_id AND p.active=true
+         WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
+           AND l.status='active' AND l.expires_at>now()
+         LIMIT 1`, [device, licenseRef]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
     } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
     else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
@@ -272,4 +361,4 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`Guardian License API listening on :${PORT}`);
   });
 }
-export { server };
+export { server, pool };
