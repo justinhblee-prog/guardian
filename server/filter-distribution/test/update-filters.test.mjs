@@ -101,7 +101,7 @@ test('updater stages every source before publishing any manifest', async () => {
         sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1 }]
       },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
-      fetchImpl: async () => new Response('||first.example^\\n', { status: 200 })
+      fetchImpl: async () => new Response('||first.example^\n', { status: 200 })
     });
     assert.equal(retry.length, 1);
   } finally {
@@ -111,10 +111,10 @@ test('updater stages every source before publishing any manifest', async () => {
 
 
 test('updater refuses to interleave with an active batch lock before fetching', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-batch-lock-'));
-  const outputDir = path.join(root, 'dist');
   const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-batch-lock-'));
+  const outputDir = path.join(root, 'dist');
   let fetchCalled = false;
   try {
     await mkdir(outputDir, { recursive: true });
@@ -174,12 +174,12 @@ test('updater does not remove a replacement lock it no longer owns', async () =>
         // Simulate an external actor replacing the pathname while this process
         // still holds the original lock file descriptor.
         await rm(lockPath);
-        await writeFile(lockPath, 'replacement-owner\\n', { flag: 'wx' });
-        return new Response('||first.example^\\n', { status: 200 });
+        await writeFile(lockPath, 'replacement-owner\n', { flag: 'wx' });
+        return new Response('||first.example^\n', { status: 200 });
       }
     });
     assert.equal(result.length, 1);
-    assert.equal(await readFile(lockPath, 'utf8'), 'replacement-owner\\n');
+    assert.equal(await readFile(lockPath, 'utf8'), 'replacement-owner\n');
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -223,4 +223,51 @@ test('updater rejects excessive source counts before making network requests', a
     }
   }), /at most 100 filter sources/);
   assert.equal(fetchCalled, false);
+});
+
+
+test('updater rejects duplicate source IDs before any upstream request', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  let fetchCalled = false;
+  await assert.rejects(updateFilters({
+    config: {
+      baseUrl: 'https://filters.example.com',
+      sources: [
+        { id: 'duplicate', url: 'https://upstream.example/one.txt', minimumRules: 1 },
+        { id: 'duplicate', url: 'https://upstream.example/two.txt', minimumRules: 1 }
+      ]
+    },
+    env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+    fetchImpl: async () => {
+      fetchCalled = true;
+      return new Response('||example.test^', { status: 200 });
+    }
+  }), /Duplicate source id in config: duplicate/);
+  assert.equal(fetchCalled, false);
+});
+
+test('updater rejects upstream bodies that disagree with Content-Length', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-length-mismatch-'));
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  try {
+    await assert.rejects(updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        outputDir: path.join(root, 'dist'),
+        tempDir: path.join(root, 'tmp'),
+        sources: [{ id: 'length', url: 'https://upstream.example/filter.txt', minimumRules: 1 }]
+      },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+      fetchImpl: async () => new Response('||example.test^\n', {
+        status: 200,
+        headers: { 'content-length': '999' }
+      })
+    }), /Content-Length mismatch/);
+    await assert.rejects(readFile(path.join(root, 'dist', '.guardian-update.lock')));
+    await assert.rejects(readdir(path.join(root, 'tmp')), { code: 'ENOENT' });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
