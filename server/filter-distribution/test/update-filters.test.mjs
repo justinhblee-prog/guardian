@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { updateFilters } from '../scripts/update-filters.mjs';
@@ -31,8 +31,7 @@ test('updater fetches HTTPS filters, checks minimum rules and publishes signed c
     assert.equal(result.length, 1);
     assert.equal(result[0].ruleCount, 2);
     const manifest = await readFile(path.join(root, 'dist', 'adguard.manifest'));
-    const signatureName = (await import('node:fs/promises')).readdir(path.join(root, 'dist'));
-    const files = await signatureName;
+    const files = await readdir(path.join(root, 'dist'));
     const sigFile = files.find(name => name.endsWith('.sig'));
     const signature = (await readFile(path.join(root, 'dist', sigFile), 'ascii')).trim();
     assert.equal(verify('RSA-SHA256', manifest, publicKey, Buffer.from(signature, 'base64')), true);
@@ -90,7 +89,7 @@ test('updater stages every source before publishing any manifest', async () => {
     }), /HTTP 503/);
     assert.equal(calls, 2);
     await assert.rejects(readFile(path.join(outputDir, 'first.manifest')));
-    assert.equal(await import('node:fs/promises').then(({ readdir }) => readdir(path.join(root, 'tmp')).then(files => files.length)), 0);
+    assert.equal((await readdir(path.join(root, 'tmp'))).length, 0);
     await assert.rejects(readFile(path.join(outputDir, '.guardian-update.lock')));
 
     // A failed batch must release its lock so a later scheduled retry can run.
