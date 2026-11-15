@@ -10,7 +10,7 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - 서명된 오프라인 entitlement는 라이선스 만료 시각과 최대 24시간 중 더 이른 시각에 만료되며, 응답의 `expiresIn`은 서명 payload의 실제 남은 수명과 일치합니다. 서버 재접속 시 refresh로 갱신
 - 감사 이벤트, 파라미터 바인딩 SQL, 16KB 요청 제한, no-store 응답
 - API JSON 본문은 최상위 객체만 허용하며, `null`·배열·문자열·숫자 등 잘못된 본문 형태는 HTTP 400으로 거부
-- 라이선스 발급/활성화/갱신/상태 및 정지 API에 프로세스 단위 요청 제한과 `429 Retry-After` 응답
+- 라이선스 발급/활성화/갱신/상태 및 관리자 기기 관리 API에 프로세스 단위 요청 제한과 `429 Retry-After` 응답
 - 반응형 모바일 관리자 페이지: `/admin`. 관리자 토큰은 페이지 메모리에서만 유지하고 localStorage/sessionStorage에 저장하지 않습니다.
 
 ## 환경 변수
@@ -66,6 +66,9 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 - `GET /v1/admin/events`: 최근 발급/활성화/비활성화/정지 감사 기록 100건
 - `POST /v1/admin/licenses`: 관리자 인증 + `{ "validDays": 365, "maxDevices": 1 }`
 - `POST /v1/admin/licenses/{uuid}/revoke`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>` 및 UUID 형식의 라이선스 ID 필요
+- `GET /v1/admin/licenses/{uuid}/activations`: 라이선스의 최근 활성화 기록 최대 50건 조회. 기기 식별자는 해시 마지막 8자리만 반환
+- `POST /v1/admin/licenses/{uuid}/activations/{activationUuid}/deactivate`: 지정한 기기 등록만 해제하고 감사 이벤트 기록. 다른 기기와 라이선스 상태는 유지
+- `/admin`: 라이선스 발급·정지, 기기별 최근 확인 정보 조회 및 개별 기기 해제
 - `GET /health`: 프로세스 생존 상태
 - `GET /ready`: DB 연결, 관리자 토큰, HMAC 비밀값 및 RSA 2048비트 이상 서명키 준비 상태 확인. Docker health check에서 사용
 
