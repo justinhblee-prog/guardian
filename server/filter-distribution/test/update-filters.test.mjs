@@ -150,3 +150,34 @@ test('updater validates signing credentials before making upstream requests', as
   }), /GUARDIAN_FILTER_SIGNING_PRIVATE_KEY is required/);
   assert.equal(fetchCalled, false);
 });
+
+
+test('updater does not remove a replacement lock it no longer owns', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-lock-replacement-'));
+  const outputDir = path.join(root, 'dist');
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  const lockPath = path.join(outputDir, '.guardian-update.lock');
+  try {
+    const result = await updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        outputDir,
+        tempDir: path.join(root, 'tmp'),
+        sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1 }]
+      },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+      fetchImpl: async () => {
+        // Simulate an external actor replacing the pathname while this process
+        // still holds the original lock file descriptor.
+        await rm(lockPath);
+        await writeFile(lockPath, 'replacement-owner\\n', { flag: 'wx' });
+        return new Response('||first.example^\\n', { status: 200 });
+      }
+    });
+    assert.equal(result.length, 1);
+    assert.equal(await readFile(lockPath, 'utf8'), 'replacement-owner\\n');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
