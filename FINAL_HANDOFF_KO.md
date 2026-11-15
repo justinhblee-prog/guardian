@@ -14,6 +14,8 @@
 - PR #48: Android 라이선스 API 작업 직렬화. Android CI `43698680084` 성공. 미병합.
 - PR #49: 서버 refresh 403에서 로컬 entitlement 제거. Android CI `43699268819` 성공. 미병합.
 - PR #50: PostgreSQL 공유 rate limit 및 API/DB timeout/nosniff. License API CI `43701478905` 성공. 미병합.
+- PR #51: 840dp 이상 wide-screen Android navigation rail 및 콘텐츠 폭 보정. Android CI `43701120075` 성공. 미병합.
+- PR #47: signed/unsigned filter cache bounded read 및 fail-closed 후속 변경은 최신 Android CI 검증 중.
 - PR #16과 #40은 #41과 #43으로 대체되어 닫혔습니다. PR #41/#43/#44/#46은 검증 성공했으나 미병합입니다.
 - 운영 keystore/signing secrets, production API endpoint/public key, PostgreSQL, TLS 도메인은 아직 운영 설정/배포 검증되지 않았습니다.
 - 실기기 VPN/TUN, 실제 DNS 라우팅·광고 제거율, 네트워크 전환 및 장시간 안정성은 미검증입니다.
