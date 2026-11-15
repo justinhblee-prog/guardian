@@ -170,6 +170,27 @@ class GuardianVpnService : VpnService() {
             stopSelf(startId)
             return
         }
+
+        // Never install a DNS-only VPN route until its upstream resolver has
+        // answered a real DNS query. If every configured/fallback resolver is
+        // unreachable, leaving the device's normal network untouched is safer
+        // than activating a tunnel that makes every website appear offline.
+        val preflightQuery = DnsUpstreamProbe.query()
+        val preflightResponse = forwardDns(preflightQuery)
+        if (!DnsUpstreamProbe.isValidResponse(preflightQuery, preflightResponse)) {
+            val detail = lastUpstreamFailure ?: "업스트림 DNS 응답 검증 실패"
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putString(KEY_DNS_DIAGNOSTIC, "보호 시작 전 DNS 연결 확인 실패: $detail")
+                .apply()
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+            publishState(
+                false,
+                "업스트림 DNS 연결을 확인하지 못해 보호를 시작하지 않았습니다. 일반 인터넷 연결은 변경하지 않았습니다. ($detail)"
+            )
+            stopSelf(startId)
+            return
+        }
+
         var establishError: Exception? = null
         val descriptor = try {
             val builder = Builder()
