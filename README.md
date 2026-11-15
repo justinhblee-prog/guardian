@@ -1,4 +1,4 @@
-# Guardian AdBlock Android — 0.7.7-dev
+# Guardian AdBlock — 0.7.8-dev
 
 Guardian AdBlock은 Android `VpnService` 기반 DNS 필터링 앱입니다. Android의 VPN 가상 인터페이스로 전달되는 DNS 질의를 로컬 규칙으로 판정하고, 허용된 질의는 선택한 업스트림 DNS로 전달합니다.
 
@@ -9,6 +9,16 @@ Guardian AdBlock은 Android `VpnService` 기반 DNS 필터링 앱입니다. Andr
 Windows PC, Android 스마트폰·태블릿을 하나의 필터/라이선스 체계로 제공하는 설계 문서를 추가했습니다. Android 태블릿은 동일 APK의 반응형 UI로 지원하고, Windows는 별도 설치형 클라이언트를 개발합니다. 모바일 브라우저에서 계정·기기·필터 배포를 관리하는 공통 콘솔도 목표 범위입니다. 현재 Windows 클라이언트, 태블릿 최적화 검증, 운영 서버 및 관리 콘솔은 아직 구현 완료가 아닙니다.
 
 상세 설계: [멀티 디바이스 로드맵](docs/MULTI_DEVICE_ROADMAP_KO.md)
+
+## 2026-11-15 최신 개발/검증 상태
+
+- 현재 Android 개발 기준은 `com.guardian.adblock`, versionCode `21`, `0.7.8-dev`입니다.
+- PR #41: 만료된 서명 라이선스도 Pro 권한은 종료하면서 기기 등록 해제를 지원하도록 수정. Android CI 전체 성공(에뮬레이터 설치·실행 포함), 미병합.
+- PR #43: production release 설정 검증을 main push에서도 실행하고 실제 서명은 수동 실행으로 제한. Android CI 및 release 설정 CI 성공, signing job은 운영 secrets 미설정으로 의도적 skipped, 미병합.
+- PR #44: License API 연결/헤더 timeout 제한 및 JSON nosniff 응답 헤더. Node/PostgreSQL 통합 CI 성공, 미병합.
+- PR 검증 성공은 main 병합, production 서명 또는 실기기 수용 테스트를 의미하지 않습니다.
+- 기존 최종 설치 artifact는 0.7.7-dev debug APK이며 0.7.8-dev 최종 패키지는 아직 생성하지 않았습니다.
+- Windows 설치 프로그램은 Android/공통 기능 내부 개발 완료 후 마지막에 진행합니다.
 
 ## 현재 구현 범위
 
