@@ -163,6 +163,31 @@ class FilterManifestVerifierTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun rejectsUnsafeSourceVersionPathSegmentsEvenWhenSigned() {
+        val pair = keyPair()
+        val publicKey = Base64.getEncoder().encodeToString(pair.public.encoded)
+        listOf("../escape", "version/one", ".", "..", "version with spaces").forEach { version ->
+            val bytes = String(payload(), StandardCharsets.UTF_8)
+                .replace("sourceVersion=2026.11.14", "sourceVersion=$version")
+                .toByteArray(StandardCharsets.UTF_8)
+            try {
+                FilterManifestVerifier.parseAndVerify(bytes, signed(bytes, pair), publicKey)
+                fail("unsafe source version must be rejected: $version")
+            } catch (_: IllegalArgumentException) { }
+        }
+    }
+
+    @Test fun acceptsSafeSourceVersionCharacters() {
+        val pair = keyPair()
+        val bytes = String(payload(), StandardCharsets.UTF_8)
+            .replace("sourceVersion=2026.11.14", "sourceVersion=release_2026.11-15+1")
+            .toByteArray(StandardCharsets.UTF_8)
+        val manifest = FilterManifestVerifier.parseAndVerify(
+            bytes, signed(bytes, pair), Base64.getEncoder().encodeToString(pair.public.encoded)
+        )
+        assertEquals("release_2026.11-15+1", manifest.sourceVersion)
+    }
+
     @Test fun acceptsSameSourceVersionOnlyWhenContentHashIsUnchanged() {
         val hash = "a".repeat(64)
         FilterManifestVerifier.requireImmutableSourceVersion(
