@@ -21,7 +21,12 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
       - name: Validate workflow YAML
-        run: ruby -e 'require "yaml"; workflow = YAML.load_file(".github/workflows/android-production-release.yml", aliases: true); abort "GitHub workflow trigger key must be a string on" unless workflow.key?("on")'
+        run: |
+          ruby - <<'RUBY'
+          require 'yaml'
+          workflow = YAML.load_file('.github/workflows/android-production-release.yml', aliases: true)
+          abort 'GitHub workflow trigger key must be a string on.' unless workflow.key?('on')
+          RUBY
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
