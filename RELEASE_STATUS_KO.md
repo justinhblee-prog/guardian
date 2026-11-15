@@ -1,49 +1,30 @@
 # Guardian AdBlock Android — 개발/릴리스 상태
 
 기준 버전: **0.7.8-dev**  
-기준일: 2026-11-14  
+기준일: 2026-11-15  
 저장소: https://github.com/justinhblee-prog/guardian
 
 ## 현재 기준 — 0.7.8-dev (2026-11-15)
 
-- 최신 소스: `484670a6c6db36bf3cce11c3d438dd2d17741bad`
-- 최신 CI: [GitHub Actions run 43562402511](https://github.com/justinhblee-prog/guardian/actions/runs/43562402511) — **success**
-- Android JUnit: **19개 Kotlin 테스트 스위트 / 127개 테스트 메서드 통과**
-- Android lintDebug, assembleDebug, 패키지 식별 및 SHA-256 검증: **모두 통과**
-- APK 패키지: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev`
-- 설치 APK artifact: `Guardian-AdBlock-Android-APK-v0.7.3-dev` (ID `14100743136`)
-- Artifact ZIP SHA-256: `0666514555d869c5e3c25a4e44d1d9aa423c9d7143fcef4960b286d66f1b1aff`
-- APK SHA-256: `355080e2a1d8f64fc9720858c889368229db7b4365cc753732275c88f6c3cf11`
-- 이 APK는 설치 가능한 debug 서명 빌드입니다. Play Store용 production 서명본은 아닙니다.
-- 실기기 VPN 권한, DNS 경로, Wi-Fi/모바일 전환, 실제 광고 차단률은 아직 검증되지 않았습니다.
-
-## 0.7.8-dev 기준 및 최신 검증 상태 — 2026-11-15
-
-- Android 기준 버전: `0.7.8-dev`, versionCode `21`, package `com.guardian.adblock`.
-- 현재 main 소스 커밋: `aacf089619dca96c25500b8df7684cdc1db97490`.
-- Android 0.7.8-dev의 최초 기록 CI run `43573908206`은 **cancelled**였으므로 성공 증거로 사용하지 않습니다.
-- PR #25 이전 head CI run `43689059923` 성공: Bash syntax, Android unit tests, lintDebug, assembleDebug, Android API 35 emulator 설치·앱 실행, package/version 및 SHA-256 검증 통과. 이후 standalone smoke script의 parser dependency 수정도 PR #25에 포함했으며, 최신 head run `43690415255`는 문서 갱신 시점에 진행 중입니다. PR branch CI 결과이며 main branch release artifact가 아닙니다.
-- License API PostgreSQL integration CI: run `43663157229` 성공. Device deactivate/reactivate regression CI: run `43684498982` 성공.
-- Signed filter distribution CI: run `43686680935` 성공. Publisher single-writer lock CI: run `43686741568` 성공. 최신 updater regression rebased PR #28 CI run `43690373172`도 성공했습니다.
-- Android production signing configuration CI: run `43663200931` 성공. 실제 운영 keystore/secret/service endpoint는 아직 미설정이며 production release는 수행하지 않았습니다.
-- Android signed-filter client hardening PR #27은 동일 sourceVersion의 다른 SHA-256을 거부하고 manifest/filter payload의 strict UTF-8을 검증합니다. 또한 캐시 교체 중 비정상 종료 시 마지막 커밋된 서명 SHA-256을 기준으로 `.bak` 복구·변조 캐시 fail-closed 처리를 추가했으며 캐시 복구 시 별도 anti-rollback timestamp 파일도 SharedPreferences에 커밋된 manifest 시각 이상으로 복구하도록 추가 보강했으며, 최신 head CI 재실행을 확인 중입니다. 이전 head run `43691247420`은 에뮬레이터 검증까지 성공했습니다. 최신 CI run `43690257560`은 문서 갱신 시점에 진행 중입니다.
-- Android CI의 에뮬레이터 단계가 runner hang 시 전체 45분 작업을 점유하지 않도록 step timeout 15분과 animation 비활성화를 추가했습니다. PR #25 run `43690905433`, PR #27 최신 run `43690917658`에서 해당 변경 후 CI를 다시 실행 중입니다.
-- License API PR #29는 refresh/deactivation row-lock 경쟁 조건과 만료 라이선스의 기기 슬롯 해제 동작을 PostgreSQL 통합 회귀 테스트로 검증했습니다. CI runs `43691168622` 및 최신 `43691504879` 성공.
-- PR #30은 Android 라이선스 API 기본 주소를 HTTPS origin으로 제한하고, 경로·userinfo·query·fragment 및 다중 slash 경로를 거부합니다. 응답 JSON envelope도 strict UTF-8로 검증하며 회귀 테스트를 추가했습니다. 이전 CI run `43693059814`는 origin URL 정규화 테스트 1건 실패로 종료됐으며, root slash 정규화 로직을 수정했습니다. 최신 CI run `43693222438` 재검증 중입니다.
-- PR #31은 서명 필터 배포 서버의 파일 읽기를 `stat` 크기 + 1바이트 상한으로 제한해 파일 교체/증가 상황에서 `readFile()`의 예기치 않은 메모리 할당을 방지하고, 16 KiB manifest 및 10 MiB filter 초과 응답 거부 테스트를 추가했습니다. CI run `43692879188` 성공: signed filter distribution 테스트 전체 통과.
-- PR #32는 라이선스 API 요청 JSON에 fatal UTF-8 검증을 적용하고 malformed byte sequence를 HTTP 400으로 거부합니다. CI run `43693170195` 성공: 암호학·HTTP·PostgreSQL 통합 테스트 전체 통과.
-- PR #33은 DNS-over-TCP 세션에서 아직 전송하지 않은 서버 sequence를 ACK하는 위조 세그먼트를 거부합니다. 잘못된 ACK에 DNS payload를 붙여도 세션 버퍼/Resolver가 변경되지 않는 회귀 테스트를 추가했습니다. 최초 CI run `43693481411`에서 테스트용 ACK 번호가 무작위 서버 sequence와 맞지 않는 기존 fixture 결함을 발견해 결정적 fixture와 wraparound 회귀 테스트로 보강했습니다. 테스트 fixture를 수정하고 최신 head CI run `43693699125` 재검증 중입니다. CI run `43692524593`에서 Android unit tests, Lint, debug APK 빌드가 성공했고 API 35 emulator 설치·앱 실행 단계 진행 중입니다.
-- PR #13에는 entitlement 토큰이 라이선스 만료 시각을 넘지 않는지와 잘못된 최대 TTL 설정을 검증하는 단위 테스트를 추가했습니다. 첫 실행에서 테스트 정규식 이스케이프 오류를 발견해 수정했고, 수정된 최신 CI run `43691955417` 성공했습니다.
-- PR #4와 #7은 entitlement store 및 12시간 WorkManager renewal 구현이 이미 main에 포함된 것을 확인해 중복 PR로 종료했습니다.
-- 실기기 VPN/TUN 라우팅, 실제 광고 제거율, 외부 DoH/DoT provider 연결은 미검증입니다.
+- Android package: `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`.
+- 최신 main 소스 커밋(문서 갱신 시점): `c02c68f8d1b224bf711ea7142843ae2ec135f413`.
+- 이전 최종 패키지 artifact는 0.7.7-dev debug APK이며, 0.7.8-dev main용 새 최종 APK artifact가 배포되었다고 간주하지 않습니다.
+- PR #25의 CI run `43690905433` 성공: Bash 구문 검사, Android unit tests, lintDebug, assembleDebug, API 35 emulator 설치·앱 실행, package/version 및 SHA-256 검증 통과.
+- PR #38의 DNS-over-TCP sequence wraparound 회귀 테스트는 CI run `43694693871` 성공 후 main에 병합했습니다.
+- License API strict UTF-8 및 malformed byte 입력 거부, signed filter 배포 파일 크기 제한, publisher 단일 작성자 잠금, Android signed-cache 무결성, HTTPS origin 검증, 라이선스 refresh/deactivation 경쟁 조건, 관리자별 기기 해제 기능은 각각 통합 테스트를 거쳐 main에 병합했습니다.
+- 관리자 개별 기기 해제는 라이선스 전체 정지와 분리되며, 지정 기기만 해제하고 감사 이벤트를 남깁니다. 운영 관리자 토큰 및 운영 DB에서의 실제 배포 검증은 별도입니다.
+- Production signing workflow의 설정 검증은 PR #40 run `43695827496` 성공. production signing job은 의도적으로 skipped이며, 운영 keystore/secrets 미설정 상태에서 서명본을 만들지 않았습니다.
+- PR #40의 Android CI run `43695827493`은 문서 갱신 시점에 에뮬레이터 설치/실행 단계를 진행 중이므로 성공으로 기록하지 않습니다.
+- main의 release workflow push 실행 실패는 PR #40이 아직 병합되지 않은 상태에서 발생한 기존 main workflow의 실행 결과입니다. PR #40은 main push 조건과 signing gate를 검증하도록 수정 중이며, 병합 후 main push 실행 결과를 다시 확인해야 합니다.
+- CI 검증은 실기기 VPN/TUN 라우팅, Wi-Fi↔모바일 전환, 실제 광고 제거율 또는 외부 DoH/DoT provider 연결을 입증하지 않습니다.
 
 ## 현재 개발 작업 및 미완료 범위
 
-- 필터 배포 PR #14와 단일 publisher lock PR #24는 각각 CI 통과했으나 아직 미병합입니다. #24는 #14 기반 종속 변경입니다.
-- License API PostgreSQL 통합 테스트 PR #13은 CI 통과했으나 아직 미병합입니다.
-- Android release signing PR #15는 CI 통과했으나 운영 키와 서버 설정이 없어 production 서명본은 없습니다.
-- Windows 설치 프로그램은 요청한 순서대로 마지막 단계로 보류합니다.
-- 물리 기기 수용 테스트는 사용자 요청에 따라 추후 진행합니다.
+- PR #40: production release 설정 검증을 main push에서도 실행하고 production 서명 작업은 수동 실행으로 제한합니다. 설정 검증은 성공했으며 Android emulator CI 완료 후 병합 여부를 판단합니다.
+- Windows 설치 프로그램은 사용자 요청에 따라 마지막 단계로 보류합니다.
+- 실기기 VPN/TUN 수용 테스트는 사용자 요청에 따라 추후 진행합니다.
+- 운영 keystore, release secrets, 공개 HTTPS 서비스 주소, 공개키 및 운영 DB/도메인 연결은 실제 운영 환경에 설정·검증되지 않았습니다.
+- 실제 광고 제거 효과, 네트워크 전환, 장시간 안정성 및 외부 DNS provider 연결은 별도 실기기/운영 검증이 필요합니다.
 
 ## 기존 차단 실패 원인
 
