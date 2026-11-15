@@ -134,7 +134,7 @@ const server = http.createServer(async (req, res) => {
     }
     return send(res, 404, 'not_found');
   } catch (error) {
-    const status = Number.isInteger(error.status) ? error.status : error.code === 'ENOENT' ? 404 : 500;
+    const status = Number.isInteger(error.status) ? error.status : ['ENOENT', 'ELOOP'].includes(error.code) ? 404 : 500;
     return send(res, status, status === 404 ? 'not_found' : 'internal_error');
   }
 });
