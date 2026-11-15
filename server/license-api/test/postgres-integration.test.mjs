@@ -196,4 +196,41 @@ if (!databaseUrl) {
     }
   });
 
+
+  test('a previously deactivated device can reactivate without duplicating its activation row', async () => {
+    const created = await issue(1);
+    const device = '7'.repeat(64);
+    const activate = () => post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'reactivation-test'
+    });
+
+    const first = await activate();
+    assert.equal(first.status, 200);
+    const firstToken = await first.json();
+    assertSignedToken(firstToken);
+
+    const deactivated = await post('/v1/licenses/deactivate', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(deactivated.status, 200);
+    assert.equal((await deactivated.json()).deactivated, 1);
+
+    const reactivated = await activate();
+    assert.equal(reactivated.status, 200);
+    assertSignedToken(await reactivated.json());
+
+    const rows = await pool.query(
+      'SELECT count(*)::int AS total, count(*) FILTER (WHERE deactivated_at IS NULL)::int AS active FROM activations WHERE license_id=$1 AND device_binding=$2',
+      [created.license.id, device]
+    );
+    assert.equal(rows.rows[0].total, 1);
+    assert.equal(rows.rows[0].active, 1);
+
+    const events = await pool.query(
+      "SELECT count(*)::int AS n FROM license_events WHERE license_id=$1 AND event_type IN ('activated','deactivated')",
+      [created.license.id]
+    );
+    assert.equal(events.rows[0].n, 3);
+  });
+
 }
