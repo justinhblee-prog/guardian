@@ -824,8 +824,14 @@ class MainActivity : Activity() {
                                 runOnUiThread { showTab("settings") }
                             } catch (error: Exception) {
                                 runOnUiThread {
-                                    licenseFeedback.text = error.message ?: "라이선스 갱신에 실패했습니다."
-                                    isEnabled = true
+                                    if (error is LicenseApiException && error.invalidatesEntitlement) {
+                                        // Rebuild the settings view after the local signed
+                                        // token was cleared so stale PRO state is not shown.
+                                        showTab("settings")
+                                    } else {
+                                        licenseFeedback.text = error.message ?: "라이선스 갱신에 실패했습니다."
+                                        isEnabled = true
+                                    }
                                 }
                             }
                         }
