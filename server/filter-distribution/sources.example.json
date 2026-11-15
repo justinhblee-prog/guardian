@@ -1,0 +1,12 @@
+{
+  "baseUrl": "https://filters.example.com",
+  "outputDir": "dist",
+  "tempDir": ".guardian-filter-update",
+  "sources": [
+    {
+      "id": "adguard",
+      "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt",
+      "minimumRules": 1000
+    }
+  ]
+}

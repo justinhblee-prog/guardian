@@ -1,0 +1,8 @@
+dist/
+.env
+*.pem
+*.key
+*.tmp
+node_modules/
+
+.guardian-filter-update/
