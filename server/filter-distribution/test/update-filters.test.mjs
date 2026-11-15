@@ -133,3 +133,20 @@ test('updater refuses to interleave with an active batch lock before fetching', 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+
+test('updater validates signing credentials before making upstream requests', async () => {
+  let fetchCalled = false;
+  await assert.rejects(updateFilters({
+    config: {
+      baseUrl: 'https://filters.example.com',
+      sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1 }]
+    },
+    env: {},
+    fetchImpl: async () => {
+      fetchCalled = true;
+      return new Response('||first.example^', { status: 200 });
+    }
+  }), /GUARDIAN_FILTER_SIGNING_PRIVATE_KEY is required/);
+  assert.equal(fetchCalled, false);
+});
