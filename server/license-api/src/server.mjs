@@ -2,7 +2,7 @@ import http from 'node:http';
 import { createPrivateKey, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
-import { createRateLimiter } from './rate-limit.mjs';
+import { createPostgresRateLimiter, createRateLimiter } from './rate-limit.mjs';
 import {
   adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey,
   validateDeviceBinding, verifyLicenseKey
@@ -16,15 +16,18 @@ const PRIVATE_KEY = process.env.GUARDIAN_LICENSE_PRIVATE_KEY;
 const LOOKUP_SECRET = process.env.GUARDIAN_LICENSE_LOOKUP_SECRET;
 const TOKEN_TTL_SECONDS = 24 * 60 * 60;
 const BODY_LIMIT = 16 * 1024;
-const rateLimit = createRateLimiter({
+const rateLimitOptions = {
   windowMs: Number(process.env.GUARDIAN_RATE_LIMIT_WINDOW_MS || 60_000),
   maxRequests: Number(process.env.GUARDIAN_RATE_LIMIT_MAX || 30)
-});
+};
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
   '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events'
 ]);
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 10, ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: true } : undefined }) : null;
+const rateLimit = pool
+  ? createPostgresRateLimiter(pool, rateLimitOptions)
+  : createRateLimiter(rateLimitOptions);
 
 function json(res, status, value) {
   const body = JSON.stringify(value);
@@ -351,7 +354,9 @@ const server = http.createServer(async (req, res) => {
       // Use the socket peer address; do not trust caller-supplied X-Forwarded-For.
       const peer = req.socket.remoteAddress || 'unknown';
       const rateLimitPath = url.pathname.startsWith('/v1/admin/licenses/') ? '/v1/admin/licenses/*' : url.pathname;
-      const decision = rateLimit(`${peer}:${rateLimitPath}`);
+      // Shared PostgreSQL buckets keep limits consistent across API replicas.
+      // The process-local limiter remains available only for isolated DB-less tests.
+      const decision = await rateLimit(`${peer}:${rateLimitPath}`);
       res.setHeader('RateLimit-Limit', String(decision.limit));
       res.setHeader('RateLimit-Remaining', String(decision.remaining));
       if (!decision.allowed) {
