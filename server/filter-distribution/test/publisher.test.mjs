@@ -124,7 +124,7 @@ test('publisher refuses to inherit a corrupt future anti-rollback timestamp', as
       'minimum-rules': '1',
       'output-dir': outputDir
     }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
-    /too far in the future/
+    /generatedAt is invalid or too far in the future/
   );
   await assert.rejects(readFile(path.join(outputDir, 'filters', 'adguard', 'v1.txt')));
 });
