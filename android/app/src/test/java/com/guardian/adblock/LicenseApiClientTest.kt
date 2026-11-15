@@ -1,11 +1,38 @@
 
 package com.guardian.adblock
 
+import android.content.Context
+import java.lang.reflect.Modifier
 import java.net.URL
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LicenseApiClientTest {
+
+    @Test
+    fun refreshForbiddenInvalidatesLocalEntitlementButTransientFailuresDoNot() {
+        assertTrue(LicenseApiException(403, "device inactive").invalidatesEntitlement)
+        assertFalse(LicenseApiException(401, "unauthorized").invalidatesEntitlement)
+        assertFalse(LicenseApiException(429, "rate limited").invalidatesEntitlement)
+        assertFalse(LicenseApiException(503, "service unavailable").invalidatesEntitlement)
+    }
+
+    @Test
+    fun entitlementMutationsAndStatusShareOneSynchronizationLock() {
+        val client = LicenseApiClient::class.java
+        val activate = client.getDeclaredMethod(
+            "activate", Context::class.java, String::class.java, String::class.java
+        )
+        val refresh = client.getDeclaredMethod("refresh", Context::class.java)
+        val deactivate = client.getDeclaredMethod("deactivate", Context::class.java)
+        val status = client.getDeclaredMethod("status", Context::class.java)
+        assertTrue(Modifier.isSynchronized(activate.modifiers))
+        assertTrue(Modifier.isSynchronized(refresh.modifiers))
+        assertTrue(Modifier.isSynchronized(deactivate.modifiers))
+        assertTrue(Modifier.isSynchronized(status.modifiers))
+    }
 
     @Test
     fun decodesValidUtf8LicenseApiResponse() {

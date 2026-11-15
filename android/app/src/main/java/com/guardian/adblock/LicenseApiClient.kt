@@ -48,6 +48,10 @@ internal class LicenseApiException(
 ) : IOException(message) {
     val isRetryable: Boolean
         get() = statusCode == 408 || statusCode == 429 || statusCode >= 500
+
+    /** A 403 from refresh means the server no longer grants this device an entitlement. */
+    val invalidatesEntitlement: Boolean
+        get() = statusCode == 403
 }
 
 /** HTTPS-only client for the Guardian license service. Call from a worker thread. */
@@ -56,6 +60,7 @@ internal object LicenseApiClient {
     private const val CONNECT_TIMEOUT_MS = 10_000
     private const val READ_TIMEOUT_MS = 10_000
 
+    @Synchronized
     fun activate(context: Context, licenseKey: String, appVersion: String): LicenseEntitlementVerifier.Entitlement {
         require(licenseKey.isNotBlank() && licenseKey.length <= 100) { "라이선스 키를 확인하세요." }
         val response = post(
@@ -68,18 +73,29 @@ internal object LicenseApiClient {
         return persistToken(context, response)
     }
 
+    @Synchronized
     fun refresh(context: Context): LicenseEntitlementVerifier.Entitlement {
         val current = LicenseEntitlementStore.currentForRefresh(context)
             ?: throw IllegalStateException("갱신할 라이선스 정보가 없습니다.")
-        val response = post(
-            "/v1/licenses/refresh",
-            JSONObject()
-                .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
-                .put("licenseRef", current.licenseRef)
-        )
+        val response = try {
+            post(
+                "/v1/licenses/refresh",
+                JSONObject()
+                    .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
+                    .put("licenseRef", current.licenseRef)
+            )
+        } catch (error: LicenseApiException) {
+            if (error.invalidatesEntitlement) {
+                // A server-side revoke/deactivation/product disable must not leave
+                // an offline Pro token active until its local expiry timestamp.
+                LicenseEntitlementStore.clear(context)
+            }
+            throw error
+        }
         return persistToken(context, response)
     }
 
+    @Synchronized
     fun deactivate(context: Context): Boolean {
         // Expired signed tokens do not grant Pro access, but their verified licenseRef
         // is still required to release the server-side device activation slot.
@@ -94,6 +110,7 @@ internal object LicenseApiClient {
         return LicenseEntitlementStore.clear(context)
     }
 
+    @Synchronized
     fun status(context: Context): JSONObject {
         val current = LicenseEntitlementStore.current(context)
             ?: return JSONObject().put("status", "free")
