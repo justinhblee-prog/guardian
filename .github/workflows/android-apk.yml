@@ -134,27 +134,27 @@ jobs:
             # Wait for PackageManager; boot_completed alone can precede Binder service readiness.
             services_ready=0; for attempt in $(seq 1 60); do if adb shell cmd package list packages 2>/dev/null | grep -q 'com.android.settings'; then services_ready=1; break; fi; sleep 3; done; test "$services_ready" -eq 1
             adb logcat -c
-            # Verify APK metadata by parsing named fields, not a brittle whole-line substring.
-            verify_apk_metadata() {
-              python3 - "$1" "$2" "$3" <<'PY'
+            # Verify both APK metadata records in one Python process.
+            python3 - /tmp/guardian-0.7.8-dev.apk 21 0.7.8-dev android/app/build/outputs/apk/debug/app-debug.apk 22 0.7.9-dev <<'PY'
             import os
             import re
             import subprocess
             import sys
 
-            apk, expected_code, expected_name = sys.argv[1:]
             aapt = f"{os.environ['ANDROID_HOME']}/build-tools/35.0.0/aapt"
-            output = subprocess.check_output([aapt, "dump", "badging", apk], text=True)
-            package_line = next((line for line in output.splitlines() if line.startswith("package:")), "")
-            print(f"APK metadata: {package_line or '(package metadata missing)'}")
-            fields = dict(re.findall(r"(name|versionCode|versionName)='([^']*)'", package_line))
-            expected = {"name": "com.guardian.adblock", "versionCode": expected_code, "versionName": expected_name}
-            if fields != expected:
-                raise SystemExit(f"APK metadata mismatch: expected {expected}, got {fields}")
+            args = sys.argv[1:]
+            if len(args) % 3:
+                raise SystemExit("Expected APK path, versionCode, versionName triplets")
+            for offset in range(0, len(args), 3):
+                apk, expected_code, expected_name = args[offset:offset + 3]
+                output = subprocess.check_output([aapt, "dump", "badging", apk], text=True)
+                package_line = next((line for line in output.splitlines() if line.startswith("package:")), "")
+                print(f"APK metadata: {package_line or '(package metadata missing)'}")
+                fields = dict(re.findall(r"(name|versionCode|versionName)='([^']*)'", package_line))
+                expected = {"name": "com.guardian.adblock", "versionCode": expected_code, "versionName": expected_name}
+                if fields != expected:
+                    raise SystemExit(f"APK metadata mismatch for {apk}: expected {expected}, got {fields}")
             PY
-            }
-            verify_apk_metadata /tmp/guardian-0.7.8-dev.apk 21 0.7.8-dev
-            verify_apk_metadata android/app/build/outputs/apk/debug/app-debug.apk 22 0.7.9-dev
             # Install the previous signed build first, then upgrade in place.
             adb install /tmp/guardian-0.7.8-dev.apk
             adb shell pm path com.guardian.adblock | grep -F 'package:'
