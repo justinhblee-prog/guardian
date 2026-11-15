@@ -94,6 +94,16 @@ jobs:
       - name: Assemble debug APK for build verification
         run: gradle -p android --no-daemon assembleDebug
 
+      - name: Verify bundled DNS filter library inside APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='android/app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$APK"
+          unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
+          unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          echo "Bundled filter_rules.txt is present and byte-for-byte matches shared/filter_rules.txt."
+
       - name: Install and launch APK on Android emulator
         timeout-minutes: 15
         uses: reactivecircus/android-emulator-runner@v2

@@ -366,7 +366,18 @@ class GuardianVpnService : VpnService() {
             "선택한 필터 프로필, 보안 목록 또는 Android 앱 광고 목록이 검증·준비되지 않았습니다. 앱에서 필터를 업데이트한 후 다시 시작해 주세요."
         }
         val sources = mutableListOf<List<String>>()
-        sources.add(assets.open("filter_rules.txt").bufferedReader().use { it.readLines() })
+        val bundledRules = try {
+            assets.open("filter_rules.txt").bufferedReader().use { it.readLines() }
+        } catch (error: java.io.IOException) {
+            throw IllegalStateException(
+                "앱 내 기본 DNS 필터 라이브러리(filter_rules.txt)를 찾을 수 없습니다. 설치 파일의 필터 라이브러리 포함 여부를 확인하세요.",
+                error
+            )
+        }
+        require(bundledRules.isNotEmpty()) {
+            "앱 내 기본 DNS 필터 라이브러리(filter_rules.txt)가 비어 있습니다."
+        }
+        sources.add(bundledRules)
         // Validate actual file contents on the service worker; cached metadata
         // alone must never make a truncated or malformed list look ready.
         val baseLines = FilterListManager.cachedLines(this)
