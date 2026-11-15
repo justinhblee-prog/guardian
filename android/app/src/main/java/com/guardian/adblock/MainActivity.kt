@@ -67,6 +67,7 @@ class MainActivity : Activity() {
     private var receiverRegistered = false
     private var currentTab = "home"
     private val filterUpdateRunning = AtomicBoolean(false)
+    @Volatile private var pendingProtectionStartAfterFilterUpdate = false
 
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -1538,8 +1539,13 @@ class MainActivity : Activity() {
                     androidAdsFilterSwitch?.isEnabled = true
                     securityFilterCheckBox?.isEnabled = true
                     androidAdsFilterCheckBox?.isEnabled = true
+                    if (pendingProtectionStartAfterFilterUpdate) {
+                        pendingProtectionStartAfterFilterUpdate = false
+                        requestProtection()
+                    }
                 }
             } catch (e: Exception) {
+                pendingProtectionStartAfterFilterUpdate = false
                 filterUpdateRunning.set(false)
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
                     .putString(FilterListManager.KEY_LAST_ERROR, e.message ?: e.javaClass.simpleName).apply()
@@ -1586,6 +1592,9 @@ class MainActivity : Activity() {
             // Home-only lateinit views may not exist when another tab is open.
             showTab("rules")
             setFilterUpdateStatus(message)
+            // Preserve the user's explicit start request while the required
+            // filter lists are prepared. Resume VPN consent/start on the UI thread.
+            pendingProtectionStartAfterFilterUpdate = true
             startFilterUpdate()
             return
         }
