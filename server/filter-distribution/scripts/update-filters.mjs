@@ -1,11 +1,26 @@
 import { createHash, createPrivateKey, randomUUID } from 'node:crypto';
-import { open, readFile, mkdir, rm, writeFile } from 'node:fs/promises';
+import { lstat, open, readFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { publishManifest } from './publish-manifest.mjs';
 
 const MAX_FILTER_BYTES = 10 * 1024 * 1024;
+
+// Only remove the batch lock if the pathname still refers to the inode this
+// process created. This avoids deleting a replacement lock after an unlink /
+// recreate race in a shared output directory.
+async function removeOwnedBatchLock(lockHandle, lockPath) {
+  const owned = await lockHandle.stat({ bigint: true });
+  try {
+    const current = await lstat(lockPath, { bigint: true });
+    if (current.isFile() && current.dev === owned.dev && current.ino === owned.ino) {
+      await rm(lockPath);
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+}
 
 async function readResponse(response) {
   if (!response.ok) throw new Error(`Upstream returned HTTP ${response.status}.`);
@@ -105,9 +120,9 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     await batchLock.sync();
   } catch (error) {
     try {
-      await batchLock.close();
+      await removeOwnedBatchLock(batchLock, lockPath);
     } finally {
-      await rm(lockPath, { force: true });
+      await batchLock.close();
     }
     throw error;
   }
@@ -172,9 +187,9 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
       await Promise.all(staged.map(item => rm(item.inputPath, { force: true })));
     } finally {
       try {
-        await batchLock.close();
+        await removeOwnedBatchLock(batchLock, lockPath);
       } finally {
-        await rm(lockPath, { force: true });
+        await batchLock.close();
       }
     }
   }
