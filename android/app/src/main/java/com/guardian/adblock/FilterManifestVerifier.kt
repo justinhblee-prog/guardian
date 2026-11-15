@@ -107,6 +107,26 @@ internal object FilterManifestVerifier {
         return manifest
     }
 
+    /**
+     * A published sourceVersion is immutable. A newer signed manifest timestamp must not
+     * silently replace the bytes already accepted under the same version label.
+     */
+    fun requireImmutableSourceVersion(
+        previousVersion: String?,
+        previousSha256: String?,
+        nextVersion: String,
+        nextSha256: String
+    ) {
+        if (previousVersion == null || previousVersion != nextVersion) return
+        require(
+            previousSha256 != null &&
+                previousSha256.matches(Regex("[a-fA-F0-9]{64}")) &&
+                previousSha256.equals(nextSha256, ignoreCase = true)
+        ) {
+            "동일한 sourceVersion에 다른 필터 콘텐츠가 연결되어 있습니다."
+        }
+    }
+
     fun matchesSha256(content: ByteArray, expectedHex: String): Boolean {
         if (!expectedHex.matches(Regex("[a-fA-F0-9]{64}"))) return false
         val actual = MessageDigest.getInstance("SHA-256").digest(content)
