@@ -32,6 +32,17 @@ class ResponsiveLayoutPolicyTest {
     }
 
     @Test
+    fun wideTabletContentWidthExcludesNavigationRail() {
+        assertEquals(752, ResponsiveLayoutPolicy.contentAreaWidthDp(840))
+        assertEquals(1192, ResponsiveLayoutPolicy.contentAreaWidthDp(1280))
+    }
+
+    @Test
+    fun phoneContentWidthKeepsFullScreenWidth() {
+        assertEquals(393, ResponsiveLayoutPolicy.contentAreaWidthDp(393))
+    }
+
+    @Test
     fun contentUsesAvailableWidthOnPhone() {
         assertEquals(393, ResponsiveLayoutPolicy.contentWidthPx(393, 1f))
     }
