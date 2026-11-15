@@ -22,7 +22,7 @@ Windows PC, Android 스마트폰·태블릿을 하나의 필터/라이선스 체
 - PR #49: 서버에서 refresh 거부 시 앱의 stale PRO 토큰 제거. Android CI 전체 성공, 미병합.
 - PR #50: 여러 API 인스턴스 간 PostgreSQL 공유 요청 제한 및 HTTP/DB timeout 보강. 동시성/cleanup/fail-closed 통합 CI 성공, 미병합.
 - PR #51: 840dp 이상 Android 태블릿/대형 화면에 왼쪽 navigation rail 적용. Android CI 전체 성공, 미병합.
-- PR #47: signed filter cache도 no-follow bounded read로 강화하는 후속 검증 진행 중.
+- PR #52: VPN 시작/중지 요청별 generation과 startId를 적용해 오래된 시작 worker가 새 요청을 되살리거나 종료하지 못하도록 수정. Android CI 진행 중, 미병합.
 - PR 검증 성공은 main 병합, production 서명 또는 실기기 수용 테스트를 의미하지 않습니다.
 - 기존 최종 설치 artifact는 0.7.7-dev debug APK이며 0.7.8-dev 최종 패키지는 아직 생성하지 않았습니다.
 - Windows 설치 프로그램은 Android/공통 기능 내부 개발 완료 후 마지막에 진행합니다.
