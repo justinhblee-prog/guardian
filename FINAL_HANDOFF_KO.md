@@ -1,25 +1,26 @@
 # 최신 개발 인수인계 — 2026-11-15
 
-> 이 섹션이 아래의 과거 0.7.1-dev 인수인계보다 우선합니다.
+> 이 섹션이 아래의 과거 버전별 인수인계보다 우선합니다.
 
 - 저장소: https://github.com/justinhblee-prog/guardian
 - 현재 앱 기준: `com.guardian.adblock`, versionCode `21`, `0.7.8-dev`.
-- 문서 갱신 시점 main: `a5876e7a68c32e9721b8763aa36e89b2150746e7`.
-- PR #25(Android CI 경로 및 smoke-script 검증)와 PR #38(DNS TCP sequence wraparound 회귀 테스트)은 main 병합 완료.
-- PR #26은 RELEASE_STATUS_KO.md를 최신 개발/검증 상태로 갱신해 main 병합 완료.
-- PR #40: main push 시 production release 설정 검증을 실행하고 실제 production 서명은 수동 실행으로 제한합니다. 설정 검증 성공, Android emulator CI 미완료 상태입니다.
-- PR #41: 만료된 서명 라이선스의 Pro 권한은 종료하되 검증된 licenseRef를 이용해 서버 기기 슬롯을 해제할 수 있도록 보강했습니다. 회귀 테스트와 Android CI 진행 중이며 미병합입니다.
-- 운영 keystore, signing secrets, production API endpoint/public key, 운영 PostgreSQL, TLS 도메인은 아직 실제 운영 설정/배포 검증되지 않았습니다.
-- 실기기 VPN/TUN, 실제 DNS 라우팅·광고 제거율, Wi-Fi↔모바일 전환 및 장시간 안정성은 미검증입니다.
-- Windows installer 및 Windows 네트워크 변경/복구 실환경 검증은 마지막 단계로 보류합니다.
+- 기준 main: `e168b8658af6f10a9fe56b999760251ec5e2be13`.
+- PR #25/#38의 Android CI 및 DNS TCP wraparound 검증과 PR #26의 release status 문서는 main에 반영되었습니다.
+- PR #41: 만료 entitlement의 기기 해제 수정. Android CI run `43696306115` 전체 성공. 미병합.
+- PR #43: production release main-push 검증 및 manual-only signing gate. Android CI `43696645579`, release config `43696645556` 성공. production signing job은 의도적 skipped. 미병합.
+- PR #44: License API HTTP timeout/header 제한과 nosniff. 최종 CI `43697583427` 성공. 미병합.
+- PR #16과 #40은 #41과 #43으로 대체되어 닫혔습니다.
+- 운영 keystore/signing secrets, production API endpoint/public key, PostgreSQL, TLS 도메인은 아직 운영 설정/배포 검증되지 않았습니다.
+- 실기기 VPN/TUN, 실제 DNS 라우팅·광고 제거율, 네트워크 전환 및 장시간 안정성은 미검증입니다.
+- Windows installer와 Windows 네트워크 변경/복구 실환경 검증은 마지막 단계로 보류합니다.
 
 ## 완료 판정 규칙
 
-- main에 병합된 코드와 PR 브랜치의 미병합 코드를 구분합니다.
-- GitHub Actions의 개별 성공 job과 전체 workflow 성공을 구분합니다.
-- debug APK 빌드 성공을 production 서명본 배포로 표현하지 않습니다.
-- 에뮬레이터 설치/실행 성공을 실기기 VPN/DNS 수용 테스트로 대체하지 않습니다.
-- 운영 secrets 및 endpoint가 없으면 production release 완료로 판정하지 않습니다.
+- main 병합 코드와 미병합 PR 코드를 분리합니다.
+- GitHub Actions workflow 전체 성공과 개별 job 성공을 구분합니다.
+- debug APK 조립을 production 서명본 배포로 표현하지 않습니다.
+- 에뮬레이터 테스트를 물리 기기 VPN/DNS 수용 테스트로 대체하지 않습니다.
+- 운영 secrets/endpoint가 없으면 production release 완료로 판정하지 않습니다.
 - 실패한 검증은 원인·수정·재실행 결과가 확인되기 전까지 미완료로 둡니다.
 
 ---
