@@ -123,6 +123,7 @@ test('updater refuses to interleave with an active batch lock before fetching', 
         outputDir,
         sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1 }]
       },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
       fetchImpl: async () => {
         fetchCalled = true;
         return new Response('||first.example^\n', { status: 200 });
