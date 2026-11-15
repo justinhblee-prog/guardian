@@ -69,9 +69,9 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     throw new Error('GUARDIAN_FILTER_SIGNING_PRIVATE_KEY is required.');
   }
   const signingKey = createPrivateKey(signingKeyText.replace(/\\n/g, '\n'));
-  if (signingKey.asymmetricKeyType !== 'rsa' ||
-      (signingKey.asymmetricKeyDetails?.modulusLength || 0) < 2048) {
-    throw new Error('Signing key must be RSA with a modulus of at least 2048 bits.');
+  const signingKeyBits = signingKey.asymmetricKeyDetails?.modulusLength || 0;
+  if (signingKey.asymmetricKeyType !== 'rsa' || signingKeyBits < 2048 || signingKeyBits > 4096) {
+    throw new Error('Signing key must be RSA with a modulus between 2048 and 4096 bits.');
   }
 
   // Validate the entire source list before any network request or publication.
