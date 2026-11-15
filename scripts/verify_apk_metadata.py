@@ -40,7 +40,18 @@ def main() -> int:
             (line for line in output.splitlines() if line.startswith("package:")), ""
         )
         print(f"APK metadata: {package_line or '(package metadata missing)'}")
-        fields = dict(re.findall(r"(name|versionCode|versionName)='([^']*)'", package_line))
+        # Match the three primary fields immediately after "package:". Do not
+        # use a global name= search: aapt appends platformBuildVersionName='15'
+        # on the same line, which otherwise overwrites the real package name.
+        match = re.match(
+            r"^package:\\s+name='([^']*)'\\s+versionCode='([^']*)'\\s+versionName='([^']*)'",
+            package_line,
+        )
+        fields = (
+            dict(zip(("name", "versionCode", "versionName"), match.groups()))
+            if match
+            else {}
+        )
         expected = {
             "name": "com.guardian.adblock",
             "versionCode": expected_code,
