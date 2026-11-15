@@ -1,21 +1,30 @@
 # Guardian AdBlock Android — 개발/릴리스 상태
 
-기준 버전: **0.7.3-dev**  
-기준일: 2026-11-14  
+기준 버전: **0.7.8-dev**  
+기준일: 2026-11-15  
 저장소: https://github.com/justinhblee-prog/guardian
 
-## 현재 기준 — 0.7.3-dev (2026-11-14)
+## 현재 기준 — 0.7.8-dev (2026-11-15)
 
-- 최신 소스: `484670a6c6db36bf3cce11c3d438dd2d17741bad`
-- 최신 CI: [GitHub Actions run 43562402511](https://github.com/justinhblee-prog/guardian/actions/runs/43562402511) — **success**
-- Android JUnit: **19개 Kotlin 테스트 스위트 / 127개 테스트 메서드 통과**
-- Android lintDebug, assembleDebug, 패키지 식별 및 SHA-256 검증: **모두 통과**
-- APK 패키지: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev`
-- 설치 APK artifact: `Guardian-AdBlock-Android-APK-v0.7.3-dev` (ID `14100743136`)
-- Artifact ZIP SHA-256: `0666514555d869c5e3c25a4e44d1d9aa423c9d7143fcef4960b286d66f1b1aff`
-- APK SHA-256: `355080e2a1d8f64fc9720858c889368229db7b4365cc753732275c88f6c3cf11`
-- 이 APK는 설치 가능한 debug 서명 빌드입니다. Play Store용 production 서명본은 아닙니다.
-- 실기기 VPN 권한, DNS 경로, Wi-Fi/모바일 전환, 실제 광고 차단률은 아직 검증되지 않았습니다.
+- Android package: `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`.
+- 최신 main 소스 커밋(문서 갱신 시점): `c02c68f8d1b224bf711ea7142843ae2ec135f413`.
+- 이전 최종 패키지 artifact는 0.7.7-dev debug APK이며, 0.7.8-dev main용 새 최종 APK artifact가 배포되었다고 간주하지 않습니다.
+- PR #25의 CI run `43690905433` 성공: Bash 구문 검사, Android unit tests, lintDebug, assembleDebug, API 35 emulator 설치·앱 실행, package/version 및 SHA-256 검증 통과.
+- PR #38의 DNS-over-TCP sequence wraparound 회귀 테스트는 CI run `43694693871` 성공 후 main에 병합했습니다.
+- License API strict UTF-8 및 malformed byte 입력 거부, signed filter 배포 파일 크기 제한, publisher 단일 작성자 잠금, Android signed-cache 무결성, HTTPS origin 검증, 라이선스 refresh/deactivation 경쟁 조건, 관리자별 기기 해제 기능은 각각 통합 테스트를 거쳐 main에 병합했습니다.
+- 관리자 개별 기기 해제는 라이선스 전체 정지와 분리되며, 지정 기기만 해제하고 감사 이벤트를 남깁니다. 운영 관리자 토큰 및 운영 DB에서의 실제 배포 검증은 별도입니다.
+- Production signing workflow의 설정 검증은 PR #40 run `43695827496` 성공. production signing job은 의도적으로 skipped이며, 운영 keystore/secrets 미설정 상태에서 서명본을 만들지 않았습니다.
+- PR #40의 Android CI run `43695827493`은 문서 갱신 시점에 에뮬레이터 설치/실행 단계를 진행 중이므로 성공으로 기록하지 않습니다.
+- main의 release workflow push 실행 실패는 PR #40이 아직 병합되지 않은 상태에서 발생한 기존 main workflow의 실행 결과입니다. PR #40은 main push 조건과 signing gate를 검증하도록 수정 중이며, 병합 후 main push 실행 결과를 다시 확인해야 합니다.
+- CI 검증은 실기기 VPN/TUN 라우팅, Wi-Fi↔모바일 전환, 실제 광고 제거율 또는 외부 DoH/DoT provider 연결을 입증하지 않습니다.
+
+## 현재 개발 작업 및 미완료 범위
+
+- PR #40: production release 설정 검증을 main push에서도 실행하고 production 서명 작업은 수동 실행으로 제한합니다. 설정 검증은 성공했으며 Android emulator CI 완료 후 병합 여부를 판단합니다.
+- Windows 설치 프로그램은 사용자 요청에 따라 마지막 단계로 보류합니다.
+- 실기기 VPN/TUN 수용 테스트는 사용자 요청에 따라 추후 진행합니다.
+- 운영 keystore, release secrets, 공개 HTTPS 서비스 주소, 공개키 및 운영 DB/도메인 연결은 실제 운영 환경에 설정·검증되지 않았습니다.
+- 실제 광고 제거 효과, 네트워크 전환, 장시간 안정성 및 외부 DNS provider 연결은 별도 실기기/운영 검증이 필요합니다.
 
 ## 기존 차단 실패 원인
 
