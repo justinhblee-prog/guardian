@@ -4,7 +4,7 @@ import { createHash, generateKeyPairSync, verify } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { publishManifest } from '../scripts/publish-manifest.mjs';
+import { publishManifest, readBoundedDescriptor } from '../scripts/publish-manifest.mjs';
 
 let root;
 let privateKey;
@@ -333,4 +333,22 @@ test('concurrent publisher invocations for one source allow exactly one writer',
   assert.match(manifest, /^sourceVersion=same-version$/m);
   const published = await readFile(path.join(outputDir, 'filters', 'concurrent', 'same-version.txt'), 'utf8');
   assert.ok(published === '||first-writer.example^\n' || published === '||second-writer.example^\n');
+});
+
+
+test('bounded descriptor reads reject concurrent growth and truncation', async () => {
+  const growing = {
+    async read(buffer, offset, length) {
+      const bytes = Buffer.from('expanded');
+      const count = Math.min(length, bytes.length);
+      bytes.copy(buffer, offset, 0, count);
+      return { bytesRead: count };
+    }
+  };
+  await assert.rejects(readBoundedDescriptor(growing, 2, 1024, 'Test file'), /changed or exceeded/);
+
+  const shrinking = {
+    async read() { return { bytesRead: 0 }; }
+  };
+  await assert.rejects(readBoundedDescriptor(shrinking, 2, 1024, 'Test file'), /changed or exceeded/);
 });

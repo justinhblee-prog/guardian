@@ -8,6 +8,26 @@ import { pathToFileURL } from 'node:url';
 const MAX_FILTER_BYTES = 10 * 1024 * 1024;
 const MAX_MANIFEST_BYTES = 16 * 1024;
 
+export async function readBoundedDescriptor(handle, expectedSize, maxBytes, description) {
+  if (!Number.isSafeInteger(expectedSize) || expectedSize < 1 || expectedSize > maxBytes) {
+    throw new Error(`${description} must be a non-empty file no larger than ${maxBytes} bytes.`);
+  }
+  // A descriptor can still refer to a file that grows after stat(). Read at
+  // most the observed size plus one byte so concurrent growth cannot cause
+  // an unbounded allocation before the size check.
+  const buffer = Buffer.allocUnsafe(expectedSize + 1);
+  let bytesRead = 0;
+  while (bytesRead < buffer.length) {
+    const result = await handle.read(buffer, bytesRead, buffer.length - bytesRead, bytesRead);
+    if (result.bytesRead === 0) break;
+    bytesRead += result.bytesRead;
+  }
+  if (bytesRead !== expectedSize) {
+    throw new Error(`${description} changed or exceeded its allowed size while being read.`);
+  }
+  return buffer.subarray(0, bytesRead);
+}
+
 function argsFrom(argv) {
   const args = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -69,10 +89,7 @@ async function readExistingManifest(filePath) {
     if (!stat.isFile() || stat.size < 1 || stat.size > MAX_MANIFEST_BYTES) {
       throw new Error('Existing manifest must be a non-empty regular file no larger than 16 KiB.');
     }
-    const bytes = await handle.readFile();
-    if (bytes.length !== stat.size || bytes.length > MAX_MANIFEST_BYTES) {
-      throw new Error('Existing manifest changed or exceeded 16 KiB while being read.');
-    }
+    const bytes = await readBoundedDescriptor(handle, stat.size, MAX_MANIFEST_BYTES, 'Existing manifest');
     const text = bytes.toString('utf8');
     if (!Buffer.from(text, 'utf8').equals(bytes)) {
       throw new Error('Existing manifest is not valid UTF-8.');
@@ -92,10 +109,7 @@ async function readFilterInput(filePath) {
     if (!stat.isFile() || stat.size < 1 || stat.size > MAX_FILTER_BYTES) {
       throw new Error('Filter input must be a non-empty regular file no larger than 10 MiB.');
     }
-    const content = await handle.readFile();
-    if (content.length !== stat.size || content.length > MAX_FILTER_BYTES) {
-      throw new Error('Filter input changed or exceeded 10 MiB while being read.');
-    }
+    const content = await readBoundedDescriptor(handle, stat.size, MAX_FILTER_BYTES, 'Filter input');
     return content;
   } finally {
     await handle.close();
