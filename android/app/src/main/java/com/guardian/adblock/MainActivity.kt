@@ -272,6 +272,9 @@ class MainActivity : Activity() {
     private fun buildHome(body: LinearLayout) {
         body.addView(text("보호 대시보드", 25f, white, true))
         body.addView(text("기기의 DNS 연결을 실시간으로 보호합니다.", 13f, muted, false).withTop(5))
+        val wideDashboard = ResponsiveLayoutPolicy.usesTwoColumnDashboard(resources.configuration.screenWidthDp)
+        val primaryColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val secondaryColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val hero = card(panel, 22).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(22), dp(20), dp(20))
@@ -329,7 +332,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(8), 0, 0)
         }
         hero.addView(selfTestText!!)
-        body.addView(hero.withTop(22))
+        primaryColumn.addView(hero)
 
         val metricRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         blockRateValue = text("0%", 22f, white, true)
@@ -340,9 +343,9 @@ class MainActivity : Activity() {
         metricRow.addView(metricCard("차단된 질의", blockedCountValue!!, Color.rgb(255, 112, 125)), LinearLayout.LayoutParams(0, dp(88), 1f))
         metricRow.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
         metricRow.addView(metricCard("전체 DNS", queryCountValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(88), 1f))
-        body.addView(metricRow.withTop(12))
+        primaryColumn.addView(metricRow.withTop(12))
 
-        body.addView(card(panel, 18).apply {
+        primaryColumn.addView(card(panel, 18).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
             addView(text("광고 차단 필터", 14f, white, true))
@@ -360,13 +363,13 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(10) })
         }.withTop(12))
 
-        body.addView(text("보호 구성", 18f, white, true).withTop(24))
+        primaryColumn.addView(text("보호 구성", 18f, white, true).withTop(24))
         val grid = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         grid.addView(infoCard("01", "DNS 필터링", "광고 · 추적 도메인", accent), LinearLayout.LayoutParams(0, dp(112), 1f))
         grid.addView(space(10), LinearLayout.LayoutParams(dp(10), 1))
         grid.addView(infoCard("02", "사용자 규칙", "차단 · 허용 목록", Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(112), 1f))
-        body.addView(grid.withTop(12))
-        body.addView(card(panel, 16).apply {
+        primaryColumn.addView(grid.withTop(12))
+        secondaryColumn.addView(card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
             addView(text("실시간 DNS 통계", 14f, white, true))
@@ -377,7 +380,7 @@ class MainActivity : Activity() {
             recentText = recent
             addView(recent)
         }.withTop(12))
-        body.addView(card(panel, 16).apply {
+        secondaryColumn.addView(card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
             addView(text("현재 보호 범위", 14f, white, true))
@@ -385,12 +388,25 @@ class MainActivity : Activity() {
             addView(text("DNS 이외 트래픽과 앱이 직접 사용하는 암호화 DNS(DoH/DoT)는 필터링하지 않습니다.", 11f, muted, false).withTop(5))
         }.withTop(12))
         val privateDns = privateDnsCompatibilityStatus()
-        body.addView(card(panel, 14).apply {
+        secondaryColumn.addView(card(panel, 14).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(12), dp(14), dp(12))
             addView(text("ANDROID 비공개 DNS", 10f, muted, true))
             addView(text(privateDns.first, 11f, privateDns.second, false).withTop(6))
         }.withTop(10))
+        if (wideDashboard) {
+            val columns = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.TOP
+            }
+            columns.addView(primaryColumn, LinearLayout.LayoutParams(0, -2, 1f))
+            columns.addView(space(14), LinearLayout.LayoutParams(dp(14), 1))
+            columns.addView(secondaryColumn, LinearLayout.LayoutParams(0, -2, 1f))
+            body.addView(columns.withTop(22))
+        } else {
+            body.addView(primaryColumn.withTop(22))
+            body.addView(secondaryColumn)
+        }
     }
 
     private fun buildActivity(body: LinearLayout) {

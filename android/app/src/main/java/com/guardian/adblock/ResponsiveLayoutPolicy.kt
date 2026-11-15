@@ -5,6 +5,7 @@ internal object ResponsiveLayoutPolicy {
     const val TABLET_BREAKPOINT_DP = 600
     const val MAX_CONTENT_WIDTH_DP = 840
     const val NAVIGATION_RAIL_WIDTH_DP = 88
+    const val WIDE_DASHBOARD_BREAKPOINT_DP = 1000
 
     fun horizontalPaddingDp(screenWidthDp: Int): Int = when {
         screenWidthDp >= 840 -> 40
@@ -13,6 +14,9 @@ internal object ResponsiveLayoutPolicy {
     }
 
     fun usesNavigationRail(screenWidthDp: Int): Boolean = screenWidthDp >= 840
+
+    fun usesTwoColumnDashboard(screenWidthDp: Int): Boolean =
+        screenWidthDp >= WIDE_DASHBOARD_BREAKPOINT_DP
 
     fun contentAreaWidthDp(screenWidthDp: Int): Int {
         require(screenWidthDp > 0) { "screenWidthDp must be positive" }
