@@ -1,6 +1,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPairSync, verify } from 'node:crypto';
+import { generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 import { createPostgresRateLimiter } from '../src/rate-limit.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -55,7 +55,7 @@ if (!databaseUrl) {
   test('PostgreSQL rate limits are shared across API instances and concurrent requests', async () => {
     const firstInstance = createPostgresRateLimiter(pool, { windowMs: 60_000, maxRequests: 3 });
     const secondInstance = createPostgresRateLimiter(pool, { windowMs: 60_000, maxRequests: 3 });
-    const key = `shared-rate-limit-test:${crypto.randomUUID()}`;
+    const key = `shared-rate-limit-test:${randomUUID()}`;
     try {
       const decisions = await Promise.all(
         Array.from({ length: 12 }, (_, index) =>
