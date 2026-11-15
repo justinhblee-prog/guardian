@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.7.8-dev
+# Guardian AdBlock Android 0.7.9-dev
 
 ## 제품 개요
 
@@ -8,7 +8,7 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 최소 Android: API 26
 - compile/target SDK: 35
 - 빌드 JDK: 17
-- 현재 버전: `0.7.8-dev` (versionCode 21)
+- 현재 버전: `0.7.9-dev` (versionCode 22)
 
 ## 현재 구현 기능
 
@@ -283,3 +283,12 @@ IPv6 DNS 업스트림 주소를 정규화할 때 주소 문자열이 제공되�
 - APK SHA-256: `4349d51155b299736fe751465cbb1234545916124f4702d67a550ea5c7d1a630`.
 - 전체 artifact: `Guardian-AdBlock-Android-Full-Package-v0.7.8-dev`, artifact ID `14167411329`, ZIP 크기 3,236,385 bytes. GitHub artifact archive digest: `sha256:b0a55967f1741e991bbfbfc6079b0d45101d53246ecbadba65872e1b682cc7ad`. GitHub 보관 만료 예정일: 2026-12-15.
 - APK는 **debug 서명**이며 production 서명 APK/AAB가 아닙니다. 에뮬레이터 설치·실행은 통과했지만 실기기 VPN 권한, 실제 DNS 라우팅/차단률, Wi-Fi·모바일 전환 및 제조사별 백그라운드 동작은 아직 검증되지 않았습니다.
+
+
+## 기존 설치본 업데이트 호환성
+
+- 개발용 APK는 `android/guardian-dev.keystore`의 고정 개발 인증서로 서명합니다. 따라서 이 변경 이후 생성되는 개발 APK끼리는 같은 서명 인증서를 유지해 기존 앱 위에 `adb install -r` 방식으로 업데이트할 수 있습니다.
+- 개발 인증서 SHA-256: `ED:AE:EC:C9:E4:A2:7E:64:F0:7D:92:64:3F:B8:51:40:72:50:83:AB:ED:55:3F:91:2A:0D:EE:03:87:FB:D8:2C`.
+- 이 키는 소스 저장소에 포함된 개발 전용 키이며 production 배포에 절대 사용하지 않습니다. 운영 배포는 별도의 비공개 keystore를 사용해야 합니다.
+- 이전 0.7.8-dev APK가 GitHub runner의 임시 debug 인증서로 서명되어 있다면 새 고정 인증서와 달라 Android가 덮어쓰기를 거부합니다. 그 경우 새 개발 서명 체계로 옮기기 위한 최초 1회에 한해 기존 앱 제거가 필요할 수 있으며, 그 뒤부터는 새 인증서로 서명된 APK끼리 데이터 유지 업데이트가 가능합니다. 기존 설치본 인증서와의 일치 여부는 실제 기기 APK 인증서를 확인해야 확정할 수 있습니다.
+- CI는 동일한 고정 개발 인증서로 서명한 0.7.8-dev APK를 먼저 에뮬레이터에 설치한 뒤 0.7.9-dev APK를 `adb install -r`로 업데이트하여 패키지 교체를 검증합니다.

@@ -9,13 +9,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 val guardianVersionName = providers.gradleProperty("guardianVersionName")
-    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse("0.7.8-dev")
+    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse("0.7.9-dev")
 val guardianVersionCode = providers.gradleProperty("guardianVersionCode")
     .orElse(providers.environmentVariable("GUARDIAN_VERSION_CODE"))
     .map { raw ->
         raw.toIntOrNull()?.takeIf { it > 0 }
             ?: error("GUARDIAN_VERSION_CODE must be a positive integer.")
-    }.getOrElse(21)
+    }.getOrElse(22)
 require(guardianVersionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.-]+)?"))) {
     "GUARDIAN_VERSION_NAME must be a semantic version such as 0.7.8 or 0.7.8-rc1."
 }
@@ -142,6 +142,14 @@ android {
         buildConfigField("String", "LICENSE_API_BASE_URL", guardianBuildConfigString(guardianLicenseApiBaseUrl))
     }
     signingConfigs {
+        // A fixed development-only certificate is required so successive debug APKs
+        // can update an existing installation. Never reuse this key for production.
+        getByName("debug") {
+            storeFile = rootProject.file("guardian-dev.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (guardianReleaseSigningConfigured) {
             create("guardianRelease") {
                 storeFile = file(guardianReleaseStoreFile!!)
