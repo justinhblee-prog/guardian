@@ -90,6 +90,21 @@ test('updater stages every source before publishing any manifest', async () => {
     }), /HTTP 503/);
     assert.equal(calls, 2);
     await assert.rejects(readFile(path.join(outputDir, 'first.manifest')));
+    assert.equal(await import('node:fs/promises').then(({ readdir }) => readdir(path.join(root, 'tmp')).then(files => files.length)), 0);
+    await assert.rejects(readFile(path.join(outputDir, '.guardian-update.lock')));
+
+    // A failed batch must release its lock so a later scheduled retry can run.
+    const retry = await updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        outputDir,
+        tempDir: path.join(root, 'tmp'),
+        sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1 }]
+      },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+      fetchImpl: async () => new Response('||first.example^\\n', { status: 200 })
+    });
+    assert.equal(retry.length, 1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
