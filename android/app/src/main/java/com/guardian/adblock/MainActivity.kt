@@ -469,8 +469,8 @@ class MainActivity : Activity() {
             categories.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
             categories.addView(metricCard("추적 도메인", trackerBlockedValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(76), 1f))
             addView(categories.withTop(10))
-            savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(14) as TextView
-            addView(text("예상 절약 데이터", 11f, muted, false))
+            addView(text("예상 절약 데이터", 11f, muted, false).withTop(14))
+            savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(4) as TextView
             addView(savedDataValue!!)
             addView(text("광고/추적 구분은 도메인 이름 기반 추정 분류입니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치이며 실제 전송량 측정값이 아닙니다.", 10f, muted, false).withTop(8))
         }
@@ -1821,8 +1821,8 @@ class MainActivity : Activity() {
         }
 
     private fun estimatedSavedDataLabel(blockedQueries: Long): String {
-        val bytes = blockedQueries.coerceAtLeast(0L) * 24L * 1024L
-        return if (bytes >= 1024L * 1024L) {
+        val bytes = blockedQueries.coerceAtLeast(0L).toDouble() * 24.0 * 1024.0
+        return if (bytes >= 1024.0 * 1024.0) {
             String.format(Locale.getDefault(), "약 %.2f MB", bytes / (1024.0 * 1024.0))
         } else {
             String.format(Locale.getDefault(), "약 %.0f KB", bytes / 1024.0)
