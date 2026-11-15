@@ -100,7 +100,8 @@ internal object FilterManifestVerifier {
             "manifest 생성 시각이 현재보다 지나치게 미래입니다."
         }
         require(manifest.sourceId.matches(Regex("[a-zA-Z0-9._-]{1,64}"))) { "sourceId 형식이 올바르지 않습니다." }
-        require(manifest.sourceVersion.isNotBlank() && manifest.sourceVersion.length <= 64) {
+        require(manifest.sourceVersion.matches(Regex("[a-zA-Z0-9._+-]{1,64}")) &&
+            manifest.sourceVersion != "." && manifest.sourceVersion != "..") {
             "sourceVersion 형식이 올바르지 않습니다."
         }
         require(manifest.sha256.matches(Regex("[a-f0-9]{64}"))) { "SHA-256 해시 형식이 올바르지 않습니다." }
