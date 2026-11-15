@@ -85,7 +85,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         signal: AbortSignal.timeout(30_000)
       });
       const { bytes, text } = await readResponse(response);
-      const ruleCount = text.split(/\\r?\\n/).filter(line => {
+      const ruleCount = text.split(/\r?\n/).filter(line => {
         const value = line.trim();
         return value && !value.startsWith('!') && !value.startsWith('#') &&
           !value.startsWith('[') && !value.startsWith('@@');
