@@ -152,8 +152,14 @@ export async function publishManifest(options, env = process.env) {
   let previousGeneratedAt = 0;
   try {
     const previous = await readExistingManifest(manifestPath);
-    const match = /^generatedAt=(\d+)$/m.exec(previous);
-    if (!match) throw new Error('Existing manifest has no valid generatedAt; refusing to reset anti-rollback time.');
+    const previousLines = previous.trimEnd().split('\\n');
+    const previousSourceIds = previousLines.filter(line => line.startsWith('sourceId='));
+    const generatedAtLines = previousLines.filter(line => line.startsWith('generatedAt='));
+    const match = /^generatedAt=(\\d+)$/.exec(generatedAtLines[0] || '');
+    if (previousSourceIds.length !== 1 || previousSourceIds[0] !== `sourceId=${sourceId}` ||
+        generatedAtLines.length !== 1 || !match) {
+      throw new Error('Existing manifest identity or generatedAt is invalid; refusing to reset anti-rollback time.');
+    }
     previousGeneratedAt = Number(match[1]);
     if (!Number.isSafeInteger(previousGeneratedAt) || previousGeneratedAt <= 0 ||
         previousGeneratedAt > nowEpochSeconds + 600) {
