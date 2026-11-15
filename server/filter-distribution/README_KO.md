@@ -6,7 +6,7 @@ Node.js 22 기반의 서명 manifest 및 버전 고정 필터 배포 서버입�
 
 - `scripts/publish-manifest.mjs`: 오프라인 서명 환경에서 필터 파일의 SHA-256과 RSA-SHA256 detached signature를 생성합니다.
 - `src/server.mjs`: manifest, signature header, 버전 고정 필터 파일을 읽기 전용으로 제공합니다.
-- `docker-compose.yml`: 비루트 Node 컨테이너를 localhost에만 바인딩합니다.
+- `docker-compose.yml`: 비루트 Node 컨테이너를 사용하며 호스트 포트는 localhost에만 공개합니다.
 - 개인키는 배포 서버 컨테이너에 넣지 않습니다. 공개키만 Android 앱 빌드에 포함합니다.
 
 ## 1. 서명키 준비 (오프라인 서명 PC)
@@ -94,7 +94,7 @@ docker compose ps
 curl -f http://127.0.0.1:8788/health
 ```
 
-Compose는 API를 `127.0.0.1:8788`에만 바인딩합니다. 인터넷에 공개하기 전에 HTTPS reverse proxy/WAF를 구성하고 `filters.example.com` 도메인에 TLS 인증서를 연결하세요. manifest 경로는 `/{sourceId}.manifest`, 콘텐츠 경로는 `/filters/{sourceId}/{sourceVersion}.txt`입니다. reverse proxy가 이 경로와 `X-Guardian-Signature` 헤더를 변경하지 않도록 설정해야 합니다.
+Docker 컨테이너 내부 프로세스는 포트 포워딩을 위해 `0.0.0.0:8788`에 바인딩하지만, Compose의 호스트 포트는 `127.0.0.1:8788`에만 공개됩니다. 따라서 Docker 호스트 외부에서 직접 8788 포트에 접근할 수 없습니다. 컨테이너 밖에서 Node 서버를 직접 실행할 때 기본 HOST는 `127.0.0.1`이며, 외부 공개가 필요하면 신뢰된 reverse proxy 뒤에서만 별도 설정하세요. 인터넷 공개 전 HTTPS reverse proxy/WAF를 구성하고 `filters.example.com` 도메인에 TLS 인증서를 연결해야 합니다. manifest 경로는 `/{sourceId}.manifest`, 콘텐츠 경로는 `/filters/{sourceId}/{sourceVersion}.txt`입니다. reverse proxy가 이 경로와 `X-Guardian-Signature` 헤더를 변경하지 않도록 설정해야 합니다.
 
 ## 보안 및 운영
 
