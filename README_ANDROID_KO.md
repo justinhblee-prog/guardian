@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.7.2-dev
+# Guardian AdBlock Android 0.7.8-dev
 
 ## 제품 개요
 
@@ -8,7 +8,7 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 최소 Android: API 26
 - compile/target SDK: 35
 - 빌드 JDK: 17
-- 현재 버전: `0.7.2-dev` (versionCode 15)
+- 현재 버전: `0.7.8-dev` (versionCode 21)
 
 ## 현재 구현 기능
 
@@ -80,6 +80,36 @@ gradle -p android --no-daemon assembleDebug
 
 APK 출력:
 `android/app/build/outputs/apk/debug/app-debug.apk`
+
+## Production release signing
+
+Debug APK 검증에는 별도 키가 필요하지 않습니다. Release APK/AAB는 개인 운영 keystore가 반드시 필요하며, 키가 설정되지 않은 상태에서는 `assembleRelease` / `bundleRelease`가 의도적으로 실패합니다.
+
+1. 보안된 PC에서 RSA 3072비트 keystore를 생성합니다.
+
+```bash
+keytool -genkeypair -v -keystore guardian-release.jks -keyalg RSA -keysize 3072 -validity 10000 -alias guardian-release
+```
+
+2. `guardian-release.jks`를 저장소 밖의 암호화된 보관 위치에 보관하고 별도 백업합니다. Git, APK, 공유 ZIP 또는 채팅에 올리지 않습니다.
+3. 빌드 환경에 다음 환경 변수를 안전하게 설정합니다.
+
+```text
+GUARDIAN_RELEASE_STORE_FILE=guardian-release.jks
+GUARDIAN_RELEASE_STORE_PASSWORD=<keystore password>
+GUARDIAN_RELEASE_KEY_ALIAS=guardian-release
+GUARDIAN_RELEASE_KEY_PASSWORD=<key password>
+```
+
+`GUARDIAN_RELEASE_STORE_FILE`의 상대 경로 기준은 `android/app` 모듈 디렉터리입니다. CI에서는 위 값을 GitHub Actions Secrets에 직접 등록한 뒤 release job에 주입해야 합니다. 추가로 Repository Variables에 `GUARDIAN_MANIFEST_BASE_URL`, `GUARDIAN_MANIFEST_PUBLIC_KEY`, `GUARDIAN_LICENSE_PUBLIC_KEY`, `GUARDIAN_LICENSE_API_BASE_URL`을 설정해야 합니다. 실제 배포 버전도 `GUARDIAN_VERSION_NAME`(예: `0.7.8`)과 `GUARDIAN_VERSION_CODE`(양의 정수)로 명시해야 하며, 개발 기본값 `0.7.8-dev` / `21`을 운영 릴리스에 그대로 사용하는 것을 방지합니다. 배포 워크플로는 manifest/라이선스 URL의 HTTPS 여부와 두 공개키의 DER/Base64 형식 및 RSA 2048·3072·4096비트 크기를 확인하고, 설정이 없으면 production release를 중단합니다. APK는 `apksigner`로, AAB는 `jarsigner`/`keytool`로 서명을 각각 검증하고, 두 산출물의 인증서 SHA-256 지문이 제공된 keystore 인증서와 동일한지 확인합니다. APK/AAB SHA-256, 서명 검증 기록, 동적 버전명이 반영된 소스 ZIP 및 한국어 검증 요약을 artifact로 묶습니다. 작업 종료 시 runner 작업공간의 keystore 파일도 제거합니다. 실제 운영 키를 저장소에 커밋하거나 로그에 출력하지 마세요.
+
+4. 아래 명령으로 서명된 release APK/AAB를 빌드합니다.
+
+```bash
+gradle -p android --no-daemon clean testDebugUnitTest assembleRelease bundleRelease
+```
+
+Release 서명 설정과 키 파일 존재 여부는 Gradle task에서 검사합니다. 현재 운영 keystore는 아직 제공/설정되지 않았으므로 production-signed APK/AAB를 만들었다고 간주하지 않습니다.
 
 ## 명확한 제한 및 미검증 사항
 
