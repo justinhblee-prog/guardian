@@ -192,17 +192,20 @@ export async function publishManifest(options, env = process.env) {
   const manifestBytes = Buffer.from(manifestText, 'utf8');
   if (manifestBytes.length > MAX_MANIFEST_BYTES) throw new Error('Generated manifest exceeds 16 KiB.');
 
+  const publicKey = createPublicKey(signingKey)
+    .export({ type: 'spki', format: 'der' }).toString('base64');
+  // Prepare optional client configuration output before publishing the
+  // manifest commit marker. A failure here must not report failure after a
+  // new manifest has already become visible to clients.
+  if (options['public-key-out']) {
+    await atomicWrite(path.resolve(options['public-key-out']), Buffer.from(publicKey + '\n', 'ascii'));
+  }
+
   const signature = rsaSign('RSA-SHA256', manifestBytes, signingKey).toString('base64');
   const signaturePath = path.join(outputDir, `${sourceId}.${sourceVersion}.${generatedAt}.sig`);
   await atomicWrite(signaturePath, Buffer.from(signature, 'ascii'));
   // Publish manifest last: it is the commit marker consumed by clients.
   await atomicWrite(manifestPath, manifestBytes);
-
-  const publicKey = createPublicKey(signingKey)
-    .export({ type: 'spki', format: 'der' }).toString('base64');
-  if (options['public-key-out']) {
-    await atomicWrite(path.resolve(options['public-key-out']), Buffer.from(publicKey + '\n', 'ascii'));
-  }
   return {
     sourceId, sourceVersion, generatedAt, sha256,
     manifestPath, signaturePath, filterPath, publicKey
