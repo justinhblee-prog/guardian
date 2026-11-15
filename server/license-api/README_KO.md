@@ -7,7 +7,7 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - 라이선스 키는 화면에 발급 순간 한 번만 노출합니다. DB에는 임의 salt 기반 scrypt 해시와 서버 HMAC 조회 인덱스만 저장합니다.
 - 기기별 활성화 수 제한, 동일 기기 재활성화, 만료/정지 라이선스 거부
 - 앱 검증기와 호환되는 정확한 UTF-8 key=value payload 및 RSA-SHA256 PKCS#1 v1.5 서명 토큰
-- 24시간 수명 토큰, 서버 재접속 시 refresh로 갱신
+- 서명된 오프라인 entitlement는 라이선스 만료 시각과 최대 24시간 중 더 이른 시각에 만료되며, 응답의 `expiresIn`은 서명 payload의 실제 남은 수명과 일치합니다. 서버 재접속 시 refresh로 갱신
 - 감사 이벤트, 파라미터 바인딩 SQL, 16KB 요청 제한, no-store 응답
 - 라이선스 발급/활성화/갱신/상태 및 정지 API에 프로세스 단위 요청 제한과 `429 Retry-After` 응답
 - 반응형 모바일 관리자 페이지: `/admin`. 관리자 토큰은 페이지 메모리에서만 유지하고 localStorage/sessionStorage에 저장하지 않습니다.
@@ -64,11 +64,11 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 - `GET /v1/admin/licenses`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>`
 - `GET /v1/admin/events`: 최근 발급/활성화/비활성화/정지 감사 기록 100건
 - `POST /v1/admin/licenses`: 관리자 인증 + `{ "validDays": 365, "maxDevices": 1 }`
-- `POST /v1/admin/licenses/{uuid}/revoke`: 관리자 인증
+- `POST /v1/admin/licenses/{uuid}/revoke`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>` 및 UUID 형식의 라이선스 ID 필요
 - `GET /health`: 프로세스 생존 상태
 - `GET /ready`: DB 연결, 관리자 토큰, HMAC 비밀값 및 RSA 2048비트 이상 서명키 준비 상태 확인. Docker health check에서 사용
 
-활성화/갱신 성공 시 `payload`와 `signature`를 반환합니다. Android 앱에는 개인키가 아닌 동일 RSA 키쌍의 X.509 공개키를 `GUARDIAN_LICENSE_PUBLIC_KEY` 빌드 환경 변수로 주입해야 합니다. 앱은 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증합니다.
+활성화/갱신 성공 시 `payload`, `signature`, `expiresIn`을 반환합니다. 서버는 `Bearer` 인증 스킴을 엄격히 요구하며, `expiresIn`은 서명된 `expiresAt - issuedAt`과 일치합니다. Android 앱에는 개인키가 아닌 동일 RSA 키쌍의 X.509 공개키를 `GUARDIAN_LICENSE_PUBLIC_KEY` 빌드 환경 변수로 주입해야 합니다. 앱은 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증합니다.
 
 ## 보안 및 출시 전 남은 작업
 - 이 첫 서버 버전은 운영용 rate limiting, 관리자 다중 사용자/RBAC, 이메일/구매 복구, Google Play Billing 및 결제 webhook, 자동 환불/차지백 동기화가 없습니다. 공개 전 반드시 rate limiting/WAF 및 운영자 접근 정책을 보강해야 합니다.
