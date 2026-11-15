@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, createPrivateKey, randomUUID } from 'node:crypto';
 import { open, readFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -47,6 +47,16 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
   }
   if (!Array.isArray(config.sources) || config.sources.length === 0) {
     throw new Error('Config must contain a non-empty sources array.');
+  }
+  // Fail before downloading large upstream files if signing is unavailable.
+  const signingKeyText = env.GUARDIAN_FILTER_SIGNING_PRIVATE_KEY;
+  if (typeof signingKeyText !== 'string' || !signingKeyText.trim()) {
+    throw new Error('GUARDIAN_FILTER_SIGNING_PRIVATE_KEY is required.');
+  }
+  const signingKey = createPrivateKey(signingKeyText.replace(/\\\\n/g, '\\n'));
+  if (signingKey.asymmetricKeyType !== 'rsa' ||
+      (signingKey.asymmetricKeyDetails?.modulusLength || 0) < 2048) {
+    throw new Error('Signing key must be RSA with a modulus of at least 2048 bits.');
   }
 
   // Validate the entire source list before any network request or publication.
