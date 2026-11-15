@@ -213,8 +213,9 @@ class MainActivity : Activity() {
             "activity" -> buildActivity(body)
             else -> buildSettings(body)
         }
+        val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
         val contentWidth = ResponsiveLayoutPolicy.contentWidthPx(
-            screenWidthDp.coerceAtLeast(1),
+            ResponsiveLayoutPolicy.contentAreaWidthDp(screenWidthDp),
             resources.displayMetrics.density
         )
         scroll.addView(
@@ -225,7 +226,7 @@ class MainActivity : Activity() {
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL
             )
         )
-        if (ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)) {
+        if (usesNavigationRail) {
             val workspace = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setBackgroundColor(bg)
