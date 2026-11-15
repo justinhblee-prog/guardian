@@ -128,4 +128,19 @@ class LicenseEntitlementVerifierTest {
             fail("RSA keys below 2048 bits must be rejected")
         } catch (_: IllegalArgumentException) { }
     }
+    @Test fun rejectsMalformedUtf8EvenWhenTokenBytesAreSigned() {
+        val pair = keyPair()
+        val malformed = payload() + byteArrayOf(0xC3.toByte())
+        try {
+            LicenseEntitlementVerifier.verify(
+                malformed,
+                sign(malformed, pair),
+                Base64.getEncoder().encodeToString(pair.public.encoded),
+                device,
+                now
+            )
+            fail("malformed UTF-8 token must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
 }
