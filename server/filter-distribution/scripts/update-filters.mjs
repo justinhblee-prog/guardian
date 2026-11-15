@@ -128,8 +128,15 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
       const inputPath = path.resolve(config.tempDir || '.guardian-filter-update', `${source.id}-${sourceVersion}-${randomUUID()}.txt`);
       const { writeFile, mkdir } = await import('node:fs/promises');
       await mkdir(path.dirname(inputPath), { recursive: true });
-      await writeFile(inputPath, bytes, { flag: 'wx', mode: 0o600 });
-      staged.push({ source, inputPath, sourceVersion, ruleCount, digest });
+      try {
+        await writeFile(inputPath, bytes, { flag: 'wx', mode: 0o600 });
+        staged.push({ source, inputPath, sourceVersion, ruleCount, digest });
+      } catch (error) {
+        // A failed write can leave a partial file before it is registered in
+        // the staged list; remove it here so the outer cleanup remains complete.
+        await rm(inputPath, { force: true });
+        throw error;
+      }
     }
 
     const results = [];
