@@ -43,6 +43,9 @@ class GuardianVpnService : VpnService() {
         const val KEY_DNS_FORWARDED = "dns_forwarded"
         const val KEY_DNS_FAILED = "dns_failed"
         const val KEY_DNS_IGNORED = "dns_ignored"
+        const val KEY_DNS_AD_BLOCKED = "dns_ad_blocked"
+        const val KEY_DNS_TRACKER_BLOCKED = "dns_tracker_blocked"
+        const val KEY_DNS_OTHER_BLOCKED = "dns_other_blocked"
         const val KEY_DNS_DIAGNOSTIC = "dns_diagnostic"
         const val KEY_DNS_RECENT = "dns_recent"
         private const val CHANNEL = "guardian_protection"
@@ -324,6 +327,13 @@ class GuardianVpnService : VpnService() {
             val blockedCount = prefs.getLong(KEY_DNS_BLOCKED, 0L) + if (blocked) 1L else 0L
             val forwardedCount = prefs.getLong(KEY_DNS_FORWARDED, 0L) + if (forwarded) 1L else 0L
             val failedCount = prefs.getLong(KEY_DNS_FAILED, 0L) + if (!blocked && !forwarded) 1L else 0L
+            val category = if (blocked) DomainFilter.classifyBlockedDomain(domain) else null
+            val adBlocked = prefs.getLong(KEY_DNS_AD_BLOCKED, 0L) +
+                if (category == DomainFilter.BlockCategory.AD) 1L else 0L
+            val trackerBlocked = prefs.getLong(KEY_DNS_TRACKER_BLOCKED, 0L) +
+                if (category == DomainFilter.BlockCategory.TRACKER) 1L else 0L
+            val otherBlocked = prefs.getLong(KEY_DNS_OTHER_BLOCKED, 0L) +
+                if (category == DomainFilter.BlockCategory.OTHER) 1L else 0L
             val outcome = when {
                 blocked -> "차단"
                 forwarded -> "전달"
@@ -336,6 +346,9 @@ class GuardianVpnService : VpnService() {
                 .putLong(KEY_DNS_BLOCKED, blockedCount)
                 .putLong(KEY_DNS_FORWARDED, forwardedCount)
                 .putLong(KEY_DNS_FAILED, failedCount)
+                .putLong(KEY_DNS_AD_BLOCKED, adBlocked)
+                .putLong(KEY_DNS_TRACKER_BLOCKED, trackerBlocked)
+                .putLong(KEY_DNS_OTHER_BLOCKED, otherBlocked)
                 .putString(KEY_DNS_RECENT, lines.joinToString("\n"))
                 .apply()
             if (!blocked && !forwarded) {
