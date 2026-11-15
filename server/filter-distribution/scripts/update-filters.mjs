@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { open, readFile, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -73,6 +73,26 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     return { ...source, upstream };
   });
 
+  // Serialize whole update batches. Per-source publisher locks alone cannot
+  // prevent two scheduled runs from interleaving different source generations.
+  const outputDir = path.resolve(config.outputDir || 'dist');
+  await mkdir(outputDir, { recursive: true });
+  const lockPath = path.join(outputDir, '.guardian-update.lock');
+  let batchLock;
+  try {
+    batchLock = await open(lockPath, 'wx', 0o600);
+    await batchLock.writeFile(JSON.stringify({
+      pid: process.pid,
+      startedAt: new Date().toISOString()
+    }) + '\\n');
+    await batchLock.sync();
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      throw new Error('Another filter update batch is active, or a stale .guardian-update.lock requires manual review.');
+    }
+    throw error;
+  }
+
   // Stage and validate every upstream response before publishing any source.
   // A later upstream outage must not leave a mixed-generation distribution.
   const staged = [];
@@ -123,8 +143,15 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     }
     return results;
   } finally {
-    const { rm } = await import('node:fs/promises');
-    await Promise.all(staged.map(item => rm(item.inputPath, { force: true })));
+    try {
+      await Promise.all(staged.map(item => rm(item.inputPath, { force: true })));
+    } finally {
+      try {
+        await batchLock.close();
+      } finally {
+        await rm(lockPath, { force: true });
+      }
+    }
   }
 }
 
