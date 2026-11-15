@@ -6,6 +6,8 @@ import { pathToFileURL } from 'node:url';
 import { publishManifest } from './publish-manifest.mjs';
 
 const MAX_FILTER_BYTES = 10 * 1024 * 1024;
+const MAX_TOTAL_FILTER_BYTES = 64 * 1024 * 1024;
+const MAX_SOURCES = 100;
 
 // Only remove the batch lock if the pathname still refers to the inode this
 // process created. This avoids deleting a replacement lock after an unlink /
@@ -62,6 +64,9 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
   }
   if (!Array.isArray(config.sources) || config.sources.length === 0) {
     throw new Error('Config must contain a non-empty sources array.');
+  }
+  if (config.sources.length > MAX_SOURCES) {
+    throw new Error(`Config may contain at most ${MAX_SOURCES} filter sources.`);
   }
   // Fail before downloading large upstream files if signing is unavailable.
   const signingKeyText = env.GUARDIAN_FILTER_SIGNING_PRIVATE_KEY;
@@ -130,6 +135,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
   // Stage and validate every upstream response before publishing any source.
   // A later upstream outage must not leave a mixed-generation distribution.
   const staged = [];
+  let totalDownloadedBytes = 0;
   try {
     for (const source of normalizedSources) {
       const { upstream } = source;
@@ -139,6 +145,10 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         signal: AbortSignal.timeout(30_000)
       });
       const { bytes, text } = await readResponse(response);
+      totalDownloadedBytes += bytes.length;
+      if (totalDownloadedBytes > MAX_TOTAL_FILTER_BYTES) {
+        throw new Error('Combined upstream filters exceed the 64 MiB batch limit.');
+      }
       const ruleCount = text.split(/\r?\n/).filter(line => {
         const value = line.trim();
         return value && !value.startsWith('!') && !value.startsWith('#') &&
