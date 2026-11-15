@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-15 — Android integration
+- Merge verified Android license device-release and wide-tablet dashboard changes (PR #54/#55).
+- Follow-up license mutation serialization and server-revocation handling is under CI in PR #56.
+
+
 ## v0.7.4-dev — Filter cache rollback safety (2026-11-14)
 - Replace downloaded filter caches with a backup-preserving swap; if metadata persistence fails, restore the previous known-good cache.
 - Recover a cache interrupted between the backup and replacement moves before cache reads and cache-validity checks.
