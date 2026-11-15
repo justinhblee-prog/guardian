@@ -1,5 +1,6 @@
 import http from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { open } from 'node:fs/promises';
 import path from 'node:path';
 
 const HOST = process.env.HOST || '127.0.0.1';
@@ -20,11 +21,22 @@ function send(res, status, body, headers = {}) {
 }
 
 async function readBounded(filePath, maxBytes) {
-  const info = await stat(filePath);
-  if (!info.isFile() || info.size <= 0 || info.size > maxBytes) {
-    throw Object.assign(new Error('Invalid distribution asset size.'), { status: 404 });
+  // Open the final path component without following symlinks, then validate and
+  // read through the same descriptor to avoid a stat/read path-swap race.
+  const handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const info = await handle.stat();
+    if (!info.isFile() || info.size <= 0 || info.size > maxBytes) {
+      throw Object.assign(new Error('Invalid distribution asset size.'), { status: 404 });
+    }
+    const content = await handle.readFile();
+    if (content.length <= 0 || content.length > maxBytes) {
+      throw Object.assign(new Error('Invalid distribution asset size.'), { status: 404 });
+    }
+    return content;
+  } finally {
+    await handle.close();
   }
-  return readFile(filePath);
 }
 
 const server = http.createServer(async (req, res) => {
