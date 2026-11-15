@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.VpnService
@@ -28,6 +29,7 @@ import android.widget.Switch
 import androidx.core.content.ContextCompat
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -270,15 +272,12 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, dp(20))
         }
-        val mark = TextView(this).apply {
-            text = "G"
-            textSize = 22f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setTextColor(bg)
-            background = shape(accent, 15)
+        val mark = ImageView(this).apply {
+            contentDescription = "유진건설팅 로고"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageBitmap(assets.open("eugene_consulting_logo.png").use { BitmapFactory.decodeStream(it) })
         }
-        wrap.addView(mark, LinearLayout.LayoutParams(dp(46), dp(46)))
+        wrap.addView(mark, LinearLayout.LayoutParams(dp(88), dp(72)))
         val labels = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), 0, 0, 0)
