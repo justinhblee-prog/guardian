@@ -236,6 +236,44 @@ if (!databaseUrl) {
     assert.ok(events.some(event => event.event_type === 'activated' && event.license_ref === created.license.license_ref));
     assert.ok(events.some(event => event.event_type === 'revoked' && event.license_ref === created.license.license_ref));
   });
+
+  test('expired licenses cannot refresh Pro but can still release their device activation', async () => {
+    const created = await issue(1);
+    const device = '7'.repeat(64);
+    const activation = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'expired-license-deactivate'
+    });
+    assert.equal(activation.status, 200);
+
+    await pool.query(
+      "UPDATE licenses SET expires_at=now()-interval '1 second' WHERE id=$1",
+      [created.license.id]
+    );
+
+    const status = await post('/v1/licenses/status', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(status.status, 200);
+    assert.equal((await status.json()).status, 'free');
+
+    const refresh = await post('/v1/licenses/refresh', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(refresh.status, 403);
+
+    const deactivate = await post('/v1/licenses/deactivate', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(deactivate.status, 200);
+    assert.equal((await deactivate.json()).deactivated, 1);
+
+    const active = await pool.query(
+      'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND deactivated_at IS NULL',
+      [created.license.id]
+    );
+    assert.equal(active.rows[0].n, 0);
+  });
+
   test('status does not report Pro while the product is disabled', async () => {
     const created = await issue(1);
     const device = '9'.repeat(64);
