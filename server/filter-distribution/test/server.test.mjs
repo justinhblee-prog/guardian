@@ -80,3 +80,15 @@ test('server applies bounded HTTP connection settings and rejects dot-segment so
   assert.equal((await fetch(`${baseUrl}/...manifest`)).status, 404);
   assert.equal((await fetch(`${baseUrl}/filters/%2e%2e/test-v1.txt`)).status, 404);
 });
+
+test('manifest endpoint rejects non-canonical or implausible RSA signatures', async () => {
+  const signaturePath = path.join(root, `${sourceId}.${version}.${generatedAt}.sig`);
+  try {
+    await writeFile(signaturePath, 'not-a-signature');
+    assert.equal((await fetch(`${baseUrl}/${sourceId}.manifest`)).status, 404);
+    await writeFile(signaturePath, Buffer.from('A'.repeat(344), 'ascii'));
+    assert.equal((await fetch(`${baseUrl}/${sourceId}.manifest`)).status, 404);
+  } finally {
+    await writeFile(signaturePath, signature);
+  }
+});
