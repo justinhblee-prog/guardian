@@ -55,6 +55,15 @@ function requireAdmin(req) {
     throw Object.assign(new Error('관리자 인증에 실패했습니다.'), { status: 401 });
   }
 }
+function validateLicenseRef(value) {
+  // license_ref values are generated with crypto.randomUUID(); reject malformed
+  // or oversized references before they reach PostgreSQL queries.
+  if (typeof value !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    throw Object.assign(new Error('라이선스 참조 값이 올바르지 않습니다.'), { status: 400 });
+  }
+  return value.toLowerCase();
+}
 function requireSigner() {
   if (!PRIVATE_KEY) throw Object.assign(new Error('라이선스 서명 키가 서버에 구성되지 않았습니다.'), { status: 503 });
   try {
@@ -135,7 +144,7 @@ async function activate(body) {
 async function refresh(body) {
   requireEnv();
   const device = validateDeviceBinding(body.deviceBinding);
-  if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
+  const licenseRef = validateLicenseRef(body.licenseRef);
   const client = await pool.connect();
   try {
     // Serialize refresh against deactivation/revocation. Without the row lock,
@@ -148,7 +157,7 @@ async function refresh(body) {
        WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
        AND l.status='active' AND l.expires_at>now() AND p.active=true
        LIMIT 1 FOR UPDATE OF l, a`,
-      [device, body.licenseRef]
+      [device, licenseRef]
     );
     if (!result.rowCount) throw Object.assign(new Error('활성 라이선스를 찾을 수 없습니다.'), { status: 403 });
     const touched = await client.query(
