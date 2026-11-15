@@ -60,6 +60,29 @@ async function atomicWrite(filePath, bytes) {
   }
 }
 
+async function readExistingManifest(filePath) {
+  // The anti-rollback source is security-sensitive: never follow a symlink or
+  // allocate unbounded memory while reading a previously published manifest.
+  const handle = await open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size < 1 || stat.size > MAX_MANIFEST_BYTES) {
+      throw new Error('Existing manifest must be a non-empty regular file no larger than 16 KiB.');
+    }
+    const bytes = await handle.readFile();
+    if (bytes.length !== stat.size || bytes.length > MAX_MANIFEST_BYTES) {
+      throw new Error('Existing manifest changed or exceeded 16 KiB while being read.');
+    }
+    const text = bytes.toString('utf8');
+    if (!Buffer.from(text, 'utf8').equals(bytes)) {
+      throw new Error('Existing manifest is not valid UTF-8.');
+    }
+    return text;
+  } finally {
+    await handle.close();
+  }
+}
+
 async function readFilterInput(filePath) {
   // Refuse symlinks and read through one descriptor so validation and hashing
   // apply to the same regular file, not a path swapped mid-read.
@@ -140,7 +163,7 @@ export async function publishManifest(options, env = process.env) {
   const nowEpochSeconds = Math.floor(Date.now() / 1000);
   let previousGeneratedAt = 0;
   try {
-    const previous = await readFile(manifestPath, 'utf8');
+    const previous = await readExistingManifest(manifestPath);
     const match = /^generatedAt=(\d+)$/m.exec(previous);
     if (!match) throw new Error('Existing manifest has no valid generatedAt; refusing to reset anti-rollback time.');
     previousGeneratedAt = Number(match[1]);
