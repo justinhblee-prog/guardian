@@ -70,3 +70,13 @@ test('server rejects unknown sources, path traversal, query strings and non-GET 
   assert.equal((await fetch(`${baseUrl}/health`, { method: 'POST' })).status, 405);
   assert.equal((await fetch(`${baseUrl}/filters/..%2F..%2Fetc/passwd.txt`)).status, 404);
 });
+
+
+test('server applies bounded HTTP connection settings and rejects dot-segment source IDs', async () => {
+  assert.equal(server.headersTimeout, 10_000);
+  assert.equal(server.requestTimeout, 15_000);
+  assert.equal(server.keepAliveTimeout, 5_000);
+  assert.equal(server.maxHeadersCount, 32);
+  assert.equal((await fetch(`${baseUrl}/...manifest`)).status, 404);
+  assert.equal((await fetch(`${baseUrl}/filters/%2e%2e/test-v1.txt`)).status, 404);
+});
