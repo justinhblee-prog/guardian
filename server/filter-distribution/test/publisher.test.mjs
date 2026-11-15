@@ -248,3 +248,87 @@ test('publisher refuses a previous manifest belonging to a different source', as
   }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }), /identity or generatedAt is invalid/);
   await assert.rejects(readFile(path.join(outputDir, 'filters', 'adguard', 'wrong-identity-v1.txt')));
 });
+
+test('publisher fails closed when another process holds the source publication lock', async () => {
+  const input = path.join(root, 'locked.txt');
+  const outputDir = path.join(root, 'locked-dist');
+  await mkdir(outputDir, { recursive: true });
+  await writeFile(input, '||locked.example^\n');
+  const lockPath = path.join(outputDir, '.adguard.publish.lock');
+  await writeFile(lockPath, JSON.stringify({ pid: 99999 }), { flag: 'wx' });
+  await assert.rejects(
+    publishManifest({
+      'source-id': 'adguard',
+      'source-version': 'locked-v1',
+      input,
+      'base-url': 'https://filters.example.com',
+      'minimum-rules': '1',
+      'output-dir': outputDir
+    }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
+    /already locked; refusing concurrent publish/
+  );
+  await assert.rejects(readFile(path.join(outputDir, 'adguard.manifest')), { code: 'ENOENT' });
+  await rm(lockPath, { force: true });
+});
+
+test('publisher releases its source lock when validation fails after acquisition', async () => {
+  const input = path.join(root, 'failed-lock.txt');
+  const outputDir = path.join(root, 'failed-lock-dist');
+  await writeFile(input, '||failed-lock.example^\n');
+  await assert.rejects(
+    publishManifest({
+      'source-id': 'failed',
+      'source-version': 'failed-v1',
+      input,
+      'base-url': 'https://filters.example.com',
+      'minimum-rules': '1',
+      'output-dir': outputDir
+    }, {}),
+    /GUARDIAN_FILTER_SIGNING_PRIVATE_KEY is required/
+  );
+  await assert.rejects(readFile(path.join(outputDir, '.failed.publish.lock')), { code: 'ENOENT' });
+});
+
+test('publisher releases its source lock after a successful publication', async () => {
+  const input = path.join(root, 'unlock.txt');
+  const outputDir = path.join(root, 'unlock-dist');
+  await writeFile(input, '||unlock.example^\n');
+  await publishManifest({
+    'source-id': 'security',
+    'source-version': 'unlock-v1',
+    input,
+    'base-url': 'https://filters.example.com',
+    'minimum-rules': '1',
+    'output-dir': outputDir
+  }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey });
+  await assert.rejects(readFile(path.join(outputDir, '.security.publish.lock')), { code: 'ENOENT' });
+});
+
+test('concurrent publisher invocations for one source allow exactly one writer', async () => {
+  const firstInput = path.join(root, 'concurrent-first.txt');
+  const secondInput = path.join(root, 'concurrent-second.txt');
+  const outputDir = path.join(root, 'concurrent-dist');
+  await writeFile(firstInput, '||first-writer.example^\n');
+  await writeFile(secondInput, '||second-writer.example^\n');
+  const options = input => ({
+    'source-id': 'concurrent',
+    'source-version': 'same-version',
+    input,
+    'base-url': 'https://filters.example.com',
+    'minimum-rules': '1',
+    'output-dir': outputDir
+  });
+
+  const results = await Promise.allSettled([
+    publishManifest(options(firstInput), { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
+    publishManifest(options(secondInput), { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey })
+  ]);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  assert.equal(results.filter(result => result.status === 'rejected').length, 1);
+  const rejected = results.find(result => result.status === 'rejected');
+  assert.match(rejected.reason.message, /already locked; refusing concurrent publish/);
+  const manifest = await readFile(path.join(outputDir, 'concurrent.manifest'), 'utf8');
+  assert.match(manifest, /^sourceVersion=same-version$/m);
+  const published = await readFile(path.join(outputDir, 'filters', 'concurrent', 'same-version.txt'), 'utf8');
+  assert.ok(published === '||first-writer.example^\n' || published === '||second-writer.example^\n');
+});
