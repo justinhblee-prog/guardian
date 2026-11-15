@@ -75,6 +75,12 @@ class DnsTcpSessionManager(
         // Every segment after the SYN handshake must carry ACK. Ignore
         // malformed ACK-less data/FIN so it cannot mutate the DNS stream.
         if (!tcp.ack) return emptyList()
+        // A client cannot acknowledge server sequence space that Guardian has
+        // not transmitted. Reject future ACKs before accepting any DNS payload;
+        // otherwise an invalid segment can mutate the request stream state.
+        if (sequenceAfter(tcp.acknowledgement, session.serverNext)) {
+            return listOf(ack(tcp, session))
+        }
         session.lastActivity = now
         // Keep a half-closed session until the client acknowledges our FIN.
         // This lets a lost FIN/data response be replayed on an exact retransmission.
@@ -197,6 +203,11 @@ class DnsTcpSessionManager(
 
     @Synchronized
     fun activeSessionCount(): Int = sessions.size
+
+    private fun sequenceAfter(candidate: Long, reference: Long): Boolean {
+        val distance = (candidate - reference) and MASK
+        return distance in 1L..0x7fffffffL
+    }
 
     private fun ack(packet: DnsTcpPacket.Parsed, session: Session) =
         DnsTcpPacket.response(packet, session.serverNext, session.clientNext, DnsTcpPacket.ACK)
