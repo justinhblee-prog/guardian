@@ -17,7 +17,7 @@ Windows PC, Android 스마트폰·태블릿을 하나의 필터/라이선스 체
 - PR #43: production release 설정 검증을 main push에서도 실행하고 실제 서명은 수동 실행으로 제한. Android CI 및 release 설정 CI 성공, signing job은 운영 secrets 미설정으로 의도적 skipped, 미병합.
 - PR #44: License API 연결/헤더 timeout 제한 및 JSON nosniff 응답 헤더. Node/PostgreSQL 통합 CI 성공, 미병합.
 - PR #46: signed filter publisher의 교체된 source lock 보호. Filter Distribution CI 성공, 미병합.
-- PR #47: unsigned 필터 캐시 크기/손상 복구 안전성. Android CI 전체 성공, 미병합.
+- PR #47: signed/unsigned 필터 캐시 크기 제한, no-follow bounded read, 손상 복구 fail-closed. Android CI 전체 성공, 미병합.
 - PR #48: 라이선스 refresh와 기기 해제 동시 실행 경합 방지. Android CI 전체 성공, 미병합.
 - PR #49: 서버에서 refresh 거부 시 앱의 stale PRO 토큰 제거. Android CI 전체 성공, 미병합.
 - PR #50: 여러 API 인스턴스 간 PostgreSQL 공유 요청 제한 및 HTTP/DB timeout 보강. 동시성/cleanup/fail-closed 통합 CI 성공, 미병합.
