@@ -163,4 +163,32 @@ class FilterManifestVerifierTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun acceptsSameSourceVersionOnlyWhenContentHashIsUnchanged() {
+        val hash = "a".repeat(64)
+        FilterManifestVerifier.requireImmutableSourceVersion(
+            "2026.11.15", hash, "2026.11.15", hash
+        )
+        FilterManifestVerifier.requireImmutableSourceVersion(
+            "2026.11.15", hash.uppercase(), "2026.11.15", hash
+        )
+        try {
+            FilterManifestVerifier.requireImmutableSourceVersion(
+                "2026.11.15", hash, "2026.11.15", "b".repeat(64)
+            )
+            fail("same sourceVersion with different content must be rejected")
+        } catch (_: IllegalArgumentException) { }
+        try {
+            FilterManifestVerifier.requireImmutableSourceVersion(
+                "2026.11.15", null, "2026.11.15", hash
+            )
+            fail("same sourceVersion without a stored hash must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
+    @Test fun allowsAChangedHashOnlyForANewSourceVersion() {
+        FilterManifestVerifier.requireImmutableSourceVersion(
+            "2026.11.14", "a".repeat(64), "2026.11.15", "b".repeat(64)
+        )
+    }
+
 }
