@@ -199,7 +199,7 @@ class MainActivity : Activity() {
             insets
         }
         val scroll = ScrollView(this).apply { isFillViewport = true }
-        val screenWidthDp = resources.configuration.screenWidthDp
+        val screenWidthDp = resources.configuration.screenWidthDp.coerceAtLeast(1)
         val horizontalPadding = dp(ResponsiveLayoutPolicy.horizontalPaddingDp(screenWidthDp))
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
