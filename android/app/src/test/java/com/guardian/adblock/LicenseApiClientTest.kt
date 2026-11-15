@@ -6,6 +6,20 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class LicenseApiClientTest {
+
+    @Test
+    fun decodesValidUtf8LicenseApiResponse() {
+        assertEquals("{\"status\":\"ok\"}", decodeLicenseApiResponseUtf8("{\"status\":\"ok\"}".toByteArray(Charsets.UTF_8)))
+    }
+
+    @Test
+    fun rejectsMalformedUtf8LicenseApiResponse() {
+        try {
+            decodeLicenseApiResponseUtf8(byteArrayOf(0x7b, 0x22, 0x78, 0x22, 0x3a, 0xc3.toByte(), 0x28, 0x7d))
+            throw AssertionError("malformed UTF-8 must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test
     fun acceptsHttpsOriginAndOptionalRootSlash() {
         assertEquals("https://licenses.example.com", parseLicenseApiBaseUrl("https://licenses.example.com/").toString())
