@@ -53,7 +53,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    const manifestMatch = /^\/([a-zA-Z0-9._-]{1,64})\.manifest$/.exec(url.pathname);
+    const manifestMatch = /^\/([a-zA-Z0-9_-]{1,64})\.manifest$/.exec(url.pathname);
     if (manifestMatch) {
       const sourceId = manifestMatch[1];
       const manifestPath = path.join(DIST_DIR, `${sourceId}.manifest`);
@@ -76,7 +76,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    const filterMatch = /^\/filters\/([a-zA-Z0-9._-]{1,64})\/([a-zA-Z0-9._+-]{1,64})\.txt$/.exec(url.pathname);
+    const filterMatch = /^\/filters\/([a-zA-Z0-9_-]{1,64})\/([a-zA-Z0-9._+-]{1,64})\.txt$/.exec(url.pathname);
     if (filterMatch) {
       const [, sourceId, version] = filterMatch;
       const filterPath = path.join(DIST_DIR, 'filters', sourceId, `${version}.txt`);
