@@ -1,21 +1,18 @@
 # Guardian AdBlock Android — 개발/릴리스 상태
 
-기준 버전: **0.7.3-dev**  
-기준일: 2026-11-14  
+기준 버전: **0.7.7-dev**  
+기준일: 2026-11-15  
 저장소: https://github.com/justinhblee-prog/guardian
 
-## 현재 기준 — 0.7.3-dev (2026-11-14)
+## 현재 기준 — 0.7.7-dev (2026-11-15)
 
-- 최신 소스: `484670a6c6db36bf3cce11c3d438dd2d17741bad`
-- 최신 CI: [GitHub Actions run 43562402511](https://github.com/justinhblee-prog/guardian/actions/runs/43562402511) — **success**
-- Android JUnit: **19개 Kotlin 테스트 스위트 / 127개 테스트 메서드 통과**
-- Android lintDebug, assembleDebug, 패키지 식별 및 SHA-256 검증: **모두 통과**
-- APK 패키지: `com.guardian.adblock`, versionCode `16`, versionName `0.7.3-dev`
-- 설치 APK artifact: `Guardian-AdBlock-Android-APK-v0.7.3-dev` (ID `14100743136`)
-- Artifact ZIP SHA-256: `0666514555d869c5e3c25a4e44d1d9aa423c9d7143fcef4960b286d66f1b1aff`
-- APK SHA-256: `355080e2a1d8f64fc9720858c889368229db7b4365cc753732275c88f6c3cf11`
-- 이 APK는 설치 가능한 debug 서명 빌드입니다. Play Store용 production 서명본은 아닙니다.
-- 실기기 VPN 권한, DNS 경로, Wi-Fi/모바일 전환, 실제 광고 차단률은 아직 검증되지 않았습니다.
+- 기준 소스 커밋: `94bab42e1a9dd7e10b61fad52f2546fc075dbdcf`
+- 최신 확인 CI: [GitHub Actions run 43572937308](https://github.com/justinhblee-prog/guardian/actions/runs/43572937308) — Android test/assemble job **success**
+- APK 패키지: `com.guardian.adblock`, versionCode `20`, versionName `0.7.7-dev`
+- APK SHA-256: `4797b47bad0c92574e0b7f9b8bf347960c46e688c95be43ee6158b2d1a4a93e7`
+- APK는 debug 서명 빌드이며 Play Store용 production 서명본이 아닙니다.
+- CI는 자동화된 내부 검증입니다. 실기기 VPN 권한, DNS 경로, Wi-Fi/모바일 전환, 실제 광고 차단률은 검증되지 않았습니다.
+- 이후 Android 코어 단독 스모크 스크립트의 컴파일 입력 누락을 별도 PR #19에서 수정했습니다. 해당 수정은 아직 main에 병합되지 않았습니다.
 
 ## 기존 차단 실패 원인
 
@@ -38,7 +35,7 @@
 | 앱 제어 | 설치 앱 검색 및 VPN 보호 제외 |
 | 사용자 규칙 | 차단/허용 도메인 |
 | 활동/진단 | DNS 활동, 통계, 최근 요청, 진단, 기록 초기화 |
-| 자체 테스트 | 활성 VPN에서 활성 규칙 매칭 및 NXDOMAIN 생성 엔진 자체 테스트 |
+| 자체 테스트 | 프로세스 내부 규칙 매칭 및 NXDOMAIN 생성 자체 테스트(실제 TUN 경로 검증 아님) |
 | UI | 홈, 보호, 활동, 필터, 설정의 5개 화면 |
 
 앱 실행 시 만료 여부를 확인하고, WorkManager가 네트워크 연결 시 백그라운드 갱신을 예약합니다. Android 전원 관리에 따라 실행 시각은 지연될 수 있습니다.
@@ -58,7 +55,7 @@
 
 - 실기기 설치, VPN 권한, DNS 라우팅 및 실제 광고 차단 효과 미검증
 - Wi-Fi↔모바일 데이터 전환, 화면 잠금, 장시간 실행 미검증
-- DoH/DoT 미지원; TCP/53은 순서형 DNS 스트림 중심의 제한 구현이며 재전송/손실 복구는 미지원
+- DoH/DoT 전송 코드 경로는 구현되어 있으나 실제 외부 제공자 연결 및 실기기 인증서·네트워크 동작은 미검증; TCP/53은 순서형 DNS 스트림 중심의 제한 구현이며 타이머 기반 재전송/손실 복구는 미지원
 - IPv6 확장 헤더 및 IP fragment 재조립 미지원
 - 웹페이지 요소 숨김 및 앱 내부/first-party 광고 제거 미지원
 - 공용 DNS 직접 포착의 실기기 라우팅 부작용 검증 필요
@@ -67,7 +64,7 @@
 
 - 모든 소스 push에서 CI가 Android 테스트와 debug APK 조립·패키지 식별·SHA-256 검증을 수행합니다.
 - 일반 push에서는 APK artifact를 공개하지 않습니다. 수동 workflow 실행 또는 `[final-apk]` 커밋에서만 설치 APK artifact를 업로드합니다.
-- 현재 최신 산출물은 0.7.2-dev 설치 가능 debug APK이며, Play Store production 서명본은 아닙니다.
+- 현재 기준 산출물은 0.7.7-dev 설치 가능 debug APK이며, Play Store production 서명본은 아닙니다.
 - CI 성공은 실기기 VPN 라우팅이나 실제 광고 차단 효과를 증명하지 않습니다.
 
 
