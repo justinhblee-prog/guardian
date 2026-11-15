@@ -75,8 +75,8 @@ function tokenFor(row, deviceBinding) {
     privateKey: requireSigner(),
     maxTtlSeconds: TOKEN_TTL_SECONDS
   });
-  const issuedAt = Number(/^issuedAt=(\\d+)$/m.exec(token.payload)?.[1]);
-  const expiresAt = Number(/^expiresAt=(\\d+)$/m.exec(token.payload)?.[1]);
+  const issuedAt = Number(/^issuedAt=(\d+)$/m.exec(token.payload)?.[1]);
+  const expiresAt = Number(/^expiresAt=(\d+)$/m.exec(token.payload)?.[1]);
   if (!Number.isFinite(issuedAt) || !Number.isFinite(expiresAt) || expiresAt <= issuedAt) {
     throw new Error('entitlement_token_expiry_invalid');
   }
