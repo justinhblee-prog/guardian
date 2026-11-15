@@ -15,6 +15,16 @@ after(async () => {
   await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
 });
 
+test('JSON API responses disable MIME sniffing', async () => {
+  const response = await fetch(`${baseUrl}/v1/unknown`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}'
+  });
+  assert.equal(response.status, 404);
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+});
+
 test('health endpoint returns no-store service status', async () => {
   const response = await fetch(`${baseUrl}/health`);
   assert.equal(response.status, 200);
