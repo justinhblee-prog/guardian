@@ -191,4 +191,25 @@ class FilterManifestVerifierTest {
         )
     }
 
+    @Test fun rejectsMalformedUtf8ManifestEvenWhenSigned() {
+        val pair = keyPair()
+        val malformed = payload() + byteArrayOf(0xC3.toByte())
+        try {
+            FilterManifestVerifier.parseAndVerify(
+                malformed, signed(malformed, pair),
+                Base64.getEncoder().encodeToString(pair.public.encoded)
+            )
+            fail("malformed UTF-8 manifest must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
+    @Test fun strictUtf8DecoderRejectsMalformedFilterPayload() {
+        try {
+            FilterManifestVerifier.decodeUtf8Strict(
+                byteArrayOf(0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x3d, 0xC3.toByte())
+            )
+            fail("malformed UTF-8 filter payload must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
 }
