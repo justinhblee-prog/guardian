@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { updateFilters } from '../scripts/update-filters.mjs';
@@ -101,7 +101,7 @@ test('updater refuses to interleave with an active batch lock before fetching', 
   const outputDir = path.join(root, 'dist');
   let fetchCalled = false;
   try {
-    await import('node:fs/promises').then(({ mkdir }) => mkdir(outputDir, { recursive: true }));
+    await mkdir(outputDir, { recursive: true });
     await writeFile(path.join(outputDir, '.guardian-update.lock'), '{"pid":1}\n', { flag: 'wx' });
     await assert.rejects(updateFilters({
       config: {
