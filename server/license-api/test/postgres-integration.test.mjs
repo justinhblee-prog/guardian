@@ -47,7 +47,7 @@ if (!databaseUrl) {
   };
 
   before(async () => {
-    await pool.query('TRUNCATE license_events, activations, licenses RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE api_rate_limit_buckets, license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
