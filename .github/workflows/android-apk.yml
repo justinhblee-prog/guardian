@@ -10,6 +10,7 @@ on:
       - 'README.md'
       - 'VERIFY_ANDROID_CORE.sh'
       - 'android/core-checks/**'
+      - 'scripts/verify_apk_metadata.py'
       - '.github/workflows/android-apk.yml'
   pull_request:
     paths:
