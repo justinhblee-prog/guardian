@@ -209,8 +209,8 @@ test('concurrent publisher invocations for one source allow exactly one writer',
   const firstInput = path.join(root, 'concurrent-first.txt');
   const secondInput = path.join(root, 'concurrent-second.txt');
   const outputDir = path.join(root, 'concurrent-dist');
-  await writeFile(firstInput, '||first-writer.example^\\n');
-  await writeFile(secondInput, '||second-writer.example^\\n');
+  await writeFile(firstInput, '||first-writer.example^\n');
+  await writeFile(secondInput, '||second-writer.example^\n');
   const options = input => ({
     'source-id': 'concurrent',
     'source-version': 'same-version',
@@ -231,5 +231,5 @@ test('concurrent publisher invocations for one source allow exactly one writer',
   const manifest = await readFile(path.join(outputDir, 'concurrent.manifest'), 'utf8');
   assert.match(manifest, /^sourceVersion=same-version$/m);
   const published = await readFile(path.join(outputDir, 'filters', 'concurrent', 'same-version.txt'), 'utf8');
-  assert.ok(published === '||first-writer.example^\\n' || published === '||second-writer.example^\\n');
+  assert.ok(published === '||first-writer.example^\n' || published === '||second-writer.example^\n');
 });
