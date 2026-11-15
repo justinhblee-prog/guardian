@@ -33,6 +33,7 @@ Windows PC, Android 스마트폰·태블릿을 하나의 필터/라이선스 체
 - 가상 DNS 엔드포인트로 들어오는 클라이언트 DNS-over-TCP(53) 처리: TCP 세션, 길이 프레이밍, 순서가 맞는 스트림, 재전송 및 FIN 처리
 - 업스트림 전송 방식: UDP/53, TCP/53, DNS-over-TLS(DoT/853), DNS-over-HTTPS(DoH/443)
 - UDP 업스트림 응답이 잘린 경우 TCP DNS로 재시도
+- A real upstream DNS query is validated before installing VPN routes; if all configured/fallback resolvers fail, Guardian leaves the normal network path untouched instead of activating a broken DNS tunnel.
 - DoT/DoH TLS 인증서 호스트명 검증 및 SNI 설정
 - DoH HTTP 응답의 상태 코드, 헤더 중복·형식, 본문 길이, chunked framing 및 trailer 검증
 - UDP DNS 응답은 안전한 페이로드 한도(1232바이트)를 넘으면 TC 응답으로 대체
