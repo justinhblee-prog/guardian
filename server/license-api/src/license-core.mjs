@@ -8,6 +8,7 @@ const scrypt = promisify(scryptCallback);
 const KEY_BYTES = 64;
 const KEY_PATTERN = /^[A-Z0-9-]{20,80}$/;
 const DEVICE_PATTERN = /^[a-fA-F0-9]{64}$/;
+const SALT_PATTERN = /^[a-fA-F0-9]{32}$/;
 
 export function validateDeviceBinding(value) {
   if (typeof value !== 'string' || !DEVICE_PATTERN.test(value)) {
@@ -21,6 +22,9 @@ export async function hashLicenseKey(licenseKey, pepper, saltHex = randomBytes(1
     throw Object.assign(new Error('라이선스 키 형식이 올바르지 않습니다.'), { status: 400 });
   }
   if (typeof pepper !== 'string' || pepper.length < 32) throw new Error('GUARDIAN_LICENSE_LOOKUP_SECRET must be at least 32 characters.');
+  if (typeof saltHex !== 'string' || !SALT_PATTERN.test(saltHex)) {
+    throw Object.assign(new Error('라이선스 키 salt 형식이 올바르지 않습니다.'), { status: 400 });
+  }
   const derived = await scrypt(licenseKey, Buffer.from(saltHex, 'hex'), KEY_BYTES);
   const keyLookup = createHmac('sha256', pepper).update(licenseKey).digest('hex');
   return { saltHex, hashHex: Buffer.from(derived).toString('hex'), keyLookup };
