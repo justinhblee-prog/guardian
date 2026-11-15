@@ -726,8 +726,9 @@ class MainActivity : Activity() {
         row.addView(text(title, 13f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
         val toggle = Switch(this).apply {
             isChecked = checked
-            thumbTintList = ColorStateList.valueOf(accent)
-            trackTintList = ColorStateList.valueOf(panel2)
+            val toggleStates = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
+            thumbTintList = ColorStateList(toggleStates, intArrayOf(accent, muted))
+            trackTintList = ColorStateList(toggleStates, intArrayOf(Color.rgb(38, 112, 92), Color.rgb(78, 91, 112)))
             contentDescription = title
             setOnCheckedChangeListener { _, enabled -> onChanged(enabled) }
         }
