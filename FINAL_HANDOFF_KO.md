@@ -9,6 +9,7 @@
 - PR #41: 만료 entitlement의 기기 해제 수정. Android CI run `43696306115` 전체 성공. 미병합.
 - PR #43: production release main-push 검증 및 manual-only signing gate. Android CI `43696645579`, release config `43696645556` 성공. production signing job은 의도적 skipped. 미병합.
 - PR #44: License API HTTP timeout/header 제한과 nosniff. 최종 CI `43697583427` 성공. 미병합.
+- PR #46: signed filter publisher source-lock 소유권 정리. Filter Distribution CI `43698002553` 성공. 미병합.
 - PR #16과 #40은 #41과 #43으로 대체되어 닫혔습니다.
 - 운영 keystore/signing secrets, production API endpoint/public key, PostgreSQL, TLS 도메인은 아직 운영 설정/배포 검증되지 않았습니다.
 - 실기기 VPN/TUN, 실제 DNS 라우팅·광고 제거율, 네트워크 전환 및 장시간 안정성은 미검증입니다.
