@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { constants } from 'node:fs';
-import { open } from 'node:fs/promises';
+import { lstat, open } from 'node:fs/promises';
 import path from 'node:path';
 
 const HOST = process.env.HOST || '127.0.0.1';
@@ -20,9 +20,29 @@ function send(res, status, body, headers = {}) {
   res.end(body);
 }
 
+async function assertSafeParentDirectories(filePath) {
+  const relative = path.relative(DIST_DIR, path.dirname(filePath));
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw Object.assign(new Error('Distribution path escaped its root.'), { status: 404 });
+  }
+  let current = DIST_DIR;
+  const directories = [current, ...relative.split(path.sep).filter(Boolean).map(part => {
+    current = path.join(current, part);
+    return current;
+  })];
+  for (const directory of directories) {
+    const info = await lstat(directory);
+    if (!info.isDirectory() || info.isSymbolicLink()) {
+      throw Object.assign(new Error('Distribution parent must be a real directory.'), { status: 404 });
+    }
+  }
+}
+
 async function readBounded(filePath, maxBytes) {
-  // Open the final path component without following symlinks, then validate and
-  // read through the same descriptor to avoid a stat/read path-swap race.
+  // Reject symlinked parent directories as well as a symlink at the final
+  // component. The final file is still validated and read through one
+  // descriptor to avoid a stat/read path-swap race.
+  await assertSafeParentDirectories(filePath);
   const handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     const info = await handle.stat();
@@ -59,6 +79,7 @@ const server = http.createServer(async (req, res) => {
       const manifestPath = path.join(DIST_DIR, `${sourceId}.manifest`);
       const manifest = await readBounded(manifestPath, MAX_MANIFEST_BYTES);
       const manifestText = manifest.toString('utf8');
+      if (!Buffer.from(manifestText, 'utf8').equals(manifest)) return send(res, 404, 'manifest_not_found');
       const sourceMatch = /^sourceId=([a-zA-Z0-9._-]{1,64})$/m.exec(manifestText);
       const versionMatch = /^sourceVersion=([a-zA-Z0-9._+-]{1,64})$/m.exec(manifestText);
       const generatedMatch = /^generatedAt=(\d+)$/m.exec(manifestText);
@@ -88,6 +109,10 @@ const server = http.createServer(async (req, res) => {
       const [, sourceId, version] = filterMatch;
       const filterPath = path.join(DIST_DIR, 'filters', sourceId, `${version}.txt`);
       const content = await readBounded(filterPath, MAX_FILTER_BYTES);
+      const contentText = content.toString('utf8');
+      if (!Buffer.from(contentText, 'utf8').equals(content) || content.includes(0)) {
+        return send(res, 404, 'filter_not_found');
+      }
       return send(res, 200, content, {
         'content-type': 'text/plain; charset=utf-8',
         'cache-control': 'public, max-age=31536000, immutable'
