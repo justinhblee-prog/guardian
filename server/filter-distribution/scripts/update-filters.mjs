@@ -34,14 +34,34 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
   if (!Array.isArray(config.sources) || config.sources.length === 0) {
     throw new Error('Config must contain a non-empty sources array.');
   }
-  const results = [];
-  for (const source of config.sources) {
-    if (!source || typeof source.id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(source.id) || typeof source.url !== 'string' ||
-        typeof source.minimumRules !== 'number' || !Number.isSafeInteger(source.minimumRules) ||
-        source.minimumRules < 1) throw new Error('Each source requires id, HTTPS url and positive minimumRules.');
+
+  // Validate the entire source list before any network request or publication.
+  // Duplicate IDs would otherwise publish the same mutable manifest twice in
+  // one run, making the final source silently depend on array order.
+  const seenSourceIds = new Set();
+  const normalizedSources = config.sources.map(source => {
+    if (!source || typeof source.id !== 'string' ||
+        !/^[a-zA-Z0-9_-]{1,64}$/.test(source.id) ||
+        typeof source.url !== 'string' ||
+        typeof source.minimumRules !== 'number' ||
+        !Number.isSafeInteger(source.minimumRules) || source.minimumRules < 1) {
+      throw new Error('Each source requires id, HTTPS url and positive minimumRules.');
+    }
+    if (seenSourceIds.has(source.id)) {
+      throw new Error(`Duplicate source id in config: ${source.id}.`);
+    }
+    seenSourceIds.add(source.id);
     const upstream = new URL(source.url);
     if (upstream.protocol !== 'https:' || upstream.username || upstream.password ||
-        upstream.search || upstream.hash) throw new Error(`Source ${source.id} must use a clean HTTPS URL.`);
+        upstream.search || upstream.hash) {
+      throw new Error(`Source ${source.id} must use a clean HTTPS URL.`);
+    }
+    return { ...source, upstream };
+  });
+
+  const results = [];
+  for (const source of normalizedSources) {
+    const { upstream } = source;
     const response = await fetchImpl(upstream, {
       method: 'GET', redirect: 'error',
       headers: { accept: 'text/plain,*/*;q=0.8', 'user-agent': 'GuardianFilterUpdater/1.0' },
