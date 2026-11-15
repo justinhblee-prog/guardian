@@ -319,6 +319,12 @@ object FilterListManager {
         val previousManifestVersion = preferences.getString(infoKeys.first, null)
         val previousManifestHash = preferences.getString(infoKeys.second, null)
         val previousManifestGeneratedAt = preferences.getLong(infoKeys.third, 0L)
+        FilterManifestVerifier.requireImmutableSourceVersion(
+            previousManifestVersion,
+            previousManifestHash,
+            download.manifest.sourceVersion,
+            download.manifest.sha256
+        )
         val metadata = preferences.edit()
             .putLong(updatedKey, now)
             .putInt(countKey, parsed.blocked.size + parsed.importantBlocked.size)
