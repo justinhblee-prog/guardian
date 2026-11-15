@@ -22,10 +22,11 @@
 - Android 기준 버전: `0.7.8-dev`, versionCode `21`, package `com.guardian.adblock`.
 - 현재 main 소스 커밋: `aacf089619dca96c25500b8df7684cdc1db97490`.
 - Android 0.7.8-dev의 최초 기록 CI run `43573908206`은 **cancelled**였으므로 성공 증거로 사용하지 않습니다.
-- 최신 Android CI 확인: PR #25 run `43689059923` 성공. 해당 PR head에서 Bash syntax, Android unit tests, lintDebug, assembleDebug, Android API 35 emulator 설치·앱 실행, package/version 및 SHA-256 검증이 통과했습니다. PR branch CI 결과이며 main branch release artifact가 아닙니다.
+- PR #25 이전 head CI run `43689059923` 성공: Bash syntax, Android unit tests, lintDebug, assembleDebug, Android API 35 emulator 설치·앱 실행, package/version 및 SHA-256 검증 통과. 이후 standalone smoke script의 parser dependency 수정도 PR #25에 포함했으며, 최신 head run `43690415255`는 문서 갱신 시점에 진행 중입니다. PR branch CI 결과이며 main branch release artifact가 아닙니다.
 - License API PostgreSQL integration CI: run `43663157229` 성공. Device deactivate/reactivate regression CI: run `43684498982` 성공.
-- Signed filter distribution CI: run `43686680935` 성공. Publisher single-writer lock CI: run `43686741568` 성공.
+- Signed filter distribution CI: run `43686680935` 성공. Publisher single-writer lock CI: run `43686741568` 성공. 최신 updater regression rebased PR #28 CI run `43690373172`도 성공했습니다.
 - Android production signing configuration CI: run `43663200931` 성공. 실제 운영 keystore/secret/service endpoint는 아직 미설정이며 production release는 수행하지 않았습니다.
+- Android signed-filter client hardening PR #27은 동일 sourceVersion의 다른 SHA-256을 거부하고 manifest/filter payload의 strict UTF-8을 검증합니다. 최신 CI run `43690257560`은 문서 갱신 시점에 진행 중입니다.
 - 실기기 VPN/TUN 라우팅, 실제 광고 제거율, 외부 DoH/DoT provider 연결은 미검증입니다.
 
 ## 현재 개발 작업 및 미완료 범위
