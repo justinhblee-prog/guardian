@@ -1,6 +1,7 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
+import { createPostgresRateLimiter } from '../src/rate-limit.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -49,6 +50,24 @@ if (!databaseUrl) {
     await pool.query('TRUNCATE license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  test('PostgreSQL rate limits are shared across API instances and concurrent requests', async () => {
+    const firstInstance = createPostgresRateLimiter(pool, { windowMs: 60_000, maxRequests: 3 });
+    const secondInstance = createPostgresRateLimiter(pool, { windowMs: 60_000, maxRequests: 3 });
+    const key = `shared-rate-limit-test:${crypto.randomUUID()}`;
+    try {
+      const decisions = await Promise.all(
+        Array.from({ length: 12 }, (_, index) =>
+          (index % 2 === 0 ? firstInstance : secondInstance)(key)
+        )
+      );
+      assert.equal(decisions.filter(item => item.allowed).length, 3);
+      assert.equal(decisions.filter(item => !item.allowed).length, 9);
+      assert.ok(decisions.every(item => item.limit === 3));
+    } finally {
+      await pool.query('DELETE FROM api_rate_limit_buckets WHERE bucket_key=$1', [key]);
+    }
   });
 
   test('readiness endpoint requires a reachable database and valid RSA signer', async () => {
