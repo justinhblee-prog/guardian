@@ -465,9 +465,9 @@ class MainActivity : Activity() {
             val categories = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
             adBlockedValue = text(String.format(Locale.getDefault(), "%,d", adCount), 17f, Color.rgb(255, 166, 94), true)
             trackerBlockedValue = text(String.format(Locale.getDefault(), "%,d", trackerCount), 17f, Color.rgb(116, 167, 255), true)
-            categories.addView(metricCard("광고 도메인", adBlockedValue!!, Color.rgb(255, 166, 94)), LinearLayout.LayoutParams(0, dp(76), 1f))
+            categories.addView(metricCard("광고 차단 건수", adBlockedValue!!, Color.rgb(255, 166, 94)), LinearLayout.LayoutParams(0, dp(76), 1f))
             categories.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
-            categories.addView(metricCard("추적 도메인", trackerBlockedValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(76), 1f))
+            categories.addView(metricCard("추적 차단 건수", trackerBlockedValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(76), 1f))
             addView(categories.withTop(10))
             addView(text("예상 절약 데이터", 11f, muted, false).withTop(14))
             savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(4) as TextView
