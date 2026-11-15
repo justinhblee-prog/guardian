@@ -48,8 +48,12 @@ function requireEnv() {
   if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 32) throw Object.assign(new Error('관리자 인증 토큰이 구성되지 않았습니다.'), { status: 503 });
 }
 function requireAdmin(req) {
-  const supplied = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!adminTokenMatches(supplied, ADMIN_TOKEN)) throw Object.assign(new Error('관리자 인증에 실패했습니다.'), { status: 401 });
+  const authorization = req.headers.authorization || '';
+  const match = /^Bearer\s+([^\s]+)$/i.exec(authorization);
+  const supplied = match?.[1] || '';
+  if (!adminTokenMatches(supplied, ADMIN_TOKEN)) {
+    throw Object.assign(new Error('관리자 인증에 실패했습니다.'), { status: 401 });
+  }
 }
 function requireSigner() {
   if (!PRIVATE_KEY) throw Object.assign(new Error('라이선스 서명 키가 서버에 구성되지 않았습니다.'), { status: 503 });
@@ -228,6 +232,9 @@ async function listAuditEvents(req) {
 async function revokeLicense(id, req) {
   requireEnv();
   requireAdmin(req);
+  if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    throw Object.assign(new Error('라이선스 ID 형식이 올바르지 않습니다.'), { status: 400 });
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
