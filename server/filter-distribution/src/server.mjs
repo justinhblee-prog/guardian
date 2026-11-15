@@ -69,6 +69,13 @@ const server = http.createServer(async (req, res) => {
       if (!/^[A-Za-z0-9+/]+={0,2}$/.test(signatureText)) {
         return send(res, 404, 'manifest_not_found');
       }
+      const signatureBytes = Buffer.from(signatureText, 'base64');
+      // RSA signatures are binary data. Require canonical base64 and a
+      // plausible RSA signature size (2048–4096-bit signing keys).
+      if (signatureBytes.length < 256 || signatureBytes.length > 512 ||
+          signatureBytes.toString('base64') !== signatureText) {
+        return send(res, 404, 'manifest_not_found');
+      }
       return send(res, 200, manifest, {
         'content-type': 'text/plain; charset=utf-8',
         'x-guardian-signature': signatureText,
