@@ -7,6 +7,26 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
+
+/** Parse only an HTTPS origin; API paths are appended from fixed internal constants. */
+internal fun parseLicenseApiBaseUrl(value: String): URL {
+    val base = value.trim().trimEnd('/')
+    require(base.isNotBlank()) { "라이선스 API 주소가 앱 빌드에 설정되지 않았습니다." }
+    val parsed = URL(base)
+    require(
+        parsed.protocol.equals("https", ignoreCase = true) &&
+            parsed.host.isNotBlank() &&
+            parsed.userInfo == null &&
+            parsed.query == null &&
+            parsed.ref == null &&
+            (parsed.path.isEmpty() || parsed.path == "/") &&
+            (parsed.port == -1 || parsed.port in 1..65535)
+    ) {
+        "라이선스 API 주소는 경로·인증 정보·쿼리·fragment가 없는 HTTPS origin이어야 합니다."
+    }
+    return parsed
+}
+
 /** HTTP failures retain their status so background work can distinguish retryable outages. */
 internal class LicenseApiException(
     val statusCode: Int,
@@ -86,14 +106,9 @@ internal object LicenseApiClient {
     }
 
     private fun post(path: String, body: JSONObject): JSONObject {
-        val base = BuildConfig.LICENSE_API_BASE_URL.trim().trimEnd('/')
-        require(base.isNotBlank()) { "라이선스 API 주소가 앱 빌드에 설정되지 않았습니다." }
-        val baseUrl = URL(base)
-        require(baseUrl.protocol.equals("https", ignoreCase = true) &&
-            baseUrl.userInfo == null && baseUrl.query == null && baseUrl.ref == null) {
-            "라이선스 API 주소는 인증 정보가 없는 HTTPS 기본 주소여야 합니다."
-        }
-        val connection = (URL(base + path).openConnection() as HttpURLConnection).apply {
+        val baseUrl = parseLicenseApiBaseUrl(BuildConfig.LICENSE_API_BASE_URL)
+        val endpoint = URL(baseUrl, path)
+        val connection = (endpoint.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = CONNECT_TIMEOUT_MS
             readTimeout = READ_TIMEOUT_MS
