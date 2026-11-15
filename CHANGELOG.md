@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.7.8-dev — Android CI and release verification hardening (2026-11-15)
+- Add an Android CI smoke check that installs and launches the debug APK on API 35 emulator and verifies package identity, version and SHA-256.
+- Add DNS-over-TCP sequence-number wraparound regression coverage for rejecting future ACK data while accepting the expected server ACK.
+- Refresh release and handoff records to distinguish merged source, unmerged PR validation, debug artifacts, production signing and physical-device acceptance.
+- Candidate PRs #41, #43 and #44 are validated but not merged; their features are not counted as mainline-complete in this changelog.
+
+
+
 ## v0.7.4-dev — Filter cache rollback safety (2026-11-14)
 - Replace downloaded filter caches with a backup-preserving swap; if metadata persistence fails, restore the previous known-good cache.
 - Recover a cache interrupted between the backup and replacement moves before cache reads and cache-validity checks.
