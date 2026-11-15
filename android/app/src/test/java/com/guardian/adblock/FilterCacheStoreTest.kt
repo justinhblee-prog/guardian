@@ -93,6 +93,23 @@ class FilterCacheStoreTest {
         assertFalse(File(folder, "filter.txt.bak").exists())
     }
 
+
+    @Test
+    fun recoveryRejectsTargetThatDoesNotMatchCommittedSignedHash() {
+        val folder = newFolder()
+        val target = File(folder, "filter.txt").apply { writeText("tampered") }
+        val expected = java.security.MessageDigest.getInstance("SHA-256")
+            .digest("committed".toByteArray())
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+
+        try {
+            FilterCacheStore.recover(target) { candidate ->
+                candidate.isFile && FilterManifestVerifier.matchesSha256(candidate.readBytes(), expected)
+            }
+            throw AssertionError("tampered cache must fail closed")
+        } catch (_: IllegalStateException) { }
+    }
+
     @Test
     fun recoveryKeepsCommittedTargetAndRemovesStaleBackup() {
         val folder = newFolder()
