@@ -138,3 +138,6 @@ CI 통과는 소스의 자동화 테스트·정적 검사·APK 조립과 메타�
 - 최신 Android 자동화 검증은 현재 진행 중이며, 최종 APK는 전체 개발 및 검증 완료 전에는 배포 산출물로 만들지 않습니다.
 
 라이선스 서버 운영 준비: [서버 설치 및 API 안내](server/license-api/README_KO.md)
+
+
+Android 0.7.9-dev adds categorized DNS block counters (ad/tracker/other), an activity bar chart, and a clearly labeled estimated data-savings figure. Category labels are heuristic domain-name classifications; estimated savings assumes 24 KB per blocked request and is not a measurement of actual transferred bytes.
