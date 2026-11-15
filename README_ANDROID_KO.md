@@ -65,7 +65,7 @@ Android는 VPN 앱 자신이 만든 소켓을 자체 TUN 경로에서 제외합�
 
 ## 빌드
 
-GitHub Actions의 `Guardian AdBlock Android APK` 워크플로는 모든 push에서 Android 단위 테스트와 debug APK 조립·패키지명·버전·SHA-256 검증을 수행합니다. 일반 push는 artifact를 공개하지 않으며, 수동 실행 또는 `[final-apk]` 커밋에서 설치 APK artifact를 업로드합니다.
+GitHub Actions의 `Guardian AdBlock Android APK` 워크플로는 PR과 push에서 Android 단위 테스트, lint, debug APK 조립·에뮬레이터 설치/실행·패키지명·버전·SHA-256 검증을 수행합니다. 성공한 `main` push와 수동 `workflow_dispatch`에서는 설치 APK, SHA-256, 소스 ZIP 및 한국어 검증 요약을 하나의 artifact로 업로드합니다. PR 검증은 빌드/에뮬레이터 검사만 수행하고 artifact는 업로드하지 않습니다.
 
 로컬 빌드 환경:
 - JDK 17
@@ -118,7 +118,7 @@ Release 서명 설정과 키 파일 존재 여부는 Gradle task에서 검사합
 - 공용 DNS 직접 포착은 IP 단위 라우트이므로 DNS가 아닌 트래픽까지 TUN에 들어올 수 있어 기본 꺼짐입니다. Guardian은 DNS 이외 트래픽을 중계하지 않습니다.
 - DNS 수준 필터이므로 웹페이지의 cosmetic filtering, HTTPS 내부 광고 요소 제거, 앱에 직접 포함된 광고 제거를 제공하지 않습니다. 모든 광고 차단을 보장하지 않습니다.
 - 백그라운드 필터 업데이트는 WorkManager의 네트워크 연결 조건과 주기 작업 정책을 사용합니다. Android 전원 관리에 따라 실제 실행 시각은 설정한 시각과 정확히 일치하지 않을 수 있습니다.
-- 현재 CI는 12개 테스트 스위트 / 72개 테스트 메서드를 실행하고, 모든 변경에서 debug APK 조립·패키지 정체성·SHA-256 검증까지 수행합니다. push에서는 APK artifact를 공개하지 않으며, 수동 릴리스 실행에서만 설치 파일을 업로드합니다. CI 통과는 실기기 네트워크 검증과 다릅니다.
+- CI는 Android 단위 테스트, lint, debug APK 조립, 에뮬레이터 설치·실행, 패키지 정체성 및 SHA-256 검증을 수행합니다. 성공한 main push 또는 수동 workflow_dispatch에서 APK artifact를 업로드합니다. CI 통과는 실기기 네트워크 검증과 다릅니다.
 - 실제 Android 기기에서 VPN 권한, Wi-Fi/모바일 전환, 장시간 백그라운드 유지, 배터리 최적화, 실제 광고 차단률 및 제조사별 동작은 아직 검증되지 않았습니다.
 
 
@@ -272,3 +272,14 @@ IPv6 DNS 업스트림 주소를 정규화할 때 주소 문자열이 제공되�
 - 검증 요약: `release/VERIFICATION_SUMMARY_KO.md`.
 - GitHub Actions artifact: `Guardian-AdBlock-Android-Full-Package-v0.7.7-dev`, artifact ID `14105371888`, archive SHA-256 `d5f4555603756f5b0cf97a6725ecc5ff942e98ede9c626ef91227bfa2cf12d3f`, 만료 예정 2026-12-14.
 - APK는 Android debug 서명 빌드입니다. production 서명과 실기기 VPN/DNS 라우팅·Wi-Fi/모바일 전환·실제 광고 제거 수용 테스트는 수행하지 않았습니다. DNS 수준 차단 범위 및 앱 자체 DoH/DoT 우회 등 알려진 한계는 검증 문서에 명시했습니다.
+
+
+## 0.7.8-dev — Android 최종 패키지 검증 (2026-11-15)
+
+- 메인 커밋: `26b79f5f5b4cf03e8ae23093ff3a5911702eecc4`.
+- GitHub Actions [43726745032](https://github.com/justinhblee-prog/guardian/actions/runs/43726745032): **success**.
+- Android 단위 테스트, lint, debug APK 조립, APK 내부 DNS 필터 파일 일치, Android API 35 에뮬레이터 설치·실행, 패키지 식별 및 SHA-256 검사, 소스 ZIP 패키징, artifact 업로드가 모두 통과했습니다.
+- APK: `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`, 3,054,240 bytes.
+- APK SHA-256: `4349d51155b299736fe751465cbb1234545916124f4702d67a550ea5c7d1a630`.
+- 전체 artifact: `Guardian-AdBlock-Android-Full-Package-v0.7.8-dev`, artifact ID `14167411329`, ZIP 크기 3,236,385 bytes. GitHub artifact archive digest: `sha256:b0a55967f1741e991bbfbfc6079b0d45101d53246ecbadba65872e1b682cc7ad`. GitHub 보관 만료 예정일: 2026-12-15.
+- APK는 **debug 서명**이며 production 서명 APK/AAB가 아닙니다. 에뮬레이터 설치·실행은 통과했지만 실기기 VPN 권한, 실제 DNS 라우팅/차단률, Wi-Fi·모바일 전환 및 제조사별 백그라운드 동작은 아직 검증되지 않았습니다.
