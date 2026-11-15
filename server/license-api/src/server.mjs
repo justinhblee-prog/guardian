@@ -176,13 +176,13 @@ async function refresh(body) {
 async function deactivate(body) {
   requireEnv();
   const device = validateDeviceBinding(body.deviceBinding);
-  if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
+  const licenseRef = validateLicenseRef(body.licenseRef);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const result = await client.query(
       'UPDATE activations a SET deactivated_at=now() FROM licenses l WHERE a.license_id=l.id AND a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL RETURNING a.license_id',
-      [device, body.licenseRef]
+      [device, licenseRef]
     );
     for (const row of result.rows) {
       await recordEvent(client, row.license_id, 'deactivated', 'device');
