@@ -166,9 +166,10 @@ object FilterListManager {
             discardCacheFiles(target)
             return target
         }
-        fun matchesCommittedHash(candidate: File): Boolean =
-            candidate.isFile && candidate.length() <= MAX_BYTES &&
-                FilterManifestVerifier.matchesSha256(candidate.readBytes(), expectedHash)
+        fun matchesCommittedHash(candidate: File): Boolean {
+            val bytes = readBoundedFile(candidate, MAX_BYTES) ?: return false
+            return FilterManifestVerifier.matchesSha256(bytes, expectedHash)
+        }
         try {
             FilterCacheStore.recover(target, ::matchesCommittedHash)
             if (target.exists() && !matchesCommittedHash(target)) {
