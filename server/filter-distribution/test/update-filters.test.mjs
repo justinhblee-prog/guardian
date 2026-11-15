@@ -111,6 +111,8 @@ test('updater stages every source before publishing any manifest', async () => {
 
 
 test('updater refuses to interleave with an active batch lock before fetching', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
   const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-batch-lock-'));
   const outputDir = path.join(root, 'dist');
   let fetchCalled = false;
