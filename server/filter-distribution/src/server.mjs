@@ -93,6 +93,13 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// Keep the read-only distribution endpoint resistant to slow-header and
+// excessive-header resource exhaustion. Requests carry no upload body.
+server.headersTimeout = 10_000;
+server.requestTimeout = 15_000;
+server.keepAliveTimeout = 5_000;
+server.maxHeadersCount = 32;
+
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, HOST, () => {
     process.stdout.write(`Guardian filter distribution listening on ${HOST}:${PORT}\n`);
