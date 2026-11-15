@@ -170,3 +170,42 @@ test('publisher refuses a symlink at an immutable filter version path', async ()
     }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey })
   );
 });
+
+test('publisher refuses a symlinked previous manifest during anti-rollback checks', async () => {
+  const input = path.join(root, 'previous-manifest-input.txt');
+  const outputDir = path.join(root, 'previous-manifest-dist');
+  const target = path.join(root, 'external-previous-manifest.txt');
+  await mkdir(outputDir, { recursive: true });
+  await writeFile(input, '||manifest-link.example^\n');
+  await writeFile(target, 'generatedAt=1\n');
+  await symlink(target, path.join(outputDir, 'adguard.manifest'));
+  await assert.rejects(
+    publishManifest({
+      'source-id': 'adguard',
+      'source-version': 'v2',
+      input,
+      'base-url': 'https://filters.example.com',
+      'minimum-rules': '1',
+      'output-dir': outputDir
+    }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey })
+  );
+});
+
+test('publisher rejects an oversized previous manifest before parsing it', async () => {
+  const input = path.join(root, 'oversized-manifest-input.txt');
+  const outputDir = path.join(root, 'oversized-manifest-dist');
+  await mkdir(outputDir, { recursive: true });
+  await writeFile(input, '||oversized-manifest.example^\n');
+  await writeFile(path.join(outputDir, 'adguard.manifest'), 'x'.repeat(16 * 1024 + 1));
+  await assert.rejects(
+    publishManifest({
+      'source-id': 'adguard',
+      'source-version': 'v3',
+      input,
+      'base-url': 'https://filters.example.com',
+      'minimum-rules': '1',
+      'output-dir': outputDir
+    }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
+    /16 KiB/
+  );
+});
