@@ -214,11 +214,11 @@ if (!databaseUrl) {
       // Wait until the API transaction has reached its SELECT ... FOR UPDATE
       // and is blocked by the deactivation transaction's row lock.
       let refreshWaitingOnLock = false;
-      for (let attempt = 0; attempt < 100; attempt += 1) {
+      for (let attempt = 0; attempt < 200; attempt += 1) {
         const waiting = await lockClient.query(
           `SELECT count(*)::int AS n FROM pg_stat_activity
            WHERE datname=current_database() AND pid<>pg_backend_pid()
-             AND wait_event_type='Lock' AND query LIKE '%FOR UPDATE OF l, a%'`
+             AND wait_event_type='Lock' AND query LIKE '%guardian_license_refresh_lock%'`
         );
         if (waiting.rows[0].n > 0) {
           refreshWaitingOnLock = true;
