@@ -18,6 +18,14 @@ val guardianReleaseKeyAlias = providers.gradleProperty("guardianReleaseKeyAlias"
     .orElse(providers.environmentVariable("GUARDIAN_RELEASE_KEY_ALIAS")).orNull
 val guardianReleaseKeyPassword = providers.gradleProperty("guardianReleaseKeyPassword")
     .orElse(providers.environmentVariable("GUARDIAN_RELEASE_KEY_PASSWORD")).orNull
+fun guardianBuildConfigString(value: String): String {
+    val escaped = value.replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\r", "\\r")
+        .replace("\n", "\\n")
+    return "\"$escaped\""
+}
+
 val guardianReleaseSigningConfigured = listOf(
     guardianReleaseStoreFile, guardianReleaseStorePassword,
     guardianReleaseKeyAlias, guardianReleaseKeyPassword
@@ -52,10 +60,10 @@ android {
         targetSdk = 35
         versionCode = 21
         versionName = "0.7.8-dev"
-        buildConfigField("String", "FILTER_MANIFEST_BASE_URL", "\"$guardianManifestBaseUrl\"")
-        buildConfigField("String", "FILTER_MANIFEST_PUBLIC_KEY", "\"$guardianManifestPublicKey\"")
-        buildConfigField("String", "LICENSE_PUBLIC_KEY", "\"$guardianLicensePublicKey\"")
-        buildConfigField("String", "LICENSE_API_BASE_URL", "\"$guardianLicenseApiBaseUrl\"")
+        buildConfigField("String", "FILTER_MANIFEST_BASE_URL", guardianBuildConfigString(guardianManifestBaseUrl))
+        buildConfigField("String", "FILTER_MANIFEST_PUBLIC_KEY", guardianBuildConfigString(guardianManifestPublicKey))
+        buildConfigField("String", "LICENSE_PUBLIC_KEY", guardianBuildConfigString(guardianLicensePublicKey))
+        buildConfigField("String", "LICENSE_API_BASE_URL", guardianBuildConfigString(guardianLicenseApiBaseUrl))
     }
     signingConfigs {
         if (guardianReleaseSigningConfigured) {
