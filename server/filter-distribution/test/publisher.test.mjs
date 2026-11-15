@@ -204,3 +204,32 @@ test('publisher releases its source lock after a successful publication', async 
   }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey });
   await assert.rejects(readFile(path.join(outputDir, '.security.publish.lock')), { code: 'ENOENT' });
 });
+
+test('concurrent publisher invocations for one source allow exactly one writer', async () => {
+  const firstInput = path.join(root, 'concurrent-first.txt');
+  const secondInput = path.join(root, 'concurrent-second.txt');
+  const outputDir = path.join(root, 'concurrent-dist');
+  await writeFile(firstInput, '||first-writer.example^\\n');
+  await writeFile(secondInput, '||second-writer.example^\\n');
+  const options = input => ({
+    'source-id': 'concurrent',
+    'source-version': 'same-version',
+    input,
+    'base-url': 'https://filters.example.com',
+    'minimum-rules': '1',
+    'output-dir': outputDir
+  });
+
+  const results = await Promise.allSettled([
+    publishManifest(options(firstInput), { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
+    publishManifest(options(secondInput), { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey })
+  ]);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  assert.equal(results.filter(result => result.status === 'rejected').length, 1);
+  const rejected = results.find(result => result.status === 'rejected');
+  assert.match(rejected.reason.message, /already locked; refusing concurrent publish/);
+  const manifest = await readFile(path.join(outputDir, 'concurrent.manifest'), 'utf8');
+  assert.match(manifest, /^sourceVersion=same-version$/m);
+  const published = await readFile(path.join(outputDir, 'filters', 'concurrent', 'same-version.txt'), 'utf8');
+  assert.ok(published === '||first-writer.example^\\n' || published === '||second-writer.example^\\n');
+});
