@@ -24,6 +24,9 @@ internal object FilterCacheStore {
                 else -> throw IllegalStateException("필터 캐시와 백업이 저장된 서명 해시와 일치하지 않습니다.")
             }
         }
+        if (target.isFile && !isCommitted(target)) {
+            throw IllegalStateException("필터 캐시가 저장된 서명 해시와 일치하지 않습니다.")
+        }
         temporary.delete()
     }
 
