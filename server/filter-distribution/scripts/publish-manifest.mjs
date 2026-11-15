@@ -24,12 +24,33 @@ function argsFrom(argv) {
 }
 
 async function atomicWrite(filePath, bytes) {
-  await mkdir(path.dirname(filePath), { recursive: true });
-  const temporary = `${filePath}.${randomUUID()}.tmp`;
+  const directory = path.dirname(filePath);
+  await mkdir(directory, { recursive: true });
+  const temporary = `${filePath}.${randomUUID()} .tmp`.replace(" .tmp", ".tmp");
+  let handle;
   try {
-    await writeFile(temporary, bytes, { flag: 'wx', mode: 0o644 });
+    handle = await open(temporary, 'wx', 0o644);
+    await handle.writeFile(bytes);
+    // Flush file contents before the rename so a power loss cannot publish
+    // a manifest whose temporary file data was never committed to storage.
+    await handle.sync();
+    await handle.close();
+    handle = undefined;
     await rename(temporary, filePath);
+
+    // Directory fsync makes the rename durable on POSIX filesystems. Windows
+    // does not generally expose directory handles through Node, so retain the
+    // atomic rename guarantee there and skip only this platform-specific step.
+    if (process.platform !== 'win32') {
+      const directoryHandle = await open(directory, fsConstants.O_RDONLY);
+      try {
+        await directoryHandle.sync();
+      } finally {
+        await directoryHandle.close();
+      }
+    }
   } finally {
+    if (handle) await handle.close();
     await rm(temporary, { force: true });
   }
 }
