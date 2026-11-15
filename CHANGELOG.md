@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.7.7-dev — Filter update interaction race fix (2026-11-15)
+- Disable Protection security switches and Filters checkboxes while a filter update is downloading or validating, preventing configuration changes against an in-flight cache snapshot.
+- When the first download of an optional list fails and no valid cached copy exists, turn that list off; preserve the previous valid cache and selection on later update failures.
+- Verification record: Android CI run [43572937308](https://github.com/justinhblee-prog/guardian/actions/runs/43572937308) completed successfully for the Android test/assemble job.
+- Debug APK identity: `com.guardian.adblock`, versionCode `20`, versionName `0.7.7-dev`; APK SHA-256 `4797b47bad0c92574e0b7f9b8bf347960c46e688c95be43ee6158b2d1a4a93e7`.
+- Physical-device VPN routing, live DNS provider connectivity, and real-world ad-removal effectiveness remain unverified. Production signing is not included.
+
 ## v0.7.3-dev — Android protection reliability candidate (2026-11-14)
 - Prevent optional security and Android-ad filter switches from changing while their cache snapshot is being downloaded and validated.
 - Reapply the locked state when the Protection screen is recreated during an active filter update, and clear stale view references when switching tabs.
