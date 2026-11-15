@@ -47,6 +47,35 @@ test('signed entitlement is capped at 24 hours even for a long-lived license', (
   assert.equal(verify('RSA-SHA256', Buffer.from(token.payload), publicKey, Buffer.from(token.signature, 'base64')), true);
 });
 
+
+test('signed entitlement never outlives an earlier license expiry', () => {
+  const now = 1_800_000_000_000;
+  const licenseExpiry = new Date(now + 15 * 60 * 1000).toISOString();
+  const token = issueEntitlementToken({
+    licenseRef: '12345678-abcd',
+    deviceBinding: device,
+    expiresAt: licenseExpiry,
+    privateKey,
+    now
+  });
+  const issuedAt = Number(token.payload.match(/issuedAt=(\\d+)/)?.[1]);
+  const expires = Number(token.payload.match(/expiresAt=(\\d+)/)?.[1]);
+  assert.equal(expires - issuedAt, 15 * 60);
+  assert.equal(verify('RSA-SHA256', Buffer.from(token.payload), publicKey, Buffer.from(token.signature, 'base64')), true);
+});
+
+test('signed entitlement rejects an invalid maximum token lifetime', () => {
+  for (const maxTtlSeconds of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(() => issueEntitlementToken({
+      licenseRef: '12345678-abcd',
+      deviceBinding: device,
+      expiresAt,
+      privateKey,
+      maxTtlSeconds
+    }), /최대 유효기간/);
+  }
+});
+
 test('invalid device binding is rejected', () => {
   assert.throws(() => validateDeviceBinding('bad'));
 });
