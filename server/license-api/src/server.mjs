@@ -39,8 +39,18 @@ async function readBody(req) {
     if (size > BODY_LIMIT) throw Object.assign(new Error('요청 크기가 너무 큽니다.'), { status: 413 });
     chunks.push(chunk);
   }
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
-  catch { throw Object.assign(new Error('JSON 요청 형식이 올바르지 않습니다.'), { status: 400 }); }
+  let parsed;
+  try {
+    parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    throw Object.assign(new Error('JSON 요청 형식이 올바르지 않습니다.'), { status: 400 });
+  }
+  // Every API route consumes named request fields. Reject null, arrays and
+  // primitive JSON values here so malformed shapes never become server 500s.
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw Object.assign(new Error('JSON 요청 본문은 객체여야 합니다.'), { status: 400 });
+  }
+  return parsed;
 }
 function requireEnv() {
   if (!pool) throw Object.assign(new Error('서버 데이터베이스가 구성되지 않았습니다.'), { status: 503 });
