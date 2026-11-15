@@ -1,3 +1,38 @@
+# 2026-11-15 현재 구현 상태 정정
+
+이 섹션이 아래의 2026-11-14 설계 당시 상태보다 우선합니다.
+
+| 구성 요소 | 현재 실제 상태 | 남은 범위 |
+|---|---|---|
+| Android 스마트폰 | VpnService DNS 클라이언트, UDP/TCP DNS, UDP/TCP/DoT/DoH upstream, 필터/캐시/WorkManager, 라이선스 검증 코드 구현 및 Android CI 검증 | 실기기 VPN/DNS 수용, 광고 차단 효과, 네트워크 전환/장시간 안정성 |
+| Android 태블릿 | 동일 APK 사용. 화면 너비에 따른 padding/content width 정책 및 JUnit 테스트 구현 | 실제 태블릿 설치/회전/분할 화면/키보드·마우스 검증, wide-screen 2열/탐색 레일 UI 최적화 |
+| Signed filter backend | RSA detached manifest publisher, HTTPS updater, immutable filter distribution server, 크기/서명/경로/심볼릭 링크/동시 publish 방어 및 CI 테스트 구현 | 운영 도메인/TLS/WAF, 공개 배포 서버, 오프라인 서명키 보관·회전/복구 절차 |
+| License backend | Node.js/PostgreSQL API, 발급/활성화/갱신/해제/정지, 관리자 기기 관리 및 감사 이벤트, 모바일 대응 관리자 페이지 구현 | 운영 DB/HTTPS/Secret Manager/WAF, 분산 rate limit, 결제/Billing·구매 복구, 실제 end-to-end 배포 검증 |
+| 모바일 관리 콘솔 | 라이선스 발급·정지·기기 해제를 제공하는 반응형 관리자 페이지 `/admin` 존재 | 계정/RBAC, 필터 게시·롤백, 앱 버전/업데이트 채널, 여러 서비스의 통합 상태를 제공하는 전체 콘솔 |
+| Windows PC | 공통 DNS 규칙과 초기 DNS/복구 설계 및 개발 코드 일부 존재 | 사용자 요청에 따라 Android 및 공통 기능 완료 후 마지막으로 개발·패키징 |
+| iPhone/iPad | 미구현 | 범위 미확정 |
+
+## 현재 진행 중인 검증 PR (모두 미병합)
+
+- PR #41: 만료된 signed entitlement의 Pro 권한은 종료하되 기기 해제는 가능하도록 Android 클라이언트 수정. Android CI 전체 성공.
+- PR #43: main push 릴리스 설정 검증과 manual-only production signing gate. Android CI 및 release configuration CI 성공. 운영 signing secrets가 없어 production signing은 skipped.
+- PR #44: License API HTTP timeout/header 제한 및 nosniff 응답 헤더. PostgreSQL 통합 CI 성공.
+- PR #46: signed filter publisher가 본인이 생성하지 않은 replacement lock을 삭제하지 않도록 소유권 확인. Filter Distribution CI 성공.
+- PR #45: 버전/인수인계/멀티 디바이스 로드맵 문서 정합성 갱신 중.
+
+미병합 PR의 CI 성공은 main 반영 또는 운영 배포 완료를 뜻하지 않습니다.
+
+## 갱신된 실행 순서
+
+1. Android 앱과 태블릿 대응의 내부 코드·자동화 검증을 마무리합니다.
+2. Signed filter backend와 License API의 내부 보안/복구/운영 절차를 마무리합니다.
+3. 반응형 모바일 관리자 페이지를 계정·기기·필터 배포 운영 흐름에 맞게 확장합니다.
+4. 운영 HTTPS/DB/서명키·비밀값/WAF 설정을 구성하고 서버 end-to-end 검증을 준비합니다.
+5. Android/태블릿 및 공통 기능을 내부 완료한 뒤 Windows PC 서비스/설치 프로그램을 마지막으로 개발합니다.
+6. 물리 기기/실환경 수용 테스트는 별도 단계로 진행하며 CI 검증과 구분합니다.
+
+---
+
 # Guardian AdBlock 멀티 디바이스 제품 설계
 
 기준일: 2026-11-14
