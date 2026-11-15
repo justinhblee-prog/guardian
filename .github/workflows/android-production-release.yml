@@ -123,6 +123,24 @@ jobs:
           mkdir -p release
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee release/signature-verification.txt
 
+      - name: Verify AAB signature and match APK/AAB signer certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='android/app/build/outputs/apk/release/app-release.apk'
+          AAB='android/app/build/outputs/bundle/release/app-release.aab'
+          test -s "$AAB"
+          jarsigner -verify -verbose -certs "$AAB" > release/aab-signature-verification.txt
+          EXPECTED_CERT="$(keytool -list -v -keystore android/app/guardian-release.jks -storepass "$GUARDIAN_RELEASE_STORE_PASSWORD" -alias "$GUARDIAN_RELEASE_KEY_ALIAS" | awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          APK_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' release/signature-verification.txt | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          AAB_CERT="$(keytool -printcert -jarfile "$AAB" | awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          test -n "$EXPECTED_CERT"
+          test -n "$APK_CERT"
+          test -n "$AAB_CERT"
+          test "$APK_CERT" = "$EXPECTED_CERT"
+          test "$AAB_CERT" = "$EXPECTED_CERT"
+          printf 'APK and AAB signer certificate SHA-256: %s\\n' "$EXPECTED_CERT" | tee release/signer-certificate.txt
+
       - name: Create release verification package
         shell: bash
         run: |
@@ -132,7 +150,7 @@ jobs:
           test -s "$AAB"
           sha256sum "$APK" "$AAB" | tee release/SHA256SUMS.txt
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
-          # Guardian AdBlock v0.7.8-dev — Production release build
+          # Guardian AdBlock ${GUARDIAN_VERSION_NAME} — Production release build
 
           - Source commit: ${GITHUB_SHA}
           - Package: com.guardian.adblock
@@ -146,9 +164,9 @@ jobs:
           - License API URL configured: ${GUARDIAN_LICENSE_API_BASE_URL:+yes}
           - Physical-device VPN/DNS and real-world ad filtering acceptance: not performed by this workflow
           EOF
-          zip -qr 'release/Guardian-AdBlock-Source-v0.7.8-dev.zip' . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' '*.aab' '*.jks' '*.keystore' '*.p12' '*.pfx' '.env' 'release/*.zip'
+          zip -qr 'release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip' . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' '*.aab' '*.jks' '*.keystore' '*.p12' '*.pfx' '.env' 'release/*.zip'
           rm -f android/app/guardian-release.jks
-          ls -lh "$APK" "$AAB" release/SHA256SUMS.txt release/Guardian-AdBlock-Source-v0.7.8-dev.zip
+          ls -lh "$APK" "$AAB" release/SHA256SUMS.txt release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip
 
       - name: Upload signed APK, AAB and source package
         uses: actions/upload-artifact@v4
@@ -163,3 +181,9 @@ jobs:
             release/Guardian-AdBlock-Source-v0.7.8-dev.zip
           if-no-files-found: error
           retention-days: 30
+
+
+      - name: Remove production keystore from runner workspace
+        if: always()
+        shell: bash
+        run: rm -f android/app/guardian-release.jks
