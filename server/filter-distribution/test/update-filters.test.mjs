@@ -89,7 +89,7 @@ test('updater stages every source before publishing any manifest', async () => {
     }), /HTTP 503/);
     assert.equal(calls, 2);
     await assert.rejects(readFile(path.join(outputDir, 'first.manifest')));
-    assert.equal((await readdir(path.join(root, 'tmp'))).length, 0);
+    await assert.rejects(readdir(path.join(root, 'tmp')), { code: 'ENOENT' });
     await assert.rejects(readFile(path.join(outputDir, '.guardian-update.lock')));
 
     // A failed batch must release its lock so a later scheduled retry can run.
@@ -101,7 +101,7 @@ test('updater stages every source before publishing any manifest', async () => {
         sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1 }]
       },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
-      fetchImpl: async () => new Response('||first.example^\\n', { status: 200 })
+      fetchImpl: async () => new Response('||first.example^\n', { status: 200 })
     });
     assert.equal(retry.length, 1);
   } finally {
@@ -171,12 +171,12 @@ test('updater does not remove a replacement lock it no longer owns', async () =>
         // Simulate an external actor replacing the pathname while this process
         // still holds the original lock file descriptor.
         await rm(lockPath);
-        await writeFile(lockPath, 'replacement-owner\\n', { flag: 'wx' });
-        return new Response('||first.example^\\n', { status: 200 });
+        await writeFile(lockPath, 'replacement-owner\n', { flag: 'wx' });
+        return new Response('||first.example^\n', { status: 200 });
       }
     });
     assert.equal(result.length, 1);
-    assert.equal(await readFile(lockPath, 'utf8'), 'replacement-owner\\n');
+    assert.equal(await readFile(lockPath, 'utf8'), 'replacement-owner\n');
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -257,7 +257,7 @@ test('updater rejects upstream bodies that disagree with Content-Length', async 
         sources: [{ id: 'length', url: 'https://upstream.example/filter.txt', minimumRules: 1 }]
       },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
-      fetchImpl: async () => new Response('||example.test^\\n', {
+      fetchImpl: async () => new Response('||example.test^\n', {
         status: 200,
         headers: { 'content-length': '999' }
       })
