@@ -1,7 +1,7 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, verify } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { publishManifest } from '../scripts/publish-manifest.mjs';
@@ -147,5 +147,26 @@ test('publisher rejects insecure URLs, path segments and missing signing keys', 
   await assert.rejects(
     publishManifest({ ...base, 'base-url': 'https://filters.example.com' }, {}),
     /GUARDIAN_FILTER_SIGNING_PRIVATE_KEY/
+  );
+});
+
+test('publisher refuses a symlink at an immutable filter version path', async () => {
+  const input = path.join(root, 'symlink-input.txt');
+  const outputDir = path.join(root, 'symlink-dist');
+  const immutableDir = path.join(outputDir, 'filters', 'adguard');
+  const target = path.join(root, 'trusted-target.txt');
+  await mkdir(immutableDir, { recursive: true });
+  await writeFile(input, '||same-content.example^\n');
+  await writeFile(target, '||same-content.example^\n');
+  await symlink(target, path.join(immutableDir, 'v1.txt'));
+  await assert.rejects(
+    publishManifest({
+      'source-id': 'adguard',
+      'source-version': 'v1',
+      input,
+      'base-url': 'https://filters.example.com',
+      'minimum-rules': '1',
+      'output-dir': outputDir
+    }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey })
   );
 });
