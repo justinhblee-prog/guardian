@@ -63,3 +63,34 @@ test('updater rejects non-HTTPS sources and underfilled upstream responses', asy
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('updater stages every source before publishing any manifest', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-stage-all-'));
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  const outputDir = path.join(root, 'dist');
+  let calls = 0;
+  try {
+    await assert.rejects(updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        outputDir,
+        tempDir: path.join(root, 'tmp'),
+        sources: [
+          { id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1 },
+          { id: 'second', url: 'https://upstream.example/second.txt', minimumRules: 1 }
+        ]
+      },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+      fetchImpl: async () => {
+        calls += 1;
+        if (calls === 1) return new Response('||first.example^\n', { status: 200 });
+        return new Response('upstream unavailable', { status: 503 });
+      }
+    }), /HTTP 503/);
+    assert.equal(calls, 2);
+    await assert.rejects(readFile(path.join(outputDir, 'first.manifest')));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
