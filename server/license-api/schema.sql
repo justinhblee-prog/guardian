@@ -51,3 +51,13 @@ CREATE TABLE IF NOT EXISTS license_events (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS license_events_license_time_idx ON license_events(license_id, created_at DESC);
+
+-- Shared API rate-limit windows. Expired buckets are pruned periodically by the API.
+CREATE TABLE IF NOT EXISTS api_rate_limit_buckets (
+  bucket_key text PRIMARY KEY,
+  window_started_at timestamptz NOT NULL,
+  request_count integer NOT NULL CHECK (request_count > 0)
+);
+CREATE INDEX IF NOT EXISTS api_rate_limit_buckets_window_idx
+  ON api_rate_limit_buckets(window_started_at);
+
