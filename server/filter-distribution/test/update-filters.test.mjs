@@ -221,3 +221,50 @@ test('updater rejects excessive source counts before making network requests', a
   }), /at most 100 filter sources/);
   assert.equal(fetchCalled, false);
 });
+
+
+test('updater rejects duplicate source IDs before any upstream request', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  let fetchCalled = false;
+  await assert.rejects(updateFilters({
+    config: {
+      baseUrl: 'https://filters.example.com',
+      sources: [
+        { id: 'duplicate', url: 'https://upstream.example/one.txt', minimumRules: 1 },
+        { id: 'duplicate', url: 'https://upstream.example/two.txt', minimumRules: 1 }
+      ]
+    },
+    env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+    fetchImpl: async () => {
+      fetchCalled = true;
+      return new Response('||example.test^', { status: 200 });
+    }
+  }), /Duplicate source id in config: duplicate/);
+  assert.equal(fetchCalled, false);
+});
+
+test('updater rejects upstream bodies that disagree with Content-Length', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-length-mismatch-'));
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  try {
+    await assert.rejects(updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        outputDir: path.join(root, 'dist'),
+        tempDir: path.join(root, 'tmp'),
+        sources: [{ id: 'length', url: 'https://upstream.example/filter.txt', minimumRules: 1 }]
+      },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+      fetchImpl: async () => new Response('||example.test^\\n', {
+        status: 200,
+        headers: { 'content-length': '999' }
+      })
+    }), /Content-Length mismatch/);
+    await assert.rejects(readFile(path.join(root, 'dist', '.guardian-update.lock')));
+    assert.equal((await readdir(path.join(root, 'tmp'))).length, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
