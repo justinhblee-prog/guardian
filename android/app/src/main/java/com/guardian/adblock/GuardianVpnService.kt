@@ -462,11 +462,34 @@ class GuardianVpnService : VpnService() {
 
     private fun forwardDns(query: ByteArray): ByteArray? {
         lastUpstreamFailure = null
-        when (configuredUpstreamTransport()) {
-            "tcp" -> return forwardDnsTcp(query)
-            "dot" -> return forwardDnsOverTls(query)
-            "doh" -> return forwardDnsOverHttps(query)
+        val configured = configuredUpstreamDns()
+        val transport = configuredUpstreamTransport()
+        val candidates = when (transport) {
+            "dot", "doh" -> {
+                // A TLS resolver address may only be substituted when it belongs
+                // to the configured Cloudflare TLS hostname.
+                if (configuredUpstreamTlsHost().equals("cloudflare-dns.com", ignoreCase = true)) {
+                    listOf(configured, "1.1.1.1", "1.0.0.1").distinct()
+                } else listOf(configured)
+            }
+            else -> listOf(configured, "1.1.1.1", "8.8.8.8").distinct()
         }
+        for (address in candidates) {
+            val response = when (transport) {
+                "tcp" -> forwardDnsTcp(query, address)
+                "dot" -> forwardDnsOverTls(query, address)
+                "doh" -> forwardDnsOverHttps(query, address)
+                else -> forwardDnsUdp(query, address)
+            }
+            if (response != null && DomainFilter.isMatchingResponse(query, response)) return response
+            if (lastUpstreamFailure == null) {
+                lastUpstreamFailure = transport.uppercase() + " " + address + ": DNS 응답 없음 또는 검증 실패"
+            }
+        }
+        return null
+    }
+
+    private fun forwardDnsUdp(query: ByteArray, upstreamAddress: String): ByteArray? {
         var socket: DatagramSocket? = null
         return try {
             socket = DatagramSocket()
@@ -475,33 +498,31 @@ class GuardianVpnService : VpnService() {
                 return null
             }
             socket.soTimeout = 3500
-            val address = InetAddress.getByName(configuredUpstreamDns())
+            val address = InetAddress.getByName(upstreamAddress)
             socket.send(DatagramPacket(query, query.size, address, 53))
             val response = ByteArray(4096)
             val packet = DatagramPacket(response, response.size)
             socket.receive(packet)
-            // Do not accept a reply from another endpoint or a mismatched DNS transaction.
             if (packet.address != address || packet.port != 53) {
                 lastUpstreamFailure = "UDP: 예상하지 않은 DNS 응답 주소 또는 포트"
                 return null
             }
             val received = response.copyOf(packet.length)
             if (received.size >= 4 && (received[2].toInt() and 0x02) != 0) {
-                // RFC 7766: retry truncated UDP answers over TCP before returning SERVFAIL.
-                forwardDnsTcp(query)
+                forwardDnsTcp(query, upstreamAddress)
             } else if (DomainFilter.isMatchingResponse(query, received)) received else {
                 lastUpstreamFailure = "UDP: DNS 트랜잭션 ID 또는 질문이 일치하지 않는 응답"
                 null
             }
         } catch (error: Exception) {
-            lastUpstreamFailure = "UDP: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
+            lastUpstreamFailure = "UDP " + upstreamAddress + ": " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
             null
         } finally {
             socket?.close()
         }
     }
 
-    private fun forwardDnsTcp(query: ByteArray): ByteArray? {
+    private fun forwardDnsTcp(query: ByteArray, upstreamAddress: String): ByteArray? {
         var socket: Socket? = null
         return try {
             socket = Socket()
@@ -509,7 +530,7 @@ class GuardianVpnService : VpnService() {
                 lastUpstreamFailure = "TCP: VPN 소켓 우회 설정 실패"
                 return null
             }
-            socket.connect(java.net.InetSocketAddress(configuredUpstreamDns(), 53), 3500)
+            socket.connect(InetSocketAddress(upstreamAddress, 53), 3500)
             socket.soTimeout = 3500
             val output = DataOutputStream(socket.getOutputStream())
             output.writeShort(query.size)
@@ -517,12 +538,18 @@ class GuardianVpnService : VpnService() {
             output.flush()
             val input = DataInputStream(socket.getInputStream())
             val length = input.readUnsignedShort()
-            if (length !in 17..4096) return null
+            if (length !in 17..4096) {
+                lastUpstreamFailure = "TCP: DNS 응답 길이가 유효하지 않습니다"
+                return null
+            }
             val answer = ByteArray(length)
             input.readFully(answer)
-            if (DomainFilter.isMatchingResponse(query, answer)) answer else null
+            if (DomainFilter.isMatchingResponse(query, answer)) answer else {
+                lastUpstreamFailure = "TCP: DNS 응답 검증 실패"
+                null
+            }
         } catch (error: Exception) {
-            lastUpstreamFailure = "TCP: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
+            lastUpstreamFailure = "TCP " + upstreamAddress + ": " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
             null
         } finally {
             try { socket?.close() } catch (_: Exception) { }
@@ -561,7 +588,7 @@ class GuardianVpnService : VpnService() {
         }
     }
 
-    private fun forwardDnsOverTls(query: ByteArray): ByteArray? {
+    private fun forwardDnsOverTls(query: ByteArray, upstreamAddress: String): ByteArray? {
         if (query.size !in 17..4096) return null
         val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
         var socket: SSLSocket? = null
@@ -600,7 +627,7 @@ class GuardianVpnService : VpnService() {
         }
     }
 
-    private fun forwardDnsOverHttps(query: ByteArray): ByteArray? {
+    private fun forwardDnsOverHttps(query: ByteArray, upstreamAddress: String): ByteArray? {
         if (query.size !in 17..4096) return null
         val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
         val request = DnsDohHttpCodec.buildPostRequest(tlsHost, "/dns-query", query) ?: return null
