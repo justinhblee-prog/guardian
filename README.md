@@ -1,17 +1,20 @@
 # Guardian AdBlock Android — 0.7.8-dev
 
-## 2026-11-15 통합 상태 정정 — main 기준
+## 2026-11-15 최신 통합 상태 — main 기준
 
 - Android 패키지: `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`.
-- 최신 main 커밋: `e7b618ed008771405f7d8550cfe122e009b6153b`.
-- **병합 완료:** PR #43, #46, #47, #50, #51, #52, #54, #55, #56, #57, #58. #56은 라이선스 변경 직렬화 및 서버 403 취소 entitlement 폐기, #57은 Android 통합 검증 기록, #58은 라이선스·필터 운영 상태 문서 정정입니다.
-- PR #56 Android CI [43706736843](https://github.com/justinhblee-prog/guardian/actions/runs/43706736843) 및 PR #57 Android CI [43706816615](https://github.com/justinhblee-prog/guardian/actions/runs/43706816615)는 전체 성공했습니다.
-- main 검증 [43707681816](https://github.com/justinhblee-prog/guardian/actions/runs/43707681816)은 Android unit tests, lint, debug APK assemble, API 35 emulator 설치·실행, package/version 및 APK SHA-256 확인을 모두 통과했습니다. 이 검증은 PR #57 병합 커밋에서 실행되었습니다. PR #58은 문서만 변경했으며 Android 코드나 workflow는 변경하지 않았습니다.
-- **최신 main 소스의 설치 APK artifact는 아직 생성·다운로드·독립 검증되지 않았습니다.** 일반 push 검증은 APK를 조립하고 검사하지만 artifact 업로드는 수동 `workflow_dispatch`에서만 수행합니다. 이전 v0.7.7-dev APK를 최신본으로 표시하지 않습니다.
-- Debug APK/에뮬레이터 성공은 production 서명, 실제 Android 기기 VPN/TUN 라우팅, 실제 광고 제거 효과를 증명하지 않습니다.
-- 운영 keystore/secrets, 운영 License API/DB/TLS, 서명 manifest 배포 endpoint의 실제 운영 배포 및 앱↔서버 end-to-end 검증은 미완료입니다. Google Play Billing/환불 webhook도 미구현입니다.
-- Android 스마트폰·태블릿과 공통 필터·라이선스 작업을 먼저 마무리합니다. Windows 클라이언트/설치 프로그램은 마지막 단계로 보류합니다.
+- PR #72는 Android CI 전체 검증 성공 후 main에 병합되었습니다. 병합 커밋: `26b79f5f5b4cf03e8ae23093ff3a5911702eecc4`.
+- 메인 push 빌드 [43726745032](https://github.com/justinhblee-prog/guardian/actions/runs/43726745032): Android 단위 테스트, lint, debug APK 조립, 필터 asset 일치, Android API 35 에뮬레이터 설치·실행, 패키지/버전, SHA-256, 소스 ZIP 생성 및 artifact 업로드까지 모두 성공했습니다.
+- APK 크기: 3,054,240 bytes. APK SHA-256: `4349d51155b299736fe751465cbb1234545916124f4702d67a550ea5c7d1a630`.
+- GitHub Actions artifact: `Guardian-AdBlock-Android-Full-Package-v0.7.8-dev`, ID `14167411329`, ZIP 3,236,385 bytes. 보관 만료 예정: 2026-12-15.
+- APK는 **debug 서명**입니다. 운영 keystore가 설정되지 않아 production-signed APK/AAB는 생성되지 않았습니다.
+- 에뮬레이터 설치·실행은 통과했지만 실제 Android 기기의 VPN/TUN 라우팅, 실제 차단률, Wi-Fi↔모바일 전환, Private DNS 및 제조사별 백그라운드 동작은 미검증입니다.
+- 운영 License API/DB/TLS 및 서명 manifest 배포 endpoint는 저장소에 배포 템플릿과 테스트가 있으나, 실제 운영 호스팅·도메인·키가 설정되지 않았습니다. Google Play Billing/환불 webhook도 미구현입니다.
+- Android 스마트폰·태블릿 지원을 우선하며 Windows 클라이언트/설치 프로그램은 마지막 단계로 보류합니다.
 
+## 개발 및 배포 정책
+
+CI의 디버그 APK 조립·에뮬레이터 성공은 실제 기기의 광고 차단 수용 테스트나 서명된 정식 릴리스 완료를 뜻하지 않습니다. 검증된 항목과 미검증 항목을 구분해 기록합니다. 운영 개인키·keystore·비밀값을 저장소나 채팅에 올리지 않습니다.
 
 Guardian AdBlock은 Android `VpnService` 기반 DNS 필터링 앱입니다. Android의 VPN 가상 인터페이스로 전달되는 DNS 질의를 로컬 규칙으로 판정하고, 허용된 질의는 선택한 업스트림 DNS로 전달합니다.
 
