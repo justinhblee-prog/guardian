@@ -100,7 +100,7 @@ jobs:
       - name: Assemble previous dev version for upgrade test
         run: |
           gradle -p android --no-daemon -PguardianVersionCode=21 -PguardianVersionName=0.7.8-dev assembleDebug
-          cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/guardian-0.7.8-dev.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.8-dev.apk
 
       - name: Assemble current debug APK for build verification
         run: gradle -p android --no-daemon -PguardianVersionCode=22 -PguardianVersionName=0.7.9-dev assembleDebug
@@ -135,7 +135,7 @@ jobs:
             services_ready=0; for attempt in $(seq 1 60); do if adb shell cmd package list packages 2>/dev/null | grep -q 'com.android.settings'; then services_ready=1; break; fi; sleep 3; done; test "$services_ready" -eq 1
             adb logcat -c
             # Install the previous signed build first, then upgrade in place.
-            adb install android/app/build/outputs/apk/debug/guardian-0.7.8-dev.apk
+            adb install /tmp/guardian-0.7.8-dev.apk
             old_version="$(adb shell dumpsys package com.guardian.adblock | grep -m1 'versionCode=' | tr -d '\\r')"
             echo "$old_version" | grep -F 'versionCode=21'
             installed=0; for attempt in 1 2 3; do if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then installed=1; break; fi; echo "ADB package-manager upgrade attempt ${attempt} failed; waiting for system services before retry."; adb wait-for-device; adb shell cmd package list packages >/dev/null 2>&1 || true; sleep 5; done; test "$installed" -eq 1
