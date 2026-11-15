@@ -2,6 +2,18 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+val guardianVersionName = providers.gradleProperty("guardianVersionName")
+    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse("0.7.8-dev")
+val guardianVersionCode = providers.gradleProperty("guardianVersionCode")
+    .orElse(providers.environmentVariable("GUARDIAN_VERSION_CODE"))
+    .map { raw ->
+        raw.toIntOrNull()?.takeIf { it > 0 }
+            ?: error("GUARDIAN_VERSION_CODE must be a positive integer.")
+    }.getOrElse(21)
+require(guardianVersionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.-]+)?"))) {
+    "GUARDIAN_VERSION_NAME must be a semantic version such as 0.7.8 or 0.7.8-rc1."
+}
+
 val guardianManifestBaseUrl = providers.gradleProperty("guardianManifestBaseUrl")
     .orElse(providers.environmentVariable("GUARDIAN_MANIFEST_BASE_URL")).getOrElse("")
 val guardianManifestPublicKey = providers.gradleProperty("guardianManifestPublicKey")
@@ -58,8 +70,8 @@ android {
         applicationId = "com.guardian.adblock"
         minSdk = 26
         targetSdk = 35
-        versionCode = 21
-        versionName = "0.7.8-dev"
+        versionCode = guardianVersionCode
+        versionName = guardianVersionName
         buildConfigField("String", "FILTER_MANIFEST_BASE_URL", guardianBuildConfigString(guardianManifestBaseUrl))
         buildConfigField("String", "FILTER_MANIFEST_PUBLIC_KEY", guardianBuildConfigString(guardianManifestPublicKey))
         buildConfigField("String", "LICENSE_PUBLIC_KEY", guardianBuildConfigString(guardianLicensePublicKey))
