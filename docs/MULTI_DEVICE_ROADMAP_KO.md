@@ -24,7 +24,6 @@
 - PR #50: PostgreSQL 공유 rate limiter, migration, timeout/nosniff 보강. License API CI `43701478905` 전체 성공.
 - PR #51: 840dp 이상 Android 태블릿/대형 화면에 navigation rail 추가. Android CI `43701120075` 전체 성공.
 - PR #52: Android VPN start/stop 취소를 요청별 generation과 startId로 분리해 오래된 worker의 TUN 커밋·서비스 종료 경합 방지. Android CI 진행 중.
-- PR #47: signed/unsigned cache 모두 bounded no-follow read 및 손상 캐시 fail-closed 보강 중. 이전 Android CI `43699497055` 성공, 최신 변경 CI 진행 중.
 - PR #45: 버전/인수인계/멀티 디바이스 로드맵 문서 정합성 갱신 중.
 
 미병합 PR의 CI 성공은 main 반영 또는 운영 배포 완료를 뜻하지 않습니다.
