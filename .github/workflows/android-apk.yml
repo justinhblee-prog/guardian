@@ -81,12 +81,13 @@ jobs:
         run: gradle -p android --no-daemon assembleDebug
 
       - name: Install and launch APK on Android emulator
+        timeout-minutes: 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
           arch: x86_64
           profile: pixel_6
-          disable-animations: false
+          disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
           script: |
             timeout 120s adb wait-for-device
