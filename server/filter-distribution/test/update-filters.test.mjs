@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { updateFilters } from '../scripts/update-filters.mjs';
@@ -90,6 +90,31 @@ test('updater stages every source before publishing any manifest', async () => {
     }), /HTTP 503/);
     assert.equal(calls, 2);
     await assert.rejects(readFile(path.join(outputDir, 'first.manifest')));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+
+test('updater refuses to interleave with an active batch lock before fetching', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-batch-lock-'));
+  const outputDir = path.join(root, 'dist');
+  let fetchCalled = false;
+  try {
+    await import('node:fs/promises').then(({ mkdir }) => mkdir(outputDir, { recursive: true }));
+    await writeFile(path.join(outputDir, '.guardian-update.lock'), '{"pid":1}\n', { flag: 'wx' });
+    await assert.rejects(updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        outputDir,
+        sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1 }]
+      },
+      fetchImpl: async () => {
+        fetchCalled = true;
+        return new Response('||first.example^\n', { status: 200 });
+      }
+    }), /Another filter update batch is active/);
+    assert.equal(fetchCalled, false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
