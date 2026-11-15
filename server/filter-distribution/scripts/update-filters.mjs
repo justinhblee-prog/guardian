@@ -9,8 +9,17 @@ const MAX_FILTER_BYTES = 10 * 1024 * 1024;
 
 async function readResponse(response) {
   if (!response.ok) throw new Error(`Upstream returned HTTP ${response.status}.`);
-  const length = Number(response.headers.get('content-length') || 0);
-  if (length > MAX_FILTER_BYTES) throw new Error('Upstream filter exceeds 10 MiB.');
+  const declaredLength = response.headers.get('content-length');
+  if (declaredLength !== null) {
+    if (!/^\\d+$/.test(declaredLength)) {
+      throw new Error('Upstream returned an invalid Content-Length.');
+    }
+    const length = Number(declaredLength);
+    if (!Number.isSafeInteger(length) || length <= 0 || length > MAX_FILTER_BYTES) {
+      throw new Error('Upstream filter has an invalid or oversized Content-Length.');
+    }
+  }
+  if (!response.body) throw new Error('Upstream response has no readable body.');
   const chunks = [];
   let size = 0;
   for await (const chunk of response.body) {
