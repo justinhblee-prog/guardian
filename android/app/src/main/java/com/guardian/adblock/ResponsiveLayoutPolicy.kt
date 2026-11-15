@@ -11,6 +11,8 @@ internal object ResponsiveLayoutPolicy {
         else -> 22
     }
 
+    fun usesNavigationRail(screenWidthDp: Int): Boolean = screenWidthDp >= 840
+
     fun contentWidthPx(screenWidthDp: Int, density: Float): Int {
         require(screenWidthDp > 0) { "screenWidthDp must be positive" }
         require(density > 0f && density.isFinite()) { "density must be finite and positive" }
