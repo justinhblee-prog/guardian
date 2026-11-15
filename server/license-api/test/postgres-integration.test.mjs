@@ -134,6 +134,66 @@ if (!databaseUrl) {
     assert.equal(refreshAfterDeactivate.status, 403);
   });
 
+
+  test('a refresh waiting behind deactivation cannot issue a token for a released device slot', async () => {
+    const created = await issue(1);
+    const device = '8'.repeat(64);
+    const activation = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'refresh-deactivation-race'
+    });
+    assert.equal(activation.status, 200);
+
+    const lockClient = await pool.connect();
+    let pendingRefresh;
+    try {
+      await lockClient.query('BEGIN');
+      await lockClient.query(
+        'SELECT id FROM activations WHERE license_id=$1 AND device_binding=$2 FOR UPDATE',
+        [created.license.id, device]
+      );
+
+      pendingRefresh = post('/v1/licenses/refresh', {
+        deviceBinding: device, licenseRef: created.license.license_ref
+      });
+
+      // Wait until the API transaction has reached its SELECT ... FOR UPDATE
+      // and is blocked by the deactivation transaction's row lock.
+      let refreshWaitingOnLock = false;
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const waiting = await lockClient.query(
+          `SELECT count(*)::int AS n FROM pg_stat_activity
+           WHERE datname=current_database() AND pid<>pg_backend_pid()
+             AND wait_event_type='Lock' AND query LIKE '%FOR UPDATE OF l, a%'`
+        );
+        if (waiting.rows[0].n > 0) {
+          refreshWaitingOnLock = true;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      assert.equal(refreshWaitingOnLock, true, 'refresh request should wait on the activation row lock');
+
+      await lockClient.query(
+        'UPDATE activations SET deactivated_at=now() WHERE license_id=$1 AND device_binding=$2',
+        [created.license.id, device]
+      );
+      await lockClient.query('COMMIT');
+
+      const response = await pendingRefresh;
+      assert.equal(response.status, 403);
+      const remaining = await pool.query(
+        'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL',
+        [created.license.id, device]
+      );
+      assert.equal(remaining.rows[0].n, 0);
+    } catch (error) {
+      await lockClient.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      lockClient.release();
+    }
+  });
+
   test('concurrent activations cannot exceed the license device limit', async () => {
     const created = await issue(1);
     const activate = deviceBinding => post('/v1/licenses/activate', {
@@ -176,6 +236,44 @@ if (!databaseUrl) {
     assert.ok(events.some(event => event.event_type === 'activated' && event.license_ref === created.license.license_ref));
     assert.ok(events.some(event => event.event_type === 'revoked' && event.license_ref === created.license.license_ref));
   });
+
+  test('expired licenses cannot refresh Pro but can still release their device activation', async () => {
+    const created = await issue(1);
+    const device = '7'.repeat(64);
+    const activation = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'expired-license-deactivate'
+    });
+    assert.equal(activation.status, 200);
+
+    await pool.query(
+      "UPDATE licenses SET expires_at=now()-interval '1 second' WHERE id=$1",
+      [created.license.id]
+    );
+
+    const status = await post('/v1/licenses/status', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(status.status, 200);
+    assert.equal((await status.json()).status, 'free');
+
+    const refresh = await post('/v1/licenses/refresh', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(refresh.status, 403);
+
+    const deactivate = await post('/v1/licenses/deactivate', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(deactivate.status, 200);
+    assert.equal((await deactivate.json()).deactivated, 1);
+
+    const active = await pool.query(
+      'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND deactivated_at IS NULL',
+      [created.license.id]
+    );
+    assert.equal(active.rows[0].n, 0);
+  });
+
   test('status does not report Pro while the product is disabled', async () => {
     const created = await issue(1);
     const device = '9'.repeat(64);
