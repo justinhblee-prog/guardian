@@ -350,7 +350,8 @@ const server = http.createServer(async (req, res) => {
     if (RATE_LIMITED_PATHS.has(url.pathname) || /^\/v1\/admin\/licenses(?:\/|$)/.test(url.pathname)) {
       // Use the socket peer address; do not trust caller-supplied X-Forwarded-For.
       const peer = req.socket.remoteAddress || 'unknown';
-      const decision = rateLimit(`${peer}:${url.pathname}`);
+      const rateLimitPath = url.pathname.startsWith('/v1/admin/licenses/') ? '/v1/admin/licenses/*' : url.pathname;
+      const decision = rateLimit(`${peer}:${rateLimitPath}`);
       res.setHeader('RateLimit-Limit', String(decision.limit));
       res.setHeader('RateLimit-Remaining', String(decision.remaining));
       if (!decision.allowed) {
