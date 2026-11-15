@@ -470,7 +470,10 @@ class GuardianVpnService : VpnService() {
         var socket: DatagramSocket? = null
         return try {
             socket = DatagramSocket()
-            if (!protect(socket)) return null
+            if (!protect(socket)) {
+                lastUpstreamFailure = "UDP: VPN 소켓 우회 설정 실패"
+                return null
+            }
             socket.soTimeout = 3500
             val address = InetAddress.getByName(configuredUpstreamDns())
             socket.send(DatagramPacket(query, query.size, address, 53))
@@ -478,12 +481,18 @@ class GuardianVpnService : VpnService() {
             val packet = DatagramPacket(response, response.size)
             socket.receive(packet)
             // Do not accept a reply from another endpoint or a mismatched DNS transaction.
-            if (packet.address != address || packet.port != 53) return null
+            if (packet.address != address || packet.port != 53) {
+                lastUpstreamFailure = "UDP: 예상하지 않은 DNS 응답 주소 또는 포트"
+                return null
+            }
             val received = response.copyOf(packet.length)
             if (received.size >= 4 && (received[2].toInt() and 0x02) != 0) {
                 // RFC 7766: retry truncated UDP answers over TCP before returning SERVFAIL.
                 forwardDnsTcp(query)
-            } else if (DomainFilter.isMatchingResponse(query, received)) received else null
+            } else if (DomainFilter.isMatchingResponse(query, received)) received else {
+                lastUpstreamFailure = "UDP: DNS 트랜잭션 ID 또는 질문이 일치하지 않는 응답"
+                null
+            }
         } catch (error: Exception) {
             lastUpstreamFailure = "UDP: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
             null
@@ -496,7 +505,10 @@ class GuardianVpnService : VpnService() {
         var socket: Socket? = null
         return try {
             socket = Socket()
-            if (!protect(socket)) return null
+            if (!protect(socket)) {
+                lastUpstreamFailure = "TCP: VPN 소켓 우회 설정 실패"
+                return null
+            }
             socket.connect(java.net.InetSocketAddress(configuredUpstreamDns(), 53), 3500)
             socket.soTimeout = 3500
             val output = DataOutputStream(socket.getOutputStream())
@@ -530,6 +542,11 @@ class GuardianVpnService : VpnService() {
             .putLong(KEY_UPSTREAM_TEST_LATENCY_MS, latencyMs)
             .putString(KEY_UPSTREAM_TEST_TRANSPORT, transport)
             .putLong(KEY_UPSTREAM_TEST_AT, testedAt)
+            .putString(
+                KEY_DNS_DIAGNOSTIC,
+                if (success) "업스트림 DNS 연결 테스트 성공 (" + transport + ", " + latencyMs + "ms)"
+                else "업스트림 DNS 연결 테스트 실패: " + (lastUpstreamFailure ?: "응답 검증 실패 또는 원인 미확인")
+            )
             .apply()
         sendBroadcast(Intent(ACTION_UPSTREAM_TEST_RESULT).apply {
             setPackage(packageName)
@@ -552,7 +569,10 @@ class GuardianVpnService : VpnService() {
             val address = InetAddress.getByName(configuredUpstreamDns())
             val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
             socket = factory.createSocket() as SSLSocket
-            if (!protect(socket)) return null
+            if (!protect(socket)) {
+                lastUpstreamFailure = "DoT: VPN 소켓 우회 설정 실패"
+                return null
+            }
             socket.connect(InetSocketAddress(address, 853), 3500)
             socket.soTimeout = 3500
             val parameters = socket.sslParameters
@@ -589,7 +609,10 @@ class GuardianVpnService : VpnService() {
             val address = InetAddress.getByName(configuredUpstreamDns())
             val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
             socket = factory.createSocket() as SSLSocket
-            if (!protect(socket)) return null
+            if (!protect(socket)) {
+                lastUpstreamFailure = "DoH: VPN 소켓 우회 설정 실패"
+                return null
+            }
             socket.connect(InetSocketAddress(address, 443), 3500)
             socket.soTimeout = 3500
             val parameters = socket.sslParameters
