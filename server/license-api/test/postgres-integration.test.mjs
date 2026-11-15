@@ -52,6 +52,33 @@ if (!databaseUrl) {
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
 
+  test('PostgreSQL rate limiter prunes expired buckets during bounded cleanup', async () => {
+    const cleanup = createPostgresRateLimiter(pool, {
+      windowMs: 1_000,
+      maxRequests: 2,
+      cleanupEvery: 1
+    });
+    const staleKey = `expired-rate-limit-test:${randomUUID()}`;
+    try {
+      await pool.query(
+        `INSERT INTO api_rate_limit_buckets(bucket_key, window_started_at, request_count)
+         VALUES($1, clock_timestamp() - interval '2 seconds', 1)`,
+        [staleKey]
+      );
+      await cleanup(`active-rate-limit-test:${randomUUID()}`);
+      const stale = await pool.query(
+        'SELECT bucket_key FROM api_rate_limit_buckets WHERE bucket_key=$1',
+        [staleKey]
+      );
+      assert.equal(stale.rowCount, 0);
+    } finally {
+      await pool.query(
+        'DELETE FROM api_rate_limit_buckets WHERE bucket_key LIKE $1',
+        ['%rate-limit-test:%']
+      );
+    }
+  });
+
   test('database pool applies bounded connection, statement and transaction timeouts', () => {
     assert.equal(apiPool.options.max, 10);
     assert.equal(apiPool.options.connectionTimeoutMillis, 5_000);
