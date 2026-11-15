@@ -56,3 +56,10 @@ test('admin token comparison rejects mismatched and empty values', () => {
   assert.equal(adminTokenMatches('wrong', 'secret'), false);
   assert.equal(adminTokenMatches('secret', ''), false);
 });
+
+
+test('license key hashing rejects malformed persisted salt values', async () => {
+  const key = newLicenseKey();
+  await assert.rejects(hashLicenseKey(key, pepper, 'not-a-hex-salt'), /salt 형식이 올바르지 않습니다/);
+  await assert.rejects(hashLicenseKey(key, pepper, 'a'.repeat(30)), /salt 형식이 올바르지 않습니다/);
+});
