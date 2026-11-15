@@ -138,6 +138,22 @@ object FilterListManager {
             if (target.exists() && !matchesCommittedHash(target)) {
                 throw IllegalStateException("저장된 서명 해시와 필터 캐시가 일치하지 않습니다.")
             }
+            // SharedPreferences may have committed immediately before process death while
+            // the separate anti-rollback timestamp file had not yet been updated.
+            val committedGeneratedAt = preferences.getLong(keys.third, 0L)
+            if (committedGeneratedAt > 0L) {
+                val sourceId = when (cacheName) {
+                    SECURITY_CACHE_FILE -> "security"
+                    ANDROID_ADS_CACHE_FILE -> "android_ads"
+                    else -> preferences.getString(KEY_CACHED_PROFILE, null) ?: "adguard"
+                }
+                val timestampStore = ManifestTimestampStore(
+                    File(context.filesDir, "manifest_timestamps.properties")
+                )
+                if (timestampStore.lastAccepted(sourceId) < committedGeneratedAt) {
+                    timestampStore.restore(sourceId, committedGeneratedAt)
+                }
+            }
         } catch (_: IllegalStateException) {
             target.delete()
             File(target.parentFile, "${target.name}.bak").delete()
