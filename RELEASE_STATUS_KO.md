@@ -1,10 +1,10 @@
 # Guardian AdBlock Android — 개발/릴리스 상태
 
-기준 버전: **0.7.3-dev**  
+기준 버전: **0.7.8-dev**  
 기준일: 2026-11-14  
 저장소: https://github.com/justinhblee-prog/guardian
 
-## 현재 기준 — 0.7.3-dev (2026-11-14)
+## 현재 기준 — 0.7.8-dev (2026-11-15)
 
 - 최신 소스: `484670a6c6db36bf3cce11c3d438dd2d17741bad`
 - 최신 CI: [GitHub Actions run 43562402511](https://github.com/justinhblee-prog/guardian/actions/runs/43562402511) — **success**
@@ -16,6 +16,25 @@
 - APK SHA-256: `355080e2a1d8f64fc9720858c889368229db7b4365cc753732275c88f6c3cf11`
 - 이 APK는 설치 가능한 debug 서명 빌드입니다. Play Store용 production 서명본은 아닙니다.
 - 실기기 VPN 권한, DNS 경로, Wi-Fi/모바일 전환, 실제 광고 차단률은 아직 검증되지 않았습니다.
+
+## 0.7.8-dev 기준 및 최신 검증 상태 — 2026-11-15
+
+- Android 기준 버전: `0.7.8-dev`, versionCode `21`, package `com.guardian.adblock`.
+- 현재 main 소스 커밋: `aacf089619dca96c25500b8df7684cdc1db97490`.
+- Android 0.7.8-dev의 최초 기록 CI run `43573908206`은 **cancelled**였으므로 성공 증거로 사용하지 않습니다.
+- 최신 Android CI 확인: PR #25 run `43689059923` 성공. 해당 PR head에서 Bash syntax, Android unit tests, lintDebug, assembleDebug, Android API 35 emulator 설치·앱 실행, package/version 및 SHA-256 검증이 통과했습니다. PR branch CI 결과이며 main branch release artifact가 아닙니다.
+- License API PostgreSQL integration CI: run `43663157229` 성공. Device deactivate/reactivate regression CI: run `43684498982` 성공.
+- Signed filter distribution CI: run `43686680935` 성공. Publisher single-writer lock CI: run `43686741568` 성공.
+- Android production signing configuration CI: run `43663200931` 성공. 실제 운영 keystore/secret/service endpoint는 아직 미설정이며 production release는 수행하지 않았습니다.
+- 실기기 VPN/TUN 라우팅, 실제 광고 제거율, 외부 DoH/DoT provider 연결은 미검증입니다.
+
+## 현재 개발 작업 및 미완료 범위
+
+- 필터 배포 PR #14와 단일 publisher lock PR #24는 각각 CI 통과했으나 아직 미병합입니다. #24는 #14 기반 종속 변경입니다.
+- License API PostgreSQL 통합 테스트 PR #13은 CI 통과했으나 아직 미병합입니다.
+- Android release signing PR #15는 CI 통과했으나 운영 키와 서버 설정이 없어 production 서명본은 없습니다.
+- Windows 설치 프로그램은 요청한 순서대로 마지막 단계로 보류합니다.
+- 물리 기기 수용 테스트는 사용자 요청에 따라 추후 진행합니다.
 
 ## 기존 차단 실패 원인
 
