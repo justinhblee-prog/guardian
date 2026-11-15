@@ -9,6 +9,7 @@ on:
       - 'shared/**'
       - 'README.md'
       - '.github/workflows/android-apk.yml'
+      - '.github/workflows/android-production-release.yml'
   pull_request:
     paths:
       - 'android/**'
@@ -45,6 +46,17 @@ jobs:
           test -s android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
           test -s android/app/src/main/res/mipmap-anydpi/ic_launcher.xml
 
+      - name: Validate production release workflow trigger and signing gates
+        run: |
+          ruby - <<'RUBY'
+          require 'yaml'
+          workflow = YAML.load_file('.github/workflows/android-production-release.yml', aliases: true)
+          triggers = workflow.fetch('on')
+          abort 'Expected pull_request, main push and manual workflow_dispatch triggers.' unless %w[pull_request push workflow_dispatch].all? { |event| triggers.key?(event) }
+          abort 'Production validation must run only for PR and push events.' unless workflow.dig('jobs', 'validate-release-configuration', 'if') == "${{ github.event_name == 'pull_request' || github.event_name == 'push' }}"
+          abort 'Production signing must remain manual-only.' unless workflow.dig('jobs', 'production-release', 'if') == "${{ github.event_name == 'workflow_dispatch' }}"
+          abort 'Main push validation must be branch-scoped.' unless triggers.dig('push', 'branches') == ['main']
+          RUBY
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
