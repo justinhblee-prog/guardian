@@ -176,6 +176,74 @@ if (!databaseUrl) {
     assert.ok(events.some(event => event.event_type === 'activated' && event.license_ref === created.license.license_ref));
     assert.ok(events.some(event => event.event_type === 'revoked' && event.license_ref === created.license.license_ref));
   });
+  test('admin can inspect activations and release one device without revoking the license', async () => {
+    const created = await issue(2);
+    const firstDevice = 'c'.repeat(64);
+    const secondDevice = 'd'.repeat(64);
+    for (const [deviceBinding, appVersion] of [
+      [firstDevice, 'pixel-test'],
+      [secondDevice, 'tablet-test']
+    ]) {
+      const response = await post('/v1/licenses/activate', {
+        licenseKey: created.licenseKey, deviceBinding, appVersion
+      });
+      assert.equal(response.status, 200);
+    }
+
+    const path = `/v1/admin/licenses/${encodeURIComponent(created.license.id)}/activations`;
+    const unauthorized = await fetch(`${baseUrl}${path}`);
+    assert.equal(unauthorized.status, 401);
+
+    const listing = await fetch(`${baseUrl}${path}`, { headers: adminHeaders });
+    assert.equal(listing.status, 200);
+    const activations = (await listing.json()).activations;
+    assert.equal(activations.length, 2);
+    const first = activations.find(item => item.device_hint === firstDevice.slice(-8));
+    assert.ok(first);
+    assert.equal(first.app_version, 'pixel-test');
+
+    const invalidId = await post(
+      `/v1/admin/licenses/${encodeURIComponent(created.license.id)}/activations/not-a-uuid/deactivate`,
+      {},
+      adminHeaders
+    );
+    assert.equal(invalidId.status, 400);
+
+    const released = await post(
+      `${path}/${encodeURIComponent(first.id)}/deactivate`,
+      {},
+      adminHeaders
+    );
+    assert.equal(released.status, 200);
+    assert.deepEqual(await released.json(), { deactivated: true });
+
+    const firstRefresh = await post('/v1/licenses/refresh', {
+      deviceBinding: firstDevice, licenseRef: created.license.license_ref
+    });
+    assert.equal(firstRefresh.status, 403);
+    const secondRefresh = await post('/v1/licenses/refresh', {
+      deviceBinding: secondDevice, licenseRef: created.license.license_ref
+    });
+    assert.equal(secondRefresh.status, 200);
+    assertSignedToken(await secondRefresh.json());
+
+    const audit = await fetch(`${baseUrl}/v1/admin/events`, { headers: adminHeaders });
+    assert.equal(audit.status, 200);
+    const events = (await audit.json()).events;
+    assert.ok(events.some(event =>
+      event.event_type === 'admin_device_deactivated' &&
+      event.license_ref === created.license.license_ref &&
+      event.metadata.deviceHint === firstDevice.slice(-8)
+    ));
+
+    const repeated = await post(
+      `${path}/${encodeURIComponent(first.id)}/deactivate`,
+      {},
+      adminHeaders
+    );
+    assert.equal(repeated.status, 409);
+  });
+
   test('status does not report Pro while the product is disabled', async () => {
     const created = await issue(1);
     const device = '9'.repeat(64);
