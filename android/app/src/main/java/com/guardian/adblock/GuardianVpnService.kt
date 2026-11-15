@@ -81,6 +81,7 @@ class GuardianVpnService : VpnService() {
         fun isTunnelActive(): Boolean = tunnelActive
     }
 
+    @Volatile private var lastUpstreamFailure: String? = null
     private var tun: ParcelFileDescriptor? = null
     private val running = AtomicBoolean(false)
     private val starting = AtomicBoolean(false)
@@ -337,6 +338,12 @@ class GuardianVpnService : VpnService() {
                 .putLong(KEY_DNS_FAILED, failedCount)
                 .putString(KEY_DNS_RECENT, lines.joinToString("\n"))
                 .apply()
+            if (!blocked && !forwarded) {
+                prefs.edit().putString(
+                    KEY_DNS_DIAGNOSTIC,
+                    "업스트림 DNS 오류: " + (lastUpstreamFailure ?: "응답 시간 초과, 연결 실패 또는 DNS 응답 검증 실패")
+                ).apply()
+            }
         }
         // Persist every query, but coalesce UI refresh broadcasts to avoid flooding
         // the main thread when an app generates many DNS requests in a short burst.
@@ -454,6 +461,7 @@ class GuardianVpnService : VpnService() {
             ?: DEFAULT_UPSTREAM_TLS_HOST
 
     private fun forwardDns(query: ByteArray): ByteArray? {
+        lastUpstreamFailure = null
         when (configuredUpstreamTransport()) {
             "tcp" -> return forwardDnsTcp(query)
             "dot" -> return forwardDnsOverTls(query)
@@ -476,7 +484,8 @@ class GuardianVpnService : VpnService() {
                 // RFC 7766: retry truncated UDP answers over TCP before returning SERVFAIL.
                 forwardDnsTcp(query)
             } else if (DomainFilter.isMatchingResponse(query, received)) received else null
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            lastUpstreamFailure = "UDP: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
             null
         } finally {
             socket?.close()
@@ -500,7 +509,8 @@ class GuardianVpnService : VpnService() {
             val answer = ByteArray(length)
             input.readFully(answer)
             if (DomainFilter.isMatchingResponse(query, answer)) answer else null
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            lastUpstreamFailure = "TCP: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
             null
         } finally {
             try { socket?.close() } catch (_: Exception) { }
@@ -562,7 +572,8 @@ class GuardianVpnService : VpnService() {
             val answer = ByteArray(length)
             input.readFully(answer)
             if (DomainFilter.isMatchingResponse(query, answer)) answer else null
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            lastUpstreamFailure = "DoT: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
             null
         } finally {
             try { socket?.close() } catch (_: Exception) { }
@@ -591,7 +602,8 @@ class GuardianVpnService : VpnService() {
             socket.outputStream.flush()
             val answer = DnsDohHttpCodec.readResponse(socket.inputStream) ?: return null
             if (DomainFilter.isMatchingResponse(query, answer)) answer else null
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            lastUpstreamFailure = "DoH: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
             null
         } finally {
             try { socket?.close() } catch (_: Exception) { }
