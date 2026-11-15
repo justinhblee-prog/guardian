@@ -39,6 +39,10 @@ if (!databaseUrl) {
       Buffer.from(token.signature, 'base64')
     ), true);
     assert.match(token.payload, /entitlement=pro/);
+    const issuedAt = Number(/^issuedAt=(\\d+)$/m.exec(token.payload)?.[1]);
+    const expiresAt = Number(/^expiresAt=(\\d+)$/m.exec(token.payload)?.[1]);
+    assert.equal(token.expiresIn, expiresAt - issuedAt);
+    assert.ok(token.expiresIn > 0 && token.expiresIn <= 24 * 60 * 60);
   };
 
   before(async () => {
