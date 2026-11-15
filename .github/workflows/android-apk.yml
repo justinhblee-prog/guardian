@@ -16,6 +16,8 @@ on:
       - 'android/**'
       - 'shared/**'
       - 'README.md'
+      - 'VERIFY_ANDROID_CORE.sh'
+      - 'android/core-checks/**'
       - '.github/workflows/android-apk.yml'
 
 # Keep only the newest branch run; rapid source commits should not waste runners.
