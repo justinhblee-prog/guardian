@@ -64,6 +64,15 @@ if (!databaseUrl) {
     assert.equal(response.status, 401);
   });
 
+  test('admin routes require the Bearer authorization scheme', async () => {
+    const bare = await post('/v1/admin/licenses/not-a-uuid/revoke', {}, {
+      authorization: process.env.GUARDIAN_ADMIN_TOKEN
+    });
+    assert.equal(bare.status, 401);
+    const malformed = await post('/v1/admin/licenses/not-a-uuid/revoke', {}, adminHeaders);
+    assert.equal(malformed.status, 400);
+  });
+
   test('activation issues a valid signed entitlement and is idempotent per device', async () => {
     const created = await issue(1);
     assert.match(created.licenseKey, /^GDN-(?:[A-F0-9]{8}-){5}[A-F0-9]{8}$/);
