@@ -14,6 +14,8 @@
 - PR #48 run `43698680084` 성공: Android unit tests, lint, debug APK, API 35 emulator 설치·실행, package/version/SHA-256. 미병합.
 - PR #49 run `43699268819` 성공: Android unit tests, lint, debug APK, API 35 emulator 설치·실행, package/version/SHA-256. 미병합.
 - PR #50 run `43701478905` 성공: License API Node/Docker Compose/PostgreSQL 통합 테스트. 공유 rate-limit 동시성·cleanup, 저장소 장애 fail-closed, HTTP 격리, DB timeout 및 nosniff 회귀 포함. 미병합.
+- PR #51 run `43701120075` 성공: Android unit tests, lint, debug APK, API 35 phone emulator 설치·실행, package/version/SHA-256. wide-screen navigation rail breakpoint 테스트 포함. 미병합.
+- PR #47 signed cache bounded no-follow read 후속 변경은 새 Android CI run `43701904825` 진행 중.
 - PR #16과 #40은 최신 main 기반 대체 PR #41/#43 생성 후 닫혔습니다.
 - 위 PR branch 검증은 main release artifact나 운영 배포가 아닙니다.
 - 실기기 VPN/TUN 라우팅, 실제 광고 제거율, 외부 DNS provider 연결, Wi-Fi↔모바일 전환 및 장시간 안정성은 미검증입니다.
