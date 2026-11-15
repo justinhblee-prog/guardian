@@ -1,6 +1,7 @@
 package com.guardian.adblock
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -19,6 +20,7 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.CompoundButton
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import android.widget.Spinner
@@ -115,6 +117,24 @@ class MainActivity : Activity() {
                 System.currentTimeMillis() - lastUpdate >= updateInterval || securityStale || androidAdsStale || profileChanged)) {
             startFilterUpdate()
         }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (currentTab != "home") {
+            showTab("home")
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Guardian 종료")
+            .setMessage("앱을 종료하시겠습니까?\n\n종료해도 이미 실행 중인 DNS 보호 VPN은 별도로 중지하지 않는 한 계속 실행됩니다.")
+            .setNegativeButton("취소", null)
+            .setPositiveButton("종료") { _, _ -> finish() }
+            .show()
+            .apply {
+                getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(red)
+                getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(accent)
+            }
     }
 
     override fun onStart() {
@@ -1193,6 +1213,8 @@ class MainActivity : Activity() {
         val options = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val autoUpdateCheck = CheckBox(this).apply {
+            applyToggleTint(this)
+            applyToggleTint(this)
             text = "앱 실행 시 자동으로 최신 필터 확인"
             textSize = 12f
             setTextColor(white)
@@ -1239,6 +1261,8 @@ class MainActivity : Activity() {
             10f, muted, false
         ).withTop(3))
         val securityCheck = CheckBox(this).apply {
+            applyToggleTint(this)
+            applyToggleTint(this)
             text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence)"
             textSize = 12f
             setTextColor(white)
@@ -1259,6 +1283,8 @@ class MainActivity : Activity() {
         securityFilterCheckBox = securityCheck
         options.addView(securityCheck)
         val androidAdsCheck = CheckBox(this).apply {
+            applyToggleTint(this)
+            applyToggleTint(this)
             text = "Android 앱 광고 SDK 차단 (AWAvenue Ads Rule)"
             textSize = 12f
             setTextColor(white)
@@ -1287,6 +1313,8 @@ class MainActivity : Activity() {
             10f, muted, false
         ).withTop(2))
         val directDnsCheck = CheckBox(this).apply {
+            applyToggleTint(this)
+            applyToggleTint(this)
             text = "공용 DNS 직접 질의 포착 (고급 · 일부 비DNS 연결 영향 가능)"
             textSize = 12f
             setTextColor(white)
@@ -1720,6 +1748,13 @@ class MainActivity : Activity() {
             }
         }
         return domains.toList()
+    }
+
+    private fun applyToggleTint(toggle: CompoundButton) {
+        toggle.buttonTintList = ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+            intArrayOf(accent, muted)
+        )
     }
 
     private fun darkSpinnerAdapter(items: List<String>): ArrayAdapter<String> =
