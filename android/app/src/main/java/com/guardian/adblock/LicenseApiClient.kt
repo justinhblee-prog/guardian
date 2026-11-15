@@ -56,6 +56,9 @@ internal object LicenseApiClient {
     private const val CONNECT_TIMEOUT_MS = 10_000
     private const val READ_TIMEOUT_MS = 10_000
 
+    // Serialize entitlement mutations with refresh/deactivation so a late refresh response
+    // cannot re-save a Pro token after the device activation has been released.
+    @Synchronized
     fun activate(context: Context, licenseKey: String, appVersion: String): LicenseEntitlementVerifier.Entitlement {
         require(licenseKey.isNotBlank() && licenseKey.length <= 100) { "라이선스 키를 확인하세요." }
         val response = post(
@@ -68,6 +71,7 @@ internal object LicenseApiClient {
         return persistToken(context, response)
     }
 
+    @Synchronized
     fun refresh(context: Context): LicenseEntitlementVerifier.Entitlement {
         val current = LicenseEntitlementStore.currentForRefresh(context)
             ?: throw IllegalStateException("갱신할 라이선스 정보가 없습니다.")
@@ -80,6 +84,7 @@ internal object LicenseApiClient {
         return persistToken(context, response)
     }
 
+    @Synchronized
     fun deactivate(context: Context): Boolean {
         val current = LicenseEntitlementStore.current(context)
             ?: return LicenseEntitlementStore.clear(context)
