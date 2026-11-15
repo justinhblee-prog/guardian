@@ -111,7 +111,9 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_6
-          disable-animations: true
+          # Avoid the runner action's post-boot settings ADB call; it intermittently
+          # fails with Broken pipe on otherwise booted API 35 emulators.
+          disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
           script: |
             timeout 120s adb wait-for-device

@@ -59,6 +59,17 @@ class ManifestTimestampStoreTest {
     }
 
     @Test
+    fun rejectsSourceIdsOutsideDistributionAllowlist() {
+        val (_, store) = newStore()
+        listOf("../escape", "source/name", "source.name", ".", "..").forEach { sourceId ->
+            try {
+                store.lastAccepted(sourceId)
+                throw AssertionError("unsupported source id must be rejected: $sourceId")
+            } catch (_: IllegalArgumentException) { }
+        }
+    }
+
+    @Test
     fun missingStateStartsAtZeroAndDoesNotCreateAFile() {
         val (file, store) = newStore()
 
