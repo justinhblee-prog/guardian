@@ -86,7 +86,7 @@ test('manifest endpoint rejects non-canonical or implausible RSA signatures', as
   try {
     await writeFile(signaturePath, 'not-a-signature');
     assert.equal((await fetch(`${baseUrl}/${sourceId}.manifest`)).status, 404);
-    await writeFile(signaturePath, Buffer.from('A'.repeat(344), 'ascii'));
+    await writeFile(signaturePath, Buffer.from('A'.repeat(172), 'ascii'));
     assert.equal((await fetch(`${baseUrl}/${sourceId}.manifest`)).status, 404);
   } finally {
     await writeFile(signaturePath, signature);
