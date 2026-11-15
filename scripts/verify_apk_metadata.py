@@ -44,7 +44,7 @@ def main() -> int:
         # use a global name= search: aapt appends platformBuildVersionName='15'
         # on the same line, which otherwise overwrites the real package name.
         match = re.match(
-            r"^package:\\s+name='([^']*)'\\s+versionCode='([^']*)'\\s+versionName='([^']*)'",
+            r"^package:\s+name='([^']*)'\s+versionCode='([^']*)'\s+versionName='([^']*)'",
             package_line,
         )
         fields = (
