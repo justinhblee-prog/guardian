@@ -751,9 +751,16 @@ class MainActivity : Activity() {
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
         val verifiedLicense = LicenseEntitlementStore.current(this)
+        // Keep an expired-but-valid signed token available for device-slot release.
+        // It must never be presented as an active Pro entitlement.
+        val releasableLicense = LicenseEntitlementStore.currentForRefresh(this)
         body.addView(infoRow(
             "라이선스",
-            if (verifiedLicense != null) "서버 서명 및 이 기기 등록을 확인했습니다" else "서명 라이선스 미등록 · 무료 보호 기능 사용 중",
+            when {
+                verifiedLicense != null -> "서버 서명 및 이 기기 등록을 확인했습니다"
+                releasableLicense != null -> "라이선스가 만료되었습니다 · 이 기기 등록 해제 가능"
+                else -> "서명 라이선스 미등록 · 무료 보호 기능 사용 중"
+            },
             if (verifiedLicense != null) "PRO" else "FREE",
             if (verifiedLicense != null) accent else muted
         ))
@@ -809,7 +816,7 @@ class MainActivity : Activity() {
                 }
             }
             addView(activateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
-            if (verifiedLicense != null) {
+            if (releasableLicense != null) {
                 val refreshButton = Button(this@MainActivity).apply {
                     text = "라이선스 상태 갱신"
                     isAllCaps = false
