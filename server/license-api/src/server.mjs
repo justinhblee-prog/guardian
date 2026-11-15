@@ -246,7 +246,8 @@ async function refresh(body) {
     // a fresh signed token after the slot had already been released.
     await client.query('BEGIN');
     const result = await client.query(
-      `SELECT l.* FROM licenses l JOIN activations a ON a.license_id=l.id
+      `/* guardian_license_refresh_lock */
+       SELECT l.* FROM licenses l JOIN activations a ON a.license_id=l.id
        JOIN products p ON p.id=l.product_id
        WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
        AND l.status='active' AND l.expires_at>now() AND p.active=true
