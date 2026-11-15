@@ -5,6 +5,14 @@ import java.util.Locale
 import org.junit.Test
 
 class DomainFilterTest {
+    @Test fun classifiesCommonAdAndTrackerDomainsForReporting() {
+        assertEquals(DomainFilter.BlockCategory.AD, DomainFilter.classifyBlockedDomain("page.doubleclick.net"))
+        assertEquals(DomainFilter.BlockCategory.AD, DomainFilter.classifyBlockedDomain("ads.adnxs.com"))
+        assertEquals(DomainFilter.BlockCategory.TRACKER, DomainFilter.classifyBlockedDomain("www.google-analytics.com"))
+        assertEquals(DomainFilter.BlockCategory.TRACKER, DomainFilter.classifyBlockedDomain("api.mixpanel.com"))
+        assertEquals(DomainFilter.BlockCategory.OTHER, DomainFilter.classifyBlockedDomain("malware.example"))
+    }
+
     @Test fun loadsSharedRuleFormatAndAllowTakesPrecedence() {
         DomainFilter.loadRules(listOf(
             "# comment",
