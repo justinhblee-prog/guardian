@@ -114,7 +114,7 @@ test('publisher refuses to inherit a corrupt future anti-rollback timestamp', as
   const outputDir = path.join(root, 'future-dist');
   await mkdir(outputDir, { recursive: true });
   await writeFile(input, '||future.example^\n');
-  await writeFile(path.join(outputDir, 'adguard.manifest'), 'generatedAt=9999999999\n');
+  await writeFile(path.join(outputDir, 'adguard.manifest'), 'generatedAt=9999999999\nsourceId=adguard\n');
   await assert.rejects(
     publishManifest({
       'source-id': 'adguard',
