@@ -1,3 +1,18 @@
+## 2026-11-15 통합 상태 정정 — main 기준
+
+- Android 기준: `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`.
+- 최신 main: `ce2b0e144959c04f23b96a5a19c53e153afae7d1`.
+- **병합 완료:** PR #43(Production workflow 설정/서명 gate), #46(publisher lock ownership), #47(filter cache hardening), #50(License API/PostgreSQL rate limit 및 HTTP/DB 보호), #51(Android wide-screen navigation rail), #52(VPN lifecycle race hardening), #54(만료 라이선스의 기기 해제), #55(1000dp 이상 대시보드 2열 배치).
+- PR #54 Android CI run [43705549065](https://github.com/justinhblee-prog/guardian/actions/runs/43705549065) 전체 성공: unit tests, lint, debug APK, API 35 emulator 설치·실행, package/version 및 APK SHA-256 확인. 최종 빌드 전용 artifact 업로드는 의도적으로 skipped.
+- PR #55 Android CI run [43705951073](https://github.com/justinhblee-prog/guardian/actions/runs/43705951073) 동일 검증 전체 성공. 최종 artifact 업로드는 의도적으로 skipped.
+- PR #56은 Android 라이선스 refresh/deactivate 경합 직렬화와 서버 refresh 403 시 로컬 entitlement 폐기를 통합하는 후속 변경이며, CI run [43706736843](https://github.com/justinhblee-prog/guardian/actions/runs/43706736843) 진행 중입니다. 전체 성공 및 main 병합 전까지 미완료로 취급합니다.
+- 이전 PR #48/#49의 라이선스 경합/403 변경은 최신 main 기준 통합 PR #56으로 대체 중입니다. #56 검증 전에는 해당 기능을 완료로 계산하지 않습니다.
+- 이전 문서의 #41/#43/#44/#46/#47/#48/#49/#50/#51 미병합 기록은 이 상태 정정과 충돌할 경우 이 정정 내용을 우선합니다. #43/#46/#47/#50/#51은 이후 main에 병합되었습니다.
+- 0.7.8-dev 최종 설치 APK 및 source package는 아직 최종 main 빌드에서 artifact로 생성·다운로드·해시 검증되지 않았습니다. 이전 0.7.7-dev APK를 최신본으로 표시하지 않습니다.
+- Debug APK/에뮬레이터 성공은 production 서명, 실제 Android 기기 VPN/TUN 라우팅, 실제 광고 제거 효과를 증명하지 않습니다.
+- 운영 keystore/secrets, 운영 License API/DB/TLS 및 서명 manifest 배포 endpoint의 실제 운영 배포 검증은 미완료입니다.
+- Android 스마트폰/태블릿과 공통 필터·라이선스 작업을 먼저 마무리합니다. Windows 클라이언트/설치 프로그램은 마지막 단계로 보류합니다.
+
 # 최신 검증 기준 — 2026-11-15
 
 이 섹션은 과거 버전별 기록보다 우선합니다.
