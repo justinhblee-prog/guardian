@@ -1,25 +1,28 @@
 # 최신 인수인계 기준 — 2026-11-15
 
-이 섹션은 아래의 과거 버전별 안내보다 우선합니다.
+이 섹션이 아래의 과거 버전별 안내보다 우선합니다.
 
-- 현재 개발 기준: Android `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`.
-- 문서 갱신 시점 main: `a5876e7a68c32e9721b8763aa36e89b2150746e7`.
-- PR #25의 Android CI 성공과 PR #38의 DNS-over-TCP wraparound 테스트가 main에 반영되었습니다.
-- PR #40은 Production Release workflow의 main push 검증을 수정 중입니다. 설정 검증 CI는 성공했지만 Android emulator 실행이 아직 끝나지 않았으므로 PR 전체 성공으로 판정하지 않습니다.
-- PR #41은 만료된 서명 라이선스의 기기 등록 해제 기능을 최신 main에 재적용했습니다. Android CI는 진행 중이며 아직 병합되지 않았습니다.
-- PR #16은 PR #41의 충돌 대체본입니다. PR #41 검증·병합 후 중복 PR을 정리합니다.
-- 라이선스 API, signed filter distribution, publisher locking, per-device admin activation release 및 Android client hardening은 main에 반영된 범위와 운영 미검증 범위를 구분합니다.
-- 운영 keystore/secrets, 운영 API 주소/공개키/DB 및 도메인/TLS는 실제 운영 배포 검증이 끝나지 않았습니다.
-- Windows 설치 프로그램은 마지막 단계로 보류합니다. 물리 Android 기기 VPN/DNS 수용 테스트는 추후 별도 수행합니다.
+- 프로젝트: **Guardian AdBlock** — Android VPN 기반 DNS 광고·추적 필터링 앱 및 라이선스/서명 필터 배포 시스템.
+- 현재 앱 개발 기준: `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`.
+- 기준 main: `e168b8658af6f10a9fe56b999760251ec5e2be13`.
+- PR #25 및 PR #38의 Android CI/DNS TCP wraparound 검증, PR #26의 릴리스 상태 문서 갱신은 main에 병합되었습니다.
+- PR #41은 만료된 서명 라이선스에서도 Pro 권한을 주지 않으면서 기기 등록 해제를 허용하는 변경입니다. Android CI run `43696306115` 전체 성공(단위 테스트, lint, debug APK, API 35 에뮬레이터 설치·실행, package/version/SHA-256). PR은 미병합입니다.
+- PR #43은 main push 시 릴리스 설정 검증을 실행하고 production signing은 수동 실행으로 제한합니다. Android CI run `43696645579` 및 release config run `43696645556` 성공. production signing job은 운영 secrets 미설정으로 의도적 skipped. PR은 미병합입니다.
+- PR #44는 License API의 HTTP timeout/header 제한과 JSON nosniff 헤더를 추가합니다. 최종 API CI run `43697583427`의 Node·Docker Compose·PostgreSQL 통합 테스트 전체 성공. PR은 미병합입니다.
+- PR #16과 PR #40은 최신 main 재적용본(PR #41, #43)으로 대체되어 닫혔습니다.
+- 위 PR #41/#43/#44는 검증 성공이어도 main에 병합된 기능으로 계산하지 않습니다.
+- 운영 keystore/secrets, production API 주소/공개키/DB 및 도메인/TLS는 실제 운영 환경에 설정·검증되지 않았습니다.
+- 실기기 VPN/TUN 라우팅, 실제 광고 제거율, Wi-Fi↔모바일 전환, 장시간 안정성은 미검증입니다.
+- Windows 설치 프로그램은 사용자 요청에 따라 마지막 단계로 보류합니다. 물리 Android 기기 수용 테스트도 추후 별도 진행합니다.
 
 ## 다음 내부 개발 순서
 
-1. PR #40을 최신 main에 재기반화하고 Android CI 및 release workflow 검증을 완료합니다.
-2. PR #41의 Android 테스트/lint/build/emulator 결과를 확인하고 통과 시 병합합니다.
-3. PR #16 중복본을 정리하고 만료 라이선스의 FREE 권한 유지 및 기기 해제 동작을 문서화합니다.
-4. RELEASE_STATUS_KO.md, VERIFICATION.md, FINAL_HANDOFF_KO.md, README/빌드 안내의 버전·CI·잔여 범위를 일치시킵니다.
-5. Android 내부 회귀 테스트와 소스 패키지/manifest/checksum 검증을 완료합니다.
-6. Windows 설치·배포 패키지는 Android 및 공통 기능의 나머지 내부 작업 완료 후 마지막으로 진행합니다.
+1. Android, License API, signed filter distribution의 남은 내부 보안·기능 결함을 계속 수정하고 회귀 테스트를 추가합니다.
+2. PR #41, #43, #44의 변경 내용을 main 통합 기준에 맞춰 검토하고, 병합되지 않은 상태를 완료로 표시하지 않습니다.
+3. 라이선스 서버·서명 필터 배포·운영 설정의 문서/배포 준비를 마무리합니다.
+4. Android 태블릿 반응형 UI, 모바일 운영 흐름과 공통 라이선스/필터 체계의 내부 검증을 완료합니다.
+5. 소스 패키지, manifest, 버전, checksum 및 최종 Android debug/release 빌드 산출물의 정합성을 확인합니다.
+6. Windows 클라이언트/설치 패키지는 위 모바일 및 공통 기능의 내부 개발이 끝난 뒤 마지막으로 진행합니다.
 
 실기기 수용 테스트는 추후 요청에 따라 진행하며, CI 에뮬레이터 성공을 실기기 통과로 표현하지 않습니다.
 
