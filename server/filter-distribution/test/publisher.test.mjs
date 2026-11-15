@@ -141,10 +141,12 @@ test('publisher rejects insecure URLs, path segments and missing signing keys', 
     'output-dir': path.join(root, 'invalid-dist')
   };
   await assert.rejects(publishManifest(base, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }), /HTTPS/);
-  await assert.rejects(
-    publishManifest({ ...base, 'source-id': '..', 'base-url': 'https://filters.example.com' }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
-    /source-id/
-  );
+  for (const sourceId of ['..', '.', 'source.name', 'source/name', '../escape']) {
+    await assert.rejects(
+      publishManifest({ ...base, 'source-id': sourceId, 'base-url': 'https://filters.example.com' }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
+      /source-id/
+    );
+  }
   await assert.rejects(
     publishManifest({ ...base, 'base-url': 'https://filters.example.com' }, {}),
     /GUARDIAN_FILTER_SIGNING_PRIVATE_KEY/

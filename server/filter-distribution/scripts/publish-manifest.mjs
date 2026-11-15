@@ -243,8 +243,8 @@ export async function removeOwnedPublishLock(lockHandle, lockPath) {
 export async function publishManifest(options, env = process.env) {
   const sourceId = options['source-id'];
   if (typeof sourceId !== 'string' || sourceId === '.' || sourceId === '..' ||
-      !/^[a-zA-Z0-9._-]{1,64}$/.test(sourceId)) {
-    throw new Error('source-id must contain 1-64 letters, digits, dot, underscore or hyphen.');
+      !/^[a-zA-Z0-9_-]{1,64}$/.test(sourceId)) {
+    throw new Error('source-id must contain 1-64 letters, digits, underscore or hyphen.');
   }
   const outputDir = path.resolve(options['output-dir'] || 'dist');
   await mkdir(outputDir, { recursive: true });
