@@ -111,8 +111,8 @@ export async function publishManifest(options, env = process.env) {
   const outputDir = path.resolve(options['output-dir'] || 'dist');
   const privateKeyText = env.GUARDIAN_FILTER_SIGNING_PRIVATE_KEY;
 
-  if (typeof sourceId !== 'string' || sourceId === '.' || sourceId === '..' || !/^[a-zA-Z0-9._-]{1,64}$/.test(sourceId)) {
-    throw new Error('source-id must contain 1-64 letters, digits, dot, underscore or hyphen.');
+  if (typeof sourceId !== 'string' || sourceId === '.' || sourceId === '..' || !/^[a-zA-Z0-9_-]{1,64}$/.test(sourceId)) {
+    throw new Error('source-id must contain 1-64 letters, digits, underscore or hyphen.');
   }
   if (typeof sourceVersion !== 'string' || sourceVersion === '.' || sourceVersion === '..' || !/^[a-zA-Z0-9._+-]{1,64}$/.test(sourceVersion)) {
     throw new Error('source-version must contain 1-64 safe version characters.');
