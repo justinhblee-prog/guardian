@@ -55,7 +55,7 @@ openssl pkey -in guardian-license-private.pem -pubout -out guardian-license-publ
 docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup.sql
 ```
 
-`schema.sql`은 빈 데이터 볼륨 최초 생성 시에만 자동 실행됩니다. 이후 스키마 변경은 별도 migration으로 적용해야 합니다. 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
+`schema.sql`은 빈 데이터 볼륨 최초 생성 시에만 자동 실행됩니다. 기존 DB에는 배포 전에 `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_shared_rate_limit_buckets.sql`로 공유 rate-limit 테이블 migration을 적용해야 합니다. 이후 스키마 변경도 별도 migration으로 적용해야 합니다. 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
 
 ## API
 - `POST /v1/licenses/activate`: `{ "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`
