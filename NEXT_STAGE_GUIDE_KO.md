@@ -11,7 +11,7 @@
 - PR #44는 License API의 HTTP timeout/header 제한과 JSON nosniff 헤더를 추가합니다. 최종 API CI run `43697583427`의 Node·Docker Compose·PostgreSQL 통합 테스트 전체 성공. PR은 미병합입니다.
 - PR #46은 signed filter publisher의 source lock cleanup이 교체된 다른 실행자의 lock을 삭제하지 않도록 보강합니다. Filter Distribution CI run `43698002553` 성공. PR은 미병합입니다.
 - PR #16과 PR #40은 최신 main 재적용본(PR #41, #43)으로 대체되어 닫혔습니다.
-- 위 PR #41/#43/#44는 검증 성공이어도 main에 병합된 기능으로 계산하지 않습니다.
+- 위 PR #41/#43/#44/#46은 검증 성공이어도 main에 병합된 기능으로 계산하지 않습니다.
 - 운영 keystore/secrets, production API 주소/공개키/DB 및 도메인/TLS는 실제 운영 환경에 설정·검증되지 않았습니다.
 - 실기기 VPN/TUN 라우팅, 실제 광고 제거율, Wi-Fi↔모바일 전환, 장시간 안정성은 미검증입니다.
 - Windows 설치 프로그램은 사용자 요청에 따라 마지막 단계로 보류합니다. 물리 Android 기기 수용 테스트도 추후 별도 진행합니다.
