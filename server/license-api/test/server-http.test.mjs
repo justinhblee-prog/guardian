@@ -15,6 +15,13 @@ after(async () => {
   await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
 });
 
+test('server applies bounded HTTP connection and header limits', () => {
+  assert.equal(server.headersTimeout, 10_000);
+  assert.equal(server.requestTimeout, 15_000);
+  assert.equal(server.keepAliveTimeout, 5_000);
+  assert.equal(server.maxHeadersCount, 32);
+});
+
 test('health endpoint returns no-store service status', async () => {
   const response = await fetch(`${baseUrl}/health`);
   assert.equal(response.status, 200);
