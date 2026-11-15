@@ -73,6 +73,7 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 ## 보안 및 출시 전 남은 작업
 - 이 첫 서버 버전은 운영용 rate limiting, 관리자 다중 사용자/RBAC, 이메일/구매 복구, Google Play Billing 및 결제 webhook, 자동 환불/차지백 동기화가 없습니다. 공개 전 반드시 rate limiting/WAF 및 운영자 접근 정책을 보강해야 합니다.
 - status/refresh는 deviceBinding만으로 해당 기기의 활성 라이선스를 조회합니다. 설치 UUID 재설치 시 새 기기 취급되며 관리자 초기화 정책을 따라야 합니다.
+- 기기 비활성화/라이선스 정지는 서버의 활성화 슬롯과 이후 refresh를 즉시 차단하지만, 이미 발급된 오프라인 서명 토큰을 원격에서 소급 폐기할 수는 없습니다. 기존 토큰은 서명된 expiresAt까지(최대 24시간) 검증될 수 있으므로 즉시 원격 차단이 필요한 제품 정책에는 더 짧은 토큰 TTL 또는 온라인 재검증이 필요합니다.
 - DB 스키마는 신규 설치용 초기 스키마입니다. 기존 DB에 적용할 경우 별도 migration 검토가 필요합니다.
 - 운영 RSA 개인키와 관리자/HMAC 비밀값, DATABASE_URL은 절대 저장소/앱/채팅에 커밋하지 않습니다.
 - 실제 결제 연결 전에는 수동 발급용 관리 도구이며, 실제 유료 판매/결제 완료를 주장하지 않습니다.
