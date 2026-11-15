@@ -51,6 +51,7 @@ jobs:
           test -s android/app/src/main/res/drawable/ic_launcher_foreground.xml
           test -s android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
           test -s android/app/src/main/res/mipmap-anydpi/ic_launcher.xml
+          test -s android/app/src/main/assets/eugene_consulting_logo.png
 
       - name: Validate production release workflow trigger and signing gates
         run: |
@@ -112,6 +113,7 @@ jobs:
           test -s "$APK"
           unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
           unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          unzip -Z1 "$APK" | grep -Fx 'assets/eugene_consulting_logo.png'
           echo "Bundled filter_rules.txt is present and byte-for-byte matches shared/filter_rules.txt."
 
       - name: Install and launch APK on Android emulator
