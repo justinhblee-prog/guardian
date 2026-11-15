@@ -26,7 +26,7 @@ function argsFrom(argv) {
 async function atomicWrite(filePath, bytes) {
   const directory = path.dirname(filePath);
   await mkdir(directory, { recursive: true });
-  const temporary = `${filePath}.${randomUUID()} .tmp`.replace(" .tmp", ".tmp");
+  const temporary = `${filePath}.${randomUUID()}.tmp`;
   let handle;
   try {
     handle = await open(temporary, 'wx', 0o644);
