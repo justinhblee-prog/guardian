@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
+const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 8788);
 const DIST_DIR = path.resolve(process.env.GUARDIAN_FILTER_DIST_DIR || 'dist');
 const MAX_MANIFEST_BYTES = 16 * 1024;
@@ -81,8 +82,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  server.listen(PORT, '0.0.0.0', () => {
-    process.stdout.write(`Guardian filter distribution listening on :${PORT}\n`);
+  server.listen(PORT, HOST, () => {
+    process.stdout.write(`Guardian filter distribution listening on ${HOST}:${PORT}\n`);
   });
 }
 export { server };
