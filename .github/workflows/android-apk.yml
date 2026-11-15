@@ -16,6 +16,7 @@ on:
       - 'shared/**'
       - 'README.md'
       - '.github/workflows/android-apk.yml'
+      - '.github/workflows/android-production-release.yml'
 
 # Keep only the newest branch run; rapid source commits should not waste runners.
 concurrency:
