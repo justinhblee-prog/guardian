@@ -89,7 +89,7 @@ test('updater stages every source before publishing any manifest', async () => {
     }), /HTTP 503/);
     assert.equal(calls, 2);
     await assert.rejects(readFile(path.join(outputDir, 'first.manifest')));
-    await assert.rejects(readdir(path.join(root, 'tmp')), { code: 'ENOENT' });
+    assert.equal((await readdir(path.join(root, 'tmp'))).length, 0);
     await assert.rejects(readFile(path.join(outputDir, '.guardian-update.lock')));
 
     // A failed batch must release its lock so a later scheduled retry can run.
