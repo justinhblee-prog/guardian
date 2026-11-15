@@ -24,14 +24,28 @@ const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
   '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events'
 ]);
-const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 10, ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: true } : undefined }) : null;
+const pool = DATABASE_URL ? new Pool({
+  connectionString: DATABASE_URL,
+  max: 10,
+  connectionTimeoutMillis: 5_000,
+  idleTimeoutMillis: 30_000,
+  statement_timeout: 10_000,
+  query_timeout: 12_000,
+  idle_in_transaction_session_timeout: 15_000,
+  ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: true } : undefined
+}) : null;
 const rateLimit = pool
   ? createPostgresRateLimiter(pool, rateLimitOptions)
   : createRateLimiter(rateLimitOptions);
 
 function json(res, status, value) {
   const body = JSON.stringify(value);
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'content-length': Buffer.byteLength(body) });
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+    'content-length': Buffer.byteLength(body)
+  });
   res.end(body);
 }
 async function readBody(req) {
