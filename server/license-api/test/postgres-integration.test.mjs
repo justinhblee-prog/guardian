@@ -134,6 +134,66 @@ if (!databaseUrl) {
     assert.equal(refreshAfterDeactivate.status, 403);
   });
 
+
+  test('a refresh waiting behind deactivation cannot issue a token for a released device slot', async () => {
+    const created = await issue(1);
+    const device = '8'.repeat(64);
+    const activation = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'refresh-deactivation-race'
+    });
+    assert.equal(activation.status, 200);
+
+    const lockClient = await pool.connect();
+    let pendingRefresh;
+    try {
+      await lockClient.query('BEGIN');
+      await lockClient.query(
+        'SELECT id FROM activations WHERE license_id=$1 AND device_binding=$2 FOR UPDATE',
+        [created.license.id, device]
+      );
+
+      pendingRefresh = post('/v1/licenses/refresh', {
+        deviceBinding: device, licenseRef: created.license.license_ref
+      });
+
+      // Wait until the API transaction has reached its SELECT ... FOR UPDATE
+      // and is blocked by the deactivation transaction's row lock.
+      let refreshWaitingOnLock = false;
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const waiting = await lockClient.query(
+          `SELECT count(*)::int AS n FROM pg_stat_activity
+           WHERE datname=current_database() AND pid<>pg_backend_pid()
+             AND wait_event_type='Lock' AND query LIKE '%FOR UPDATE OF l, a%'`
+        );
+        if (waiting.rows[0].n > 0) {
+          refreshWaitingOnLock = true;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      assert.equal(refreshWaitingOnLock, true, 'refresh request should wait on the activation row lock');
+
+      await lockClient.query(
+        'UPDATE activations SET deactivated_at=now() WHERE license_id=$1 AND device_binding=$2',
+        [created.license.id, device]
+      );
+      await lockClient.query('COMMIT');
+
+      const response = await pendingRefresh;
+      assert.equal(response.status, 403);
+      const remaining = await pool.query(
+        'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL',
+        [created.license.id, device]
+      );
+      assert.equal(remaining.rows[0].n, 0);
+    } catch (error) {
+      await lockClient.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      lockClient.release();
+    }
+  });
+
   test('concurrent activations cannot exceed the license device limit', async () => {
     const created = await issue(1);
     const activate = deviceBinding => post('/v1/licenses/activate', {
