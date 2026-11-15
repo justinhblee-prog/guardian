@@ -13,7 +13,7 @@
 - PR #47은 unsigned Android 필터 캐시 크기 검증과 손상 파일 정리 fail-closed를 추가합니다. Android CI `43699497055` 전체 성공. 미병합.
 - PR #48은 Android 라이선스 API 호출을 직렬화해 refresh/deactivate 경합을 막습니다. Android CI `43698680084` 전체 성공. 미병합.
 - PR #49는 refresh 403에서 로컬 entitlement를 제거합니다. Android CI `43699268819` 전체 성공. 미병합.
-- PR #50은 PostgreSQL 공유 rate limit 및 API/DB timeout·nosniff 방어를 추가합니다. License API CI `43700615872` 전체 성공. 미병합.
+- PR #50은 PostgreSQL 공유 rate limit 및 API/DB timeout·nosniff 방어를 추가합니다. License API CI `43701478905` 전체 성공. 미병합.
 - PR #16과 PR #40은 최신 main 재적용본(PR #41, #43)으로 대체되어 닫혔습니다.
 - 위 PR #41/#43/#44/#46/#47/#48/#49/#50은 검증 성공이어도 main에 병합된 기능으로 계산하지 않습니다.
 - 운영 keystore/secrets, production API 주소/공개키/DB 및 도메인/TLS는 실제 운영 환경에 설정·검증되지 않았습니다.
