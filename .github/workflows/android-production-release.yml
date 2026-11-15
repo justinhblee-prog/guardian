@@ -102,8 +102,13 @@ jobs:
           [[ "$GUARDIAN_VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
           case "$GUARDIAN_MANIFEST_BASE_URL" in https://*) ;; *) echo "Manifest base URL must use HTTPS."; exit 1 ;; esac
           case "$GUARDIAN_LICENSE_API_BASE_URL" in https://*) ;; *) echo "License API URL must use HTTPS."; exit 1 ;; esac
-          printf '%s' "$GUARDIAN_MANIFEST_PUBLIC_KEY" | base64 --decode >/dev/null
-          printf '%s' "$GUARDIAN_LICENSE_PUBLIC_KEY" | base64 --decode >/dev/null
+          printf '%s' "$GUARDIAN_MANIFEST_PUBLIC_KEY" | base64 --decode > /tmp/guardian-manifest-public.der
+          printf '%s' "$GUARDIAN_LICENSE_PUBLIC_KEY" | base64 --decode > /tmp/guardian-license-public.der
+          for PUBLIC_KEY in /tmp/guardian-manifest-public.der /tmp/guardian-license-public.der; do
+            openssl pkey -pubin -inform DER -in "$PUBLIC_KEY" -text -noout > /tmp/guardian-public-key-details.txt
+            grep -Eq 'Public-Key: \\(2048|3072|4096\\) bit\\)' /tmp/guardian-public-key-details.txt
+          done
+          rm -f /tmp/guardian-manifest-public.der /tmp/guardian-license-public.der /tmp/guardian-public-key-details.txt
           mkdir -p android/app
           printf '%s' "$GUARDIAN_RELEASE_KEYSTORE_BASE64" | base64 --decode > android/app/guardian-release.jks
           test -s android/app/guardian-release.jks
