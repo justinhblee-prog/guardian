@@ -364,11 +364,13 @@ class DnsTcpSessionManagerTest {
         )!!
         assertEquals(0xfffffffeL, synAck.sequence)
 
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
         val wrappedFutureAck = packet(
             flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
             seq = 3301,
             acknowledgment = 0L,
-            payload = byteArrayOf(0, 17) + dnsQuery()
+            payload = framed
         )
         var resolveCalls = 0
         manager.handle(wrappedFutureAck, wrappedFutureAck.size) {
