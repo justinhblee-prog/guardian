@@ -183,7 +183,7 @@ jobs:
           이 결과는 GitHub Actions 자동화 검증이며, 물리 기기 수용 테스트나 모든 앱의 광고 제거를 보증하지 않습니다.
           EOF
           zip -qr 'release/Guardian-AdBlock-Source-v0.7.9-dev.zip' . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' 'release/*.zip'
-          ls -lh release/Guardian-AdBlock-Source-v0.7.8-dev.zip release/VERIFICATION_SUMMARY_KO.md
+          ls -lh release/Guardian-AdBlock-Source-v0.7.9-dev.zip release/VERIFICATION_SUMMARY_KO.md
 
       - name: Upload installable debug APK and complete source package (final build only)
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -193,7 +193,7 @@ jobs:
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/debug/SHA256SUMS.txt
-            release/Guardian-AdBlock-Source-v0.7.8-dev.zip
+            release/Guardian-AdBlock-Source-v0.7.9-dev.zip
             release/VERIFICATION_SUMMARY_KO.md
           if-no-files-found: error
           retention-days: 30
