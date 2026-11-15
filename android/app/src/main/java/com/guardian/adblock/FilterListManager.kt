@@ -130,14 +130,18 @@ object FilterListManager {
             File(target.parentFile, "${target.name}.tmp").delete()
             return target
         }
+        fun matchesCommittedHash(candidate: File): Boolean =
+            candidate.isFile && candidate.length() <= MAX_BYTES &&
+                FilterManifestVerifier.matchesSha256(candidate.readBytes(), expectedHash)
         try {
-            FilterCacheStore.recover(target) { candidate ->
-                candidate.isFile && candidate.length() <= MAX_BYTES &&
-                    FilterManifestVerifier.matchesSha256(candidate.readBytes(), expectedHash)
+            FilterCacheStore.recover(target, ::matchesCommittedHash)
+            if (target.exists() && !matchesCommittedHash(target)) {
+                throw IllegalStateException("저장된 서명 해시와 필터 캐시가 일치하지 않습니다.")
             }
         } catch (_: IllegalStateException) {
             target.delete()
             File(target.parentFile, "${target.name}.bak").delete()
+            File(target.parentFile, "${target.name}.tmp").delete()
             preferences.edit()
                 .remove(keys.first).remove(keys.second).remove(keys.third)
                 .putInt(when (cacheName) {
@@ -321,6 +325,7 @@ object FilterListManager {
         ignoredKey: String,
         cachedProfileKey: String?
     ): UpdateResult {
+        recoverCache(context, cacheName)
         val stateStore = ManifestTimestampStore(File(context.filesDir, "manifest_timestamps.properties"))
         val previousGeneratedAt = stateStore.lastAccepted(sourceId)
         val manifestUrl = "$manifestBaseUrl/$sourceId.manifest"
