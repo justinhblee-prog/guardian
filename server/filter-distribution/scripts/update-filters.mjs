@@ -10,6 +10,7 @@ const MAX_FILTER_BYTES = 10 * 1024 * 1024;
 async function readResponse(response) {
   if (!response.ok) throw new Error(`Upstream returned HTTP ${response.status}.`);
   const declaredLength = response.headers.get('content-length');
+  let expectedLength = null;
   if (declaredLength !== null) {
     if (!/^\d+$/.test(declaredLength)) {
       throw new Error('Upstream returned an invalid Content-Length.');
@@ -18,6 +19,7 @@ async function readResponse(response) {
     if (!Number.isSafeInteger(length) || length <= 0 || length > MAX_FILTER_BYTES) {
       throw new Error('Upstream filter has an invalid or oversized Content-Length.');
     }
+    expectedLength = length;
   }
   if (!response.body) throw new Error('Upstream response has no readable body.');
   const chunks = [];
@@ -26,6 +28,9 @@ async function readResponse(response) {
     size += chunk.length;
     if (size > MAX_FILTER_BYTES) throw new Error('Upstream filter exceeds 10 MiB.');
     chunks.push(Buffer.from(chunk));
+  }
+  if (expectedLength !== null && size !== expectedLength) {
+    throw new Error(`Upstream Content-Length mismatch: declared ${expectedLength} bytes, received ${size}.`);
   }
   const bytes = Buffer.concat(chunks);
   const text = bytes.toString('utf8');
