@@ -314,6 +314,51 @@ class DnsTcpSessionManagerTest {
     }
 
 
+    @Test fun futureAcknowledgementAcrossSequenceWraparoundCannotConsumeDnsRequestPayload() {
+        val deterministicRandom = object : SecureRandom() {
+            override fun nextInt(): Int = 0xfffffff0.toInt()
+        }
+        val manager = DnsTcpSessionManager(random = deterministicRandom)
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 3200)
+        val synAck = manager.handle(syn, syn.size) { null }.single()
+        val parsedSynAck = DnsTcpPacket.parse(synAck, synAck.size, 53000)!!
+        assertEquals(0xfffffff0L, parsedSynAck.sequence)
+        val serverNext = (parsedSynAck.sequence + 1L) and 0xffffffffL
+
+        var resolveCalls = 0
+        val wrappedFutureAck = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 3201,
+            acknowledgment = 0x00000010L,
+            payload = framed
+        )
+        val rejected = manager.handle(wrappedFutureAck, wrappedFutureAck.size) {
+            resolveCalls++
+            DomainFilter.makeServfail(it)
+        }.single()
+        val rejectedSegment = DnsTcpPacket.parse(rejected, rejected.size, 53000)!!
+        assertTrue(rejectedSegment.ack)
+        assertEquals(3201L, rejectedSegment.acknowledgement)
+        assertEquals(0, resolveCalls)
+        assertEquals(1, manager.activeSessionCount())
+
+        val valid = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 3201,
+            acknowledgment = serverNext,
+            payload = framed
+        )
+        val accepted = manager.handle(valid, valid.size) {
+            resolveCalls++
+            DomainFilter.makeServfail(it)
+        }
+        assertTrue(accepted.isNotEmpty())
+        assertEquals(1, resolveCalls)
+        assertEquals(1, manager.activeSessionCount())
+    }
+
     @Test fun futureAcknowledgementCannotConsumeDnsRequestPayload() {
         val manager = DnsTcpSessionManager()
         val query = dnsQuery()
