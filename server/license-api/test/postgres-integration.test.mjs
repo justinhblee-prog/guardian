@@ -51,6 +51,15 @@ if (!databaseUrl) {
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
 
+  test('database pool applies bounded connection, statement and transaction timeouts', () => {
+    assert.equal(apiPool.options.max, 10);
+    assert.equal(apiPool.options.connectionTimeoutMillis, 5_000);
+    assert.equal(apiPool.options.idleTimeoutMillis, 30_000);
+    assert.equal(apiPool.options.statement_timeout, 10_000);
+    assert.equal(apiPool.options.query_timeout, 12_000);
+    assert.equal(apiPool.options.idle_in_transaction_session_timeout, 15_000);
+  });
+
   test('readiness endpoint requires a reachable database and valid RSA signer', async () => {
     const response = await fetch(`${baseUrl}/ready`);
     assert.equal(response.status, 200);
