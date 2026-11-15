@@ -15,15 +15,38 @@ class DnsUpstreamProbeTest {
         assertArrayEquals("com".toByteArray(), query.copyOfRange(21, 24))
     }
 
-    @Test fun validatesMatchingDnsResponses() {
+    @Test fun acceptsMatchingSuccessfulResolution() {
         val query = DnsUpstreamProbe.query()
-        assertTrue(DnsUpstreamProbe.isValidResponse(query, DomainFilter.makeServfail(query)))
+        val response = successfulResponse(query)
+        assertTrue(DnsUpstreamProbe.isValidResponse(query, response))
+        assertTrue(DnsUpstreamProbe.isSuccessfulResolution(query, response))
     }
 
-    @Test fun rejectsMissingOrMismatchedResponses() {
+    @Test fun rejectsServfailEvenWhenQuestionAndTransactionIdMatch() {
         val query = DnsUpstreamProbe.query()
-        assertFalse(DnsUpstreamProbe.isValidResponse(query, null))
+        val response = DomainFilter.makeServfail(query)
+        assertTrue(DnsUpstreamProbe.isValidResponse(query, response))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
+    }
+
+    @Test fun rejectsNoErrorWithoutAnswersAndMismatchedResponses() {
+        val query = DnsUpstreamProbe.query()
+        val emptyAnswer = successfulResponse(query).also {
+            it[6] = 0
+            it[7] = 0
+        }
         val other = DnsUpstreamProbe.query().also { it[1] = 0x35 }
-        assertFalse(DnsUpstreamProbe.isValidResponse(query, DomainFilter.makeServfail(other)))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, emptyAnswer))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, DomainFilter.makeServfail(other)))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, null))
+    }
+
+    private fun successfulResponse(query: ByteArray): ByteArray {
+        val response = DomainFilter.makeServfail(query)!!
+        response[2] = (response[2].toInt() and 0xff).toByte()
+        response[3] = ((response[3].toInt() and 0xff) and 0xf0).toByte()
+        response[6] = 0
+        response[7] = 1
+        return response
     }
 }
