@@ -84,7 +84,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     await batchLock.writeFile(JSON.stringify({
       pid: process.pid,
       startedAt: new Date().toISOString()
-    }) + '\\n');
+    }) + '\n');
     await batchLock.sync();
   } catch (error) {
     if (error.code === 'EEXIST') {
