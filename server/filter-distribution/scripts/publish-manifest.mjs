@@ -101,7 +101,7 @@ export async function publishManifest(options, env = process.env) {
   const filterRelativePath = path.join('filters', sourceId, `${sourceVersion}.txt`);
   const filterPath = path.join(outputDir, filterRelativePath);
   try {
-    const existing = await readFile(filterPath);
+    const existing = await readFilterInput(filterPath);
     if (!existing.equals(content)) {
       throw new Error('An immutable sourceVersion already exists with different filter content.');
     }
