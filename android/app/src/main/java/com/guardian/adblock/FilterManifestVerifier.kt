@@ -1,6 +1,9 @@
 package com.guardian.adblock
 
 import java.net.URI
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 import java.security.KeyFactory
 import java.security.MessageDigest
@@ -45,7 +48,7 @@ internal object FilterManifestVerifier {
             "필터 manifest 크기가 올바르지 않습니다."
         }
         val values = LinkedHashMap<String, String>()
-        val text = String(manifestBytes, StandardCharsets.UTF_8)
+        val text = decodeUtf8Strict(manifestBytes)
         require(!text.contains('\u0000')) { "manifest에 허용되지 않는 문자가 있습니다." }
         text.lineSequence().filter { it.isNotBlank() }.forEach { line ->
             val separator = line.indexOf('=')
@@ -105,6 +108,36 @@ internal object FilterManifestVerifier {
         require(uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank() &&
             uri.userInfo == null && uri.fragment == null) { "필터 URL은 사용자 정보가 없는 HTTPS 주소여야 합니다." }
         return manifest
+    }
+
+    fun decodeUtf8Strict(bytes: ByteArray): String = try {
+        StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(bytes))
+            .toString()
+    } catch (e: CharacterCodingException) {
+        throw IllegalArgumentException("UTF-8 인코딩이 올바르지 않습니다.", e)
+    }
+
+    /**
+     * A published sourceVersion is immutable. A newer signed manifest timestamp must not
+     * silently replace the bytes already accepted under the same version label.
+     */
+    fun requireImmutableSourceVersion(
+        previousVersion: String?,
+        previousSha256: String?,
+        nextVersion: String,
+        nextSha256: String
+    ) {
+        if (previousVersion == null || previousVersion != nextVersion) return
+        require(
+            previousSha256 != null &&
+                previousSha256.matches(Regex("[a-fA-F0-9]{64}")) &&
+                previousSha256.equals(nextSha256, ignoreCase = true)
+        ) {
+            "동일한 sourceVersion에 다른 필터 콘텐츠가 연결되어 있습니다."
+        }
     }
 
     fun matchesSha256(content: ByteArray, expectedHex: String): Boolean {

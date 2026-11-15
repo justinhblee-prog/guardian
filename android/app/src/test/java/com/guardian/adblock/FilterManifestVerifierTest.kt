@@ -163,4 +163,53 @@ class FilterManifestVerifierTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun acceptsSameSourceVersionOnlyWhenContentHashIsUnchanged() {
+        val hash = "a".repeat(64)
+        FilterManifestVerifier.requireImmutableSourceVersion(
+            "2026.11.15", hash, "2026.11.15", hash
+        )
+        FilterManifestVerifier.requireImmutableSourceVersion(
+            "2026.11.15", hash.uppercase(), "2026.11.15", hash
+        )
+        try {
+            FilterManifestVerifier.requireImmutableSourceVersion(
+                "2026.11.15", hash, "2026.11.15", "b".repeat(64)
+            )
+            fail("same sourceVersion with different content must be rejected")
+        } catch (_: IllegalArgumentException) { }
+        try {
+            FilterManifestVerifier.requireImmutableSourceVersion(
+                "2026.11.15", null, "2026.11.15", hash
+            )
+            fail("same sourceVersion without a stored hash must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
+    @Test fun allowsAChangedHashOnlyForANewSourceVersion() {
+        FilterManifestVerifier.requireImmutableSourceVersion(
+            "2026.11.14", "a".repeat(64), "2026.11.15", "b".repeat(64)
+        )
+    }
+
+    @Test fun rejectsMalformedUtf8ManifestEvenWhenSigned() {
+        val pair = keyPair()
+        val malformed = payload() + byteArrayOf(0xC3.toByte())
+        try {
+            FilterManifestVerifier.parseAndVerify(
+                malformed, signed(malformed, pair),
+                Base64.getEncoder().encodeToString(pair.public.encoded)
+            )
+            fail("malformed UTF-8 manifest must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
+    @Test fun strictUtf8DecoderRejectsMalformedFilterPayload() {
+        try {
+            FilterManifestVerifier.decodeUtf8Strict(
+                byteArrayOf(0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x3d, 0xC3.toByte())
+            )
+            fail("malformed UTF-8 filter payload must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
 }

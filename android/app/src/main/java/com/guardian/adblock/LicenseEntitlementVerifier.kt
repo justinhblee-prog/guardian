@@ -1,5 +1,8 @@
 package com.guardian.adblock
 
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 import java.security.KeyFactory
 import java.security.Signature
@@ -42,7 +45,15 @@ internal object LicenseEntitlementVerifier {
         require(expectedDeviceBinding.matches(Regex("[a-fA-F0-9]{64}"))) {
             "기기 바인딩 값이 올바르지 않습니다."
         }
-        val text = String(payload, StandardCharsets.UTF_8)
+        val text = try {
+            StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(payload))
+                .toString()
+        } catch (e: CharacterCodingException) {
+            throw IllegalArgumentException("라이선스 토큰 UTF-8 인코딩이 올바르지 않습니다.", e)
+        }
         require(!text.contains('\u0000')) { "토큰에 허용되지 않는 문자가 있습니다." }
         val values = LinkedHashMap<String, String>()
         text.lineSequence().filter { it.isNotBlank() }.forEach { line ->

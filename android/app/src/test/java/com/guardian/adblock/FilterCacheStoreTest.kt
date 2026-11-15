@@ -58,6 +58,58 @@ class FilterCacheStoreTest {
         assertFalse(File(folder, "filter.txt.bak").exists())
     }
 
+
+    @Test
+    fun recoveryRestoresBackupWhenTargetDoesNotMatchCommittedSignedHash() {
+        val folder = newFolder()
+        val target = File(folder, "filter.txt").apply { writeText("new-uncommitted") }
+        File(folder, "filter.txt.bak").writeText("old-committed")
+        val expected = java.security.MessageDigest.getInstance("SHA-256")
+            .digest("old-committed".toByteArray())
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+
+        FilterCacheStore.recover(target) { candidate ->
+            candidate.isFile && FilterManifestVerifier.matchesSha256(candidate.readBytes(), expected)
+        }
+
+        assertArrayEquals("old-committed".toByteArray(), target.readBytes())
+        assertFalse(File(folder, "filter.txt.bak").exists())
+    }
+
+    @Test
+    fun recoveryKeepsTargetAndDeletesBackupWhenTargetMatchesCommittedSignedHash() {
+        val folder = newFolder()
+        val target = File(folder, "filter.txt").apply { writeText("new-committed") }
+        File(folder, "filter.txt.bak").writeText("old")
+        val expected = java.security.MessageDigest.getInstance("SHA-256")
+            .digest("new-committed".toByteArray())
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+
+        FilterCacheStore.recover(target) { candidate ->
+            candidate.isFile && FilterManifestVerifier.matchesSha256(candidate.readBytes(), expected)
+        }
+
+        assertArrayEquals("new-committed".toByteArray(), target.readBytes())
+        assertFalse(File(folder, "filter.txt.bak").exists())
+    }
+
+
+    @Test
+    fun recoveryRejectsTargetThatDoesNotMatchCommittedSignedHash() {
+        val folder = newFolder()
+        val target = File(folder, "filter.txt").apply { writeText("tampered") }
+        val expected = java.security.MessageDigest.getInstance("SHA-256")
+            .digest("committed".toByteArray())
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+
+        try {
+            FilterCacheStore.recover(target) { candidate ->
+                candidate.isFile && FilterManifestVerifier.matchesSha256(candidate.readBytes(), expected)
+            }
+            throw AssertionError("tampered cache must fail closed")
+        } catch (_: IllegalStateException) { }
+    }
+
     @Test
     fun recoveryKeepsCommittedTargetAndRemovesStaleBackup() {
         val folder = newFolder()

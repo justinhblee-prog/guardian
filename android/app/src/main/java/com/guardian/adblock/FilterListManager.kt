@@ -111,11 +111,67 @@ object FilterListManager {
         return profiles.firstOrNull { it.key == key } ?: profiles.first()
     }
 
-    fun hasCachedFile(context: Context): Boolean =
-        File(context.filesDir, CACHE_FILE).let {
-            FilterCacheStore.recover(it)
-            it.isFile && it.length() > 0L
+    private fun recoverCache(context: Context, cacheName: String): File {
+        val target = File(context.filesDir, cacheName)
+        val signedConfigured = BuildConfig.FILTER_MANIFEST_BASE_URL.isNotBlank() &&
+            BuildConfig.FILTER_MANIFEST_PUBLIC_KEY.isNotBlank()
+        if (!signedConfigured) {
+            FilterCacheStore.recover(target)
+            return target
         }
+        val keys = manifestPreferenceKeys(cacheName)
+        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val expectedHash = preferences.getString(keys.second, null)
+        if (expectedHash == null || !expectedHash.matches(Regex("[a-fA-F0-9]{64}"))) {
+            // A cache without a committed signed hash may be a partially replaced first install
+            // or an old unsigned cache. Neither is trusted once signed delivery is configured.
+            target.delete()
+            File(target.parentFile, "${target.name}.bak").delete()
+            File(target.parentFile, "${target.name}.tmp").delete()
+            return target
+        }
+        fun matchesCommittedHash(candidate: File): Boolean =
+            candidate.isFile && candidate.length() <= MAX_BYTES &&
+                FilterManifestVerifier.matchesSha256(candidate.readBytes(), expectedHash)
+        try {
+            FilterCacheStore.recover(target, ::matchesCommittedHash)
+            if (target.exists() && !matchesCommittedHash(target)) {
+                throw IllegalStateException("저장된 서명 해시와 필터 캐시가 일치하지 않습니다.")
+            }
+            // SharedPreferences may have committed immediately before process death while
+            // the separate anti-rollback timestamp file had not yet been updated.
+            val committedGeneratedAt = preferences.getLong(keys.third, 0L)
+            if (committedGeneratedAt > 0L) {
+                val sourceId = when (cacheName) {
+                    SECURITY_CACHE_FILE -> "security"
+                    ANDROID_ADS_CACHE_FILE -> "android_ads"
+                    else -> preferences.getString(KEY_CACHED_PROFILE, null) ?: "adguard"
+                }
+                val timestampStore = ManifestTimestampStore(
+                    File(context.filesDir, "manifest_timestamps.properties")
+                )
+                if (timestampStore.lastAccepted(sourceId) < committedGeneratedAt) {
+                    timestampStore.restore(sourceId, committedGeneratedAt)
+                }
+            }
+        } catch (_: IllegalStateException) {
+            target.delete()
+            File(target.parentFile, "${target.name}.bak").delete()
+            File(target.parentFile, "${target.name}.tmp").delete()
+            preferences.edit()
+                .remove(keys.first).remove(keys.second).remove(keys.third)
+                .putInt(when (cacheName) {
+                    SECURITY_CACHE_FILE -> KEY_SECURITY_BLOCK_COUNT
+                    ANDROID_ADS_CACHE_FILE -> KEY_ANDROID_ADS_BLOCK_COUNT
+                    else -> KEY_BLOCK_COUNT
+                }, 0)
+                .apply()
+        }
+        return target
+    }
+
+    fun hasCachedFile(context: Context): Boolean =
+        recoverCache(context, CACHE_FILE).let { it.isFile && it.length() > 0L }
 
     internal fun isCacheValid(fileExists: Boolean, blockCount: Int, minimumRules: Int): Boolean =
         fileExists && minimumRules > 0 && blockCount >= minimumRules
@@ -124,18 +180,12 @@ object FilterListManager {
         isCacheValid(hasCachedFile(context), cachedBlockCount(context), selectedProfile(context).minimumRules)
 
     fun hasCachedSecurityList(context: Context): Boolean {
-        val fileExists = File(context.filesDir, SECURITY_CACHE_FILE).let {
-            FilterCacheStore.recover(it)
-            it.isFile && it.length() > 0L
-        }
+        val fileExists = recoverCache(context, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
         return isCacheValid(fileExists, cachedSecurityBlockCount(context), MIN_SECURITY_BLOCKS)
     }
 
     fun hasCachedAndroidAdsList(context: Context): Boolean {
-        val fileExists = File(context.filesDir, ANDROID_ADS_CACHE_FILE).let {
-            FilterCacheStore.recover(it)
-            it.isFile && it.length() > 0L
-        }
+        val fileExists = recoverCache(context, ANDROID_ADS_CACHE_FILE).let { it.isFile && it.length() > 0L }
         return isCacheValid(fileExists, cachedAndroidAdsBlockCount(context), MIN_ANDROID_ADS_BLOCKS)
     }
     fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
@@ -155,8 +205,7 @@ object FilterListManager {
             KEY_ANDROID_ADS_UPDATED_AT, KEY_ANDROID_ADS_BLOCK_COUNT, KEY_ANDROID_ADS_IGNORED_COUNT)
 
     private fun readCache(context: Context, name: String): List<String> {
-        val file = File(context.filesDir, name)
-        FilterCacheStore.recover(file)
+        val file = recoverCache(context, name)
         return if (file.isFile && file.length() > 0L) file.readLines(Charsets.UTF_8) else emptyList()
     }
 
@@ -238,7 +287,7 @@ object FilterListManager {
                 }
                 output.toByteArray()
             }
-            val lines = String(bytes, StandardCharsets.UTF_8).lineSequence().toList()
+            val lines = FilterManifestVerifier.decodeUtf8Strict(bytes).lineSequence().toList()
             val parsed = FilterRuleParser.parse(lines)
             require((parsed.blocked.size + parsed.importantBlocked.size) >= minimumRules) {
                 "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size + parsed.importantBlocked.size}개뿐입니다."
@@ -292,6 +341,7 @@ object FilterListManager {
         ignoredKey: String,
         cachedProfileKey: String?
     ): UpdateResult {
+        recoverCache(context, cacheName)
         val stateStore = ManifestTimestampStore(File(context.filesDir, "manifest_timestamps.properties"))
         val previousGeneratedAt = stateStore.lastAccepted(sourceId)
         val manifestUrl = "$manifestBaseUrl/$sourceId.manifest"
@@ -302,7 +352,7 @@ object FilterListManager {
             "서명 manifest의 최소 규칙 수가 앱 정책보다 낮습니다."
         }
         val bytes = download.content
-        val parsed = FilterRuleParser.parse(String(bytes, StandardCharsets.UTF_8).lineSequence().toList())
+        val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Strict(bytes).lineSequence().toList())
         val effectiveMinimum = maxOf(minimumRules, download.manifest.minimumRules)
         require(parsed.blocked.size + parsed.importantBlocked.size >= effectiveMinimum) {
             "서명 필터의 유효한 차단 도메인이 최소 규칙 수보다 적습니다."
@@ -319,6 +369,12 @@ object FilterListManager {
         val previousManifestVersion = preferences.getString(infoKeys.first, null)
         val previousManifestHash = preferences.getString(infoKeys.second, null)
         val previousManifestGeneratedAt = preferences.getLong(infoKeys.third, 0L)
+        FilterManifestVerifier.requireImmutableSourceVersion(
+            previousManifestVersion,
+            previousManifestHash,
+            download.manifest.sourceVersion,
+            download.manifest.sha256
+        )
         val metadata = preferences.edit()
             .putLong(updatedKey, now)
             .putInt(countKey, parsed.blocked.size + parsed.importantBlocked.size)
