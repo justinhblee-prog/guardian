@@ -10,7 +10,7 @@ import java.net.URL
 
 /** Parse only an HTTPS origin; API paths are appended from fixed internal constants. */
 internal fun parseLicenseApiBaseUrl(value: String): URL {
-    val base = value.trim().trimEnd('/')
+    val base = value.trim()
     require(base.isNotBlank()) { "라이선스 API 주소가 앱 빌드에 설정되지 않았습니다." }
     val parsed = URL(base)
     require(
