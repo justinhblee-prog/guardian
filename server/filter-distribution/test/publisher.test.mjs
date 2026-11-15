@@ -105,7 +105,7 @@ test('publisher rejects RSA signing keys below 2048 bits', async () => {
       'minimum-rules': '1',
       'output-dir': path.join(root, 'weak-key-dist')
     }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: weakKey }),
-    /at least 2048 bits/
+    /between 2048 and 4096 bits/
   );
 });
 
@@ -216,7 +216,7 @@ test('publisher fails before manifest commit when optional public-key output can
   const input = path.join(root, 'public-key-output-failure.txt');
   const outputDir = path.join(root, 'public-key-output-failure-dist');
   const publicKeyDirectory = path.join(root, 'public-key-output-is-directory');
-  await writeFile(input, '||key-output-failure.example^\\n');
+  await writeFile(input, '||key-output-failure.example^\n');
   await mkdir(publicKeyDirectory, { recursive: true });
   await assert.rejects(publishManifest({
     'source-id': 'security',
@@ -235,8 +235,8 @@ test('publisher refuses a previous manifest belonging to a different source', as
   const input = path.join(root, 'wrong-identity-input.txt');
   const outputDir = path.join(root, 'wrong-identity-dist');
   await mkdir(outputDir, { recursive: true });
-  await writeFile(input, '||wrong-identity.example^\\n');
-  await writeFile(path.join(outputDir, 'adguard.manifest'), 'generatedAt=100\\nsourceId=security\\n');
+  await writeFile(input, '||wrong-identity.example^\n');
+  await writeFile(path.join(outputDir, 'adguard.manifest'), 'generatedAt=100\nsourceId=security\n');
   await assert.rejects(publishManifest({
     'source-id': 'adguard',
     'source-version': 'wrong-identity-v1',
