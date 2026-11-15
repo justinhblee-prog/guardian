@@ -11,11 +11,19 @@ import java.nio.file.StandardCopyOption
  */
 internal object FilterCacheStore {
     @Synchronized
-    fun recover(target: File) {
+    fun recover(target: File, isCommitted: (File) -> Boolean = { true }) {
         val backup = File(target.parentFile, "${target.name}.bak")
         val temporary = File(target.parentFile, "${target.name}.tmp")
-        if (!target.exists() && backup.isFile) move(backup, target)
-        else backup.delete()
+        if (backup.isFile) {
+            when {
+                target.isFile && isCommitted(target) -> backup.delete()
+                isCommitted(backup) -> {
+                    target.delete()
+                    move(backup, target)
+                }
+                else -> throw IllegalStateException("필터 캐시와 백업이 저장된 서명 해시와 일치하지 않습니다.")
+            }
+        }
         temporary.delete()
     }
 
