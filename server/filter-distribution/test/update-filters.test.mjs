@@ -200,3 +200,24 @@ test('updater rejects RSA signing keys larger than 4096 bits before network acce
   }), /between 2048 and 4096 bits/);
   assert.equal(fetchCalled, false);
 });
+
+
+test('updater rejects excessive source counts before making network requests', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  let fetchCalled = false;
+  const sources = Array.from({ length: 101 }, (_, index) => ({
+    id: `source_${index}`,
+    url: `https://upstream.example/${index}.txt`,
+    minimumRules: 1
+  }));
+  await assert.rejects(updateFilters({
+    config: { baseUrl: 'https://filters.example.com', sources },
+    env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+    fetchImpl: async () => {
+      fetchCalled = true;
+      return new Response('||example.com^', { status: 200 });
+    }
+  }), /at most 100 filter sources/);
+  assert.equal(fetchCalled, false);
+});
