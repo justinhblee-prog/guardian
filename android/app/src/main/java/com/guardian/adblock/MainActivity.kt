@@ -9,6 +9,8 @@ import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.VpnService
@@ -68,6 +70,10 @@ class MainActivity : Activity() {
     private var blockRateValue: TextView? = null
     private var blockedCountValue: TextView? = null
     private var queryCountValue: TextView? = null
+    private var adBlockedValue: TextView? = null
+    private var trackerBlockedValue: TextView? = null
+    private var savedDataValue: TextView? = null
+    private var activityChart: ActivityStatsChart? = null
     private var receiverRegistered = false
     private var currentTab = "home"
     private val filterUpdateRunning = AtomicBoolean(false)
@@ -207,6 +213,10 @@ class MainActivity : Activity() {
         blockRateValue = null
         blockedCountValue = null
         queryCountValue = null
+        adBlockedValue = null
+        trackerBlockedValue = null
+        savedDataValue = null
+        activityChart = null
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
@@ -443,6 +453,28 @@ class MainActivity : Activity() {
             addView(statsText!!)
         }
         body.addView(summary.withTop(18))
+
+        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
+        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
+        val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
+        val chartCard = card(panel, 16).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("차단 활동 그래프", 14f, white, true))
+            activityChart = ActivityStatsChart()
+            addView(activityChart, LinearLayout.LayoutParams(-1, dp(178)).apply { topMargin = dp(12) })
+            val categories = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
+            adBlockedValue = text(String.format(Locale.getDefault(), "%,d", adCount), 17f, Color.rgb(255, 166, 94), true)
+            trackerBlockedValue = text(String.format(Locale.getDefault(), "%,d", trackerCount), 17f, Color.rgb(116, 167, 255), true)
+            categories.addView(metricCard("광고 도메인", adBlockedValue!!, Color.rgb(255, 166, 94)), LinearLayout.LayoutParams(0, dp(76), 1f))
+            categories.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+            categories.addView(metricCard("추적 도메인", trackerBlockedValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(76), 1f))
+            addView(categories.withTop(10))
+            savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(14) as TextView
+            addView(text("예상 절약 데이터", 11f, muted, false))
+            addView(savedDataValue!!)
+            addView(text("광고/추적 구분은 도메인 이름 기반 추정 분류입니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치이며 실제 전송량 측정값이 아닙니다.", 10f, muted, false).withTop(8))
+        }
+        body.addView(chartCard.withTop(12))
         body.addView(Button(this).apply {
             text = "DNS 규칙 엔진 테스트"
             isAllCaps = false
@@ -486,6 +518,9 @@ class MainActivity : Activity() {
                     .putLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)
                     .putLong(GuardianVpnService.KEY_DNS_FAILED, 0L)
                     .putLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)
+                    .putLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
+                    .putLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
+                    .putLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
                     .putString(GuardianVpnService.KEY_DNS_RECENT, "")
                     .putString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "")
                     .apply()
@@ -1705,6 +1740,13 @@ class MainActivity : Activity() {
         blockRateValue?.text = String.format(Locale.getDefault(), "%.1f%%", blockRate)
         blockedCountValue?.text = String.format(Locale.getDefault(), "%,d", blockedQueries)
         queryCountValue?.text = String.format(Locale.getDefault(), "%,d", totalQueries)
+        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
+        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
+        val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
+        adBlockedValue?.text = String.format(Locale.getDefault(), "%,d", adCount)
+        trackerBlockedValue?.text = String.format(Locale.getDefault(), "%,d", trackerCount)
+        savedDataValue?.text = estimatedSavedDataLabel(blockedQueries)
+        activityChart?.update(adCount, trackerCount, otherCount, prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))
         recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
         diagnosticText?.text = "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}"
     }
@@ -1777,6 +1819,60 @@ class MainActivity : Activity() {
                 }
             }
         }
+
+    private fun estimatedSavedDataLabel(blockedQueries: Long): String {
+        val bytes = blockedQueries.coerceAtLeast(0L) * 24L * 1024L
+        return if (bytes >= 1024L * 1024L) {
+            String.format(Locale.getDefault(), "약 %.2f MB", bytes / (1024.0 * 1024.0))
+        } else {
+            String.format(Locale.getDefault(), "약 %.0f KB", bytes / 1024.0)
+        }
+    }
+
+    private inner class ActivityStatsChart : View(this@MainActivity) {
+        private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = white
+            textSize = dp(11).toFloat()
+            typeface = Typeface.DEFAULT
+        }
+        private val values = LongArray(4)
+        private val labels = arrayOf("광고 차단", "추적 차단", "기타 차단", "정상 전달")
+        private val colors = intArrayOf(Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), accent, muted)
+
+        fun update(ads: Long, trackers: Long, other: Long, forwarded: Long) {
+            values[0] = ads.coerceAtLeast(0L)
+            values[1] = trackers.coerceAtLeast(0L)
+            values[2] = other.coerceAtLeast(0L)
+            values[3] = forwarded.coerceAtLeast(0L)
+            invalidate()
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val maxValue = values.maxOrNull()?.coerceAtLeast(1L) ?: 1L
+            val labelWidth = dp(76).toFloat()
+            val rightPadding = dp(38).toFloat()
+            val barWidth = (width - labelWidth - rightPadding).coerceAtLeast(dp(20).toFloat())
+            val rowHeight = height / 4f
+            for (i in values.indices) {
+                val top = i * rowHeight + dp(7)
+                textPaint.color = muted
+                canvas.drawText(labels[i], 0f, top + dp(12), textPaint)
+                val barTop = top + dp(20)
+                val barHeight = dp(12).toFloat()
+                barPaint.color = panel2
+                canvas.drawRoundRect(labelWidth, barTop, labelWidth + barWidth, barTop + barHeight, dp(6).toFloat(), dp(6).toFloat(), barPaint)
+                val fraction = values[i].toDouble() / maxValue.toDouble()
+                barPaint.color = colors[i]
+                canvas.drawRoundRect(labelWidth, barTop, labelWidth + (barWidth * fraction).toFloat().coerceAtLeast(if (values[i] > 0L) dp(3).toFloat() else 0f), barTop + barHeight, dp(6).toFloat(), dp(6).toFloat(), barPaint)
+                textPaint.color = white
+                textPaint.textAlign = Paint.Align.RIGHT
+                canvas.drawText(String.format(Locale.getDefault(), "%,d", values[i]), width.toFloat(), top + dp(12), textPaint)
+                textPaint.textAlign = Paint.Align.LEFT
+            }
+        }
+    }
 
     private fun metricCard(label: String, value: TextView, tint: Int) = card(panel, 15).apply {
         setPadding(dp(12), dp(12), dp(8), dp(10))
