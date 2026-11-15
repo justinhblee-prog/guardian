@@ -102,7 +102,7 @@ async function readFilterInput(filePath) {
   }
 }
 
-export async function publishManifest(options, env = process.env) {
+async function publishManifestUnlocked(options, env = process.env) {
   const sourceId = options['source-id'];
   const sourceVersion = options['source-version'];
   const input = options.input;
@@ -216,6 +216,40 @@ export async function publishManifest(options, env = process.env) {
     sourceId, sourceVersion, generatedAt, sha256,
     manifestPath, signaturePath, filterPath, publicKey
   };
+}
+
+/**
+ * Serialize manifest publication for each source in a shared output directory.
+ * Stale locks are intentionally not auto-recovered; an operator must verify
+ * that no publisher is running before removing one manually.
+ */
+export async function publishManifest(options, env = process.env) {
+  const sourceId = options['source-id'];
+  if (typeof sourceId !== 'string' || sourceId === '.' || sourceId === '..' ||
+      !/^[a-zA-Z0-9._-]{1,64}$/.test(sourceId)) {
+    throw new Error('source-id must contain 1-64 letters, digits, dot, underscore or hyphen.');
+  }
+  const outputDir = path.resolve(options['output-dir'] || 'dist');
+  await mkdir(outputDir, { recursive: true });
+  const lockPath = path.join(outputDir, `.${sourceId}.publish.lock`);
+  let lock;
+  try {
+    lock = await open(lockPath, 'wx', 0o600);
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      throw new Error(`Publication for source "${sourceId}" is already locked; refusing concurrent publish.`);
+    }
+    throw error;
+  }
+  try {
+    await lock.writeFile(JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() }) + '\\n');
+    return await publishManifestUnlocked(options, env);
+  } finally {
+    await lock.close();
+    // Pathname cleanup assumes the output directory is writable only by the
+    // trusted publisher account; Node does not expose atomic unlink-by-inode.
+    await rm(lockPath, { force: true });
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
