@@ -71,6 +71,13 @@ function requireAdmin(req) {
     throw Object.assign(new Error('관리자 인증에 실패했습니다.'), { status: 401 });
   }
 }
+function validateUuid(value, label) {
+  if (typeof value !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    throw Object.assign(new Error(`${label} 값이 올바르지 않습니다.`), { status: 400 });
+  }
+  return value.toLowerCase();
+}
 function validateLicenseRef(value) {
   // license_ref values are generated with crypto.randomUUID(); reject malformed
   // or oversized references before they reach PostgreSQL queries.
@@ -79,6 +86,60 @@ function validateLicenseRef(value) {
     throw Object.assign(new Error('라이선스 참조 값이 올바르지 않습니다.'), { status: 400 });
   }
   return value.toLowerCase();
+}
+async function listActivations(licenseId, req) {
+  requireEnv();
+  requireAdmin(req);
+  const id = validateUuid(licenseId, '라이선스 ID');
+  const license = await pool.query('SELECT id FROM licenses WHERE id=$1', [id]);
+  if (!license.rowCount) throw Object.assign(new Error('라이선스를 찾을 수 없습니다.'), { status: 404 });
+  const result = await pool.query(
+    `SELECT id,
+       right(device_binding, 8) AS device_hint,
+       app_version, activated_at, last_seen_at, deactivated_at
+     FROM activations
+     WHERE license_id=$1
+     ORDER BY activated_at DESC
+     LIMIT 50`,
+    [id]
+  );
+  return { activations: result.rows };
+}
+async function deactivateActivation(licenseId, activationId, req) {
+  requireEnv();
+  requireAdmin(req);
+  const id = validateUuid(licenseId, '라이선스 ID');
+  const activation = validateUuid(activationId, '기기 등록 ID');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Match the lock order used by refresh so admin deactivation cannot race
+    // with a renewal and issue a token after this device slot is released.
+    const found = await client.query(
+      `SELECT a.id, a.license_id, right(a.device_binding, 8) AS device_hint
+       FROM activations a JOIN licenses l ON l.id=a.license_id
+       WHERE l.id=$1 AND a.id=$2
+       FOR UPDATE OF l, a`,
+      [id, activation]
+    );
+    if (!found.rowCount) throw Object.assign(new Error('기기 등록을 찾을 수 없습니다.'), { status: 404 });
+    const updated = await client.query(
+      'UPDATE activations SET deactivated_at=now() WHERE id=$1 AND license_id=$2 AND deactivated_at IS NULL RETURNING id',
+      [activation, id]
+    );
+    if (!updated.rowCount) throw Object.assign(new Error('이미 해제된 기기 등록입니다.'), { status: 409 });
+    await recordEvent(client, id, 'admin_device_deactivated', 'admin', {
+      activationId: activation,
+      deviceHint: found.rows[0].device_hint
+    });
+    await client.query('COMMIT');
+    return { deactivated: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 function requireSigner() {
   if (!PRIVATE_KEY) throw Object.assign(new Error('라이선스 서명 키가 서버에 구성되지 않았습니다.'), { status: 503 });
@@ -286,7 +347,7 @@ async function revokeLicense(id, req) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
-    if (RATE_LIMITED_PATHS.has(url.pathname) || (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke'))) {
+    if (RATE_LIMITED_PATHS.has(url.pathname) || /^\/v1\/admin\/licenses(?:\/|$)/.test(url.pathname)) {
       // Use the socket peer address; do not trust caller-supplied X-Forwarded-For.
       const peer = req.socket.remoteAddress || 'unknown';
       const decision = rateLimit(`${peer}:${url.pathname}`);
@@ -331,6 +392,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
+    const activationListMatch = /^\/v1\/admin\/licenses\/([^/]+)\/activations$/.exec(url.pathname);
+    if (req.method === 'GET' && activationListMatch) {
+      return json(res, 200, await listActivations(activationListMatch[1], req));
+    }
     if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
     const body = await readBody(req);
     let result;
@@ -353,7 +418,12 @@ const server = http.createServer(async (req, res) => {
     else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
       const id = url.pathname.split('/')[4];
       result = await revokeLicense(id, req);
-    } else return json(res, 404, { error: 'not_found' });
+    } else {
+      const activationMatch = /^\/v1\/admin\/licenses\/([^/]+)\/activations\/([^/]+)\/deactivate$/.exec(url.pathname);
+      if (activationMatch) {
+        result = await deactivateActivation(activationMatch[1], activationMatch[2], req);
+      } else return json(res, 404, { error: 'not_found' });
+    }
     return json(res, 200, result);
   } catch (error) {
     const status = Number.isInteger(error.status) ? error.status : 500;
