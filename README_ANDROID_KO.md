@@ -20,6 +20,7 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - Cloudflare, Google, Quad9, AdGuard DNS 및 사용자 지정 IPv4/IPv6 숫자 주소를 업스트림으로 사용
 - 보호된 업스트림 UDP 소켓, 응답 발신지·transaction ID·질문 검증
 - 업스트림 UDP 응답이 잘린 경우 TCP/53으로 재시도
+- VPN 경로를 적용하기 전에 실제 업스트림 DNS 질의를 사전 검증하며, 모든 후보 DNS가 응답하지 않으면 VPN 라우트를 활성화하지 않아 일반 인터넷 연결을 유지
 - 1232바이트를 초과하는 UDP DNS 응답은 IPv6 최소 MTU를 고려해 TC(truncated) 응답으로 축소
 - VPN 시작/중지 경합 제어 및 Android 프로세스 회수 후 sticky service 복구
 - 사용자가 시작 중 보호 중지를 누른 경우에도 저장된 자동 복구 상태를 해제
