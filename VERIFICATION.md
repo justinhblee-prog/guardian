@@ -1,3 +1,26 @@
+# 최신 검증 기준 — 2026-11-15
+
+이 섹션은 과거 버전별 기록보다 우선합니다.
+
+- 기준 버전: `0.7.8-dev`, versionCode `21`, package `com.guardian.adblock`.
+- 기준 main 커밋(문서 갱신 시점): `a5876e7a68c32e9721b8763aa36e89b2150746e7`.
+- PR #25 CI run `43690905433`: Android unit tests, lintDebug, assembleDebug, API 35 emulator 설치/앱 실행, package/version 및 SHA-256 검증 성공.
+- PR #38 CI run `43694693871`: DNS-over-TCP wraparound ACK 거부 및 정상 ACK 복구 회귀 테스트 성공, main 병합 완료.
+- PR #40 release configuration CI run `43695827496`: YAML/trigger/signing gate 검증 성공. production-release job은 secrets 미설정으로 의도적으로 skipped.
+- PR #40 Android CI run `43695827493`: 문서 갱신 시점 emulator 실행 단계 진행 중. 전체 성공으로 계산하지 않습니다.
+- PR #41 Android CI run `43696306115`: 문서 갱신 시점 Gradle/Android 검증 진행 중. 전체 성공으로 계산하지 않습니다.
+- 위 PR branch 검증은 main release artifact나 운영 배포가 아닙니다.
+- 실기기 VPN/TUN 라우팅, 실제 광고 제거율, 외부 DNS provider 실연결, Wi-Fi↔모바일 전환 및 장시간 안정성은 미검증입니다.
+- Production keystore/secrets/API endpoint/public key/DB/TLS 도메인 설정 및 실제 production release는 미완료입니다.
+
+## 판정 규칙
+- Workflow 전체 `conclusion=success` 및 필요한 모든 job의 성공을 확인해야 완료로 기록합니다.
+- production-release가 의도적으로 skipped된 실행은 production 서명 검증 성공으로 기록하지 않습니다.
+- emulator 테스트는 물리 Android 기기 수용 테스트를 대체하지 않습니다.
+- 미완료 PR은 main에 반영된 기능으로 계산하지 않습니다.
+
+---
+
 # Guardian AdBlock Android — Verification Record
 
 기준 버전: 0.7.3-dev  

@@ -1,3 +1,14 @@
+# 최신 Android 빌드 기준 — 2026-11-15
+
+- 현재 개발 기준: `com.guardian.adblock`, versionCode `21`, `0.7.8-dev`.
+- Android CI는 단위 테스트, lintDebug, assembleDebug, 패키지 ID/version, SHA-256을 검증합니다. 관련 PR에서는 API 35 emulator 설치 및 앱 실행도 검사합니다.
+- push/PR CI의 debug APK는 검증 산출물이며, production 서명본이 아닙니다.
+- 최종 소스 ZIP/APK artifact는 해당 CI 실행의 artifact 목록과 체크섬을 확인한 뒤에만 전달합니다. 과거 0.7.7-dev artifact를 현재 0.7.8-dev 산출물로 혼동하지 않습니다.
+- production APK/AAB 서명은 별도 수동 workflow와 소유자 관리 release keystore/secrets가 필요합니다. 비밀키나 비밀번호를 저장소/채팅에 올리지 않습니다.
+- CI 성공은 실기기 VPN/DNS 라우팅 및 실제 광고 제거 효과를 증명하지 않습니다.
+
+---
+
 # Guardian AdBlock Android 0.6.5-dev — 빌드 안내
 
 ## 필수 환경
