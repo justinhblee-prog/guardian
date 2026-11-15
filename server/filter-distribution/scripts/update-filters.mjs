@@ -161,14 +161,25 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
       const date = now.toISOString().slice(0, 10).replaceAll('-', '');
       const sourceVersion = `${date}-${digest.slice(0, 12)}`;
       const inputPath = path.resolve(config.tempDir || '.guardian-filter-update', `${source.id}-${sourceVersion}-${randomUUID()}.txt`);
-      await mkdir(path.dirname(inputPath), { recursive: true });
+      await mkdir(path.dirname(inputPath), { recursive: true, mode: 0o700 });
+      let stagedHandle;
       try {
-        await writeFile(inputPath, bytes, { flag: 'wx', mode: 0o600 });
+        stagedHandle = await open(inputPath, 'wx', 0o600);
+        await stagedHandle.writeFile(bytes);
+        // Ensure the fully validated staging file reaches storage before the
+        // publisher opens it and makes its immutable copy.
+        await stagedHandle.sync();
+        await stagedHandle.close();
+        stagedHandle = undefined;
         staged.push({ source, inputPath, sourceVersion, ruleCount, digest });
       } catch (error) {
         // A failed write can leave a partial file before it is registered in
-        // the staged list; remove it here so the outer cleanup remains complete.
-        await rm(inputPath, { force: true });
+        // the staged list; close and remove it before propagating the failure.
+        try {
+          await stagedHandle?.close();
+        } finally {
+          await rm(inputPath, { force: true });
+        }
         throw error;
       }
     }
