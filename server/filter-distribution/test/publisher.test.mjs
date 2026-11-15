@@ -126,6 +126,7 @@ test('publisher refuses to inherit a corrupt future anti-rollback timestamp', as
     }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
     /too far in the future/
   );
+  await assert.rejects(readFile(path.join(outputDir, 'filters', 'adguard', 'v1.txt')));
 });
 
 test('publisher rejects insecure URLs, path segments and missing signing keys', async () => {
