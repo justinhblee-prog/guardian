@@ -10,7 +10,7 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - 서명된 오프라인 entitlement는 라이선스 만료 시각과 최대 24시간 중 더 이른 시각에 만료되며, 응답의 `expiresIn`은 서명 payload의 실제 남은 수명과 일치합니다. 서버 재접속 시 refresh로 갱신
 - 감사 이벤트, 파라미터 바인딩 SQL, 16KB 요청 제한, no-store 응답
 - API JSON 본문은 최상위 객체만 허용하며, `null`·배열·문자열·숫자 등 잘못된 본문 형태는 HTTP 400으로 거부
-- 라이선스 발급/활성화/갱신/상태 및 관리자 기기 관리 API에 프로세스 단위 요청 제한과 `429 Retry-After` 응답
+- 라이선스 발급/활성화/갱신/상태 및 관리자 기기 관리 API에 PostgreSQL 공유 요청 제한과 `429 Retry-After` 응답. 동일 DB를 사용하는 다중 API 인스턴스에서도 요청 카운터를 공유
 - 반응형 모바일 관리자 페이지: `/admin`. 관리자 토큰은 페이지 메모리에서만 유지하고 localStorage/sessionStorage에 저장하지 않습니다.
 
 ## 환경 변수
@@ -30,7 +30,7 @@ npm test
 npm start
 ```
 
-운영에서는 반드시 HTTPS reverse proxy 또는 HTTPS를 제공하는 호스팅 플랫폼 뒤에 배치하고, 관리자 페이지도 HTTPS로만 접근시켜야 합니다. 앱 내부 제한은 단일 프로세스의 보조 방어이며 재시작·다중 인스턴스 사이에 공유되지 않습니다. 프록시 뒤에서는 소켓 peer 기준이 프록시 주소가 될 수 있으므로, 공개 운영 환경에서는 프록시/WAF에서 실제 클라이언트 IP 기준 분산 rate limit을 반드시 적용해야 합니다. `GUARDIAN_RATE_LIMIT_WINDOW_MS`(기본 60000)와 `GUARDIAN_RATE_LIMIT_MAX`(기본 30)로 앱 내부 창과 요청 수를 조정할 수 있습니다. 데이터베이스 백업, Secret Manager, 로그 접근통제, 분산 rate limit/WAF, 모니터링, 복구 계획을 추가로 구성한 후 공개해야 합니다. 이 저장소의 서버는 운영 호스팅에 배포된 상태가 아닙니다.
+운영에서는 반드시 HTTPS reverse proxy 또는 HTTPS를 제공하는 호스팅 플랫폼 뒤에 배치하고, 관리자 페이지도 HTTPS로만 접근시켜야 합니다. API의 rate limit 카운터는 PostgreSQL에 저장되어 동일 DB를 사용하는 여러 API 인스턴스 사이에서 공유됩니다. 프록시 뒤에서는 소켓 peer 기준이 프록시 주소가 될 수 있으므로, 공개 운영 환경에서는 프록시/WAF에서 신뢰 가능한 실제 클라이언트 IP 기준 추가 분산 rate limit을 반드시 적용해야 합니다. `GUARDIAN_RATE_LIMIT_WINDOW_MS`(기본 60000)와 `GUARDIAN_RATE_LIMIT_MAX`(기본 30)로 앱 내부 창과 요청 수를 조정할 수 있습니다. 데이터베이스 백업, Secret Manager, 로그 접근통제, 분산 rate limit/WAF, 모니터링, 복구 계획을 추가로 구성한 후 공개해야 합니다. 이 저장소의 서버는 운영 호스팅에 배포된 상태가 아닙니다.
 
 ## Docker Compose 배포 준비
 
@@ -75,7 +75,7 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 활성화/갱신 성공 시 `payload`, `signature`, `expiresIn`을 반환합니다. 서버는 `Bearer` 인증 스킴을 엄격히 요구하며, `expiresIn`은 서명된 `expiresAt - issuedAt`과 일치합니다. Android 앱에는 개인키가 아닌 동일 RSA 키쌍의 X.509 공개키를 `GUARDIAN_LICENSE_PUBLIC_KEY` 빌드 환경 변수로 주입해야 합니다. 앱은 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증합니다.
 
 ## 보안 및 출시 전 남은 작업
-- 이 첫 서버 버전은 운영용 rate limiting, 관리자 다중 사용자/RBAC, 이메일/구매 복구, Google Play Billing 및 결제 webhook, 자동 환불/차지백 동기화가 없습니다. 공개 전 반드시 rate limiting/WAF 및 운영자 접근 정책을 보강해야 합니다.
+- API 인스턴스 간 rate limiting은 PostgreSQL 공유 카운터로 구현했지만, 프록시/WAF의 신뢰 IP 기반 방어와 DDoS 완화는 별도 구성해야 합니다. 관리자 다중 사용자/RBAC, 이메일/구매 복구, Google Play Billing 및 결제 webhook, 자동 환불/차지백 동기화도 공개 전 별도 구현이 필요합니다.
 - status/refresh는 deviceBinding만으로 해당 기기의 활성 라이선스를 조회합니다. 설치 UUID 재설치 시 새 기기 취급되며 관리자 초기화 정책을 따라야 합니다.
 - 기기 비활성화/라이선스 정지는 서버의 활성화 슬롯과 이후 refresh를 즉시 차단하지만, 이미 발급된 오프라인 서명 토큰을 원격에서 소급 폐기할 수는 없습니다. 기존 토큰은 서명된 expiresAt까지(최대 24시간) 검증될 수 있으므로 즉시 원격 차단이 필요한 제품 정책에는 더 짧은 토큰 TTL 또는 온라인 재검증이 필요합니다.
 - DB 스키마는 신규 설치용 초기 스키마입니다. 기존 DB에 적용할 경우 별도 migration 검토가 필요합니다.
