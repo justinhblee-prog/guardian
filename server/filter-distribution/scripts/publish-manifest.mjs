@@ -42,11 +42,16 @@ async function atomicWrite(filePath, bytes) {
     // does not generally expose directory handles through Node, so retain the
     // atomic rename guarantee there and skip only this platform-specific step.
     if (process.platform !== 'win32') {
-      const directoryHandle = await open(directory, fsConstants.O_RDONLY);
+      let directoryHandle;
       try {
+        directoryHandle = await open(directory, fsConstants.O_RDONLY);
         await directoryHandle.sync();
+      } catch (error) {
+        // Some POSIX-backed virtual/container filesystems do not implement
+        // directory fsync. Do not hide ordinary I/O or permission failures.
+        if (!['EINVAL', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS'].includes(error.code)) throw error;
       } finally {
-        await directoryHandle.close();
+        await directoryHandle?.close();
       }
     }
   } finally {
