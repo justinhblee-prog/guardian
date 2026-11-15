@@ -54,8 +54,10 @@ jobs:
           workflow = YAML.load_file('.github/workflows/android-production-release.yml', aliases: true)
           triggers = workflow.fetch('on')
           abort 'Expected pull_request, main push and manual workflow_dispatch triggers.' unless %w[pull_request push workflow_dispatch].all? { |event| triggers.key?(event) }
-          abort 'Production validation must run only for PR and push events.' unless workflow.dig('jobs', 'validate-release-configuration', 'if') == "${{ github.event_name == 'pull_request' || github.event_name == 'push' }}"
-          abort 'Production signing must remain manual-only.' unless workflow.dig('jobs', 'production-release', 'if') == "${{ github.event_name == 'workflow_dispatch' }}"
+          validation_if = workflow.dig('jobs', 'validate-release-configuration', 'if')
+          release_if = workflow.dig('jobs', 'production-release', 'if')
+          abort 'Production validation must be limited to PR and push events.' unless validation_if.is_a?(String) && validation_if.include?('github.event_name') && validation_if.include?('pull_request') && validation_if.include?('push')
+          abort 'Production signing must remain manual-only.' unless release_if.is_a?(String) && release_if.include?('workflow_dispatch')
           abort 'Main push validation must be branch-scoped.' unless triggers.dig('push', 'branches') == ['main']
           RUBY
       - name: Set up JDK 17
