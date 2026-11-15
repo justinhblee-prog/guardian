@@ -18,10 +18,12 @@ class LicenseApiClientTest {
         )
         val refresh = client.getDeclaredMethod("refresh", Context::class.java)
         val deactivate = client.getDeclaredMethod("deactivate", Context::class.java)
+        val status = client.getDeclaredMethod("status", Context::class.java)
 
         assertTrue(Modifier.isSynchronized(activate.modifiers))
         assertTrue(Modifier.isSynchronized(refresh.modifiers))
         assertTrue(Modifier.isSynchronized(deactivate.modifiers))
+        assertTrue(Modifier.isSynchronized(status.modifiers))
     }
 
     @Test
