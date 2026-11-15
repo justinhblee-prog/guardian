@@ -593,7 +593,7 @@ class GuardianVpnService : VpnService() {
         val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
         var socket: SSLSocket? = null
         return try {
-            val address = InetAddress.getByName(configuredUpstreamDns())
+            val address = InetAddress.getByName(upstreamAddress)
             val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
             socket = factory.createSocket() as SSLSocket
             if (!protect(socket)) {
@@ -633,7 +633,7 @@ class GuardianVpnService : VpnService() {
         val request = DnsDohHttpCodec.buildPostRequest(tlsHost, "/dns-query", query) ?: return null
         var socket: SSLSocket? = null
         return try {
-            val address = InetAddress.getByName(configuredUpstreamDns())
+            val address = InetAddress.getByName(upstreamAddress)
             val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
             socket = factory.createSocket() as SSLSocket
             if (!protect(socket)) {
