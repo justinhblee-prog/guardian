@@ -26,7 +26,7 @@
 - License API PostgreSQL integration CI: run `43663157229` 성공. Device deactivate/reactivate regression CI: run `43684498982` 성공.
 - Signed filter distribution CI: run `43686680935` 성공. Publisher single-writer lock CI: run `43686741568` 성공. 최신 updater regression rebased PR #28 CI run `43690373172`도 성공했습니다.
 - Android production signing configuration CI: run `43663200931` 성공. 실제 운영 keystore/secret/service endpoint는 아직 미설정이며 production release는 수행하지 않았습니다.
-- Android signed-filter client hardening PR #27은 동일 sourceVersion의 다른 SHA-256을 거부하고 manifest/filter payload의 strict UTF-8을 검증합니다. 또한 캐시 교체 중 비정상 종료 시 마지막 커밋된 서명 SHA-256을 기준으로 `.bak` 복구·변조 캐시 fail-closed 처리를 추가했으며 최신 head CI run `43692347280` 재검증 중입니다. 이전 head run `43691247420`은 에뮬레이터 검증까지 성공했습니다. 최신 CI run `43690257560`은 문서 갱신 시점에 진행 중입니다.
+- Android signed-filter client hardening PR #27은 동일 sourceVersion의 다른 SHA-256을 거부하고 manifest/filter payload의 strict UTF-8을 검증합니다. 또한 캐시 교체 중 비정상 종료 시 마지막 커밋된 서명 SHA-256을 기준으로 `.bak` 복구·변조 캐시 fail-closed 처리를 추가했으며 캐시 복구 시 별도 anti-rollback timestamp 파일도 SharedPreferences에 커밋된 manifest 시각 이상으로 복구하도록 추가 보강했으며, 최신 head CI 재실행을 확인 중입니다. 이전 head run `43691247420`은 에뮬레이터 검증까지 성공했습니다. 최신 CI run `43690257560`은 문서 갱신 시점에 진행 중입니다.
 - Android CI의 에뮬레이터 단계가 runner hang 시 전체 45분 작업을 점유하지 않도록 step timeout 15분과 animation 비활성화를 추가했습니다. PR #25 run `43690905433`, PR #27 최신 run `43690917658`에서 해당 변경 후 CI를 다시 실행 중입니다.
 - License API PR #29는 refresh/deactivation row-lock 경쟁 조건과 만료 라이선스의 기기 슬롯 해제 동작을 PostgreSQL 통합 회귀 테스트로 검증했습니다. CI runs `43691168622` 및 최신 `43691504879` 성공.
 - PR #30은 Android 라이선스 API 기본 주소를 HTTPS origin으로 제한하고, 경로·userinfo·query·fragment가 포함된 잘못된 설정을 거부하는 검증 및 회귀 테스트를 추가했습니다. 최신 CI run `43692524593` 실행 결과 확인 중입니다.
