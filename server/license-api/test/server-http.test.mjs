@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 
 process.env.NODE_ENV = 'test';
 process.env.GUARDIAN_RATE_LIMIT_MAX = '2';
+// Keep this isolated HTTP suite on its in-memory limiter so it cannot race
+// the PostgreSQL integration suite's shared client/path buckets.
+delete process.env.DATABASE_URL;
 const { server } = await import('../src/server.mjs');
 let baseUrl;
 
