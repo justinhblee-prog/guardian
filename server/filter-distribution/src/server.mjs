@@ -30,7 +30,7 @@ async function readBounded(filePath, maxBytes) {
       throw Object.assign(new Error('Invalid distribution asset size.'), { status: 404 });
     }
     const content = await handle.readFile();
-    if (content.length <= 0 || content.length > maxBytes) {
+    if (content.length <= 0 || content.length !== info.size || content.length > maxBytes) {
       throw Object.assign(new Error('Invalid distribution asset size.'), { status: 404 });
     }
     return content;
