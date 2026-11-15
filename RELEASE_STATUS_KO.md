@@ -24,6 +24,7 @@
 - PR #41: 만료된 서명 토큰은 FREE로 유지하면서도 기기 등록 해제를 가능하게 하는 변경. CI 성공, 미병합.
 - PR #43: main push 릴리스 설정 검증 및 수동 production signing gate. CI 성공, 미병합.
 - PR #44: License API HTTP timeout/header 제한 및 nosniff 보안 헤더. CI 성공, 미병합.
+- PR #46: signed filter publisher source-lock cleanup 소유권 확인. CI 성공, 미병합.
 - 운영 keystore, release secrets, manifest/license 공개키, HTTPS API/distribution endpoint, PostgreSQL, DNS/TLS 도메인은 실제 운영 환경에 설정·검증되지 않았습니다.
 - 실기기 Android VPN/DNS 수용 테스트는 추후 수행합니다.
 - Windows 클라이언트/설치 프로그램과 Windows 네트워크 변경·복구 실환경 검증은 마지막 단계로 보류합니다.
