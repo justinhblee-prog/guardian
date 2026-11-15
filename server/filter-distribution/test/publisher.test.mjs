@@ -228,6 +228,7 @@ test('publisher fails before manifest commit when optional public-key output can
     'public-key-out': publicKeyDirectory
   }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }));
   await assert.rejects(readFile(path.join(outputDir, 'security.manifest')));
+  await assert.rejects(readFile(path.join(outputDir, 'filters', 'security', 'public-key-output-failure.txt')));
 });
 
 
