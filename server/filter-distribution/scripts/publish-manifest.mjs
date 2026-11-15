@@ -1,5 +1,6 @@
 import { createPrivateKey, createPublicKey, randomUUID, sign as rsaSign } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -25,8 +26,31 @@ function argsFrom(argv) {
 async function atomicWrite(filePath, bytes) {
   await mkdir(path.dirname(filePath), { recursive: true });
   const temporary = `${filePath}.${randomUUID()}.tmp`;
-  await writeFile(temporary, bytes, { flag: 'wx', mode: 0o644 });
-  await rename(temporary, filePath);
+  try {
+    await writeFile(temporary, bytes, { flag: 'wx', mode: 0o644 });
+    await rename(temporary, filePath);
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
+async function readFilterInput(filePath) {
+  // Refuse symlinks and read through one descriptor so validation and hashing
+  // apply to the same regular file, not a path swapped mid-read.
+  const handle = await open(filePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+  try {
+    const stat = await handle.stat();
+    if (!stat.isFile() || stat.size < 1 || stat.size > MAX_FILTER_BYTES) {
+      throw new Error('Filter input must be a non-empty regular file no larger than 10 MiB.');
+    }
+    const content = await handle.readFile();
+    if (content.length !== stat.size || content.length > MAX_FILTER_BYTES) {
+      throw new Error('Filter input changed or exceeded 10 MiB while being read.');
+    }
+    return content;
+  } finally {
+    await handle.close();
+  }
 }
 
 export async function publishManifest(options, env = process.env) {
@@ -65,7 +89,7 @@ export async function publishManifest(options, env = process.env) {
     throw new Error('--base-url must be an HTTPS origin/path without credentials, query or fragment.');
   }
 
-  const content = await readFile(input);
+  const content = await readFilterInput(input);
   if (content.length === 0 || content.length > MAX_FILTER_BYTES || content.includes(0)) {
     throw new Error('Filter content is empty, contains NUL, or exceeds 10 MiB.');
   }
