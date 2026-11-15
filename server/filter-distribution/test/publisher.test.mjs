@@ -209,3 +209,22 @@ test('publisher rejects an oversized previous manifest before parsing it', async
     /16 KiB/
   );
 });
+
+
+test('publisher fails before manifest commit when optional public-key output cannot be written', async () => {
+  const input = path.join(root, 'public-key-output-failure.txt');
+  const outputDir = path.join(root, 'public-key-output-failure-dist');
+  const publicKeyDirectory = path.join(root, 'public-key-output-is-directory');
+  await writeFile(input, '||key-output-failure.example^\\n');
+  await mkdir(publicKeyDirectory, { recursive: true });
+  await assert.rejects(publishManifest({
+    'source-id': 'security',
+    'source-version': 'public-key-output-failure',
+    input,
+    'base-url': 'https://filters.example.com',
+    'minimum-rules': '1',
+    'output-dir': outputDir,
+    'public-key-out': publicKeyDirectory
+  }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }));
+  await assert.rejects(readFile(path.join(outputDir, 'security.manifest')));
+});
