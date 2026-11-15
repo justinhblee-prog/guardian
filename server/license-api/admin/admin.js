@@ -112,7 +112,7 @@ function renderEvents(items) {
   if (!items.length) { root.textContent = '감사 기록이 없습니다.'; return; }
   const labels = {
     issued: '라이선스 발급', activated: '기기 활성화',
-    deactivated: '기기 비활성화', revoked: '라이선스 정지'
+    deactivated: '기기 비활성화', admin_device_deactivated: '관리자 기기 해제', revoked: '라이선스 정지'
   };
   for (const item of items) {
     const row = document.createElement('div'); row.className = 'row';
