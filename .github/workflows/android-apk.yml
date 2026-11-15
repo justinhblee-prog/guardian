@@ -136,12 +136,12 @@ jobs:
             adb logcat -c
             # Install the previous signed build first, then upgrade in place.
             adb install /tmp/guardian-0.7.8-dev.apk
-            OLD_BADGING="$(aapt dump badging /tmp/guardian-0.7.8-dev.apk)"
+            OLD_BADGING="$("${ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging /tmp/guardian-0.7.8-dev.apk)"
             echo "$OLD_BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='21' versionName='0.7.8-dev'"
             adb shell pm path com.guardian.adblock
             installed=0; for attempt in 1 2 3; do if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then installed=1; break; fi; echo "ADB package-manager upgrade attempt ${attempt} failed; waiting for system services before retry."; adb wait-for-device; adb shell cmd package list packages >/dev/null 2>&1 || true; sleep 5; done; test "$installed" -eq 1
             adb shell pm path com.guardian.adblock | grep -F 'package:'
-            NEW_BADGING="$(aapt dump badging android/app/build/outputs/apk/debug/app-debug.apk)"
+            NEW_BADGING="$("${ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging android/app/build/outputs/apk/debug/app-debug.apk)"
             echo "$NEW_BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='22' versionName='0.7.9-dev'"
             adb shell am start -n com.guardian.adblock/.MainActivity
             sleep 8
