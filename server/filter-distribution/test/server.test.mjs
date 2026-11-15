@@ -94,6 +94,22 @@ test('manifest endpoint rejects non-canonical or implausible RSA signatures', as
 });
 
 
+
+test('server rejects oversized manifest and filter files before returning content', async () => {
+  const manifestPath = path.join(root, 'oversized.manifest');
+  const filterDir = path.join(root, 'filters', 'oversized');
+  await mkdir(filterDir, { recursive: true });
+  await writeFile(manifestPath, Buffer.alloc(16 * 1024 + 1, 0x61));
+  await writeFile(path.join(filterDir, 'v1.txt'), Buffer.alloc(10 * 1024 * 1024 + 1, 0x61));
+  try {
+    assert.equal((await fetch(`${baseUrl}/oversized.manifest`)).status, 404);
+    assert.equal((await fetch(`${baseUrl}/filters/oversized/v1.txt`)).status, 404);
+  } finally {
+    await rm(manifestPath, { force: true });
+    await rm(filterDir, { recursive: true, force: true });
+  }
+});
+
 test('server rejects a symlinked parent directory for versioned filters', async () => {
   const filtersPath = path.join(root, 'filters');
   const realFiltersPath = path.join(root, 'filters-real');
