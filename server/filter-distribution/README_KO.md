@@ -35,7 +35,7 @@ npm run update -- ./sources.json
 
 Updater는 HTTPS만 허용하고 redirect는 거부하며, 요청당 30초 timeout, 10 MiB 상한, UTF-8/NUL 검사, 최소 규칙 수 검사를 통과한 파일만 서명합니다. 버전은 UTC 날짜와 콘텐츠 SHA-256 앞 12자리 조합으로 생성하므로 같은 날짜의 변경도 별도 immutable 버전으로 발행됩니다. 실패한 upstream은 기존 manifest를 교체하지 않습니다.
 
-정기 실행은 배포/서명 PC의 작업 스케줄러에 위 명령을 등록하면 됩니다. Windows에서는 `UPDATE_FILTERS.bat`을 작업 스케줄러에 등록해 매일 실행할 수 있습니다. 실행 계정의 환경 변수 `GUARDIAN_FILTER_SIGNING_PRIVATE_KEY`에 개인키를 안전하게 주입하세요. 배치 파일이나 작업 인수에 PEM/비밀번호를 직접 적지 마세요.
+정기 실행은 배포/서명 PC에서만 구성합니다. Windows 작업 스케줄러에서는 작업의 **프로그램/스크립트**에 `UPDATE_FILTERS.bat`의 전체 경로를 지정하고, **시작 위치**에는 `server\\filter-distribution` 폴더를 지정합니다. 트리거는 원하는 일일 시간(예: 04:17)으로 설정하고, 작업 실행 계정에 Node.js 22 이상과 npm이 설치되어 있어야 합니다. `sources.example.json`을 `sources.json`으로 복사해 upstream 주소와 최소 규칙 수를 확인한 뒤 실행하세요. 실행 시 `GUARDIAN_FILTER_SIGNING_PRIVATE_KEY` 환경 변수가 해당 작업 프로세스에 제공되어야 합니다. 조직의 secret manager 또는 보호된 서명 환경을 통해 주입하고, PEM을 배치 파일·작업 인수·로그·저장소에 직접 기록하지 마세요. 이 변수가 없으면 배치 파일은 업데이트를 시작하지 않고 실패 코드로 종료합니다. 개인키를 Windows 운영 웹 서버나 Android 기기에 복사하지 마세요.
 
 Linux cron 예시는 다음과 같습니다.
 
