@@ -9,6 +9,7 @@
 - PR #41 run `43696306115`: Android unit tests, lint, assembleDebug, API 35 emulator 설치/실행, package/version/SHA-256 전체 성공. 미병합.
 - PR #43 Android run `43696645579` 및 release configuration run `43696645556` 성공. production-release job은 운영 secrets 미설정으로 의도적 skipped. 미병합.
 - PR #44 최종 run `43697583427` 성공: Node syntax, Docker Compose, PostgreSQL integration schema, cryptographic/HTTP/PostgreSQL tests. 미병합.
+- PR #46 run `43698002553` 성공: Filter Distribution publisher/updater/server regression tests 및 container deployment config. 미병합.
 - PR #16과 #40은 최신 main 기반 대체 PR #41/#43 생성 후 닫혔습니다.
 - 위 PR branch 검증은 main release artifact나 운영 배포가 아닙니다.
 - 실기기 VPN/TUN 라우팅, 실제 광고 제거율, 외부 DNS provider 연결, Wi-Fi↔모바일 전환 및 장시간 안정성은 미검증입니다.
