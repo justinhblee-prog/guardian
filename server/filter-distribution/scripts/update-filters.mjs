@@ -73,47 +73,60 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     return { ...source, upstream };
   });
 
-  const results = [];
-  for (const source of normalizedSources) {
-    const { upstream } = source;
-    const response = await fetchImpl(upstream, {
-      method: 'GET', redirect: 'error',
-      headers: { accept: 'text/plain,*/*;q=0.8', 'user-agent': 'GuardianFilterUpdater/1.0' },
-      signal: AbortSignal.timeout(30_000)
-    });
-    const { bytes, text } = await readResponse(response);
-    const ruleCount = text.split(/\r?\n/).filter(line => {
-      const value = line.trim();
-      return value && !value.startsWith('!') && !value.startsWith('#') &&
-        !value.startsWith('[') && !value.startsWith('@@');
-    }).length;
-    if (ruleCount < source.minimumRules) {
-      throw new Error(`Source ${source.id} has ${ruleCount} rules; minimum is ${source.minimumRules}.`);
+  // Stage and validate every upstream response before publishing any source.
+  // A later upstream outage must not leave a mixed-generation distribution.
+  const staged = [];
+  try {
+    for (const source of normalizedSources) {
+      const { upstream } = source;
+      const response = await fetchImpl(upstream, {
+        method: 'GET', redirect: 'error',
+        headers: { accept: 'text/plain,*/*;q=0.8', 'user-agent': 'GuardianFilterUpdater/1.0' },
+        signal: AbortSignal.timeout(30_000)
+      });
+      const { bytes, text } = await readResponse(response);
+      const ruleCount = text.split(/\\r?\\n/).filter(line => {
+        const value = line.trim();
+        return value && !value.startsWith('!') && !value.startsWith('#') &&
+          !value.startsWith('[') && !value.startsWith('@@');
+      }).length;
+      if (ruleCount < source.minimumRules) {
+        throw new Error(`Source ${source.id} has ${ruleCount} rules; minimum is ${source.minimumRules}.`);
+      }
+      const digest = createHash('sha256').update(bytes).digest('hex');
+      const date = now.toISOString().slice(0, 10).replaceAll('-', '');
+      const sourceVersion = `${date}-${digest.slice(0, 12)}`;
+      const inputPath = path.resolve(config.tempDir || '.guardian-filter-update', `${source.id}-${sourceVersion}-${randomUUID()}.txt`);
+      const { writeFile, mkdir } = await import('node:fs/promises');
+      await mkdir(path.dirname(inputPath), { recursive: true });
+      await writeFile(inputPath, bytes, { flag: 'wx', mode: 0o600 });
+      staged.push({ source, inputPath, sourceVersion, ruleCount, digest });
     }
-    const digest = createHash('sha256').update(bytes).digest('hex');
-    const date = now.toISOString().slice(0, 10).replaceAll('-', '');
-    const sourceVersion = `${date}-${digest.slice(0, 12)}`;
-    const inputPath = path.resolve(config.tempDir || '.guardian-filter-update', `${source.id}-${sourceVersion}-${randomUUID()}.txt`);
-    const { writeFile, mkdir } = await import('node:fs/promises');
-    await mkdir(path.dirname(inputPath), { recursive: true });
-    await writeFile(inputPath, bytes, { flag: 'wx', mode: 0o600 });
-    try {
+
+    const results = [];
+    for (const item of staged) {
       const published = await publishManifest({
-        'source-id': source.id,
-        'source-version': sourceVersion,
-        input: inputPath,
+        'source-id': item.source.id,
+        'source-version': item.sourceVersion,
+        input: item.inputPath,
         'base-url': config.baseUrl,
-        'minimum-rules': String(source.minimumRules),
+        'minimum-rules': String(item.source.minimumRules),
         'output-dir': config.outputDir || 'dist'
       }, env);
-      results.push({ sourceId: source.id, sourceVersion, ruleCount, sha256: digest, manifestPath: published.manifestPath });
-    } finally {
-      const { rm } = await import('node:fs/promises');
-      await rm(inputPath, { force: true });
+      results.push({
+        sourceId: item.source.id,
+        sourceVersion: item.sourceVersion,
+        ruleCount: item.ruleCount,
+        sha256: item.digest,
+        manifestPath: published.manifestPath
+      });
     }
+    return results;
+  } finally {
+    const { rm } = await import('node:fs/promises');
+    await Promise.all(staged.map(item => rm(item.inputPath, { force: true })));
   }
-  return results;
-}
+
 
 async function main() {
   const configPath = path.resolve(process.argv[2] || 'sources.json');
