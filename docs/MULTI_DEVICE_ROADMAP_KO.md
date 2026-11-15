@@ -5,7 +5,7 @@
 | 구성 요소 | 현재 실제 상태 | 남은 범위 |
 |---|---|---|
 | Android 스마트폰 | VpnService DNS 클라이언트, UDP/TCP DNS, UDP/TCP/DoT/DoH upstream, 필터/캐시/WorkManager, 라이선스 검증 코드 구현 및 Android CI 검증 | 실기기 VPN/DNS 수용, 광고 차단 효과, 네트워크 전환/장시간 안정성 |
-| Android 태블릿 | 동일 APK 사용. 화면 너비에 따른 padding/content width 정책 및 JUnit 테스트 구현 | 실제 태블릿 설치/회전/분할 화면/키보드·마우스 검증, wide-screen 2열/탐색 레일 UI 최적화 |
+| Android 태블릿 | 동일 APK, 너비 기반 padding/content width 및 840dp 이상 navigation rail, breakpoint/콘텐츠 폭 JUnit 테스트 구현 | 실제 태블릿 설치/회전/분할 화면/키보드·마우스 검증, wide-screen 2열 콘텐츠 최적화 |
 | Signed filter backend | RSA detached manifest publisher, HTTPS updater, immutable filter distribution server, 크기/서명/경로/심볼릭 링크/동시 publish 방어 및 CI 테스트 구현 | 운영 도메인/TLS/WAF, 공개 배포 서버, 오프라인 서명키 보관·회전/복구 절차 |
 | License backend | Node.js/PostgreSQL API, 발급/활성화/갱신/해제/정지, 관리자 기기 관리·감사 이벤트, 모바일 관리자 페이지, PostgreSQL 공유 rate limit 및 HTTP/DB timeout 방어 구현 | 운영 DB/HTTPS/Secret Manager/WAF, 프록시 신뢰 IP 기반 rate limit, 결제/Billing·구매 복구, 실제 end-to-end 배포 검증 |
 | 모바일 관리 콘솔 | 라이선스 발급·정지·기기 해제를 제공하는 반응형 관리자 페이지 `/admin` 존재 | 계정/RBAC, 필터 게시·롤백, 앱 버전/업데이트 채널, 여러 서비스의 통합 상태를 제공하는 전체 콘솔 |
