@@ -370,7 +370,17 @@ const server = http.createServer(async (req, res) => {
       const rateLimitPath = url.pathname.startsWith('/v1/admin/licenses/') ? '/v1/admin/licenses/*' : url.pathname;
       // Shared PostgreSQL buckets keep limits consistent across API replicas.
       // The process-local limiter remains available only for isolated DB-less tests.
-      const decision = await rateLimit(`${peer}:${rateLimitPath}`);
+      let decision;
+      try {
+        decision = await rateLimit(`${peer}:${rateLimitPath}`);
+      } catch (cause) {
+        // Do not bypass limits when the shared store is unavailable; fail closed
+        // and report service unavailability instead of an internal server error.
+        throw Object.assign(new Error('요청 제한 저장소를 사용할 수 없습니다.'), {
+          status: 503,
+          cause
+        });
+      }
       res.setHeader('RateLimit-Limit', String(decision.limit));
       res.setHeader('RateLimit-Remaining', String(decision.remaining));
       if (!decision.allowed) {
