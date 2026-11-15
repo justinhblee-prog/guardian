@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { open, readFile, mkdir, rm } from 'node:fs/promises';
+import { open, readFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -126,7 +126,6 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
       const date = now.toISOString().slice(0, 10).replaceAll('-', '');
       const sourceVersion = `${date}-${digest.slice(0, 12)}`;
       const inputPath = path.resolve(config.tempDir || '.guardian-filter-update', `${source.id}-${sourceVersion}-${randomUUID()}.txt`);
-      const { writeFile, mkdir } = await import('node:fs/promises');
       await mkdir(path.dirname(inputPath), { recursive: true });
       try {
         await writeFile(inputPath, bytes, { flag: 'wx', mode: 0o600 });
