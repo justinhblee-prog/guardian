@@ -111,11 +111,47 @@ object FilterListManager {
         return profiles.firstOrNull { it.key == key } ?: profiles.first()
     }
 
-    fun hasCachedFile(context: Context): Boolean =
-        File(context.filesDir, CACHE_FILE).let {
-            FilterCacheStore.recover(it)
-            it.isFile && it.length() > 0L
+    private fun recoverCache(context: Context, cacheName: String): File {
+        val target = File(context.filesDir, cacheName)
+        val signedConfigured = BuildConfig.FILTER_MANIFEST_BASE_URL.isNotBlank() &&
+            BuildConfig.FILTER_MANIFEST_PUBLIC_KEY.isNotBlank()
+        if (!signedConfigured) {
+            FilterCacheStore.recover(target)
+            return target
         }
+        val keys = manifestPreferenceKeys(cacheName)
+        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val expectedHash = preferences.getString(keys.second, null)
+        if (expectedHash == null || !expectedHash.matches(Regex("[a-fA-F0-9]{64}"))) {
+            // A cache without a committed signed hash may be a partially replaced first install
+            // or an old unsigned cache. Neither is trusted once signed delivery is configured.
+            target.delete()
+            File(target.parentFile, "${target.name}.bak").delete()
+            File(target.parentFile, "${target.name}.tmp").delete()
+            return target
+        }
+        try {
+            FilterCacheStore.recover(target) { candidate ->
+                candidate.isFile && candidate.length() <= MAX_BYTES &&
+                    FilterManifestVerifier.matchesSha256(candidate.readBytes(), expectedHash)
+            }
+        } catch (_: IllegalStateException) {
+            target.delete()
+            File(target.parentFile, "${target.name}.bak").delete()
+            preferences.edit()
+                .remove(keys.first).remove(keys.second).remove(keys.third)
+                .putInt(when (cacheName) {
+                    SECURITY_CACHE_FILE -> KEY_SECURITY_BLOCK_COUNT
+                    ANDROID_ADS_CACHE_FILE -> KEY_ANDROID_ADS_BLOCK_COUNT
+                    else -> KEY_BLOCK_COUNT
+                }, 0)
+                .apply()
+        }
+        return target
+    }
+
+    fun hasCachedFile(context: Context): Boolean =
+        recoverCache(context, CACHE_FILE).let { it.isFile && it.length() > 0L }
 
     internal fun isCacheValid(fileExists: Boolean, blockCount: Int, minimumRules: Int): Boolean =
         fileExists && minimumRules > 0 && blockCount >= minimumRules
@@ -124,18 +160,12 @@ object FilterListManager {
         isCacheValid(hasCachedFile(context), cachedBlockCount(context), selectedProfile(context).minimumRules)
 
     fun hasCachedSecurityList(context: Context): Boolean {
-        val fileExists = File(context.filesDir, SECURITY_CACHE_FILE).let {
-            FilterCacheStore.recover(it)
-            it.isFile && it.length() > 0L
-        }
+        val fileExists = recoverCache(context, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
         return isCacheValid(fileExists, cachedSecurityBlockCount(context), MIN_SECURITY_BLOCKS)
     }
 
     fun hasCachedAndroidAdsList(context: Context): Boolean {
-        val fileExists = File(context.filesDir, ANDROID_ADS_CACHE_FILE).let {
-            FilterCacheStore.recover(it)
-            it.isFile && it.length() > 0L
-        }
+        val fileExists = recoverCache(context, ANDROID_ADS_CACHE_FILE).let { it.isFile && it.length() > 0L }
         return isCacheValid(fileExists, cachedAndroidAdsBlockCount(context), MIN_ANDROID_ADS_BLOCKS)
     }
     fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
@@ -155,8 +185,7 @@ object FilterListManager {
             KEY_ANDROID_ADS_UPDATED_AT, KEY_ANDROID_ADS_BLOCK_COUNT, KEY_ANDROID_ADS_IGNORED_COUNT)
 
     private fun readCache(context: Context, name: String): List<String> {
-        val file = File(context.filesDir, name)
-        FilterCacheStore.recover(file)
+        val file = recoverCache(context, name)
         return if (file.isFile && file.length() > 0L) file.readLines(Charsets.UTF_8) else emptyList()
     }
 
