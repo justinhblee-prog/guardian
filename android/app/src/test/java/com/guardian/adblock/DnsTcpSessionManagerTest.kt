@@ -7,7 +7,7 @@ import java.security.SecureRandom
 class DnsTcpSessionManagerTest {
     @Test fun completesHandshakeAndAcknowledgesClientData() {
         var now = 1000L
-        val manager = DnsTcpSessionManager({ now }, SecureRandom())
+        val manager = DnsTcpSessionManager({ now }, deterministicRandom())
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 100)
         val synAck = manager.handle(syn, syn.size) { null }.single()
         val parsedSynAck = DnsTcpPacket.parse(synAck, synAck.size, 53000)
@@ -24,7 +24,7 @@ class DnsTcpSessionManagerTest {
     }
 
     @Test fun boundsBufferedTcpDataAndResetsConnection() {
-        val manager = DnsTcpSessionManager()
+        val manager = newManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 300)
         manager.handle(syn, syn.size) { null }
         val oversized = ByteArray(8200)
@@ -352,6 +352,33 @@ class DnsTcpSessionManagerTest {
         assertEquals(1, manager.activeSessionCount())
     }
 
+
+    @Test fun rejectsFutureAcknowledgementAcrossSequenceNumberWrap() {
+        val wrapRandom = object : SecureRandom() {
+            override fun nextInt(): Int = -2
+        }
+        val manager = DnsTcpSessionManager(random = wrapRandom)
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 3300)
+        val synAck = DnsTcpPacket.parse(
+            manager.handle(syn, syn.size) { null }.single(), 40, 53000
+        )!!
+        assertEquals(0xfffffffeL, synAck.sequence)
+
+        val wrappedFutureAck = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 3301,
+            acknowledgment = 0L,
+            payload = byteArrayOf(0, 17) + dnsQuery()
+        )
+        var resolveCalls = 0
+        manager.handle(wrappedFutureAck, wrappedFutureAck.size) {
+            resolveCalls++
+            DomainFilter.makeServfail(it)
+        }
+        assertEquals(0, resolveCalls)
+        assertEquals(1, manager.activeSessionCount())
+    }
+
     @Test fun ignoresPayloadWithoutAckAndAcceptsValidRetransmissionAtSameSequence() {
         val manager = DnsTcpSessionManager()
         val query = dnsQuery()
@@ -475,6 +502,14 @@ class DnsTcpSessionManagerTest {
         val nextReply = manager.handle(next, next.size) { DomainFilter.makeServfail(it) }
         assertTrue(nextReply.isNotEmpty())
         assertEquals(1, manager.activeSessionCount())
+    }
+
+
+    private fun newManager(): DnsTcpSessionManager =
+        DnsTcpSessionManager(random = deterministicRandom())
+
+    private fun deterministicRandom(): SecureRandom = object : SecureRandom() {
+        override fun nextInt(): Int = 0
     }
 
     private fun dnsQuery(): ByteArray = byteArrayOf(
