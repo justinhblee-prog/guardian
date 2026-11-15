@@ -11,7 +11,7 @@ async function readResponse(response) {
   if (!response.ok) throw new Error(`Upstream returned HTTP ${response.status}.`);
   const declaredLength = response.headers.get('content-length');
   if (declaredLength !== null) {
-    if (!/^\\d+$/.test(declaredLength)) {
+    if (!/^\d+$/.test(declaredLength)) {
       throw new Error('Upstream returned an invalid Content-Length.');
     }
     const length = Number(declaredLength);
