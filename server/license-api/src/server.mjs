@@ -2,7 +2,7 @@ import http from 'node:http';
 import { createPrivateKey, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
-import { createRateLimiter } from './rate-limit.mjs';
+import { createPostgresRateLimiter, createRateLimiter } from './rate-limit.mjs';
 import {
   adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey,
   validateDeviceBinding, verifyLicenseKey
@@ -16,19 +16,36 @@ const PRIVATE_KEY = process.env.GUARDIAN_LICENSE_PRIVATE_KEY;
 const LOOKUP_SECRET = process.env.GUARDIAN_LICENSE_LOOKUP_SECRET;
 const TOKEN_TTL_SECONDS = 24 * 60 * 60;
 const BODY_LIMIT = 16 * 1024;
-const rateLimit = createRateLimiter({
+const rateLimitOptions = {
   windowMs: Number(process.env.GUARDIAN_RATE_LIMIT_WINDOW_MS || 60_000),
   maxRequests: Number(process.env.GUARDIAN_RATE_LIMIT_MAX || 30)
-});
+};
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
   '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events'
 ]);
-const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 10, ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: true } : undefined }) : null;
+const pool = DATABASE_URL ? new Pool({
+  connectionString: DATABASE_URL,
+  max: 10,
+  connectionTimeoutMillis: 5_000,
+  idleTimeoutMillis: 30_000,
+  statement_timeout: 10_000,
+  query_timeout: 12_000,
+  idle_in_transaction_session_timeout: 15_000,
+  ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: true } : undefined
+}) : null;
+const rateLimit = pool
+  ? createPostgresRateLimiter(pool, rateLimitOptions)
+  : createRateLimiter(rateLimitOptions);
 
 function json(res, status, value) {
   const body = JSON.stringify(value);
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'content-length': Buffer.byteLength(body) });
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+    'content-length': Buffer.byteLength(body)
+  });
   res.end(body);
 }
 async function readBody(req) {
@@ -229,7 +246,8 @@ async function refresh(body) {
     // a fresh signed token after the slot had already been released.
     await client.query('BEGIN');
     const result = await client.query(
-      `SELECT l.* FROM licenses l JOIN activations a ON a.license_id=l.id
+      `/* guardian_license_refresh_lock */
+       SELECT l.* FROM licenses l JOIN activations a ON a.license_id=l.id
        JOIN products p ON p.id=l.product_id
        WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
        AND l.status='active' AND l.expires_at>now() AND p.active=true
@@ -351,7 +369,19 @@ const server = http.createServer(async (req, res) => {
       // Use the socket peer address; do not trust caller-supplied X-Forwarded-For.
       const peer = req.socket.remoteAddress || 'unknown';
       const rateLimitPath = url.pathname.startsWith('/v1/admin/licenses/') ? '/v1/admin/licenses/*' : url.pathname;
-      const decision = rateLimit(`${peer}:${rateLimitPath}`);
+      // Shared PostgreSQL buckets keep limits consistent across API replicas.
+      // The process-local limiter remains available only for isolated DB-less tests.
+      let decision;
+      try {
+        decision = await rateLimit(`${peer}:${rateLimitPath}`);
+      } catch (cause) {
+        // Do not bypass limits when the shared store is unavailable; fail closed
+        // and report service unavailability instead of an internal server error.
+        throw Object.assign(new Error('요청 제한 저장소를 사용할 수 없습니다.'), {
+          status: 503,
+          cause
+        });
+      }
       res.setHeader('RateLimit-Limit', String(decision.limit));
       res.setHeader('RateLimit-Remaining', String(decision.remaining));
       if (!decision.allowed) {
@@ -369,9 +399,10 @@ const server = http.createServer(async (req, res) => {
              to_regclass('public.products') AS products,
              to_regclass('public.licenses') AS licenses,
              to_regclass('public.activations') AS activations,
-             to_regclass('public.license_events') AS license_events`
+             to_regclass('public.license_events') AS license_events,
+             to_regclass('public.api_rate_limit_buckets') AS api_rate_limit_buckets`
         );
-        const requiredTables = ['products', 'licenses', 'activations', 'license_events'];
+        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets'];
         if (requiredTables.some(table => !schema.rows[0]?.[table])) {
           throw new Error('license_database_schema_not_initialized');
         }

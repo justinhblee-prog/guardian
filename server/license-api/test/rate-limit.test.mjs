@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRateLimiter } from '../src/rate-limit.mjs';
+import { createPostgresRateLimiter, createRateLimiter } from '../src/rate-limit.mjs';
 
 test('allows requests up to configured limit and rejects the next request', () => {
   let now = 10_000;
@@ -31,4 +31,11 @@ test('bounds memory growth when many unique clients arrive', () => {
   assert.equal(limit('c').allowed, false);
   now += 60_000;
   assert.equal(limit('d').allowed, true);
+});
+
+test('PostgreSQL limiter propagates store outages so API middleware can fail closed', async () => {
+  const limiter = createPostgresRateLimiter({
+    query: async () => { throw new Error('database unavailable'); }
+  });
+  await assert.rejects(limiter('client-a'), /database unavailable/);
 });

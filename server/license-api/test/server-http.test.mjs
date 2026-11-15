@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 
 process.env.NODE_ENV = 'test';
 process.env.GUARDIAN_RATE_LIMIT_MAX = '2';
+// Keep this isolated HTTP suite on its in-memory limiter so it cannot race
+// the PostgreSQL integration suite's shared client/path buckets.
+delete process.env.DATABASE_URL;
 const { server } = await import('../src/server.mjs');
 let baseUrl;
 
@@ -13,6 +16,16 @@ before(async () => {
 
 after(async () => {
   await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+});
+
+test('JSON API responses disable MIME sniffing', async () => {
+  const response = await fetch(`${baseUrl}/v1/unknown`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}'
+  });
+  assert.equal(response.status, 404);
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
 });
 
 test('health endpoint returns no-store service status', async () => {

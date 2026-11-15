@@ -1,6 +1,7 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPairSync, verify } from 'node:crypto';
+import { generateKeyPairSync, randomUUID, verify } from 'node:crypto';
+import { createPostgresRateLimiter } from '../src/rate-limit.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -46,9 +47,63 @@ if (!databaseUrl) {
   };
 
   before(async () => {
-    await pool.query('TRUNCATE license_events, activations, licenses RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE api_rate_limit_buckets, license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  test('PostgreSQL rate limiter prunes expired buckets during bounded cleanup', async () => {
+    const cleanup = createPostgresRateLimiter(pool, {
+      windowMs: 1_000,
+      maxRequests: 2,
+      cleanupEvery: 1
+    });
+    const staleKey = `expired-rate-limit-test:${randomUUID()}`;
+    try {
+      await pool.query(
+        `INSERT INTO api_rate_limit_buckets(bucket_key, window_started_at, request_count)
+         VALUES($1, clock_timestamp() - interval '2 seconds', 1)`,
+        [staleKey]
+      );
+      await cleanup(`active-rate-limit-test:${randomUUID()}`);
+      const stale = await pool.query(
+        'SELECT bucket_key FROM api_rate_limit_buckets WHERE bucket_key=$1',
+        [staleKey]
+      );
+      assert.equal(stale.rowCount, 0);
+    } finally {
+      await pool.query(
+        'DELETE FROM api_rate_limit_buckets WHERE bucket_key LIKE $1',
+        ['%rate-limit-test:%']
+      );
+    }
+  });
+
+  test('database pool applies bounded connection, statement and transaction timeouts', () => {
+    assert.equal(apiPool.options.max, 10);
+    assert.equal(apiPool.options.connectionTimeoutMillis, 5_000);
+    assert.equal(apiPool.options.idleTimeoutMillis, 30_000);
+    assert.equal(apiPool.options.statement_timeout, 10_000);
+    assert.equal(apiPool.options.query_timeout, 12_000);
+    assert.equal(apiPool.options.idle_in_transaction_session_timeout, 15_000);
+  });
+
+  test('PostgreSQL rate limits are shared across API instances and concurrent requests', async () => {
+    const firstInstance = createPostgresRateLimiter(pool, { windowMs: 60_000, maxRequests: 3 });
+    const secondInstance = createPostgresRateLimiter(pool, { windowMs: 60_000, maxRequests: 3 });
+    const key = `shared-rate-limit-test:${randomUUID()}`;
+    try {
+      const decisions = await Promise.all(
+        Array.from({ length: 12 }, (_, index) =>
+          (index % 2 === 0 ? firstInstance : secondInstance)(key)
+        )
+      );
+      assert.equal(decisions.filter(item => item.allowed).length, 3);
+      assert.equal(decisions.filter(item => !item.allowed).length, 9);
+      assert.ok(decisions.every(item => item.limit === 3));
+    } finally {
+      await pool.query('DELETE FROM api_rate_limit_buckets WHERE bucket_key=$1', [key]);
+    }
   });
 
   test('readiness endpoint requires a reachable database and valid RSA signer', async () => {
@@ -159,11 +214,11 @@ if (!databaseUrl) {
       // Wait until the API transaction has reached its SELECT ... FOR UPDATE
       // and is blocked by the deactivation transaction's row lock.
       let refreshWaitingOnLock = false;
-      for (let attempt = 0; attempt < 100; attempt += 1) {
+      for (let attempt = 0; attempt < 200; attempt += 1) {
         const waiting = await lockClient.query(
           `SELECT count(*)::int AS n FROM pg_stat_activity
            WHERE datname=current_database() AND pid<>pg_backend_pid()
-             AND wait_event_type='Lock' AND query LIKE '%FOR UPDATE OF l, a%'`
+             AND wait_event_type='Lock' AND query LIKE '%guardian_license_refresh_lock%'`
         );
         if (waiting.rows[0].n > 0) {
           refreshWaitingOnLock = true;
