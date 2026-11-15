@@ -27,6 +27,9 @@
 - Signed filter distribution CI: run `43686680935` 성공. Publisher single-writer lock CI: run `43686741568` 성공. 최신 updater regression rebased PR #28 CI run `43690373172`도 성공했습니다.
 - Android production signing configuration CI: run `43663200931` 성공. 실제 운영 keystore/secret/service endpoint는 아직 미설정이며 production release는 수행하지 않았습니다.
 - Android signed-filter client hardening PR #27은 동일 sourceVersion의 다른 SHA-256을 거부하고 manifest/filter payload의 strict UTF-8을 검증합니다. 최신 CI run `43690257560`은 문서 갱신 시점에 진행 중입니다.
+- Android CI의 에뮬레이터 단계가 runner hang 시 전체 45분 작업을 점유하지 않도록 step timeout 15분과 animation 비활성화를 추가했습니다. PR #25 run `43690905433`, PR #27 최신 run `43690917658`에서 해당 변경 후 CI를 다시 실행 중입니다.
+- License API PR #29는 refresh와 device deactivation의 PostgreSQL row-lock 경쟁 조건을 재현하는 통합 회귀 테스트를 추가했습니다. PR #13의 트랜잭션/row-lock 구현을 검증하며 CI run `43691168622` 진행 중입니다.
+- PR #4와 #7은 entitlement store 및 12시간 WorkManager renewal 구현이 이미 main에 포함된 것을 확인해 중복 PR로 종료했습니다.
 - 실기기 VPN/TUN 라우팅, 실제 광고 제거율, 외부 DoH/DoT provider 연결은 미검증입니다.
 
 ## 현재 개발 작업 및 미완료 범위
