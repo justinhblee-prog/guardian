@@ -15,6 +15,10 @@
 - PR #43 Android CI run `43696645579` 및 Production Release 설정 run `43696645556` 성공. 설정 검증은 통과했으며 production signing은 운영 secrets/keystore 미설정으로 의도적 skipped. 미병합.
 - PR #44 최종 License API CI run `43697583427` 성공: Node 구문 검사, Docker Compose 검증, PostgreSQL 스키마 초기화, 암호화/HTTP/PostgreSQL 테스트. 미병합.
 - PR #46 Filter Distribution CI run `43698002553` 성공: publisher/updater/distribution Node 테스트 및 컨테이너 설정 검증. 미병합.
+- PR #47 Android CI run `43699497055` 성공: 단위 테스트, lint, debug APK, API 35 emulator 설치·실행, package/version/SHA-256. 미병합.
+- PR #48 Android CI run `43698680084` 성공: 단위 테스트, lint, debug APK, API 35 emulator 설치·실행, package/version/SHA-256. 미병합.
+- PR #49 Android CI run `43699268819` 성공: 단위 테스트, lint, debug APK, API 35 emulator 설치·실행, package/version/SHA-256. 미병합.
+- PR #50 License API CI run `43700615872` 성공: PostgreSQL 공유 rate-limit 동시성/만료 bucket cleanup 테스트, API/DB timeout 및 nosniff 테스트 포함. 미병합.
 - PR #16/#40은 각각 최신 main 재적용본 #41/#43으로 대체되어 닫혔습니다.
 - main에 병합된 변경과 PR 브랜치의 미병합 변경은 구분합니다. PR CI 성공을 main 통합이나 운영 배포 성공으로 표시하지 않습니다.
 - CI 검증은 실기기 VPN/TUN 라우팅, 실제 광고 제거율, Wi-Fi↔모바일 전환 또는 장시간 안정성을 입증하지 않습니다.
