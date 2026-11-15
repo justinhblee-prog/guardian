@@ -164,21 +164,23 @@ jobs:
           - License API URL configured: ${GUARDIAN_LICENSE_API_BASE_URL:+yes}
           - Physical-device VPN/DNS and real-world ad filtering acceptance: not performed by this workflow
           EOF
-          zip -qr 'release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip' . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' '*.aab' '*.jks' '*.keystore' '*.p12' '*.pfx' '.env' 'release/*.zip'
+          zip -qr "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip" . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' '*.aab' '*.jks' '*.keystore' '*.p12' '*.pfx' '.env' 'release/*.zip'
           rm -f android/app/guardian-release.jks
-          ls -lh "$APK" "$AAB" release/SHA256SUMS.txt release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip
+          ls -lh "$APK" "$AAB" release/SHA256SUMS.txt release/VERIFICATION_SUMMARY_KO.md release/signature-verification.txt release/aab-signature-verification.txt release/signer-certificate.txt "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip"
 
       - name: Upload signed APK, AAB and source package
         uses: actions/upload-artifact@v4
         with:
-          name: Guardian-AdBlock-Production-Release-v0.7.8-dev
+          name: Guardian-AdBlock-Production-Release-v${{ env.GUARDIAN_VERSION_NAME }}
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
             release/SHA256SUMS.txt
             release/VERIFICATION_SUMMARY_KO.md
             release/signature-verification.txt
-            release/Guardian-AdBlock-Source-v0.7.8-dev.zip
+            release/aab-signature-verification.txt
+            release/signer-certificate.txt
+            release/Guardian-AdBlock-Source-v${{ env.GUARDIAN_VERSION_NAME }}.zip
           if-no-files-found: error
           retention-days: 30
 
