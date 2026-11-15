@@ -1,19 +1,33 @@
 package com.guardian.adblock
 
-/** Serializes cancellation with the final TUN-start commit to avoid check/commit races. */
+/**
+ * Gives every start request its own generation. A later start must never
+ * revive a worker that was cancelled by an intervening stop.
+ */
 internal class VpnStartCancellationGate {
     private val lock = Any()
-    private var cancelled = false
+    private var generation = 0L
 
-    fun onStartRequested() = synchronized(lock) { cancelled = false }
-    fun cancel() = synchronized(lock) { cancelled = true }
-    fun isCancelled(): Boolean = synchronized(lock) { cancelled }
-
-    /** Runs the state publication atomically with respect to cancel(). */
-    fun tryCommitStart(commit: () -> Unit): Boolean = synchronized(lock) {
-        if (cancelled) false else {
-            commit()
-            true
-        }
+    fun onStartRequested(): Long = synchronized(lock) {
+        generation += 1L
+        generation
     }
+
+    fun cancel() = synchronized(lock) {
+        generation += 1L
+    }
+
+    fun isCurrent(requestGeneration: Long): Boolean = synchronized(lock) {
+        requestGeneration != 0L && requestGeneration == generation
+    }
+
+    /** Commits the TUN only if this exact start request is still current. */
+    fun tryCommitStart(requestGeneration: Long, commit: () -> Unit): Boolean =
+        synchronized(lock) {
+            if (requestGeneration == 0L || requestGeneration != generation) false
+            else {
+                commit()
+                true
+            }
+        }
 }

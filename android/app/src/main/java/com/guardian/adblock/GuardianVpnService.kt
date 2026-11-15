@@ -22,6 +22,7 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class GuardianVpnService : VpnService() {
@@ -83,7 +84,8 @@ class GuardianVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private val running = AtomicBoolean(false)
     private val starting = AtomicBoolean(false)
-    private val startRequestedWhileStarting = AtomicBoolean(false)
+    private data class PendingStart(val generation: Long, val startId: Int)
+    private val pendingStart = AtomicReference<PendingStart?>(null)
     private val startCancellation = VpnStartCancellationGate()
     private val lastStatsBroadcastAt = AtomicLong(0L)
 
@@ -91,8 +93,8 @@ class GuardianVpnService : VpnService() {
         when (intent?.action) {
             ACTION_STOP -> stopProtection(explicitStop = true)
             ACTION_START -> {
-                startCancellation.onStartRequested()
-                thread(name = "guardian-vpn-start") { startProtection() }
+                val generation = startCancellation.onStartRequested()
+                thread(name = "guardian-vpn-start") { startProtection(generation, startId) }
             }
             ACTION_RELOAD_RULES -> thread(name = "guardian-vpn-rule-reload") { reloadUserRules() }
             ACTION_TEST_UPSTREAM -> thread(name = "guardian-upstream-test") {
@@ -103,8 +105,8 @@ class GuardianVpnService : VpnService() {
                     getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_ACTIVE, false)
                 )
                 if (shouldRestore) {
-                    startCancellation.onStartRequested()
-                    thread(name = "guardian-vpn-restore") { startProtection() }
+                    val generation = startCancellation.onStartRequested()
+                    thread(name = "guardian-vpn-restore") { startProtection(generation, startId) }
                 } else {
                     stopSelf(startId)
                 }
@@ -115,29 +117,31 @@ class GuardianVpnService : VpnService() {
         return START_STICKY
     }
 
-    private fun startProtection() {
-        if (running.get()) {
-            startRequestedWhileStarting.set(false)
-            return
-        }
+    private fun startProtection(requestGeneration: Long, startId: Int) {
+        if (!startCancellation.isCurrent(requestGeneration)) return
+        if (running.get()) return
         if (!starting.compareAndSet(false, true)) {
-            if (!startCancellation.isCancelled()) startRequestedWhileStarting.set(true)
+            if (startCancellation.isCurrent(requestGeneration)) {
+                pendingStart.set(PendingStart(requestGeneration, startId))
+            }
             return
         }
         try {
-            startProtectionInternal()
+            startProtectionInternal(requestGeneration, startId)
         } finally {
             starting.set(false)
-            // Preserve a fresh start request that arrived while an earlier
-            // startup was still unwinding after cancellation.
-            if (startRequestedWhileStarting.getAndSet(false) &&
-                !running.get() && !startCancellation.isCancelled()) {
-                thread(name = "guardian-vpn-start-pending") { startProtection() }
+            // Keep only the latest still-current request. An older worker can
+            // never be revived by a later start after an intervening stop.
+            val pending = pendingStart.getAndSet(null)
+            if (pending != null && !running.get() && startCancellation.isCurrent(pending.generation)) {
+                thread(name = "guardian-vpn-start-pending") {
+                    startProtection(pending.generation, pending.startId)
+                }
             }
         }
     }
 
-    private fun startProtectionInternal() {
+    private fun startProtectionInternal(requestGeneration: Long, startId: Int) {
         tunnelActive = false
         try {
             createNotificationChannel()
@@ -145,7 +149,7 @@ class GuardianVpnService : VpnService() {
         } catch (e: Exception) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             publishState(false, "포그라운드 서비스 시작 실패 (${e.javaClass.simpleName}): ${e.message ?: "권한 또는 Android 정책을 확인하세요."}")
-            stopSelf()
+            stopSelf(startId)
             return
         }
         try {
@@ -154,12 +158,12 @@ class GuardianVpnService : VpnService() {
         } catch (e: Exception) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             publishState(false, "필터 규칙 로드 실패 (${e.javaClass.simpleName}): ${e.message ?: "원인 정보 없음"}")
-            stopSelf()
+            stopSelf(startId)
             return
         }
-        if (startCancellation.isCancelled()) {
+        if (!startCancellation.isCurrent(requestGeneration)) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            stopSelf()
+            stopSelf(startId)
             return
         }
         var establishError: Exception? = null
@@ -200,10 +204,10 @@ class GuardianVpnService : VpnService() {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             val detail = establishError?.let { " (${it.javaClass.simpleName}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
             publishState(false, "VPN 연결 생성 실패$detail. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요.")
-            stopSelf()
+            stopSelf(startId)
             return
         }
-        val committed = startCancellation.tryCommitStart {
+        val committed = startCancellation.tryCommitStart(requestGeneration) {
             tun = descriptor
             running.set(true)
             tunnelActive = true
@@ -213,7 +217,7 @@ class GuardianVpnService : VpnService() {
         if (!committed) {
             try { descriptor.close() } catch (_: Exception) { }
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            stopSelf()
+            stopSelf(startId)
         }
     }
 
@@ -615,7 +619,7 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun stopProtection(explicitStop: Boolean = false) {
-        startRequestedWhileStarting.set(false)
+        pendingStart.set(null)
         startCancellation.cancel()
         tunnelActive = false
         val wasActive = running.getAndSet(false) || tun != null
