@@ -313,6 +313,45 @@ class DnsTcpSessionManagerTest {
         assertEquals(0, manager.activeSessionCount())
     }
 
+
+    @Test fun futureAcknowledgementCannotConsumeDnsRequestPayload() {
+        val manager = DnsTcpSessionManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 3200)
+        val synAck = manager.handle(syn, syn.size) { null }.single()
+        val parsedSynAck = DnsTcpPacket.parse(synAck, synAck.size, 53000)!!
+
+        var resolveCalls = 0
+        val forgedFutureAck = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 3201,
+            acknowledgment = (parsedSynAck.sequence + 100L) and 0xffffffffL,
+            payload = framed
+        )
+        val rejected = manager.handle(forgedFutureAck, forgedFutureAck.size) {
+            resolveCalls++
+            DomainFilter.makeServfail(it)
+        }.single()
+        assertTrue(DnsTcpPacket.parse(rejected, rejected.size, 53000)!!.ack)
+        assertEquals(0, resolveCalls)
+        assertEquals(1, manager.activeSessionCount())
+
+        val valid = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 3201,
+            acknowledgment = (parsedSynAck.sequence + 1L) and 0xffffffffL,
+            payload = framed
+        )
+        val accepted = manager.handle(valid, valid.size) {
+            resolveCalls++
+            DomainFilter.makeServfail(it)
+        }
+        assertTrue(accepted.isNotEmpty())
+        assertEquals(1, resolveCalls)
+        assertEquals(1, manager.activeSessionCount())
+    }
+
     @Test fun ignoresPayloadWithoutAckAndAcceptsValidRetransmissionAtSameSequence() {
         val manager = DnsTcpSessionManager()
         val query = dnsQuery()
