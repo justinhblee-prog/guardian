@@ -31,7 +31,8 @@
 - License API PR #29는 refresh/deactivation row-lock 경쟁 조건과 만료 라이선스의 기기 슬롯 해제 동작을 PostgreSQL 통합 회귀 테스트로 검증했습니다. CI runs `43691168622` 및 최신 `43691504879` 성공.
 - PR #30은 Android 라이선스 API 기본 주소를 HTTPS origin으로 제한하고, 경로·userinfo·query·fragment 및 다중 slash 경로를 거부합니다. 응답 JSON envelope도 strict UTF-8로 검증하며 회귀 테스트를 추가했습니다. 이전 CI run `43693059814`는 origin URL 정규화 테스트 1건 실패로 종료됐으며, root slash 정규화 로직을 수정했습니다. 최신 CI run `43693222438` 재검증 중입니다.
 - PR #31은 서명 필터 배포 서버의 파일 읽기를 `stat` 크기 + 1바이트 상한으로 제한해 파일 교체/증가 상황에서 `readFile()`의 예기치 않은 메모리 할당을 방지하고, 16 KiB manifest 및 10 MiB filter 초과 응답 거부 테스트를 추가했습니다. CI run `43692879188` 성공: signed filter distribution 테스트 전체 통과.
-- PR #32는 라이선스 API 요청 JSON에 fatal UTF-8 검증을 적용하고 malformed byte sequence를 HTTP 400으로 거부합니다. CI run `43693170195` 성공: 암호학·HTTP·PostgreSQL 통합 테스트 전체 통과. CI run `43692524593`에서 Android unit tests, Lint, debug APK 빌드가 성공했고 API 35 emulator 설치·앱 실행 단계 진행 중입니다.
+- PR #32는 라이선스 API 요청 JSON에 fatal UTF-8 검증을 적용하고 malformed byte sequence를 HTTP 400으로 거부합니다. CI run `43693170195` 성공: 암호학·HTTP·PostgreSQL 통합 테스트 전체 통과.
+- PR #33은 DNS-over-TCP 세션에서 아직 전송하지 않은 서버 sequence를 ACK하는 위조 세그먼트를 거부합니다. 잘못된 ACK에 DNS payload를 붙여도 세션 버퍼/Resolver가 변경되지 않는 회귀 테스트를 추가했습니다. CI run `43693481411` 대기 중입니다. CI run `43692524593`에서 Android unit tests, Lint, debug APK 빌드가 성공했고 API 35 emulator 설치·앱 실행 단계 진행 중입니다.
 - PR #13에는 entitlement 토큰이 라이선스 만료 시각을 넘지 않는지와 잘못된 최대 TTL 설정을 검증하는 단위 테스트를 추가했습니다. 첫 실행에서 테스트 정규식 이스케이프 오류를 발견해 수정했고, 수정된 최신 CI run `43691955417` 성공했습니다.
 - PR #4와 #7은 entitlement store 및 12시간 WorkManager renewal 구현이 이미 main에 포함된 것을 확인해 중복 PR로 종료했습니다.
 - 실기기 VPN/TUN 라우팅, 실제 광고 제거율, 외부 DoH/DoT provider 연결은 미검증입니다.
