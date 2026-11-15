@@ -110,6 +110,27 @@ test('server rejects oversized manifest and filter files before returning conten
   }
 });
 
+test('server rejects final-component symlinks for manifests and filters as not found', async () => {
+  const manifestPath = path.join(root, `${sourceId}.manifest`);
+  const manifestTarget = path.join(root, `${sourceId}.manifest.original`);
+  const filterPath = path.join(root, 'filters', sourceId, `${version}.txt`);
+  const filterTarget = path.join(root, 'filters', sourceId, `${version}.txt.original`);
+
+  await rename(manifestPath, manifestTarget);
+  await rename(filterPath, filterTarget);
+  try {
+    await symlink(manifestTarget, manifestPath);
+    await symlink(filterTarget, filterPath);
+    assert.equal((await fetch(`${baseUrl}/${sourceId}.manifest`)).status, 404);
+    assert.equal((await fetch(`${baseUrl}/filters/${sourceId}/${version}.txt`)).status, 404);
+  } finally {
+    await rm(manifestPath, { force: true });
+    await rm(filterPath, { force: true });
+    await rename(manifestTarget, manifestPath);
+    await rename(filterTarget, filterPath);
+  }
+});
+
 test('server rejects a symlinked parent directory for versioned filters', async () => {
   const filtersPath = path.join(root, 'filters');
   const realFiltersPath = path.join(root, 'filters-real');
