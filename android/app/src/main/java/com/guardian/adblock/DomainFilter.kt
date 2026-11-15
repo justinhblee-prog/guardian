@@ -18,6 +18,31 @@ object DomainFilter {
         activeRules = RuleSet(parsed.blocked, parsed.allowed, parsed.importantBlocked)
     }
 
+    enum class BlockCategory { AD, TRACKER, OTHER }
+
+    /**
+     * Best-effort reporting category only. The imported DNS lists do not carry
+     * consistent per-rule taxonomy, so this must never be used to decide blocking.
+     */
+    fun classifyBlockedDomain(domain: String): BlockCategory {
+        val value = domain.lowercase(java.util.Locale.ROOT)
+        val adMarkers = listOf(
+            "doubleclick", "googlesyndication", "googleadservices", "adservice",
+            "adsystem", "adserver", "adnxs", "adform", "taboola", "outbrain",
+            "criteo", "popads", "adroll", "advert"
+        )
+        val trackerMarkers = listOf(
+            "analytics", "tracking", "track.", "telemetry", "metrics", "pixel.",
+            "scorecardresearch", "quantserve", "mixpanel", "segment.", "amplitude",
+            "hotjar", "matomo", "clarity.ms"
+        )
+        return when {
+            adMarkers.any(value::contains) -> BlockCategory.AD
+            trackerMarkers.any(value::contains) -> BlockCategory.TRACKER
+            else -> BlockCategory.OTHER
+        }
+    }
+
     fun blockedRuleCount(): Int = activeRules.blocked.size + activeRules.importantBlocked.size
     fun allowedRuleCount(): Int = activeRules.allowed.size
 
