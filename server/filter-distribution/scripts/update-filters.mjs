@@ -81,14 +81,23 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
   let batchLock;
   try {
     batchLock = await open(lockPath, 'wx', 0o600);
+  } catch (error) {
+    if (error.code === 'EEXIST') {
+      throw new Error('Another filter update batch is active, or a stale .guardian-update.lock requires manual review.');
+    }
+    throw error;
+  }
+  try {
     await batchLock.writeFile(JSON.stringify({
       pid: process.pid,
       startedAt: new Date().toISOString()
     }) + '\n');
     await batchLock.sync();
   } catch (error) {
-    if (error.code === 'EEXIST') {
-      throw new Error('Another filter update batch is active, or a stale .guardian-update.lock requires manual review.');
+    try {
+      await batchLock.close();
+    } finally {
+      await rm(lockPath, { force: true });
     }
     throw error;
   }
