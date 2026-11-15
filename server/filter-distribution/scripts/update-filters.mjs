@@ -126,7 +126,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     const { rm } = await import('node:fs/promises');
     await Promise.all(staged.map(item => rm(item.inputPath, { force: true })));
   }
-
+}
 
 async function main() {
   const configPath = path.resolve(process.argv[2] || 'sources.json');
