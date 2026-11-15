@@ -1,7 +1,7 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign as rsaSign, verify } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -90,5 +90,23 @@ test('manifest endpoint rejects non-canonical or implausible RSA signatures', as
     assert.equal((await fetch(`${baseUrl}/${sourceId}.manifest`)).status, 404);
   } finally {
     await writeFile(signaturePath, signature);
+  }
+});
+
+
+test('server rejects a symlinked parent directory for versioned filters', async () => {
+  const filtersPath = path.join(root, 'filters');
+  const realFiltersPath = path.join(root, 'filters-real');
+  const externalFiltersPath = path.join(root, 'external-filters');
+  await mkdir(path.join(externalFiltersPath, sourceId), { recursive: true });
+  await writeFile(path.join(externalFiltersPath, sourceId, `${version}.txt`), content);
+  await rename(filtersPath, realFiltersPath);
+  try {
+    await symlink(externalFiltersPath, filtersPath, 'dir');
+    assert.equal((await fetch(`${baseUrl}/filters/${sourceId}/${version}.txt`)).status, 404);
+  } finally {
+    await rm(filtersPath, { force: true, recursive: true });
+    await rename(realFiltersPath, filtersPath);
+    await rm(externalFiltersPath, { recursive: true, force: true });
   }
 });
