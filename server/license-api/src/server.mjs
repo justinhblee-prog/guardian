@@ -323,7 +323,7 @@ const server = http.createServer(async (req, res) => {
     else if (url.pathname === '/v1/licenses/deactivate') result = await deactivate(body);
     else if (url.pathname === '/v1/licenses/status') {
       const device = validateDeviceBinding(body.deviceBinding);
-      if (typeof body.licenseRef !== 'string') throw Object.assign(new Error('라이선스 참조 값이 필요합니다.'), { status: 400 });
+      const licenseRef = validateLicenseRef(body.licenseRef);
       requireEnv();
       const r = await pool.query(
         `SELECT l.status,l.expires_at,l.license_ref FROM licenses l
@@ -331,7 +331,7 @@ const server = http.createServer(async (req, res) => {
          JOIN products p ON p.id=l.product_id AND p.active=true
          WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
            AND l.status='active' AND l.expires_at>now()
-         LIMIT 1`, [device, body.licenseRef]);
+         LIMIT 1`, [device, licenseRef]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
     } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
     else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
