@@ -177,7 +177,7 @@ class GuardianVpnService : VpnService() {
         // than activating a tunnel that makes every website appear offline.
         val preflightQuery = DnsUpstreamProbe.query()
         val preflightResponse = forwardDns(preflightQuery)
-        if (!DnsUpstreamProbe.isValidResponse(preflightQuery, preflightResponse)) {
+        if (!DnsUpstreamProbe.isSuccessfulResolution(preflightQuery, preflightResponse)) {
             val detail = lastUpstreamFailure ?: "업스트림 DNS 응답 검증 실패"
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                 .putString(KEY_DNS_DIAGNOSTIC, "보호 시작 전 DNS 연결 확인 실패: $detail")
