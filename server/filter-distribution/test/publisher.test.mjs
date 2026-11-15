@@ -154,7 +154,7 @@ test('publisher fails closed when another process holds the source publication l
   const input = path.join(root, 'locked.txt');
   const outputDir = path.join(root, 'locked-dist');
   await mkdir(outputDir, { recursive: true });
-  await writeFile(input, '||locked.example^\\n');
+  await writeFile(input, '||locked.example^\n');
   const lockPath = path.join(outputDir, '.adguard.publish.lock');
   await writeFile(lockPath, JSON.stringify({ pid: 99999 }), { flag: 'wx' });
   await assert.rejects(
@@ -175,7 +175,7 @@ test('publisher fails closed when another process holds the source publication l
 test('publisher releases its source lock when validation fails after acquisition', async () => {
   const input = path.join(root, 'failed-lock.txt');
   const outputDir = path.join(root, 'failed-lock-dist');
-  await writeFile(input, '||failed-lock.example^\\n');
+  await writeFile(input, '||failed-lock.example^\n');
   await assert.rejects(
     publishManifest({
       'source-id': 'failed',
@@ -193,7 +193,7 @@ test('publisher releases its source lock when validation fails after acquisition
 test('publisher releases its source lock after a successful publication', async () => {
   const input = path.join(root, 'unlock.txt');
   const outputDir = path.join(root, 'unlock-dist');
-  await writeFile(input, '||unlock.example^\\n');
+  await writeFile(input, '||unlock.example^\n');
   await publishManifest({
     'source-id': 'security',
     'source-version': 'unlock-v1',
