@@ -96,7 +96,8 @@
 6. 위 검증을 통과한 production 서명 APK/AAB와 소스·해시·검증 보고서를 패키징합니다. Debug APK나 에뮬레이터 테스트만으로 출시 완료를 선언하지 않습니다.
 
 ## 5. 현재 미완료 경계
-- 앱에는 서버 발급 Pro entitlement 토큰의 RSA-2048 이상/SHA256 서명 검증기와 기기별 안전 저장소가 추가되었습니다. 토큰 서명·상품·권한·발급/만료 시각·설치 기기 바인딩을 검증하고, 설정 화면에서 검증된 PRO/FREE 상태를 표시합니다. 운영 공개키 설정 전에는 Pro 권한을 부여하지 않습니다.\n- Node.js/PostgreSQL 라이선스 API와 모바일 관리자 화면의 소스 구현 및 암호학 CI가 추가되었습니다. Android에는 HTTPS 전용 activate/refresh/deactivate/status 클라이언트와 설정 화면의 라이선스 키 활성화·수동 갱신·기기 해제 UI를 연결했습니다. 다만 운영 API 주소와 공개키가 빌드에 주입되지 않아 실제 서버 end-to-end 활성화는 아직 검증되지 않았습니다. Google Play Billing/결제 webhook도 미구현입니다.
+- 앱에는 서버 발급 Pro entitlement 토큰의 RSA-2048 이상/SHA256 서명 검증기와 기기별 안전 저장소가 추가되었습니다. 토큰 서명·상품·권한·발급/만료 시각·설치 기기 바인딩을 검증하고, 설정 화면에서 검증된 PRO/FREE 상태를 표시합니다. 운영 공개키 설정 전에는 Pro 권한을 부여하지 않습니다.
+- Node.js/PostgreSQL 라이선스 API와 모바일 관리자 화면의 소스 구현 및 암호학 CI가 추가되었습니다. Android에는 HTTPS 전용 activate/refresh/deactivate/status 클라이언트와 설정 화면의 라이선스 키 활성화·수동 갱신·기기 해제 UI를 연결했습니다. 다만 운영 API 주소와 공개키가 빌드에 주입되지 않아 실제 서버 end-to-end 활성화는 아직 검증되지 않았습니다. Google Play Billing/결제 webhook도 미구현입니다.
 - 서명 manifest가 승인되면 필터별 sourceVersion, SHA-256, generatedAt을 캐시 메타데이터와 함께 저장하고, 캐시 교체가 실패하면 이전 메타데이터로 복구합니다. 필터 상태 화면에는 승인된 서명 버전·해시 앞부분·생성 시각을 표시합니다.
 - Guardian 서명 manifest 다운로드 경로를 추가했습니다. `GUARDIAN_MANIFEST_BASE_URL`과 `GUARDIAN_MANIFEST_PUBLIC_KEY`(또는 동등한 Gradle properties)를 함께 설정하면 앱은 `{baseUrl}/{sourceId}.manifest`를 조회하고 `X-Guardian-Signature` 헤더의 RSA-2048/SHA-256 서명을 검증한 뒤, manifest의 HTTPS 필터 URL에서 내려받은 콘텐츠의 SHA-256과 최소 규칙 수를 검사하고 캐시를 교체합니다. 마지막 승인 `generatedAt`은 소스별로 앱 내부 파일에 저장하며 캐시/메타데이터 교체 실패 시 이전 시각도 복구합니다. 둘 다 비어 있으면 기존 커뮤니티 필터 직접 다운로드 경로를 유지하고, 하나만 설정되면 업데이트를 거부합니다. 따라서 실제 운영 서버·공개키 배포는 아직 미구성이고, 서버 연동 end-to-end 검증도 남아 있습니다.
 - 실제 운영 도메인, 서버 계정, 결제 계정 및 production 서명키는 아직 구성되지 않았습니다. 비밀키를 Git 저장소나 채팅에 입력하지 않습니다.
