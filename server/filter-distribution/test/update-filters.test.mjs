@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { updateFilters } from '../scripts/update-filters.mjs';
+import { removeOwnedPublishLock } from '../scripts/publish-manifest.mjs';
 
 test('updater fetches HTTPS filters, checks minimum rules and publishes signed content', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-update-'));
@@ -268,6 +269,41 @@ test('updater rejects upstream bodies that disagree with Content-Length', async 
     await assert.rejects(readFile(path.join(root, 'dist', '.guardian-update.lock')));
     await assert.rejects(readdir(path.join(root, 'tmp')), { code: 'ENOENT' });
   } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+
+test('publisher cleanup removes only the source lock inode it owns', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-publish-owned-lock-'));
+  const lockPath = path.join(root, '.adguard.publish.lock');
+  const movedPath = path.join(root, '.adguard.publish.lock.original');
+  const handle = await open(lockPath, 'wx', 0o600);
+  try {
+    await handle.writeFile('owned-lock\\n');
+    await removeOwnedPublishLock(handle, lockPath);
+    await assert.rejects(readFile(lockPath), { code: 'ENOENT' });
+  } finally {
+    await handle.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('publisher cleanup preserves a replacement source lock', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-publish-replaced-lock-'));
+  const lockPath = path.join(root, '.adguard.publish.lock');
+  const movedPath = path.join(root, '.adguard.publish.lock.original');
+  const handle = await open(lockPath, 'wx', 0o600);
+  try {
+    await handle.writeFile('original-lock\\n');
+    // Keep the original inode alive under another name so the filesystem
+    // cannot recycle its inode for the replacement lock at the old pathname.
+    await rename(lockPath, movedPath);
+    await writeFile(lockPath, 'replacement-owner\\n', { flag: 'wx', mode: 0o600 });
+    await removeOwnedPublishLock(handle, lockPath);
+    assert.equal(await readFile(lockPath, 'utf8'), 'replacement-owner\\n');
+  } finally {
+    await handle.close();
     await rm(root, { recursive: true, force: true });
   }
 });
