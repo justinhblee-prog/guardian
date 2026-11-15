@@ -8,6 +8,7 @@ command -v "$JAVA" >/dev/null 2>&1 || { echo "java not found; install a JDK." >&
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 "$KOTLINC" \
+  "$ROOT/android/app/src/main/java/com/guardian/adblock/FilterRuleParser.kt" \
   "$ROOT/android/app/src/main/java/com/guardian/adblock/DomainFilter.kt" \
   "$ROOT/android/app/src/main/java/com/guardian/adblock/Ipv4Udp.kt" \
   "$ROOT/android/app/src/main/java/com/guardian/adblock/Ipv6Udp.kt" \
