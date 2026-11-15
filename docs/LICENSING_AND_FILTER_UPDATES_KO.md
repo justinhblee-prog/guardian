@@ -79,17 +79,25 @@
 
 키·토큰·결제 식별정보는 로그에 원문을 남기지 않습니다. 관리자 작업은 모두 감사 이벤트로 기록합니다.
 
-## 4. 구현 순서
-1. 필터 업데이트: 현재 WorkManager/캐시 구조의 회귀 테스트와 실패 복구 검증을 마무리합니다.
-2. 필터 manifest: 스키마, SHA-256, RSA-2048/SHA-256 서명 검증기와 테스트 벡터를 추가합니다.
-3. 필터 UI: 버전/해시/갱신 시각/오류 및 지금 업데이트 동작을 연결합니다.
-4. 라이선스 API: DB 마이그레이션, 관리자 발급, activate/refresh/deactivate/status API를 구현합니다.
-5. 앱 라이선스 UI: Free/Pro 상태, 키 입력, 기기 관리, 복원, 오류/오프라인 상태를 연결합니다.
-6. 결제 연동: 배포 경로에 맞는 Google Play Billing 및 서버 검증을 추가합니다.
-7. 테스트: 만료, 취소, 중복 활성화, 기기 한도, 서버 장애, 토큰 위조/만료, 오프라인 유예, 결제 환불, 필터 서명 실패/롤백을 회귀 테스트합니다.
+## 4. 구현 상태와 남은 순서
+
+### Android 앱 및 서버 소스에서 구현된 항목
+1. WorkManager 기반 주기 필터 업데이트, 수동 업데이트, 여러 필터 프로필, 보안·Android 앱 광고 목록 선택, 업데이트 오류 및 캐시 상태 표시.
+2. 필터 manifest RSA-SHA256 서명, HTTPS URL·sourceId·SHA-256·최소 규칙 수 검증, sourceVersion 불변성, 소스별 anti-rollback timestamp, 원자적 캐시 교체 및 실패 복구.
+3. 라이선스 API Node.js/PostgreSQL 소스, 관리자 발급·정지·기기 관리, RSA-SHA256 entitlement, Android HTTPS activate/refresh/deactivate/status 클라이언트와 설정 UI.
+4. Android 토큰의 서명·상품·권한·만료·설치 기기 바인딩 검증, 403 정지/취소 응답에서 로컬 entitlement 무효화, API 요청 직렬화 및 회귀 테스트.
+
+### 출시 전 반드시 완료할 항목
+1. 필터 배포 서버와 라이선스 API를 실제 운영 호스팅에 배포하고 도메인·TLS·DB·백업·모니터링·WAF를 구성합니다.
+2. 필터 서명 공개키, 라이선스 공개키, API HTTPS 주소 및 Android production keystore를 안전하게 발급·보관하고 release 빌드에 주입합니다. 개인키·관리자 토큰은 앱이나 저장소에 포함하지 않습니다.
+3. 운영 필터 서버와 Android 앱 사이의 실제 manifest 다운로드·서명·해시·롤백 end-to-end 테스트, 라이선스 API와 Android 앱 사이의 실제 activate/refresh/deactivate 테스트를 수행합니다.
+4. 실제 Android 휴대전화와 태블릿에서 VPN 권한 승인, IPv4/IPv6 DNS, UDP/TCP 및 DoT/DoH 업스트림, 절전·네트워크 전환·재부팅·VPN 충돌, 광고 차단 효과와 오탐을 검증합니다.
+5. Google Play Billing 또는 선택한 결제 제공자, 구매 복원, 환불·차지백 webhook, 약관·개인정보 처리방침을 구현하고 검증합니다.
+6. 위 검증을 통과한 production 서명 APK/AAB와 소스·해시·검증 보고서를 패키징합니다. Debug APK나 에뮬레이터 테스트만으로 출시 완료를 선언하지 않습니다.
 
 ## 5. 현재 미완료 경계
-- 앱에는 서버 발급 Pro entitlement 토큰의 RSA-2048 이상/SHA256 서명 검증기와 기기별 안전 저장소가 추가되었습니다. 토큰 서명·상품·권한·발급/만료 시각·설치 기기 바인딩을 검증하고, 설정 화면에서 검증된 PRO/FREE 상태를 표시합니다. 운영 공개키 설정 전에는 Pro 권한을 부여하지 않습니다.\n- Node.js/PostgreSQL 라이선스 API와 모바일 관리자 화면의 소스 구현 및 암호학 CI가 추가되었습니다. Android에는 HTTPS 전용 activate/refresh/deactivate/status 클라이언트와 설정 화면의 라이선스 키 활성화·수동 갱신·기기 해제 UI를 연결했습니다. 다만 운영 API 주소와 공개키가 빌드에 주입되지 않아 실제 서버 end-to-end 활성화는 아직 검증되지 않았습니다. Google Play Billing/결제 webhook도 미구현입니다.
+- 앱에는 서버 발급 Pro entitlement 토큰의 RSA-2048 이상/SHA256 서명 검증기와 기기별 안전 저장소가 추가되었습니다. 토큰 서명·상품·권한·발급/만료 시각·설치 기기 바인딩을 검증하고, 설정 화면에서 검증된 PRO/FREE 상태를 표시합니다. 운영 공개키 설정 전에는 Pro 권한을 부여하지 않습니다.
+- Node.js/PostgreSQL 라이선스 API와 모바일 관리자 화면의 소스 구현 및 암호학 CI가 추가되었습니다. Android에는 HTTPS 전용 activate/refresh/deactivate/status 클라이언트와 설정 화면의 라이선스 키 활성화·수동 갱신·기기 해제 UI를 연결했습니다. 다만 운영 API 주소와 공개키가 빌드에 주입되지 않아 실제 서버 end-to-end 활성화는 아직 검증되지 않았습니다. Google Play Billing/결제 webhook도 미구현입니다.
 - 서명 manifest가 승인되면 필터별 sourceVersion, SHA-256, generatedAt을 캐시 메타데이터와 함께 저장하고, 캐시 교체가 실패하면 이전 메타데이터로 복구합니다. 필터 상태 화면에는 승인된 서명 버전·해시 앞부분·생성 시각을 표시합니다.
 - Guardian 서명 manifest 다운로드 경로를 추가했습니다. `GUARDIAN_MANIFEST_BASE_URL`과 `GUARDIAN_MANIFEST_PUBLIC_KEY`(또는 동등한 Gradle properties)를 함께 설정하면 앱은 `{baseUrl}/{sourceId}.manifest`를 조회하고 `X-Guardian-Signature` 헤더의 RSA-2048/SHA-256 서명을 검증한 뒤, manifest의 HTTPS 필터 URL에서 내려받은 콘텐츠의 SHA-256과 최소 규칙 수를 검사하고 캐시를 교체합니다. 마지막 승인 `generatedAt`은 소스별로 앱 내부 파일에 저장하며 캐시/메타데이터 교체 실패 시 이전 시각도 복구합니다. 둘 다 비어 있으면 기존 커뮤니티 필터 직접 다운로드 경로를 유지하고, 하나만 설정되면 업데이트를 거부합니다. 따라서 실제 운영 서버·공개키 배포는 아직 미구성이고, 서버 연동 end-to-end 검증도 남아 있습니다.
 - 실제 운영 도메인, 서버 계정, 결제 계정 및 production 서명키는 아직 구성되지 않았습니다. 비밀키를 Git 저장소나 채팅에 입력하지 않습니다.
@@ -106,7 +114,7 @@
 - 서버 서명 entitlement를 저장하기 전에 RSA 서명, 상품/권한, 발급·만료 시각 및 현재 설치 기기 바인딩을 검증합니다. 저장된 토큰도 앱 설정 화면을 표시할 때마다 다시 검증하며 만료·위조·다른 설치 토큰은 Pro 권한에서 제외합니다.
 - 공개키는 `GUARDIAN_LICENSE_PUBLIC_KEY` 환경 변수 또는 `guardianLicensePublicKey` Gradle 속성으로 빌드 시 주입하도록 연결했습니다. 실제 운영 공개키가 비어 있으면 Pro 라이선스는 활성화되지 않습니다.
 - 설정 화면은 검증된 Pro 토큰이 있을 때만 PRO로 표시하고, 그 외에는 FREE로 표시합니다. DNS 보호 기능은 라이선스 상태와 독립적으로 유지됩니다.
-- 아직 라이선스 활성화 API 호출/키 입력 UI/관리자 콘솔/결제 검증은 연결되지 않았습니다. 따라서 이 단계는 검증된 토큰의 기기 종속 저장·재검증 기반이며, 사용자 라이선스 발급/활성화 서비스가 완성된 것은 아닙니다.
+- 라이선스 활성화 API 호출, 키 입력·갱신·기기 해제 UI, 관리자 발급·정지 화면은 소스에 연결되어 있습니다. 다만 운영 API 주소·공개키·서버 배포가 완료되지 않아 실제 운영 서버와의 end-to-end 활성화는 아직 검증되지 않았습니다. 결제 검증도 미구현입니다.
 
 ### Android 라이선스 API 클라이언트
 - 앱은 `GUARDIAN_LICENSE_API_BASE_URL` 또는 `guardianLicenseApiBaseUrl` Gradle 속성으로 HTTPS API 기본 주소를 주입받습니다. 리디렉션을 따르지 않고 요청/응답 크기와 연결·읽기 시간을 제한합니다.
