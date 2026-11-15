@@ -1,11 +1,28 @@
 
 package com.guardian.adblock
 
+import android.content.Context
+import java.lang.reflect.Modifier
 import java.net.URL
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LicenseApiClientTest {
+
+    @Test
+    fun entitlementMutationRequestsShareOneSynchronizationLock() {
+        val client = LicenseApiClient::class.java
+        val activate = client.getDeclaredMethod(
+            "activate", Context::class.java, String::class.java, String::class.java
+        )
+        val refresh = client.getDeclaredMethod("refresh", Context::class.java)
+        val deactivate = client.getDeclaredMethod("deactivate", Context::class.java)
+
+        assertTrue(Modifier.isSynchronized(activate.modifiers))
+        assertTrue(Modifier.isSynchronized(refresh.modifiers))
+        assertTrue(Modifier.isSynchronized(deactivate.modifiers))
+    }
 
     @Test
     fun decodesValidUtf8LicenseApiResponse() {
