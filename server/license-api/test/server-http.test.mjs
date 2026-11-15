@@ -37,6 +37,18 @@ test('malformed JSON is rejected with a client error', async () => {
   assert.equal(response.status, 400);
 });
 
+
+test('malformed UTF-8 request bodies are rejected with a client error', async () => {
+  const invalidUtf8Json = Buffer.from([0x7b, 0x22, 0x78, 0x22, 0x3a, 0x22, 0xc3, 0x28, 0x22, 0x7d]);
+  const response = await fetch(`${baseUrl}/v1/unknown`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: invalidUtf8Json
+  });
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /UTF-8/);
+});
+
 test('oversized request bodies are rejected', async () => {
   const response = await fetch(`${baseUrl}/v1/unknown`, {
     method: 'POST',
