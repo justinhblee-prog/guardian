@@ -54,4 +54,16 @@ class FilterListProfilesTest {
         assertFalse(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", true, false))
     }
 
+    @Test
+    fun signedManifestMetadataIsIsolatedPerFilterProfile() {
+        val adguard = FilterListManager.manifestPreferenceKeys("adguard_dns_filter.txt", "adguard")
+        val oisd = FilterListManager.manifestPreferenceKeys("adguard_dns_filter.txt", "oisd_big")
+        val security = FilterListManager.manifestPreferenceKeys("hagezi_threat_intelligence.txt", "security")
+
+        assertEquals("manifest_main_source_version", adguard.first)
+        assertEquals("manifest_main_oisd_big_source_version", oisd.first)
+        assertNotEquals(adguard, oisd)
+        assertEquals("manifest_security_source_version", security.first)
+    }
+
 }
