@@ -3,9 +3,19 @@ package com.guardian.adblock
 
 import java.net.URL
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LicenseApiClientTest {
+
+    @Test
+    fun refreshForbiddenInvalidatesLocalEntitlementButTransientFailuresDoNot() {
+        assertTrue(LicenseApiException(403, "device inactive").invalidatesEntitlement)
+        assertFalse(LicenseApiException(401, "unauthorized").invalidatesEntitlement)
+        assertFalse(LicenseApiException(429, "rate limited").invalidatesEntitlement)
+        assertFalse(LicenseApiException(503, "service unavailable").invalidatesEntitlement)
+    }
 
     @Test
     fun decodesValidUtf8LicenseApiResponse() {
