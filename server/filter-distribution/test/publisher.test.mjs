@@ -114,7 +114,7 @@ test('publisher refuses to inherit a corrupt future anti-rollback timestamp', as
   const outputDir = path.join(root, 'future-dist');
   await mkdir(outputDir, { recursive: true });
   await writeFile(input, '||future.example^\n');
-  await writeFile(path.join(outputDir, 'adguard.manifest'), 'generatedAt=9999999999\nsourceId=adguard\n');
+  await writeFile(path.join(outputDir, 'adguard.manifest'), 'generatedAt=9999999999\n');
   await assert.rejects(
     publishManifest({
       'source-id': 'adguard',
@@ -124,7 +124,7 @@ test('publisher refuses to inherit a corrupt future anti-rollback timestamp', as
       'minimum-rules': '1',
       'output-dir': outputDir
     }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }),
-    /too far in the future/
+    /identity or generatedAt is invalid/
   );
   await assert.rejects(readFile(path.join(outputDir, 'filters', 'adguard', 'v1.txt')));
 });
