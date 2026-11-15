@@ -116,7 +116,31 @@ object FilterListManager {
         val signedConfigured = BuildConfig.FILTER_MANIFEST_BASE_URL.isNotBlank() &&
             BuildConfig.FILTER_MANIFEST_PUBLIC_KEY.isNotBlank()
         if (!signedConfigured) {
-            FilterCacheStore.recover(target)
+            // Unsigned legacy caches still need a hard local size boundary. A
+            // corrupted/oversized cache must never be loaded into memory without
+            // the signed-hash path's MAX_BYTES check.
+            val isBoundedCache: (File) -> Boolean = { candidate ->
+                candidate.isFile && candidate.length() in 1..MAX_BYTES.toLong()
+            }
+            try {
+                FilterCacheStore.recover(target, isBoundedCache)
+                if (target.exists() && !isBoundedCache(target)) {
+                    throw IllegalStateException("필터 캐시 크기가 허용 범위를 벗어났습니다.")
+                }
+            } catch (_: IllegalStateException) {
+                target.delete()
+                File(target.parentFile, "${target.name}.bak").delete()
+                File(target.parentFile, "${target.name}.tmp").delete()
+                val countKeys = when (cacheName) {
+                    SECURITY_CACHE_FILE -> KEY_SECURITY_BLOCK_COUNT to KEY_SECURITY_IGNORED_COUNT
+                    ANDROID_ADS_CACHE_FILE -> KEY_ANDROID_ADS_BLOCK_COUNT to KEY_ANDROID_ADS_IGNORED_COUNT
+                    else -> KEY_BLOCK_COUNT to KEY_IGNORED_COUNT
+                }
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putInt(countKeys.first, 0)
+                    .putInt(countKeys.second, 0)
+                    .apply()
+            }
             return target
         }
         val keys = manifestPreferenceKeys(cacheName)
