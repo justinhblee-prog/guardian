@@ -128,6 +128,20 @@ jobs:
       - name: Run tests, lint and signed release builds
         run: gradle -p android --no-daemon clean testDebugUnitTest lintRelease assembleRelease bundleRelease
 
+      - name: Verify bundled DNS filter library in APK and AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='android/app/build/outputs/apk/release/app-release.apk'
+          AAB='android/app/build/outputs/bundle/release/app-release.aab'
+          test -s "$APK"
+          test -s "$AAB"
+          unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
+          unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          unzip -Z1 "$AAB" | grep -Fx 'base/assets/filter_rules.txt'
+          unzip -p "$AAB" base/assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          echo "Release APK and AAB contain the canonical shared DNS filter library."
+
       - name: Verify package identity and production signature
         shell: bash
         run: |
