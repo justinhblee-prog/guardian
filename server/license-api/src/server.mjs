@@ -344,13 +344,6 @@ async function revokeLicense(id, req) {
   finally { client.release(); }
 }
 
-// Bound slow headers, slow request bodies and idle keep-alive sockets. The
-// API accepts small JSON requests only, so long receive windows are unnecessary.
-server.headersTimeout = 10_000;
-server.requestTimeout = 15_000;
-server.keepAliveTimeout = 5_000;
-server.maxHeadersCount = 32;
-
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -439,6 +432,12 @@ const server = http.createServer(async (req, res) => {
     return json(res, status, { error: status >= 500 ? 'internal_error' : error.message });
   }
 });
+
+// Apply transport limits only after the HTTP server instance exists.
+server.headersTimeout = 10_000;
+server.requestTimeout = 15_000;
+server.keepAliveTimeout = 5_000;
+server.maxHeadersCount = 32;
 
 if (process.env.NODE_ENV !== 'test') {
   server.listen(PORT, '0.0.0.0', () => {
