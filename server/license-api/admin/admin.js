@@ -11,6 +11,63 @@ async function api(path, options = {}) {
   if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
 }
+async function loadActivations(license, root) {
+  root.textContent = '기기 등록을 불러오는 중...';
+  try {
+    const data = await api(`/v1/admin/licenses/${encodeURIComponent(license.id)}/activations`);
+    renderActivations(license, root, data.activations || []);
+  } catch (error) {
+    root.textContent = error.message;
+  }
+}
+function renderActivations(license, root, items) {
+  root.replaceChildren();
+  const heading = document.createElement('strong');
+  heading.textContent = '등록 기기';
+  root.append(heading);
+  if (!items.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent = '등록된 기기가 없습니다.';
+    root.append(empty);
+    return;
+  }
+  for (const item of items) {
+    const row = document.createElement('div');
+    row.className = 'device-row';
+    const info = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = `기기 ····${item.device_hint} · ${item.deactivated_at ? '해제됨' : '활성'}`;
+    const detail = document.createElement('div');
+    detail.className = 'muted';
+    const lastSeen = new Date(item.last_seen_at).toLocaleString();
+    detail.textContent = `앱 버전: ${item.app_version || '-'} · 최근 확인: ${lastSeen}`;
+    info.append(title, detail);
+    row.append(info);
+    if (!item.deactivated_at) {
+      const button = document.createElement('button');
+      button.className = 'danger';
+      button.textContent = '기기 해제';
+      button.addEventListener('click', async () => {
+        if (!confirm('이 기기만 라이선스에서 해제할까요? 다른 등록 기기와 라이선스는 유지됩니다.')) return;
+        button.disabled = true;
+        try {
+          await api(
+            `/v1/admin/licenses/${encodeURIComponent(license.id)}/activations/${encodeURIComponent(item.id)}/deactivate`,
+            { method: 'POST', body: '{}' }
+          );
+          await load();
+          status('선택한 기기의 등록을 해제했습니다.');
+        } catch (error) {
+          button.disabled = false;
+          status(error.message);
+        }
+      });
+      row.append(button);
+    }
+    root.append(row);
+  }
+}
 function renderLicenses(items) {
   const root = $('licenses');
   root.replaceChildren();
@@ -23,16 +80,30 @@ function renderLicenses(items) {
     const detail = document.createElement('div'); detail.className = 'muted';
     detail.textContent = `만료: ${new Date(item.expires_at).toLocaleString()} · 기기: ${item.active_devices}/${item.max_devices}`;
     info.append(title, detail); row.append(info);
+    const actions = document.createElement('div');
+    actions.className = 'license-actions';
+    const devicesButton = document.createElement('button');
+    devicesButton.className = 'secondary';
+    devicesButton.textContent = '기기 관리';
+    const devicePanel = document.createElement('div');
+    devicePanel.className = 'device-list';
+    devicePanel.hidden = true;
+    devicesButton.addEventListener('click', async () => {
+      devicePanel.hidden = !devicePanel.hidden;
+      if (!devicePanel.hidden) await loadActivations(item, devicePanel);
+    });
+    actions.append(devicesButton);
     if (item.status === 'active') {
-      const button = document.createElement('button'); button.className = 'danger'; button.textContent = '정지';
+      const button = document.createElement('button'); button.className = 'danger'; button.textContent = '라이선스 정지';
       button.addEventListener('click', async () => {
         if (!confirm('이 라이선스를 정지하고 활성 기기를 모두 해제할까요?')) return;
         try { await api(`/v1/admin/licenses/${encodeURIComponent(item.id)}/revoke`, { method: 'POST', body: '{}' }); await load(); status('라이선스를 정지했습니다.'); }
         catch (error) { status(error.message); }
       });
-      row.append(button);
+      actions.append(button);
     }
-    root.append(row);
+    row.append(actions);
+    root.append(row, devicePanel);
   }
 }
 function renderEvents(items) {
