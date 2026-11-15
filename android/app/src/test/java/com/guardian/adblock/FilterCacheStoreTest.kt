@@ -121,4 +121,36 @@ class FilterCacheStoreTest {
         assertArrayEquals("new".toByteArray(), target.readBytes())
         assertFalse(File(folder, "filter.txt.bak").exists())
     }
+
+    @Test
+    fun recoveryRestoresBoundedBackupInsteadOfOversizedUnsignedTarget() {
+        val folder = newFolder()
+        val target = File(folder, "filter.txt").apply {
+            writeBytes(ByteArray(1024 * 1024 + 1) { 0x61 })
+        }
+        File(folder, "filter.txt.bak").writeText("known-good")
+
+        FilterCacheStore.recover(target) { candidate ->
+            candidate.isFile && candidate.length() in 1..1024L
+        }
+
+        assertArrayEquals("known-good".toByteArray(), target.readBytes())
+        assertFalse(File(folder, "filter.txt.bak").exists())
+    }
+
+    @Test
+    fun recoveryRejectsOversizedUnsignedTargetWithoutBackup() {
+        val folder = newFolder()
+        val target = File(folder, "filter.txt").apply {
+            writeBytes(ByteArray(1024 * 1024 + 1) { 0x61 })
+        }
+
+        try {
+            FilterCacheStore.recover(target) { candidate ->
+                candidate.isFile && candidate.length() in 1..1024L
+            }
+            throw AssertionError("oversized cache must be rejected")
+        } catch (_: IllegalStateException) { }
+    }
+
 }

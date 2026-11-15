@@ -3,6 +3,7 @@ package com.guardian.adblock
 import android.content.Context
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.file.Files
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import javax.net.ssl.HttpsURLConnection
@@ -111,12 +112,49 @@ object FilterListManager {
         return profiles.firstOrNull { it.key == key } ?: profiles.first()
     }
 
+    /** Delete invalid cache generations or fail closed if storage refuses cleanup. */
+    private fun discardCacheFiles(target: File) {
+        listOf(
+            target,
+            File(target.parentFile, "${target.name}.bak"),
+            File(target.parentFile, "${target.name}.tmp")
+        ).forEach { candidate ->
+            try {
+                Files.deleteIfExists(candidate.toPath())
+            } catch (error: Exception) {
+                throw IllegalStateException("손상된 필터 캐시 파일을 안전하게 제거하지 못했습니다.", error)
+            }
+        }
+    }
+
     private fun recoverCache(context: Context, cacheName: String): File {
         val target = File(context.filesDir, cacheName)
         val signedConfigured = BuildConfig.FILTER_MANIFEST_BASE_URL.isNotBlank() &&
             BuildConfig.FILTER_MANIFEST_PUBLIC_KEY.isNotBlank()
         if (!signedConfigured) {
-            FilterCacheStore.recover(target)
+            // Unsigned legacy caches still need a hard local size boundary. A
+            // corrupted/oversized cache must never be loaded into memory without
+            // the signed-hash path's MAX_BYTES check.
+            val isBoundedCache: (File) -> Boolean = { candidate ->
+                candidate.isFile && candidate.length() in 1..MAX_BYTES.toLong()
+            }
+            try {
+                FilterCacheStore.recover(target, isBoundedCache)
+                if (target.exists() && !isBoundedCache(target)) {
+                    throw IllegalStateException("필터 캐시 크기가 허용 범위를 벗어났습니다.")
+                }
+            } catch (_: IllegalStateException) {
+                discardCacheFiles(target)
+                val countKeys = when (cacheName) {
+                    SECURITY_CACHE_FILE -> KEY_SECURITY_BLOCK_COUNT to KEY_SECURITY_IGNORED_COUNT
+                    ANDROID_ADS_CACHE_FILE -> KEY_ANDROID_ADS_BLOCK_COUNT to KEY_ANDROID_ADS_IGNORED_COUNT
+                    else -> KEY_BLOCK_COUNT to KEY_IGNORED_COUNT
+                }
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putInt(countKeys.first, 0)
+                    .putInt(countKeys.second, 0)
+                    .apply()
+            }
             return target
         }
         val keys = manifestPreferenceKeys(cacheName)
@@ -125,14 +163,13 @@ object FilterListManager {
         if (expectedHash == null || !expectedHash.matches(Regex("[a-fA-F0-9]{64}"))) {
             // A cache without a committed signed hash may be a partially replaced first install
             // or an old unsigned cache. Neither is trusted once signed delivery is configured.
-            target.delete()
-            File(target.parentFile, "${target.name}.bak").delete()
-            File(target.parentFile, "${target.name}.tmp").delete()
+            discardCacheFiles(target)
             return target
         }
-        fun matchesCommittedHash(candidate: File): Boolean =
-            candidate.isFile && candidate.length() <= MAX_BYTES &&
-                FilterManifestVerifier.matchesSha256(candidate.readBytes(), expectedHash)
+        fun matchesCommittedHash(candidate: File): Boolean {
+            val bytes = readBoundedFile(candidate, MAX_BYTES) ?: return false
+            return FilterManifestVerifier.matchesSha256(bytes, expectedHash)
+        }
         try {
             FilterCacheStore.recover(target, ::matchesCommittedHash)
             if (target.exists() && !matchesCommittedHash(target)) {
@@ -155,9 +192,7 @@ object FilterListManager {
                 }
             }
         } catch (_: IllegalStateException) {
-            target.delete()
-            File(target.parentFile, "${target.name}.bak").delete()
-            File(target.parentFile, "${target.name}.tmp").delete()
+            discardCacheFiles(target)
             preferences.edit()
                 .remove(keys.first).remove(keys.second).remove(keys.third)
                 .putInt(when (cacheName) {
