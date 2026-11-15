@@ -65,7 +65,11 @@ class LicenseRefreshWorker(
             LicenseApiClient.refresh(applicationContext)
             Result.success()
         } catch (error: LicenseApiException) {
-            if (error.isRetryable) Result.retry() else Result.failure()
+            when {
+                error.invalidatesEntitlement -> Result.success()
+                error.isRetryable -> Result.retry()
+                else -> Result.failure()
+            }
         } catch (_: IOException) {
             // DNS, socket and timeout failures are transient and use WorkManager backoff.
             Result.retry()
