@@ -229,3 +229,21 @@ test('publisher fails before manifest commit when optional public-key output can
   }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }));
   await assert.rejects(readFile(path.join(outputDir, 'security.manifest')));
 });
+
+
+test('publisher refuses a previous manifest belonging to a different source', async () => {
+  const input = path.join(root, 'wrong-identity-input.txt');
+  const outputDir = path.join(root, 'wrong-identity-dist');
+  await mkdir(outputDir, { recursive: true });
+  await writeFile(input, '||wrong-identity.example^\\n');
+  await writeFile(path.join(outputDir, 'adguard.manifest'), 'generatedAt=100\\nsourceId=security\\n');
+  await assert.rejects(publishManifest({
+    'source-id': 'adguard',
+    'source-version': 'wrong-identity-v1',
+    input,
+    'base-url': 'https://filters.example.com',
+    'minimum-rules': '1',
+    'output-dir': outputDir
+  }, { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: privateKey }), /identity or generatedAt is invalid/);
+  await assert.rejects(readFile(path.join(outputDir, 'filters', 'adguard', 'wrong-identity-v1.txt')));
+});
