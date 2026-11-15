@@ -55,8 +55,9 @@ object FilterListManager {
     data class ManifestInfo(val sourceVersion: String, val sha256: String, val generatedAt: Long)
 
     fun manifestInfo(context: Context, cacheName: String): ManifestInfo? {
-        val keys = manifestPreferenceKeys(cacheName)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val sourceId = if (cacheName == CACHE_FILE) prefs.getString(KEY_CACHED_PROFILE, "adguard") ?: "adguard" else null
+        val keys = manifestPreferenceKeys(cacheName, sourceId)
         val version = prefs.getString(keys.first, null) ?: return null
         val hash = prefs.getString(keys.second, null) ?: return null
         val generatedAt = prefs.getLong(keys.third, 0L)
@@ -78,11 +79,11 @@ object FilterListManager {
         return entries.takeIf { it.isNotEmpty() }?.joinToString(" / ")
     }
 
-    private fun manifestPreferenceKeys(cacheName: String): Triple<String, String, String> {
+    internal fun manifestPreferenceKeys(cacheName: String, sourceId: String? = null): Triple<String, String, String> {
         val prefix = when (cacheName) {
             SECURITY_CACHE_FILE -> "security"
             ANDROID_ADS_CACHE_FILE -> "android_ads"
-            else -> "main"
+            else -> if (sourceId == null || sourceId == "adguard") "main" else "main_$sourceId"
         }
         return Triple(
             "manifest_${prefix}_source_version",
@@ -157,8 +158,13 @@ object FilterListManager {
             }
             return target
         }
-        val keys = manifestPreferenceKeys(cacheName)
         val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val sourceId = if (cacheName == CACHE_FILE) preferences.getString(KEY_CACHED_PROFILE, "adguard") ?: "adguard" else when (cacheName) {
+            SECURITY_CACHE_FILE -> "security"
+            ANDROID_ADS_CACHE_FILE -> "android_ads"
+            else -> "adguard"
+        }
+        val keys = manifestPreferenceKeys(cacheName, sourceId)
         val expectedHash = preferences.getString(keys.second, null)
         if (expectedHash == null || !expectedHash.matches(Regex("[a-fA-F0-9]{64}"))) {
             // A cache without a committed signed hash may be a partially replaced first install
@@ -179,11 +185,6 @@ object FilterListManager {
             // the separate anti-rollback timestamp file had not yet been updated.
             val committedGeneratedAt = preferences.getLong(keys.third, 0L)
             if (committedGeneratedAt > 0L) {
-                val sourceId = when (cacheName) {
-                    SECURITY_CACHE_FILE -> "security"
-                    ANDROID_ADS_CACHE_FILE -> "android_ads"
-                    else -> preferences.getString(KEY_CACHED_PROFILE, null) ?: "adguard"
-                }
                 val timestampStore = ManifestTimestampStore(
                     File(context.filesDir, "manifest_timestamps.properties")
                 )
@@ -400,7 +401,7 @@ object FilterListManager {
         val previousBlockCount = preferences.getInt(countKey, 0)
         val previousIgnoredCount = preferences.getInt(ignoredKey, 0)
         val previousCachedProfile = preferences.getString(KEY_CACHED_PROFILE, null)
-        val infoKeys = manifestPreferenceKeys(cacheName)
+        val infoKeys = manifestPreferenceKeys(cacheName, sourceId)
         val previousManifestVersion = preferences.getString(infoKeys.first, null)
         val previousManifestHash = preferences.getString(infoKeys.second, null)
         val previousManifestGeneratedAt = preferences.getLong(infoKeys.third, 0L)
