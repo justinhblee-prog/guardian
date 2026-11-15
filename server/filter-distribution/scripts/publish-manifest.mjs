@@ -147,18 +147,6 @@ export async function publishManifest(options, env = process.env) {
     throw new Error('Filter content must be valid UTF-8.');
   }
 
-  const filterRelativePath = path.join('filters', sourceId, `${sourceVersion}.txt`);
-  const filterPath = path.join(outputDir, filterRelativePath);
-  try {
-    const existing = await readFilterInput(filterPath);
-    if (!existing.equals(content)) {
-      throw new Error('An immutable sourceVersion already exists with different filter content.');
-    }
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-    await atomicWrite(filterPath, content);
-  }
-
   const manifestPath = path.join(outputDir, `${sourceId}.manifest`);
   const nowEpochSeconds = Math.floor(Date.now() / 1000);
   let previousGeneratedAt = 0;
@@ -178,6 +166,19 @@ export async function publishManifest(options, env = process.env) {
   if (generatedAt > nowEpochSeconds + 600) {
     throw new Error('Cannot publish within the app accepted future timestamp window.');
   }
+
+  const filterRelativePath = path.join('filters', sourceId, `${sourceVersion}.txt`);
+  const filterPath = path.join(outputDir, filterRelativePath);
+  try {
+    const existing = await readFilterInput(filterPath);
+    if (!existing.equals(content)) {
+      throw new Error('An immutable sourceVersion already exists with different filter content.');
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    await atomicWrite(filterPath, content);
+  }
+
   const sha256 = (await import('node:crypto')).createHash('sha256').update(content).digest('hex');
   const filterUrl = new URL(filterRelativePath.split(path.sep).join('/'), publicBase.href.endsWith('/') ? publicBase : new URL(`${publicBase.href}/`)).href;
   const manifestText = [
