@@ -48,6 +48,10 @@ internal class LicenseApiException(
 ) : IOException(message) {
     val isRetryable: Boolean
         get() = statusCode == 408 || statusCode == 429 || statusCode >= 500
+
+    /** A 403 from refresh means the server no longer grants this device an entitlement. */
+    val invalidatesEntitlement: Boolean
+        get() = statusCode == 403
 }
 
 /** HTTPS-only client for the Guardian license service. Call from a worker thread. */
@@ -71,12 +75,21 @@ internal object LicenseApiClient {
     fun refresh(context: Context): LicenseEntitlementVerifier.Entitlement {
         val current = LicenseEntitlementStore.currentForRefresh(context)
             ?: throw IllegalStateException("갱신할 라이선스 정보가 없습니다.")
-        val response = post(
-            "/v1/licenses/refresh",
-            JSONObject()
-                .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
-                .put("licenseRef", current.licenseRef)
-        )
+        val response = try {
+            post(
+                "/v1/licenses/refresh",
+                JSONObject()
+                    .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
+                    .put("licenseRef", current.licenseRef)
+            )
+        } catch (error: LicenseApiException) {
+            if (error.invalidatesEntitlement) {
+                // A server-side revoke/deactivation/product disable must not leave
+                // an offline Pro token active until its local expiry timestamp.
+                LicenseEntitlementStore.clear(context)
+            }
+            throw error
+        }
         return persistToken(context, response)
     }
 
