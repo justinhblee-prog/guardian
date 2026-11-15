@@ -29,7 +29,7 @@
 - Android signed-filter client hardening PR #27은 동일 sourceVersion의 다른 SHA-256을 거부하고 manifest/filter payload의 strict UTF-8을 검증합니다. 최신 CI run `43690257560`은 문서 갱신 시점에 진행 중입니다.
 - Android CI의 에뮬레이터 단계가 runner hang 시 전체 45분 작업을 점유하지 않도록 step timeout 15분과 animation 비활성화를 추가했습니다. PR #25 run `43690905433`, PR #27 최신 run `43690917658`에서 해당 변경 후 CI를 다시 실행 중입니다.
 - License API PR #29는 refresh/deactivation row-lock 경쟁 조건과 만료 라이선스의 기기 슬롯 해제 동작을 PostgreSQL 통합 회귀 테스트로 검증했습니다. CI runs `43691168622` 및 최신 `43691504879` 성공.
-- PR #13에는 entitlement 토큰이 라이선스 만료 시각을 넘지 않는지와 잘못된 최대 TTL 설정을 검증하는 단위 테스트를 추가했습니다. 첫 실행에서 테스트 정규식 이스케이프 오류를 발견해 수정했고, 최신 CI run `43691955417` 재검증 중입니다.
+- PR #13에는 entitlement 토큰이 라이선스 만료 시각을 넘지 않는지와 잘못된 최대 TTL 설정을 검증하는 단위 테스트를 추가했습니다. 첫 실행에서 테스트 정규식 이스케이프 오류를 발견해 수정했고, 수정된 최신 CI run `43691955417` 성공했습니다.
 - PR #4와 #7은 entitlement store 및 12시간 WorkManager renewal 구현이 이미 main에 포함된 것을 확인해 중복 PR로 종료했습니다.
 - 실기기 VPN/TUN 라우팅, 실제 광고 제거율, 외부 DoH/DoT provider 연결은 미검증입니다.
 
