@@ -97,6 +97,7 @@ internal object LicenseApiClient {
         return LicenseEntitlementStore.clear(context)
     }
 
+    @Synchronized
     fun status(context: Context): JSONObject {
         val current = LicenseEntitlementStore.current(context)
             ?: return JSONObject().put("status", "free")
