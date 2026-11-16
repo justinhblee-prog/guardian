@@ -12,7 +12,7 @@ def load_runtime():
 def self_test():
     rules=DomainRules(); rules.add_block("doubleclick.net")
     proxy=DnsProxy(rules,listen=(("127.0.0.1",0),("::1",0))); proxy.start()
-    labels=b"".join(bytes([len(p)])+p.encode("ascii") for p in "doubleclick.net".split("."))+b"\\0"
+    labels=b"".join(bytes([len(p)])+p.encode("ascii") for p in "doubleclick.net".split("."))+b"\0"
     query=struct.pack("!HHHHHH",0x1234,0x0100,1,0,0,0)+labels+struct.pack("!HH",1,1)
     for family,address in ((socket.AF_INET,("127.0.0.1",proxy._udp_servers[0].server_address[1])),(socket.AF_INET6,("::1",proxy._udp_servers[1].server_address[1],0,0))):
         with socket.socket(family,socket.SOCK_DGRAM) as client:
