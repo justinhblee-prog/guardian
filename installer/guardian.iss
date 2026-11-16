@@ -50,6 +50,12 @@ begin
   end;
 end;
 
+[UninstallRun]
+Filename: "{app}\\{#MyAppExeName}"; Parameters: "--restore-dns"; Flags: runhidden waituntilterminated
+Filename: "{sys}\\schtasks.exe"; Parameters: "/End /TN GuardianDnsProxy"; Flags: runhidden waituntilterminated
+Filename: "{sys}\\schtasks.exe"; Parameters: "/Delete /TN GuardianDnsProxy /F"; Flags: runhidden waituntilterminated
+
+[Code]
 function InitializeUninstall(): Boolean;
 var
   ResultCode: Integer;
