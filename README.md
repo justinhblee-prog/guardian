@@ -239,3 +239,17 @@ Android 설정에서 라이선스 API 주소와 서명 필터 배포 주소를 �
 - 위 세 변경은 소스에 반영되었으나, 이 커밋 이후 새 APK 빌드 및 에뮬레이터 검증은 아직 확인되지 않았습니다. 기존 v0.7.13-dev APK의 체크섬은 이 수정사항을 포함하는 증거가 아닙니다.
 - 실기기에서 최초 다운로드·재시도, 악성코드/피싱 도메인 차단, VPN DNS 경로 및 일반 사이트 접속을 확인해야 합니다.
 - 이 수정은 보안 필터 접근 정책을 임시로 전체 사용자에게 개방한 개발 결정입니다. 향후 정책 변경 시 기본값과 라이선스 제한을 함께 재검토해야 합니다.
+
+
+## 2026-11-16 최신 Android 재검증 — v0.7.13-dev (보안 필터 수정 포함)
+
+이 절이 위의 Android 검증 기록 및 “빌드 재검증 대기” 기록을 대체합니다.
+
+- 소스 커밋: `ab6a92e952177188602faedf0d7e20535e29c8d3`.
+- GitHub Actions: https://github.com/justinhblee-prog/guardian/actions/runs/43836468632 — 전체 job 성공.
+- 패키지: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`.
+- Android 단위 테스트, lint, 이전 개발판 업그레이드, APK 조립, DNS 필터 라이브러리 확인, API 35 에뮬레이터 설치·실행, package/version, 체크섬, 검증 요약 및 Artifact 업로드: 모두 성공.
+- APK 크기: 3,097,433 bytes. SHA-256: `7ac35c66e39032d4b169c3f0cd15a3eecc0471f0a2a24e1dd3dcdc38182748d9`.
+- Artifact ZIP 크기: 3,016,433 bytes. SHA-256: `236eb593314e5dcc07e68f0286066b033fb6650583373c110aeeaf95786d2f60`. 보존 만료: 2026-11-30.
+- 위 APK에는 보안 필터의 일반 사용자 백그라운드 갱신 및 최초 다운로드 실패 시 활성화 상태 유지 수정이 포함됩니다.
+- 서명은 개발용 debug 인증서이며 production 서명이 아닙니다. 실제 Android 휴대폰/태블릿의 VPN·DNS·광고/피싱 차단 수용 테스트는 별도 미검증입니다.
