@@ -80,6 +80,7 @@ class MainActivity : Activity() {
     private var focusLicenseActivationOnBuild = false
     private var licenseKeyInput: EditText? = null
     private val filterUpdateRunning = AtomicBoolean(false)
+    private val protectionCheckRunning = AtomicBoolean(false)
     @Volatile private var pendingProtectionStartAfterFilterUpdate = false
 
     private val stateReceiver = object : BroadcastReceiver() {
@@ -1707,8 +1708,8 @@ class MainActivity : Activity() {
         securityFilterCheckBox?.isEnabled = false
         androidAdsFilterCheckBox?.isEnabled = false
         setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} 목록을 내려받아 규칙을 검증합니다.")
-        val hadPreviousMainCache = FilterListManager.hasCachedList(this)
         thread(name = "guardian-filter-update") {
+            val hadPreviousMainCache = try { FilterListManager.hasCachedList(this) } catch (_: Exception) { false }
             try {
                 val result = FilterListManager.update(this)
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
@@ -1801,38 +1802,55 @@ class MainActivity : Activity() {
     }
 
     private fun requestProtection() {
-        val hasCachedList = FilterListManager.hasCachedList(this)
-        val selectedProfile = FilterListManager.selectedProfile(this)
-        val cachedProfile = FilterListManager.cachedProfile(this)
-        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-        val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-        val hasSecurityCache = FilterListManager.hasCachedSecurityList(this)
-        val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-        val hasAndroidAdsCache = FilterListManager.hasCachedAndroidAdsList(this)
-        if (!FilterListManager.isProfileCacheCurrent(
-                hasCachedList, selectedProfile.key, cachedProfile.key,
-                securityEnabled, hasSecurityCache, androidAdsEnabled, hasAndroidAdsCache
-            )) {
-            val message = when {
-                !hasCachedList -> "공식 광고 차단 목록을 아직 내려받지 못했습니다. 인터넷 연결 후 필터를 준비해야 정상적인 광고 차단이 가능합니다."
-                selectedProfile.key != cachedProfile.key -> "선택한 ${selectedProfile.label} 목록이 아직 적용되지 않았습니다. 이전 프로필로 보호를 시작하지 않도록 다운로드 완료 후 다시 시작해 주세요."
-                securityEnabled && !hasSecurityCache -> "악성코드·피싱 보호 목록을 내려받은 후 다시 시작해 주세요."
-                androidAdsEnabled && !hasAndroidAdsCache -> "Android 앱 광고 SDK 필터를 내려받은 후 다시 시작해 주세요."
-                else -> "선택한 필터 구성을 아직 준비하지 못했습니다. 필터 업데이트를 완료한 후 다시 시작해 주세요."
-            }
-            // The start action is available from multiple tabs. Build the
-            // Filters screen first, then report the missing cache there;
-            // Home-only lateinit views may not exist when another tab is open.
-            showTab("rules")
-            setFilterUpdateStatus(message)
-            // Preserve the user's explicit start request while the required
-            // filter lists are prepared. Resume VPN consent/start on the UI thread.
-            pendingProtectionStartAfterFilterUpdate = true
-            startFilterUpdate()
+        if (!protectionCheckRunning.compareAndSet(false, true)) {
+            protectionFeedback?.text = "필터 상태를 확인하고 있습니다. 잠시만 기다려 주세요."
             return
         }
-        val consent = VpnService.prepare(this)
-        if (consent != null) startActivityForResult(consent, REQUEST_VPN) else startProtection()
+        protectionActionButton?.isEnabled = false
+        startButton?.isEnabled = false
+        protectionFeedback?.text = "필터 캐시와 검증 상태를 확인하고 있습니다."
+        thread(name = "guardian-protection-readiness") {
+            val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            val readiness = try {
+                val hasCachedList = FilterListManager.hasCachedList(this)
+                val selectedProfile = FilterListManager.selectedProfile(this)
+                val cachedProfile = FilterListManager.cachedProfile(this)
+                val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                val hasSecurityCache = FilterListManager.hasCachedSecurityList(this)
+                val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                val hasAndroidAdsCache = FilterListManager.hasCachedAndroidAdsList(this)
+                val ready = FilterListManager.isProfileCacheCurrent(
+                    hasCachedList, selectedProfile.key, cachedProfile.key,
+                    securityEnabled, hasSecurityCache, androidAdsEnabled, hasAndroidAdsCache
+                )
+                val message = when {
+                    ready -> null
+                    !hasCachedList -> "공식 광고 차단 목록을 아직 내려받지 못했습니다. 인터넷 연결 후 필터를 준비해야 정상적인 광고 차단이 가능합니다."
+                    selectedProfile.key != cachedProfile.key -> "선택한 ${selectedProfile.label} 목록이 아직 적용되지 않았습니다. 이전 프로필로 보호를 시작하지 않도록 다운로드 완료 후 다시 시작해 주세요."
+                    securityEnabled && !hasSecurityCache -> "악성코드·피싱 보호 목록을 내려받은 후 다시 시작해 주세요."
+                    androidAdsEnabled && !hasAndroidAdsCache -> "Android 앱 광고 SDK 필터를 내려받은 후 다시 시작해 주세요."
+                    else -> "선택한 필터 구성을 아직 준비하지 못했습니다. 필터 업데이트를 완료한 후 다시 시작해 주세요."
+                }
+                ready to message
+            } catch (error: Exception) {
+                false to "필터 캐시 검증 오류: ${error.message ?: error.javaClass.simpleName}"
+            }
+            runOnUiThread {
+                protectionCheckRunning.set(false)
+                protectionActionButton?.isEnabled = true
+                startButton?.isEnabled = true
+                if (!readiness.first) {
+                    pendingProtectionStartAfterFilterUpdate = true
+                    val alreadyUpdating = filterUpdateRunning.get()
+                    if (!alreadyUpdating) showTab("rules")
+                    setFilterUpdateStatus(readiness.second ?: "필터 목록을 준비해야 합니다.")
+                    if (!alreadyUpdating) startFilterUpdate()
+                    return@runOnUiThread
+                }
+                val consent = VpnService.prepare(this)
+                if (consent != null) startActivityForResult(consent, REQUEST_VPN) else startProtection()
+            }
+        }
     }
 
     private fun startProtection() {
