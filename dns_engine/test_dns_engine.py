@@ -1,6 +1,13 @@
 import struct,pytest
 from dns_engine.rules import DomainRules
 from dns_engine.wire import DnsFormatError,make_nxdomain,make_servfail,parse_question,response_matches
+def recv_exact(sock,length):
+    chunks=[]
+    while length:
+        part=sock.recv(length)
+        if not part: raise OSError("socket closed early")
+        chunks.append(part); length-=len(part)
+    return b"".join(chunks)
 def query(name="ads.example",ident=0x1234):
     labels=b"".join(bytes([len(p)])+p.encode("ascii") for p in name.split("."))+b"\0"
     return struct.pack("!HHHHHH",ident,0x0100,1,0,0,0)+labels+struct.pack("!HH",1,1)
@@ -49,7 +56,7 @@ def test_loopback_proxy_blocks_tcp_query_without_upstream():
         port=proxy._tcp_servers[0].server_address[1]
         with socket.create_connection(("127.0.0.1",port),timeout=2) as client:
             packet=query("cdn.ads.example"); client.sendall(struct.pack("!H",len(packet))+packet)
-            size=struct.unpack("!H",client.recv(2))[0]; response=client.recv(size)
+            size=struct.unpack("!H",recv_exact(client,2))[0]; response=recv_exact(client,size)
         assert response[3]&15==3 and proxy.blocked_count==1
     finally: proxy.stop()
 
@@ -77,7 +84,7 @@ def test_truncated_udp_upstream_retries_over_tcp():
     def tcp_reply():
         conn,_=tcp.accept()
         with conn:
-            size=struct.unpack("!H",conn.recv(2))[0]; packet=conn.recv(size)
+            size=struct.unpack("!H",recv_exact(conn,2))[0]; packet=recv_exact(conn,size)
             answer=bytearray(packet); answer[2]=0x81; answer[3]=0x80
             conn.sendall(struct.pack("!H",len(answer))+answer)
     threads=[threading.Thread(target=udp_reply),threading.Thread(target=tcp_reply)]
