@@ -13,6 +13,12 @@ adb_cmd() {
   timeout --signal=TERM --kill-after=2s 30s adb "$@"
 }
 
+# Polling must be bounded tightly so a wedged ADB daemon cannot multiply
+# the cache-wait loop into a job-long hang. Normal commands keep the longer cap.
+adb_poll() {
+  timeout --signal=TERM --kill-after=2s 8s adb "$@"
+}
+
 adb_cmd shell settings put global private_dns_mode off
 adb_cmd shell settings delete global private_dns_specifier >/dev/null 2>&1 || true
 adb_cmd shell am force-stop "$PACKAGE" || true
@@ -25,11 +31,11 @@ read_prefs() {
 
 cache_ready() {
   local listing prefs
-  listing="$(adb_cmd shell run-as "$PACKAGE" ls -1 "$APP_DATA/files" 2>&1)" || {
+  listing="$(adb_poll shell run-as "$PACKAGE" ls -1 "$APP_DATA/files" 2>&1)" || {
     if (( ${attempt:-1} == 1 )); then echo "Cache listing unavailable: $listing" >&2; fi
     return 1
   }
-  prefs="$(read_prefs)"
+  prefs="$(adb_poll shell run-as "$PACKAGE" cat "$PREFS" 2>/dev/null | tr -d '\r' || true)"
   grep -Fxq "$MAIN_CACHE" <<<"$listing" || return 1
   grep -q 'name="filter_list_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs" || return 1
 
@@ -47,9 +53,9 @@ cache_ready() {
 
 echo "Waiting for all enabled filter lists to be downloaded and cached."
 ready=0
-for attempt in $(seq 1 240); do
+for attempt in $(seq 1 60); do
   if (( attempt % 10 == 1 )); then
-    echo "Filter cache wait: $(( (attempt - 1) * 2 ))s elapsed; checking enabled filter lists."
+    echo "Filter cache wait: $(( (attempt - 1) * 2 ))s elapsed; checking enabled filter lists (bounded ADB poll)."
   fi
   if cache_ready; then
     ready=1
