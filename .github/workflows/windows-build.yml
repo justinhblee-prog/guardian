@@ -71,6 +71,26 @@ jobs:
           }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if ($task) { throw "Uninstall left the boot-start DNS task registered" }
+
+          # Exercise the real uninstall cleanup path with the boot task still registered.
+          # This second installation deliberately skips --restore-dns before uninstall.
+          $installDir2 = Join-Path $env:RUNNER_TEMP "GuardianDirectUninstall"
+          $installLog2 = Join-Path $env:RUNNER_TEMP "guardian-direct-install.log"
+          $process2 = Start-Process -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir2", "/LOG=$installLog2") -Wait -PassThru
+          if ($process2.ExitCode -ne 0) {
+            if (Test-Path $installLog2) { Get-Content $installLog2 -Tail 80 }
+            throw "Second silent installation failed with exit code $($process2.ExitCode)"
+          }
+          $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
+          if (-not $task) { throw "Second installation did not register the boot-start DNS task" }
+          $uninstallLog2 = Join-Path $env:RUNNER_TEMP "guardian-direct-uninstall.log"
+          $uninstall2 = Start-Process -FilePath "$installDir2\\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog2") -Wait -PassThru
+          if ($uninstall2.ExitCode -ne 0) {
+            if (Test-Path $uninstallLog2) { Get-Content $uninstallLog2 -Tail 100 }
+            throw "Direct uninstall failed with exit code $($uninstall2.ExitCode)"
+          }
+          $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
+          if ($task) { throw "Direct uninstall left the boot-start DNS task registered" }
       - name: Verify generated package
         shell: pwsh
         run: |
