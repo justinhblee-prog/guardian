@@ -18,7 +18,7 @@ object FilterListManager {
     private const val CACHE_FILE = "adguard_dns_filter.txt"
     private const val SECURITY_CACHE_FILE = "hagezi_threat_intelligence.txt"
     private const val ANDROID_ADS_CACHE_FILE = "awavenue_android_ads.txt"
-    private const val MAX_BYTES = 10 * 1024 * 1024
+    private const val MAX_BYTES = MAX_FILTER_DOWNLOAD_BYTES
     const val MIN_SECURITY_BLOCKS = 100
     const val MIN_ANDROID_ADS_BLOCKS = 100
     private const val PREFS = "guardian_settings"
@@ -318,7 +318,7 @@ object FilterListManager {
                     val count = input.read(buffer)
                     if (count < 0) break
                     total += count
-                    require(total <= MAX_BYTES) { "필터 파일이 허용 크기(10MB)를 초과했습니다." }
+                    require(total <= MAX_BYTES) { "필터 파일이 허용 크기(32MB)를 초과했습니다." }
                     output.write(buffer, 0, count)
                 }
                 output.toByteArray()

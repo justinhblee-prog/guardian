@@ -4,6 +4,7 @@ import java.io.File
 import java.nio.file.Files
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class BoundedFileReaderTest {
@@ -48,4 +49,23 @@ class BoundedFileReaderTest {
             // Restricted test environments may prohibit creating symlinks.
         }
     }
+    @Test
+    fun acceptsSecurityFilterLargerThanPreviousTenMegabyteLimit() {
+        val directory = Files.createTempDirectory("guardian-bounded-file").toFile()
+        val file = File(directory, "large-security-filter.txt")
+        val expectedSize = 12 * 1024 * 1024
+        file.setLength(expectedSize.toLong())
+
+        assertEquals(expectedSize, readBoundedFile(file, MAX_FILTER_DOWNLOAD_BYTES)?.size)
+    }
+
+    @Test
+    fun rejectsFilterCacheLargerThanThirtyTwoMegabytes() {
+        val directory = Files.createTempDirectory("guardian-bounded-file").toFile()
+        val file = File(directory, "oversized-filter.txt")
+        file.setLength(MAX_FILTER_DOWNLOAD_BYTES.toLong() + 1L)
+
+        assertNull(readBoundedFile(file, MAX_FILTER_DOWNLOAD_BYTES))
+    }
+
 }

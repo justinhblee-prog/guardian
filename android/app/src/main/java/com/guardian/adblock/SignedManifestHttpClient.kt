@@ -1,5 +1,7 @@
 package com.guardian.adblock
 
+internal const val MAX_FILTER_DOWNLOAD_BYTES = 32 * 1024 * 1024
+
 import java.io.ByteArrayOutputStream
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
@@ -11,7 +13,7 @@ import javax.net.ssl.HttpsURLConnection
 internal class SignedManifestHttpClient(
     private val connectTimeoutMs: Int = 12_000,
     private val readTimeoutMs: Int = 20_000,
-    private val maxBytes: Int = 10 * 1024 * 1024
+    private val maxBytes: Int = MAX_FILTER_DOWNLOAD_BYTES
 ) {
     data class Download(val manifest: FilterManifestVerifier.Manifest, val content: ByteArray)
 
