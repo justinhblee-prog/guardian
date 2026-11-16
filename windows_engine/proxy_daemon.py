@@ -19,7 +19,6 @@ def self_test():
             with socket.socket(family,socket.SOCK_DGRAM) as client:
                 client.settimeout(2); client.sendto(query,address); response,_=client.recvfrom(512)
             if response[3]&15!=3: raise RuntimeError("loopback DNS block test failed")
-    finally: proxy.stop()
     if sys.stdout: print("Guardian DNS daemon IPv4/IPv6 self-test passed")
 def main():
     if "--self-test" in sys.argv: self_test(); return 0
