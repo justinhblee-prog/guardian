@@ -33,7 +33,7 @@ class FilterRuleComposerTest {
     @Test fun parsedMergeKeepsBadfilterScopedToItsSourceWithoutRuleTextCopies() {
         val parsed = FilterRuleComposer.composeParsed(
             sequenceOf(
-                FilterRuleParser.parse(sequenceOf("||shared.example^", "||shared.example^$badfilter")),
+                FilterRuleParser.parse(sequenceOf("||shared.example^", "||shared.example^\$badfilter")),
                 FilterRuleParser.parse(sequenceOf("||shared.example^", "||second.example^"))
             )
         )
