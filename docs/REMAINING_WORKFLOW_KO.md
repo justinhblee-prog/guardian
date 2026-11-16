@@ -82,7 +82,7 @@ flowchart TD
 
 | 순서 | 작업 | 완료 기준 | 상태 |
 |---:|---|---|---|
-| 1 | PR #73 Android 필터 메모리 최적화 및 VPN 시작 fallback 검토 | 단위 테스트, lint, APK, 에뮬레이터 VPN E2E 성공; PR diff 검토 후 통합 | 진행 중 |
+| 1 | PR #73 Android 필터 메모리 최적화 및 VPN 시작 fallback 검토 | 단위 테스트, lint, APK, 에뮬레이터 VPN E2E 성공; PR diff 검토 후 통합 | CI/E2E 통과 · 병합 전 최종 확인 |
 | 2 | 실제 Android 스마트폰 수용 테스트 | VPN 승인/시작/중지, 허용 DNS 응답, 차단 DNS 응답, 일반 인터넷 접속 확인 | 대기 |
 | 3 | Android 네트워크 안정성 매트릭스 | Wi-Fi↔모바일 전환, IPv4/IPv6, Private DNS, 앱 제외, 다른 VPN 조합과 복구 확인 | 대기 |
 | 4 | 서명 필터 운영 연동 | 실제 HTTPS 배포 URL과 앱 고정 공개키로 manifest 서명·해시·버전 anti-rollback·캐시 원자 교체·실패 복구 확인 | 대기 |
@@ -117,15 +117,20 @@ flowchart TD
 
 ## 현재 기준 상태
 
-- Android run `43907322511` (commit `05c374a`)는 2026-11-16 완료, 전체 workflow success.
-- Android unit tests, lint, 이전 개발 버전 APK 조립, 현재 APK 조립, APK 패키지/필터 asset/체크섬 확인 통과.
-- Android API 35 에뮬레이터 설치·실행 및 `verify_android_emulator.sh`, `verify_android_vpn_emulator.sh` 단계도 성공.
-- 따라서 이번 실행의 에뮬레이터 VPN E2E는 통과로 기록한다. 실제 스마트폰 실기기 수용 테스트는 아직 별도다.
-- 후보 APK: `Guardian-AdBlock-0.7.13-dev-pr73-05c374a.apk`, 3,102,021 bytes.
-- APK SHA-256: `e3c76b8beb99e9fefc2b7d76f3ea41959f80da68817d4b334b5b211b38adc87e`.
+- Android run `43917110473` (PR head `0f6ac0ebec4ce6812caf3be029584c1ebadc0460`)는 2026-11-17 완료, 전체 workflow success.
+- Android unit tests, lint, 이전 개발 버전 업그레이드 설치, 현재 APK 조립, 패키지/version, 번들 DNS 필터 및 SHA-256 확인 통과.
+- Android API 35 에뮬레이터에서 실제 앱 UI로 VPN 권한을 승인하고 VPN 터널 활성화를 확인했다.
+- 허용 DNS `example.com`은 IP 주소로 해석됐고, 테스트용 `guardian-ci-43917110473.doubleclick.net`은 `unknown host`로 차단됐다.
+- 앱 통계 확인: `protection_active=true`, `dns_queries=8`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`.
+- APK: `Guardian-AdBlock-0.7.13-dev-run799.apk`, 3,102,025 bytes.
+- APK SHA-256: `41d809c37cb4a1a354178f037bc0ec6964d71306d0a2aa3e248b3928dcdd1a21`.
 - 후보 APK는 개발용 서명본이며 production 릴리스가 아니다.
-- 현재 PR #73은 open 상태다. 통합 전 diff/기반 브랜치/최종 CI 상태를 다시 확인한다.
+- PR #73은 open 상태다. 변경 파일 14개와 핵심 파서/캐시/필터 병합/VPN 시작/선택 필터 fallback/CI 스크립트를 검토했고, 현재 run 799의 런타임 E2E도 통과했다. 저장소의 별도 승인 리뷰는 아직 없다.
+- 실제 Android 스마트폰 수용 테스트는 에뮬레이터 검증과 별개로 미수행이며, 실제 기기에 대한 VPN 허용·차단·네트워크 복구는 확인되지 않았다.
+- 다음 단계는 실기기 수용 테스트다. 원격 에뮬레이터만으로 실기기 완료 처리하지 않는다.
 
 ## 변경 기록
 
 - 2026-11-17: 남은 Android → 운영 필터/라이선스 → production signing → Windows 패키징 순서를 명시하고, 중대 오류 기준과 단계별 완료 증거 규칙을 정의했다.
+
+- 2026-11-17: run `43917110473`의 APK SHA-256과 실제 VPN 활성화/허용 DNS/차단 DNS 및 통계 결과를 반영했다. PR #73의 자동 검증은 통과했으나 실기기 수용 테스트와 통합은 별도다.
