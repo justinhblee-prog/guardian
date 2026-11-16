@@ -928,6 +928,56 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(6) })
         }.withTop(12))
         body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("운영 서버 주소 (노트북)", 15f, white, true))
+            addView(text(
+                "노트북에서 Guardian 운영서버를 실행한 뒤 HTTPS 주소를 입력하세요. 주소가 바뀌면 여기서 변경할 수 있습니다.",
+                11f, muted, false
+            ).withTop(5))
+            val serverUrlInput = EditText(this@MainActivity).apply {
+                hint = "https://guardian.example.com"
+                setHintTextColor(muted)
+                setTextColor(white)
+                textSize = 13f
+                setSingleLine(true)
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                background = shape(panel2, 11)
+                setText(LicenseApiClient.configuredBaseUrl(this@MainActivity))
+            }
+            addView(serverUrlInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+            val serverFeedback = text(
+                "현재 주소: " + LicenseApiClient.configuredBaseUrl(this@MainActivity).ifBlank { "미설정 (운영서버 미연결)" },
+                10f, muted, false
+            ).withTop(7) as TextView
+            addView(serverFeedback)
+            addView(Button(this@MainActivity).apply {
+                text = "운영 서버 주소 저장"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 12)
+                setOnClickListener {
+                    try {
+                        LicenseApiClient.saveBaseUrl(this@MainActivity, serverUrlInput.text.toString())
+                        serverFeedback.text = "저장 완료 · 다음 라이선스 요청부터 새 노트북 서버 주소를 사용합니다."
+                    } catch (error: Exception) {
+                        serverFeedback.text = error.message ?: "HTTPS 서버 주소를 확인하세요."
+                    }
+                }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            addView(Button(this@MainActivity).apply {
+                text = "빌드 기본 주소로 되돌리기"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(panel2, 12)
+                setOnClickListener {
+                    LicenseApiClient.resetBaseUrl(this@MainActivity)
+                    serverUrlInput.setText(BuildConfig.LICENSE_API_BASE_URL)
+                    serverFeedback.text = "빌드 기본 주소로 되돌렸습니다."
+                }
+            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(6) })
+        }.withTop(12))
+        body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(13), dp(15), dp(13))
             addView(text("제작자 및 개발사", 13f, white, true))
             addView(text("(주)유진컨설팅", 13f, accent, true).withTop(8))
