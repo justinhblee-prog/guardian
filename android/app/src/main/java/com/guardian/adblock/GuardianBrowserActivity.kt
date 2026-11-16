@@ -70,7 +70,7 @@ class GuardianBrowserActivity : Activity() {
         top.addView(back, LinearLayout.LayoutParams(dp(44), dp(46)))
         address = EditText(this).apply {
             hint = "웹사이트 주소 입력"
-            singleLine = true
+            setSingleLine(true)
             textSize = 14f
             setTextColor(Color.WHITE)
             setHintTextColor(Color.LTGRAY)
