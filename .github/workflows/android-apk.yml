@@ -124,6 +124,10 @@ jobs:
           echo "Bundled filter rules and supplied company logo are present and valid."
 
       - name: Install and launch APK on Android emulator
+        id: android_emulator
+        # Preserve the build artifact if emulator infrastructure or the E2E
+        # acceptance test fails; report that result separately in the summary.
+        continue-on-error: true
         timeout-minutes: 25
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -137,7 +141,7 @@ jobs:
           script: bash scripts/verify_android_emulator.sh && bash scripts/verify_android_vpn_emulator.sh
 
       - name: Capture emulator diagnostics on failure
-        if: failure()
+        if: steps.android_emulator.outcome == 'failure'
         shell: bash
         run: |
           set +e
@@ -167,7 +171,7 @@ jobs:
           printf 'Diagnostics collection finished (individual commands are bounded to 15s).\n'
 
       - name: Upload emulator diagnostics
-        if: failure()
+        if: steps.android_emulator.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: guardian-android-emulator-diagnostics
@@ -206,9 +210,9 @@ jobs:
           - Android 단위 테스트: 통과
           - Android lintDebug: 통과
           - assembleDebug: 통과
-          - Android API 35 에뮬레이터 v0.7.11-dev → v0.7.13-dev 서명 일치 업그레이드·앱 실행 smoke test: 통과
+          - Android API 35 에뮬레이터 v0.7.11-dev → v0.7.13-dev 업그레이드 및 VPN E2E: ${{ steps.android_emulator.outcome }}
           - APK SHA-256: ${APK_SHA256}
-          - 에뮬레이터 업그레이드 및 실행 검증은 앞선 단계가 성공한 경우에만 기록됩니다.
+          - 에뮬레이터 테스트 실패 시에도 빌드 산출물은 별도 제공하며, 해당 APK를 런타임 검증 완료로 간주하지 않습니다.
           - 이 결과는 Android 실기기 VPN/광고 차단 수용 테스트를 의미하지 않습니다.
           EOF
 
