@@ -6,9 +6,32 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.KeyFactory
+import java.security.interfaces.RSAPublicKey
+import java.security.spec.X509EncodedKeySpec
+import android.util.Base64
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 
+
+/**
+ * Validate the pinned verifier key before consuming a server-side device slot.
+ * If the key is missing or malformed, activation must fail locally before HTTP.
+ */
+internal fun validateLicensePublicKeyConfiguration(encoded: String) {
+    require(encoded.isNotBlank()) { "라이선스 검증 공개키가 앱에 설정되지 않았습니다. 운영 공개키를 포함해 앱을 다시 빌드하세요." }
+    val bytes = try {
+        java.util.Base64.getDecoder().decode(encoded)
+    } catch (error: IllegalArgumentException) {
+        throw IllegalArgumentException("라이선스 검증 공개키 인코딩이 올바르지 않습니다.", error)
+    }
+    val key = try {
+        KeyFactory.getInstance("RSA").generatePublic(X509EncodedKeySpec(bytes)) as? RSAPublicKey
+    } catch (error: Exception) {
+        throw IllegalArgumentException("라이선스 검증 공개키 형식이 올바르지 않습니다.", error)
+    } ?: throw IllegalArgumentException("라이선스 검증 공개키는 RSA 키여야 합니다.")
+    require(key.modulus.bitLength() >= 2048) { "라이선스 검증 공개키는 RSA 2048비트 이상이어야 합니다." }
+}
 
 /** Parse only an HTTPS origin; API paths are appended from fixed internal constants. */
 internal fun parseLicenseApiBaseUrl(value: String): URL {
