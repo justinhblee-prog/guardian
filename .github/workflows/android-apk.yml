@@ -172,6 +172,21 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Prepare KVM permissions for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -e /dev/kvm ]]; then
+            echo "::error::GitHub runner does not expose /dev/kvm; Android x86_64 emulator cannot use hardware acceleration."
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+          echo "KVM is available to the runner user:"
+          ls -l /dev/kvm
+          id
+
       - name: Install and launch APK on Android emulator
         id: android_emulator
         # Preserve the build artifact if emulator infrastructure or the E2E
