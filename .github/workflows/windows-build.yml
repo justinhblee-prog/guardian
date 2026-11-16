@@ -36,7 +36,30 @@ jobs:
         run: choco install innosetup --yes --no-progress
       - name: Build EXE and installer
         shell: pwsh
+        env:
+          GUARDIAN_SIGNING_CERT_BASE64: ${{ secrets.GUARDIAN_SIGNING_CERT_BASE64 }}
+          GUARDIAN_SIGNING_CERT_PASSWORD: ${{ secrets.GUARDIAN_SIGNING_CERT_PASSWORD }}
         run: ./scripts/build_windows.ps1
+      - name: Verify Authenticode signatures or report unsigned development build
+        shell: pwsh
+        env:
+          GUARDIAN_SIGNING_CERT_BASE64: ${{ secrets.GUARDIAN_SIGNING_CERT_BASE64 }}
+        run: |
+          $files = @(
+            'dist/GuardianAdBlock/GuardianAdBlock.exe',
+            'dist/GuardianDnsProxy/GuardianDnsProxy.exe',
+            (Get-ChildItem 'dist/installer/Guardian-AdBlock-Windows-Setup-*.exe' | Select-Object -First 1).FullName
+          )
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature -FilePath $file
+            Write-Host "$file => $($signature.Status)"
+            if (-not [string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64) -and $signature.Status -ne 'Valid') {
+              throw "Expected a valid trusted Authenticode signature: $file"
+            }
+          }
+          if ([string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64)) {
+            Write-Warning 'Unsigned development package: Windows SmartScreen may block or warn. CI installation success does not establish publisher reputation.'
+          }
       - name: Install and smoke-test packaged Windows app
         shell: pwsh
         run: |
