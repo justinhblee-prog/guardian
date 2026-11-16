@@ -135,7 +135,6 @@ jobs:
             adb start-server
             adb wait-for-device
 
-            # Wait for Android boot completion and a responsive PackageManager.
             device_ready=0
             for attempt in $(seq 1 180); do
               state="$(adb get-state 2>/dev/null || true)"
@@ -162,7 +161,6 @@ jobs:
 
             python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.11-dev.apk 24 0.7.11-dev android/app/build/outputs/apk/debug/app-debug.apk 25 0.7.12-dev
 
-            # Install the prior version, then verify an in-place signed upgrade.
             previous_installed=0
             for attempt in 1 2 3; do
               if adb install /tmp/guardian-0.7.11-dev.apk; then
@@ -192,32 +190,6 @@ jobs:
             grep -F 'com.guardian.adblock' /tmp/guardian-activities.txt
             adb logcat -d -t 5000 | tee /tmp/guardian-logcat.txt
             ! grep -E 'FATAL EXCEPTION|Process: com\\.guardian\\.adblock.*has died' /tmp/guardian-logcat.txt
-              echo "Previous APK install attempt ${attempt} failed; waiting for PackageManager."
-              sleep 5
-            done
-            test "$previous_installed" -eq 1
-            adb shell pm path com.guardian.adblock | grep -F 'package:'
-
-            installed=0
-            for attempt in 1 2 3; do
-              if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then
-                installed=1
-                break
-              fi
-              echo "APK upgrade attempt ${attempt} failed; waiting for PackageManager."
-              adb wait-for-device
-              sleep 5
-            done
-            test "$installed" -eq 1
-            adb shell pm path com.guardian.adblock | grep -F 'package:'
-
-            adb shell am start -n com.guardian.adblock/.MainActivity
-            sleep 8
-            adb shell dumpsys activity activities | tee /tmp/guardian-activities.txt
-            grep -F 'com.guardian.adblock' /tmp/guardian-activities.txt
-            adb logcat -d -t 5000 | tee /tmp/guardian-logcat.txt
-            ! grep -E 'FATAL EXCEPTION|Process: com\\.guardian\\.adblock.*has died' /tmp/guardian-logcat.txt
-
       - name: Verify APK package identity and version
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
@@ -251,3 +223,4 @@ jobs:
           - Android lintDebug: 통과
           - assembleDebug: 통과
           - Android API 35 에뮬레이터 v0.7.11-dev → v0.7.12-dev 서명 일치 업그레이드·앱 실행 smoke test: 통과
+
