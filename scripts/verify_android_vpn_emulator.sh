@@ -181,8 +181,14 @@ if (( after_blocked <= before_blocked )); then
   read_prefs
   exit 1
 fi
+if grep -Eq 'PING guardian-ci-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-blocked-dns.txt; then
+  echo "Blocked test domain unexpectedly resolved to an address."
+  cat /tmp/guardian-blocked-dns.txt || true
+  read_prefs
+  exit 1
+fi
 
-echo "VPN E2E passed: tunnel active, allowed DNS observed, and blocked DNS counter incremented."
+echo "VPN E2E passed: tunnel active, allowed DNS resolved, and blocked DNS returned no address."
 echo "Allowed lookup:"
 cat /tmp/guardian-allowed-dns.txt || true
 echo "Blocked lookup:"
