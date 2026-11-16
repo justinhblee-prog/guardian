@@ -55,3 +55,10 @@ def response_matches(query: bytes,response: bytes):
         rname,rtype,_,_=parse_question(candidate)
         return qname==rname and qtype==rtype
     except (DnsFormatError,struct.error): return False
+
+
+def make_servfail(query: bytes):
+    parse_question(query)
+    ident,flags,qdcount,_,_,_=struct.unpack("!HHHHHH",query[:12])
+    response_flags=0x8000|0x0080|(flags&0x0100)|(flags&0x0010)|2
+    return struct.pack("!HHHHHH",ident,response_flags,qdcount,0,0,0)+query[12:]
