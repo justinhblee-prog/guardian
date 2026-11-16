@@ -15,7 +15,7 @@ def main(argv=None):
     data,rules=load_config(args.config)
     port=int(data.get("listen_port",53)); addresses=data.get("listen_addresses",["127.0.0.1","::1"])
     listeners=tuple((address,port) for address in addresses)
-    proxy=DnsProxy(rules,tuple(data.get("upstreams",["1.1.1.1","8.8.8.8"])),listen=listeners)
+    proxy=DnsProxy(rules,tuple(data.get("upstreams",["1.1.1.1","8.8.8.8","2606:4700:4700::1111","2001:4860:4860::8888"])),listen=listeners)
     logging.info("Starting loopback DNS proxy on %d; block=%d allow=%d",port,len(rules.blocked),len(rules.allowed))
     try: proxy.serve_forever()
     except KeyboardInterrupt: logging.info("Stopping DNS proxy")
