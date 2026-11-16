@@ -360,3 +360,9 @@ jobs:
           path: release/FINAL_VERIFICATION_KO.md
           if-no-files-found: error
           retention-days: 14
+
+      - name: Fail workflow when Android VPN runtime verification fails
+        if: steps.android_emulator.outcome == 'failure'
+        run: |
+          echo "Android emulator VPN/DNS runtime verification failed. APK build artifacts and the failure report were preserved."
+          exit 1
