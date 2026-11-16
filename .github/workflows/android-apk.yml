@@ -137,7 +137,7 @@ jobs:
           # Run the entire verification in one Bash process; the action's
           # line-oriented script runner cannot preserve shell loops/conditionals.
           disable-animations: true
-          emulator-options: -no-window -gpu off -no-snapshot -no-audio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
           script: bash scripts/verify_android_emulator.sh && bash scripts/verify_android_vpn_emulator.sh
 
       - name: Capture emulator diagnostics on failure
