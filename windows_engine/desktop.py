@@ -64,7 +64,7 @@ def self_test():
         with socket.socket(socket.AF_INET6,socket.SOCK_DGRAM) as client:
             client.settimeout(2); client.sendto(query,("::1",v6port,0,0)); response6,_=client.recvfrom(512)
         if response6[3]&15!=3: raise RuntimeError("IPv6 blocked domain did not return NXDOMAIN")
-        print("Guardian Windows IPv4/IPv6 executable self-test passed")
+        if sys.stdout: print("Guardian Windows IPv4/IPv6 executable self-test passed")
     finally: proxy.stop()
 class GuardianDesktop:
     def __init__(self,root):
