@@ -4,7 +4,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 from dns_engine import DomainRules,DnsProxy
-from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin
+from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin\nfrom windows_engine.filter_updates import FilterUpdater
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
 CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"
 TASK_NAME="GuardianDnsProxy"
@@ -12,7 +12,12 @@ DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndicati
 def ensure_config():
     APP_DIR.mkdir(parents=True,exist_ok=True); rules=APP_DIR/"rules.txt"
     if not rules.exists(): rules.write_text(DEFAULT_RULES,encoding="utf-8")
-    if not CONFIG.exists(): CONFIG.write_text(json.dumps({"rules_file":"rules.txt","listen_port":53,"upstreams":["1.1.1.1","8.8.8.8"]},indent=2),encoding="utf-8")
+    if CONFIG.exists(): data=json.loads(CONFIG.read_text(encoding="utf-8"))
+    else: data={"rules_file":"rules.txt","listen_port":53,"upstreams":["1.1.1.1","8.8.8.8"]}
+    data.setdefault("manifest_base_url","")
+    data.setdefault("manifest_public_key","")
+    data.setdefault("filter_source_id","adguard")
+    CONFIG.write_text(json.dumps(data,indent=2),encoding="utf-8")
 def elevate():
     try:
         import ctypes
@@ -76,7 +81,10 @@ class GuardianDesktop:
         row=tk.Frame(root,bg="#101820"); row.pack()
         self.start_button=tk.Button(row,text="보호 시작",command=self.start_protection,width=16,height=2,bg="#197a57",fg="white",font=("Segoe UI",11,"bold"),relief="flat"); self.start_button.pack(side="left",padx=8)
         self.stop_button=tk.Button(row,text="보호 중지",command=self.stop_protection,width=16,height=2,bg="#8b3940",fg="white",font=("Segoe UI",11,"bold"),relief="flat",state="disabled"); self.stop_button.pack(side="left",padx=8)
-        self.stats=tk.Label(root,text="차단 0건  |  전달 0건",font=("Segoe UI",12),fg="#d7e0e8",bg="#101820"); self.stats.pack(pady=24)
+        self.stats=tk.Label(root,text="차단 0건  |  전달 0건",font=("Segoe UI",12),fg="#d7e0e8",bg="#101820"); self.stats.pack(pady=20)
+        actions=tk.Frame(root,bg="#101820"); actions.pack(pady=4)
+        tk.Button(actions,text="필터 업데이트",command=self.update_filters,width=16,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=6)
+        tk.Button(actions,text="필터 서버 설정",command=self.open_filter_settings,width=16,bg="#33404c",fg="white",relief="flat").pack(side="left",padx=6)
         tk.Label(root,text="백그라운드 DNS 보호 · IPv4/IPv6 · 기존 DNS 자동 복구",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820").pack(pady=6)
         tk.Label(root,text="보호 시작 시 어댑터 DNS를 로컬 필터로 전환합니다. 앱 창을 닫아도 백그라운드 보호는 유지되며, 보호 중지는 원래 DNS 설정을 복구합니다.",wraplength=540,font=("Segoe UI",9),fg="#aab8c4",bg="#101820").pack(pady=12)
         root.protocol("WM_DELETE_WINDOW",self.close); self.recover_previous_state(); self.refresh()
@@ -121,6 +129,31 @@ class GuardianDesktop:
             self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
             messagebox.showerror("DNS 복구 실패",f"백그라운드 DNS 프록시를 계속 유지하고 백업을 보존했습니다.\n\n{exc}"); return
         write_state(False); stop_daemon(); self.set_active_ui(False)
+    def open_filter_settings(self):
+        try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
+        except Exception as exc: messagebox.showerror("필터 서버 설정",str(exc)); return
+        dialog=tk.Toplevel(self.root); dialog.title("서명 필터 서버 설정"); dialog.geometry("560x360"); dialog.configure(bg="#101820")
+        tk.Label(dialog,text="HTTPS manifest 기본 주소",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(14,2))
+        base=tk.Entry(dialog,width=72); base.insert(0,data.get("manifest_base_url","")); base.pack(fill="x",padx=16)
+        tk.Label(dialog,text="필터 source ID",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(10,2))
+        source=tk.Entry(dialog); source.insert(0,data.get("filter_source_id","adguard")); source.pack(fill="x",padx=16)
+        tk.Label(dialog,text="RSA 공개키 (X.509 SPKI Base64)",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(10,2))
+        key=tk.Text(dialog,height=5,wrap="word"); key.insert("1.0",data.get("manifest_public_key","")); key.pack(fill="both",expand=True,padx=16)
+        def save():
+            data["manifest_base_url"]=base.get().strip(); data["filter_source_id"]=source.get().strip(); data["manifest_public_key"]=key.get("1.0","end").strip()
+            tmp=CONFIG.with_suffix(".tmp"); tmp.write_text(json.dumps(data,indent=2),encoding="utf-8"); os.replace(tmp,CONFIG)
+            dialog.destroy(); messagebox.showinfo("필터 서버 설정","설정이 저장되었습니다. 공개키는 배포 서버의 오프라인 서명 공개키와 정확히 일치해야 합니다.")
+        tk.Button(dialog,text="저장",command=save,bg="#197a57",fg="white",relief="flat").pack(pady=10)
+    def update_filters(self):
+        try:
+            data=json.loads(CONFIG.read_text(encoding="utf-8"))
+            base=data.get("manifest_base_url","").strip(); key=data.get("manifest_public_key","").strip(); source=data.get("filter_source_id","adguard").strip()
+            if not base or not key: raise NetworkConfigError("서명 필터 업데이트를 사용하려면 HTTPS manifest 주소와 운영 공개키를 먼저 설정해야 합니다.")
+            rules_path=CONFIG.with_name(data.get("rules_file","rules.txt"))
+            updater=FilterUpdater(base,source,key,APP_DIR/"manifest-state.json",rules_path)
+            result=updater.update()
+            messagebox.showinfo("필터 업데이트 완료",f"서명 검증 및 SHA-256 확인 완료\n버전: {result['sourceVersion']}\n차단 규칙: {len(DomainRules.from_text(rules_path.read_text(encoding='utf-8')).blocked):,}개")
+        except Exception as exc: messagebox.showerror("필터 업데이트 실패",str(exc))
     def refresh(self):
         try:
             stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
