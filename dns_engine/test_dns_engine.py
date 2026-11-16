@@ -96,3 +96,24 @@ def test_truncated_udp_upstream_retries_over_tcp():
     finally:
         udp.close(); tcp.close()
         for thread in threads: thread.join(timeout=2)
+
+
+def test_ipv6_upstream_dns_query():
+    import socket,threading
+    from dns_engine.proxy import DnsProxy
+    upstream=socket.socket(socket.AF_INET6,socket.SOCK_DGRAM)
+    try: upstream.bind(("::1",0))
+    except OSError:
+        upstream.close(); pytest.skip("IPv6 loopback is unavailable")
+    port=upstream.getsockname()[1]
+    def respond():
+        packet,address=upstream.recvfrom(4096)
+        answer=bytearray(packet); answer[2]=0x81; answer[3]=0x80
+        upstream.sendto(answer,address)
+    thread=threading.Thread(target=respond); thread.start()
+    try:
+        proxy=DnsProxy(DomainRules(),upstreams=(("::1",port),),listen=("127.0.0.1",0))
+        response=proxy.forward(query("normal.example"))
+        assert response[2]&0x80 and response[3]&15==0
+    finally:
+        upstream.close(); thread.join(timeout=2)
