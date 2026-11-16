@@ -110,6 +110,14 @@ class MainActivity : Activity() {
         requestNotificationPermissionIfNeeded()
         LicenseRefreshScheduler.sync(this)
         val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        // One-time migration: turn on the Android app-ad SDK list for existing
+        // installations too, not just fresh installs whose preference is absent.
+        if (!filterPrefs.getBoolean("android_ads_default_enabled_v1", false)) {
+            filterPrefs.edit()
+                .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                .putBoolean("android_ads_default_enabled_v1", true)
+                .apply()
+        }
         val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
         FilterUpdateScheduler.sync(this)
         val lastUpdate = FilterListManager.lastUpdatedAt(this)
