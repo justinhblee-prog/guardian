@@ -32,8 +32,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const path = require('path');
-            let run;
+                        let run;
             if (context.eventName === 'workflow_run') {
               run = context.payload.workflow_run;
             } else {
@@ -66,7 +65,11 @@ jobs:
               ));
 
             let classification = 'success';
-            if (run.conclusion !== 'success') {
+            if (run.conclusion === 'cancelled') {
+              classification = 'superseded_or_cancelled_run';
+            } else if (run.conclusion === 'skipped') {
+              classification = 'skipped_run';
+            } else if (run.conclusion !== 'success') {
               classification = noRunnerEvidence
                 ? 'runner_or_job_start_failure'
                 : failedSteps.length ? 'workflow_step_failure' : 'workflow_failure_unclassified';
