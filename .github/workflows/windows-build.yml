@@ -59,6 +59,10 @@ jobs:
           if ($daemonTest.ExitCode -ne 0) { throw "Installed background DNS daemon self-test failed with exit code $($daemonTest.ExitCode)" }
           schtasks.exe /Query /TN GuardianDnsProxy
           if ($LASTEXITCODE -ne 0) { throw "Boot-start DNS task was not registered" }
+          $restoreTest = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList "--restore-dns" -Wait -PassThru
+          if ($restoreTest.ExitCode -ne 0) { throw "DNS restore and task cleanup command failed with exit code $($restoreTest.ExitCode)" }
+          schtasks.exe /Query /TN GuardianDnsProxy
+          if ($LASTEXITCODE -eq 0) { throw "Guardian restore command left the boot task registered" }
           $uninstallLog = Join-Path $env:RUNNER_TEMP "guardian-uninstall.log"
           $uninstall = Start-Process -FilePath "$installDir\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog") -Wait -PassThru
           if ($uninstall.ExitCode -ne 0) {
