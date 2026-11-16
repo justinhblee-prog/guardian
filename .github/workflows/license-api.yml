@@ -39,6 +39,9 @@ jobs:
         run: |
           cp .env.example .env
           docker compose config --quiet
+      - name: Parse Windows laptop operations scripts
+        run: |
+          pwsh -NoProfile -Command '$files = Get-ChildItem -Path windows -Filter *.ps1; foreach ($file in $files) { $tokens = $null; $errors = $null; [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors) > $null; if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_ }; exit 1 } }; Write-Host "Parsed $($files.Count) PowerShell scripts."'
       - name: Start runner PostgreSQL for integration tests
         run: |
           sudo service postgresql start
