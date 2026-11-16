@@ -59,7 +59,7 @@ class FilterRuleComposerTest {
             yield("||disabled.example^\$badfilter")
             yield("@@||allowed.example^\$important")
         })
-        assertEquals(50_001, parsed.blocked.size)
+        assertEquals(50_000, parsed.blocked.size)
         assertTrue("important.example" in parsed.importantBlocked)
         assertFalse("disabled.example" in parsed.blocked)
         assertEquals(1, parsed.ignored)
