@@ -181,12 +181,15 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
+          target: google_apis
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_5
+          # Use a Google APIs image and explicit full-speed DNS/network settings;
+          # the default API 35 image was booting with no connected Wi-Fi network.
           # Run the entire verification in one Bash process; the action's
           # line-oriented script runner cannot preserve shell loops/conditionals.
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -netfast -dns-server 8.8.8.8,1.1.1.1
           script: bash scripts/verify_android_emulator.sh && bash scripts/verify_android_vpn_emulator.sh
 
       - name: Capture emulator diagnostics on failure
