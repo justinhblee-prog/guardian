@@ -16,14 +16,18 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $privateKeyPat
 if ($LASTEXITCODE -ne 0) { throw 'RSA 개인키 생성 실패' }
 openssl pkey -in $privateKeyPath -pubout -out $publicKeyPath
 if ($LASTEXITCODE -ne 0) { throw 'RSA 공개키 생성 실패' }
-function New-Secret([int]$Bytes = 48) { $buffer = New-Object byte[] $Bytes; $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); try { $rng.GetBytes($buffer) } finally { $rng.Dispose() }; return [Convert]::ToBase64String($buffer).TrimEnd('=').Replace('+','A').Replace('/','B') }
+function New-Secret([int]$Bytes = 48) { $buffer = New-Object byte[] $Bytes; $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); try { $rng.GetBytes($buffer) } finally { $rng.Dispose() }; return [BitConverter]::ToString($buffer).Replace('-', '').ToLowerInvariant() }
 $dbPassword = New-Secret 48
 $adminToken = New-Secret 64
 $lookupSecret = New-Secret 64
 $pem = (Get-Content -Raw $privateKeyPath).Trim() -replace "`r?`n", '\n'
 $lines = @("POSTGRES_PASSWORD=$dbPassword", "GUARDIAN_ADMIN_TOKEN=$adminToken", "GUARDIAN_LICENSE_LOOKUP_SECRET=$lookupSecret", "GUARDIAN_LICENSE_PRIVATE_KEY=$pem", 'PORT=8787', 'GUARDIAN_RATE_LIMIT_WINDOW_MS=60000', 'GUARDIAN_RATE_LIMIT_MAX=30')
 [System.IO.File]::WriteAllText($envPath, ($lines -join "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
-if (-not $SkipAutoStart) { $FilterDir = (Resolve-Path (Join-Path $ServerDir '..\filter-distribution')).Path; $filterEnv = Join-Path $FilterDir '.env'; if (-not (Test-Path $filterEnv)) { [System.IO.File]::WriteAllText($filterEnv, "HOST=0.0.0.0`nPORT=8788`nGUARDIAN_FILTER_DIST_DIR=/app/dist`n", [System.Text.UTF8Encoding]::new($false)) }; New-Item -ItemType Directory -Force -Path (Join-Path $FilterDir 'dist') | Out-Null; & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1'); $taskName = 'Guardian Operations'; $action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1') + '"'); $trigger = New-ScheduledTaskTrigger -AtLogOn; $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero); Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Start Guardian local license API after Windows sign-in' -Force | Out-Null }
+$FilterDir = (Resolve-Path (Join-Path $ServerDir '..\filter-distribution')).Path
+$filterEnv = Join-Path $FilterDir '.env'
+if (-not (Test-Path $filterEnv)) { [System.IO.File]::WriteAllText($filterEnv, "HOST=0.0.0.0`nPORT=8788`nGUARDIAN_FILTER_DIST_DIR=/app/dist`n", [System.Text.UTF8Encoding]::new($false)) }
+New-Item -ItemType Directory -Force -Path (Join-Path $FilterDir 'dist') | Out-Null
+if (-not $SkipAutoStart) { & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1'); $taskName = 'Guardian Operations'; $action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1') + '"'); $trigger = New-ScheduledTaskTrigger -AtLogOn; $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero); Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Start Guardian license API and signed filter distribution after Windows sign-in' -Force | Out-Null }
 Write-Host 'Guardian 노트북 운영 서버 기본 구성이 완료되었습니다.'
 Write-Host '관리자 화면: http://127.0.0.1:8787/admin'
 Write-Host "공개키 파일: $publicKeyPath"
