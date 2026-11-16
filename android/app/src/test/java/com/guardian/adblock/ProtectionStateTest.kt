@@ -15,6 +15,12 @@ class ProtectionStateTest {
         assertFalse(ProtectionState.isActive(persistedActive = false, tunnelActive = false))
     }
 
+    @Test fun queuedProtectionStartResumesAfterFailedRefreshWhenVerifiedCachesRemainReady() {
+        assertTrue(ProtectionState.shouldResumeProtectionAfterFilterFailure(true, true))
+        assertFalse(ProtectionState.shouldResumeProtectionAfterFilterFailure(true, false))
+        assertFalse(ProtectionState.shouldResumeProtectionAfterFilterFailure(false, true))
+    }
+
     @Test fun restoresStickyServiceOnlyWhenProtectionWasPreviouslyEnabled() {
         assertTrue(ProtectionState.shouldRestoreAfterServiceRestart(persistedActive = true))
         assertFalse(ProtectionState.shouldRestoreAfterServiceRestart(persistedActive = false))
