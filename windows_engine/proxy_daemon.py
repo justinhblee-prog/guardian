@@ -29,13 +29,25 @@ def main():
     if state.get("enabled") is not True: return 0
     APP_DIR.mkdir(parents=True,exist_ok=True); data,rules=load_runtime()
     port=int(data.get("listen_port",53)); proxy=DnsProxy(rules,tuple(data.get("upstreams",["1.1.1.1","8.8.8.8"])),listen=(("127.0.0.1",port),("::1",port)))
+    rules_path=APP_DIR/data.get("rules_file","rules.txt")
     stop=threading.Event()
-    def write_stats():
+    def background_tasks():
+        last_mtime=rules_path.stat().st_mtime_ns
         while not stop.wait(1):
             tmp=STATS.with_suffix(".tmp")
-            tmp.write_text(json.dumps({"blocked":proxy.blocked_count,"forwarded":proxy.forwarded_count}),encoding="utf-8")
-            os.replace(tmp,STATS)
-    writer=threading.Thread(target=write_stats,daemon=True); writer.start()
+            try:
+                tmp.write_text(json.dumps({"blocked":proxy.blocked_count,"forwarded":proxy.forwarded_count}),encoding="utf-8")
+                os.replace(tmp,STATS)
+            except OSError: pass
+            try:
+                current=rules_path.stat().st_mtime_ns
+                if current!=last_mtime:
+                    replacement=DomainRules.from_text(rules_path.read_text(encoding="utf-8"))
+                    if replacement.blocked:
+                        proxy.rules=replacement
+                        last_mtime=current
+            except (OSError,UnicodeError): pass
+    writer=threading.Thread(target=background_tasks,daemon=True); writer.start()
     try: proxy.serve_forever()
     finally: stop.set(); writer.join(timeout=2)
     return 0
