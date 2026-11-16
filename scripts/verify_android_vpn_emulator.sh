@@ -90,8 +90,9 @@ tap_text() {
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
     if (sys.argv[1] in node.attrib.get("text","")
-        and node.attrib.get("visible-to-user") == "true"
-        and node.attrib.get("clickable") == "true"):
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("clickable") == "true"
+        and node.attrib.get("enabled") == "true"):
         parts=node.attrib.get("bounds","").strip("[]").split("][")
         if len(parts)==2:
             x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
