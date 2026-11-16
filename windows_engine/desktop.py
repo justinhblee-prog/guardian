@@ -14,7 +14,7 @@ def ensure_config():
     APP_DIR.mkdir(parents=True,exist_ok=True); rules=APP_DIR/"rules.txt"
     if not rules.exists(): rules.write_text(DEFAULT_RULES,encoding="utf-8")
     if CONFIG.exists(): data=json.loads(CONFIG.read_text(encoding="utf-8"))
-    else: data={"rules_file":"rules.txt","listen_port":53,"upstreams":["1.1.1.1","8.8.8.8"]}
+    else: data={"rules_file":"rules.txt","listen_port":53,"upstreams":["1.1.1.1","8.8.8.8","2606:4700:4700::1111","2001:4860:4860::8888"]}
     data.setdefault("manifest_base_url","")
     data.setdefault("manifest_public_key","")
     data.setdefault("filter_source_id","adguard")
