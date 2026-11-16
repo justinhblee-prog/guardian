@@ -17,6 +17,7 @@ OutputBaseFilename=Guardian-AdBlock-Windows-Setup-{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+CloseApplications=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Files]
@@ -31,6 +32,3 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch Guardian AdBlock"; Flags: nowait postinstall skipifsilent
-
-[UninstallRun]
-Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command \"$p=Get-CimInstance Win32_Process -Filter 'Name=\"GuardianAdBlock.exe\"'; if($p){Stop-Process -Id $p.ProcessId -Force}\""; Flags: runhidden
