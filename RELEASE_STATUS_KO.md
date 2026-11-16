@@ -1,16 +1,27 @@
-## 2026-11-16 최신 통합 상태 — main 기준 (최신 정보 우선)
+## 2026-11-16 최신 통합 상태 — main 기준
 
-- Android 빌드: `com.guardian.adblock`, versionCode `23`, versionName `0.7.10-dev`.
-- 기준 소스 커밋: `c3d72fec79e794dd8180a78146988a161e448c58`.
-- 최종 CI 실행 [43781110905](https://github.com/justinhblee-prog/guardian/actions/runs/43781110905): Android 단위 테스트, lint, 개발용 서명 확인, 이전 버전 APK 생성, 새 APK 생성, 필터 라이브러리 검사, API 35 에뮬레이터 업데이트 설치 및 실행, 패키지/버전 검사, APK SHA-256 계산, 소스/검증 요약 패키징 및 artifact 업로드까지 전체 성공.
-- 최종 artifact: `Guardian-AdBlock-Android-Full-Package-v0.7.10-dev`, ID `14188698028`, ZIP 3,271,504 bytes. Artifact SHA-256: `aa469b03b92481f9741900e02dd3e8728991c24f93ed170644d2666896a4c4a7`.
-- APK: 3,070,507 bytes. APK SHA-256: `04958ebbe6a4d57d6e0dc603cfd1b36af0085ad82cb307183e98e73c76f1b739`.
-- API 35 에뮬레이터에서 v0.7.9-dev → v0.7.10-dev 서명 일치 업데이트 설치 및 앱 실행 통과.
-- 서명 유형은 개발용 Android debug 서명입니다. 운영 keystore/secrets 및 production 공개키·배포 URL이 구성되지 않아 production APK/AAB는 생성하지 않았습니다.
-- 물리 Android 휴대전화 VPN 승인, 실제 DNS 라우팅/광고 제거, Wi-Fi↔모바일 전환, 장시간 안정성 및 태블릿 실기기 검증은 미실시입니다. 에뮬레이터 결과로 대체하지 않습니다.
-- 앱의 DNS 필터 엔진/통계/업데이트/서명 검증 및 라이선스 클라이언트 소스는 존재하지만, 운영 manifest 서버와 License API/DB/TLS는 실제 호스팅·운영 키 설정·end-to-end 검증이 남아 있습니다.
-- Windows 클라이언트는 아직 구현되지 않았습니다. 현재 저장소에는 Windows 검증 스크립트만 있고 `windows_engine`, `dns_engine`, Windows 앱/설치 프로그램 소스는 없습니다. 사용자 우선순위에 따라 Android 이후 Windows 단계에서 구현합니다.
-- 아래 문서는 과거 개발 이력입니다. 이 상단 최신 통합 상태가 과거의 진행 중/구버전 APK 기록보다 우선합니다.
+### Android
+- Android 패키지: `com.guardian.adblock`, versionCode `23`, versionName `0.7.10-dev`.
+- 검증된 APK: 3,070,507 bytes, SHA-256 `04958ebbe6a4d57d6e0dc603cfd1b36af0085ad82cb307183e98e73c76f1b739`.
+- 전체 패키지 artifact: [Android APK + source + verification ZIP](https://github.com/justinhblee-prog/guardian/actions/runs/43781110905), artifact ID `14188698028`.
+- API 35 에뮬레이터에서 v0.7.9-dev → v0.7.10-dev 업데이트 설치 및 앱 실행 통과.
+- 단위 테스트, Lint, 개발용 서명, APK 생성 및 DNS 필터 asset 검사 통과.
+- 서명 유형은 개발용 Android debug 서명입니다. 운영 keystore/secrets 및 production 배포 URL/공개키가 설정되지 않아 production APK/AAB는 생성하지 않았습니다.
+- 실기기 VPN 승인, 실제 DNS 라우팅/광고 제거, Wi-Fi↔모바일 전환, 장시간 안정성 및 태블릿 실기기 검증은 미실시입니다. 에뮬레이터 결과로 대체하지 않습니다.
+
+### Windows
+- Windows DNS 엔진, IPv4/IPv6 UDP·TCP loopback DNS proxy, DNS upstream 검증 및 UDP truncation 시 TCP fallback 구현.
+- Windows 데스크톱 제어 UI, 관리자 권한 흐름, DNS 어댑터 IPv4/IPv6 설정 백업·복구 및 실패 시 rollback 구현.
+- 창을 닫아도 보호를 유지하도록 부팅 시 실행되는 Windows 작업 스케줄러 백그라운드 DNS 프로세스를 추가했습니다. 제거 과정은 DNS 원상 복구가 실패하면 중단하도록 설계했습니다.
+- HTTPS/RSA-SHA256 서명 manifest, filter SHA-256, source version 및 anti-rollback 검증을 수행하는 Windows 필터 업데이트 클라이언트와 UI 설정을 구현했습니다. 운영 서버 주소와 pinned 공개키가 아직 제공/설정되지 않아 자동 업데이트는 미활성 상태입니다.
+- Windows CI: 22개 테스트가 Ubuntu 및 Windows 2022에서 통과했습니다([run 43785636135](https://github.com/justinhblee-prog/guardian/actions/runs/43785636135)).
+- Windows EXE/설치 프로그램 빌드 및 실제 설치·실행·제거 검증은 현재 별도 workflow에서 진행 중입니다([run 43785686270](https://github.com/justinhblee-prog/guardian/actions/runs/43785686270)). 완료 전까지 Windows 설치 패키지를 검증 완료로 표시하지 않습니다.
+- Windows 구현은 DNS 기반 보호이며 WFP 커널 드라이버가 아닙니다. 실제 Windows PC의 Ethernet/Wi-Fi DNS 전환, 재부팅 복구, VPN/보안 제품 공존성은 아직 실기기 검증이 필요합니다.
+
+### 공통 운영 준비
+- 저장소에는 서명 필터 배포 서버와 License API의 구현/배포 템플릿이 있으나, 운영 도메인·TLS·서명 개인키·공개키·DB가 실제 호스팅되어 end-to-end로 검증된 상태는 아닙니다.
+- 운영 서명 키나 개인 비밀값은 저장소 또는 채팅에 추가하지 않았습니다.
+- Windows 상세 안내: [WINDOWS_BUILD_KO.md](WINDOWS_BUILD_KO.md).
 
 # Guardian AdBlock Android — 개발/릴리스 상태
 
