@@ -49,14 +49,14 @@ jobs:
             if (Test-Path $installLog) { Get-Content $installLog -Tail 80 }
             throw "Silent installation failed with exit code $($process.ExitCode)"
           }
-          & "$installDir\GuardianAdBlock.exe" --self-test
-          if ($LASTEXITCODE -ne 0) {
+          $desktopTest = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList "--self-test" -Wait -PassThru
+          if ($desktopTest.ExitCode -ne 0) {
             $selfTestLog = Join-Path $env:TEMP "GuardianDesktopSelfTest.log"
             if (Test-Path $selfTestLog) { Get-Content $selfTestLog }
-            throw "Installed desktop executable self-test failed with exit code $LASTEXITCODE"
+            throw "Installed desktop executable self-test failed with exit code $($desktopTest.ExitCode)"
           }
-          & "$installDir\GuardianDnsProxy.exe" --self-test
-          if ($LASTEXITCODE -ne 0) { throw "Installed background DNS daemon self-test failed" }
+          $daemonTest = Start-Process -FilePath "$installDir\GuardianDnsProxy.exe" -ArgumentList "--self-test" -Wait -PassThru
+          if ($daemonTest.ExitCode -ne 0) { throw "Installed background DNS daemon self-test failed with exit code $($daemonTest.ExitCode)" }
           schtasks.exe /Query /TN GuardianDnsProxy
           if ($LASTEXITCODE -ne 0) { throw "Boot-start DNS task was not registered" }
           & "$installDir\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
