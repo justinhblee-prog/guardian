@@ -37,11 +37,19 @@ def write_state(enabled):
 def blocked_probe_query():
     labels=b"".join(bytes([len(p)])+p.encode("ascii") for p in "doubleclick.net".split("."))+b"\0"
     return struct.pack("!HHHHHH",0x6a31,0x0100,1,0,0,0)+labels+struct.pack("!HH",1,1)
+def is_dns_probe_response(query,response):
+    # Readiness means the DNS listener answered, not that a particular
+    # domain is blocked. User filter lists and allowlists are configurable.
+    return (len(response)>=12 and len(query)>=12
+            and response[:2]==query[:2]
+            and bool(response[2]&0x80)
+            and struct.unpack("!H",response[4:6])[0]==1)
 def proxy_ready():
     try:
+        query=blocked_probe_query()
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
-            client.settimeout(.4); client.sendto(blocked_probe_query(),("127.0.0.1",53)); response,_=client.recvfrom(512)
-        return len(response)>=12 and response[:2]==b"j1" and response[3]&15==3
+            client.settimeout(.8); client.sendto(query,("127.0.0.1",53)); response,_=client.recvfrom(512)
+        return is_dns_probe_response(query,response)
     except OSError: return False
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
