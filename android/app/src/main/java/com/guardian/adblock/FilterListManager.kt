@@ -224,6 +224,11 @@ object FilterListManager {
         val fileExists = recoverCache(context, ANDROID_ADS_CACHE_FILE).let { it.isFile && it.length() > 0L }
         return isCacheValid(fileExists, cachedAndroidAdsBlockCount(context), MIN_ANDROID_ADS_BLOCKS)
     }
+    /** Internal file handles allow the VPN service to parse large lists line-by-line. */
+    internal fun cachedBaseFile(context: Context): File = recoverCache(context, CACHE_FILE)
+    internal fun cachedSecurityFile(context: Context): File = recoverCache(context, SECURITY_CACHE_FILE)
+    internal fun cachedAndroidAdsFile(context: Context): File = recoverCache(context, ANDROID_ADS_CACHE_FILE)
+
     fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
     fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
     fun cachedAndroidAdsLines(context: Context): List<String> = readCache(context, ANDROID_ADS_CACHE_FILE)
