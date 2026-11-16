@@ -176,7 +176,7 @@ class GuardianVpnService : VpnService() {
         // unreachable, leaving the device's normal network untouched is safer
         // than activating a tunnel that makes every website appear offline.
         val preflightQuery = DnsUpstreamProbe.query()
-        val preflightResponse = forwardDns(preflightQuery)
+        val preflightResponse = forwardDns(preflightQuery, requireSuccessfulResolution = true)
         if (!DnsUpstreamProbe.isSuccessfulResolution(preflightQuery, preflightResponse)) {
             val detail = lastUpstreamFailure ?: "업스트림 DNS 응답 검증 실패"
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
@@ -494,7 +494,7 @@ class GuardianVpnService : VpnService() {
             .getString(KEY_UPSTREAM_TLS_HOST, DEFAULT_UPSTREAM_TLS_HOST)
             ?: DEFAULT_UPSTREAM_TLS_HOST
 
-    private fun forwardDns(query: ByteArray): ByteArray? {
+    private fun forwardDns(query: ByteArray, requireSuccessfulResolution: Boolean = false): ByteArray? {
         lastUpstreamFailure = null
         val configured = configuredUpstreamDns()
         val transport = configuredUpstreamTransport()
@@ -515,7 +515,18 @@ class GuardianVpnService : VpnService() {
                 "doh" -> forwardDnsOverHttps(query, address)
                 else -> forwardDnsUdp(query, address)
             }
-            if (response != null && DomainFilter.isMatchingResponse(query, response)) return response
+            if (response != null && DomainFilter.isMatchingResponse(query, response)) {
+                val usable = if (requireSuccessfulResolution) {
+                    DnsUpstreamProbe.isSuccessfulResolution(query, response)
+                } else {
+                    !DnsUpstreamProbe.isRetryableResolverError(response)
+                }
+                if (usable) return response
+                lastUpstreamFailure = transport.uppercase() + " " + address +
+                    ": resolver returned an unusable response (RCODE=" +
+                    DnsUpstreamProbe.responseCode(response) + ")"
+                continue
+            }
             if (lastUpstreamFailure == null) {
                 lastUpstreamFailure = transport.uppercase() + " " + address + ": DNS 응답 없음 또는 검증 실패"
             }
