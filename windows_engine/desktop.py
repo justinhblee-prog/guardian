@@ -4,7 +4,8 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 from dns_engine import DomainRules,DnsProxy
-from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin\nfrom windows_engine.filter_updates import FilterUpdater
+from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin
+from windows_engine.filter_updates import FilterUpdater
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
 CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"
 TASK_NAME="GuardianDnsProxy"
