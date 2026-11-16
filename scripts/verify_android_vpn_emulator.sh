@@ -25,7 +25,7 @@ cache_ready() {
 
 echo "Waiting for all enabled filter lists to be downloaded and cached."
 ready=0
-for attempt in $(seq 1 180); do
+for attempt in $(seq 1 240); do
   if cache_ready; then
     prefs="$(read_prefs)"
     if grep -q 'name="filter_list_block_count"' <<<"$prefs" &&
@@ -39,8 +39,14 @@ for attempt in $(seq 1 180); do
 done
 if [[ "$ready" -ne 1 ]]; then
   echo "Filter cache readiness timed out."
-  adb shell run-as "$PACKAGE" ls -la files || true
+  echo "Persisted filter update errors:"
   read_prefs || true
+  echo "Filter cache files:"
+  adb shell run-as "$PACKAGE" ls -la files || true
+  echo "Guardian filter/network log:"
+  adb logcat -d -t 6000 | grep -E "Guardian|Filter|WorkManager|OkHttp|UnknownHost|SSL|Exception|timeout" | tail -300 || true
+  echo "Emulator network state:"
+  adb shell dumpsys connectivity | tail -160 || true
   exit 1
 fi
 
