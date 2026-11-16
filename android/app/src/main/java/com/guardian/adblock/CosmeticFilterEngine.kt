@@ -7,6 +7,35 @@ package com.guardian.adblock
  * and domain exceptions. Scriptlet/procedural rules are intentionally ignored.
  */
 object CosmeticFilterEngine {
+    /** Conservative, generic ad-slot selectors used only by Guardian's own WebView. */
+    val DEFAULT_RULES = listOf(
+        "##.adsbygoogle",
+        "##[id^='google_ads']",
+        "##[id^='div-gpt-ad']",
+        "##[id^='ad-container']",
+        "##[id^='ad-slot']",
+        "##[id^='adunit']",
+        "##[class*='ad-container']",
+        "##[class*='ad-slot']",
+        "##[class*='ad-unit']",
+        "##.adunit",
+        "##.ad-unit",
+        "##.ad-slot",
+        "##.ad-wrapper",
+        "##.ad-banner",
+        "##.ad-placeholder",
+        "##.advert",
+        "##.advertisement",
+        "##[data-ad]",
+        "##[data-ad-slot]",
+        "##[data-ad-client]",
+        "##[data-ad-unit]",
+        "##[aria-label='advertisement']",
+        "##iframe[src*='doubleclick.net']",
+        "##iframe[src*='googlesyndication.com']",
+        "##iframe[src*='adservice.google']"
+    )
+
     data class GenericHideRule(
         val selector: String,
         val excludedDomains: Set<String>
