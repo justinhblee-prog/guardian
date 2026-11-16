@@ -3,6 +3,9 @@ $ServerDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $ServerDir
 $backupDir = Join-Path $ServerDir 'backups'
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
+$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+& icacls.exe $backupDir /inheritance:r /grant:r ($currentIdentity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw '백업 폴더의 Windows 접근 권한 제한 실패' }
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $outFile = Join-Path $backupDir "guardian-license-$stamp.dump"
 
