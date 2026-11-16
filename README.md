@@ -1,16 +1,24 @@
-# Guardian AdBlock Android — 0.7.8-dev
+# Guardian AdBlock — Android 0.7.10-dev / Windows 0.1.0-dev
 
-## 2026-11-15 최신 통합 상태 — main 기준
+## 2026-11-16 통합 상태
 
-- Android 패키지: `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`.
-- PR #72는 Android CI 전체 검증 성공 후 main에 병합되었습니다. 병합 커밋: `26b79f5f5b4cf03e8ae23093ff3a5911702eecc4`.
-- 메인 push 빌드 [43726745032](https://github.com/justinhblee-prog/guardian/actions/runs/43726745032): Android 단위 테스트, lint, debug APK 조립, 필터 asset 일치, Android API 35 에뮬레이터 설치·실행, 패키지/버전, SHA-256, 소스 ZIP 생성 및 artifact 업로드까지 모두 성공했습니다.
-- APK 크기: 3,054,240 bytes. APK SHA-256: `4349d51155b299736fe751465cbb1234545916124f4702d67a550ea5c7d1a630`.
-- GitHub Actions artifact: `Guardian-AdBlock-Android-Full-Package-v0.7.8-dev`, ID `14167411329`, ZIP 3,236,385 bytes. 보관 만료 예정: 2026-12-15.
-- APK는 **debug 서명**입니다. 운영 keystore가 설정되지 않아 production-signed APK/AAB는 생성되지 않았습니다.
-- 에뮬레이터 설치·실행은 통과했지만 실제 Android 기기의 VPN/TUN 라우팅, 실제 차단률, Wi-Fi↔모바일 전환, Private DNS 및 제조사별 백그라운드 동작은 미검증입니다.
-- 운영 License API/DB/TLS 및 서명 manifest 배포 endpoint는 저장소에 배포 템플릿과 테스트가 있으나, 실제 운영 호스팅·도메인·키가 설정되지 않았습니다. Google Play Billing/환불 webhook도 미구현입니다.
-- Android 스마트폰·태블릿 지원을 우선하며 Windows 클라이언트/설치 프로그램은 마지막 단계로 보류합니다.
+### Android
+- 패키지 `com.guardian.adblock`, versionCode `23`, versionName `0.7.10-dev`.
+- APK: 3,070,507 bytes; SHA-256 `04958ebbe6a4d57d6e0dc603cfd1b36af0085ad82cb307183e98e73c76f1b739`.
+- [Android APK + source + verification artifact](https://github.com/justinhblee-prog/guardian/actions/runs/43781110905).
+- API 35 에뮬레이터에서 v0.7.9-dev → v0.7.10-dev 업데이트 설치 및 앱 실행, Android unit tests, Lint, APK 생성 및 filter asset 검사 통과.
+- Debug 개발용 서명본입니다. 운영 keystore/secrets가 없어 production APK/AAB는 생성하지 않았습니다.
+- Android 실기기 VPN/TUN 라우팅, 실제 광고 제거, 네트워크 전환, 장시간 안정성 및 태블릿 실기기 검증은 미실시입니다.
+
+### Windows
+- 공통 DNS 필터 엔진, IPv4/IPv6 UDP·TCP loopback DNS proxy, upstream 검증 및 truncated UDP의 TCP fallback을 구현했습니다.
+- Windows 데스크톱 UI, DNS 어댑터 설정 백업·복구/rollback, 부팅 시 자동 시작 백그라운드 DNS 작업, 서명 필터 manifest updater를 구현했습니다.
+- 22개 Windows 엔진 테스트가 Ubuntu 및 Windows 2022에서 통과했습니다([CI run 43785636135](https://github.com/justinhblee-prog/guardian/actions/runs/43785636135)).
+- Windows EXE 및 설치 프로그램의 빌드·설치·실행·제거 smoke test는 진행 중입니다([run 43785686270](https://github.com/justinhblee-prog/guardian/actions/runs/43785686270)). 성공 확인 전까지 Windows 패키지를 검증 완료로 간주하지 않습니다.
+- 현재 Windows 보호는 DNS 기반이며 WFP 커널 드라이버가 아닙니다. 실제 Windows PC의 어댑터 변경, 재부팅 복구 및 VPN/보안 제품 공존성은 미검증입니다.
+- 서명 필터 자동 업데이트는 HTTPS 서버 주소와 운영 pinned 공개키가 설정되어야 활성화됩니다. 현재 운영 서버/키는 미설정입니다.
+
+상세 Windows 빌드 안내: [WINDOWS_BUILD_KO.md](WINDOWS_BUILD_KO.md)
 
 ## 개발 및 배포 정책
 
@@ -22,7 +30,7 @@ Guardian AdBlock은 Android `VpnService` 기반 DNS 필터링 앱입니다. Andr
 
 ## 멀티 디바이스 지원 계획
 
-Windows PC, Android 스마트폰·태블릿을 하나의 필터/라이선스 체계로 제공하는 설계 문서를 추가했습니다. Android 태블릿은 동일 APK의 반응형 UI로 지원하고, Windows는 별도 설치형 클라이언트를 개발합니다. 모바일 브라우저에서 계정·기기·필터 배포를 관리하는 공통 콘솔도 목표 범위입니다. 현재 Windows 클라이언트, 태블릿 최적화 검증, 운영 서버 및 관리 콘솔은 아직 구현 완료가 아닙니다.
+Windows PC, Android 스마트폰·태블릿을 하나의 필터/라이선스 체계로 제공하는 설계입니다. Android 태블릿은 동일 APK의 반응형 UI로 지원하고, Windows는 별도 DNS 기반 설치형 개발 클라이언트가 구현되었습니다. Windows 설치 패키지 검증, 태블릿 실기기 최적화, 운영 서버/공개키 및 관리 콘솔은 계속 검증·구축해야 합니다.
 
 상세 설계: [멀티 디바이스 로드맵](docs/MULTI_DEVICE_ROADMAP_KO.md)
 
