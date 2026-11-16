@@ -8,6 +8,10 @@ object ProtectionState {
     fun isActive(persistedActive: Boolean, tunnelActive: Boolean): Boolean =
         persistedActive && tunnelActive
 
+    /** Resume a user's queued VPN start after a filter refresh fails only when the last verified cache set is still complete. */
+    fun shouldResumeProtectionAfterFilterFailure(startWasRequested: Boolean, cachedFiltersReady: Boolean): Boolean =
+        startWasRequested && cachedFiltersReady
+
     /** A sticky service restart should rebuild the TUN only when the last user-requested state was active. */
     fun shouldRestoreAfterServiceRestart(persistedActive: Boolean): Boolean = persistedActive
 
