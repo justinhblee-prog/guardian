@@ -58,6 +58,11 @@ def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if delete:
         run_task("/Delete","/TN",TASK_NAME,"/F")
+        for _ in range(5):
+            query=run_task("/Query","/TN",TASK_NAME)
+            if query.returncode!=0: return
+            time.sleep(.3)
+        powershell=subprocess.run(["powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-Command","Unregister-ScheduledTask -TaskName 'GuardianDnsProxy' -Confirm:$false -ErrorAction SilentlyContinue"],capture_output=True,text=True,timeout=20)
         for _ in range(10):
             query=run_task("/Query","/TN",TASK_NAME)
             if query.returncode!=0: return
