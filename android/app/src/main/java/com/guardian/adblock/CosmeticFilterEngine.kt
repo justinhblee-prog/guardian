@@ -7,6 +7,11 @@ package com.guardian.adblock
  * and domain exceptions. Scriptlet/procedural rules are intentionally ignored.
  */
 object CosmeticFilterEngine {
+    data class GenericHideRule(
+        val selector: String,
+        val excludedDomains: Set<String>
+    )
+
     data class DomainHideRule(
         val includedDomains: Set<String>,
         val excludedDomains: Set<String>,
@@ -15,7 +20,7 @@ object CosmeticFilterEngine {
 
     data class RuleSet(
         val genericHide: Set<String>,
-        val genericExclusions: Map<String, Set<String>>,
+        val genericHideRules: List<GenericHideRule>,
         val domainHideRules: List<DomainHideRule>,
         val domainExceptions: Map<String, Set<String>>,
         val ignored: Int
@@ -23,7 +28,7 @@ object CosmeticFilterEngine {
 
     fun parse(lines: List<String>): RuleSet {
         val generic = linkedSetOf<String>()
-        val genericExclusions = linkedMapOf<String, MutableSet<String>>()
+        val genericRules = mutableListOf<GenericHideRule>()
         val domainRules = mutableListOf<DomainHideRule>()
         val exceptions = linkedMapOf<String, MutableSet<String>>()
         var ignored = 0
@@ -57,11 +62,9 @@ object CosmeticFilterEngine {
             if (marker == "#@#") {
                 if (included.isEmpty() || excluded.isNotEmpty()) { ignored++; continue }
                 included.forEach { domain -> exceptions.getOrPut(domain) { linkedSetOf() }.add(selector) }
-            } else if (included.isEmpty() && excluded.isEmpty()) {
-                generic.add(selector)
             } else if (included.isEmpty()) {
                 generic.add(selector)
-                genericExclusions.getOrPut(selector) { linkedSetOf() }.addAll(excluded)
+                genericRules.add(GenericHideRule(selector, excluded))
             } else {
                 domainRules.add(DomainHideRule(included, excluded, selector))
             }
@@ -69,7 +72,7 @@ object CosmeticFilterEngine {
 
         return RuleSet(
             genericHide = generic,
-            genericExclusions = genericExclusions.mapValues { it.value.toSet() },
+            genericHideRules = genericRules,
             domainHideRules = domainRules,
             domainExceptions = exceptions.mapValues { it.value.toSet() },
             ignored = ignored
@@ -83,9 +86,8 @@ object CosmeticFilterEngine {
 
         fun matches(domain: String): Boolean = host == domain || host.endsWith(".$domain")
         val hidden = linkedSetOf<String>()
-        rules.genericHide.forEach { selector ->
-            val excluded = rules.genericExclusions[selector].orEmpty()
-            if (excluded.none(::matches)) hidden.add(selector)
+        rules.genericHideRules.forEach { rule ->
+            if (rule.excludedDomains.none(::matches)) hidden.add(rule.selector)
         }
         rules.domainHideRules.forEach { rule ->
             if (rule.includedDomains.any(::matches) && rule.excludedDomains.none(::matches)) {
