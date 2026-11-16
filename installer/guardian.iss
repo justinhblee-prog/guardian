@@ -32,8 +32,31 @@ Name: "{autodesktop}\Guardian AdBlock"; Filename: "{app}\{#MyAppExeName}"; Tasks
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
 
 [Run]
-Filename: "{sys}\schtasks.exe"; Parameters: '/Create /TN GuardianDnsProxy /SC ONSTART /RU SYSTEM /RL HIGHEST /TR "{app}\GuardianDnsProxy.exe" /F'; Flags: runhidden waituntilterminated
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch Guardian AdBlock"; Flags: nowait postinstall skipifsilent
 
-[UninstallRun]
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--restore-dns"; Flags: runhidden waituntilterminated
+
+[Code]
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+  Parameters: String;
+begin
+  if CurStep = ssPostInstall then begin
+    Parameters := '/Create /TN GuardianDnsProxy /SC ONSTART /RU SYSTEM /RL HIGHEST /TR "' + ExpandConstant('{app}\GuardianDnsProxy.exe') + '" /F';
+    if (not Exec(ExpandConstant('{sys}\schtasks.exe'), Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then begin
+      MsgBox('Guardian could not register its boot-start DNS protection task. Setup will stop; no DNS settings have been changed.', mbError, MB_OK);
+      Abort;
+    end;
+  end;
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := Exec(ExpandConstant('{app}\GuardianAdBlock.exe'), '--restore-dns', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if (not Result) or (ResultCode <> 0) then begin
+    MsgBox('Guardian could not restore the original DNS settings. Uninstall is cancelled to avoid leaving network settings changed.', mbError, MB_OK);
+    Result := False;
+  end;
+end;
