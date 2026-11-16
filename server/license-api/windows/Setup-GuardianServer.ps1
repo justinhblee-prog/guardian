@@ -10,6 +10,9 @@ $envPath = Join-Path $ServerDir '.env'
 if (Test-Path $envPath) { throw '.env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
 $secretDir = Join-Path $ServerDir 'secrets'
 New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
+$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+& icacls.exe $secretDir /inheritance:r /grant:r ($currentIdentity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw '서명키 보관 폴더의 Windows 접근 권한 제한 실패' }
 $privateKeyPath = Join-Path $secretDir 'guardian-license-private.pem'
 $publicKeyPath = Join-Path $secretDir 'guardian-license-public.pem'
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $privateKeyPath
@@ -47,6 +50,8 @@ $lookupSecret = New-Secret 64
 $pem = (Get-Content -Raw $privateKeyPath).Trim() -replace "`r?`n", '\n'
 $lines = @("POSTGRES_PASSWORD=$dbPassword", "GUARDIAN_ADMIN_TOKEN=$adminToken", "GUARDIAN_LICENSE_LOOKUP_SECRET=$lookupSecret", "GUARDIAN_LICENSE_PRIVATE_KEY=$pem", 'PORT=8787', 'GUARDIAN_RATE_LIMIT_WINDOW_MS=60000', 'GUARDIAN_RATE_LIMIT_MAX=30')
 [System.IO.File]::WriteAllText($envPath, ($lines -join "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
+& icacls.exe $envPath /inheritance:r /grant:r ($currentIdentity + ':F') '*S-1-5-18:F' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw '운영 환경 파일의 Windows 접근 권한 제한 실패' }
 $FilterDir = (Resolve-Path (Join-Path $ServerDir '..\filter-distribution')).Path
 $filterEnv = Join-Path $FilterDir '.env'
 if (-not (Test-Path $filterEnv)) { [System.IO.File]::WriteAllText($filterEnv, "HOST=0.0.0.0`nPORT=8788`nGUARDIAN_FILTER_DIST_DIR=/app/dist`n", [System.Text.UTF8Encoding]::new($false)) }
