@@ -719,13 +719,14 @@ class GuardianVpnService : VpnService() {
         )
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL)
-                .setContentTitle("Guardian AdBlock")
-                .setContentText("DNS 광고·추적 도메인 필터링 실행 중")
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("Guardian 보호 실행 중")
+                .setContentText("광고 · 추적 DNS 필터링이 백그라운드에서 실행 중입니다.")
+                .setSmallIcon(R.drawable.ic_stat_guardian)
                 .setContentIntent(open)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setTicker("Guardian DNS 보호 실행 중")
+                .setOnlyAlertOnce(true)
                 .setOngoing(true)
                 .build()
         } else {
