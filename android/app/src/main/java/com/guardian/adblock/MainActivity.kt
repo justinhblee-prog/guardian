@@ -391,6 +391,15 @@ class MainActivity : Activity() {
             setPadding(0, dp(8), 0, 0)
         }
         hero.addView(selfTestText!!)
+        hero.addView(Button(this).apply {
+            text = "Guardian 브라우저 · 빈 광고 영역 숨김"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 13)
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, GuardianBrowserActivity::class.java))
+            }
+        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(9) })
         primaryColumn.addView(hero)
 
         val metricRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
