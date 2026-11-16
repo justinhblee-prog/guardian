@@ -11,3 +11,8 @@ def test_missing_rules_file_fails_closed(tmp_path:Path):
     try: load_config(tmp_path/"guardian.json")
     except FileNotFoundError: pass
     else: raise AssertionError("missing filter file must stop service startup")
+
+
+def test_background_daemon_ipv4_ipv6_loopback():
+    from windows_engine.proxy_daemon import self_test
+    self_test()
