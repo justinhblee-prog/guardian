@@ -14,12 +14,21 @@ object DnsUpstreamProbe {
     fun isValidResponse(query: ByteArray, response: ByteArray?): Boolean =
         response != null && DomainFilter.isMatchingResponse(query, response)
 
+    fun responseCode(response: ByteArray): Int? {
+        if (response.size < 4) return null
+        val flags = ((response[2].toInt() and 0xff) shl 8) or (response[3].toInt() and 0xff)
+        return flags and 0x000f
+    }
+
+    /** SERVFAIL and REFUSED are resolver failures; try the next configured fallback. */
+    fun isRetryableResolverError(response: ByteArray): Boolean =
+        responseCode(response) == 2 || responseCode(response) == 5
+
     /** Require NOERROR and at least one answer, not merely a matching DNS error packet. */
     fun isSuccessfulResolution(query: ByteArray, response: ByteArray?): Boolean {
         if (response == null || !DomainFilter.isMatchingResponse(query, response)) return false
         if (response.size < 12) return false
-        val flags = ((response[2].toInt() and 0xff) shl 8) or (response[3].toInt() and 0xff)
         val answerCount = ((response[6].toInt() and 0xff) shl 8) or (response[7].toInt() and 0xff)
-        return (flags and 0x000f) == 0 && answerCount > 0
+        return responseCode(response) == 0 && answerCount > 0
     }
 }
