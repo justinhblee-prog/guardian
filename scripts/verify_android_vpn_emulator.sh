@@ -7,6 +7,8 @@ MAIN_CACHE="adguard_dns_filter.txt"
 SECURITY_CACHE="hagezi_threat_intelligence.txt"
 ANDROID_CACHE="awavenue_android_ads.txt"
 
+adb shell settings put global private_dns_mode off
+adb shell settings delete global private_dns_specifier >/dev/null 2>&1 || true
 adb shell am force-stop "$PACKAGE" || true
 adb shell monkey -p "$PACKAGE" 1 >/dev/null
 sleep 3
@@ -50,15 +52,15 @@ tap_text() {
   adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   xml="$(adb exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   local bounds
-  bounds="$(python3 -c 'import re,sys
-xml=sys.stdin.read()
-for node in re.findall(r"<node\\b[^>]*>",xml):
-    t=re.search(r"\\btext=\"([^\"]*)\"",node)
-    b=re.search(r"\\bbounds=\"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]\"",node)
-    if t and b and sys.argv[1] in t.group(1):
-        x1,y1,x2,y2=map(int,b.groups())
-        print((x1+x2)//2,(y1+y2)//2)
-        break' "$wanted" <<<"$xml")"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if sys.argv[1] in node.attrib.get("text",""):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' "$wanted" <<<"$xml")"
   if [[ -z "$bounds" ]]; then
     echo "Could not locate UI control: $wanted"
     echo "$xml"
@@ -82,15 +84,16 @@ tap_text "보호 시작"
 for attempt in $(seq 1 15); do
   adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
   xml="$(adb exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
-  consent_bounds="$(python3 -c 'import re,sys
-xml=sys.stdin.read()
-for node in re.findall(r"<node\\b[^>]*>",xml):
-    t=re.search(r"\\btext=\"([^\"]*)\"",node)
-    b=re.search(r"\\bbounds=\"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]\"",node)
-    if t and b and any(k in t.group(1).lower() for k in ("allow","허용","확인","ok")):
-        x1,y1,x2,y2=map(int,b.groups())
-        print((x1+x2)//2,(y1+y2)//2)
-        break' <<<"$xml")"
+  consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    label=node.attrib.get("text","").lower()
+    if any(k in label for k in ("allow","허용","확인","ok")):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' <<<"$xml")"
   if [[ -n "$consent_bounds" ]]; then
     read -r x y <<<"$consent_bounds"
     adb shell input tap "$x" "$y"
