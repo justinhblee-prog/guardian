@@ -21,10 +21,10 @@ def signed_fixture():
     def fetcher(url,limit):
         if url.endswith(".manifest"): return manifest,{"X-Guardian-Signature":signature}
         return body,{}
-    return public,body,manifest,signature,fetcher
+    return public,private,body,manifest,signature,fetcher
 
 def test_signed_manifest_download_and_atomic_cache(tmp_path):
-    public,body,manifest,signature,fetcher=signed_fixture()
+    public,private,body,manifest,signature,fetcher=signed_fixture()
     rules=tmp_path/"rules.txt"; state=tmp_path/"manifest-state.json"
     result=FilterUpdater("https://filters.example.com","adguard",public,state,rules,fetcher).update()
     assert rules.read_bytes()==body and result["sourceVersion"]=="2026.11.16"
@@ -51,8 +51,7 @@ def test_anti_rollback_rejects_same_manifest(tmp_path):
 def test_filter_url_must_stay_on_pinned_origin(tmp_path):
     public,body,manifest,signature,fetcher=signed_fixture()
     bad=manifest.replace(b"https://filters.example.com/",b"https://evil.example/")
-    private=rsa.generate_private_key(public_exponent=65537,key_size=2048)
-    # A valid signature from an unrelated key must still fail pinned-key verification.
+    # Sign the malicious URL with the trusted key: the origin allowlist must reject it.
     bad_signature=base64.b64encode(private.sign(bad,padding.PKCS1v15(),hashes.SHA256())).decode("ascii")
     def bad_fetch(url,limit):
         if url.endswith(".manifest"): return bad,{"X-Guardian-Signature":bad_signature}
