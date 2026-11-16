@@ -100,7 +100,7 @@ jobs:
 
       - name: Assemble previous dev version for upgrade test
         run: |
-          gradle -p android --no-daemon -PguardianVersionCode=24 -PguardianVersionName=0.7.11-dev assembleDebug
+          gradle -p android --no-daemon -PguardianVersionCode=23 -PguardianVersionName=0.7.10-dev assembleDebug
           cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.10-dev.apk
 
       - name: Assemble current debug APK for build verification
