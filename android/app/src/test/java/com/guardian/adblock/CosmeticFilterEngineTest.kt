@@ -46,8 +46,6 @@ class CosmeticFilterEngineTest {
             CosmeticFilterEngine.selectorsForHost(rules, "www.example.com"))
         assertEquals(setOf(".generic-ad"),
             CosmeticFilterEngine.selectorsForHost(rules, "news.example.com"))
-        // An unrestricted generic rule remains active even if a second rule
-        // with the same selector excludes this host.
         assertEquals(setOf(".generic-ad"),
             CosmeticFilterEngine.selectorsForHost(rules, "shop.example"))
     }
@@ -94,5 +92,17 @@ class CosmeticFilterEngineTest {
 
         assertEquals(".ad-container { display: none !important; }", css)
         assertFalse(css.contains("<script", ignoreCase = true))
+    }
+
+    @Test fun bundledWebViewDefaultsCoverCommonAdSlotContainersAndFrames() {
+        val rules = CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES)
+        val selectors = CosmeticFilterEngine.selectorsForHost(rules, "shop.example")
+
+        assertEquals(0, rules.ignored)
+        assertTrue(selectors.contains(".ad-slot"))
+        assertTrue(selectors.contains(".ad-wrapper"))
+        assertTrue(selectors.contains("[data-ad-unit]"))
+        assertTrue(selectors.contains("iframe[src*='doubleclick.net']"))
+        assertTrue(selectors.contains("iframe[src*='googlesyndication.com']"))
     }
 }
