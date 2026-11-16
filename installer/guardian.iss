@@ -47,7 +47,7 @@ var
   Parameters: String;
 begin
   if CurStep = ssPostInstall then begin
-    Parameters := '/Create /TN GuardianDnsProxy /SC ONSTART /RU SYSTEM /RL HIGHEST /TR "' + ExpandConstant('{app}\GuardianDnsProxy.exe') + '" /F';
+    Parameters := '/Create /TN GuardianDnsProxy /SC ONSTART /RU SYSTEM /RL HIGHEST /TR "' + ExpandConstant('{app}\GuardianDnsProxy\GuardianDnsProxy.exe') + '" /F';
     if (not Exec(ExpandConstant('{sys}\schtasks.exe'), Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then begin
       MsgBox('Guardian could not register its boot-start DNS protection task. Setup will stop; no DNS settings have been changed.', mbError, MB_OK);
       Abort;
