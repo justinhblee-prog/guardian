@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.7.9-dev
+# Guardian AdBlock Android 0.7.11-dev
 
 ## 제품 개요
 
@@ -8,7 +8,7 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 최소 Android: API 26
 - compile/target SDK: 35
 - 빌드 JDK: 17
-- 현재 버전: `0.7.9-dev` (versionCode 22)
+- 현재 버전: `0.7.11-dev` (versionCode 24)
 
 ## 현재 구현 기능
 
@@ -28,8 +28,8 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 
 ### 필터와 사용자 옵션
 - 공식 DNS 필터 프로필: AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro
-- 선택형 HaGeZi Threat Intelligence 악성코드·피싱 도메인 목록
-- 선택형 AWAvenue Android Ads Rule SDK 도메인 목록
+- PRO 전용 HaGeZi Threat Intelligence 악성코드·피싱 도메인 목록 (무료 버전에서는 잠금 안내 표시)
+- 기본 활성화된 AWAvenue Android Ads Rule SDK 도메인 목록 (신규 설치 시 자동 다운로드)
 - 사용자 차단/허용 도메인 목록(각 최대 1,000개)
 - 앱별 VPN 보호 제외 설정
 - 공용 DNS 직접 질의 포착은 고급 선택 옵션이며 기본값은 꺼짐
@@ -39,6 +39,9 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 프로필/캐시 불일치 또는 보안 목록 미준비 시 잘못된 필터 조합으로 보호가 시작되지 않도록 차단
 
 ### 앱 화면
+- 홈 상단 좌측 Guardian 브랜드, 우측 유진컨설팅 회사 로고
+- 설정 화면의 제작자/개발사 및 연락처 표기
+- Android 13 이상 알림 권한을 요청하고 보호 중 지속 알림을 표시
 - 홈 보호 대시보드와 실시간 DNS 통계
 - 보호 범위 및 제한 안내
 - 필터 프로필·보안 옵션·사용자 규칙 관리
@@ -60,7 +63,7 @@ Android는 VPN 앱 자신이 만든 소켓을 자체 TUN 경로에서 제외합�
 
 1. APK 설치 후 앱을 실행합니다.
 2. 필터 탭에서 사용할 프로필을 선택하고 필터 목록을 업데이트합니다.
-3. 선택형 보안/Android 앱 광고 목록을 켰다면 해당 목록 다운로드와 검증이 완료됐는지 확인합니다.
+3. Android 앱 광고 SDK 필터는 기본 활성화되며 목록 다운로드와 검증이 완료됐는지 확인합니다. 악성코드·피싱 보호는 PRO 라이선스가 필요합니다.
 4. 홈에서 보호 시작을 누르고 Android VPN 권한을 승인합니다.
 5. 활동 탭에서 실제 DNS 질의·차단·전달·실패 통계를 확인합니다.
 
