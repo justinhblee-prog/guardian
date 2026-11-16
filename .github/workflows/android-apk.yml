@@ -278,12 +278,16 @@ jobs:
             fi
           }
           capture devices adb devices -l
+          capture adb-server adb server-status
           capture getprop adb shell getprop
           capture logcat adb logcat -d -t 12000
           capture activities adb shell dumpsys activity activities
           capture package adb shell dumpsys package com.guardian.adblock
           capture vpn adb shell dumpsys vpn
-          capture emulator-version emulator -version
+          capture emulator-version "$ANDROID_HOME/emulator/emulator" -version
+          capture emulator-processes ps -ef
+          if [ -e /dev/kvm ]; then ls -l /dev/kvm > emulator-diagnostics/kvm.txt 2>&1; else echo '/dev/kvm absent' > emulator-diagnostics/kvm.txt; fi
+          if [ -s "$RUNNER_TEMP/guardian-emulator.log" ]; then cp "$RUNNER_TEMP/guardian-emulator.log" emulator-diagnostics/emulator.log; fi
           date -u +%FT%TZ > emulator-diagnostics/captured-at.txt
           printf 'Diagnostics collection finished (individual commands are bounded to 15s).\n'
 
