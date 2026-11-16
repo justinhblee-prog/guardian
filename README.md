@@ -1,6 +1,6 @@
-# Guardian AdBlock — Android 0.7.10-dev / Windows 0.1.0-dev
+# Guardian AdBlock — Android 0.7.13-dev / Windows client
 
-## 2026-11-16 통합 상태
+## 과거 통합 기록 (이후 최신 검증 기록 우선)
 
 ### Android
 - 패키지 `com.guardian.adblock`, versionCode `23`, versionName `0.7.10-dev`.
@@ -184,3 +184,27 @@ Android 설정에서 라이선스 API 주소와 서명 필터 배포 주소를 �
 - 라이선스 API/PostgreSQL 통합 테스트 및 Windows PowerShell 스크립트 구문 검사: 통과. 최신 실행: https://github.com/justinhblee-prog/guardian/actions/runs/43799678983
 - 서명 필터 배포 서버 테스트 및 Docker Compose 구성 검사: 통과. 실행: https://github.com/justinhblee-prog/guardian/actions/runs/43798651189
 - 실제 사용자 노트북에서 Docker 설치·서버 실행, 외부 HTTPS 연결, 라이선스 발급, 예약 업데이트, 휴대폰 E2E는 아직 수행되지 않았습니다.
+
+## 2026-11-16 최신 Android 검증 — v0.7.13-dev
+
+이 절이 Android APK 관련 이전 버전 및 CI 기록보다 우선합니다.
+
+- 버전: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`.
+- 소스 커밋: `4ae0da811d579f2a1495fbc89c1e94641cd5348d`.
+- GitHub Actions 실행 #704: https://github.com/justinhblee-prog/guardian/actions/runs/43815516892
+- Android unit tests, lint, 이전 개발 APK 업그레이드 설치, 현재 APK 조립, DNS 필터 라이브러리 확인, API 35 에뮬레이터 설치·실행, 패키지 식별/버전 및 APK 체크섬, 소스/검증 요약 패키징, Artifact 업로드: 모두 성공.
+- 검증 Artifact: `guardian-android-debug` (2,999,902 bytes, ZIP SHA-256 `00cd2311ea2fa23c64dbb1dc7e993012e18bc10b9d81c2219cb2238e2a729eb2`).
+- APK: 3,080,949 bytes; SHA-256 `32a549ac197101c8b514bb39b8e31fa21030caa4ae587a7ab81b6ac296571e71`.
+- 서명: 기존 개발 설치 업데이트 호환용 Android debug 인증서. Production 서명 아님.
+- 이 검증은 API 35 에뮬레이터 기준입니다. 실제 Android 스마트폰/태블릿의 VPN 권한·TUN DNS 경로·광고 차단 수용 테스트, Wi-Fi↔모바일 전환 및 장시간 안정성은 별도 미검증입니다.
+- 노트북 운영 서버 설치/외부 HTTPS 공개, 실제 라이선스 발급/결제, 실제 공개 필터 배포 경로 연결도 미검증입니다.
+
+### 다음 Android 출시 차단 항목
+
+1. 실기기 VPN 승인 및 DNS 질의/차단/허용 동작 확인.
+2. Wi-Fi↔모바일 데이터 전환, IPv4/IPv6 및 Private DNS 조합, 다른 VPN/앱 제외 동작 확인.
+3. 필터 다운로드·서명 검증·업데이트·오류 복구를 운영 공개키/HTTPS 서버에 연결해 end-to-end 검증.
+4. 운영 keystore와 보호된 CI secrets, 운영 API/필터 HTTPS 주소 및 공개키를 구성한 뒤 별도 production APK/AAB 생성.
+5. 라이선스 정책/결제 연동은 수동 라이선스 발급과 실제 유료 결제를 구분해 완료 판정.
+
+개발용 APK 다운로드는 위 Actions 실행의 `guardian-android-debug` Artifact에서 가능합니다. Artifact 보존 만료일은 2026-11-30입니다.
