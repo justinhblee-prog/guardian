@@ -1,10 +1,10 @@
 package com.guardian.adblock
 
-internal const val MAX_FILTER_DOWNLOAD_BYTES = 32 * 1024 * 1024
-
 import java.io.ByteArrayOutputStream
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
+
+internal const val MAX_FILTER_DOWNLOAD_BYTES = 32 * 1024 * 1024
 
 /**
  * Retrieves a detached-signature manifest and its payload without trusting either until
