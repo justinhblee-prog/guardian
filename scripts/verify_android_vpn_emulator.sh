@@ -19,14 +19,25 @@ read_prefs() {
 }
 
 cache_ready() {
-  local listing
+  local listing prefs
   listing="$(timeout --signal=TERM --kill-after=2s 12s adb shell run-as "$PACKAGE" ls -1 "$APP_DATA/files" 2>&1)" || {
     if (( ${attempt:-1} == 1 )); then echo "Cache listing unavailable: $listing" >&2; fi
     return 1
   }
-  grep -Fxq "$MAIN_CACHE" <<<"$listing" &&
-  grep -Fxq "$SECURITY_CACHE" <<<"$listing" &&
-  grep -Fxq "$ANDROID_CACHE" <<<"$listing"
+  prefs="$(read_prefs)"
+  grep -Fxq "$MAIN_CACHE" <<<"$listing" || return 1
+  grep -q 'name="filter_list_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs" || return 1
+
+  # Optional filter sources are required only when enabled in app settings.
+  if grep -q 'name="security_filter_enabled"[^>]*value="true"' <<<"$prefs"; then
+    grep -Fxq "$SECURITY_CACHE" <<<"$listing" || return 1
+    grep -q 'name="security_filter_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs" || return 1
+  fi
+  if grep -q 'name="android_ads_filter_enabled"[^>]*value="true"' <<<"$prefs"; then
+    grep -Fxq "$ANDROID_CACHE" <<<"$listing" || return 1
+    grep -q 'name="android_ads_filter_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs" || return 1
+  fi
+  return 0
 }
 
 echo "Waiting for all enabled filter lists to be downloaded and cached."
@@ -36,13 +47,8 @@ for attempt in $(seq 1 240); do
     echo "Filter cache wait: $(( (attempt - 1) * 2 ))s elapsed; checking all three enabled lists."
   fi
   if cache_ready; then
-    prefs="$(read_prefs)"
-    if grep -q 'name="filter_list_block_count"' <<<"$prefs" &&
-       grep -q 'name="security_filter_block_count"' <<<"$prefs" &&
-       grep -q 'name="android_ads_filter_block_count"' <<<"$prefs"; then
-      ready=1
-      break
-    fi
+    ready=1
+    break
   fi
   sleep 2
 done
