@@ -27,7 +27,7 @@ def main():
     except (OSError,json.JSONDecodeError): return 0
     if state.get("enabled") is not True: return 0
     APP_DIR.mkdir(parents=True,exist_ok=True); data,rules=load_runtime()
-    port=int(data.get("listen_port",53)); proxy=DnsProxy(rules,tuple(data.get("upstreams",["1.1.1.1","8.8.8.8"])),listen=(("127.0.0.1",port),("::1",port)))
+    port=int(data.get("listen_port",53)); proxy=DnsProxy(rules,tuple(data.get("upstreams",["1.1.1.1","8.8.8.8","2606:4700:4700::1111","2001:4860:4860::8888"])),listen=(("127.0.0.1",port),("::1",port)))
     rules_path=APP_DIR/data.get("rules_file","rules.txt")
     stop=threading.Event()
     def background_tasks():
