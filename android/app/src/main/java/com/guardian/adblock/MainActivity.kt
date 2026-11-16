@@ -716,36 +716,22 @@ class MainActivity : Activity() {
             feedback.text = if (checked) "자동 업데이트를 켰습니다." else "자동 업데이트를 껐습니다."
         }.withTop(10))
 
-        val hasProSecurity = LicenseEntitlementStore.current(this) != null
         val securitySwitch = protectionSwitchCard(
-            "악성코드 · 피싱 보호" + if (hasProSecurity) " · PRO" else " · PRO 전용",
-            if (hasProSecurity) "HaGeZi Threat Intelligence 도메인 목록을 추가 적용합니다."
-            else "PRO 라이선스에서 제공되는 고급 보안 기능입니다. 무료 버전에서는 사용할 수 없습니다.",
-            hasProSecurity && prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
+            "악성코드 · 피싱 보호",
+            "HaGeZi Threat Intelligence 도메인 목록을 추가 적용합니다. 현재 모든 사용자가 사용할 수 있습니다.",
+            prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
             onToggleCreated = {
                 securityFilterSwitch = it
                 it.isEnabled = !filterUpdateRunning.get()
             }
         ) { checked ->
-            if (checked && !hasProSecurity) {
-                prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false).apply()
-                securityFilterSwitch?.isChecked = false
-                AlertDialog.Builder(this)
-                    .setTitle("PRO 전용 기능")
-                    .setMessage("악성코드 · 피싱 보호는 Guardian PRO 라이선스가 활성화된 경우에만 사용할 수 있습니다. 설정 화면에서 PRO 라이선스를 등록해 주세요.")
-                    .setPositiveButton("설정으로 이동") { _, _ -> showTab("settings", focusLicenseActivation = true) }
-                    .setNegativeButton("확인", null)
-                    .show()
-                feedback.text = "악성코드 · 피싱 보호는 PRO 전용 기능입니다."
-                return@protectionSwitchCard
-            }
             prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
             if (checked && !FilterListManager.hasCachedSecurityList(this)) {
                 feedback.text = "보안 필터 목록을 다운로드합니다."
                 startFilterUpdate()
             } else {
                 reloadProtectionRulesIfActive(prefs)
-                feedback.text = if (checked) "PRO 보안 필터를 활성화했습니다." else "보안 필터를 비활성화했습니다."
+                feedback.text = if (checked) "악성코드 · 피싱 필터를 활성화했습니다." else "보안 필터를 비활성화했습니다."
             }
         }
         body.addView(securitySwitch.withTop(8))
@@ -1480,7 +1466,7 @@ class MainActivity : Activity() {
         val securityCheck = CheckBox(this).apply {
             applyToggleTint(this)
             applyToggleTint(this)
-            text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence)"
+            text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence · 전체 사용자)"
             textSize = 12f
             setTextColor(white)
             isChecked = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
