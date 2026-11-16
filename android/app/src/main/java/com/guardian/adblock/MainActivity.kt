@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.BitmapFactory
+import android.util.Base64
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -303,14 +304,12 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, dp(16))
         }
-        val guardianMark = TextView(this).apply {
-            text = "⬡"
-            textSize = 34f
-            gravity = Gravity.CENTER
-            setTextColor(accent)
+        val guardianMark = ImageView(this).apply {
             contentDescription = "GUARDIAN 보호 로고"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageResource(R.drawable.ic_launcher_foreground)
         }
-        wrap.addView(guardianMark, LinearLayout.LayoutParams(dp(42), dp(48)))
+        wrap.addView(guardianMark, LinearLayout.LayoutParams(dp(46), dp(48)))
         val labels = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(5), 0, 0, 0)
@@ -321,9 +320,11 @@ class MainActivity : Activity() {
         val companyMark = ImageView(this).apply {
             contentDescription = "주식회사 유진컨설팅 로고"
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setImageBitmap(assets.open("eugene_consulting_logo.png").use { BitmapFactory.decodeStream(it) })
+            val encoded = assets.open("eugene_consulting_logo.b64").bufferedReader().use { it.readText() }
+            val bytes = Base64.decode(encoded, Base64.DEFAULT)
+            setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
         }
-        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(62), dp(58)))
+        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(124), dp(42)))
         return wrap
     }
 
