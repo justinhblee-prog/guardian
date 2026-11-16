@@ -51,7 +51,7 @@ class FilterUpdateWorker(
                     ).apply()
                 }
             }
-            if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false) &&
+            if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true) &&
                 FilterUpdatePolicy.isDue(
                     FilterListManager.hasCachedAndroidAdsList(applicationContext),
                     FilterListManager.lastAndroidAdsUpdatedAt(applicationContext), interval, now
