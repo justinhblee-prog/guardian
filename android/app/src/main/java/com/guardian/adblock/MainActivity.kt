@@ -370,7 +370,7 @@ class MainActivity : Activity() {
         val guardianMark = ImageView(this).apply {
             contentDescription = "GUARDIAN 보호 로고"
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setImageResource(R.drawable.ic_launcher_foreground)
+            setImageResource(R.drawable.guardian_launcher_art)
         }
         wrap.addView(guardianMark, LinearLayout.LayoutParams(dp(46), dp(48)))
         val labels = LinearLayout(this).apply {
