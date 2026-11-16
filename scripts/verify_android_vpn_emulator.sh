@@ -18,14 +18,22 @@ read_prefs() {
 }
 
 cache_ready() {
-  adb shell run-as "$PACKAGE" ls -l files 2>/dev/null | grep -q "$MAIN_CACHE" &&
-  adb shell run-as "$PACKAGE" ls -l files 2>/dev/null | grep -q "$SECURITY_CACHE" &&
-  adb shell run-as "$PACKAGE" ls -l files 2>/dev/null | grep -q "$ANDROID_CACHE"
+  local listing
+  listing="$(timeout --signal=TERM --kill-after=2s 12s adb shell run-as "$PACKAGE" ls -1 files 2>&1)" || {
+    echo "Cache listing unavailable: $listing" >&2
+    return 1
+  }
+  grep -Fxq "$MAIN_CACHE" <<<"$listing" &&
+  grep -Fxq "$SECURITY_CACHE" <<<"$listing" &&
+  grep -Fxq "$ANDROID_CACHE" <<<"$listing"
 }
 
 echo "Waiting for all enabled filter lists to be downloaded and cached."
 ready=0
 for attempt in $(seq 1 240); do
+  if (( attempt % 10 == 1 )); then
+    echo "Filter cache wait: $(( (attempt - 1) * 2 ))s elapsed; checking all three enabled lists."
+  fi
   if cache_ready; then
     prefs="$(read_prefs)"
     if grep -q 'name="filter_list_block_count"' <<<"$prefs" &&
