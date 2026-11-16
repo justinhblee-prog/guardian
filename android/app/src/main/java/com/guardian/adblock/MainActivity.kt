@@ -118,7 +118,7 @@ class MainActivity : Activity() {
                 FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
         val securityStale = securityEnabled && (!FilterListManager.hasCachedSecurityList(this) ||
                 System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval)
-        val androidAdsEnabled = filterPrefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+        val androidAdsEnabled = filterPrefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
         val androidAdsStale = androidAdsEnabled && (!FilterListManager.hasCachedAndroidAdsList(this) ||
                 System.currentTimeMillis() - FilterListManager.lastAndroidAdsUpdatedAt(this) >= updateInterval)
         if (autoUpdate && (!FilterListManager.hasCachedList(this) ||
@@ -280,22 +280,38 @@ class MainActivity : Activity() {
         val wrap = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(20))
+            setPadding(0, 0, 0, dp(16))
         }
-        val mark = ImageView(this).apply {
-            contentDescription = "유진건설팅 로고"
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            setImageBitmap(assets.open("eugene_consulting_logo.png").use { BitmapFactory.decodeStream(it) })
+        val guardianMark = TextView(this).apply {
+            text = "⬡"
+            textSize = 34f
+            gravity = Gravity.CENTER
+            setTextColor(accent)
+            contentDescription = "GUARDIAN 보호 로고"
         }
-        wrap.addView(mark, LinearLayout.LayoutParams(dp(88), dp(72)))
+        wrap.addView(guardianMark, LinearLayout.LayoutParams(dp(42), dp(48)))
         val labels = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), 0, 0, 0)
+            setPadding(dp(5), 0, 0, 0)
         }
-        labels.addView(text("GUARDIAN", 18f, white, true))
-        labels.addView(text("PRIVATE DNS PROTECTION", 9f, muted, true))
+        labels.addView(text("GUARDIAN", 17f, white, true))
+        labels.addView(text("AD BLOCK", 8f, muted, true))
         wrap.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
-        wrap.addView(text("●  LOCAL VPN", 10f, accent, true))
+        val companyMark = ImageView(this).apply {
+            contentDescription = "주식회사 유진컨설팅 로고"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageBitmap(BitmapFactory.decodeByteArray(
+                android.util.Base64.decode(
+                    assets.open("eugene_consulting_logo.png.b64").bufferedReader().use { it.readText() },
+                    android.util.Base64.DEFAULT
+                ), 0,
+                android.util.Base64.decode(
+                    assets.open("eugene_consulting_logo.png.b64").bufferedReader().use { it.readText() },
+                    android.util.Base64.DEFAULT
+                ).size
+            ))
+        }
+        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(154), dp(44)))
         return wrap
     }
 
@@ -658,29 +674,44 @@ class MainActivity : Activity() {
             feedback.text = if (checked) "자동 업데이트를 켰습니다." else "자동 업데이트를 껐습니다."
         }.withTop(10))
 
-        body.addView(protectionSwitchCard(
-            "악성코드 · 피싱 보호",
-            "HaGeZi Threat Intelligence 도메인 목록을 추가로 적용합니다.",
-            prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
+        val hasProSecurity = LicenseEntitlementStore.current(this) != null
+        val securitySwitch = protectionSwitchCard(
+            "악성코드 · 피싱 보호" + if (hasProSecurity) " · PRO" else " · PRO 전용",
+            if (hasProSecurity) "HaGeZi Threat Intelligence 도메인 목록을 추가 적용합니다."
+            else "PRO 라이선스에서 제공되는 고급 보안 기능입니다. 무료 버전에서는 사용할 수 없습니다.",
+            hasProSecurity && prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
             onToggleCreated = {
                 securityFilterSwitch = it
                 it.isEnabled = !filterUpdateRunning.get()
             }
         ) { checked ->
+            if (checked && !hasProSecurity) {
+                prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false).apply()
+                securityFilterSwitch?.isChecked = false
+                AlertDialog.Builder(this)
+                    .setTitle("PRO 전용 기능")
+                    .setMessage("악성코드 · 피싱 보호는 Guardian PRO 라이선스가 활성화된 경우에만 사용할 수 있습니다. 설정 화면에서 PRO 라이선스를 등록해 주세요.")
+                    .setPositiveButton("설정으로 이동") { _, _ -> showTab("settings") }
+                    .setNegativeButton("확인", null)
+                    .show()
+                feedback.text = "악성코드 · 피싱 보호는 PRO 전용 기능입니다."
+                return@protectionSwitchCard
+            }
             prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
             if (checked && !FilterListManager.hasCachedSecurityList(this)) {
                 feedback.text = "보안 필터 목록을 다운로드합니다."
                 startFilterUpdate()
             } else {
                 reloadProtectionRulesIfActive(prefs)
-                feedback.text = if (checked) "보안 필터를 활성화했습니다." else "보안 필터를 비활성화했습니다."
+                feedback.text = if (checked) "PRO 보안 필터를 활성화했습니다." else "보안 필터를 비활성화했습니다."
             }
-        }.withTop(8))
+        }
+        body.addView(securitySwitch.withTop(8))
 
         body.addView(protectionSwitchCard(
             "Android 앱 광고 SDK 필터",
             "AWAvenue 목록으로 알려진 앱 광고 SDK 도메인을 추가 차단합니다. 모든 앱 내부 광고를 제거하는 기능은 아닙니다.",
-            prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false),
+            prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true),
             onToggleCreated = {
                 androidAdsFilterSwitch = it
                 it.isEnabled = !filterUpdateRunning.get()
@@ -833,6 +864,13 @@ class MainActivity : Activity() {
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(13), dp(15), dp(13))
+            addView(text("제작자 및 개발사", 13f, white, true))
+            addView(text("(주)유진컨설팅", 13f, accent, true).withTop(8))
+            addView(text("제작자: 이학범", 12f, white, false).withTop(4))
+            addView(text("연락처: 010-5201-3121", 12f, muted, false).withTop(3))
+        }.withTop(12))
         val verifiedLicense = LicenseEntitlementStore.current(this)
         // Keep an expired-but-valid signed token available for device-slot release.
         // It must never be presented as an active Pro entitlement.
