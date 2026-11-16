@@ -607,7 +607,7 @@ class GuardianVpnService : VpnService() {
         val startedAt = System.nanoTime()
         val response = forwardDns(query)
         val latencyMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
-        val success = DnsUpstreamProbe.isValidResponse(query, response)
+        val success = DnsUpstreamProbe.isSuccessfulResolution(query, response)
         val testedAt = System.currentTimeMillis()
         getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putBoolean(KEY_UPSTREAM_TEST_SUCCESS, success)
