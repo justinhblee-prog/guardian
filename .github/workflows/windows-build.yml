@@ -50,7 +50,11 @@ jobs:
             throw "Silent installation failed with exit code $($process.ExitCode)"
           }
           & "$installDir\GuardianAdBlock.exe" --self-test
-          if ($LASTEXITCODE -ne 0) { throw "Installed executable self-test failed" }
+          if ($LASTEXITCODE -ne 0) { throw "Installed desktop executable self-test failed" }
+          & "$installDir\GuardianDnsProxy.exe" --self-test
+          if ($LASTEXITCODE -ne 0) { throw "Installed background DNS daemon self-test failed" }
+          schtasks.exe /Query /TN GuardianDnsProxy
+          if ($LASTEXITCODE -ne 0) { throw "Boot-start DNS task was not registered" }
           & "$installDir\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
           if ($LASTEXITCODE -ne 0) { throw "Silent uninstall failed" }
       - name: Verify generated package
