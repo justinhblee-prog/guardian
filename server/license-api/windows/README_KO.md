@@ -27,7 +27,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 - 필터 배포 상태: http://127.0.0.1:8788/health
 
 ## 필터 배포
-필터 updater/publisher는 `server/filter-distribution`에 있습니다. upstream 필터 다운로드, 규칙 수 검증, 버전 생성, SHA-256, RSA-SHA256 manifest 서명까지 지원합니다. `sources.example.json`을 `sources.json`으로 복사해 공식 HTTPS 공급원과 최소 규칙 수를 확인하고 구성합니다. 업데이트 실행은 Node.js 22 이상 및 `GUARDIAN_FILTER_SIGNING_PRIVATE_KEY` 환경 변수가 필요합니다. 서명 개인키는 오프라인 또는 보호된 서명 환경에 두고 Git, 앱, 공개 웹 컨테이너에 넣지 마세요. 운영 노트북에서 작업 스케줄러로 실행하려면 해당 작업 계정에 DPAPI/비밀 관리자 등을 통해 키를 안전하게 주입해야 하며, 작업 인수·배치 파일·로그에 PEM을 기록하면 안 됩니다. `UPDATE_FILTERS.bat`는 다운로드와 서명 발행 후 `dist`를 갱신합니다. 배포 서버는 `dist`를 읽기 전용으로 제공하며 개인키가 필요하지 않습니다.
+필터 updater/publisher는 `server/filter-distribution`에 있습니다. upstream 필터 다운로드, 규칙 수 검증, 버전 생성, SHA-256, RSA-SHA256 manifest 서명까지 지원합니다. `sources.example.json`을 `sources.json`으로 복사해 실제 HTTPS 배포 주소와 공식 HTTPS 공급원/최소 규칙 수를 확인합니다. 최초 설치 스크립트가 필터 서명 개인키를 현재 사용자 DPAPI로 보호해 저장하므로 PEM을 환경변수·작업 인수·로그에 직접 기록하지 않습니다. 매일 04:17 업데이트 작업 등록: `./Register-GuardianFilterUpdateTask.ps1 -DailyAt '04:17'`. 이 작업은 매일 지정 시각 및 사용자 로그인 시 실행하고 결과를 `server/filter-distribution/logs/`에 기록합니다. 수동 실행은 `./Invoke-GuardianFilterUpdate.ps1`입니다. Node.js 22 이상이 필요합니다. 서명 개인키는 공개 웹 컨테이너나 Android 앱에 넣지 않습니다. `dist`만 읽기 전용으로 제공됩니다.
 
 ## 자동 시작과 절전
 예약 작업은 Windows 로그인 시 전체 서비스를 시작합니다. Docker Compose의 `restart: unless-stopped`는 Docker 엔진 재시작 후 컨테이너 복구를 돕습니다. 로그인 전 부팅 단계부터 운영하려면 별도 서비스 계정과 권한 설계가 필요합니다. 노트북이 꺼져 있거나 절전 상태이면 서버도 접속할 수 없습니다. 운영 중 절전 방지, 전원 연결, 네트워크 안정성 및 Windows 업데이트 재부팅 정책을 별도로 관리해야 합니다.
@@ -38,7 +38,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ## 키와 백업
 - `server/license-api/secrets/guardian-license-public.pem`: 라이선스 서명 공개키
 - `server/license-api/secrets/guardian-license-private.pem`: 라이선스 개인키
-- 필터 서명 개인키: 별도 오프라인/보호된 서명 저장소
+- 필터 서명 개인키: `server/license-api/secrets/guardian-filter-private.dpapi` (현재 Windows 사용자 DPAPI 보호)
 - `.env` 파일: 관리자 토큰, DB 비밀번호 등 비밀값 포함
 - `server/filter-distribution/dist/`: 서명된 manifest, signature, 필터 파일
 
