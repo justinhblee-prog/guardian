@@ -107,6 +107,7 @@ class MainActivity : Activity() {
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
         showTab("home")
+        requestNotificationPermissionIfNeeded()
         LicenseRefreshScheduler.sync(this)
         val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
@@ -276,6 +277,18 @@ class MainActivity : Activity() {
         refreshStatus()
     }
 
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            if (!prefs.getBoolean("notification_permission_requested", false)) {
+                prefs.edit().putBoolean("notification_permission_requested", true).apply()
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 7101)
+            }
+        }
+    }
+
     private fun header(): View {
         val wrap = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -300,16 +313,11 @@ class MainActivity : Activity() {
         val companyMark = ImageView(this).apply {
             contentDescription = "주식회사 유진컨설팅 로고"
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setImageBitmap(BitmapFactory.decodeByteArray(
-                android.util.Base64.decode(
-                    assets.open("eugene_consulting_logo.png.b64").bufferedReader().use { it.readText() },
-                    android.util.Base64.DEFAULT
-                ), 0,
-                android.util.Base64.decode(
-                    assets.open("eugene_consulting_logo.png.b64").bufferedReader().use { it.readText() },
-                    android.util.Base64.DEFAULT
-                ).size
-            ))
+            val logoBytes = android.util.Base64.decode(
+                assets.open("eugene_consulting_logo.png.b64").bufferedReader().use { it.readText() },
+                android.util.Base64.DEFAULT
+            )
+            setImageBitmap(BitmapFactory.decodeByteArray(logoBytes, 0, logoBytes.size))
         }
         wrap.addView(companyMark, LinearLayout.LayoutParams(dp(154), dp(44)))
         return wrap
