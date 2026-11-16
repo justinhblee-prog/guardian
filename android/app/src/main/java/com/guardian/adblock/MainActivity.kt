@@ -342,6 +342,31 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, dp(16))
         }
+        val companyMark = ImageView(this).apply {
+            contentDescription = "주식회사 유진컨설팅 로고"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            val encoded = assets.open("eugene_consulting_logo.b64").bufferedReader().use { it.readText() }
+            val bytes = Base64.decode(encoded, Base64.DEFAULT)
+            val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            // Recolor only the Korean wordmark. Keep the symbol and English subtitle untouched.
+            val adjusted = source.copy(Bitmap.Config.ARGB_8888, true)
+            for (y in 0 until adjusted.height.coerceAtMost(90)) {
+                for (x in 125 until adjusted.width) {
+                    val pixel = adjusted.getPixel(x, y)
+                    val alpha = android.graphics.Color.alpha(pixel)
+                    val red = android.graphics.Color.red(pixel)
+                    val green = android.graphics.Color.green(pixel)
+                    val blue = android.graphics.Color.blue(pixel)
+                    if (alpha > 0 && red < 90 && green < 90 && blue < 180) {
+                        adjusted.setPixel(x, y, android.graphics.Color.argb(alpha, 255, 255, 255))
+                    }
+                }
+            }
+            setImageBitmap(adjusted)
+        }
+        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(124), dp(42)).apply {
+            rightMargin = dp(10)
+        })
         val guardianMark = ImageView(this).apply {
             contentDescription = "GUARDIAN 보호 로고"
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -355,14 +380,6 @@ class MainActivity : Activity() {
         labels.addView(text("GUARDIAN", 17f, white, true))
         labels.addView(text("AD BLOCK", 8f, muted, true))
         wrap.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
-        val companyMark = ImageView(this).apply {
-            contentDescription = "주식회사 유진컨설팅 로고"
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            val encoded = assets.open("eugene_consulting_logo.b64").bufferedReader().use { it.readText() }
-            val bytes = Base64.decode(encoded, Base64.DEFAULT)
-            setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-        }
-        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(124), dp(42)))
         return wrap
     }
 
