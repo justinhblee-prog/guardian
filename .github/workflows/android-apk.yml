@@ -100,11 +100,11 @@ jobs:
 
       - name: Assemble previous dev version for upgrade test
         run: |
-          gradle -p android --no-daemon -PguardianVersionCode=22 -PguardianVersionName=0.7.9-dev assembleDebug
-          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.9-dev.apk
+          gradle -p android --no-daemon -PguardianVersionCode=24 -PguardianVersionName=0.7.11-dev assembleDebug
+          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.10-dev.apk
 
       - name: Assemble current debug APK for build verification
-        run: gradle -p android --no-daemon -PguardianVersionCode=23 -PguardianVersionName=0.7.10-dev assembleDebug
+        run: gradle -p android --no-daemon -PguardianVersionCode=24 -PguardianVersionName=0.7.11-dev assembleDebug
 
       - name: Verify bundled DNS filter library inside APK
         shell: bash
@@ -137,9 +137,9 @@ jobs:
             adb logcat -c
             # Keep metadata verification in a standalone script; heredocs inside
             # this action's nested shell script are not reliably dedented.
-            python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.9-dev.apk 22 0.7.9-dev android/app/build/outputs/apk/debug/app-debug.apk 23 0.7.10-dev
+            python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.10-dev.apk 23 0.7.10-dev android/app/build/outputs/apk/debug/app-debug.apk 24 0.7.11-dev
             # Install the previous signed build first, then upgrade in place.
-            adb install /tmp/guardian-0.7.9-dev.apk
+            adb install /tmp/guardian-0.7.10-dev.apk
             adb shell pm path com.guardian.adblock | grep -F 'package:'
             installed=0; for attempt in 1 2 3; do if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then installed=1; break; fi; echo "ADB package-manager upgrade attempt ${attempt} failed; waiting for system services before retry."; adb wait-for-device; adb shell cmd package list packages >/dev/null 2>&1 || true; sleep 5; done; test "$installed" -eq 1
             adb shell pm path com.guardian.adblock | grep -F 'package:'
@@ -154,7 +154,7 @@ jobs:
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='23' versionName='0.7.10-dev'"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='24' versionName='0.7.11-dev'"
 
       - name: Verify APK exists and calculate checksum
         shell: bash
@@ -172,17 +172,17 @@ jobs:
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
-          # Guardian AdBlock v0.7.10-dev — 빌드 검증 결과
+          # Guardian AdBlock v0.7.11-dev — 빌드 검증 결과
 
           - 저장소 커밋: ${GITHUB_SHA}
           - GitHub Actions 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - versionCode: 23
-          - versionName: 0.7.10-dev
+          - versionCode: 24
+          - versionName: 0.7.11-dev
           - Android 단위 테스트: 통과
           - Android lintDebug: 통과
           - assembleDebug: 통과
-          - Android API 35 에뮬레이터 v0.7.9-dev → v0.7.10-dev 서명 일치 업그레이드·앱 실행 smoke test: 통과
+          - Android API 35 에뮬레이터 v0.7.10-dev → v0.7.11-dev 서명 일치 업그레이드·앱 실행 smoke test: 통과
           - APK 패키지명·버전 검사: 통과
           - APK SHA-256: ${APK_SHA256}
           - 서명 유형: Android debug 서명 (배포용 production 서명 아님)
@@ -190,18 +190,18 @@ jobs:
 
           이 결과는 GitHub Actions 자동화 검증이며, 물리 기기 수용 테스트나 모든 앱의 광고 제거를 보증하지 않습니다.
           EOF
-          zip -qr 'release/Guardian-AdBlock-Source-v0.7.10-dev.zip' . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' 'release/*.zip'
-          ls -lh release/Guardian-AdBlock-Source-v0.7.10-dev.zip release/VERIFICATION_SUMMARY_KO.md
+          zip -qr 'release/Guardian-AdBlock-Source-v0.7.11-dev.zip' . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' 'release/*.zip'
+          ls -lh release/Guardian-AdBlock-Source-v0.7.11-dev.zip release/VERIFICATION_SUMMARY_KO.md
 
       - name: Upload installable debug APK and complete source package (final build only)
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: actions/upload-artifact@v4
         with:
-          name: Guardian-AdBlock-Android-Full-Package-v0.7.10-dev
+          name: Guardian-AdBlock-Android-Full-Package-v0.7.11-dev
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/debug/SHA256SUMS.txt
-            release/Guardian-AdBlock-Source-v0.7.10-dev.zip
+            release/Guardian-AdBlock-Source-v0.7.11-dev.zip
             release/VERIFICATION_SUMMARY_KO.md
           if-no-files-found: error
           retention-days: 30
