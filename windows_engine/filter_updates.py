@@ -32,6 +32,33 @@ def _atomic_write(path:Path,data:bytes):
     finally:
         if os.path.exists(tmp): os.unlink(tmp)
 
+
+@contextmanager
+def _exclusive_lock(path:Path):
+    path.parent.mkdir(parents=True,exist_ok=True)
+    with path.open("a+b") as stream:
+        try:
+            if os.name=="nt":
+                import msvcrt
+                stream.seek(0)
+                if stream.read(1)==b"": stream.seek(0); stream.write(b"0"); stream.flush()
+                stream.seek(0); msvcrt.locking(stream.fileno(),msvcrt.LK_NBLCK,1)
+            else:
+                import fcntl
+                fcntl.flock(stream.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except OSError as exc:
+            raise FilterUpdateError("Another filter update is already running") from exc
+        try: yield
+        finally:
+            try:
+                if os.name=="nt":
+                    import msvcrt
+                    stream.seek(0); msvcrt.locking(stream.fileno(),msvcrt.LK_UNLCK,1)
+                else:
+                    import fcntl
+                    fcntl.flock(stream.fileno(),fcntl.LOCK_UN)
+            except OSError: pass
+
 class FilterUpdater:
     def __init__(self,base_url,source_id,public_key_b64,state_path:Path,rules_path:Path,fetcher=fetch_https):
         self.base_url=base_url; self.source_id=source_id; self.public_key_b64=public_key_b64
@@ -56,6 +83,9 @@ class FilterUpdater:
         values["generatedAt"]=generated; values["minimumRules"]=minimum
         return values
     def update(self):
+        with _exclusive_lock(self.state_path.with_suffix(self.state_path.suffix+'.lock')):
+            return self._update_locked()
+    def _update_locked(self):
         base=urlsplit(self.base_url)
         if base.scheme!="https" or not base.hostname or base.username or base.password or base.query or base.fragment or base.path not in ("","/"):
             raise FilterUpdateError("Manifest base URL must be an HTTPS origin")
