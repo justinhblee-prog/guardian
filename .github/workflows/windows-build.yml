@@ -78,9 +78,9 @@ jobs:
             if (Test-Path $selfTestLog) { Get-Content $selfTestLog }
             throw "Installed desktop executable self-test failed with exit code $($desktopTest.ExitCode)"
           }
-          $daemonTest = Start-Process -FilePath "$installDir\GuardianDnsProxy.exe" -ArgumentList "--self-test" -Wait -PassThru
+          $daemonTest = Start-Process -FilePath "$installDir\GuardianDnsProxy\GuardianDnsProxy.exe" -ArgumentList "--self-test" -Wait -PassThru
           if ($daemonTest.ExitCode -ne 0) { throw "Installed background DNS daemon self-test failed with exit code $($daemonTest.ExitCode)" }
-          if (-not (Test-Path "$installDir\\GuardianDnsProxy\\_internal")) { throw "Installed DNS daemon runtime dependencies are missing" }
+          if (-not (Test-Path "$installDir\GuardianDnsProxy\_internal")) { throw "Installed DNS daemon runtime dependencies are missing" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if (-not $task) { throw "Boot-start DNS task was not registered" }
           $restoreTest = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList "--restore-dns" -Wait -PassThru
