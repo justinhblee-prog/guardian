@@ -4,6 +4,8 @@ package com.guardian.adblock
 import android.content.Context
 import java.lang.reflect.Modifier
 import java.net.URL
+import java.security.KeyPairGenerator
+import java.util.Base64
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
