@@ -13,8 +13,7 @@ class _Handler(socketserver.BaseRequestHandler):
 class _Server(socketserver.ThreadingUDPServer):
     allow_reuse_address=True; daemon_threads=True
     def __init__(self,address,proxy):
-        self.proxy=proxy
-        self.address_family=socket.AF_INET6 if ":" in address[0] else socket.AF_INET
+        self.proxy=proxy; self.address_family=socket.AF_INET6 if ":" in address[0] else socket.AF_INET
         super().__init__(address,_Handler)
         if self.address_family==socket.AF_INET6: self.socket.setsockopt(socket.IPPROTO_IPV6,socket.IPV6_V6ONLY,1)
 class DnsProxy:
@@ -33,14 +32,24 @@ class DnsProxy:
                 return response
             except (OSError,ValueError) as exc: errors.append(f"{upstream}: {exc}")
         raise OSError("all DNS upstreams failed: "+"; ".join(errors))
-    def serve_forever(self):
+    def start(self):
+        if self._servers: return
         try:
             for address in self.listeners: self._servers.append(_Server(address,self))
             self._threads=[threading.Thread(target=s.serve_forever,kwargs={"poll_interval":.25},daemon=True) for s in self._servers]
             for thread in self._threads: thread.start()
-            for thread in self._threads: thread.join()
-        finally:
+        except Exception:
             for server in self._servers: server.server_close()
-            self._servers=[]; self._threads=[]
-    def shutdown(self):
-        for server in self._servers: server.shutdown()
+            self._servers=[]; self._threads=[]; raise
+    def serve_forever(self):
+        self.start()
+        try:
+            for thread in self._threads: thread.join()
+        finally: self.stop()
+    def stop(self):
+        servers=self._servers; threads=self._threads
+        for server in servers: server.shutdown()
+        for thread in threads: thread.join(timeout=3)
+        for server in servers: server.server_close()
+        self._servers=[]; self._threads=[]
+    def shutdown(self): self.stop()
