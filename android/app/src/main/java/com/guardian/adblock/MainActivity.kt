@@ -313,13 +313,9 @@ class MainActivity : Activity() {
         val companyMark = ImageView(this).apply {
             contentDescription = "주식회사 유진컨설팅 로고"
             scaleType = ImageView.ScaleType.FIT_CENTER
-            val logoBytes = android.util.Base64.decode(
-                assets.open("eugene_consulting_logo.png.b64").bufferedReader().use { it.readText() },
-                android.util.Base64.DEFAULT
-            )
-            setImageBitmap(BitmapFactory.decodeByteArray(logoBytes, 0, logoBytes.size))
+            setImageBitmap(assets.open("eugene_consulting_logo.png").use { BitmapFactory.decodeStream(it) })
         }
-        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(154), dp(44)))
+        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(62), dp(58)))
         return wrap
     }
 
