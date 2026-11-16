@@ -185,9 +185,7 @@ jobs:
           set -euo pipefail
           for attempt in 1 2 3; do
             echo "Android Emulator SDK install attempt $attempt/3"
-            if sdkmanager --install 'emulator' --channel=0; then
-              # sdkmanager installs the binary under ANDROID_HOME/emulator,
-              # but that directory is not guaranteed to be on PATH in this step.
+            if sdkmanager --install 'emulator' 'system-images;android-35;google_apis;x86_64' --channel=0; then
               EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"
               if [ -x "$EMULATOR_BIN" ]; then
                 "$EMULATOR_BIN" -version
@@ -195,7 +193,6 @@ jobs:
               fi
               echo "SDK install returned success but emulator binary is missing: $EMULATOR_BIN"
             fi
-            rm -rf "$ANDROID_HOME/emulator"
             sleep 10
           done
           echo "Android Emulator SDK package could not be installed after 3 attempts."
@@ -203,28 +200,62 @@ jobs:
 
       - name: Install and launch APK on Android emulator
         id: android_emulator
-        # Preserve the build artifact if emulator infrastructure or the E2E
-        # acceptance test fails; report that result separately in the summary.
+        # Keep the APK artifact even if emulator infrastructure or VPN E2E fails.
         continue-on-error: true
         timeout-minutes: 30
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          emulator-port: 5554
-          emulator-boot-timeout: 1200
-          # GitHub-hosted Ubuntu runners expose KVM; force hardware acceleration
-          # instead of silently falling back to very slow TCG software emulation.
-          disable-linux-hw-accel: false
-          # Use a smaller Pixel 2 AVD and hardware acceleration on hosted Linux.
-          # Keep explicit DNS/network settings for reliable filter-list downloads.
-          # Run the entire verification in one Bash process; the action's
-          # line-oriented script runner cannot preserve shell loops/conditionals.
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -netfast -dns-server 8.8.8.8,1.1.1.1
-          script: bash scripts/verify_android_emulator.sh && bash scripts/verify_android_vpn_emulator.sh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          AVD_NAME=guardian-ci
+          EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"
+          AVD_LOG="$RUNNER_TEMP/guardian-emulator.log"
+          export ANDROID_SERIAL=emulator-5554
+          echo "Runner kernel: $(uname -a)"
+          if [ -e /dev/kvm ]; then
+            echo "/dev/kvm is present"
+            ls -l /dev/kvm
+          else
+            echo "/dev/kvm is absent; emulator will select software acceleration"
+          fi
+          "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force --name "$AVD_NAME" --package 'system-images;android-35;google_apis;x86_64' --device 'pixel_2' <<< 'no'
+          adb start-server
+          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -netfast -dns-server 8.8.8.8,1.1.1.1 > "$AVD_LOG" 2>&1 &
+          EMULATOR_PID=$!
+          echo "Started emulator PID=$EMULATOR_PID, log=$AVD_LOG"
+          ready=0
+          for attempt in $(seq 1 600); do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              echo "Emulator process exited before ADB registration."
+              break
+            fi
+            state="$(timeout 8s adb devices | awk '$1=="emulator-5554" {print $2}')"
+            if [ "$state" = "device" ]; then
+              boot="$(timeout 10s adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [ "$boot" = "1" ]; then
+                ready=1
+                break
+              fi
+            fi
+            if (( attempt % 15 == 0 )); then
+              echo "Waiting for emulator boot ($attempt/600); ADB state=${state:-missing}"
+              adb devices -l || true
+              tail -n 30 "$AVD_LOG" || true
+            fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "Emulator failed to reach sys.boot_completed=1."
+            echo "=== ADB devices ==="
+            adb devices -l || true
+            echo "=== Emulator process ==="
+            ps -ef | grep -E '[e]mulator|[q]emu' || true
+            echo "=== Emulator log (last 500 lines) ==="
+            tail -n 500 "$AVD_LOG" || true
+            exit 1
+          fi
+          echo "Android emulator boot completed on emulator-5554."
+          bash scripts/verify_android_emulator.sh
+          bash scripts/verify_android_vpn_emulator.sh
 
       - name: Capture emulator diagnostics on failure
         if: steps.android_emulator.outcome == 'failure'
