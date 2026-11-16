@@ -44,7 +44,10 @@ jobs:
         run: test -s shared/filter_rules.txt
 
       - name: Validate standalone Android core smoke script syntax
-        run: bash -n VERIFY_ANDROID_CORE.sh
+        run: |
+          bash -n VERIFY_ANDROID_CORE.sh
+          bash -n scripts/verify_android_emulator.sh
+          bash -n scripts/verify_android_vpn_emulator.sh
 
       - name: Verify VPN manifest and branded launcher assets
         run: |
