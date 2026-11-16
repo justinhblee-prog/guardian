@@ -5,6 +5,7 @@ set -euo pipefail
 ADB_DEFAULT_TIMEOUT="${ADB_DEFAULT_TIMEOUT:-15}"
 ADB_BOOT_TIMEOUT="${ADB_BOOT_TIMEOUT:-240}"
 export ANDROID_SERIAL="${ANDROID_SERIAL:-emulator-5554}"
+ADB_BIN="$(command -v adb)"
 
 adb() {
   local seconds="$ADB_DEFAULT_TIMEOUT"
@@ -14,7 +15,7 @@ adb() {
     "start-server") seconds=30 ;;
   esac
   echo "+ adb $* (timeout=${seconds}s)" >&2
-  timeout --signal=TERM --kill-after=3s "${seconds}s" command adb "$@"
+  timeout --signal=TERM --kill-after=3s "${seconds}s" "$ADB_BIN" "$@"
 }
 
 adb start-server
@@ -36,9 +37,9 @@ wait_for_boot() {
   done
   echo "ERROR: Android emulator did not report sys.boot_completed=1 within ${ADB_BOOT_TIMEOUT}s." >&2
   echo "ADB devices:" >&2
-  timeout --signal=TERM --kill-after=2s 10s command adb devices -l >&2 || true
+  timeout --signal=TERM --kill-after=2s 10s "$ADB_BIN" devices -l >&2 || true
   echo "Bounded getprop diagnostic:" >&2
-  timeout --signal=TERM --kill-after=2s 10s command adb shell getprop sys.boot_completed >&2 || true
+  timeout --signal=TERM --kill-after=2s 10s "$ADB_BIN" shell getprop sys.boot_completed >&2 || true
   return 1
 }
 wait_for_package_service() {
