@@ -72,15 +72,15 @@ Android APK를 Windows에 그대로 설치하거나 Android VPN 코드를 Window
 - 필터 목록·활동 로그·기기 상태는 태블릿에서 표/목록 밀도를 높이고, 터치 목표 크기는 유지한다.
 - 화면 회전, 분할 화면, 키보드/마우스 입력 및 큰 글꼴 접근성을 점검한다.
 
-## 단계별 개발 순서
+## 단계별 개발 순서 및 현재 진행
 
-1. Android 앱을 스마트폰·태블릿 공통으로 안정화하고 화면 크기별 UI 검증을 추가한다.
-2. manifest 검증기를 실제 필터 다운로드/캐시 경로에 연결한다. 운영 공개키가 확정되기 전에는 정식 서명 배포를 활성화하지 않는다.
-3. 필터 manifest 서버와 공개 배포 API를 구현하고 로컬 통합 테스트를 추가한다.
-4. 라이선스/기기 등록 API와 모바일 관리 콘솔을 구현한다.
-5. Windows 네트워크 서비스와 데스크톱 UI를 별도 모듈로 개발한다.
-6. Android/Windows 클라이언트가 같은 필터 manifest와 계정/라이선스 정책을 사용하도록 통합한다.
-7. Windows VM 및 Android 에뮬레이터/다양한 화면 크기에서 자동화 검증 후 실제 기기 수용 테스트를 진행한다.
+1. **Android 공통 앱:** 스마트폰·태블릿 공통 APK, 반응형 내비게이션/대시보드, DNS VPN 필터 엔진 구현 및 API 35 에뮬레이터 검증 완료. 실기기 수용 테스트가 남아 있다.
+2. **서명 필터 연동:** manifest 서명/해시/anti-rollback 검증기를 실제 다운로드·캐시 교체 경로에 연결했고 단위 테스트가 있다. 운영 공개키·HTTPS endpoint를 사용한 실배포 end-to-end 검증이 남아 있다.
+3. **필터 배포 서버:** publisher/updater, immutable versioned file, 서명 manifest HTTP 서버 및 Docker 구성 구현. 운영 노트북 설치와 외부 HTTPS 공개 검증이 남아 있다.
+4. **라이선스/기기 API:** Node.js/PostgreSQL API, signed entitlement, 기기 등록/해제 및 모바일 관리자 웹 소스 구현. 운영 DB·키·HTTPS 및 실제 앱 활성화 end-to-end 검증이 남아 있다.
+5. **Android 출시 마감:** 실기기 네트워크/광고 차단 수용 시험, 운영 signing keystore/CI secrets 구성, production APK/AAB 서명·업데이트 검증.
+6. **Windows 후순위:** Android 완료 후 Windows DNS 엔진·UI·설치 스크립트의 패키징, 설치/제거, 재부팅·네트워크 복구 및 실기기 검증.
+7. **통합 출시:** Android/Windows 공통 필터·라이선스 정책을 운영 환경에서 함께 검증하고 플랫폼별 출시 판정을 분리한다.
 
 ## 출시 판정 기준
 
