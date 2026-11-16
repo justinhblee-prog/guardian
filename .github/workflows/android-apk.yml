@@ -130,7 +130,7 @@ jobs:
           # line-oriented script runner cannot preserve shell loops/conditionals.
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
-          script: bash scripts/verify_android_emulator.sh
+          script: bash scripts/verify_android_emulator.sh && bash scripts/verify_android_vpn_emulator.sh
       - name: Verify APK package identity and version
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
