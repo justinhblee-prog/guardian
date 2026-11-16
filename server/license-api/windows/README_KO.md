@@ -13,13 +13,13 @@ PowerShell에서 `server/license-api/windows` 폴더로 이동해 필요한 작�
 
 ```powershell
 # Docker Desktop 및 OpenSSL: 노트북 서버 설치에 필요
-.\\Test-GuardianEnvironment.ps1
+.\Test-GuardianEnvironment.ps1
 
 # Android APK를 노트북에서 다시 빌드할 때 추가 확인
-.\\Test-GuardianEnvironment.ps1 -ForAndroidBuild
+.\Test-GuardianEnvironment.ps1 -ForAndroidBuild
 
 # 필터 공급원 다운로드/서명 예약 작업을 구성할 때 추가 확인
-.\\Test-GuardianEnvironment.ps1 -ForFilterUpdate
+.\Test-GuardianEnvironment.ps1 -ForFilterUpdate
 ```
 
 준비가 되지 않은 필수 항목은 `BLOCK`으로 표시되고 종료 코드 1을 반환합니다. 이 검사는 환경을 변경하거나 서버를 공개하지 않습니다.
