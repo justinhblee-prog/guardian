@@ -134,8 +134,19 @@ jobs:
             timeout 120s adb wait-for-device
             for attempt in $(seq 1 60); do if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')" = "1" ]; then break; fi; sleep 2; done
             test "$(adb shell getprop sys.boot_completed | tr -d '\\r')" = "1"
-            # Wait for PackageManager; boot_completed alone can precede Binder service readiness.
-            services_ready=0; for attempt in $(seq 1 60); do if adb shell cmd package list packages 2>/dev/null | grep -q 'com.android.settings'; then services_ready=1; break; fi; sleep 3; done; test "$services_ready" -eq 1
+            # Wait for Android framework and PackageManager Binder readiness, not only boot_completed.
+            wait_for_android_services() {
+              for ready_attempt in $(seq 1 60); do
+                if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')" = "1" ] &&
+                   adb shell service check package 2>/dev/null | grep -q 'found' &&
+                   adb shell pm list packages 2>/dev/null | grep -q 'com.android.settings'; then
+                  return 0
+                fi
+                sleep 3
+              done
+              return 1
+            }
+            wait_for_android_services
             adb logcat -c
             # Keep metadata verification in a standalone script; heredocs inside
             # this action's nested shell script are not reliably dedented.
@@ -148,11 +159,13 @@ jobs:
               adb kill-server || true
               adb start-server
               adb wait-for-device
-              for ready_attempt in $(seq 1 20); do
-                if adb shell cmd package list packages 2>/dev/null | grep -q 'com.android.settings'; then break; fi
-                sleep 3
-              done
-              sleep 5
+              if ! wait_for_android_services; then
+                echo "Android framework did not recover; rebooting emulator before the next install attempt."
+                adb reboot || true
+                adb wait-for-device
+                wait_for_android_services
+              fi
+              sleep 3
             done
             test "$previous_installed" -eq 1
             adb shell pm path com.guardian.adblock | grep -F 'package:'
