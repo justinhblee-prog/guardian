@@ -11,8 +11,10 @@ object DomainFilter {
     @Volatile private var activeRules = RuleSet(bootstrapBlocked, emptySet(), emptySet())
 
     /** Loads the canonical cross-platform rules shipped as an Android asset. */
-    fun loadRules(lines: List<String>) {
-        val parsed = FilterRuleParser.parse(lines)
+    fun loadRules(lines: List<String>) = loadParsedRules(FilterRuleParser.parse(lines))
+
+    /** Atomically installs already parsed rules without serializing them back into text. */
+    fun loadParsedRules(parsed: FilterRuleParser.Parsed) {
         require(parsed.blocked.isNotEmpty() || parsed.importantBlocked.isNotEmpty()) { "Filter sources contain no valid DNS block rules" }
         // One volatile swap keeps allow/block precedence consistent during live updates.
         activeRules = RuleSet(parsed.blocked, parsed.allowed, parsed.importantBlocked)
