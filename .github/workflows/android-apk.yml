@@ -337,7 +337,13 @@ jobs:
         run: |
           mkdir -p release
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
-          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          if [ -s "$APK" ]; then
+            APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+            APK_STATUS="생성됨"
+          else
+            APK_SHA256="미생성"
+            APK_STATUS="빌드 단계 이전 실패 또는 APK 미생성"
+          fi
           cat > release/FINAL_VERIFICATION_KO.md <<EOF
           # Guardian AdBlock v0.7.13-dev — 최종 검증 상태
 
@@ -345,9 +351,10 @@ jobs:
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
           - 버전: 0.7.13-dev (26)
-          - 단위 테스트 / lintDebug / APK 빌드 / 패키지 검사: 통과
-          - 에뮬레이터 업그레이드 및 VPN DNS E2E: ${{ steps.android_emulator.outcome }}
+          - APK 생성 상태: ${APK_STATUS}
           - APK SHA-256: ${APK_SHA256}
+          - 테스트 및 빌드 단계의 실제 결과는 위 GitHub Actions 단계 결과를 기준으로 확인합니다.
+          - 에뮬레이터 업그레이드 및 VPN DNS E2E: ${{ steps.android_emulator.outcome }}
           - VPN E2E가 실패한 경우 APK는 빌드 검증 산출물일 뿐, 차단 기능 검증 완료로 간주하지 않습니다.
           - 실기기 검증은 별도입니다.
           EOF
