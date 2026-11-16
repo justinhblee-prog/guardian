@@ -179,8 +179,14 @@ jobs:
           for attempt in 1 2 3; do
             echo "Android Emulator SDK install attempt $attempt/3"
             if sdkmanager --install 'emulator' --channel=0; then
-              emulator -version
-              exit 0
+              # sdkmanager installs the binary under ANDROID_HOME/emulator,
+              # but that directory is not guaranteed to be on PATH in this step.
+              EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"
+              if [ -x "$EMULATOR_BIN" ]; then
+                "$EMULATOR_BIN" -version
+                exit 0
+              fi
+              echo "SDK install returned success but emulator binary is missing: $EMULATOR_BIN"
             fi
             rm -rf "$ANDROID_HOME/emulator"
             sleep 10
