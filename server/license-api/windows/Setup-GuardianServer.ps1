@@ -16,6 +16,30 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $privateKeyPat
 if ($LASTEXITCODE -ne 0) { throw 'RSA 개인키 생성 실패' }
 openssl pkey -in $privateKeyPath -pubout -out $publicKeyPath
 if ($LASTEXITCODE -ne 0) { throw 'RSA 공개키 생성 실패' }
+$licensePublicDerPath = Join-Path $secretDir 'guardian-license-public.der'
+openssl pkey -pubin -in $publicKeyPath -outform DER -out $licensePublicDerPath
+if ($LASTEXITCODE -ne 0) { throw '라이선스 공개키 DER 변환 실패' }
+$licensePublicBase64Path = Join-Path $secretDir 'guardian-license-public.x509.b64'
+[System.IO.File]::WriteAllText($licensePublicBase64Path, [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($licensePublicDerPath)), [System.Text.UTF8Encoding]::new($false))
+
+# Filter signing private material is protected with Windows DPAPI for the
+# current user; only its public X.509 key is intended for the Android build.
+$filterPrivateKeyPath = Join-Path $secretDir 'guardian-filter-private.pem'
+$filterPublicKeyPath = Join-Path $secretDir 'guardian-filter-public.pem'
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $filterPrivateKeyPath
+if ($LASTEXITCODE -ne 0) { throw '필터 서명 RSA 개인키 생성 실패' }
+openssl pkey -in $filterPrivateKeyPath -pubout -out $filterPublicKeyPath
+if ($LASTEXITCODE -ne 0) { throw '필터 서명 공개키 생성 실패' }
+$filterPrivateText = Get-Content -Raw $filterPrivateKeyPath
+$filterSecureString = ConvertTo-SecureString -String $filterPrivateText -AsPlainText -Force
+$filterProtectedText = ConvertFrom-SecureString -SecureString $filterSecureString
+[System.IO.File]::WriteAllText((Join-Path $secretDir 'guardian-filter-private.dpapi'), $filterProtectedText, [System.Text.UTF8Encoding]::new($false))
+Remove-Item $filterPrivateKeyPath -Force
+$filterPublicDerPath = Join-Path $secretDir 'guardian-filter-public.der'
+openssl pkey -pubin -in $filterPublicKeyPath -outform DER -out $filterPublicDerPath
+if ($LASTEXITCODE -ne 0) { throw '필터 공개키 DER 변환 실패' }
+$filterPublicBase64Path = Join-Path $secretDir 'guardian-filter-public.x509.b64'
+[System.IO.File]::WriteAllText($filterPublicBase64Path, [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($filterPublicDerPath)), [System.Text.UTF8Encoding]::new($false))
 function New-Secret([int]$Bytes = 48) { $buffer = New-Object byte[] $Bytes; $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); try { $rng.GetBytes($buffer) } finally { $rng.Dispose() }; return [BitConverter]::ToString($buffer).Replace('-', '').ToLowerInvariant() }
 $dbPassword = New-Secret 48
 $adminToken = New-Secret 64
