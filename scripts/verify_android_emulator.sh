@@ -79,8 +79,7 @@ for attempt in 1 2 3; do
 done
 test "$upgraded" -eq 1
 adb shell pm path com.guardian.adblock | grep -F 'package:'
-adb shell am start -n com.guardian.adblock/.MainActivity
-sleep 8
+  # The first launch requests Android 13+ notification permission. Grant it in the\n  # test fixture so the permission controller cannot cover the app during startup.\n  adb shell pm grant com.guardian.adblock android.permission.POST_NOTIFICATIONS\n  adb shell am start -n com.guardian.adblock/.MainActivity\nsleep 8
 adb shell dumpsys activity activities | tee /tmp/guardian-activities.txt
 grep -F 'com.guardian.adblock' /tmp/guardian-activities.txt
 adb logcat -d -t 5000 | tee /tmp/guardian-logcat.txt
