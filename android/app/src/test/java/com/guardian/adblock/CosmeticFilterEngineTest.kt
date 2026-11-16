@@ -44,9 +44,20 @@ class CosmeticFilterEngineTest {
 
         assertEquals(setOf(".generic-ad", ".site-ad"),
             CosmeticFilterEngine.selectorsForHost(rules, "www.example.com"))
-        assertEquals(setOf(".generic-ad"),
+        assertEquals(setOf(".generic-ad", ".site-ad"),
             CosmeticFilterEngine.selectorsForHost(rules, "news.example.com"))
+        // An unrestricted generic rule remains active even if a second rule
+        // with the same selector excludes this host.
+        assertEquals(setOf(".generic-ad"),
+            CosmeticFilterEngine.selectorsForHost(rules, "shop.example"))
+    }
+
+    @Test fun excludedOnlyGenericRuleAppliesOutsideItsExcludedDomains() {
+        val rules = CosmeticFilterEngine.parse(listOf("~shop.example##.limited-ad"))
+
+        assertEquals(setOf(".limited-ad"), CosmeticFilterEngine.selectorsForHost(rules, "news.example"))
         assertTrue(CosmeticFilterEngine.selectorsForHost(rules, "shop.example").isEmpty())
+        assertTrue(CosmeticFilterEngine.selectorsForHost(rules, "sub.shop.example").isEmpty())
     }
 
     @Test fun domainExceptionCancelsMatchingGenericOrScopedSelectorForThatHost() {
