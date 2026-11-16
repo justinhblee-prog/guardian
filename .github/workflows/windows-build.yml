@@ -57,6 +57,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Boot-start DNS task was not registered" }
           & "$installDir\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
           if ($LASTEXITCODE -ne 0) { throw "Silent uninstall failed" }
+          schtasks.exe /Query /TN GuardianDnsProxy
+          if ($LASTEXITCODE -eq 0) { throw "Uninstall left the boot-start DNS task registered" }
       - name: Verify generated package
         shell: pwsh
         run: |
@@ -71,6 +73,7 @@ jobs:
           name: Guardian-AdBlock-Windows-Dev-Package
           path: |
             dist/GuardianAdBlock/
+            dist/GuardianDnsProxy/
             dist/installer/Guardian-AdBlock-Windows-Setup-*.exe
           if-no-files-found: error
           retention-days: 30
