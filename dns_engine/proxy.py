@@ -63,8 +63,9 @@ class DnsProxy:
         for upstream in self.upstreams:
             try:
                 host,port=upstream if isinstance(upstream,tuple) else (upstream,53)
-                ipaddress.IPv4Address(host)
-                with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
+                parsed_address=ipaddress.ip_address(host)
+                family=socket.AF_INET if parsed_address.version==4 else socket.AF_INET6
+                with socket.socket(family,socket.SOCK_DGRAM) as client:
                     client.settimeout(self.timeout); client.connect((host,port)); client.send(query); response=client.recv(4096)
                 if not response_matches(query,response): raise ValueError("mismatched UDP DNS response")
                 if response[3]&15!=0: raise ValueError(f"upstream UDP DNS RCODE={response[3]&15}")
