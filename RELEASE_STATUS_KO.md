@@ -1,15 +1,16 @@
-## 2026-11-16 최신 통합 상태 — main 기준
+## 2026-11-16 최신 통합 상태 — main 기준 (최신 정보 우선)
 
-- Android: `com.guardian.adblock`, versionCode `23`, versionName `0.7.10-dev`.
-- 기준 main 커밋: `6d25f1d7d67abaea81931d1ced31c8dcab54bccb`.
-- DNS 장애 수정: 업스트림이 일치하는 SERVFAIL/REFUSED를 반환하면 다음 DNS 후보로 재시도하며, VPN 경로 설치 전에는 실제 A 레코드 응답 성공을 확인합니다.
-- Android CI run [43779302897](https://github.com/justinhblee-prog/guardian/actions/runs/43779302897) (#651): 단위 테스트, lint, 이전 v0.7.9-dev APK 조립, v0.7.10-dev APK 조립, 필터 라이브러리 포함 검사는 통과했습니다. API 35 에뮬레이터의 업데이트 설치·실행 검증은 진행 중입니다.
-- 직전 검증 APK v0.7.9-dev artifact #644: SHA-256 `87f1d907ae05b7e936c21fc940938805b081b022d56144da481fffb2a32a9d01`. 새 v0.7.10-dev artifact는 #651 완료 후 확인해야 합니다.
-- PR #13, #14, #15는 병합 및 CI 성공. PR #16은 닫혔으나 병합되지 않았고 CI 성공. PR #17은 실행 기록이 없어 검증 불가. PR #18 러너 진단은 재실행 attempt 2에서 `ubuntu-slim` 및 `ubuntu-24.04` 모두 성공했습니다.
-- Production Release 설정 검증 run [43779157893](https://github.com/justinhblee-prog/guardian/actions/runs/43779157893)은 성공했습니다. 운영 서명 job은 의도적으로 건너뛰었으며, 운영 keystore/secrets와 실제 배포 주소가 없어 production APK/AAB는 생성하지 않았습니다.
-- 운영 공개키를 이용한 HTTPS 필터 manifest 서비스, License API/DB/TLS의 운영 배포는 아직 미완료입니다.
-- 실기기 VPN 승인·실제 DNS 라우팅·광고 제거율 및 Android 태블릿 실기기 검증은 미실시입니다. 에뮬레이터 결과로 대체하지 않습니다.
-- Windows 앱은 Android 완료 후 진행합니다. 현재 저장소에는 Windows 테스트 스크립트만 있고 실제 Windows 클라이언트 프로젝트/설치 프로그램은 아직 없습니다.
+- Android 빌드: `com.guardian.adblock`, versionCode `23`, versionName `0.7.10-dev`.
+- 기준 소스 커밋: `c3d72fec79e794dd8180a78146988a161e448c58`.
+- 최종 CI 실행 [43781110905](https://github.com/justinhblee-prog/guardian/actions/runs/43781110905): Android 단위 테스트, lint, 개발용 서명 확인, 이전 버전 APK 생성, 새 APK 생성, 필터 라이브러리 검사, API 35 에뮬레이터 업데이트 설치 및 실행, 패키지/버전 검사, APK SHA-256 계산, 소스/검증 요약 패키징 및 artifact 업로드까지 전체 성공.
+- 최종 artifact: `Guardian-AdBlock-Android-Full-Package-v0.7.10-dev`, ID `14188698028`, ZIP 3,271,504 bytes. Artifact SHA-256: `aa469b03b92481f9741900e02dd3e8728991c24f93ed170644d2666896a4c4a7`.
+- APK: 3,070,507 bytes. APK SHA-256: `04958ebbe6a4d57d6e0dc603cfd1b36af0085ad82cb307183e98e73c76f1b739`.
+- API 35 에뮬레이터에서 v0.7.9-dev → v0.7.10-dev 서명 일치 업데이트 설치 및 앱 실행 통과.
+- 서명 유형은 개발용 Android debug 서명입니다. 운영 keystore/secrets 및 production 공개키·배포 URL이 구성되지 않아 production APK/AAB는 생성하지 않았습니다.
+- 물리 Android 휴대전화 VPN 승인, 실제 DNS 라우팅/광고 제거, Wi-Fi↔모바일 전환, 장시간 안정성 및 태블릿 실기기 검증은 미실시입니다. 에뮬레이터 결과로 대체하지 않습니다.
+- 앱의 DNS 필터 엔진/통계/업데이트/서명 검증 및 라이선스 클라이언트 소스는 존재하지만, 운영 manifest 서버와 License API/DB/TLS는 실제 호스팅·운영 키 설정·end-to-end 검증이 남아 있습니다.
+- Windows 클라이언트는 아직 구현되지 않았습니다. 현재 저장소에는 Windows 검증 스크립트만 있고 `windows_engine`, `dns_engine`, Windows 앱/설치 프로그램 소스는 없습니다. 사용자 우선순위에 따라 Android 이후 Windows 단계에서 구현합니다.
+- 아래 문서는 과거 개발 이력입니다. 이 상단 최신 통합 상태가 과거의 진행 중/구버전 APK 기록보다 우선합니다.
 
 # Guardian AdBlock Android — 개발/릴리스 상태
 
