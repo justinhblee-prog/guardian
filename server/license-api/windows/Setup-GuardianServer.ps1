@@ -51,6 +51,8 @@ $FilterDir = (Resolve-Path (Join-Path $ServerDir '..\filter-distribution')).Path
 $filterEnv = Join-Path $FilterDir '.env'
 if (-not (Test-Path $filterEnv)) { [System.IO.File]::WriteAllText($filterEnv, "HOST=0.0.0.0`nPORT=8788`nGUARDIAN_FILTER_DIST_DIR=/app/dist`n", [System.Text.UTF8Encoding]::new($false)) }
 New-Item -ItemType Directory -Force -Path (Join-Path $FilterDir 'dist') | Out-Null
+$sourcesPath = Join-Path $FilterDir 'sources.json'
+if (-not (Test-Path $sourcesPath)) { Copy-Item (Join-Path $FilterDir 'sources.example.json') $sourcesPath }
 if (-not $SkipAutoStart) { & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1'); $taskName = 'Guardian Operations'; $action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1') + '"'); $trigger = New-ScheduledTaskTrigger -AtLogOn; $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero); Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Start Guardian license API and signed filter distribution after Windows sign-in' -Force | Out-Null }
 Write-Host 'Guardian 노트북 운영 서버 기본 구성이 완료되었습니다.'
 Write-Host '관리자 화면: http://127.0.0.1:8787/admin'
