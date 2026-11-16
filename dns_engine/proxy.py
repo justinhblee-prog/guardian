@@ -1,5 +1,5 @@
-"""Threaded UDP DNS proxy with upstream validation and fallback."""
-import socket,socketserver
+"""Threaded UDP DNS proxy with upstream validation and loopback dual-stack listeners."""
+import socket,socketserver,threading
 from .rules import DomainRules
 from .wire import DnsFormatError,make_nxdomain,parse_question,response_matches
 class _Handler(socketserver.BaseRequestHandler):
@@ -12,10 +12,16 @@ class _Handler(socketserver.BaseRequestHandler):
         except (DnsFormatError,OSError,ValueError): return
 class _Server(socketserver.ThreadingUDPServer):
     allow_reuse_address=True; daemon_threads=True
-    def __init__(self,address,proxy): self.proxy=proxy; super().__init__(address,_Handler)
+    def __init__(self,address,proxy):
+        self.proxy=proxy
+        self.address_family=socket.AF_INET6 if ":" in address[0] else socket.AF_INET
+        super().__init__(address,_Handler)
+        if self.address_family==socket.AF_INET6: self.socket.setsockopt(socket.IPPROTO_IPV6,socket.IPV6_V6ONLY,1)
 class DnsProxy:
-    def __init__(self,rules:DomainRules,upstreams=("1.1.1.1","8.8.8.8"),timeout=2.5,listen=("127.0.0.1",53)):
-        self.rules=rules; self.upstreams=tuple(upstreams); self.timeout=timeout; self.listen=listen; self.blocked_count=0; self.forwarded_count=0; self._server=None
+    def __init__(self,rules:DomainRules,upstreams=("1.1.1.1","8.8.8.8"),timeout=2.5,listen=(("127.0.0.1",53),("::1",53))):
+        self.rules=rules; self.upstreams=tuple(upstreams); self.timeout=timeout
+        self.listeners=(listen,) if len(listen)==2 and isinstance(listen[0],str) else tuple(listen)
+        self.blocked_count=0; self.forwarded_count=0; self._servers=[]; self._threads=[]
     def forward(self,query):
         parse_question(query); errors=[]
         for upstream in self.upstreams:
@@ -28,8 +34,13 @@ class DnsProxy:
             except (OSError,ValueError) as exc: errors.append(f"{upstream}: {exc}")
         raise OSError("all DNS upstreams failed: "+"; ".join(errors))
     def serve_forever(self):
-        self._server=_Server(self.listen,self)
-        try: self._server.serve_forever(poll_interval=.25)
-        finally: self._server.server_close(); self._server=None
+        try:
+            for address in self.listeners: self._servers.append(_Server(address,self))
+            self._threads=[threading.Thread(target=s.serve_forever,kwargs={"poll_interval":.25},daemon=True) for s in self._servers]
+            for thread in self._threads: thread.start()
+            for thread in self._threads: thread.join()
+        finally:
+            for server in self._servers: server.server_close()
+            self._servers=[]; self._threads=[]
     def shutdown(self):
-        if self._server is not None: self._server.shutdown()
+        for server in self._servers: server.shutdown()
