@@ -52,7 +52,7 @@ wait_for_network() {
   for attempt in $(seq 1 30); do
     local result
     result="$(adb_cmd shell ping -c 1 -W 3 adguardteam.github.io 2>&1 || true)"
-    if grep -Eq 'PING adguardteam\\.github\\.io \\([^)]*\\)' <<<"$result"; then
+    if grep -Eq 'PING adguardteam\.github\.io \([^)]*\)' <<<"$result"; then
       echo "Emulator DNS/network ready: $result"
       return 0
     fi
@@ -61,7 +61,7 @@ wait_for_network() {
   echo "Emulator has no working DNS/network connection to the filter host."
   adb_cmd shell dumpsys connectivity || true
   adb_cmd shell ip addr show || true
-  adb_cmd shell getprop | grep -E 'net\\.dns|dhcp' || true
+  adb_cmd shell getprop | grep -E 'net\.dns|dhcp' || true
   return 1
 }
 wait_for_network
@@ -110,4 +110,4 @@ sleep 8
 adb_cmd shell dumpsys activity activities | tee /tmp/guardian-activities.txt
 grep -F 'com.guardian.adblock' /tmp/guardian-activities.txt
 adb_cmd logcat -d -t 5000 | tee /tmp/guardian-logcat.txt
-! grep -E 'FATAL EXCEPTION|Process: com\\.guardian\\.adblock.*has died' /tmp/guardian-logcat.txt
+! grep -E 'FATAL EXCEPTION|Process: com\.guardian\.adblock.*has died' /tmp/guardian-logcat.txt
