@@ -50,7 +50,11 @@ jobs:
             throw "Silent installation failed with exit code $($process.ExitCode)"
           }
           & "$installDir\GuardianAdBlock.exe" --self-test
-          if ($LASTEXITCODE -ne 0) { throw "Installed desktop executable self-test failed" }
+          if ($LASTEXITCODE -ne 0) {
+            $selfTestLog = Join-Path $env:TEMP "GuardianDesktopSelfTest.log"
+            if (Test-Path $selfTestLog) { Get-Content $selfTestLog }
+            throw "Installed desktop executable self-test failed with exit code $LASTEXITCODE"
+          }
           & "$installDir\GuardianDnsProxy.exe" --self-test
           if ($LASTEXITCODE -ne 0) { throw "Installed background DNS daemon self-test failed" }
           schtasks.exe /Query /TN GuardianDnsProxy
