@@ -56,7 +56,12 @@ def ensure_daemon_running():
     raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53")
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
-    if delete: run_task("/Delete","/TN",TASK_NAME,"/F")
+    if delete:
+        result=run_task("/Delete","/TN",TASK_NAME,"/F")
+        if result.returncode:
+            query=run_task("/Query","/TN",TASK_NAME)
+            if query.returncode==0:
+                raise NetworkConfigError("Could not remove the boot-start Guardian DNS task; uninstall must be retried")
 def restore_and_remove_task():
     manager=DnsAdapterManager(BACKUP); manager.restore(); write_state(False); stop_daemon(delete=True)
 def self_test():
