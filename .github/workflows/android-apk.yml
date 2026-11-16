@@ -34,7 +34,9 @@ permissions:
 jobs:
   build-apk:
     name: Test and assemble debug APK
-    runs-on: ubuntu-latest
+    # Pin the stable Ubuntu 24.04 image: ubuntu-latest moved to 26.04,
+    # whose Android Emulator runtime is missing libpulse.so.0.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout source
