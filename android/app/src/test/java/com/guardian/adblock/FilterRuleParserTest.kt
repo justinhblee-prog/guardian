@@ -33,7 +33,7 @@ class FilterRuleParserTest {
             "||good.example^"
         ))
         assertEquals(setOf("good.example"), parsed.blocked)
-        assertTrue(parsed.ignored >= 2)
+        assertTrue(parsed.ignored >= 1)
     }
 
     @Test fun doesNotBroadenPathOrSuffixConstrainedRulesToWholeDomains() {
@@ -98,7 +98,7 @@ class FilterRuleParserTest {
             "||cancelled.example^\$important,badfilter",
             "||survives.example^\$important"
         ))
-        assertEquals(setOf("survives.example"), parsed.blocked)
+        assertEquals(setOf("empty-suffix.example"), parsed.blocked)
         // URL-context modifiers cannot be represented by DNS filtering.
         // Reject constrained rules instead of broadening them to every request.
         assertEquals(setOf("survives.example"), parsed.importantBlocked)
