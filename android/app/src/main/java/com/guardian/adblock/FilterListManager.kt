@@ -2,10 +2,13 @@ package com.guardian.adblock
 
 import android.content.Context
 import java.io.ByteArrayOutputStream
+import java.io.ByteArrayInputStream
+import java.io.InputStreamReader
 import java.io.File
 import java.nio.file.Files
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.nio.charset.CodingErrorAction
 import javax.net.ssl.HttpsURLConnection
 
 /** Downloads and validates DNS-compatible community filters into app-private storage. */
@@ -328,8 +331,7 @@ object FilterListManager {
                 }
                 output.toByteArray()
             }
-            val lines = FilterManifestVerifier.decodeUtf8Strict(bytes).lineSequence().toList()
-            val parsed = FilterRuleParser.parse(lines)
+            val parsed = parseUtf8Filter(bytes)
             require((parsed.blocked.size + parsed.importantBlocked.size) >= minimumRules) {
                 "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size + parsed.importantBlocked.size}개뿐입니다."
             }
@@ -370,6 +372,19 @@ object FilterListManager {
     }
 
 
+    /**
+     * Strictly decodes and parses from a reader. Avoids creating a second full
+     * UTF-8 String and a List<String> for downloads that can be tens of MB.
+     */
+    private fun parseUtf8Filter(bytes: ByteArray): FilterRuleParser.Parsed {
+        val decoder = StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+        return InputStreamReader(ByteArrayInputStream(bytes), decoder).buffered().use { reader ->
+            FilterRuleParser.parse(reader.lineSequence())
+        }
+    }
+
     private fun downloadSignedManifest(
         context: Context,
         manifestBaseUrl: String,
@@ -393,7 +408,7 @@ object FilterListManager {
             "서명 manifest의 최소 규칙 수가 앱 정책보다 낮습니다."
         }
         val bytes = download.content
-        val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Strict(bytes).lineSequence())
+        val parsed = parseUtf8Filter(bytes)
         val effectiveMinimum = maxOf(minimumRules, download.manifest.minimumRules)
         require(parsed.blocked.size + parsed.importantBlocked.size >= effectiveMinimum) {
             "서명 필터의 유효한 차단 도메인이 최소 규칙 수보다 적습니다."
