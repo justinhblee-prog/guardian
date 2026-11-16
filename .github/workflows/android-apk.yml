@@ -133,8 +133,30 @@ jobs:
           # Run the entire verification in one Bash process; the action's
           # line-oriented script runner cannot preserve shell loops/conditionals.
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -no-audio -no-boot-anim
           script: bash scripts/verify_android_emulator.sh && bash scripts/verify_android_vpn_emulator.sh
+
+      - name: Capture emulator diagnostics on failure
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p emulator-diagnostics
+          adb devices -l > emulator-diagnostics/devices.txt 2>&1 || true
+          adb shell getprop > emulator-diagnostics/getprop.txt 2>&1 || true
+          adb logcat -d -t 12000 > emulator-diagnostics/logcat.txt 2>&1 || true
+          adb shell dumpsys activity activities > emulator-diagnostics/activities.txt 2>&1 || true
+          adb shell dumpsys package com.guardian.adblock > emulator-diagnostics/package.txt 2>&1 || true
+          adb shell dumpsys vpn > emulator-diagnostics/vpn.txt 2>&1 || true
+          emulator -version > emulator-diagnostics/emulator-version.txt 2>&1 || true
+
+      - name: Upload emulator diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guardian-android-emulator-diagnostics
+          path: emulator-diagnostics/
+          if-no-files-found: warn
+          retention-days: 7
       - name: Verify APK package identity and version
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
