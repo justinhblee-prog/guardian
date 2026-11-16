@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.7.10-dev — DNS fallback and upgrade verification (2026-11-16)
+- Retry the next configured DNS resolver when an upstream returns a matching SERVFAIL or REFUSED response instead of treating that error packet as a usable answer.
+- Require a successful A-record resolution before installing DNS-only VPN routes; the connectivity diagnostic now uses the same success criteria.
+- Add regression coverage for retryable SERVFAIL/REFUSED versus a valid NXDOMAIN answer.
+- Bump Android versionCode to 23 and versionName to 0.7.10-dev; CI verifies an in-place signed upgrade from v0.7.9-dev.
+- CI run #651: unit tests and lint passed; emulator install/upgrade/launch verification is in progress at this changelog update.
+
 ## 2026-11-15 — Android integration
 - Merge verified Android license device-release and wide-tablet dashboard changes (PR #54/#55).
 - Follow-up license mutation serialization and server-revocation handling is under CI in PR #56.
