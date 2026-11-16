@@ -150,3 +150,7 @@ CI 통과는 소스의 자동화 테스트·정적 검사·APK 조립과 메타�
 
 
 Android 0.7.9-dev adds categorized DNS block counters (ad/tracker/other), an activity bar chart, and a clearly labeled estimated data-savings figure. Category labels are heuristic domain-name classifications; estimated savings assumes 24 KB per blocked request and is not a measurement of actual transferred bytes.
+
+## Windows 노트북 운영 서버
+
+라이선스 API와 PostgreSQL을 개인 Windows 노트북에서 구동하는 설치·시작·중지·백업 스크립트가 추가되었습니다. 설치 안내: [Windows 노트북 운영 서버](server/license-api/windows/README_KO.md). 기본 API 바인딩은 localhost 전용이며, HTTPS 및 인증된 사설 접속 경로를 구성하기 전에는 외부 공개하지 않습니다. 현재는 저장소에 배포 도구만 추가된 상태이며 실제 노트북 설치·운영 검증은 아직 수행되지 않았습니다.
