@@ -12,10 +12,13 @@ try {
   $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureKey)
   $plainKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
   $env:GUARDIAN_FILTER_SIGNING_PRIVATE_KEY = $plainKey
+  $logDir = Join-Path $FilterDir 'logs'
+  New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+  $logPath = Join-Path $logDir ((Get-Date -Format 'yyyyMMdd') + '.log')
   Push-Location $FilterDir
   try {
-    npm run update -- .\sources.json
-    if ($LASTEXITCODE -ne 0) { throw "필터 다운로드/서명 발행 실패 (exit $LASTEXITCODE)" }
+    npm run update -- .\sources.json *>&1 | Tee-Object -FilePath $logPath -Append
+    if ($LASTEXITCODE -ne 0) { throw "필터 다운로드/서명 발행 실패 (exit $LASTEXITCODE). 로그: $logPath" }
   } finally { Pop-Location }
 } finally {
   Remove-Item Env:\GUARDIAN_FILTER_SIGNING_PRIVATE_KEY -ErrorAction SilentlyContinue
