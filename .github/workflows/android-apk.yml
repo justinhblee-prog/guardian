@@ -179,6 +179,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libpulse0
 
+      - name: Enable KVM access for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            test -r /dev/kvm
+            test -w /dev/kvm
+            echo "KVM access enabled for the ephemeral GitHub-hosted runner."
+          else
+            echo "KVM device is unavailable on this runner; x86_64 emulator cannot run without hardware acceleration."
+            exit 1
+          fi
+
       - name: Preinstall Android emulator package with retry
         shell: bash
         run: |
