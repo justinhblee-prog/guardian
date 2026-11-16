@@ -130,21 +130,30 @@ class MainActivity : Activity() {
                 .putBoolean("security_filter_default_enabled_v1", true)
                 .apply()
         }
-        val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
         FilterUpdateScheduler.sync(this)
-        val lastUpdate = FilterListManager.lastUpdatedAt(this)
-        val updateInterval = filterPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
-        val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-        val profileChanged = FilterListManager.hasCachedFile(this) &&
-                FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
-        val securityStale = securityEnabled && (!FilterListManager.hasCachedSecurityList(this) ||
-                System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval)
-        val androidAdsEnabled = filterPrefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-        val androidAdsStale = androidAdsEnabled && (!FilterListManager.hasCachedAndroidAdsList(this) ||
-                System.currentTimeMillis() - FilterListManager.lastAndroidAdsUpdatedAt(this) >= updateInterval)
-        if (autoUpdate && (!FilterListManager.hasCachedList(this) ||
-                System.currentTimeMillis() - lastUpdate >= updateInterval || securityStale || androidAdsStale || profileChanged)) {
-            startFilterUpdate()
+        // Cache recovery and integrity checks can hash multi-megabyte filter
+        // files. Never perform them on the main thread during Activity startup.
+        thread(name = "guardian-startup-filter-check") {
+            try {
+                val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
+                val lastUpdate = FilterListManager.lastUpdatedAt(this)
+                val updateInterval = filterPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
+                val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                val profileChanged = FilterListManager.hasCachedFile(this) &&
+                    FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
+                val securityStale = securityEnabled && (!FilterListManager.hasCachedSecurityList(this) ||
+                    System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval)
+                val androidAdsEnabled = filterPrefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                val androidAdsStale = androidAdsEnabled && (!FilterListManager.hasCachedAndroidAdsList(this) ||
+                    System.currentTimeMillis() - FilterListManager.lastAndroidAdsUpdatedAt(this) >= updateInterval)
+                val needsUpdate = autoUpdate && (!FilterListManager.hasCachedList(this) ||
+                    System.currentTimeMillis() - lastUpdate >= updateInterval || securityStale || androidAdsStale || profileChanged)
+                if (needsUpdate) runOnUiThread {
+                    if (!isFinishing && !isDestroyed) startFilterUpdate()
+                }
+            } catch (error: Exception) {
+                android.util.Log.e("Guardian", "Startup filter readiness check failed", error)
+            }
         }
     }
 
@@ -446,10 +455,9 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
             addView(text("광고 차단 필터", 14f, white, true))
-            val filterReady = isFilterConfigurationReady()
             addView(text(
-                if (filterReady) filterStatusDescription() else "선택한 공식 필터 구성이 아직 준비되지 않았습니다. 목록을 내려받고 검증해야 광고 차단을 시작할 수 있습니다.",
-                11f, if (filterReady) accent else red, false
+                "필터 캐시 무결성은 보호 시작 시 백그라운드에서 확인합니다. 업데이트 중에도 다른 메뉴를 사용할 수 있습니다.",
+                11f, muted, false
             ).withTop(8))
             addView(Button(this@MainActivity).apply {
                 text = "필터 및 차단 옵션 관리"
