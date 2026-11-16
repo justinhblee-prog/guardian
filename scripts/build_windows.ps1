@@ -21,7 +21,7 @@ if (-not [string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64)) {
     if (-not $CodeSigningEku) { throw 'The supplied certificate is not valid for code signing.' }
     function Sign-GuardianBinary([string]$Path) {
         $Signature = Set-AuthenticodeSignature -FilePath $Path -Certificate $SigningCertificate -HashAlgorithm SHA256 -TimestampServer 'http://timestamp.digicert.com'
-        if ($Signature.Status -ne 'Valid') { throw "Authenticode signing failed for $Path: $($Signature.StatusMessage)" }
+        if ($Signature.Status -ne 'Valid') { throw "Authenticode signing failed for ${Path}: $($Signature.StatusMessage)" }
     }
     Sign-GuardianBinary (Join-Path $Root 'dist/GuardianAdBlock/GuardianAdBlock.exe')
     Sign-GuardianBinary (Join-Path $Root 'dist/GuardianDnsProxy/GuardianDnsProxy.exe')
