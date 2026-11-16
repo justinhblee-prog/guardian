@@ -104,7 +104,7 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.11-dev.apk
 
       - name: Assemble current debug APK for build verification
-        run: gradle -p android --no-daemon -PguardianVersionCode=25 -PguardianVersionName=0.7.12-dev assembleDebug
+        run: gradle -p android --no-daemon -PguardianVersionCode=26 -PguardianVersionName=0.7.13-dev assembleDebug
 
       - name: Verify bundled DNS filter library inside APK
         shell: bash
@@ -135,7 +135,7 @@ jobs:
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='25' versionName='0.7.12-dev'"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='26' versionName='0.7.13-dev'"
 
       - name: Verify APK exists and calculate checksum
         shell: bash
@@ -153,17 +153,17 @@ jobs:
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
-          # Guardian AdBlock v0.7.12-dev — 빌드 검증 결과
+          # Guardian AdBlock v0.7.13-dev — 빌드 검증 결과
 
           - 저장소 커밋: ${GITHUB_SHA}
           - GitHub Actions 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - versionCode: 25
-          - versionName: 0.7.12-dev
+          - versionCode: 26
+          - versionName: 0.7.13-dev
           - Android 단위 테스트: 통과
           - Android lintDebug: 통과
           - assembleDebug: 통과
-          - Android API 35 에뮬레이터 v0.7.11-dev → v0.7.12-dev 서명 일치 업그레이드·앱 실행 smoke test: 통과
+          - Android API 35 에뮬레이터 v0.7.11-dev → v0.7.13-dev 서명 일치 업그레이드·앱 실행 smoke test: 통과
           - APK SHA-256: ${APK_SHA256}
           - 에뮬레이터 업그레이드 및 실행 검증은 앞선 단계가 성공한 경우에만 기록됩니다.
           - 이 결과는 Android 실기기 VPN/광고 차단 수용 테스트를 의미하지 않습니다.
