@@ -31,7 +31,7 @@ def test_signed_manifest_download_and_atomic_cache(tmp_path):
     assert state.exists()
 
 def test_manifest_signature_mismatch_keeps_existing_cache(tmp_path):
-    public,body,manifest,signature,fetcher=signed_fixture()
+    public,private,body,manifest,signature,fetcher=signed_fixture()
     old=b"||old.example^\n"; rules=tmp_path/"rules.txt"; rules.write_bytes(old)
     def broken(url,limit):
         content,headers=fetcher(url,limit)
@@ -42,14 +42,14 @@ def test_manifest_signature_mismatch_keeps_existing_cache(tmp_path):
     assert rules.read_bytes()==old
 
 def test_anti_rollback_rejects_same_manifest(tmp_path):
-    public,body,manifest,signature,fetcher=signed_fixture()
+    public,private,body,manifest,signature,fetcher=signed_fixture()
     state=tmp_path/"state.json"; rules=tmp_path/"rules.txt"
     updater=FilterUpdater("https://filters.example.com","adguard",public,state,rules,fetcher)
     updater.update()
     with pytest.raises(FilterUpdateError): updater.update()
 
 def test_filter_url_must_stay_on_pinned_origin(tmp_path):
-    public,body,manifest,signature,fetcher=signed_fixture()
+    public,private,body,manifest,signature,fetcher=signed_fixture()
     bad=manifest.replace(b"https://filters.example.com/",b"https://evil.example/")
     # Sign the malicious URL with the trusted key: the origin allowlist must reject it.
     bad_signature=base64.b64encode(private.sign(bad,padding.PKCS1v15(),hashes.SHA256())).decode("ascii")
