@@ -210,14 +210,27 @@ jobs:
           EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"
           AVD_LOG="$RUNNER_TEMP/guardian-emulator.log"
           export ANDROID_SERIAL=emulator-5554
+          # Keep AVD creation and emulator lookup on one explicit directory.
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          export ANDROID_SDK_HOME="$HOME"
+          mkdir -p "$ANDROID_AVD_HOME"
           echo "Runner kernel: $(uname -a)"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
           if [ -e /dev/kvm ]; then
             echo "/dev/kvm is present"
             ls -l /dev/kvm
           else
             echo "/dev/kvm is absent; emulator will select software acceleration"
           fi
-          "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force --name "$AVD_NAME" --package 'system-images;android-35;google_apis;x86_64' --device 'pixel_2' <<< 'no'
+          AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          "$AVDMANAGER" create avd --force --name "$AVD_NAME" --package 'system-images;android-35;google_apis;x86_64' --device 'pixel_2' <<< 'no'
+          echo "=== AVD manager inventory ==="
+          "$AVDMANAGER" list avd
+          echo "=== AVD files ==="
+          find "$ANDROID_AVD_HOME" -maxdepth 3 -type f -printf '%p (%s bytes)\\n' || true
+          test -s "$ANDROID_AVD_HOME/$AVD_NAME.ini"
+          test -s "$ANDROID_AVD_HOME/$AVD_NAME.avd/config.ini"
+          "$EMULATOR_BIN" -list-avds | grep -Fx "$AVD_NAME"
           adb start-server
           nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -netfast -dns-server 8.8.8.8,1.1.1.1 > "$AVD_LOG" 2>&1 &
           EMULATOR_PID=$!
