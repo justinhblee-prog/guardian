@@ -65,18 +65,25 @@ def stop_daemon(delete=False):
 def restore_and_remove_task():
     manager=DnsAdapterManager(BACKUP); manager.restore(); write_state(False); stop_daemon(delete=True)
 def self_test():
+    import traceback,tempfile
     rules=DomainRules.from_text(DEFAULT_RULES); proxy=DnsProxy(rules,listen=(("127.0.0.1",0),("::1",0))); proxy.start()
     try:
-        port=proxy._servers[0].server_address[1]; query=blocked_probe_query()
+        port=proxy._udp_servers[0].server_address[1]; query=blocked_probe_query()
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
             client.settimeout(2); client.sendto(query,("127.0.0.1",port)); response,_=client.recvfrom(512)
         if response[3]&15!=3: raise RuntimeError("IPv4 blocked domain did not return NXDOMAIN")
-        v6port=proxy._servers[1].server_address[1]
+        v6port=proxy._udp_servers[1].server_address[1]
         with socket.socket(socket.AF_INET6,socket.SOCK_DGRAM) as client:
             client.settimeout(2); client.sendto(query,("::1",v6port,0,0)); response6,_=client.recvfrom(512)
         if response6[3]&15!=3: raise RuntimeError("IPv6 blocked domain did not return NXDOMAIN")
         if sys.stdout: print("Guardian Windows IPv4/IPv6 executable self-test passed")
-    finally: proxy.stop()
+    except Exception:
+        Path(tempfile.gettempdir(),"GuardianDesktopSelfTest.log").write_text(traceback.format_exc(),encoding="utf-8")
+        raise
+    try: proxy.stop()
+    except Exception:
+        Path(tempfile.gettempdir(),"GuardianDesktopSelfTest.log").write_text(traceback.format_exc(),encoding="utf-8")
+        raise
 class GuardianDesktop:
     def __init__(self,root):
         self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False
