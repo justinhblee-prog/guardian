@@ -91,6 +91,17 @@ class FilterRuleParserTest {
         ))
         assertEquals(setOf("good.example"), parsed.blocked)
     }
+    @Test fun safelyScansEmptyAndMultipleModifierTokens() {
+        val parsed = FilterRuleParser.parse(listOf(
+            "||empty-suffix.example^$",
+            "||multiple.example^$third-party,important",
+            "||cancelled.example^$important,badfilter",
+            "||survives.example^$important"
+        ))
+        assertEquals(setOf("survives.example"), parsed.blocked)
+        assertEquals(setOf("multiple.example", "survives.example"), parsed.importantBlocked)
+    }
+
     @Test fun badfilterDisablesAnImportantBlockRule() {
         val parsed = FilterRuleParser.parse(listOf(
             "||priority.example^\$important",
