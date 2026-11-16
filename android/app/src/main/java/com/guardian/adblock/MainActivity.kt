@@ -121,6 +121,14 @@ class MainActivity : Activity() {
                 .putBoolean("android_ads_default_enabled_v1", true)
                 .apply()
         }
+        // Temporary rollout: enable the malware/phishing list for existing and
+        // new installations. Its cache is fetched by the startup update check.
+        if (!filterPrefs.getBoolean("security_filter_default_enabled_v1", false)) {
+            filterPrefs.edit()
+                .putBoolean(FilterListManager.KEY_SECURITY_ENABLED, true)
+                .putBoolean("security_filter_default_enabled_v1", true)
+                .apply()
+        }
         val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
         FilterUpdateScheduler.sync(this)
         val lastUpdate = FilterListManager.lastUpdatedAt(this)
