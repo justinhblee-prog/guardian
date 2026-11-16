@@ -1,0 +1,41 @@
+name: Windows DNS engine CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dns_engine/**"
+      - "windows_engine/**"
+      - "requirements-dev.txt"
+      - "VERIFY_WINDOWS_TESTS.ps1"
+      - ".github/workflows/windows-engine.yml"
+  pull_request:
+    paths:
+      - "dns_engine/**"
+      - "windows_engine/**"
+      - "requirements-dev.txt"
+      - "VERIFY_WINDOWS_TESTS.ps1"
+      - ".github/workflows/windows-engine.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python DNS engine (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Run DNS and Windows integration tests
+        run: python -m pytest -q dns_engine/test_dns_engine.py windows_engine/test_windows_protection.py
+      - name: Compile Python modules
+        run: python -m compileall -q dns_engine windows_engine
