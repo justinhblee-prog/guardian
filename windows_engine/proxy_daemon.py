@@ -1,7 +1,8 @@
 """Boot-startable DNS proxy daemon managed by the Guardian desktop UI."""
 import json,os,socket,struct,sys,threading,time
 from pathlib import Path
-from dns_engine import DnsProxy,DomainRules\nfrom windows_engine.filter_updates import FilterUpdater,FilterUpdateError
+from dns_engine import DnsProxy,DomainRules
+from windows_engine.filter_updates import FilterUpdater,FilterUpdateError
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
 CONFIG=APP_DIR/"guardian.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; UPDATE_STATUS=APP_DIR/"filter-update-status.json"
 def load_runtime():
