@@ -11,6 +11,7 @@ on:
       - 'VERIFY_ANDROID_CORE.sh'
       - 'android/core-checks/**'
       - 'scripts/verify_apk_metadata.py'
+      - 'scripts/verify_android_emulator.sh'
       - '.github/workflows/android-apk.yml'
   pull_request:
     paths:
@@ -127,7 +128,7 @@ jobs:
           profile: pixel_6
           # Run the entire verification in one Bash process; the action's
           # line-oriented script runner cannot preserve shell loops/conditionals.
-          disable-animations: false
+          disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
           script: bash scripts/verify_android_emulator.sh
       - name: Verify APK package identity and version
