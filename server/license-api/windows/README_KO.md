@@ -29,6 +29,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 ## 필터 배포
 필터 updater/publisher는 `server/filter-distribution`에 있습니다. upstream 필터 다운로드, 규칙 수 검증, 버전 생성, SHA-256, RSA-SHA256 manifest 서명까지 지원합니다. `sources.example.json`을 `sources.json`으로 복사해 실제 HTTPS 배포 주소와 공식 HTTPS 공급원/최소 규칙 수를 확인합니다. 최초 설치 스크립트가 필터 서명 개인키를 현재 사용자 DPAPI로 보호해 저장하므로 PEM을 환경변수·작업 인수·로그에 직접 기록하지 않습니다. 매일 04:17 업데이트 작업 등록: `./Register-GuardianFilterUpdateTask.ps1 -DailyAt '04:17'`. 이 작업은 매일 지정 시각 및 사용자 로그인 시 실행하고 결과를 `server/filter-distribution/logs/`에 기록합니다. 수동 실행은 `./Invoke-GuardianFilterUpdate.ps1`입니다. Node.js 22 이상이 필요합니다. 서명 개인키는 공개 웹 컨테이너나 Android 앱에 넣지 않습니다. `dist`만 읽기 전용으로 제공됩니다.
 
+Android 앱의 설정에서 **운영 서버 주소 (노트북)**에는 라이선스 API의 공개 HTTPS 주소를, **서명 필터 배포 서버**에는 필터 서버의 공개 HTTPS 주소를 각각 저장합니다. `sources.json`의 `baseUrl`은 앱의 필터 서버 주소와 정확히 같은 공개 HTTPS origin/path여야 합니다. 현재 Docker 포트는 localhost 전용이므로 도메인/TLS 및 인증된 tunnel 또는 reverse proxy를 구성하기 전에는 휴대폰에서 원격 접속할 수 없습니다.
+
 ## 자동 시작과 절전
 예약 작업은 Windows 로그인 시 전체 서비스를 시작합니다. Docker Compose의 `restart: unless-stopped`는 Docker 엔진 재시작 후 컨테이너 복구를 돕습니다. 로그인 전 부팅 단계부터 운영하려면 별도 서비스 계정과 권한 설계가 필요합니다. 노트북이 꺼져 있거나 절전 상태이면 서버도 접속할 수 없습니다. 운영 중 절전 방지, 전원 연결, 네트워크 안정성 및 Windows 업데이트 재부팅 정책을 별도로 관리해야 합니다.
 
