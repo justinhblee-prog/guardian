@@ -119,15 +119,24 @@ tap_text "보호 시작"
 
 # Accept Android's VPN consent prompt if it appears.
 for attempt in $(seq 1 15); do
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
-  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+  echo "Checking Android VPN consent dialog (attempt $attempt/15)."
+  adb_poll shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
+  xml="$(adb_poll exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
+try:
+    root=ET.fromstring(sys.stdin.read())
+except ET.ParseError:
+    raise SystemExit(0)
 for node in root.iter("node"):
-    label=node.attrib.get("text","").lower()
-    if (any(k in label for k in ("allow","허용","확인","ok"))
-        and node.attrib.get("visible-to-user") == "true"
-        and node.attrib.get("clickable") == "true"):
+    label=node.attrib.get("text","").strip().lower()
+    resource_id=node.attrib.get("resource-id","")
+    is_ok_button=(resource_id == "android:id/button1" or label in ("ok","allow","허용","확인"))
+    if (is_ok_button
+        and node.attrib.get("package") == "com.android.vpndialogs"
+        and node.attrib.get("class") == "android.widget.Button"
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("clickable") == "true"
+        and node.attrib.get("enabled") == "true"):
         parts=node.attrib.get("bounds","").strip("[]").split("][")
         if len(parts)==2:
             x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
@@ -135,7 +144,9 @@ for node in root.iter("node"):
             break' <<<"$xml")"
   if [[ -n "$consent_bounds" ]]; then
     read -r x y <<<"$consent_bounds"
-    adb_cmd shell input tap "$x" "$y"
+    echo "Approving Android VPN consent dialog at ($x,$y)."
+    adb_poll shell input tap "$x" "$y"
+    sleep 2
     break
   fi
   sleep 1
