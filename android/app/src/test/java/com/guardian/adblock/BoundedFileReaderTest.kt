@@ -1,6 +1,7 @@
 package com.guardian.adblock
 
 import java.io.File
+import java.io.RandomAccessFile
 import java.nio.file.Files
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertNull
@@ -54,7 +55,7 @@ class BoundedFileReaderTest {
         val directory = Files.createTempDirectory("guardian-bounded-file").toFile()
         val file = File(directory, "large-security-filter.txt")
         val expectedSize = 12 * 1024 * 1024
-        file.setLength(expectedSize.toLong())
+        RandomAccessFile(file, "rw").use { it.setLength(expectedSize.toLong()) }
 
         assertEquals(expectedSize, readBoundedFile(file, MAX_FILTER_DOWNLOAD_BYTES)?.size)
     }
@@ -63,7 +64,7 @@ class BoundedFileReaderTest {
     fun rejectsFilterCacheLargerThanThirtyTwoMegabytes() {
         val directory = Files.createTempDirectory("guardian-bounded-file").toFile()
         val file = File(directory, "oversized-filter.txt")
-        file.setLength(MAX_FILTER_DOWNLOAD_BYTES.toLong() + 1L)
+        RandomAccessFile(file, "rw").use { it.setLength(MAX_FILTER_DOWNLOAD_BYTES.toLong() + 1L) }
 
         assertNull(readBoundedFile(file, MAX_FILTER_DOWNLOAD_BYTES))
     }
