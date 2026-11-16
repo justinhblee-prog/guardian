@@ -44,7 +44,7 @@ class CosmeticFilterEngineTest {
 
         assertEquals(setOf(".generic-ad", ".site-ad"),
             CosmeticFilterEngine.selectorsForHost(rules, "www.example.com"))
-        assertEquals(setOf(".generic-ad", ".site-ad"),
+        assertEquals(setOf(".generic-ad"),
             CosmeticFilterEngine.selectorsForHost(rules, "news.example.com"))
         // An unrestricted generic rule remains active even if a second rule
         // with the same selector excludes this host.
