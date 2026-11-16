@@ -21,3 +21,16 @@ def test_malformed_packets_rejected():
 def test_adblock_and_hosts_rules():
     r=DomainRules.from_text("! comment\n||ads.example^\n@@||allowed.ads.example^\n0.0.0.0 tracker.example\n")
     assert r.is_blocked("sub.ads.example") and not r.is_blocked("allowed.ads.example") and r.is_blocked("tracker.example")
+
+
+def test_loopback_proxy_blocks_udp_query_without_upstream():
+    import socket
+    from dns_engine.proxy import DnsProxy
+    rules=DomainRules(); rules.add_block("ads.example")
+    proxy=DnsProxy(rules,listen=("127.0.0.1",0)); proxy.start()
+    try:
+        port=proxy._servers[0].server_address[1]
+        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
+            client.settimeout(2); client.sendto(query("cdn.ads.example"),("127.0.0.1",port)); response,_=client.recvfrom(512)
+        assert response[3]&0x0f==3 and proxy.blocked_count==1
+    finally: proxy.stop()
