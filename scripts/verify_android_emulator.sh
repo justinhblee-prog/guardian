@@ -47,6 +47,24 @@ recover_emulator_framework() {
 
 wait_for_boot
 wait_for_package_service
+
+wait_for_network() {
+  for attempt in $(seq 1 30); do
+    local result
+    result="$(adb_cmd shell ping -c 1 -W 3 adguardteam.github.io 2>&1 || true)"
+    if grep -Eq 'PING adguardteam\\.github\\.io \\([^)]*\\)' <<<"$result"; then
+      echo "Emulator DNS/network ready: $result"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "Emulator has no working DNS/network connection to the filter host."
+  adb_cmd shell dumpsys connectivity || true
+  adb_cmd shell ip addr show || true
+  adb_cmd shell getprop | grep -E 'net\\.dns|dhcp' || true
+  return 1
+}
+wait_for_network
 adb_cmd logcat -c
 
 python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.11-dev.apk 24 0.7.11-dev android/app/build/outputs/apk/debug/app-debug.apk 26 0.7.13-dev
