@@ -1716,10 +1716,12 @@ class MainActivity : Activity() {
         securityFilterCheckBox?.isEnabled = false
         androidAdsFilterCheckBox?.isEnabled = false
         setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} 목록을 내려받아 규칙을 검증합니다.")
+        android.util.Log.i("Guardian", "Starting filter update for ${FilterListManager.selectedProfile(this).key}")
         thread(name = "guardian-filter-update") {
             val hadPreviousMainCache = try { FilterListManager.hasCachedList(this) } catch (_: Exception) { false }
             try {
                 val result = FilterListManager.update(this)
+                android.util.Log.i("Guardian", "Base filter downloaded: ${result.blocked} rules, ${result.bytes} bytes")
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
                 val securityWasEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
@@ -1732,6 +1734,7 @@ class MainActivity : Activity() {
                             prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                         }
                     } catch (e: Exception) {
+                        android.util.Log.e("Guardian", "Security filter download failed", e)
                         prefs.edit().putString(
                             FilterListManager.KEY_SECURITY_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
@@ -1745,6 +1748,7 @@ class MainActivity : Activity() {
                             prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                         }
                     } catch (e: Exception) {
+                        android.util.Log.e("Guardian", "Android ads filter download failed", e)
                         prefs.edit().putString(
                             FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
@@ -1761,6 +1765,7 @@ class MainActivity : Activity() {
                 if (active) {
                     startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
                 }
+                android.util.Log.i("Guardian", "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}")
                 filterUpdateRunning.set(false)
                 runOnUiThread {
                     if (androidAdsWasEnabled && androidAdsResult == null && !androidAdsWasCached) {
@@ -1787,6 +1792,7 @@ class MainActivity : Activity() {
                     }
                 }
             } catch (e: Exception) {
+                android.util.Log.e("Guardian", "Base filter update failed", e)
                 pendingProtectionStartAfterFilterUpdate = false
                 filterUpdateRunning.set(false)
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
