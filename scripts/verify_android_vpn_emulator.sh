@@ -50,19 +50,7 @@ tap_text() {
   adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   xml="$(adb exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   local bounds
-  bounds="$(python3 - "$wanted" <<'PY' <<<"$xml"
-import re, sys
-xml = sys.stdin.read()
-wanted = sys.argv[1]
-for node in re.findall(r'<node\b[^>]*>', xml):
-    text = re.search(r'\btext="([^"]*)"', node)
-    bounds = re.search(r'\bbounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
-    if text and bounds and wanted in text.group(1):
-        x1,y1,x2,y2 = map(int, bounds.groups())
-        print((x1+x2)//2, (y1+y2)//2)
-        break
-PY
-)"
+  bounds="$(python3 -c 'import re,sys; xml=sys.stdin.read(); wanted=sys.argv[1]; nodes=re.findall(r"<node\\b[^>]*>",xml); [(lambda t,b: print((int(b.group(1))+int(b.group(3)))//2,(int(b.group(2))+int(b.group(4)))//2) if t and b and wanted in t.group(1) else None)(re.search(r"\\btext=\"([^\"]*)\"",n),re.search(r"\\bbounds=\"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]\"",n)) for n in nodes if (lambda t: t and wanted in t.group(1))(re.search(r"\\btext=\"([^\"]*)\"",n))][:1]' "$wanted" <<<"$xml")"
   if [[ -z "$bounds" ]]; then
     echo "Could not locate UI control: $wanted"
     echo "$xml"
@@ -86,18 +74,11 @@ tap_text "보호 시작"
 for attempt in $(seq 1 15); do
   adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
   xml="$(adb exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
-  consent_bounds="$(python3 - <<'PY' <<<"$xml"
-import re, sys
-xml=sys.stdin.read()
-for node in re.findall(r'<node\b[^>]*>', xml):
-    t=re.search(r'\btext="([^"]*)"', node)
-    b=re.search(r'\bbounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', node)
-    if t and b and any(k in t.group(1).lower() for k in ("allow", "허용", "확인", "ok")):
-        x1,y1,x2,y2=map(int,b.groups())
-        print((x1+x2)//2,(y1+y2)//2)
-        break
-PY
-)"
+  consent_bounds="$(python3 -c 'import re,sys; xml=sys.stdin.read(); nodes=re.findall(r"<node\\b[^>]*>",xml); found=False
+for n in nodes:
+ t=re.search(r"\\btext=\"([^\"]*)\"",n); b=re.search(r"\\bbounds=\"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]\"",n)
+ if t and b and any(k in t.group(1).lower() for k in ("allow","허용","확인","ok")):
+  x1,y1,x2,y2=map(int,b.groups()); print((x1+x2)//2,(y1+y2)//2); break' <<<"$xml")"
   if [[ -n "$consent_bounds" ]]; then
     read -r x y <<<"$consent_bounds"
     adb shell input tap "$x" "$y"
