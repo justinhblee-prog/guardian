@@ -56,14 +56,33 @@ internal class LicenseApiException(
 
 /** HTTPS-only client for the Guardian license service. Call from a worker thread. */
 internal object LicenseApiClient {
+    private const val PREFS = "guardian_server_settings"
+    private const val KEY_LICENSE_API_BASE_URL = "license_api_base_url"
     private const val MAX_RESPONSE_BYTES = 8192
+
+    fun configuredBaseUrl(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_LICENSE_API_BASE_URL, null)
+            ?.takeIf { it.isNotBlank() }
+            ?: BuildConfig.LICENSE_API_BASE_URL
+
+    fun saveBaseUrl(context: Context, value: String) {
+        val normalized = parseLicenseApiBaseUrl(value).toExternalForm().trimEnd('/')
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_LICENSE_API_BASE_URL, normalized).apply()
+    }
+
+    fun resetBaseUrl(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().remove(KEY_LICENSE_API_BASE_URL).apply()
+    }
     private const val CONNECT_TIMEOUT_MS = 10_000
     private const val READ_TIMEOUT_MS = 10_000
 
     @Synchronized
     fun activate(context: Context, licenseKey: String, appVersion: String): LicenseEntitlementVerifier.Entitlement {
         require(licenseKey.isNotBlank() && licenseKey.length <= 100) { "라이선스 키를 확인하세요." }
-        val response = post(
+        val response = post(context,
             "/v1/licenses/activate",
             JSONObject()
                 .put("licenseKey", licenseKey.trim().uppercase())
@@ -78,7 +97,7 @@ internal object LicenseApiClient {
         val current = LicenseEntitlementStore.currentForRefresh(context)
             ?: throw IllegalStateException("갱신할 라이선스 정보가 없습니다.")
         val response = try {
-            post(
+            post(context,
                 "/v1/licenses/refresh",
                 JSONObject()
                     .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
@@ -101,7 +120,7 @@ internal object LicenseApiClient {
         // is still required to release the server-side device activation slot.
         val current = LicenseEntitlementStore.currentForRefresh(context)
             ?: return LicenseEntitlementStore.clear(context)
-        post(
+        post(context,
             "/v1/licenses/deactivate",
             JSONObject()
                 .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
@@ -114,7 +133,7 @@ internal object LicenseApiClient {
     fun status(context: Context): JSONObject {
         val current = LicenseEntitlementStore.current(context)
             ?: return JSONObject().put("status", "free")
-        return post(
+        return post(context,
             "/v1/licenses/status",
             JSONObject()
                 .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
@@ -138,8 +157,8 @@ internal object LicenseApiClient {
         )
     }
 
-    private fun post(path: String, body: JSONObject): JSONObject {
-        val baseUrl = parseLicenseApiBaseUrl(BuildConfig.LICENSE_API_BASE_URL)
+    private fun post(context: Context, path: String, body: JSONObject): JSONObject {
+        val baseUrl = parseLicenseApiBaseUrl(configuredBaseUrl(context))
         val endpoint = URL(baseUrl, path)
         val connection = (endpoint.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
