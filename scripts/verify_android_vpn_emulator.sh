@@ -89,14 +89,16 @@ tap_text() {
   bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
-    if sys.argv[1] in node.attrib.get("text",""):
+    if (sys.argv[1] in node.attrib.get("text","")
+        and node.attrib.get("visible-to-user") == "true"
+        and node.attrib.get("clickable") == "true"):
         parts=node.attrib.get("bounds","").strip("[]").split("][")
         if len(parts)==2:
             x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
             print((x1+x2)//2,(y1+y2)//2)
             break' "$wanted" <<<"$xml")"
   if [[ -z "$bounds" ]]; then
-    echo "Could not locate UI control: $wanted"
+    echo "Could not locate visible clickable UI control: $wanted"
     echo "$xml"
     return 1
   fi
@@ -122,7 +124,9 @@ for attempt in $(seq 1 15); do
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
     label=node.attrib.get("text","").lower()
-    if any(k in label for k in ("allow","허용","확인","ok")):
+    if (any(k in label for k in ("allow","허용","확인","ok"))
+        and node.attrib.get("visible-to-user") == "true"
+        and node.attrib.get("clickable") == "true"):
         parts=node.attrib.get("bounds","").strip("[]").split("][")
         if len(parts)==2:
             x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
