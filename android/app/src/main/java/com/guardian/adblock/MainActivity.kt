@@ -349,7 +349,7 @@ class MainActivity : Activity() {
             val bytes = Base64.decode(encoded, Base64.DEFAULT)
             val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             // Recolor only the Korean wordmark. Keep the symbol and English subtitle untouched.
-            val adjusted = source.copy(Bitmap.Config.ARGB_8888, true)
+            val adjusted = source.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
             for (y in 0 until adjusted.height.coerceAtMost(90)) {
                 for (x in 125 until adjusted.width) {
                     val pixel = adjusted.getPixel(x, y)
