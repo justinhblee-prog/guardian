@@ -140,14 +140,31 @@ jobs:
         if: failure()
         shell: bash
         run: |
+          set +e
           mkdir -p emulator-diagnostics
-          adb devices -l > emulator-diagnostics/devices.txt 2>&1 || true
-          adb shell getprop > emulator-diagnostics/getprop.txt 2>&1 || true
-          adb logcat -d -t 12000 > emulator-diagnostics/logcat.txt 2>&1 || true
-          adb shell dumpsys activity activities > emulator-diagnostics/activities.txt 2>&1 || true
-          adb shell dumpsys package com.guardian.adblock > emulator-diagnostics/package.txt 2>&1 || true
-          adb shell dumpsys vpn > emulator-diagnostics/vpn.txt 2>&1 || true
-          emulator -version > emulator-diagnostics/emulator-version.txt 2>&1 || true
+          # A wedged emulator/ADB daemon must not stall the failure handler and
+          # prevent the APK/checksum/artifact steps from running.
+          capture() {
+            local name="$1"
+            shift
+            timeout --signal=TERM --kill-after=3s 15s "$@" \
+              > "emulator-diagnostics/${name}.txt" 2>&1
+            local status=$?
+            if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+              echo "TIMEOUT after 15 seconds: $*" >> "emulator-diagnostics/${name}.txt"
+            elif [ "$status" -ne 0 ]; then
+              echo "EXIT STATUS: $status ($*)" >> "emulator-diagnostics/${name}.txt"
+            fi
+          }
+          capture devices adb devices -l
+          capture getprop adb shell getprop
+          capture logcat adb logcat -d -t 12000
+          capture activities adb shell dumpsys activity activities
+          capture package adb shell dumpsys package com.guardian.adblock
+          capture vpn adb shell dumpsys vpn
+          capture emulator-version emulator -version
+          date -u +%FT%TZ > emulator-diagnostics/captured-at.txt
+          printf 'Diagnostics collection finished (individual commands are bounded to 15s).\n'
 
       - name: Upload emulator diagnostics
         if: failure()
