@@ -978,6 +978,57 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(6) })
         }.withTop(12))
         body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("서명 필터 배포 서버", 15f, white, true))
+            addView(text(
+                "필터 파일은 앱에 포함된 공개키로 서명을 검증합니다. 노트북 서버의 HTTPS 주소를 바꾸면 다음 업데이트부터 새 주소를 사용합니다.",
+                11f, muted, false
+            ).withTop(5))
+            val filterServerInput = EditText(this@MainActivity).apply {
+                hint = "https://filters.example.com"
+                setHintTextColor(muted)
+                setTextColor(white)
+                textSize = 13f
+                setSingleLine(true)
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                background = shape(panel2, 11)
+                setText(FilterDistributionSettings.configuredBaseUrl(this@MainActivity))
+            }
+            addView(filterServerInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+            val filterServerFeedback = text(
+                "현재 주소: " + FilterDistributionSettings.configuredBaseUrl(this@MainActivity)
+                    .ifBlank { "미설정 · 서명 배포 서버 연결 전에는 기존 필터 공급원을 사용합니다." },
+                10f, muted, false
+            ).withTop(7) as TextView
+            addView(filterServerFeedback)
+            addView(Button(this@MainActivity).apply {
+                text = "필터 서버 주소 저장"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 12)
+                setOnClickListener {
+                    try {
+                        FilterDistributionSettings.saveBaseUrl(this@MainActivity, filterServerInput.text.toString())
+                        filterServerFeedback.text = "저장 완료 · 다음 필터 업데이트부터 새 HTTPS 서버와 앱 내 서명 공개키를 사용합니다."
+                    } catch (error: Exception) {
+                        filterServerFeedback.text = error.message ?: "HTTPS 서버 주소를 확인하세요."
+                    }
+                }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            addView(Button(this@MainActivity).apply {
+                text = "빌드 기본 주소로 되돌리기"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(panel2, 12)
+                setOnClickListener {
+                    FilterDistributionSettings.resetBaseUrl(this@MainActivity)
+                    filterServerInput.setText(BuildConfig.FILTER_MANIFEST_BASE_URL)
+                    filterServerFeedback.text = "빌드 기본 주소로 되돌렸습니다."
+                }
+            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(6) })
+        }.withTop(12))
+        body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(13), dp(15), dp(13))
             addView(text("제작자 및 개발사", 13f, white, true))
             addView(text("(주)유진컨설팅", 13f, accent, true).withTop(8))
