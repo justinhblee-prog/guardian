@@ -38,6 +38,7 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch Guardian AdBlock"; Flags
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--restore-dns"; RunOnceId: "GuardianRestoreDns"; Flags: runhidden waituntilterminated
 Filename: "{sys}\schtasks.exe"; Parameters: "/End /TN GuardianDnsProxy"; RunOnceId: "GuardianEndDnsTask"; Flags: runhidden waituntilterminated
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN GuardianDnsProxy /F"; RunOnceId: "GuardianDeleteDnsTask"; Flags: runhidden waituntilterminated
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ""Unregister-ScheduledTask -TaskName 'GuardianDnsProxy' -Confirm:$false -ErrorAction SilentlyContinue"""; RunOnceId: "GuardianUnregisterDnsTask"; Flags: runhidden waituntilterminated
 
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -72,5 +73,6 @@ begin
   if CurUninstallStep = usUninstall then begin
     Exec(ExpandConstant('{sys}\schtasks.exe'), '/End /TN GuardianDnsProxy', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /TN GuardianDnsProxy /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Unregister-ScheduledTask -TaskName ''GuardianDnsProxy'' -Confirm:$false -ErrorAction SilentlyContinue"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;
