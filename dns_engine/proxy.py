@@ -49,8 +49,8 @@ class DnsProxy:
             if not chunk: raise OSError("upstream TCP DNS response ended early")
             chunks.append(chunk); remaining-=len(chunk)
         return b"".join(chunks)
-    def _forward_tcp(self,query,upstream):
-        with socket.create_connection((upstream,53),timeout=self.timeout) as client:
+    def _forward_tcp(self,query,upstream,port=53):
+        with socket.create_connection((upstream,port),timeout=self.timeout) as client:
             client.settimeout(self.timeout); client.sendall(struct.pack("!H",len(query))+query)
             length=struct.unpack("!H",self._recv_exact(client,2))[0]
             if length<12 or length>65535: raise ValueError("invalid upstream TCP DNS length")
@@ -62,12 +62,13 @@ class DnsProxy:
         parse_question(query); errors=[]
         for upstream in self.upstreams:
             try:
-                ipaddress.IPv4Address(upstream)
+                host,port=upstream if isinstance(upstream,tuple) else (upstream,53)
+                ipaddress.IPv4Address(host)
                 with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
-                    client.settimeout(self.timeout); client.connect((upstream,53)); client.send(query); response=client.recv(4096)
+                    client.settimeout(self.timeout); client.connect((host,port)); client.send(query); response=client.recv(4096)
                 if not response_matches(query,response): raise ValueError("mismatched UDP DNS response")
                 if response[3]&15!=0: raise ValueError(f"upstream UDP DNS RCODE={response[3]&15}")
-                if response[2]&0x02: response=self._forward_tcp(query,upstream)
+                if response[2]&0x02: response=self._forward_tcp(query,host,port)
                 return response
             except (OSError,ValueError) as exc: errors.append(f"{upstream}: {exc}")
         raise OSError("all DNS upstreams failed: "+"; ".join(errors))
@@ -80,8 +81,8 @@ class DnsProxy:
     def start(self):
         if self._servers: return
         try:
-            self._udp_servers=[_UdpServer(address,self) for address in self.listeners]
-            self._tcp_servers=[_TcpServer(address,self) for address in self.listeners]
+            for address in self.listeners: self._udp_servers.append(_UdpServer(address,self))
+            for address in self.listeners: self._tcp_servers.append(_TcpServer(address,self))
             self._servers=self._udp_servers+self._tcp_servers
             self._threads=[threading.Thread(target=s.serve_forever,kwargs={"poll_interval":.25},daemon=True) for s in self._servers]
             for thread in self._threads: thread.start()
