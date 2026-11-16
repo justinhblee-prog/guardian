@@ -34,6 +34,10 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch Guardian AdBlock"; Flags: nowait postinstall skipifsilent
 
+[UninstallRun]
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--restore-dns"; Flags: runhidden waituntilterminated
+Filename: "{sys}\schtasks.exe"; Parameters: "/End /TN GuardianDnsProxy"; Flags: runhidden waituntilterminated
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN GuardianDnsProxy /F"; Flags: runhidden waituntilterminated
 
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -50,12 +54,6 @@ begin
   end;
 end;
 
-[UninstallRun]
-Filename: "{app}\\{#MyAppExeName}"; Parameters: "--restore-dns"; Flags: runhidden waituntilterminated
-Filename: "{sys}\\schtasks.exe"; Parameters: "/End /TN GuardianDnsProxy"; Flags: runhidden waituntilterminated
-Filename: "{sys}\\schtasks.exe"; Parameters: "/Delete /TN GuardianDnsProxy /F"; Flags: runhidden waituntilterminated
-
-[Code]
 function InitializeUninstall(): Boolean;
 var
   ResultCode: Integer;
