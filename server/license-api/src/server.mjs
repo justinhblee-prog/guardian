@@ -10,6 +10,9 @@ import {
 
 const { Pool } = pg;
 const PORT = Number(process.env.PORT || 8787);
+// Bind to loopback by default. Phone-hosted deployments can expose the API
+// only through an authenticated private tunnel; containers override HOST.
+const HOST = process.env.HOST || '127.0.0.1';
 const DATABASE_URL = process.env.DATABASE_URL;
 const ADMIN_TOKEN = process.env.GUARDIAN_ADMIN_TOKEN;
 const PRIVATE_KEY = process.env.GUARDIAN_LICENSE_PRIVATE_KEY;
@@ -465,7 +468,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  server.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, HOST, () => {
     console.log(`Guardian License API listening on :${PORT}`);
   });
 }
