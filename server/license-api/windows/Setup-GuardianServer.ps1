@@ -17,8 +17,7 @@ if ($LASTEXITCODE -ne 0) { throw 'RSA 개인키 생성 실패' }
 openssl pkey -in $privateKeyPath -pubout -out $publicKeyPath
 if ($LASTEXITCODE -ne 0) { throw 'RSA 공개키 생성 실패' }
 function New-Secret([int]$Bytes = 48) { $buffer = New-Object byte[] $Bytes; $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); try { $rng.GetBytes($buffer) } finally { $rng.Dispose() }; return [Convert]::ToBase64String($buffer).TrimEnd('=').Replace('+','A').Replace('/','B') }
-$alphabet = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-$dbPassword = -join (1..48 | ForEach-Object { $alphabet[(Get-Random -Minimum 0 -Maximum $alphabet.Length)] })
+$dbPassword = New-Secret 48
 $adminToken = New-Secret 64
 $lookupSecret = New-Secret 64
 $pem = (Get-Content -Raw $privateKeyPath).Trim() -replace "`r?`n", '\n'
