@@ -21,6 +21,7 @@ on:
       - 'README.md'
       - 'VERIFY_ANDROID_CORE.sh'
       - 'android/core-checks/**'
+      - 'scripts/verify_android_vpn_emulator.sh'
       - '.github/workflows/android-apk.yml'
 
 # Keep only the newest branch run; rapid source commits should not waste runners.
@@ -328,7 +329,7 @@ jobs:
           retention-days: 7
 
       - name: Write final runtime verification result
-        if: always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+        if: always()
         shell: bash
         run: |
           mkdir -p release
@@ -349,7 +350,7 @@ jobs:
           EOF
 
       - name: Upload final verification report
-        if: always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: guardian-android-final-verification
