@@ -2,7 +2,8 @@
 set -euo pipefail
 
 PACKAGE="com.guardian.adblock"
-PREFS="shared_prefs/guardian_settings.xml"
+APP_DATA="/data/user/0/$PACKAGE"
+PREFS="$APP_DATA/shared_prefs/guardian_settings.xml"
 MAIN_CACHE="adguard_dns_filter.txt"
 SECURITY_CACHE="hagezi_threat_intelligence.txt"
 ANDROID_CACHE="awavenue_android_ads.txt"
@@ -19,8 +20,8 @@ read_prefs() {
 
 cache_ready() {
   local listing
-  listing="$(timeout --signal=TERM --kill-after=2s 12s adb shell run-as "$PACKAGE" ls -1 files 2>&1)" || {
-    echo "Cache listing unavailable: $listing" >&2
+  listing="$(timeout --signal=TERM --kill-after=2s 12s adb shell run-as "$PACKAGE" ls -1 "$APP_DATA/files" 2>&1)" || {
+    if (( ${attempt:-1} == 1 )); then echo "Cache listing unavailable: $listing" >&2; fi
     return 1
   }
   grep -Fxq "$MAIN_CACHE" <<<"$listing" &&
@@ -50,7 +51,9 @@ if [[ "$ready" -ne 1 ]]; then
   echo "Persisted filter update errors:"
   read_prefs || true
   echo "Filter cache files:"
-  adb shell run-as "$PACKAGE" ls -la files || true
+  adb shell run-as "$PACKAGE" ls -la "$APP_DATA" || true
+  adb shell run-as "$PACKAGE" ls -la "$APP_DATA/files" || true
+  adb shell run-as "$PACKAGE" cat "$PREFS" || true
   echo "Guardian filter/network log:"
   adb logcat -d -t 6000 | grep -E "Guardian|Filter|WorkManager|OkHttp|UnknownHost|SSL|Exception|timeout" | tail -300 || true
   echo "Emulator network state:"
