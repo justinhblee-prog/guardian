@@ -77,6 +77,8 @@ class MainActivity : Activity() {
     private var activityChart: ActivityStatsChart? = null
     private var receiverRegistered = false
     private var currentTab = "home"
+    private var focusLicenseActivationOnBuild = false
+    private var licenseKeyInput: EditText? = null
     private val filterUpdateRunning = AtomicBoolean(false)
     @Volatile private var pendingProtectionStartAfterFilterUpdate = false
 
@@ -199,8 +201,10 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun showTab(tab: String) {
+    private fun showTab(tab: String, focusLicenseActivation: Boolean = false) {
         currentTab = tab
+        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings"
+        licenseKeyInput = null
         startButton = null
         protectionStatusText = null
         protectionStatusDetail = null
@@ -269,6 +273,22 @@ class MainActivity : Activity() {
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL
             )
         )
+        if (focusLicenseActivationOnBuild && tab == "settings") {
+            scroll.post {
+                licenseKeyInput?.let { input ->
+                    val bounds = android.graphics.Rect()
+                    input.getDrawingRect(bounds)
+                    scroll.offsetDescendantRectToMyCoords(input, bounds)
+                    scroll.smoothScrollTo(0, (bounds.top - dp(28)).coerceAtLeast(0))
+                    input.requestFocus()
+                    input.post {
+                        val keyboard = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                        keyboard.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                    }
+                }
+                focusLicenseActivationOnBuild = false
+            }
+        }
         if (usesNavigationRail) {
             val workspace = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -713,7 +733,7 @@ class MainActivity : Activity() {
                 AlertDialog.Builder(this)
                     .setTitle("PRO 전용 기능")
                     .setMessage("악성코드 · 피싱 보호는 Guardian PRO 라이선스가 활성화된 경우에만 사용할 수 있습니다. 설정 화면에서 PRO 라이선스를 등록해 주세요.")
-                    .setPositiveButton("설정으로 이동") { _, _ -> showTab("settings") }
+                    .setPositiveButton("설정으로 이동") { _, _ -> showTab("settings", focusLicenseActivation = true) }
                     .setNegativeButton("확인", null)
                     .show()
                 feedback.text = "악성코드 · 피싱 보호는 PRO 전용 기능입니다."
@@ -1026,6 +1046,7 @@ class MainActivity : Activity() {
                 setPadding(dp(12), dp(12), dp(12), dp(12))
                 background = shape(panel2, 11)
             }
+            this@MainActivity.licenseKeyInput = licenseKeyInput
             addView(licenseKeyInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
             val licenseFeedback = text(
                 if (BuildConfig.LICENSE_API_BASE_URL.isBlank()) "운영 라이선스 서버 주소가 아직 앱 빌드에 설정되지 않았습니다."
