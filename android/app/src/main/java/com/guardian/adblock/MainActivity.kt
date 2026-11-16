@@ -1727,8 +1727,6 @@ class MainActivity : Activity() {
                             FilterListManager.KEY_SECURITY_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
                         ).apply()
-                        if (!securityWasCached) prefs.edit()
-                            .putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false).apply()
                         null
                     }
                 } else null
@@ -1756,16 +1754,12 @@ class MainActivity : Activity() {
                 }
                 filterUpdateRunning.set(false)
                 runOnUiThread {
-                    if (securityWasEnabled && securityResult == null && !securityWasCached) {
-                        securityFilterSwitch?.isChecked = false
-                        securityFilterCheckBox?.isChecked = false
-                    }
                     if (androidAdsWasEnabled && androidAdsResult == null && !androidAdsWasCached) {
                         androidAdsFilterSwitch?.isChecked = false
                         androidAdsFilterCheckBox?.isChecked = false
                     }
                     val securityMessage = if (securityWasEnabled) {
-                        if (securityResult != null) " · 보안 ${securityResult.blocked}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(캐시 없음 · 자동 비활성화)"
+                        if (securityResult != null) " · 보안 ${securityResult.blocked}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(캐시 없음 · 재시도 필요)"
                     } else ""
                     val androidAdsMessage = if (androidAdsWasEnabled) {
                         if (androidAdsResult != null) " · Android 앱 광고 ${androidAdsResult.blocked}개" else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)" else " · 앱 광고 필터 다운로드 실패(캐시 없음 · 자동 비활성화)"
