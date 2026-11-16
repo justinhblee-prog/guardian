@@ -114,8 +114,10 @@ jobs:
           test -s "$APK"
           unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
           unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
-          unzip -Z1 "$APK" | grep -Fx 'assets/eugene_consulting_logo.png'
-          echo "Bundled filter_rules.txt is present and byte-for-byte matches shared/filter_rules.txt."
+          unzip -Z1 "$APK" | grep -Fx 'assets/eugene_consulting_logo.b64'
+          unzip -p "$APK" assets/eugene_consulting_logo.b64 | base64 -d > /tmp/eugene-consulting-logo.png
+          python3 -c "from pathlib import Path; p=Path('/tmp/eugene-consulting-logo.png').read_bytes(); assert p.startswith(bytes.fromhex('89504e470d0a1a0a')) and len(p)>1000, 'Invalid supplied company PNG logo'"
+          echo "Bundled filter rules and supplied company logo are present and valid."
 
       - name: Install and launch APK on Android emulator
         timeout-minutes: 15
