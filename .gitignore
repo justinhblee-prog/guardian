@@ -224,3 +224,8 @@ __marimo__/
 *.keystore
 *.p12
 *.pfx
+
+# Guardian local operations secrets and backups (never commit)
+server/license-api/.env
+server/license-api/secrets/
+server/license-api/backups/
