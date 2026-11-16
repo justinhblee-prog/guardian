@@ -364,9 +364,6 @@ class MainActivity : Activity() {
             }
             setImageBitmap(adjusted)
         }
-        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(124), dp(42)).apply {
-            rightMargin = dp(10)
-        })
         val guardianMark = ImageView(this).apply {
             contentDescription = "GUARDIAN 보호 로고"
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -380,6 +377,9 @@ class MainActivity : Activity() {
         labels.addView(text("GUARDIAN", 17f, white, true))
         labels.addView(text("AD BLOCK", 8f, muted, true))
         wrap.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+        val headerSpacer = View(this)
+        wrap.addView(headerSpacer, LinearLayout.LayoutParams(0, 1, 1f))
+        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(124), dp(42)))
         return wrap
     }
 
