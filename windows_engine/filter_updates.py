@@ -1,5 +1,6 @@
 """HTTPS/RSA-SHA256 filter updater compatible with Guardian signed manifests."""
-import base64,hashlib,json,os,re,tempfile,urllib.error,urllib.request\nfrom contextlib import contextmanager
+import base64,hashlib,json,os,re,tempfile,urllib.error,urllib.request
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 from cryptography.hazmat.primitives import hashes,serialization
