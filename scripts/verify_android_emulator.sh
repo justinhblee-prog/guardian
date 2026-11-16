@@ -44,7 +44,7 @@ wait_for_boot
 wait_for_package_service
 adb logcat -c
 
-python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.11-dev.apk 24 0.7.11-dev android/app/build/outputs/apk/debug/app-debug.apk 25 0.7.12-dev
+python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.11-dev.apk 24 0.7.11-dev android/app/build/outputs/apk/debug/app-debug.apk 26 0.7.13-dev
 
 previous_installed=0
 for attempt in 1 2 3; do
