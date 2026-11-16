@@ -342,19 +342,8 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, dp(16))
         }
-        val guardianMark = ImageView(this).apply {
-            contentDescription = "GUARDIAN 보호 로고"
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            setImageResource(R.drawable.ic_launcher_foreground)
-        }
-        wrap.addView(guardianMark, LinearLayout.LayoutParams(dp(46), dp(48)))
-        val labels = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(5), 0, 0, 0)
-        }
-        labels.addView(text("GUARDIAN", 17f, white, true))
-        labels.addView(text("AD BLOCK", 8f, muted, true))
-        wrap.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+        // The supplied Eugene Consulting mark is transparent white artwork,
+        // so it sits cleanly on Guardian's deep-navy surface without a blue tile.
         val companyMark = ImageView(this).apply {
             contentDescription = "주식회사 유진컨설팅 로고"
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -362,7 +351,22 @@ class MainActivity : Activity() {
             val bytes = Base64.decode(encoded, Base64.DEFAULT)
             setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
         }
-        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(124), dp(42)))
+        wrap.addView(companyMark, LinearLayout.LayoutParams(dp(68), dp(56)).apply {
+            rightMargin = dp(10)
+        })
+        val guardianMark = ImageView(this).apply {
+            contentDescription = "GUARDIAN 보호 로고"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageResource(R.drawable.ic_launcher_foreground)
+        }
+        wrap.addView(guardianMark, LinearLayout.LayoutParams(dp(38), dp(40)))
+        val labels = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(7), 0, 0, 0)
+        }
+        labels.addView(text("GUARDIAN", 17f, white, true))
+        labels.addView(text("AD BLOCK", 8f, muted, true))
+        wrap.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
         return wrap
     }
 
