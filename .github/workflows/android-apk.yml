@@ -216,7 +216,7 @@ jobs:
           emulator-boot-timeout: 1200
           # GitHub-hosted Ubuntu runners expose KVM; force hardware acceleration
           # instead of silently falling back to very slow TCG software emulation.
-          disable-linux-hw-accel: true
+          disable-linux-hw-accel: false
           # Use a smaller Pixel 2 AVD and hardware acceleration on hosted Linux.
           # Keep explicit DNS/network settings for reliable filter-list downloads.
           # Run the entire verification in one Bash process; the action's
