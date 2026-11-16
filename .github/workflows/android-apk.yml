@@ -154,7 +154,7 @@ jobs:
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='22' versionName='0.7.9-dev'"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='23' versionName='0.7.10-dev'"
 
       - name: Verify APK exists and calculate checksum
         shell: bash
