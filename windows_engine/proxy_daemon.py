@@ -1,9 +1,9 @@
 """Boot-startable DNS proxy daemon managed by the Guardian desktop UI."""
 import json,os,socket,struct,sys,threading,time
 from pathlib import Path
-from dns_engine import DnsProxy,DomainRules
+from dns_engine import DnsProxy,DomainRules\nfrom windows_engine.filter_updates import FilterUpdater,FilterUpdateError
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
-CONFIG=APP_DIR/"guardian.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"
+CONFIG=APP_DIR/"guardian.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; UPDATE_STATUS=APP_DIR/"filter-update-status.json"
 def load_runtime():
     data=json.loads(CONFIG.read_text(encoding="utf-8"))
     rules=DomainRules.from_text((APP_DIR/data.get("rules_file","rules.txt")).read_text(encoding="utf-8"))
@@ -30,7 +30,7 @@ def main():
     rules_path=APP_DIR/data.get("rules_file","rules.txt")
     stop=threading.Event()
     def background_tasks():
-        last_mtime=rules_path.stat().st_mtime_ns
+        last_mtime=rules_path.stat().st_mtime_ns; last_update_check=0
         while not stop.wait(1):
             tmp=STATS.with_suffix(".tmp")
             try:
@@ -45,6 +45,23 @@ def main():
                         proxy.rules=replacement
                         last_mtime=current
             except (OSError,UnicodeError): pass
+            base=data.get("manifest_base_url","").strip(); key=data.get("manifest_public_key","").strip()
+            if base and key and time.monotonic()-last_update_check>=21600:
+                last_update_check=time.monotonic()
+                try:
+                    updater=FilterUpdater(base,data.get("filter_source_id","adguard"),key,APP_DIR/"manifest-state.json",rules_path)
+                    result=updater.update()
+                    status={"state":"updated","sourceVersion":result["sourceVersion"],"checkedAt":time.time()}
+                except FilterUpdateError as exc:
+                    state="current" if "stale or has already been applied" in str(exc) else "error"
+                    status={"state":state,"message":str(exc),"checkedAt":time.time()}
+                except Exception as exc:
+                    status={"state":"error","message":str(exc),"checkedAt":time.time()}
+                try:
+                    status_tmp=UPDATE_STATUS.with_suffix(".tmp")
+                    status_tmp.write_text(json.dumps(status,ensure_ascii=False),encoding="utf-8")
+                    os.replace(status_tmp,UPDATE_STATUS)
+                except OSError: pass
     writer=threading.Thread(target=background_tasks,daemon=True); writer.start()
     try: proxy.serve_forever()
     finally: stop.set(); writer.join(timeout=2)
