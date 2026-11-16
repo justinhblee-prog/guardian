@@ -33,18 +33,6 @@ class GuardianBrowserActivity : Activity() {
     private lateinit var status: TextView
     private var hideEmptyAdSlots = true
 
-    private val defaultCosmeticRules = listOf(
-        "##.adsbygoogle",
-        "##[id^='google_ads']",
-        "##[id^='div-gpt-ad']",
-        "##[class*='ad-container']",
-        "##[id*='ad-container']",
-        "##[data-ad-slot]",
-        "##[data-ad-client]",
-        "##.ad-placeholder",
-        "##.advertisement"
-    )
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         hideEmptyAdSlots = getPreferences(MODE_PRIVATE).getBoolean(KEY_HIDE_EMPTY_SLOTS, true)
@@ -180,7 +168,7 @@ class GuardianBrowserActivity : Activity() {
             )
             return
         }
-        val rules = CosmeticFilterEngine.parse(defaultCosmeticRules)
+        val rules = CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES)
         val host = runCatching { Uri.parse(webView.url ?: "").host.orEmpty() }.getOrDefault("")
         val css = CosmeticFilterEngine.cssForHost(rules, host)
         val encoded = org.json.JSONObject.quote(css)
