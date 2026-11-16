@@ -88,8 +88,14 @@ def self_test():
             client.settimeout(2)
             client.sendto(query,("127.0.0.1",port))
             response,_=client.recvfrom(512)
-        if response[3]&0x0f!=3: raise RuntimeError("blocked domain did not return NXDOMAIN")
-        print("Guardian Windows executable self-test passed")
+        if response[3]&0x0f!=3: raise RuntimeError("IPv4 blocked domain did not return NXDOMAIN")
+        v6port=proxy._servers[1].server_address[1]
+        with socket.socket(socket.AF_INET6,socket.SOCK_DGRAM) as client:
+            client.settimeout(2)
+            client.sendto(query,("::1",v6port,0,0))
+            response6,_=client.recvfrom(512)
+        if response6[3]&0x0f!=3: raise RuntimeError("IPv6 blocked domain did not return NXDOMAIN")
+        print("Guardian Windows IPv4/IPv6 executable self-test passed")
     finally:
         proxy.stop()
 
