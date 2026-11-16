@@ -32,6 +32,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8787
+      HOST: 0.0.0.0
       DATABASE_URL: postgres://guardian:${POSTGRES_PASSWORD}@db:5432/guardian
       GUARDIAN_ADMIN_TOKEN: ${GUARDIAN_ADMIN_TOKEN:?Set GUARDIAN_ADMIN_TOKEN in .env}
       GUARDIAN_LICENSE_LOOKUP_SECRET: ${GUARDIAN_LICENSE_LOOKUP_SECRET:?Set GUARDIAN_LICENSE_LOOKUP_SECRET in .env}
