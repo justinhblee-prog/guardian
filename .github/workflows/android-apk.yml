@@ -189,19 +189,8 @@ jobs:
           # The action's internal adb getprop has no per-command timeout.
           # Wrap platform-tools adb before emulator launch so a hung shell call
           # cannot prevent the action's own boot-timeout counter from advancing.
-          pre-emulator-launch-script: |
-            set -euo pipefail
-            ADB_PATH="$(command -v adb)"
-            ADB_REAL="${ADB_PATH}.guardian-real"
-            if [ ! -x "$ADB_REAL" ]; then
-              mv "$ADB_PATH" "$ADB_REAL"
-            fi
-            cat > "$ADB_PATH" <<'ADB_WRAPPER'
-            #!/usr/bin/env bash
-            set -euo pipefail
-            exec timeout --signal=TERM --kill-after=3s 15s "$(dirname "$0")/adb.guardian-real" "$@"
-            ADB_WRAPPER
-            chmod +x "$ADB_PATH"
+          pre-emulator-launch-script: >-
+            ADB_PATH="$(command -v adb)"; ADB_REAL="${ADB_PATH}.guardian-real"; if [ ! -x "$ADB_REAL" ]; then mv "$ADB_PATH" "$ADB_REAL"; fi; printf '%s\\n' '#!/usr/bin/env bash' 'set -euo pipefail' 'exec timeout --signal=TERM --kill-after=3s 15s "$(dirname "$0")/adb.guardian-real" "$@"' > "$ADB_PATH"; chmod +x "$ADB_PATH"
           # Run the entire verification in one Bash process; the action's
           # line-oriented script runner cannot preserve shell loops/conditionals.
           disable-animations: true
