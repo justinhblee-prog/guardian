@@ -19,7 +19,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍과 DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 기존 `.env`는 덮어쓰지 않습니다. 필터 배포 서버용 `.env`와 `dist` 폴더도 준비합니다. 로그인 시 두 서버를 함께 시작하는 예약 작업을 등록합니다. 필터 서명 개인키는 별도 보안 절차로 관리하며 자동 복사하거나 Git에 저장하지 않습니다.
 
 ## 노트북에서 공개키를 포함한 Android APK 다시 빌드
-최초 설치 스크립트가 만든 두 공개키를 앱에 고정하려면 Android Studio 또는 JDK 17 + Android SDK가 설치된 노트북에서 다음을 실행합니다.
+최초 설치 스크립트가 만든 두 공개키를 앱에 고정하려면 Android Studio/JDK 17, Android SDK 및 Gradle 8.9가 설치되고 `gradle` 명령이 PATH에 등록된 노트북에서 다음을 실행합니다.
 
 ```powershell
 ./Build-GuardianAndroid-Debug.ps1
