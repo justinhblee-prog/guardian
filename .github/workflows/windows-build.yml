@@ -59,8 +59,12 @@ jobs:
           if ($daemonTest.ExitCode -ne 0) { throw "Installed background DNS daemon self-test failed with exit code $($daemonTest.ExitCode)" }
           schtasks.exe /Query /TN GuardianDnsProxy
           if ($LASTEXITCODE -ne 0) { throw "Boot-start DNS task was not registered" }
-          & "$installDir\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
-          if ($LASTEXITCODE -ne 0) { throw "Silent uninstall failed" }
+          $uninstallLog = Join-Path $env:RUNNER_TEMP "guardian-uninstall.log"
+          $uninstall = Start-Process -FilePath "$installDir\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog") -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) {
+            if (Test-Path $uninstallLog) { Get-Content $uninstallLog -Tail 100 }
+            throw "Silent uninstall failed with exit code $($uninstall.ExitCode)"
+          }
           schtasks.exe /Query /TN GuardianDnsProxy
           if ($LASTEXITCODE -eq 0) { throw "Uninstall left the boot-start DNS task registered" }
       - name: Verify generated package
