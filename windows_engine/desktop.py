@@ -94,6 +94,7 @@ class GuardianDesktop:
         actions=tk.Frame(root,bg="#101820"); actions.pack(pady=4)
         tk.Button(actions,text="필터 업데이트",command=self.update_filters,width=16,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=6)
         tk.Button(actions,text="필터 서버 설정",command=self.open_filter_settings,width=16,bg="#33404c",fg="white",relief="flat").pack(side="left",padx=6)
+        self.filter_status=tk.Label(root,text="필터 업데이트: 서버 미설정",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.filter_status.pack(pady=3)
         tk.Label(root,text="백그라운드 DNS 보호 · IPv4/IPv6 · 기존 DNS 자동 복구",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820").pack(pady=6)
         tk.Label(root,text="보호 시작 시 어댑터 DNS를 로컬 필터로 전환합니다. 앱 창을 닫아도 백그라운드 보호는 유지되며, 보호 중지는 원래 DNS 설정을 복구합니다.",wraplength=540,font=("Segoe UI",9),fg="#aab8c4",bg="#101820").pack(pady=12)
         root.protocol("WM_DELETE_WINDOW",self.close); self.recover_previous_state(); self.refresh()
@@ -161,12 +162,20 @@ class GuardianDesktop:
             rules_path=CONFIG.with_name(data.get("rules_file","rules.txt"))
             updater=FilterUpdater(base,source,key,APP_DIR/"manifest-state.json",rules_path)
             result=updater.update()
+            status={"state":"updated","sourceVersion":result["sourceVersion"],"checkedAt":time.time()}
+            tmp=APP_DIR/"filter-update-status.tmp"; tmp.write_text(json.dumps(status),encoding="utf-8"); os.replace(tmp,APP_DIR/"filter-update-status.json")
             messagebox.showinfo("필터 업데이트 완료",f"서명 검증 및 SHA-256 확인 완료\n버전: {result['sourceVersion']}\n차단 규칙: {len(DomainRules.from_text(rules_path.read_text(encoding='utf-8')).blocked):,}개")
         except Exception as exc: messagebox.showerror("필터 업데이트 실패",str(exc))
     def refresh(self):
         try:
             stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
             self.stats.configure(text=f"광고/추적 차단 {int(stats.get('blocked',0)):,}건  |  정상 전달 {int(stats.get('forwarded',0)):,}건")
+        except (OSError,ValueError,TypeError): pass
+        try:
+            status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
+            label={"updated":"서명 필터 업데이트 완료","current":"최신 필터 사용 중","error":"필터 업데이트 오류"}.get(status.get("state"),"필터 업데이트 상태 확인 필요")
+            version=status.get("sourceVersion","")
+            self.filter_status.configure(text=f"{label} {version}".strip(),fg="#54d69b" if status.get("state") in ("updated","current") else "#ff9b85")
         except (OSError,ValueError,TypeError): pass
         self.root.after(1000,self.refresh)
     def close(self):
