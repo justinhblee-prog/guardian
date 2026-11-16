@@ -407,56 +407,74 @@ class GuardianVpnService : VpnService() {
         )) {
             "선택한 필터 프로필, 보안 목록 또는 Android 앱 광고 목록이 검증·준비되지 않았습니다. 앱에서 필터를 업데이트한 후 다시 시작해 주세요."
         }
-        val sources = mutableListOf<List<String>>()
-        val bundledRules = try {
-            assets.open("filter_rules.txt").bufferedReader().use { it.readLines() }
+
+        // Parse one source at a time. Do not retain line arrays or serialize parsed
+        // domains back into synthetic block= strings before installing the rules.
+        val parsedSources = ArrayList<FilterRuleParser.Parsed>(4)
+        val bundled = try {
+            assets.open("filter_rules.txt").bufferedReader(Charsets.UTF_8).use {
+                FilterRuleParser.parse(it.lineSequence())
+            }
         } catch (error: java.io.IOException) {
             throw IllegalStateException(
                 "앱 내 기본 DNS 필터 라이브러리(filter_rules.txt)를 찾을 수 없습니다. 설치 파일의 필터 라이브러리 포함 여부를 확인하세요.",
                 error
             )
         }
-        require(bundledRules.isNotEmpty()) {
-            "앱 내 기본 DNS 필터 라이브러리(filter_rules.txt)가 비어 있습니다."
+        require(bundled.blocked.isNotEmpty() || bundled.importantBlocked.isNotEmpty()) {
+            "앱 내 기본 DNS 필터 라이브러리(filter_rules.txt)가 비어 있거나 유효하지 않습니다."
         }
-        sources.add(bundledRules)
-        // Validate actual file contents on the service worker; cached metadata
-        // alone must never make a truncated or malformed list look ready.
-        val baseLines = FilterListManager.cachedLines(this)
-        val parsedBase = FilterRuleParser.parse(baseLines)
+        parsedSources.add(bundled)
+
+        val baseFile = FilterListManager.cachedBaseFile(this)
+        val parsedBase = baseFile.bufferedReader(Charsets.UTF_8).use {
+            FilterRuleParser.parse(it.lineSequence())
+        }
         require(FilterListManager.isCacheValid(
-            baseLines.isNotEmpty(), parsedBase.blocked.size + parsedBase.importantBlocked.size, selectedProfile.minimumRules
+            baseFile.isFile && baseFile.length() > 0L,
+            parsedBase.blocked.size + parsedBase.importantBlocked.size,
+            selectedProfile.minimumRules
         )) {
             "선택한 ${selectedProfile.label} 필터 캐시의 유효 규칙 수가 기준보다 적습니다."
         }
-        sources.add(baseLines)
+        parsedSources.add(parsedBase)
+
         if (securityEnabled) {
-            val securityLines = FilterListManager.cachedSecurityLines(this)
-            val parsedSecurity = FilterRuleParser.parse(securityLines)
+            val securityFile = FilterListManager.cachedSecurityFile(this)
+            val parsedSecurity = securityFile.bufferedReader(Charsets.UTF_8).use {
+                FilterRuleParser.parse(it.lineSequence())
+            }
             require(FilterListManager.isCacheValid(
-                securityLines.isNotEmpty(), parsedSecurity.blocked.size + parsedSecurity.importantBlocked.size, FilterListManager.MIN_SECURITY_BLOCKS
+                securityFile.isFile && securityFile.length() > 0L,
+                parsedSecurity.blocked.size + parsedSecurity.importantBlocked.size,
+                FilterListManager.MIN_SECURITY_BLOCKS
             )) {
                 "악성코드·피싱 필터 캐시가 유효하지 않습니다. 보안 목록을 다시 내려받으세요."
             }
-            sources.add(securityLines)
+            parsedSources.add(parsedSecurity)
         }
+
         if (androidAdsEnabled) {
-            val androidAdsLines = FilterListManager.cachedAndroidAdsLines(this)
-            val parsedAndroidAds = FilterRuleParser.parse(androidAdsLines)
+            val androidAdsFile = FilterListManager.cachedAndroidAdsFile(this)
+            val parsedAndroidAds = androidAdsFile.bufferedReader(Charsets.UTF_8).use {
+                FilterRuleParser.parse(it.lineSequence())
+            }
             require(FilterListManager.isCacheValid(
-                androidAdsLines.isNotEmpty(),
+                androidAdsFile.isFile && androidAdsFile.length() > 0L,
                 parsedAndroidAds.blocked.size + parsedAndroidAds.importantBlocked.size,
                 FilterListManager.MIN_ANDROID_ADS_BLOCKS
             )) {
                 "Android 앱 광고 SDK 필터 캐시가 유효하지 않습니다. 앱 광고 목록을 다시 내려받으세요."
             }
-            sources.add(androidAdsLines)
+            parsedSources.add(parsedAndroidAds)
         }
+
         val userBlock = prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
             .map { it.trim() }.filter { it.isNotEmpty() }.toList()
         val userAllow = prefs.getString(KEY_USER_ALLOW, "").orEmpty().lineSequence()
             .map { it.trim() }.filter { it.isNotEmpty() }.toList()
-        DomainFilter.loadRules(FilterRuleComposer.compose(sources, userBlock, userAllow))
+        val merged = FilterRuleComposer.composeParsed(parsedSources.asSequence(), userBlock, userAllow)
+        DomainFilter.loadParsedRules(merged)
     }
 
     private fun reloadUserRules() {
