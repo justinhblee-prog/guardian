@@ -721,8 +721,11 @@ class GuardianVpnService : VpnService() {
             Notification.Builder(this, CHANNEL)
                 .setContentTitle("Guardian AdBlock")
                 .setContentText("DNS 광고·추적 도메인 필터링 실행 중")
-                .setSmallIcon(android.R.drawable.ic_lock_lock)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(open)
+                .setCategory(Notification.CATEGORY_SERVICE)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setTicker("Guardian DNS 보호 실행 중")
                 .setOngoing(true)
                 .build()
         } else {
