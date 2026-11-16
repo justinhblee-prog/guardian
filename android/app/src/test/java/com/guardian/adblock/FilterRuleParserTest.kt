@@ -102,7 +102,7 @@ class FilterRuleParserTest {
         // URL-context modifiers cannot be represented by DNS filtering.
         // Reject constrained rules instead of broadening them to every request.
         assertEquals(setOf("survives.example"), parsed.importantBlocked)
-        assertTrue(parsed.ignored >= 2)
+        assertEquals(1, parsed.ignored)
     }
 
     @Test fun badfilterDisablesAnImportantBlockRule() {
