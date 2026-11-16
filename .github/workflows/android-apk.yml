@@ -123,12 +123,61 @@ jobs:
           python3 -c "from pathlib import Path; p=Path('/tmp/eugene-consulting-logo.png').read_bytes(); assert p.startswith(bytes.fromhex('89504e470d0a1a0a')) and len(p)>1000, 'Invalid supplied company PNG logo'"
           echo "Bundled filter rules and supplied company logo are present and valid."
 
+      - name: Verify APK package identity and version
+        run: |
+          APK='android/app/build/outputs/apk/debug/app-debug.apk'
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='26' versionName='0.7.13-dev'"
+
+      - name: Verify APK exists and calculate checksum
+        shell: bash
+        run: |
+          APK='android/app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$APK"
+          sha256sum "$APK" | tee android/app/build/outputs/apk/debug/SHA256SUMS.txt
+          ls -lh "$APK"
+
+      - name: Package source and release verification summary
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        shell: bash
+        run: |
+          mkdir -p release
+          APK='android/app/build/outputs/apk/debug/app-debug.apk'
+          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
+          # Guardian AdBlock v0.7.13-dev — 빌드 검증 결과
+
+          - 저장소 커밋: ${GITHUB_SHA}
+          - GitHub Actions 실행: ${GITHUB_RUN_ID}
+          - 패키지: com.guardian.adblock
+          - versionCode: 26
+          - versionName: 0.7.13-dev
+          - Android 단위 테스트: 통과
+          - Android lintDebug: 통과
+          - assembleDebug: 통과
+          - Android API 35 에뮬레이터 업그레이드 및 VPN E2E: APK 업로드 후 별도 실행
+          - APK SHA-256: ${APK_SHA256}
+          - 에뮬레이터 테스트 실패 시에도 빌드 산출물은 별도 제공하며, 해당 APK를 런타임 검증 완료로 간주하지 않습니다.
+          - 이 결과는 Android 실기기 VPN/광고 차단 수용 테스트를 의미하지 않습니다.
+          EOF
+
+      - name: Upload verified Android debug package
+        uses: actions/upload-artifact@v4
+        with:
+          name: guardian-android-debug
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/debug/SHA256SUMS.txt
+            release/VERIFICATION_SUMMARY_KO.md
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Install and launch APK on Android emulator
         id: android_emulator
         # Preserve the build artifact if emulator infrastructure or the E2E
         # acceptance test fails; report that result separately in the summary.
         continue-on-error: true
-        timeout-minutes: 25
+        timeout-minutes: 10
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -178,51 +227,3 @@ jobs:
           path: emulator-diagnostics/
           if-no-files-found: warn
           retention-days: 7
-      - name: Verify APK package identity and version
-        run: |
-          APK='android/app/build/outputs/apk/debug/app-debug.apk'
-          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='26' versionName='0.7.13-dev'"
-
-      - name: Verify APK exists and calculate checksum
-        shell: bash
-        run: |
-          APK='android/app/build/outputs/apk/debug/app-debug.apk'
-          test -s "$APK"
-          sha256sum "$APK" | tee android/app/build/outputs/apk/debug/SHA256SUMS.txt
-          ls -lh "$APK"
-
-      - name: Package source and release verification summary
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        shell: bash
-        run: |
-          mkdir -p release
-          APK='android/app/build/outputs/apk/debug/app-debug.apk'
-          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
-          cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
-          # Guardian AdBlock v0.7.13-dev — 빌드 검증 결과
-
-          - 저장소 커밋: ${GITHUB_SHA}
-          - GitHub Actions 실행: ${GITHUB_RUN_ID}
-          - 패키지: com.guardian.adblock
-          - versionCode: 26
-          - versionName: 0.7.13-dev
-          - Android 단위 테스트: 통과
-          - Android lintDebug: 통과
-          - assembleDebug: 통과
-          - Android API 35 에뮬레이터 v0.7.11-dev → v0.7.13-dev 업그레이드 및 VPN E2E: ${{ steps.android_emulator.outcome }}
-          - APK SHA-256: ${APK_SHA256}
-          - 에뮬레이터 테스트 실패 시에도 빌드 산출물은 별도 제공하며, 해당 APK를 런타임 검증 완료로 간주하지 않습니다.
-          - 이 결과는 Android 실기기 VPN/광고 차단 수용 테스트를 의미하지 않습니다.
-          EOF
-
-      - name: Upload verified Android debug package
-        uses: actions/upload-artifact@v4
-        with:
-          name: guardian-android-debug
-          path: |
-            android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/SHA256SUMS.txt
-            release/VERIFICATION_SUMMARY_KO.md
-          if-no-files-found: error
-          retention-days: 14
