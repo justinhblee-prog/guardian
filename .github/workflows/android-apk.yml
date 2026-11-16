@@ -193,7 +193,7 @@ jobs:
           이 결과는 GitHub Actions 자동화 검증이며, 물리 기기 수용 테스트나 모든 앱의 광고 제거를 보증하지 않습니다.
           EOF
           zip -qr 'release/Guardian-AdBlock-Source-v0.7.12-dev.zip' . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' '*.keystore' '*.jks' '*.p12' '*.pfx' '*.pem' '*.dpapi' '.env' '*/.env' 'server/license-api/secrets/*' 'server/license-api/backups/*' 'server/license-api/outputs/*' 'server/filter-distribution/logs/*' 'release/*.zip'
-          if unzip -Z1 'release/Guardian-AdBlock-Source-v0.7.12-dev.zip' | grep -E '(^|/)([^/]+\\.(keystore|jks|p12|pfx|pem|dpapi)|\\.env)$|(^|/)server/license-api/(secrets|backups|outputs)/|(^|/)server/filter-distribution/logs/'; then
+          if unzip -Z1 'release/Guardian-AdBlock-Source-v0.7.12-dev.zip' | grep -E '(^|/)[^/]+[.](keystore|jks|p12|pfx|pem|dpapi)$|(^|/)[.]env$|(^|/)server/license-api/(secrets|backups|outputs)/|(^|/)server/filter-distribution/logs/'; then
             echo 'Refusing to publish source archive containing signing keys, environment files, or server secrets.' >&2
             exit 1
           fi
