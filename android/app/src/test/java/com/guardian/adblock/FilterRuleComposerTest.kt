@@ -30,4 +30,25 @@ class FilterRuleComposerTest {
         assertTrue(DomainFilter.isBlocked("critical.example"))
     }
 
+    @Test fun parsedMergeKeepsBadfilterScopedToItsSourceWithoutRuleTextCopies() {
+        val parsed = FilterRuleComposer.composeParsed(
+            sequenceOf(
+                FilterRuleParser.parse(sequenceOf("||shared.example^", "||shared.example^$badfilter")),
+                FilterRuleParser.parse(sequenceOf("||shared.example^", "||second.example^"))
+            )
+        )
+        DomainFilter.loadParsedRules(parsed)
+        assertTrue(DomainFilter.isBlocked("shared.example"))
+        assertTrue(DomainFilter.isBlocked("second.example"))
+    }
+
+    @Test fun parserAcceptsLazySequenceForLargeSourcePipelines() {
+        val parsed = FilterRuleParser.parse(sequence {
+            yield("||one.example^")
+            yield("||two.example^")
+            yield("||one.example^")
+        })
+        assertEquals(setOf("one.example", "two.example"), parsed.blocked)
+    }
+
 }
