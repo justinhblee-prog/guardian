@@ -6,7 +6,10 @@ import java.util.Locale
 object FilterRuleParser {
     data class Parsed(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>, val ignored: Int)
 
-    fun parse(lines: List<String>): Parsed {
+    fun parse(lines: List<String>): Parsed = parse(lines.asSequence())
+
+    /** Parses lazily so callers decoding large downloaded lists do not allocate a second line array. */
+    fun parse(lines: Sequence<String>): Parsed {
         val blocked = linkedSetOf<String>()
         val allowed = linkedSetOf<String>()
         val importantBlocked = linkedSetOf<String>()
