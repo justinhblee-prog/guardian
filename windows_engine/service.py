@@ -1,4 +1,4 @@
-"""Windows DNS proxy process; adapter DNS changes remain a separate installer step."""
+"""Windows DNS proxy process; network changes are coordinated by the desktop controller."""
 import argparse,json,logging,os
 from pathlib import Path
 from dns_engine import DomainRules,DnsProxy
@@ -13,9 +13,10 @@ def main(argv=None):
     parser.add_argument("--config",type=Path,default=DEFAULT_CONFIG); args=parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO,format="%(asctime)s %(levelname)s %(message)s")
     data,rules=load_config(args.config)
-    listen=(data.get("listen_address","127.0.0.1"),int(data.get("listen_port",53)))
-    proxy=DnsProxy(rules,tuple(data.get("upstreams",["1.1.1.1","8.8.8.8"])),listen=listen)
-    logging.info("Starting DNS proxy %s:%s; block=%d allow=%d",*listen,len(rules.blocked),len(rules.allowed))
+    port=int(data.get("listen_port",53)); addresses=data.get("listen_addresses",["127.0.0.1","::1"])
+    listeners=tuple((address,port) for address in addresses)
+    proxy=DnsProxy(rules,tuple(data.get("upstreams",["1.1.1.1","8.8.8.8"])),listen=listeners)
+    logging.info("Starting loopback DNS proxy on %d; block=%d allow=%d",port,len(rules.blocked),len(rules.allowed))
     try: proxy.serve_forever()
     except KeyboardInterrupt: logging.info("Stopping DNS proxy")
     return 0
