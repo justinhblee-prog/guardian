@@ -97,7 +97,6 @@ jobs:
         run: |
           test -s android/guardian-dev.keystore
           keytool -list -v -keystore android/guardian-dev.keystore -storepass android -alias androiddebugkey | grep -F 'ED:AE:EC:C9:E4:A2:7E:64:F0:7D:92:64:3F:B8:51:40:72:50:83:AB:ED:55:3F:91:2A:0D:EE:03:87:FB:D8:2C'
-
       - name: Assemble previous dev version for upgrade test
         run: |
           gradle -p android --no-daemon -PguardianVersionCode=24 -PguardianVersionName=0.7.11-dev assembleDebug
@@ -151,8 +150,7 @@ jobs:
         run: |
           mkdir -p release
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
-          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
-          cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
+          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"          cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
           # Guardian AdBlock v0.7.12-dev — 빌드 검증 결과
 
           - 저장소 커밋: ${GITHUB_SHA}
@@ -164,4 +162,18 @@ jobs:
           - Android lintDebug: 통과
           - assembleDebug: 통과
           - Android API 35 에뮬레이터 v0.7.11-dev → v0.7.12-dev 서명 일치 업그레이드·앱 실행 smoke test: 통과
+          - APK SHA-256: ${APK_SHA256}
+          - 에뮬레이터 업그레이드 및 실행 검증은 앞선 단계가 성공한 경우에만 기록됩니다.
+          - 이 결과는 Android 실기기 VPN/광고 차단 수용 테스트를 의미하지 않습니다.
+          EOF
 
+      - name: Upload verified Android debug package
+        uses: actions/upload-artifact@v4
+        with:
+          name: guardian-android-debug
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/debug/SHA256SUMS.txt
+            release/VERIFICATION_SUMMARY_KO.md
+          if-no-files-found: error
+          retention-days: 14
