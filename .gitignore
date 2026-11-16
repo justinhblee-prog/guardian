@@ -229,3 +229,4 @@ __marimo__/
 server/license-api/.env
 server/license-api/secrets/
 server/license-api/backups/
+server/license-api/outputs/
