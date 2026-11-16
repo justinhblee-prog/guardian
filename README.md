@@ -208,3 +208,21 @@ Android 설정에서 라이선스 API 주소와 서명 필터 배포 주소를 �
 5. 라이선스 정책/결제 연동은 수동 라이선스 발급과 실제 유료 결제를 구분해 완료 판정.
 
 개발용 APK 다운로드는 위 Actions 실행의 `guardian-android-debug` Artifact에서 가능합니다. Artifact 보존 만료일은 2026-11-30입니다.
+
+
+## 2026-11-16 최신 Android 검증 정정 — v0.7.13-dev (all-user security rollout)
+
+이 절은 위의 Android v0.7.13-dev 검증 기록을 대체합니다.
+
+- 최신 소스 커밋: `ff1f80e71d581236db4449a7898af92dd08af51d`.
+- GitHub Actions: https://github.com/justinhblee-prog/guardian/actions/runs/43833033337 — 전체 job 성공.
+- 패키지: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`.
+- Android unit tests, lint, 기존 개발판 업그레이드 설치, APK 조립, DNS 필터 asset 확인, API 35 에뮬레이터 설치·실행, package/version 확인, APK SHA-256 및 artifact 업로드: 모두 성공.
+- APK 크기: 3,097,501 bytes. SHA-256: `0b55b634a4c3d7f4aaace51af458a6ea0bdf2248fc27cf908cde99752a5b7645`.
+- Artifact `guardian-android-debug`: 3,016,474 bytes. ZIP SHA-256: `28c4394b8971b8763385074c17121ed768635736275da1c9982cc3e7d9e411e1`. 보존 만료: 2026-11-30.
+- 악성코드·피싱용 HaGeZi Threat Intelligence 목록은 임시로 모든 사용자에게 활성화되도록 변경했습니다. 첫 실행/기존 설치에 대한 기본 활성화 마이그레이션이 포함됩니다. 목록 다운로드 및 실제 악성·피싱 도메인 차단은 실기기에서 별도 검증해야 합니다.
+- 서명은 개발용 debug 인증서이며 production 서명이 아닙니다.
+- API 35 에뮬레이터 설치·실행까지 검증했지만 실제 Android 휴대폰/태블릿 VPN 권한, TUN DNS 경로, 실제 광고/피싱 차단, Wi-Fi↔모바일 데이터 전환, Private DNS 조합 및 장시간 안정성은 미검증입니다.
+- 운영 라이선스/필터 서버, 공개 HTTPS 주소·공개키 연결, 실제 라이선스 발급·결제 및 production keystore/CI secrets는 미구성 또는 미검증입니다.
+
+개발용 APK 및 전체 검증 자료는 위 Actions 실행의 `guardian-android-debug` artifact에서 받을 수 있습니다. 실기기 수용 시험 전에는 정식 출시 완료로 표시하지 않습니다.
