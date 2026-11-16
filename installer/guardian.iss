@@ -22,7 +22,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Files]
 Source: "..\dist\GuardianAdBlock\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\dist\GuardianDnsProxy\GuardianDnsProxy.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\\dist\\GuardianDnsProxy\\*"; DestDir: "{app}\\GuardianDnsProxy"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\Guardian AdBlock"; Filename: "{app}\{#MyAppExeName}"
