@@ -20,7 +20,7 @@ def self_test():
                 client.settimeout(2); client.sendto(query,address); response,_=client.recvfrom(512)
             if response[3]&15!=3: raise RuntimeError("loopback DNS block test failed")
     finally: proxy.stop()
-    print("Guardian DNS daemon IPv4/IPv6 self-test passed")
+    if sys.stdout: print("Guardian DNS daemon IPv4/IPv6 self-test passed")
 def main():
     if "--self-test" in sys.argv: self_test(); return 0
     if os.name!="nt": raise SystemExit("Windows 10/11 only")
