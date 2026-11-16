@@ -8,6 +8,22 @@ Guardian 라이선스 API/PostgreSQL과 서명 필터 배포 서버를 개인 Wi
 - OpenSSL 명령행 도구
 - Node.js 22 이상 (필터 업데이트/서명 발행 작업을 이 노트북에서 실행할 경우)
 
+## 사전 점검
+PowerShell에서 `server/license-api/windows` 폴더로 이동해 필요한 작업에 맞는 준비 상태를 확인합니다.
+
+```powershell
+# Docker Desktop 및 OpenSSL: 노트북 서버 설치에 필요
+.\\Test-GuardianEnvironment.ps1
+
+# Android APK를 노트북에서 다시 빌드할 때 추가 확인
+.\\Test-GuardianEnvironment.ps1 -ForAndroidBuild
+
+# 필터 공급원 다운로드/서명 예약 작업을 구성할 때 추가 확인
+.\\Test-GuardianEnvironment.ps1 -ForFilterUpdate
+```
+
+준비가 되지 않은 필수 항목은 `BLOCK`으로 표시되고 종료 코드 1을 반환합니다. 이 검사는 환경을 변경하거나 서버를 공개하지 않습니다.
+
 ## 최초 설치
 PowerShell에서 `server/license-api/windows` 폴더로 이동해 실행합니다.
 
@@ -16,7 +32,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\Setup-GuardianServer.ps1
 ```
 
-설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍과 DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 기존 `.env`는 덮어쓰지 않습니다. 필터 배포 서버용 `.env`와 `dist` 폴더도 준비합니다. 로그인 시 두 서버를 함께 시작하는 예약 작업을 등록합니다. 필터 서명 개인키는 별도 보안 절차로 관리하며 자동 복사하거나 Git에 저장하지 않습니다.
+설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 기존 `.env`는 덮어쓰지 않습니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `secrets/guardian-filter-private.dpapi`에 보관하고, 평문 PEM 임시 파일은 삭제합니다. 필터 배포 서버용 `.env`와 `dist` 폴더도 준비하며, 로그인 시 두 서버를 함께 시작하는 예약 작업을 등록합니다. 개인키와 `.env`는 Git에 저장하거나 다른 사용자에게 공유하지 않습니다.
 
 ## 노트북에서 공개키를 포함한 Android APK 다시 빌드
 최초 설치 스크립트가 만든 두 공개키를 앱에 고정하려면 Android Studio/JDK 17, Android SDK 및 Gradle 8.9가 설치되고 `gradle` 명령이 PATH에 등록된 노트북에서 다음을 실행합니다.
@@ -49,7 +65,7 @@ Android 앱의 설정에서 **운영 서버 주소 (노트북)**에는 라이선
 ## 키와 백업
 - `server/license-api/secrets/guardian-license-public.pem`: 라이선스 서명 공개키
 - `server/license-api/secrets/guardian-license-private.pem`: 라이선스 개인키
-- 필터 서명 개인키: `server/license-api/secrets/guardian-filter-private.dpapi` (현재 Windows 사용자 DPAPI 보호)
+- 필터 서명 개인키: `server/license-api/secrets/guardian-filter-private.dpapi` (현재 Windows 사용자 DPAPI 보호; 최초 설치 스크립트가 생성)
 - `.env` 파일: 관리자 토큰, DB 비밀번호 등 비밀값 포함
 - `server/filter-distribution/dist/`: 서명된 manifest, signature, 필터 파일
 
