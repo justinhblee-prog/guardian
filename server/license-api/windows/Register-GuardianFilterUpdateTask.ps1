@@ -11,9 +11,10 @@ try { $scheduleTime = [DateTime]::ParseExact($DailyAt, 'HH:mm', [Globalization.C
 catch { throw 'DailyAt은 24시간제 HH:mm 형식이어야 합니다. 예: 04:17' }
 $config = Get-Content -Raw $sourcesPath | ConvertFrom-Json
 $base = [Uri]$config.baseUrl
-if ($base.Scheme -ne 'https' -or $base.Host -notlike '*.example.com') {
-  if ($base.Scheme -ne 'https') { throw '필터 배포 baseUrl은 HTTPS여야 합니다.' }
-} else {
+if ($base.Scheme -ne 'https' -or [string]::IsNullOrWhiteSpace($base.Host)) {
+  throw '필터 배포 baseUrl은 유효한 HTTPS 주소여야 합니다.'
+}
+if ($base.Host -eq 'example.com' -or $base.Host.EndsWith('.example.com', [StringComparison]::OrdinalIgnoreCase)) {
   throw 'sources.json의 예시 도메인을 실제 HTTPS 도메인으로 바꾸세요.'
 }
 if (-not $config.sources -or $config.sources.Count -lt 1) { throw 'sources.json에 필터 공급원이 없습니다.' }
