@@ -1,0 +1,56 @@
+name: Guardian Windows build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dns_engine/**"
+      - "windows_engine/**"
+      - "installer/**"
+      - "requirements-dev.txt"
+      - "requirements-windows-build.txt"
+      - "scripts/build_windows.ps1"
+      - ".github/workflows/windows-build.yml"
+  pull_request:
+    paths:
+      - "dns_engine/**"
+      - "windows_engine/**"
+      - "installer/**"
+      - "requirements-dev.txt"
+      - "requirements-windows-build.txt"
+      - "scripts/build_windows.ps1"
+      - ".github/workflows/windows-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+      - name: Build EXE and installer
+        shell: pwsh
+        run: ./scripts/build_windows.ps1
+      - name: Verify generated package
+        shell: pwsh
+        run: |
+          $exe = Get-Item dist/GuardianAdBlock/GuardianAdBlock.exe
+          $installer = Get-ChildItem dist/installer/Guardian-AdBlock-Windows-Setup-*.exe | Select-Object -First 1
+          if (-not $installer) { throw "Installer not found" }
+          Get-FileHash $exe.FullName -Algorithm SHA256
+          Get-FileHash $installer.FullName -Algorithm SHA256
+          Get-Item $exe.FullName, $installer.FullName | Select-Object FullName, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Guardian-AdBlock-Windows-Dev-Package
+          path: |
+            dist/GuardianAdBlock/
+            dist/installer/Guardian-AdBlock-Windows-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 30
