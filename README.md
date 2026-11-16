@@ -154,3 +154,33 @@ Android 0.7.9-dev adds categorized DNS block counters (ad/tracker/other), an act
 ## Windows 노트북 운영 서버
 
 라이선스 API와 PostgreSQL을 개인 Windows 노트북에서 구동하는 설치·시작·중지·백업 스크립트가 추가되었습니다. 설치 안내: [Windows 노트북 운영 서버](server/license-api/windows/README_KO.md). 기본 API 바인딩은 localhost 전용이며, HTTPS 및 인증된 사설 접속 경로를 구성하기 전에는 외부 공개하지 않습니다. 현재는 저장소에 배포 도구만 추가된 상태이며 실제 노트북 설치·운영 검증은 아직 수행되지 않았습니다.
+
+
+## 2026-11-16 개발/검증 정정 — Android v0.7.12-dev 및 노트북 운영 구성
+
+이 절은 위의 이전 버전·CI 기록보다 우선합니다.
+
+### Android 빌드
+- APK: `com.guardian.adblock`, versionCode `25`, versionName `0.7.12-dev`
+- APK를 실제 빌드한 커밋: `ad2aeb286617cfddbafe18bd8f9088f9f4ade11a`
+- GitHub Actions: https://github.com/justinhblee-prog/guardian/actions/runs/43798215766
+- Android 단위 테스트, lint, assembleDebug, 이전 개발 APK에서 업데이트 설치, API 35 에뮬레이터 실행, APK 메타데이터 및 SHA-256 검증: 통과
+- APK SHA-256: `fd108cb542f67acd70b15f38ef1b666bc4eb798a7f77116caf4ac9959a0131dd`
+- 서명: 기존 설치 업데이트를 지원하는 Android 개발용 서명. Production 서명 아님.
+- 실기기 VPN 승인·실제 DNS 트래픽·광고 제거 효과는 아직 미검증.
+
+Android 설정에서 라이선스 API 주소와 서명 필터 배포 주소를 각각 HTTPS로 변경할 수 있습니다. 필터 배포 주소만 바꾸어도 서명 신뢰가 바뀌지는 않으며, APK에 포함된 필터 공개키와 서버의 서명 개인키가 반드시 한 쌍이어야 합니다.
+
+### Windows 노트북 운영 서버
+- `Setup-GuardianServer.ps1`: 라이선스 RSA 3072-bit 키, 필터 RSA 3072-bit 키, DB 비밀번호 및 관리자 비밀값을 생성합니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 보호하며, 비밀 폴더와 `.env`는 Windows ACL로 제한합니다.
+- 공개키 Base64 파일은 `server/license-api/secrets/guardian-license-public.x509.b64` 및 `guardian-filter-public.x509.b64`입니다.
+- `Build-GuardianAndroid-Debug.ps1`: 노트북에서 생성한 공개키를 빌드 프로세스에 주입해 단위 테스트·Lint·Debug APK를 빌드합니다. JDK 17, Android SDK, Gradle 8.9가 필요합니다. APK와 체크섬은 `server/license-api/outputs/`에 생성됩니다.
+- `Start-All-GuardianServices.ps1` / `Stop-All-GuardianServices.ps1`: 라이선스 API/PostgreSQL 및 필터 배포 서버를 함께 시작·중지합니다.
+- `Invoke-GuardianFilterUpdate.ps1`와 `Register-GuardianFilterUpdateTask.ps1`: DPAPI 보호키로 필터를 검증·서명하고 매일 예약 업데이트합니다. Node.js 22 이상과 실제 HTTPS 도메인 설정이 필요합니다.
+- PostgreSQL 백업은 PowerShell 텍스트 파이프라인을 통하지 않는 custom-format dump로 저장하며 백업 폴더 접근 권한을 제한합니다.
+- 운영 API와 필터 서버의 호스트 포트는 기본적으로 localhost 전용입니다. 실제 휴대폰 원격 연결에는 도메인, HTTPS 및 인증된 터널/역방향 프록시 구성이 별도로 필요합니다.
+
+### 서버 및 배포 CI
+- 라이선스 API/PostgreSQL 통합 테스트 및 Windows PowerShell 스크립트 구문 검사: 통과. 최신 실행: https://github.com/justinhblee-prog/guardian/actions/runs/43799678983
+- 서명 필터 배포 서버 테스트 및 Docker Compose 구성 검사: 통과. 실행: https://github.com/justinhblee-prog/guardian/actions/runs/43798651189
+- 실제 사용자 노트북에서 Docker 설치·서버 실행, 외부 HTTPS 연결, 라이선스 발급, 예약 업데이트, 휴대폰 E2E는 아직 수행되지 않았습니다.
