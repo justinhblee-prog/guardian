@@ -25,7 +25,7 @@ read_prefs() {
 
 cache_ready() {
   local listing prefs
-  listing="$(timeout --signal=TERM --kill-after=2s 12s adb_cmd shell run-as "$PACKAGE" ls -1 "$APP_DATA/files" 2>&1)" || {
+  listing="$(adb_cmd shell run-as "$PACKAGE" ls -1 "$APP_DATA/files" 2>&1)" || {
     if (( ${attempt:-1} == 1 )); then echo "Cache listing unavailable: $listing" >&2; fi
     return 1
   }
