@@ -1,5 +1,5 @@
 """Tkinter desktop control panel for Guardian Windows DNS protection."""
-import json,os,sys
+import json,os,sys,socket,struct
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
@@ -76,7 +76,26 @@ class GuardianDesktop:
             self.stop_protection()
             if self.active or BACKUP.exists(): return
         self.root.destroy()
+def self_test():
+    rules=DomainRules.from_text(DEFAULT_RULES)
+    proxy=DnsProxy(rules,listen=(("127.0.0.1",0),("::1",0)))
+    proxy.start()
+    try:
+        port=proxy._servers[0].server_address[1]
+        labels=b"".join(bytes([len(p)])+p.encode("ascii") for p in "doubleclick.net".split("."))+b"\\0"
+        query=struct.pack("!HHHHHH",0x1234,0x0100,1,0,0,0)+labels+struct.pack("!HH",1,1)
+        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
+            client.settimeout(2)
+            client.sendto(query,("127.0.0.1",port))
+            response,_=client.recvfrom(512)
+        if response[3]&0x0f!=3: raise RuntimeError("blocked domain did not return NXDOMAIN")
+        print("Guardian Windows executable self-test passed")
+    finally:
+        proxy.stop()
+
 def main():
+    if '--self-test' in sys.argv:
+        self_test(); return 0
     if os.name!="nt": raise SystemExit("Windows 10/11 only")
     if not is_admin(): return 0 if elevate() else 1
     ensure_config(); root=tk.Tk(); GuardianDesktop(root); root.mainloop(); return 0
