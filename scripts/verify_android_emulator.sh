@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Bound every ADB call so an offline emulator cannot stall the whole CI job.
 adb_cmd() {
-  timeout --signal=TERM --kill-after=2s 30s adb_cmd "$@"
+  timeout --signal=TERM --kill-after=2s 30s adb "$@"
 }
 
 adb_cmd start-server
