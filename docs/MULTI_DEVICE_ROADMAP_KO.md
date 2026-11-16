@@ -1,18 +1,18 @@
 # Guardian AdBlock 멀티 디바이스 제품 설계
 
-기준일: 2026-11-15
+기준일: 2026-11-16
 
-## 2026-11-15 통합 상태 정정 — main 기준
+## 2026-11-16 통합 상태 정정 — main 기준
 
-- Android 기준: `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`.
-- 최신 main: `ce2b0e144959c04f23b96a5a19c53e153afae7d1`.
+- Android 기준: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`.
+- 최신 기능 검증 커밋: `4ae0da811d579f2a1495fbc89c1e94641cd5348d` (README 상태 문서 갱신 커밋은 별도).
 - **병합 완료:** PR #43(Production workflow 설정/서명 gate), #46(publisher lock ownership), #47(filter cache hardening), #50(License API/PostgreSQL rate limit 및 HTTP/DB 보호), #51(Android wide-screen navigation rail), #52(VPN lifecycle race hardening), #54(만료 라이선스의 기기 해제), #55(1000dp 이상 대시보드 2열 배치).
 - PR #54 Android CI run [43705549065](https://github.com/justinhblee-prog/guardian/actions/runs/43705549065) 전체 성공: unit tests, lint, debug APK, API 35 emulator 설치·실행, package/version 및 APK SHA-256 확인. 최종 빌드 전용 artifact 업로드는 의도적으로 skipped.
 - PR #55 Android CI run [43705951073](https://github.com/justinhblee-prog/guardian/actions/runs/43705951073) 동일 검증 전체 성공. 최종 artifact 업로드는 의도적으로 skipped.
-- PR #56은 Android 라이선스 refresh/deactivate 경합 직렬화와 서버 refresh 403 시 로컬 entitlement 폐기를 통합하는 후속 변경이며, CI run [43706736843](https://github.com/justinhblee-prog/guardian/actions/runs/43706736843) 진행 중입니다. 전체 성공 및 main 병합 전까지 미완료로 취급합니다.
-- 이전 PR #48/#49의 라이선스 경합/403 변경은 최신 main 기준 통합 PR #56으로 대체 중입니다. #56 검증 전에는 해당 기능을 완료로 계산하지 않습니다.
+- Android v0.7.13-dev CI run [#704](https://github.com/justinhblee-prog/guardian/actions/runs/43815516892) 전체 성공: unit tests, lint, 이전 개발 APK 업데이트 설치, APK 조립, DNS asset, API 35 에뮬레이터 설치·실행, 패키지/버전, SHA-256 및 Artifact 업로드.
+- v0.7.13-dev APK: 3,080,949 bytes, SHA-256 `32a549ac197101c8b514bb39b8e31fa21030caa4ae587a7ab81b6ac296571e71`. Debug 개발 서명본이며 production 서명본이 아닙니다.
 - 이전 문서의 #41/#43/#44/#46/#47/#48/#49/#50/#51 미병합 기록은 이 상태 정정과 충돌할 경우 이 정정 내용을 우선합니다. #43/#46/#47/#50/#51은 이후 main에 병합되었습니다.
-- 0.7.8-dev 최종 설치 APK 및 source package는 아직 최종 main 빌드에서 artifact로 생성·다운로드·해시 검증되지 않았습니다. 이전 0.7.7-dev APK를 최신본으로 표시하지 않습니다.
+- 검증 Artifact `guardian-android-debug`는 2026-11-30까지 보존됩니다. 실제 스마트폰/태블릿 VPN·광고 차단 E2E는 미검증입니다.
 - Debug APK/에뮬레이터 성공은 production 서명, 실제 Android 기기 VPN/TUN 라우팅, 실제 광고 제거 효과를 증명하지 않습니다.
 - 운영 keystore/secrets, 운영 License API/DB/TLS 및 서명 manifest 배포 endpoint의 실제 운영 배포 검증은 미완료입니다.
 - Android 스마트폰/태블릿과 공통 필터·라이선스 작업을 먼저 마무리합니다. Windows 클라이언트/설치 프로그램은 마지막 단계로 보류합니다.
@@ -27,10 +27,10 @@ Guardian AdBlock을 Windows PC, Android 스마트폰, Android 태블릿에서 �
 
 | 플랫폼 | 제공 형태 | 네트워크 차단 방식 | 현재 상태 |
 |---|---|---|---|
-| Android 스마트폰 | 네이티브 APK | Android VpnService 기반 DNS 필터 | 기존 Android 앱 개발 중 |
-| Android 태블릿 | 동일 APK, 반응형 레이아웃 | Android VpnService 기반 DNS 필터 | 태블릿 UI/실기기 검증 필요 |
-| Windows 10/11 PC | 별도 설치형 데스크톱 앱/서비스 | Windows Filtering Platform(WFP) 또는 검증된 로컬 DNS 프록시 | 미구현 |
-| 모바일 관리 | 반응형 웹 관리 콘솔 | HTTPS 관리 API | 미구현 |
+| Android 스마트폰 | 네이티브 APK | Android VpnService 기반 DNS 필터 | v0.7.13-dev 빌드·에뮬레이터 검증 성공, 실기기 수용 테스트 필요 |
+| Android 태블릿 | 동일 APK, 반응형 레이아웃 | Android VpnService 기반 DNS 필터 | 반응형 레이아웃 구현, 화면 크기별/실기기 검증 필요 |
+| Windows 10/11 PC | 별도 설치형 데스크톱 앱/서비스 | Windows DNS 기반 필터 프록시 | 엔진·UI·설치 스크립트 구현 일부, 설치 패키지 및 실기기 복구 검증 미완료 (Android 후순위) |
+| 모바일 관리 | 반응형 웹 관리자 화면/API | HTTPS 관리 API | License API `/admin` 구현, 운영 배포 및 end-to-end 검증 필요 |
 | iPhone/iPad | 추후 별도 검토 | Network Extension 및 Apple 승인 요건 필요 | 범위 미확정 |
 
 Android APK를 Windows에 그대로 설치하거나 Android VPN 코드를 Windows에서 재사용할 수 있다고 가정하지 않는다. Windows는 별도 네트워크 서비스와 설치/업데이트/복구 경로가 필요하다.
@@ -91,8 +91,21 @@ Android APK를 Windows에 그대로 설치하거나 Android VPN 코드를 Window
 
 ## 현재 상태의 정직한 구분
 
-- Android DNS 필터 클라이언트: 구현이 진행 중이며 CI 단위 테스트/빌드 검증이 존재한다. 실제 기기 수용 테스트는 별도다.
-- Android 태블릿 최적화: 별도 검증 전.
-- Windows PC 클라이언트: 미구현.
-- 공통 manifest/라이선스 서버 및 모바일 관리 콘솔: 설계 단계이며 운영 배포 전.
+- Android DNS 필터 클라이언트: 기능 구현 및 CI/에뮬레이터 검증이 진행됐으며 v0.7.13-dev APK를 확보했다. 실제 기기 수용 테스트, production 서명, 운영 서버 연결은 별도다.
+- Android 태블릿 최적화: 반응형 내비게이션/대시보드 구현. 화면 크기·회전·접근성 및 태블릿 실기기 검증은 남아 있다.
+- Windows PC 클라이언트: DNS 엔진·데스크톱 UI·설치/복구 스크립트 개발은 존재하지만, 설치 패키지/설치·제거·재부팅/네트워크 복구 검증은 Android 완료 후 수행한다.
+- 공통 signed manifest publisher와 License API/PostgreSQL 및 관리자 웹 소스는 구현·자동화 테스트가 있으나, 노트북 실설치/공개 HTTPS/실제 기기 E2E는 미완료.
 - iPhone/iPad: 범위 미확정이며 현재 지원을 약속하지 않는다.
+
+## 2026-11-16 Android 우선 완료 기준
+
+Android v0.7.13-dev APK와 CI 에뮬레이터 검증은 확보했지만, 제품 출시 완료와는 구분한다. Android를 먼저 마무리하기 위한 잔여 게이트는 다음과 같다.
+
+1. 실기기 VPN 권한 승인, DNS 트래픽 전달/차단/허용, 보호 시작 실패 시 복구 동작 확인.
+2. Wi-Fi와 모바일 데이터 전환, IPv4/IPv6, Private DNS, 다른 VPN과 앱 제외 조합 확인.
+3. 실제 공개 HTTPS 필터 배포 주소 및 APK에 고정된 공개키를 이용한 manifest·필터 다운로드/서명검증 end-to-end 확인.
+4. 운영 License API/DB 연결 및 기기 활성화·갱신·해제 end-to-end 확인.
+5. 운영 keystore와 보호된 CI secrets를 준비한 production APK/AAB 서명·설치·업데이트 검증.
+6. Android 스마트폰/태블릿 검증 완료 후 Windows 설치형 패키지의 빌드·설치·제거·복구 검증 진행.
+
+**현재 확보된 APK:** [Guardian Android v0.7.13-dev CI Artifact](https://github.com/justinhblee-prog/guardian/actions/runs/43815516892). Debug 서명 개발 빌드이며 Play Store/정식 상용 릴리스 파일이 아니다.
