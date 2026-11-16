@@ -54,4 +54,10 @@ class FilterUpdateSchedulePolicyTest {
         assertFalse(FilterUpdatePolicy.isDue(true, 100_000L, 0L, 100_000L + FilterUpdateScheduler.MIN_INTERVAL_MS - 1L))
         assertTrue(FilterUpdatePolicy.isDue(true, 100_000L, 0L, 100_000L + FilterUpdateScheduler.MIN_INTERVAL_MS))
     }
+
+    @Test fun failedFirstDownloadDisablesOnlyTheUnavailableOptionalFilter() {
+        assertTrue(FilterUpdatePolicy.shouldDisableOptionalFilter(enabled = true, hasValidCache = false))
+        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(enabled = true, hasValidCache = true))
+        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(enabled = false, hasValidCache = false))
+    }
 }
