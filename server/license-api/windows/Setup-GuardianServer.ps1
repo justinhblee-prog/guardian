@@ -54,5 +54,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $FilterDir 'dist') | Out-Nu
 if (-not $SkipAutoStart) { & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1'); $taskName = 'Guardian Operations'; $action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1') + '"'); $trigger = New-ScheduledTaskTrigger -AtLogOn; $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero); Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Start Guardian license API and signed filter distribution after Windows sign-in' -Force | Out-Null }
 Write-Host 'Guardian 노트북 운영 서버 기본 구성이 완료되었습니다.'
 Write-Host '관리자 화면: http://127.0.0.1:8787/admin'
-Write-Host "공개키 파일: $publicKeyPath"
+Write-Host "라이선스 공개키(Base64): $licensePublicBase64Path"
+Write-Host "필터 공개키(Base64): $filterPublicBase64Path"
+Write-Host '필터 서명 개인키는 현재 Windows 사용자 DPAPI로 보호해 저장했습니다.'
 Write-Host '기본 API 접근은 노트북 내부(localhost)로 제한됩니다.'
