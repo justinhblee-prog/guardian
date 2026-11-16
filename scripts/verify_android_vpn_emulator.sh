@@ -162,6 +162,12 @@ if (( after_allowed <= before_queries )); then
   read_prefs
   exit 1
 fi
+if ! grep -Eq 'PING example\.com \([^)]*\)' /tmp/guardian-allowed-dns.txt; then
+  echo "Allowed DNS query was observed, but example.com did not resolve to an address through the active VPN."
+  cat /tmp/guardian-allowed-dns.txt || true
+  read_prefs
+  exit 1
+fi
 
 echo "Triggering a blocked-domain DNS lookup."
 adb_cmd shell ping -c 1 -W 5 "guardian-ci-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-blocked-dns.txt 2>&1 || true
