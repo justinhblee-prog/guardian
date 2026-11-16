@@ -1735,10 +1735,14 @@ class MainActivity : Activity() {
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("Guardian", "Security filter download failed", e)
-                        prefs.edit().putString(
+                        val editor = prefs.edit().putString(
                             FilterListManager.KEY_SECURITY_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
-                        ).apply()
+                        )
+                        if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityWasEnabled, securityWasCached)) {
+                            editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                        }
+                        editor.apply()
                         null
                     }
                 } else null
@@ -1753,8 +1757,9 @@ class MainActivity : Activity() {
                             FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
                         ).apply()
-                        if (!androidAdsWasCached) prefs.edit()
-                            .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
+                        if (FilterUpdatePolicy.shouldDisableOptionalFilter(androidAdsWasEnabled, androidAdsWasCached)) {
+                            prefs.edit().putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
+                        }
                         null
                     }
                 } else null
@@ -1768,6 +1773,10 @@ class MainActivity : Activity() {
                 android.util.Log.i("Guardian", "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}")
                 filterUpdateRunning.set(false)
                 runOnUiThread {
+                    if (securityWasEnabled && securityResult == null && !securityWasCached) {
+                        securityFilterSwitch?.isChecked = false
+                        securityFilterCheckBox?.isChecked = false
+                    }
                     if (androidAdsWasEnabled && androidAdsResult == null && !androidAdsWasCached) {
                         androidAdsFilterSwitch?.isChecked = false
                         androidAdsFilterCheckBox?.isChecked = false
