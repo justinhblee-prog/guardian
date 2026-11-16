@@ -15,7 +15,6 @@ class _Server(socketserver.ThreadingUDPServer):
     def __init__(self,address,proxy):
         self.proxy=proxy; self.address_family=socket.AF_INET6 if ":" in address[0] else socket.AF_INET
         super().__init__(address,_Handler)
-        if self.address_family==socket.AF_INET6: self.socket.setsockopt(socket.IPPROTO_IPV6,socket.IPV6_V6ONLY,1)
 class DnsProxy:
     def __init__(self,rules:DomainRules,upstreams=("1.1.1.1","8.8.8.8"),timeout=2.5,listen=(("127.0.0.1",53),("::1",53))):
         self.rules=rules; self.upstreams=tuple(upstreams); self.timeout=timeout
