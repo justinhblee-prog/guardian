@@ -25,6 +25,7 @@ $triggers = @(
   (New-ScheduledTaskTrigger -AtLogOn)
 )
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::FromHours(1)) -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName 'Guardian Signed Filter Update' -Action $action -Trigger $triggers -Settings $settings -Description 'Daily signed Guardian DNS filter update using current-user DPAPI protected signing key' -Force | Out-Null
+$principal = New-ScheduledTaskPrincipal -UserId ("$env:USERDOMAIN\$env:USERNAME") -LogonType Interactive -RunLevel Limited
+Register-ScheduledTask -TaskName 'Guardian Signed Filter Update' -Action $action -Trigger $triggers -Settings $settings -Principal $principal -Description 'Daily signed Guardian DNS filter update using current-user DPAPI protected signing key' -Force | Out-Null
 Write-Host "Guardian 필터 업데이트 작업 등록 완료: 매일 $DailyAt 및 로그인 시 실행"
 Write-Host '작업은 현재 Windows 사용자 계정의 DPAPI 보호키를 사용합니다. 노트북이 꺼져 있거나 절전이면 실행되지 않습니다.'
