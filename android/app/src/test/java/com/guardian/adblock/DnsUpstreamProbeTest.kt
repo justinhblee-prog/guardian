@@ -29,6 +29,16 @@ class DnsUpstreamProbeTest {
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
     }
 
+    @Test fun retriesServfailAndRefusedButKeepsNxDomainAsAValidAnswer() {
+        val query = DnsUpstreamProbe.query()
+        val servfail = DomainFilter.makeServfail(query)!!
+        val refused = servfail.copyOf().also { it[3] = ((it[3].toInt() and 0xff) and 0xf0 or 5).toByte() }
+        val nxdomain = servfail.copyOf().also { it[3] = ((it[3].toInt() and 0xff) and 0xf0 or 3).toByte() }
+        assertTrue(DnsUpstreamProbe.isRetryableResolverError(servfail))
+        assertTrue(DnsUpstreamProbe.isRetryableResolverError(refused))
+        assertFalse(DnsUpstreamProbe.isRetryableResolverError(nxdomain))
+    }
+
     @Test fun rejectsNoErrorWithoutAnswersAndMismatchedResponses() {
         val query = DnsUpstreamProbe.query()
         val emptyAnswer = successfulResponse(query).also {
