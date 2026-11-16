@@ -177,15 +177,19 @@ jobs:
         # Preserve the build artifact if emulator infrastructure or the E2E
         # acceptance test fails; report that result separately in the summary.
         continue-on-error: true
-        timeout-minutes: 25
+        timeout-minutes: 30
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
           target: google_apis
           arch: x86_64
-          profile: pixel_5
-          # Use a Google APIs image and explicit full-speed DNS/network settings;
-          # the default API 35 image was booting with no connected Wi-Fi network.
+          profile: pixel_2
+          emulator-boot-timeout: 1200
+          # GitHub-hosted Ubuntu runners expose KVM; force hardware acceleration
+          # instead of silently falling back to very slow TCG software emulation.
+          disable-linux-hw-accel: false
+          # Use a smaller Pixel 2 AVD and hardware acceleration on hosted Linux.
+          # Keep explicit DNS/network settings for reliable filter-list downloads.
           # Run the entire verification in one Bash process; the action's
           # line-oriented script runner cannot preserve shell loops/conditionals.
           disable-animations: true
