@@ -37,6 +37,18 @@ jobs:
       - name: Build EXE and installer
         shell: pwsh
         run: ./scripts/build_windows.ps1
+      - name: Install and smoke-test packaged Windows app
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem dist/installer/Guardian-AdBlock-Windows-Setup-*.exe | Select-Object -First 1
+          if (-not $installer) { throw "Installer not found" }
+          $installDir = Join-Path $env:RUNNER_TEMP "GuardianInstall"
+          & $installer.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$installDir"
+          if ($LASTEXITCODE -ne 0) { throw "Silent installation failed" }
+          & "$installDir\GuardianAdBlock.exe" --self-test
+          if ($LASTEXITCODE -ne 0) { throw "Installed executable self-test failed" }
+          & "$installDir\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+          if ($LASTEXITCODE -ne 0) { throw "Silent uninstall failed" }
       - name: Verify generated package
         shell: pwsh
         run: |
