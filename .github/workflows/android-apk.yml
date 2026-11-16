@@ -183,9 +183,7 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_6
-          # The action itself polls sys.boot_completed before our script starts.
-          # Fail within five minutes and run the bounded diagnostics step instead of waiting 10 minutes.
-          emulator-boot-timeout: 120
+          # Bound the action's boot polling and retain the standard ADB path.
           emulator-boot-timeout: 300
           # Run the entire verification in one Bash process; the action's
           # line-oriented script runner cannot preserve shell loops/conditionals.
