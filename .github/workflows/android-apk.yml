@@ -310,6 +310,9 @@ jobs:
           capture getprop adb shell getprop
           capture logcat adb logcat -d -t 12000
           capture activities adb shell dumpsys activity activities
+          capture ui-dump adb shell uiautomator dump /sdcard/guardian-window.xml
+          if timeout --signal=TERM --kill-after=3s 15s adb exec-out cat /sdcard/guardian-window.xml > emulator-diagnostics/ui-hierarchy.xml 2>&1; then :; fi
+          if timeout --signal=TERM --kill-after=3s 15s adb exec-out screencap -p > emulator-diagnostics/screen.png 2>/dev/null; then :; fi
           capture package adb shell dumpsys package com.guardian.adblock
           capture vpn adb shell dumpsys vpn
           capture emulator-version "$ANDROID_HOME/emulator/emulator" -version
