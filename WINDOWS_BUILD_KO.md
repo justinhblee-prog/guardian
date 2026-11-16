@@ -29,6 +29,10 @@ py -m compileall -q dns_engine windows_engine
 - `dist/GuardianDnsProxy/GuardianDnsProxy.exe`: 백그라운드 DNS 필터 프로세스
 - `dist/installer/Guardian-AdBlock-Windows-Setup-0.1.0-dev.exe`: 개발용 설치 프로그램
 
+## 필터 업데이트 설정
+
+데스크톱 화면의 '필터 서버 설정'에서 HTTPS manifest origin, source ID 및 RSA X.509 SPKI 공개키 Base64를 입력합니다. 공개키는 배포 서버의 오프라인 서명 개인키에 대응하는 값이어야 합니다. 앱은 manifest RSA 서명, 같은 HTTPS origin의 filter URL, SHA-256, 최소 규칙 수, 버전 anti-rollback을 확인한 뒤 원자적으로 캐시를 교체합니다. 수동/자동 업데이트는 프로세스 간 잠금으로 직렬화됩니다.
+
 ## 네트워크 보호 안전성
 
 - DNS 변경 전 활성 물리 어댑터의 IPv4/IPv6 DNS 주소와 DHCP 상태를 ProgramData 아래에 원자적으로 백업합니다.
