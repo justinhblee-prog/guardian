@@ -18,6 +18,13 @@ if ($base.Host -eq 'example.com' -or $base.Host.EndsWith('.example.com', [String
   throw 'sources.json의 예시 도메인을 실제 HTTPS 도메인으로 바꾸세요.'
 }
 if (-not $config.sources -or $config.sources.Count -lt 1) { throw 'sources.json에 필터 공급원이 없습니다.' }
+if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command npm -ErrorAction SilentlyContinue)) {
+  throw '필터 자동 업데이트에는 Node.js 22 이상과 npm이 필요합니다.'
+}
+$nodeMajorText = & node -p "process.versions.node.split('.')[0]"
+if ($LASTEXITCODE -ne 0 -or [int]$nodeMajorText -lt 22) { throw 'Node.js 22 이상을 설치한 뒤 다시 등록하세요.' }
+try { $null = ConvertTo-SecureString -String (Get-Content -Raw $protectedPath) }
+catch { throw '현재 Windows 계정에서 DPAPI 필터 서명키를 복호화할 수 없습니다.' }
 $scriptPath = Join-Path $PSScriptRoot 'Invoke-GuardianFilterUpdate.ps1'
 $action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + $scriptPath + '"') -WorkingDirectory $FilterDir
 $triggers = @(
