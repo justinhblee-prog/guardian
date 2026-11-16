@@ -172,6 +172,22 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Preinstall Android emulator package with retry
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "Android Emulator SDK install attempt $attempt/3"
+            if sdkmanager --install 'emulator' --channel=0; then
+              emulator -version
+              exit 0
+            fi
+            rm -rf "$ANDROID_HOME/emulator"
+            sleep 10
+          done
+          echo "Android Emulator SDK package could not be installed after 3 attempts."
+          exit 1
+
       - name: Install and launch APK on Android emulator
         id: android_emulator
         # Preserve the build artifact if emulator infrastructure or the E2E
