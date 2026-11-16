@@ -35,7 +35,8 @@ class FilterUpdateWorker(
             prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
 
             var optionalFailure = false
-            if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false) &&\n                LicenseEntitlementStore.current(applicationContext) != null &&
+            if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false) &&
+                LicenseEntitlementStore.current(applicationContext) != null &&
                 FilterUpdatePolicy.isDue(
                     FilterListManager.hasCachedSecurityList(applicationContext),
                     FilterListManager.lastSecurityUpdatedAt(applicationContext), interval, now
