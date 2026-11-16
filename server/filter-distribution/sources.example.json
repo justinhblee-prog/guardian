@@ -7,6 +7,36 @@
       "id": "adguard",
       "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt",
       "minimumRules": 1000
+    },
+    {
+      "id": "1hosts_lite",
+      "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_24.txt",
+      "minimumRules": 100
+    },
+    {
+      "id": "oisd_big",
+      "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_27.txt",
+      "minimumRules": 100
+    },
+    {
+      "id": "hagezi_normal",
+      "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_34.txt",
+      "minimumRules": 100
+    },
+    {
+      "id": "hagezi_pro",
+      "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_48.txt",
+      "minimumRules": 100
+    },
+    {
+      "id": "security",
+      "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_44.txt",
+      "minimumRules": 100
+    },
+    {
+      "id": "android_ads",
+      "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_53.txt",
+      "minimumRules": 100
     }
   ]
 }
