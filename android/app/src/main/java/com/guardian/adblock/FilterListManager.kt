@@ -130,7 +130,7 @@ object FilterListManager {
 
     private fun recoverCache(context: Context, cacheName: String): File {
         val target = File(context.filesDir, cacheName)
-        val signedConfigured = BuildConfig.FILTER_MANIFEST_BASE_URL.isNotBlank() &&
+        val signedConfigured = FilterDistributionSettings.configuredBaseUrl(context).isNotBlank() &&
             BuildConfig.FILTER_MANIFEST_PUBLIC_KEY.isNotBlank()
         if (!signedConfigured) {
             // Unsigned legacy caches still need a hard local size boundary. A
@@ -256,7 +256,7 @@ object FilterListManager {
         ignoredKey: String,
         cachedProfileKey: String? = null
     ): UpdateResult {
-        val manifestBaseUrl = BuildConfig.FILTER_MANIFEST_BASE_URL.trimEnd('/')
+        val manifestBaseUrl = FilterDistributionSettings.configuredBaseUrl(context).trimEnd('/')
         val manifestPublicKey = BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
         if (manifestBaseUrl.isNotBlank() || manifestPublicKey.isNotBlank()) {
             require(manifestBaseUrl.isNotBlank() && manifestPublicKey.isNotBlank()) {
