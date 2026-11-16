@@ -16,8 +16,12 @@ class CosmeticFilterEngineTest {
         ))
 
         assertEquals(setOf(".generic-ad"), rules.genericHide)
-        assertEquals(setOf(".ad-slot", "div[data-ad]"), rules.domainHide["news.example"])
-        assertEquals(setOf(".ad-slot"), rules.domainHide["shop.example"])
+        assertTrue(rules.domainHideRules.any {
+            it.includedDomains == setOf("news.example", "shop.example") && it.selector == ".ad-slot"
+        })
+        assertTrue(rules.domainHideRules.any {
+            it.includedDomains == setOf("news.example") && it.selector == "div[data-ad]"
+        })
     }
 
     @Test fun appliesRulesToExactHostAndSubdomainsOnly() {
@@ -29,6 +33,20 @@ class CosmeticFilterEngineTest {
         assertEquals(setOf(".ad"), CosmeticFilterEngine.selectorsForHost(rules, "example.com"))
         assertEquals(setOf(".ad"), CosmeticFilterEngine.selectorsForHost(rules, "www.example.com"))
         assertTrue(CosmeticFilterEngine.selectorsForHost(rules, "notexample.com").isEmpty())
+    }
+
+    @Test fun excludedDomainsLimitGenericAndScopedRules() {
+        val rules = CosmeticFilterEngine.parse(listOf(
+            "##.generic-ad",
+            "~shop.example##.generic-ad",
+            "example.com,~news.example.com##.site-ad"
+        ))
+
+        assertEquals(setOf(".generic-ad", ".site-ad"),
+            CosmeticFilterEngine.selectorsForHost(rules, "www.example.com"))
+        assertEquals(setOf(".generic-ad"),
+            CosmeticFilterEngine.selectorsForHost(rules, "news.example.com"))
+        assertTrue(CosmeticFilterEngine.selectorsForHost(rules, "shop.example").isEmpty())
     }
 
     @Test fun domainExceptionCancelsMatchingGenericOrScopedSelectorForThatHost() {
@@ -49,11 +67,14 @@ class CosmeticFilterEngineTest {
             "example.com##.bad { display:block }",
             "example.com##div:url(https://example.com)",
             "||ads.example^",
-            "example.com#?#div:has(.ad)"
+            "example.com#?#div:has(.ad)",
+            "bad_domain##.invalid"
         ))
 
-        assertEquals(setOf(".valid-ad"), rules.domainHide["example.com"])
-        assertTrue(rules.ignored >= 2)
+        assertTrue(rules.domainHideRules.any {
+            it.includedDomains == setOf("example.com") && it.selector == ".valid-ad"
+        })
+        assertTrue(rules.ignored >= 3)
     }
 
     @Test fun producesCssOnlyHideDeclarations() {
