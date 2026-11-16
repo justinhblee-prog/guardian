@@ -388,7 +388,7 @@ object FilterListManager {
             "서명 manifest의 최소 규칙 수가 앱 정책보다 낮습니다."
         }
         val bytes = download.content
-        val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Strict(bytes).lineSequence().toList())
+        val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Strict(bytes).lineSequence())
         val effectiveMinimum = maxOf(minimumRules, download.manifest.minimumRules)
         require(parsed.blocked.size + parsed.importantBlocked.size >= effectiveMinimum) {
             "서명 필터의 유효한 차단 도메인이 최소 규칙 수보다 적습니다."
