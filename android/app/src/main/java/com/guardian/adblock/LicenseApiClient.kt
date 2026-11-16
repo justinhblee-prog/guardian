@@ -9,7 +9,6 @@ import java.net.URL
 import java.security.KeyFactory
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.X509EncodedKeySpec
-import android.util.Base64
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 
