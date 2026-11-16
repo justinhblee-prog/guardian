@@ -1391,7 +1391,7 @@ class MainActivity : Activity() {
             FilterListManager.cachedProfile(this).key,
             prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
             FilterListManager.hasCachedSecurityList(this),
-            prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false),
+            prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true),
             FilterListManager.hasCachedAndroidAdsList(this)
         )
     }
@@ -1475,7 +1475,7 @@ class MainActivity : Activity() {
             text = "Android 앱 광고 SDK 차단 (AWAvenue Ads Rule)"
             textSize = 12f
             setTextColor(white)
-            isChecked = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+            isChecked = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
             setOnCheckedChangeListener { _, checked ->
                 prefs.edit().putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, checked).apply()
                 if (checked && !FilterListManager.hasCachedAndroidAdsList(this@MainActivity)) {
@@ -1639,7 +1639,7 @@ class MainActivity : Activity() {
         val securityCount = FilterListManager.cachedSecurityBlockCount(this)
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val securityOn = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-        val androidAdsOn = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+        val androidAdsOn = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
         val androidAdsCount = FilterListManager.cachedAndroidAdsBlockCount(this)
         val ignored = FilterListManager.cachedIgnoredCount(this)
         val securityIgnored = if (securityOn) FilterListManager.cachedSecurityIgnoredCount(this) else 0
@@ -1690,7 +1690,7 @@ class MainActivity : Activity() {
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
                 val securityWasEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                val androidAdsWasEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+                val androidAdsWasEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
                 val securityWasCached = FilterListManager.hasCachedSecurityList(this)
                 val androidAdsWasCached = FilterListManager.hasCachedAndroidAdsList(this)
                 val securityResult = if (securityWasEnabled) {
@@ -1789,7 +1789,7 @@ class MainActivity : Activity() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
         val hasSecurityCache = FilterListManager.hasCachedSecurityList(this)
-        val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+        val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
         val hasAndroidAdsCache = FilterListManager.hasCachedAndroidAdsList(this)
         if (!FilterListManager.isProfileCacheCurrent(
                 hasCachedList, selectedProfile.key, cachedProfile.key,
