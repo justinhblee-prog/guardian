@@ -131,37 +131,63 @@ jobs:
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
           script: |
-            # ADB may report the freshly booted emulator as offline briefly. Reconnect and
-            # wait for the transport to become usable before issuing shell commands.
+            set -e
+            # Wait for the emulator transport and Android framework to become usable.
             adb start-server
             device_ready=0
             for attempt in $(seq 1 180); do
+              state="$(adb get-state 2>/dev/null || true)"
+              booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [ "$state" = "device" ] && [ "$booted" = "1" ]; then
+                device_ready=1
+                break
+              fi
               adb reconnect offline >/dev/null 2>&1 || true
-              if adb get-state 2>/dev/null | grep -q '^device
+              sleep 2
+            done
+            test "$device_ready" -eq 1
+
+            # Wait until PackageManager responds before attempting installation.
+            package_ready=0
+            for attempt in $(seq 1 90); do
+              if adb shell service check package 2>/dev/null | grep -q 'found' &&
+                 adb shell pm list packages 2>/dev/null | grep -q 'com.android.settings'; then
+                package_ready=1
+                break
+              fi
+              sleep 2
+            done
+            test "$package_ready" -eq 1
+
             adb logcat -c
-            # Keep metadata verification in a standalone script; heredocs inside
-            # this action's nested shell script are not reliably dedented.
             python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.11-dev.apk 24 0.7.11-dev android/app/build/outputs/apk/debug/app-debug.apk 25 0.7.12-dev
-            # Install the previous signed build first, then upgrade in place.
+
+            # Install the previous version, then verify an in-place signed upgrade.
             previous_installed=0
             for attempt in 1 2 3 4 5; do
-              if adb install /tmp/guardian-0.7.11-dev.apk; then previous_installed=1; break; fi
-              echo "Previous APK install attempt ${attempt} failed; restarting ADB and waiting for PackageManager."
-              adb kill-server || true
-              adb start-server
-              adb wait-for-device
-              if ! (for ready_attempt in $(seq 1 60); do if adb shell service check package 2>/dev/null | grep -q 'found' && adb shell pm list packages 2>/dev/null | grep -q 'com.android.settings'; then break; fi; sleep 3; done; adb shell service check package 2>/dev/null | grep -q 'found' && adb shell pm list packages 2>/dev/null | grep -q 'com.android.settings'); then
-                echo "Android framework did not recover; rebooting emulator before the next install attempt."
-                adb reboot || true
-                adb wait-for-device
-                for ready_attempt in $(seq 1 60); do if adb shell service check package 2>/dev/null | grep -q 'found' && adb shell pm list packages 2>/dev/null | grep -q 'com.android.settings'; then break; fi; sleep 3; done
+              if adb install /tmp/guardian-0.7.11-dev.apk; then
+                previous_installed=1
+                break
               fi
-              sleep 3
+              echo "Previous APK install attempt ${attempt} failed; waiting for PackageManager."
+              sleep 5
             done
             test "$previous_installed" -eq 1
             adb shell pm path com.guardian.adblock | grep -F 'package:'
-            installed=0; for attempt in 1 2 3; do if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then installed=1; break; fi; echo "ADB package-manager upgrade attempt ${attempt} failed; waiting for system services before retry."; adb wait-for-device; adb shell cmd package list packages >/dev/null 2>&1 || true; sleep 5; done; test "$installed" -eq 1
+
+            installed=0
+            for attempt in 1 2 3; do
+              if adb install -r android/app/build/outputs/apk/debug/app-debug.apk; then
+                installed=1
+                break
+              fi
+              echo "APK upgrade attempt ${attempt} failed; waiting for PackageManager."
+              adb wait-for-device
+              sleep 5
+            done
+            test "$installed" -eq 1
             adb shell pm path com.guardian.adblock | grep -F 'package:'
+
             adb shell am start -n com.guardian.adblock/.MainActivity
             sleep 8
             adb shell dumpsys activity activities | tee /tmp/guardian-activities.txt
