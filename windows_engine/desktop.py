@@ -57,11 +57,12 @@ def ensure_daemon_running():
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if delete:
-        result=run_task("/Delete","/TN",TASK_NAME,"/F")
-        if result.returncode:
+        run_task("/Delete","/TN",TASK_NAME,"/F")
+        for _ in range(10):
             query=run_task("/Query","/TN",TASK_NAME)
-            if query.returncode==0:
-                raise NetworkConfigError("Could not remove the boot-start Guardian DNS task; uninstall must be retried")
+            if query.returncode!=0: return
+            time.sleep(.3)
+        raise NetworkConfigError("Could not remove the boot-start Guardian DNS task; uninstall must be retried")
 def restore_and_remove_task():
     manager=DnsAdapterManager(BACKUP); manager.restore(); write_state(False); stop_daemon(delete=True)
 def self_test():
