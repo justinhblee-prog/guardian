@@ -394,7 +394,7 @@ class GuardianVpnService : VpnService() {
         val selectedProfile = FilterListManager.selectedProfile(this)
         val cachedProfile = FilterListManager.cachedProfile(this)
         val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-        val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+        val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
         require(FilterListManager.isProfileCacheCurrent(
             FilterListManager.hasCachedList(this),
             selectedProfile.key,
