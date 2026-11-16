@@ -4,7 +4,12 @@ import java.util.Locale
 
 /** Parser for DNS-compatible Adblock rules and hosts-file entries. */
 object FilterRuleParser {
-    data class Parsed(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>, val ignored: Int)
+    data class Parsed(
+        val blocked: Set<String>,
+        val allowed: Set<String>,
+        val importantBlocked: Set<String>,
+        val ignored: Int
+    )
 
     fun parse(lines: List<String>): Parsed {
         val blocked = linkedSetOf<String>()
@@ -20,9 +25,12 @@ object FilterRuleParser {
             if (line.isEmpty() || line.startsWith("!") || line.startsWith("[")) continue
             val lower = line.lowercase(Locale.ROOT)
             when {
-                lower.startsWith("block-important=") -> addDomain(line.substringAfter('='), importantBlocked).also { if (!it) ignored++ }
-                lower.startsWith("block=") -> addDomain(line.substringAfter('='), blocked).also { if (!it) ignored++ }
-                lower.startsWith("allow=") -> addDomain(line.substringAfter('='), allowed).also { if (!it) ignored++ }
+                lower.startsWith("block-important=") ->
+                    addDomain(line.substringAfter('='), importantBlocked).also { if (!it) ignored++ }
+                lower.startsWith("block=") ->
+                    addDomain(line.substringAfter('='), blocked).also { if (!it) ignored++ }
+                lower.startsWith("allow=") ->
+                    addDomain(line.substringAfter('='), allowed).also { if (!it) ignored++ }
                 lower.startsWith("@@||") && hasModifier(line, "badfilter") -> {
                     val domain = adblockDomain(line.substring(4))
                     if (domain == null) ignored++ else disabledAllowed.add(domain)
@@ -45,8 +53,7 @@ object FilterRuleParser {
                 }
                 else -> {
                     val fields = line.split(Regex("\\s+"))
-                    if (fields.size >= 2 && (fields[0] == "0.0.0.0" || fields[0] == "127.0.0.1" ||
-                                fields[0] == "::" || fields[0] == "::1")) {
+                    if (fields.size >= 2 && fields[0] in setOf("0.0.0.0", "127.0.0.1", "::", "::1")) {
                         var added = false
                         fields.drop(1).forEach { host ->
                             if (host != "localhost" && addDomain(host, blocked)) added = true
@@ -56,91 +63,17 @@ object FilterRuleParser {
                 }
             }
         }
+
         blocked.removeAll(disabledBlocked)
         importantBlocked.removeAll(disabledImportantBlocked)
         allowed.removeAll(disabledAllowed)
         return Parsed(blocked, allowed, importantBlocked, ignored)
     }
 
-    // Parse the '
-        // A DNS filter can safely apply a hostname anchor, but not an Adblock
-        // rule constrained to a URL path or to text following the separator.
-        // Reject those rules instead of broadening them to the entire domain.
-        val host = when {
-            hostExpression.endsWith('^') -> hostExpression.dropLast(1)
-            '^' in hostExpression -> return null
-            else -> hostExpression
-        }
-        val modifiers = modifierTokens(expression)
-        val supportedModifiers = setOf("important", "all", "badfilter")
-        if (modifiers.any { it.isNotBlank() && it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
-        if (host.isEmpty() || host.contains('*') || host.contains('/') || host.contains('|')) return null
-        return normalize(host, requireDomainName = true)
-    }
-
-    private fun addDomain(raw: String, destination: MutableSet<String>): Boolean {
-        val domain = normalize(raw.trim()) ?: return false
-        destination.add(domain)
-        return true
-    }
-
-    private fun normalize(raw: String, requireDomainName: Boolean = false): String? {
-        val domain = raw.trim().trimEnd('.').lowercase(Locale.ROOT)
-        if (domain.length !in 1..253) return null
-        val labels = domain.split('.')
-        if (requireDomainName && labels.size < 2) return null
-        if (!labels.all { label ->
-                label.isNotEmpty() && label.length <= 63 &&
-                    (label.first() in 'a'..'z' || label.first() in '0'..'9') &&
-                    (label.last() in 'a'..'z' || label.last() in '0'..'9') &&
-                    label.all { it in 'a'..'z' || it in '0'..'9' || it == '-' }
-            }) return null
-        return domain
-    }
-}
--separated modifier suffix without String.split(). Real-world
-    // community lists contain unusually long and malformed modifier lines; a
-    // small bounded scanner avoids split's intermediate arrays and keeps this
-    // hot path predictable while parsing multi-megabyte filter lists.
+    /** Scans a dollar-prefixed modifier suffix without String.split(). */
     private fun modifierTokens(rule: String): List<String> {
-        val separator = rule.indexOf('
-        // A DNS filter can safely apply a hostname anchor, but not an Adblock
-        // rule constrained to a URL path or to text following the separator.
-        // Reject those rules instead of broadening them to the entire domain.
-        val host = when {
-            hostExpression.endsWith('^') -> hostExpression.dropLast(1)
-            '^' in hostExpression -> return null
-            else -> hostExpression
-        }
-        val modifiers = parts.getOrNull(1)?.split(',').orEmpty()
-        val supportedModifiers = setOf("important", "all", "badfilter")
-        if (modifiers.any { it.isNotBlank() && it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
-        if (host.isEmpty() || host.contains('*') || host.contains('/') || host.contains('|')) return null
-        return normalize(host, requireDomainName = true)
-    }
-
-    private fun addDomain(raw: String, destination: MutableSet<String>): Boolean {
-        val domain = normalize(raw.trim()) ?: return false
-        destination.add(domain)
-        return true
-    }
-
-    private fun normalize(raw: String, requireDomainName: Boolean = false): String? {
-        val domain = raw.trim().trimEnd('.').lowercase(Locale.ROOT)
-        if (domain.length !in 1..253) return null
-        val labels = domain.split('.')
-        if (requireDomainName && labels.size < 2) return null
-        if (!labels.all { label ->
-                label.isNotEmpty() && label.length <= 63 &&
-                    (label.first() in 'a'..'z' || label.first() in '0'..'9') &&
-                    (label.last() in 'a'..'z' || label.last() in '0'..'9') &&
-                    label.all { it in 'a'..'z' || it in '0'..'9' || it == '-' }
-            }) return null
-        return domain
-    }
-}
-)
-        if (separator < 0) return emptyList()
+        val separator = rule.indexOf('$')
+        if (separator < 0 || separator == rule.lastIndex) return emptyList()
         val tokens = ArrayList<String>()
         var tokenStart = separator + 1
         for (index in tokenStart..rule.length) {
@@ -156,55 +89,15 @@ object FilterRuleParser {
         modifierTokens(rule).any { it.equals(modifier, ignoreCase = true) }
 
     private fun adblockDomain(expression: String): String? {
-        // Context-sensitive, cosmetic, regex, URL/path, and rewriting rules
-        // are not guessed at DNS level; only safe hostname anchors are used.
-        val separator = expression.indexOf('
-        // A DNS filter can safely apply a hostname anchor, but not an Adblock
-        // rule constrained to a URL path or to text following the separator.
-        // Reject those rules instead of broadening them to the entire domain.
-        val host = when {
-            hostExpression.endsWith('^') -> hostExpression.dropLast(1)
-            '^' in hostExpression -> return null
-            else -> hostExpression
-        }
-        val modifiers = parts.getOrNull(1)?.split(',').orEmpty()
-        val supportedModifiers = setOf("important", "all", "badfilter")
-        if (modifiers.any { it.isNotBlank() && it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
-        if (host.isEmpty() || host.contains('*') || host.contains('/') || host.contains('|')) return null
-        return normalize(host, requireDomainName = true)
-    }
-
-    private fun addDomain(raw: String, destination: MutableSet<String>): Boolean {
-        val domain = normalize(raw.trim()) ?: return false
-        destination.add(domain)
-        return true
-    }
-
-    private fun normalize(raw: String, requireDomainName: Boolean = false): String? {
-        val domain = raw.trim().trimEnd('.').lowercase(Locale.ROOT)
-        if (domain.length !in 1..253) return null
-        val labels = domain.split('.')
-        if (requireDomainName && labels.size < 2) return null
-        if (!labels.all { label ->
-                label.isNotEmpty() && label.length <= 63 &&
-                    (label.first() in 'a'..'z' || label.first() in '0'..'9') &&
-                    (label.last() in 'a'..'z' || label.last() in '0'..'9') &&
-                    label.all { it in 'a'..'z' || it in '0'..'9' || it == '-' }
-            }) return null
-        return domain
-    }
-}
-)
+        // Only hostname anchors are safe to represent at DNS level.
+        val separator = expression.indexOf('$')
         val hostExpression = (if (separator < 0) expression else expression.substring(0, separator)).trimEnd('.')
-        // A DNS filter can safely apply a hostname anchor, but not an Adblock
-        // rule constrained to a URL path or to text following the separator.
-        // Reject those rules instead of broadening them to the entire domain.
         val host = when {
             hostExpression.endsWith('^') -> hostExpression.dropLast(1)
             '^' in hostExpression -> return null
             else -> hostExpression
         }
-        val modifiers = parts.getOrNull(1)?.split(',').orEmpty()
+        val modifiers = modifierTokens(expression)
         val supportedModifiers = setOf("important", "all", "badfilter")
         if (modifiers.any { it.isNotBlank() && it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
         if (host.isEmpty() || host.contains('*') || host.contains('/') || host.contains('|')) return null
