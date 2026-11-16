@@ -6,3 +6,4 @@ dist/
 node_modules/
 
 .guardian-filter-update/
+logs/
