@@ -51,7 +51,7 @@ class FilterUpdater:
         if not re.fullmatch(r"[0-9a-f]{64}",values["sha256"]): raise FilterUpdateError("Invalid SHA-256 field")
         try: generated=int(values["generatedAt"]); minimum=int(values["minimumRules"])
         except ValueError as exc: raise FilterUpdateError("Invalid manifest numeric field") from exc
-        if generated<=0 or minimum<1: raise FilterUpdateError("Invalid manifest timestamp or minimum rule count")
+        if generated<=0 or minimum<1 or minimum>2147483647: raise FilterUpdateError("Invalid manifest timestamp or minimum rule count")
         values["generatedAt"]=generated; values["minimumRules"]=minimum
         return values
     def update(self):
@@ -77,8 +77,8 @@ class FilterUpdater:
         filter_url=urlsplit(values["url"])
         if filter_url.scheme!="https" or filter_url.netloc!=base.netloc or filter_url.username or filter_url.password or filter_url.query or filter_url.fragment:
             raise FilterUpdateError("Filter URL must remain on the configured HTTPS origin")
-        if not filter_url.path.startswith(f"/filters/{self.source_id}/") or not filter_url.path.endswith(".txt"):
-            raise FilterUpdateError("Filter URL is outside the expected source directory")
+        if filter_url.path!=f"/filters/{self.source_id}/{values['sourceVersion']}.txt":
+            raise FilterUpdateError("Filter URL does not match the signed source version")
         previous=0
         if self.state_path.exists():
             try: previous=int(json.loads(self.state_path.read_text(encoding="utf-8")).get("generatedAt",0))
@@ -91,7 +91,19 @@ class FilterUpdater:
         if not filter_bytes or b"\0" in filter_bytes: raise FilterUpdateError("Filter is empty or contains NUL bytes")
         rules=DomainRules.from_text(filter_text)
         if len(rules.blocked)<values["minimumRules"]: raise FilterUpdateError("Filter has fewer valid blocking rules than the signed minimum")
+        old_rules=self.rules_path.read_bytes() if self.rules_path.exists() else None
+        old_state=self.state_path.read_bytes() if self.state_path.exists() else None
         _atomic_write(self.rules_path,filter_bytes)
         state={"sourceId":self.source_id,"sourceVersion":values["sourceVersion"],"generatedAt":values["generatedAt"],"sha256":values["sha256"]}
-        _atomic_write(self.state_path,json.dumps(state,sort_keys=True).encode("utf-8"))
+        try:
+            _atomic_write(self.state_path,json.dumps(state,sort_keys=True).encode("utf-8"))
+        except Exception:
+            try:
+                if old_rules is None: self.rules_path.unlink(missing_ok=True)
+                else: _atomic_write(self.rules_path,old_rules)
+                if old_state is None: self.state_path.unlink(missing_ok=True)
+                else: _atomic_write(self.state_path,old_state)
+            except OSError as rollback_error:
+                raise FilterUpdateError(f"Could not commit manifest state or restore the previous filter cache: {rollback_error}")
+            raise
         return state
