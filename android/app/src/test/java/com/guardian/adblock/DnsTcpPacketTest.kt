@@ -84,10 +84,10 @@ class DnsTcpPacketTest {
     }
 
     @Test fun rejectsTruncatedTcpHeaderAfterValidExtensionHeader() {
-        val packet = ByteArray(56)
+        val packet = ByteArray(60)
         packet[0] = 0x60
         packet[4] = 0
-        packet[5] = 16
+        packet[5] = 20
         packet[6] = 60 // Destination Options
         packet[40] = 6 // TCP follows
         packet[41] = 0
