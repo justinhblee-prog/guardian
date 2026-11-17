@@ -61,6 +61,12 @@ for attempt in $(seq 1 240); do
   fi
   sleep 2
 done
+# Let WorkManager and the Android framework settle after the last cache
+# becomes available; avoid launching the VPN UI while filter I/O is peaking.
+echo "Filter caches are ready. Allowing Android framework to settle before VPN UI automation."
+sleep 12
+adb shell dumpsys activity activities | grep -F "$PACKAGE" | tail -5 || true
+
 if [[ "$ready" -ne 1 ]]; then
   echo "Filter cache readiness timed out."
   echo "Live logcat captured while ADB was connected (last 300 matching lines):"
@@ -83,18 +89,20 @@ fi
 tap_text() {
   local wanted="$1"
   local xml bounds
-  # The Android emulator's Quickstep launcher can show a transient ANR
-  # dialog while the app is downloading large filter lists. Dismiss only
-  # that launcher dialog with Wait, then explicitly bring Guardian forward.
+  # Quickstep may ANR under the default low-memory AVD while large filter
+  # caches are warming. Wait once, stop only the test emulator's launcher
+  # process if it remains wedged, then foreground Guardian directly.
   for recovery in 1 2 3; do
     adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
     xml="$(adb exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
     if grep -q "Quickstep isn't responding" <<<"$xml"; then
       echo "Android Quickstep is temporarily unresponsive; choosing Wait and foregrounding Guardian (recovery $recovery/3)."
-      adb shell input tap 540 1332
-      sleep 3
+      adb shell input tap 540 1332 || true
+      sleep 2
+      adb shell am force-stop com.android.launcher3 || true
+      sleep 1
       adb shell am start -W -n "$PACKAGE/com.guardian.adblock.MainActivity" >/dev/null
-      sleep 4
+      sleep 5
       continue
     fi
     break
@@ -138,10 +146,12 @@ for node in root.iter("node"):
       break
     fi
     read -r wx wy <<<"$wait_bounds"
-    adb shell input tap "$wx" "$wy"
-    sleep 3
+    adb shell input tap "$wx" "$wy" || true
+    sleep 2
+    adb shell am force-stop com.android.launcher3 || true
+    sleep 1
     adb shell am start -W -n "$PACKAGE/com.guardian.adblock.MainActivity" >/dev/null
-    sleep 4
+    sleep 5
     adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
     xml="$(adb exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
     bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
