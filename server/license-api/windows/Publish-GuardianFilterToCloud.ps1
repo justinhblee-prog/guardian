@@ -11,7 +11,8 @@ if ($LASTEXITCODE -ne 0 -or $remote -notmatch 'github\.com[:/]justinhblee-prog/g
 }
 $filterRoot = Join-Path $repoRoot 'server\filter-distribution'
 $dist = Join-Path $filterRoot 'dist'
-$secretPath = Join-Path $repoRoot 'server\license-api\secrets\guardian-filter-private.dpapi'
+ . (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+$secretPath = Join-Path $GuardianSecretsDir 'guardian-filter-private.dpapi'
 if (-not (Test-Path -LiteralPath $dist -PathType Container)) { throw '서명된 dist 폴더가 없습니다. 필터 업데이트를 먼저 실행하세요.' }
 if (-not (Test-Path -LiteralPath $secretPath -PathType Leaf)) { throw 'DPAPI 보호 필터 서명키가 없습니다.' }
 
@@ -25,7 +26,7 @@ try {
   $plainKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
   $rsa.ImportFromPem($plainKey)
   $publicKeyBase64 = [Convert]::ToBase64String($rsa.ExportSubjectPublicKeyInfo())
-  $androidPublicKeyPath = Join-Path (Join-Path (Join-Path (Join-Path $repoRoot 'server') 'license-api') 'secrets') 'guardian-filter-public.x509.b64'
+  $androidPublicKeyPath = Join-Path $GuardianSecretsDir 'guardian-filter-public.x509.b64'
   if (-not (Test-Path -LiteralPath $androidPublicKeyPath -PathType Leaf)) {
     throw 'Android 빌드용 필터 공개키가 없습니다. Setup-GuardianServer.ps1을 다시 실행하고 키 구성을 확인하세요.'
   }
