@@ -68,6 +68,20 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연결하고, **서명 필터 배포 서버**는 GitHub 정적 클라우드 원본에 연결합니다. 필터 원본은 `https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data`이며, 공개된 필터 콘텐츠·manifest·RSA detached signature만 저장합니다. 라이선스 API와 개인 서명키는 노트북에 남습니다.
 
+## Android 정식 릴리스 서명 준비
+
+노트북에서 라이선스 서버와 Tailscale HTTPS 연결, 최초 필터 클라우드 게시를 완료한 뒤 Git for Windows, GitHub CLI(`gh`) 로그인 및 JDK `keytool`이 준비된 PowerShell 7.2에서 실행합니다.
+
+```powershell
+./Prepare-GuardianProductionRelease.ps1
+```
+
+이 스크립트는 기존 운영 라이선스/필터 공개키와 Tailscale HTTPS `/ready` 응답을 확인한 뒤 Android production keystore를 최초 1회 생성합니다. 키 저장소와 DPAPI 암호 파일은 노트북의 `server/license-api/secrets/` 아래에 두고 현재 Windows 사용자와 SYSTEM만 읽을 수 있도록 ACL을 제한합니다. keystore를 새로 만들거나 덮어쓰지 않으며, 같은 노트북에서 재실행하면 기존 키를 재사용합니다.
+
+GitHub CLI의 표준 입력으로 keystore Base64와 비밀번호를 Actions Secrets에 등록하고, 공개키·HTTPS 주소·버전 `1.0.0 (versionCode 28)`을 Repository Variables에 설정합니다. 비밀값을 콘솔이나 Git 저장소에 출력하지 않습니다. 실행 후 GitHub Actions의 **Guardian AdBlock Production Release** 워크플로를 수동 실행하면 서명 APK/AAB와 전체 소스 ZIP, SHA-256 검증 자료를 생성합니다.
+
+**중요:** `guardian-release.jks`와 DPAPI 암호 파일은 노트북의 암호화된 오프라인 백업에도 보관하세요. 이 keystore를 분실하면 기존 설치본을 동일한 앱 서명으로 업데이트할 수 없습니다. keystore 파일이나 비밀번호를 메신저·Git 저장소에 올리지 마세요. 운영 노트북과 Tailscale HTTPS 서비스가 아직 준비되지 않았다면 이 스크립트는 의도적으로 중단합니다.
+
 ## 노트북과 모바일의 비공개 연결 (권장)
 
 라이선스 API와 서명키는 개인 Windows 노트북에서 운영합니다. Android 앱은 라이선스 API에만 Tailscale Serve HTTPS로 접속합니다. 필터 배포는 별도 정적 클라우드 원본(GitHub 공개 저장소의 전용 `guardian-filter-data` 브랜치)을 사용하므로 노트북이 꺼져 있어도 앱에서 업데이트를 받을 수 있습니다. 클라우드에는 필터 텍스트, manifest, detached signature만 올라가며 라이선스 DB, 개인키, `.env`는 게시하지 않습니다.
