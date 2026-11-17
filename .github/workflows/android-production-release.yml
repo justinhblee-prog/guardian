@@ -117,7 +117,7 @@ jobs:
           echo "Ephemeral Release APK built, contains canonical DNS rules, and verifies against its temporary signer."
           echo "No production keystore, public key, URL, or release artifact was used or uploaded."
 
-  - name: Verify production source archive and checksum without secrets
+      - name: Verify production source archive and checksum without secrets
         shell: bash
         run: |
           set -euo pipefail
@@ -125,8 +125,7 @@ jobs:
           git archive --format=zip --prefix=Guardian-AdBlock-Source-Validation/ "$GITHUB_SHA" -- . \
             ':(exclude)android/guardian-dev.keystore' \
             ':(exclude)**/*.jks' ':(exclude)**/*.keystore' \
-            ':(exclude)**/*.p12' ':(exclude)**/*.pfx' ':(exclude)**/.env'
-          > "$SOURCE_ZIP"
+            ':(exclude)**/*.p12' ':(exclude)**/*.pfx' ':(exclude)**/.env' > "$SOURCE_ZIP"
           test -s "$SOURCE_ZIP"
           unzip -t "$SOURCE_ZIP" >/dev/null
           unzip -Z1 "$SOURCE_ZIP" | grep -F 'android/app/src/main/AndroidManifest.xml'
