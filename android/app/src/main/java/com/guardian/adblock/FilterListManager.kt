@@ -323,8 +323,9 @@ object FilterListManager {
                 }
                 output.toByteArray()
             }
-            val lines = FilterManifestVerifier.decodeUtf8Strict(bytes).lineSequence().toList()
-            val parsed = FilterRuleParser.parse(lines)
+            // Public community feeds may contain isolated legacy-encoding bytes in comments.
+            // Replace malformed sequences; invalid rule tokens are then rejected by the parser.
+            val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Lenient(bytes))
             require((parsed.blocked.size + parsed.importantBlocked.size) >= minimumRules) {
                 "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size + parsed.importantBlocked.size}개뿐입니다."
             }
@@ -388,7 +389,9 @@ object FilterListManager {
             "서명 manifest의 최소 규칙 수가 앱 정책보다 낮습니다."
         }
         val bytes = download.content
-        val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Strict(bytes).lineSequence().toList())
+        // Signed payloads are hash-verified, but the filter syntax may still contain harmless
+        // legacy-encoded comments. Decode with replacement; malformed rule tokens fail validation.
+        val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Lenient(bytes))
         val effectiveMinimum = maxOf(minimumRules, download.manifest.minimumRules)
         require(parsed.blocked.size + parsed.importantBlocked.size >= effectiveMinimum) {
             "서명 필터의 유효한 차단 도메인이 최소 규칙 수보다 적습니다."
