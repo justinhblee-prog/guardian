@@ -35,13 +35,29 @@ function Get-GuardianPaths {
     FilterLogs = [IO.Path]::Combine($data,'filter-distribution','logs')
   }
 }
+function Get-GuardianProtectedDirectories {
+  param([Parameter(Mandatory)]$Paths)
+  @(
+    $Paths.Root,
+    $Paths.Secrets,
+    (Split-Path $Paths.LicenseEnv -Parent),
+    (Split-Path $Paths.FilterEnv -Parent),
+    $Paths.Backups,
+    $Paths.Outputs,
+    $Paths.FilterDist,
+    $Paths.FilterLogs
+  ) | Select-Object -Unique
+}
 function Initialize-GuardianDataDirectories {
   param([Parameter(Mandatory)]$Paths)
   foreach ($dir in @((Split-Path $Paths.LicenseEnv -Parent),(Split-Path $Paths.FilterEnv -Parent),$Paths.Secrets,$Paths.Backups,$Paths.Outputs,$Paths.FilterDist,$Paths.FilterLogs)) {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
   }
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-  foreach ($dir in @($Paths.Root,$Paths.Secrets,(Split-Path $Paths.LicenseEnv -Parent),(Split-Path $Paths.FilterEnv -Parent),$Paths.Backups,$Paths.Outputs)) {
+  # Apply explicit ACLs to every runtime directory. In particular, FilterLogs
+  # and FilterDist already exist before the root ACL is tightened; do not rely
+  # on inherited ACE propagation to secure those pre-existing directories.
+  foreach ($dir in (Get-GuardianProtectedDirectories -Paths $Paths)) {
     & icacls.exe $dir /inheritance:r /grant:r ($identity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Guardian 운영 데이터 ACL 설정 실패: $dir" }
   }

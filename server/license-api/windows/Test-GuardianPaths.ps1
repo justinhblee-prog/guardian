@@ -31,6 +31,12 @@ try {
   $env:GUARDIAN_DATA_DIR=Join-Path $tempRoot 'ExternalGuardian'
   $external=Get-GuardianPaths -RepositoryRoot $repo
   Assert-True ($external.Root -eq $env:GUARDIAN_DATA_DIR) 'custom absolute path must be accepted'
+  $protectedDirectories = @(Get-GuardianProtectedDirectories -Paths $external)
+  foreach ($requiredPath in @($external.Root,$external.Secrets,(Split-Path $external.LicenseEnv -Parent),(Split-Path $external.FilterEnv -Parent),$external.Backups,$external.Outputs,$external.FilterDist,$external.FilterLogs)) {
+    Assert-True ($protectedDirectories -contains $requiredPath) "runtime directory must receive an explicit ACL: $requiredPath"
+  }
+  Assert-True ($protectedDirectories -contains $external.FilterLogs) 'filter logs must receive an explicit ACL'
+  Assert-True ($protectedDirectories -contains $external.FilterDist) 'filter distribution output must receive an explicit ACL'
 
   $env:GUARDIAN_DATA_DIR='relative-guardian-data'
   Assert-Throws { Get-GuardianPaths -RepositoryRoot $repo } 'relative data path must be rejected'
