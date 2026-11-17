@@ -5,7 +5,8 @@ $ErrorActionPreference = 'Stop'
 $pwshCommand = Get-Command 'pwsh' -ErrorAction SilentlyContinue
 if (-not $pwshCommand -or -not $pwshCommand.Source) { throw '필터 자동 게시 예약 작업에는 PowerShell 7.2 이상(pwsh.exe)이 필요합니다.' }
 $FilterDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\filter-distribution')).Path
-$SecretDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'secrets'
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+$SecretDir = $GuardianSecretsDir
 $protectedPath = Join-Path $SecretDir 'guardian-filter-private.dpapi'
 $sourcesPath = Join-Path $FilterDir 'sources.json'
 if (-not (Test-Path $protectedPath)) { throw '보호된 필터 서명키가 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.' }
