@@ -468,3 +468,15 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Package versionCode 21 / `0.7.8-dev`.
 - CI run: https://github.com/justinhblee-prog/guardian/actions/runs/43573908206 — pending at documentation update time. Do not treat this source change as verified until that run completes successfully.
 - This is parser hardening only; it does not prove physical-device VPN routing or real ad-removal effectiveness.
+
+## Android VPN DNS E2E 및 필터 파서 메모리 개선 — 2026-11-17
+
+- 검증 커밋: `773581639f8fce4e87a9f8fbbd145cfce8fb827e`
+- GitHub Actions: [run 44007917861](https://github.com/justinhblee-prog/guardian/actions/runs/44007917861) — **success**.
+- Android 단위 테스트, lint, 기존 버전 설치/업그레이드 빌드, 새 debug APK 빌드 및 패키지 검증 통과.
+- 에뮬레이터 VPN DNS E2E: VPN 터널 활성화, `example.com` DNS 전달 성공(queries 0→1, forwarded 0→1), 테스트용 `*.doubleclick.net` 도메인 조회 차단, blocked 1, failed 0.
+- 필터 캐시 파일을 전체 `List<String>`로 읽는 대신 Reader 기반으로 한 줄씩 파싱하도록 변경해, 대용량 보안 필터의 라인 문자열/리스트 중복 적재를 줄였습니다. 단위 테스트에서 Reader 파싱 결과가 String 파싱 결과와 일치하고, 소스별 최소 규칙 수 검증 및 기존 활성 규칙 유지 동작을 확인했습니다.
+- APK: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`, 3,116,166 bytes.
+- APK SHA-256: `7ed4d0f022764c4a702faff2dd07d4141c15e017f5a4df2b71e5528b33c560d3`.
+- APK는 고정 개발 인증서의 debug 서명본입니다. production signing secrets/운영 URL·공개키 설정, 실제 기기 설치, 실기기 VPN 권한, Wi-Fi↔모바일 전환, 장시간 안정성 및 실제 앱별 광고 제거율은 미검증입니다.
+- 이 결과는 에뮬레이터의 DNS 기반 도메인 차단을 검증한 것이며 HTTPS 페이지 요소 제거, 앱 내부 DoH/DoT 우회 차단, 모든 광고 제거를 의미하지 않습니다.
