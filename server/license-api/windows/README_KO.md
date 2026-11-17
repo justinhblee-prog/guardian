@@ -52,6 +52,17 @@ Set-ExecutionPolicy -Scope Process Bypass
 - 라이선스 API 준비 상태: http://127.0.0.1:8787/ready
 - 필터 배포 상태: http://127.0.0.1:8788/health
 
+ 
+### 노트북과 모바일 양쪽에서 라이선스 발급
+
+관리자 화면은 반응형 웹 화면이므로 별도의 모바일 앱이나 별도 라이선스 DB를 만들지 않습니다. 노트북과 모바일이 동일한 라이선스 API/PostgreSQL을 사용합니다.
+
+- **노트북:** `http://127.0.0.1:8787/admin`에 접속해 관리자 토큰으로 인증합니다.
+- **모바일:** Tailscale에 로그인하고 노트북과 같은 tailnet에 연결한 뒤 `https://<노트북 MagicDNS 이름>/admin`에 접속합니다. `Enable-GuardianPrivateAccess.ps1`가 출력하는 HTTPS 주소 뒤에 `/admin`을 붙이면 됩니다.
+- 두 화면에서 발급·조회·정지·기기 해제한 결과는 같은 서버에 즉시 반영됩니다. 발급 키는 생성 직후 한 번만 표시되며, 관리자 토큰은 브라우저 저장소에 저장되지 않습니다.
+- 라이선스 관리 API는 tailnet 내부에서만 접근합니다. 공유기 포트포워딩이나 Tailscale Funnel로 공개하지 마세요.
+
+
 ## 필터 배포
 필터 updater/publisher는 `server/filter-distribution`에 있습니다. upstream 필터 다운로드, 규칙 수 검증, 버전 생성, SHA-256, RSA-SHA256 manifest 서명까지 지원합니다. `sources.example.json`을 `sources.json`으로 복사해 실제 HTTPS 배포 주소와 공식 HTTPS 공급원/최소 규칙 수를 확인합니다. 최초 설치 스크립트가 필터 서명 개인키를 현재 사용자 DPAPI로 보호해 저장하므로 PEM을 환경변수·작업 인수·로그에 직접 기록하지 않습니다. 아래의 Tailscale/클라우드 연결 설정을 실행하면 `sources.json`의 GitHub 정적 원본 주소 설정, 최초 서명 게시, Tailscale 비공개 API 연결과 함께 매일 04:17 업데이트 및 클라우드 게시 작업이 자동 등록됩니다. 실행 시각을 변경하려면 `./Enable-GuardianPrivateAccess.ps1 -DailyAt '05:30'`처럼 지정하거나 `./Register-GuardianFilterUpdateTask.ps1 -DailyAt '05:30'`으로 예약 작업만 변경할 수 있습니다. 이 작업은 매일 지정 시각 및 사용자 로그인 시 실행하며 upstream 다운로드 → 규칙 수/UTF-8 검증 → RSA 서명 → manifest/필터 해시 검증 → GitHub 정적 클라우드 게시까지 수행합니다. 로그는 `server/filter-distribution/logs/`에 기록됩니다. 수동 실행은 `./Update-And-Publish-GuardianFilters.ps1`입니다. Node.js 22 이상이 필요합니다. 서명 개인키는 공개 웹 컨테이너나 Android 앱에 넣지 않습니다. `dist`만 읽기 전용으로 제공됩니다.
 
