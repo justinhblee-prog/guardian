@@ -4,7 +4,9 @@ param([string]$VersionName='1.0.0',[int]$VersionCode=28,[string]$Repository='jus
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $serverDir=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$secretDir=Join-Path $serverDir 'secrets'
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+Initialize-GuardianPrivateDataDirectory
+$secretDir=$script:GuardianSecretsDir
 $licensePublicPath=Join-Path $secretDir 'guardian-license-public.x509.b64'
 $filterPublicPath=Join-Path $secretDir 'guardian-filter-public.x509.b64'
 $keystorePath=Join-Path $secretDir 'guardian-release.jks'
