@@ -246,39 +246,66 @@ if [[ "$active" -ne 1 ]]; then
   exit 1
 fi
 
-before_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-before_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_forwarded="$(sed -n 's/.*name="dns_forwarded"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_failed="$(sed -n 's/.*name="dns_failed"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
 before_queries="${before_queries:-0}"
 before_blocked="${before_blocked:-0}"
+before_forwarded="${before_forwarded:-0}"
+before_failed="${before_failed:-0}"
 
 echo "VPN active. Triggering a permitted DNS lookup."
-adb shell ping -c 1 -W 5 example.com >/tmp/guardian-allowed-dns.txt 2>&1 || true
+allowed_output="$(adb shell ping -c 1 -W 5 example.com 2>&1 || true)"
+printf '%s\\n' "$allowed_output" | tee /tmp/guardian-allowed-dns.txt
 sleep 2
 prefs="$(read_prefs)"
-after_allowed="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-after_allowed="${after_allowed:-0}"
-if (( after_allowed <= before_queries )); then
-  echo "Allowed DNS lookup did not increment Guardian's observed DNS query counter."
+after_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_forwarded="$(sed -n 's/.*name="dns_forwarded"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_queries="${after_queries:-0}"
+after_forwarded="${after_forwarded:-0}"
+if (( after_queries <= before_queries || after_forwarded <= before_forwarded )); then
+  echo "Allowed DNS lookup was not observed as a forwarded Guardian query."
   read_prefs
+  exit 1
+fi
+if ! grep -Eiq '^PING example\\.com \\([0-9a-fA-F:.]+\\)' <<<"$allowed_output"; then
+  echo "Allowed hostname did not resolve to an IPv4 or IPv6 address through the active VPN."
   exit 1
 fi
 
 echo "Triggering a blocked-domain DNS lookup."
-adb shell ping -c 1 -W 5 "guardian-ci-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-blocked-dns.txt 2>&1 || true
+blocked_host="guardian-ci-${GITHUB_RUN_ID:-test}.doubleclick.net"
+blocked_output="$(adb shell ping -c 1 -W 5 "$blocked_host" 2>&1 || true)"
+printf '%s\\n' "$blocked_output" | tee /tmp/guardian-blocked-dns.txt
 sleep 2
 prefs="$(read_prefs)"
-after_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+after_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_failed="$(sed -n 's/.*name="dns_failed"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
 after_blocked="${after_blocked:-0}"
+after_failed="${after_failed:-0}"
 if (( after_blocked <= before_blocked )); then
   echo "Blocked-domain lookup did not increment Guardian's blocked DNS counter."
-  cat /tmp/guardian-blocked-dns.txt || true
+  read_prefs
+  exit 1
+fi
+if grep -Eiq "^PING ${blocked_host//./\\.} \\([0-9a-fA-F:.]+\\)" <<<"$blocked_output"; then
+  echo "Blocked hostname unexpectedly resolved to an address."
+  exit 1
+fi
+if ! grep -Eiq 'unknown host|bad address|name or service not known|temporary failure in name resolution' <<<"$blocked_output"; then
+  echo "Blocked lookup did not produce an explicit DNS resolution failure."
+  exit 1
+fi
+if (( after_failed > before_failed )); then
+  echo "Guardian recorded a DNS forwarding failure during the allow/block acceptance test."
   read_prefs
   exit 1
 fi
 
-echo "VPN E2E passed: tunnel active, allowed DNS observed, and blocked DNS counter incremented."
+echo "VPN DNS E2E passed: tunnel active, allowed hostname resolved and forwarded, blocked hostname failed resolution and incremented the block counter without an upstream failure."
 echo "Allowed lookup:"
 cat /tmp/guardian-allowed-dns.txt || true
 echo "Blocked lookup:"
-cat /tmp/guardian-blocked-dns.txt || true
+cat /tmp/guardian-blocked-dns.txt || true"
 read_prefs
