@@ -37,22 +37,32 @@ function toDynamicRules(parsed) {
   }));
 }
 
-async function installBundledRules() {
+async function loadBundledRules() {
   const response = await fetch(chrome.runtime.getURL(RULES_PATH));
   if (!response.ok) throw new Error(`Unable to load bundled rules: HTTP ${response.status}`);
-  const parsed = parseSharedRules(await response.text());
-  const nextRules = toDynamicRules(parsed);
+  return toDynamicRules(parseSharedRules(await response.text()));
+}
+
+async function setProtectionEnabled(enabled) {
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const removeRuleIds = existing
     .filter(rule => rule.id >= FIRST_DYNAMIC_RULE_ID)
     .map(rule => rule.id);
-  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules: nextRules });
+  const addRules = enabled ? await loadBundledRules() : [];
+  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
+  const previous = await chrome.storage.local.get(["lastUpdatedAt"]);
   await chrome.storage.local.set({
-    enabled: true,
-    ruleCount: nextRules.length,
-    lastUpdatedAt: new Date().toISOString(),
+    enabled,
+    ruleCount: addRules.length,
+    lastUpdatedAt: previous.lastUpdatedAt || new Date().toISOString(),
     source: "bundled-shared-rules"
   });
+  return { enabled, ruleCount: addRules.length };
+}
+
+async function installBundledRules() {
+  const saved = await chrome.storage.local.get(["enabled"]);
+  await setProtectionEnabled(saved.enabled !== false);
 }
 
 if (typeof chrome !== "undefined") {
@@ -61,6 +71,13 @@ if (typeof chrome !== "undefined") {
   });
   chrome.runtime.onStartup.addListener(() => {
     installBundledRules().catch(error => console.error("Guardian rule refresh failed", error));
+  });
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== "guardian:set-enabled" || typeof message.enabled !== "boolean") return false;
+    setProtectionEnabled(message.enabled)
+      .then(sendResponse)
+      .catch(error => sendResponse({ error: error.message }));
+    return true;
   });
 }
 
