@@ -54,7 +54,29 @@ Set-ExecutionPolicy -Scope Process Bypass
 ## 필터 배포
 필터 updater/publisher는 `server/filter-distribution`에 있습니다. upstream 필터 다운로드, 규칙 수 검증, 버전 생성, SHA-256, RSA-SHA256 manifest 서명까지 지원합니다. `sources.example.json`을 `sources.json`으로 복사해 실제 HTTPS 배포 주소와 공식 HTTPS 공급원/최소 규칙 수를 확인합니다. 최초 설치 스크립트가 필터 서명 개인키를 현재 사용자 DPAPI로 보호해 저장하므로 PEM을 환경변수·작업 인수·로그에 직접 기록하지 않습니다. 매일 04:17 업데이트 작업 등록: `./Register-GuardianFilterUpdateTask.ps1 -DailyAt '04:17'`. 이 작업은 매일 지정 시각 및 사용자 로그인 시 실행하고 결과를 `server/filter-distribution/logs/`에 기록합니다. 수동 실행은 `./Invoke-GuardianFilterUpdate.ps1`입니다. Node.js 22 이상이 필요합니다. 서명 개인키는 공개 웹 컨테이너나 Android 앱에 넣지 않습니다. `dist`만 읽기 전용으로 제공됩니다.
 
-Android 앱의 설정에서 **운영 서버 주소 (노트북)**에는 라이선스 API의 공개 HTTPS 주소를, **서명 필터 배포 서버**에는 필터 서버의 공개 HTTPS 주소를 각각 저장합니다. `sources.json`의 `baseUrl`은 앱의 필터 서버 주소와 정확히 같은 공개 HTTPS origin/path여야 합니다. 현재 Docker 포트는 localhost 전용이므로 도메인/TLS 및 인증된 tunnel 또는 reverse proxy를 구성하기 전에는 휴대폰에서 원격 접속할 수 없습니다.
+Android 앱의 설정에서 **운영 서버 주소 (노트북)**에는 라이선스 API의 HTTPS 주소를, **서명 필터 배포 서버**에는 필터 서버의 HTTPS 주소를 각각 저장합니다. `sources.json`의 `baseUrl`은 앱의 필터 서버 주소와 정확히 일치해야 합니다. 아래의 비공개 Tailscale 연결을 사용하면 공용 서버를 별도로 호스팅하지 않고도 노트북의 서비스를 모바일에서 안전하게 사용할 수 있습니다.
+
+## 노트북과 모바일의 비공개 연결 (권장)
+
+Guardian 운영 서버는 개인 Windows 노트북에서 실행하고 Android 모바일 앱이 접속하는 구조입니다. 서버 컨테이너는 계속 `127.0.0.1`에만 바인딩하며, Tailscale Serve가 HTTPS를 종료해 노트북 내부 포트로 전달합니다. Tailscale Serve는 같은 tailnet 기기만 접근할 수 있는 비공개 서비스이며, Funnel과 달리 인터넷 전체에 공개하지 않습니다.
+
+1. Windows 노트북과 Android 모바일에 Tailscale을 설치하고 같은 Tailscale 계정/tailnet에 로그인합니다.
+2. Tailscale 관리 콘솔에서 MagicDNS와 HTTPS certificates를 활성화합니다. HTTPS 인증서 발급 시 기기 이름과 tailnet DNS 이름이 공개 인증서 투명성 로그에 기록될 수 있습니다.
+3. 노트북에서 Docker Desktop을 시작한 뒤 `Start-All-GuardianServices.ps1`로 라이선스 API와 필터 서버의 상태가 정상인지 확인합니다.
+4. 관리자 PowerShell에서 다음 스크립트를 실행합니다.
+
+```powershell
+.\\Enable-GuardianPrivateAccess.ps1
+```
+
+5. 스크립트가 출력하는 두 HTTPS 주소를 Android 앱 설정에 각각 입력합니다.
+   - **운영 서버 주소 (노트북)**: `https://<노트북-MagicDNS-이름>` (HTTPS 443 → localhost:8787)
+   - **서명 필터 배포 서버**: `https://<노트북-MagicDNS-이름>:8443` (HTTPS 8443 → localhost:8788)
+6. 모바일의 Tailscale 연결을 켠 상태에서 앱의 라이선스 연결 및 필터 업데이트를 확인합니다.
+
+이 방식은 공유기 포트포워딩, 공용 IP, 외부 공개 DNS, Cloudflare Tunnel 또는 Tailscale Funnel을 요구하지 않습니다. 노트북이 켜져 있고 절전 상태가 아니며 Tailscale에 연결되어 있어야 합니다. 두 HTTPS 주소는 tailnet에 가입된 기기만 접근할 수 있습니다. Tailscale Serve의 HTTPS 포트별 프록시 기능을 사용합니다.
+
+**주의:** 이 스크립트는 기존 Tailscale Serve의 HTTPS 443 및 8443 설정을 Guardian용으로 설정합니다. 같은 포트를 이미 다른 용도로 사용 중이라면 실행 전에 기존 Serve 구성을 확인하세요. 비공개 연결을 종료할 때는 `tailscale serve status`로 현재 구성을 확인한 후 해당 포트만 해제하세요. `tailscale funnel`을 실행하지 마세요.
 
 ## 자동 시작과 절전
 예약 작업은 Windows 로그인 시 전체 서비스를 시작합니다. Docker Compose의 `restart: unless-stopped`는 Docker 엔진 재시작 후 컨테이너 복구를 돕습니다. 로그인 전 부팅 단계부터 운영하려면 별도 서비스 계정과 권한 설계가 필요합니다. 노트북이 꺼져 있거나 절전 상태이면 서버도 접속할 수 없습니다. 운영 중 절전 방지, 전원 연결, 네트워크 안정성 및 Windows 업데이트 재부팅 정책을 별도로 관리해야 합니다.
