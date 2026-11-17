@@ -1844,10 +1844,6 @@ class MainActivity : Activity() {
                     android.util.Log.e("Guardian", "Post-update protection cache validation failed", cacheError)
                     false
                 }
-                val resumeQueuedProtection = ProtectionState.shouldResumeProtectionAfterFilterFailure(
-                    pendingProtectionStartAfterFilterUpdate,
-                    protectionCachesReady
-                )
                 android.util.Log.i(
                     "Guardian",
                     "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}, protectionCachesReady=$protectionCachesReady"
@@ -1877,8 +1873,14 @@ class MainActivity : Activity() {
                     securityFilterCheckBox?.isEnabled = true
                     androidAdsFilterCheckBox?.isEnabled = true
                     if (pendingProtectionStartAfterFilterUpdate) {
+                        // Snapshot and clear on the UI thread. The readiness callback may set
+                        // this flag while the background update is already finishing.
+                        val protectionStartWasRequested = pendingProtectionStartAfterFilterUpdate
                         pendingProtectionStartAfterFilterUpdate = false
-                        if (resumeQueuedProtection) {
+                        if (ProtectionState.shouldResumeProtectionAfterFilterFailure(
+                                startWasRequested = protectionStartWasRequested,
+                                cachedFiltersReady = protectionCachesReady
+                            )) {
                             requestProtection()
                         } else {
                             val securityStillMissing = securityEnabledNow && !hasSecurityCacheNow
