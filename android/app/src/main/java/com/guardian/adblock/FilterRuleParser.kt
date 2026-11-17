@@ -11,7 +11,12 @@ object FilterRuleParser {
         val ignored: Int
     )
 
-    fun parse(lines: List<String>): Parsed {
+    fun parse(lines: List<String>): Parsed = parseSequence(lines.asSequence())
+
+    /** Parses a decoded feed without first allocating a second list of every line. */
+    fun parse(text: String): Parsed = parseSequence(text.lineSequence())
+
+    private fun parseSequence(lines: Sequence<String>): Parsed {
         val blocked = linkedSetOf<String>()
         val allowed = linkedSetOf<String>()
         val importantBlocked = linkedSetOf<String>()
