@@ -4,12 +4,13 @@ param([string]$VersionName='1.0.0',[int]$VersionCode=28,[string]$Repository='jus
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $serverDir=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$secretDir=Join-Path $serverDir 'secrets'
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+$secretDir=$GuardianSecretsDir
 $licensePublicPath=Join-Path $secretDir 'guardian-license-public.x509.b64'
 $filterPublicPath=Join-Path $secretDir 'guardian-filter-public.x509.b64'
-$keystorePath=Join-Path $secretDir 'guardian-release.jks'
-$storePasswordPath=Join-Path $secretDir 'guardian-release-store-password.dpapi'
-$keyPasswordPath=Join-Path $secretDir 'guardian-release-key-password.dpapi'
+$keystorePath=$GuardianKeystorePath
+$storePasswordPath=$GuardianStorePasswordPath
+$keyPasswordPath=$GuardianKeyPasswordPath
 if($VersionName -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$' -or $VersionCode -lt 1){throw '정식 버전은 x.y.z 형식이고 versionCode는 양의 정수여야 합니다.'}
 foreach($path in @($licensePublicPath,$filterPublicPath)){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw "운영 공개키가 없습니다: $path. Setup-GuardianServer.ps1을 먼저 실행하세요."}}
 foreach($name in @('keytool','gh','tailscale','git')){if(-not(Get-Command $name -ErrorAction SilentlyContinue)){throw "$name 명령을 찾을 수 없습니다."}}
@@ -25,10 +26,8 @@ $dnsName=([string]$tailStatus.Self.DNSName).TrimEnd('.')
 if([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',[StringComparison]::OrdinalIgnoreCase)){throw 'Tailscale MagicDNS 이름이 없습니다. 노트북의 Tailscale 로그인과 MagicDNS를 확인하세요.'}
 $licenseApiUrl='https://'+$dnsName
 try{$health=Invoke-WebRequest -Uri ($licenseApiUrl+'/ready') -TimeoutSec 8 -UseBasicParsing;if($health.StatusCode -ne 200){throw 'not ready'}}catch{throw 'Tailscale HTTPS 라이선스 API가 준비되지 않았습니다. Enable-GuardianPrivateAccess.ps1을 먼저 완료하세요.'}
-New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
+Initialize-GuardianSecureDirectories
 $currentIdentity=[Security.Principal.WindowsIdentity]::GetCurrent().Name
-& icacls.exe $secretDir /inheritance:r /grant:r ($currentIdentity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
-if($LASTEXITCODE -ne 0){throw '운영 비밀 폴더의 Windows ACL 설정에 실패했습니다.'}
 function New-RandomSecret([int]$Length=48){$bytes=[byte[]]::new($Length);$rng=[Security.Cryptography.RandomNumberGenerator]::Create();try{$rng.GetBytes($bytes)}finally{$rng.Dispose()};return [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','A').Replace('/','B')}
 function Set-GitHubSecret([string]$Name,[string]$Value){
  $psi=[Diagnostics.ProcessStartInfo]::new();$psi.FileName=(Get-Command gh).Source
@@ -52,8 +51,7 @@ if((Test-Path $keystorePath) -or (Test-Path $storePasswordPath) -or (Test-Path $
  ConvertTo-SecureString -String $storePassword -AsPlainText -Force | ConvertFrom-SecureString | Set-Content -NoNewline -Encoding ascii $storePasswordPath
  ConvertTo-SecureString -String $keyPassword -AsPlainText -Force | ConvertFrom-SecureString | Set-Content -NoNewline -Encoding ascii $keyPasswordPath
 }
-& icacls.exe $keystorePath /inheritance:r /grant:r ($currentIdentity + ':F') '*S-1-5-18:F' | Out-Null
-if($LASTEXITCODE -ne 0){throw 'Android keystore 파일 ACL 설정 실패'}
+Set-GuardianSecureFileAcl $keystorePath
 $keystoreBase64=[Convert]::ToBase64String([IO.File]::ReadAllBytes($keystorePath))
 $filterPublic=(Get-Content -Raw $filterPublicPath).Trim();$licensePublic=(Get-Content -Raw $licensePublicPath).Trim()
 $manifestUrl='https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
