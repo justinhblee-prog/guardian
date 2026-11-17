@@ -269,7 +269,7 @@ if (( after_queries <= before_queries || after_forwarded <= before_forwarded ));
   read_prefs
   exit 1
 fi
-if ! grep -Eiq '^PING example\.com \([0-9a-fA-F:.]+\\)' <<<"$allowed_output"; then
+if ! grep -Eiq '^PING example\.com \([0-9a-fA-F:.]+\)' <<<"$allowed_output"; then
   echo "Allowed hostname did not resolve to an IPv4 or IPv6 address through the active VPN."
   exit 1
 fi
@@ -289,7 +289,7 @@ if (( after_blocked <= before_blocked )); then
   read_prefs
   exit 1
 fi
-if grep -Eiq "^PING ${blocked_host//./\.} \([0-9a-fA-F:.]+\\)" <<<"$blocked_output"; then
+if grep -Eiq "^PING ${blocked_host//./\.} \([0-9a-fA-F:.]+\)" <<<"$blocked_output"; then
   echo "Blocked hostname unexpectedly resolved to an address."
   exit 1
 fi
@@ -307,5 +307,5 @@ echo "VPN DNS E2E passed: tunnel active, allowed hostname resolved and forwarded
 echo "Allowed lookup:"
 cat /tmp/guardian-allowed-dns.txt || true
 echo "Blocked lookup:"
-cat /tmp/guardian-blocked-dns.txt || true"
+cat /tmp/guardian-blocked-dns.txt || true
 read_prefs
