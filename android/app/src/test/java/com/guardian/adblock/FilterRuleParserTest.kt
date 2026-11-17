@@ -74,6 +74,13 @@ class FilterRuleParserTest {
         assertTrue(parsed.blocked.contains("host5000.example"))
     }
 
+    @Test fun parsesReaderIncrementallyWithSameResultsAsText() {
+        val text = "||ads.example^\n@@||trusted.ads.example^\n||priority.example^\\$important"
+        val fromText = FilterRuleParser.parse(text)
+        val fromReader = FilterRuleParser.parse(text.reader())
+        assertEquals(fromText, fromReader)
+    }
+
     @Test fun acceptsUtf8BomBeforeFirstFilterRule() {
         val parsed = FilterRuleParser.parse(listOf("\uFEFF||ads.example.com^"))
         assertEquals(setOf("ads.example.com"), parsed.blocked)
