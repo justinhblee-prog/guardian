@@ -510,3 +510,16 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - APK SHA-256: `aa74154acd2e5a4af888884caa1b531f86b0b5f8fb6139f214e16b3712568a07`.
 - GitHub artifact: `guardian-android-debug`, ID `14297262286`, ZIP SHA-256 `12473c5ce9a43727e0c214055bda1b2c58e7eef9c028d029f09e3a88c4d51bbd`, 만료 예정 2026-12-01.
 - APK는 고정 개발용 debug 인증서로 서명됐습니다. 운영 keystore/서명, 운영용 서명 필터 manifest 및 배포 서버, 라이선스 API 운영 URL/공개키, 실기기 VPN·DNS·네트워크 전환·장시간 안정성 검증은 별도 출시 전 필수 항목입니다.
+
+
+## 2026-11-17 — Android 재실행 시 필터 UI 동기화 및 최신 산출물 재검증
+
+- 최신 소스 커밋: `e74e72758e873096d4d14c4a5698e658647bef9b`.
+- 변경: 앱이 백그라운드에 있는 동안 필터 업데이트가 선택형 필터를 비활성화한 경우, Activity 재진입 시 필터 Switch/CheckBox 상태를 저장 설정과 다시 동기화합니다.
+- GitHub Actions [run 44013646938](https://github.com/justinhblee-prog/guardian/actions/runs/44013646938) — **success**. 단위 테스트, lint, 개발 서명 인증서, 이전 버전 업그레이드 빌드, 현재 APK 빌드, 번들 DNS 필터 라이브러리, 패키지/버전, 체크섬, 에뮬레이터 설치 및 앱 UI 기반 VPN DNS E2E 단계가 모두 통과했습니다.
+- 실제 앱 UI에서 '보호 시작' 버튼을 누르고 Android VPN 승인 창을 수락했습니다. 세 필터 캐시 준비 후 VPN 터널이 활성화됐습니다. `example.com` DNS 응답 전달 성공(질의 0→1, 전달 0→1), 테스트용 `guardian-ci-44013646938.doubleclick.net` 이름 해석 차단을 확인했습니다. 최종 상태: DNS 질의 2, 차단 1, 전달 1, DNS 실패 0.
+- 주의: 에뮬레이터의 `ping example.com` ICMP 응답은 0/1이었습니다. 이 E2E는 DNS 전달/도메인 차단을 검증하며 ICMP, 일반 웹 연결 전반, 모든 광고 형식 제거를 입증하지 않습니다.
+- APK: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`, 3,117,390 bytes.
+- APK SHA-256 (artifact 내부 `SHA256SUMS.txt`와 직접 추출 계산 일치): `3d5950f66f623a0d8c74d609b34dd940089a7604ab3acbef464c8873a22f6c8e`.
+- Artifact `guardian-android-debug`, ID `14297427865`, ZIP 크기 3,035,426 bytes, ZIP SHA-256 `43a085de3f4a2dc8a183f13631243f9aede718a7b04c24fbc0607a7eaa40d80c`, 만료 예정 2026-12-01.
+- 본 APK는 개발용 debug 서명입니다. 운영 서명키/릴리스 서명, 운영용 필터 manifest 배포 서버 및 라이선스 API 구성, 실기기 설치·VPN/네트워크 전환·장시간 안정성은 별도 출시 전 검증 항목입니다.
