@@ -1,6 +1,6 @@
 #Requires -Version 7.2
 [CmdletBinding()]
-param()
+param([string]$DailyAt = '04:17')
 $ErrorActionPreference = 'Stop'
 
 # Publish the laptop-hosted Guardian APIs only to the private Tailscale tailnet.
@@ -106,12 +106,17 @@ if ($LASTEXITCODE -ne 0) {
 & $tailscale serve status
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 상태 확인 실패' }
 
+# The first signed cloud publication is now live. Register recurring refresh
+# only after the source URL and signing-key pairing have passed the full publish.
+& (Join-Path $PSScriptRoot 'Register-GuardianFilterUpdateTask.ps1') -DailyAt $DailyAt
+
 Write-Host ''
 Write-Host 'Guardian 노트북 비공개 접속 주소'
 Write-Host ('라이선스 API: https://' + $dnsName)
 Write-Host '서명 필터 클라우드: https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
 Write-Host ''
 Write-Host '필터 manifest와 서명 파일을 GitHub 정적 클라우드 원본에 게시했습니다.'
+Write-Host "서명 필터 자동 업데이트 작업을 매일 $DailyAt 및 사용자 로그인 시 실행하도록 등록했습니다."
 Write-Host '모바일의 운영 서버 주소에는 위 Tailscale HTTPS 주소를, 서명 필터 배포 서버에는 출력된 GitHub 정적 클라우드 주소를 입력하세요. 필터 업데이트는 노트북이 꺼져 있어도 받을 수 있습니다.'
 Write-Host '이 구성은 Tailscale tailnet 내부 전용입니다. Funnel, 공유기 포트포워딩, 공용 방화벽 개방은 사용하지 않습니다.'
 Write-Host '노트북이 켜져 있고 절전 상태가 아니며 Tailscale에 연결되어 있어야 모바일에서 접속할 수 있습니다.'
