@@ -14,6 +14,9 @@ object FilterRuleParser {
 
     fun parse(lines: List<String>): Parsed = parseSequence(lines.asSequence())
 
+    /** Parses lazy rule pipelines without materializing their source lines. */
+    fun parse(lines: Sequence<String>): Parsed = parseSequence(lines)
+
     /** Parses a decoded feed without first allocating a second list of every line. */
     fun parse(text: String): Parsed = parseSequence(text.lineSequence())
 
