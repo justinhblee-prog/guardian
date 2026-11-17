@@ -10,9 +10,11 @@ function Get-GuardianPaths {
   }
   $data = [IO.Path]::GetFullPath($configured).TrimEnd('\')
   $repoPrefix = $repo + '\'
-  if ($data.Equals($repo,[StringComparison]::OrdinalIgnoreCase) -or $data.StartsWith($repoPrefix,[StringComparison]::OrdinalIgnoreCase)) {
-    throw "Guardian 데이터 경로는 Git 저장소 외부여야 합니다: $data"
+  $dataPrefix = $data + '\\'
+  if ($data.Equals($repo,[StringComparison]::OrdinalIgnoreCase) -or $data.StartsWith($repoPrefix,[StringComparison]::OrdinalIgnoreCase) -or $repo.StartsWith($dataPrefix,[StringComparison]::OrdinalIgnoreCase)) {
+    throw "Guardian 데이터 경로는 Git 저장소와 분리된 독립 경로여야 합니다: $data"
   }
+  if ($data -match '(?i)(^|\\)OneDrive(?: - [^\\]+)?(\\|$)') { throw "Guardian 운영 데이터는 OneDrive 외부에 있어야 합니다: $data" }
   $oneDriveRoots = @($env:OneDrive,$env:OneDriveConsumer,$env:OneDriveCommercial) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
   foreach ($root in $oneDriveRoots) {
     $od = [IO.Path]::GetFullPath($root).TrimEnd('\')
