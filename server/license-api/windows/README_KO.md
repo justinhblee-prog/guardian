@@ -63,7 +63,7 @@ Guardian 운영 서버는 개인 Windows 노트북에서 실행하고 Android �
 1. Windows 노트북과 Android 모바일에 Tailscale을 설치하고 같은 Tailscale 계정/tailnet에 로그인합니다.
 2. Tailscale 관리 콘솔에서 MagicDNS와 HTTPS certificates를 활성화합니다. HTTPS 인증서 발급 시 기기 이름과 tailnet DNS 이름이 공개 인증서 투명성 로그에 기록될 수 있습니다.
 3. 노트북에서 Docker Desktop을 시작한 뒤 `Start-All-GuardianServices.ps1`로 라이선스 API와 필터 서버의 상태가 정상인지 확인합니다.
-4. 관리자 PowerShell에서 다음 스크립트를 실행합니다.
+4. 관리자 PowerShell에서 다음 스크립트를 실행합니다. 이 스크립트는 Tailscale Serve를 설정하고 `sources.json`의 `baseUrl`을 노트북의 필터 HTTPS 주소로 바꾼 뒤, DPAPI 보호 서명키로 필터를 다시 다운로드·서명·발행합니다. 기존 `sources.json` 백업은 `.sources.json.before-private-access.bak`에 남깁니다.
 
 ```powershell
 .\\Enable-GuardianPrivateAccess.ps1
@@ -82,7 +82,7 @@ Guardian 운영 서버는 개인 Windows 노트북에서 실행하고 Android �
 예약 작업은 Windows 로그인 시 전체 서비스를 시작합니다. Docker Compose의 `restart: unless-stopped`는 Docker 엔진 재시작 후 컨테이너 복구를 돕습니다. 로그인 전 부팅 단계부터 운영하려면 별도 서비스 계정과 권한 설계가 필요합니다. 노트북이 꺼져 있거나 절전 상태이면 서버도 접속할 수 없습니다. 운영 중 절전 방지, 전원 연결, 네트워크 안정성 및 Windows 업데이트 재부팅 정책을 별도로 관리해야 합니다.
 
 ## 네트워크 보안
-두 서비스의 호스트 포트는 `127.0.0.1`에만 바인딩됩니다. 공유기 포트포워딩이나 Windows 방화벽 전체 공개를 하지 마세요. Android 기기에서 원격 접근하려면 고정 도메인, HTTPS 역방향 프록시, 인증된 사설 VPN/터널, 접근 제어를 먼저 구성해야 합니다. 앱의 서버 주소 설정은 접속 URL만 바꾸며 외부 네트워크, TLS 인증서, 방화벽 또는 터널을 자동 생성하지 않습니다. 인터넷 공개 전에 보안 경로를 별도로 검증해야 합니다.
+두 서비스의 호스트 포트는 계속 `127.0.0.1`에만 바인딩됩니다. Android 접속은 Tailscale Serve가 제공하는 HTTPS와 tailnet 접근 제어를 사용합니다. 공유기 포트포워딩, Windows 방화벽의 공용 포트 개방, Tailscale Funnel을 사용하지 마세요. 앱의 서버 주소 설정은 접속 URL만 저장하며 Tailscale 설치·로그인이나 노트북 전원/네트워크 상태를 대신 관리하지 않습니다. 다른 사설 VPN/터널을 선택하는 경우에도 동일하게 유효한 HTTPS 인증서와 접근제어를 검증해야 합니다.
 
 ## 키와 백업
 - `server/license-api/secrets/guardian-license-public.pem`: 라이선스 서명 공개키
