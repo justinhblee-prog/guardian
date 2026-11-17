@@ -3,16 +3,16 @@
 
 ## 최신 main 검증 결과 — 2026-11-17
 
-- 최신 main 커밋: `bc627faf76cb96a190335487f735fdefec52b4f4` (검증 문서 후속 커밋은 main에 추가됨).
-- Android main CI [run 44097350550](https://github.com/justinhblee-prog/guardian/actions/runs/44097350550): **전체 성공**. Unit tests, lint, 이전 개발 버전 업그레이드, APK 패키징 검사, API 35 에뮬레이터 설치/실행, VPN DNS E2E 통과.
-- VPN E2E: VPN 활성화, 허용 DNS 응답, `guardian-ci-44097350550.doubleclick.net` 차단. `dns_queries=10`, `dns_forwarded=9`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`.
-- APK: `com.guardian.adblock`, versionCode 27, versionName `0.7.14-dev`, 3,124,402 bytes. SHA-256: `5a1ffd469b613d25ebef526ce282890f2ca3c2f1581c05cc1f7261a7a2b7c414`.
-- 전체 소스 ZIP: 452,657 bytes. SHA-256: `c227d548bad194d0a3c8806284d71fa4634923840d869804bb44c3f0d44e6e0d`.
-- 소스 ZIP 독립 테스트: `dns_engine` 및 `windows_engine` **26 passed**, Python compileall 통과.
-- 이번 APK는 개발용 debug 서명본입니다. Android 실기기/태블릿 수용 테스트, 운영 HTTPS 필터 서버·공개키 연결, 실제 License API/DB 배포 및 production signing은 아직 별도 미완료입니다. Windows native 설치/제거 검증 역시 Android CI와 별개입니다.
-- Windows PR #95 병합: `29ac16c3e6a33fc66cb9bdb322e100916015b356`. Windows DNS readiness now requires a fresh daemon PID heartbeat and a live process; shutdown failures are reported instead of silently marking the daemon stopped.
-- Windows PR validation: [build/install run 44100882615](https://github.com/justinhblee-prog/guardian/actions/runs/44100882615) and [cross-platform engine tests 44100882646](https://github.com/justinhblee-prog/guardian/actions/runs/44100882646) succeeded. The Windows installer built, installed, launched both packaged EXEs in self-test mode, restored DNS, and passed both restore-before-uninstall and direct-uninstall scheduled-task cleanup paths. Ubuntu and Windows Python suites passed.
-- Windows package remains unsigned development output. Actual Windows laptop DNS adapter, reboot, Wi-Fi/Ethernet and VPN coexistence acceptance tests remain outstanding.
+- 최신 main 코드 병합 커밋: 29ac16c3e6a33fc66cb9bdb322e100916015b356 (이후 문서 갱신 커밋은 별도).
+- Android main CI [run 44101506633](https://github.com/justinhblee-prog/guardian/actions/runs/44101506633): **전체 성공**. Unit tests, lint, 이전 개발 APK 업그레이드, APK package/version/filter-library 검사, API 35 emulator install/launch, VPN permission, DNS E2E 통과.
+- VPN E2E: VPN 활성화, 허용 example.com DNS 응답, guardian-ci-44101506633.doubleclick.net 차단. dns_queries=10, dns_forwarded=9, dns_blocked=1, dns_ad_blocked=1, dns_failed=0.
+- Android APK: com.guardian.adblock, versionCode 27, versionName 0.7.14-dev, 3,124,402 bytes. SHA-256: 5a1ffd469b613d25ebef526ce282890f2ca3c2f1581c05cc1f7261a7a2b7c414.
+- 전체 소스 ZIP: 457,363 bytes. SHA-256: 99538276265f7ed910749421c6bb7257486a92fc088919bdbdeb1560c41bd9ca. ZIP 안에 Windows daemon heartbeat 코드 및 테스트도 포함됩니다.
+- 소스 ZIP을 별도 Linux 환경에서 검증: dns_engine/windows_engine **33 passed**, Python compileall 통과.
+- Windows PR #95 병합: 29ac16c3e6a33fc66cb9bdb322e100916015b356. Loopback DNS 응답만으로 데몬 준비를 오인하지 않도록 PID/heartbeat 및 프로세스 생존을 확인하고, 중지 시 데몬 종료 확인과 UI 오류 처리를 추가했습니다.
+- Windows main build [run 44101373822](https://github.com/justinhblee-prog/guardian/actions/runs/44101373822) 및 Windows/Ubuntu engine CI [run 44101373586](https://github.com/justinhblee-prog/guardian/actions/runs/44101373586): 전체 성공. EXE 2종 및 Inno Setup 설치 프로그램 생성, 무인 설치, 두 EXE self-test, DNS restore, 예약 작업 정리, restore 없이 직접 uninstall 테스트 통과.
+- Windows package artifact: 49,611,506 bytes, ZIP SHA-256 f7a1bd8cb8501e6322bed9c4185b081f9ce7f48426d0d1b97bdb3cf40dd4a855. Desktop EXE 2,191,180 bytes; DNS daemon EXE 2,088,078 bytes; installer 21,807,184 bytes.
+- Android APK는 개발용 debug 서명본이며 Windows 설치 프로그램은 unsigned 개발용입니다. Android/Windows 실기기 수용 테스트, 운영 HTTPS signed-filter 배포, 실제 License API/PostgreSQL 배포 및 production signing은 별도 미완료입니다.
 - 상세 잔여 항목과 완료 기준: [docs/REMAINING_WORKFLOW_KO.md](docs/REMAINING_WORKFLOW_KO.md).
 
 
