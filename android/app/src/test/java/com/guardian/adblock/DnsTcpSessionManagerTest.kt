@@ -104,6 +104,82 @@ class DnsTcpSessionManagerTest {
 
 
 
+    @Test fun rejectsOutOfOrderTcpDataWithoutConsumingDnsStream() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 1500)
+        manager.handle(syn, syn.size) { null }
+
+        var calls = 0
+        val outOfOrder = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 1502,
+            payload = framed
+        )
+        val gapAck = manager.handle(outOfOrder, outOfOrder.size) {
+            calls++
+            DomainFilter.makeServfail(it)
+        }.single()
+        assertEquals(1501L, DnsTcpPacket.parse(gapAck, gapAck.size, 53000)!!.acknowledgement)
+        assertEquals(0, calls)
+
+        val inOrder = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 1501,
+            payload = framed
+        )
+        val reply = manager.handle(inOrder, inOrder.size) {
+            calls++
+            DomainFilter.makeServfail(it)
+        }
+        assertEquals(1, calls)
+        assertTrue(reply.isNotEmpty())
+    }
+
+    @Test fun rejectsOverlappingTcpPayloadWithoutDuplicatingDnsBytes() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 2500)
+        manager.handle(syn, syn.size) { null }
+
+        var calls = 0
+        val firstPart = framed.copyOfRange(0, 9)
+        val first = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 2501,
+            payload = firstPart
+        )
+        val firstAck = manager.handle(first, first.size) { calls++; null }.single()
+        assertEquals(2510L, DnsTcpPacket.parse(firstAck, firstAck.size, 53000)!!.acknowledgement)
+
+        val overlapping = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 2505,
+            payload = framed.copyOfRange(4, framed.size)
+        )
+        val overlapAck = manager.handle(overlapping, overlapping.size) {
+            calls++
+            DomainFilter.makeServfail(it)
+        }.single()
+        assertEquals(2510L, DnsTcpPacket.parse(overlapAck, overlapAck.size, 53000)!!.acknowledgement)
+        assertEquals(0, calls)
+
+        val remainder = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 2510,
+            payload = framed.copyOfRange(9, framed.size)
+        )
+        val reply = manager.handle(remainder, remainder.size) {
+            calls++
+            assertArrayEquals(query, it)
+            DomainFilter.makeServfail(it)
+        }
+        assertEquals(1, calls)
+        assertTrue(reply.isNotEmpty())
+    }
+
     @Test fun handlesDnsOverTcpSessionWithIpv6Packets() {
         val manager = newManager()
         val syn = ipv6Packet(DnsTcpPacket.SYN, 11000)
