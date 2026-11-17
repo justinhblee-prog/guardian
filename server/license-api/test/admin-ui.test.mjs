@@ -49,6 +49,9 @@ test("admin dashboard exposes responsive management controls and visible operati
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
   assert.ok(html.indexOf('id="status"') < html.indexOf('id="authPanel"'), "operation status must remain visible after authentication");
+  assert.match(html, /<meta name="viewport" content="width=device-width,initial-scale=1">/);
+  assert.match(html, /@media\(max-width:850px\)/);
+  assert.match(html, /@media\(max-width:560px\)/);
   assert.match(html, /<script type="module" src="\/admin\.js"><\/script>/);
 });
 
