@@ -47,6 +47,7 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 필터 프로필·보안 옵션·사용자 규칙 관리
 - 활동 기록, 최근 DNS 질의 및 패킷 진단
 - 업스트림 DNS 및 앱별 보호 제외 설정
+- Guardian 내부 WebView 브라우저와 CSS 기반 코스메틱 규칙 적용 옵션
 - 어두운 프리미엄 스타일의 다크 UI
 
 ## DNS 테스트의 의미
@@ -120,7 +121,7 @@ Release 서명 설정과 키 파일 존재 여부는 Gradle task에서 검사합
 - 현재 필터링은 시스템 가상 DNS를 통한 IPv4/IPv6 UDP/53 및 TCP/53 DNS 질의를 처리합니다.
 - DoH/DoT, IPv6 확장 헤더 및 IP 조각화 재조립은 지원하지 않습니다. TCP/53은 제한된 세션 처리이며 재전송·패킷 손실 복구까지 구현한 완전한 TCP 스택은 아닙니다.
 - 공용 DNS 직접 포착은 IP 단위 라우트이므로 DNS가 아닌 트래픽까지 TUN에 들어올 수 있어 기본 꺼짐입니다. Guardian은 DNS 이외 트래픽을 중계하지 않습니다.
-- DNS 수준 필터이므로 웹페이지의 cosmetic filtering, HTTPS 내부 광고 요소 제거, 앱에 직접 포함된 광고 제거를 제공하지 않습니다. 모든 광고 차단을 보장하지 않습니다.
+- DNS 필터는 도메인 수준에서 동작합니다. 별도 Guardian Browser는 캐시된 필터의 지원 CSS 코스메틱 규칙과 기본 광고 슬롯 규칙을 자체 WebView 안에서만 적용합니다. 외부 Chrome/다른 앱의 화면 요소, HTTPS 내부 트래픽, scriptlet/procedural 규칙 또는 앱 자체 UI 광고를 제거하지 않으며 모든 광고 차단을 보장하지 않습니다.
 - 백그라운드 필터 업데이트는 WorkManager의 네트워크 연결 조건과 주기 작업 정책을 사용합니다. Android 전원 관리에 따라 실제 실행 시각은 설정한 시각과 정확히 일치하지 않을 수 있습니다.
 - CI는 Android 단위 테스트, lint, debug APK 조립, 에뮬레이터 설치·실행, 패키지 정체성 및 SHA-256 검증을 수행합니다. 성공한 main push 또는 수동 workflow_dispatch에서 APK artifact를 업로드합니다. CI 통과는 실기기 네트워크 검증과 다릅니다.
 - 실제 Android 기기에서 VPN 권한, Wi-Fi/모바일 전환, 장시간 백그라운드 유지, 배터리 최적화, 실제 광고 차단률 및 제조사별 동작은 아직 검증되지 않았습니다.
