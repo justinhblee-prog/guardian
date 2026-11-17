@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $FilterDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\filter-distribution')).Path
-$SecretDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'secrets'
+ . (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+$SecretDir = $GuardianSecretsDir
 $protectedPath = Join-Path $SecretDir 'guardian-filter-private.dpapi'
 if (-not (Test-Path $protectedPath)) { throw '보호된 필터 서명키가 없습니다. 운영 서버 최초 설치를 먼저 실행하세요.' }
 if (-not (Test-Path (Join-Path $FilterDir 'sources.json'))) { throw 'sources.json이 없습니다. sources.example.json을 복사하고 HTTPS 주소를 설정하세요.' }
