@@ -25,7 +25,7 @@ $nodeMajorText = & node -p "process.versions.node.split('.')[0]"
 if ($LASTEXITCODE -ne 0 -or [int]$nodeMajorText -lt 22) { throw 'Node.js 22 이상을 설치한 뒤 다시 등록하세요.' }
 try { $null = ConvertTo-SecureString -String (Get-Content -Raw $protectedPath) }
 catch { throw '현재 Windows 계정에서 DPAPI 필터 서명키를 복호화할 수 없습니다.' }
-$scriptPath = Join-Path $PSScriptRoot 'Invoke-GuardianFilterUpdate.ps1'
+$scriptPath = Join-Path $PSScriptRoot 'Update-And-Publish-GuardianFilters.ps1'
 $action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + $scriptPath + '"') -WorkingDirectory $FilterDir
 $triggers = @(
   (New-ScheduledTaskTrigger -Daily -At $scheduleTime),
@@ -33,6 +33,6 @@ $triggers = @(
 )
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::FromHours(1)) -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId ("$env:USERDOMAIN\$env:USERNAME") -LogonType Interactive -RunLevel Limited
-Register-ScheduledTask -TaskName 'Guardian Signed Filter Update' -Action $action -Trigger $triggers -Settings $settings -Principal $principal -Description 'Daily signed Guardian DNS filter update using current-user DPAPI protected signing key' -Force | Out-Null
+Register-ScheduledTask -TaskName 'Guardian Signed Filter Update' -Action $action -Trigger $triggers -Settings $settings -Principal $principal -Description 'Daily signed Guardian DNS filter update and static cloud publication using current-user DPAPI protected signing key' -Force | Out-Null
 Write-Host "Guardian 필터 업데이트 작업 등록 완료: 매일 $DailyAt 및 로그인 시 실행"
-Write-Host '작업은 현재 Windows 사용자 계정의 DPAPI 보호키를 사용합니다. 노트북이 꺼져 있거나 절전이면 실행되지 않습니다.'
+Write-Host '작업은 현재 Windows 사용자 계정의 DPAPI 보호키를 사용하고, 서명/해시 검증 후 GitHub 정적 클라우드 브랜치에 게시합니다. 노트북이 꺼져 있거나 절전이면 실행되지 않습니다.'
