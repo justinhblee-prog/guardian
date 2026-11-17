@@ -1,17 +1,15 @@
 $ErrorActionPreference = 'Stop'
 $ServerDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+Initialize-GuardianPrivateDataDirectory
 Set-Location $ServerDir
-$backupDir = Join-Path $ServerDir 'backups'
-New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
-$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-& icacls.exe $backupDir /inheritance:r /grant:r ($currentIdentity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw '백업 폴더의 Windows 접근 권한 제한 실패' }
+$backupDir = $script:GuardianBackupsDir
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $outFile = Join-Path $backupDir "guardian-license-$stamp.dump"
 
 # Use cmd.exe redirection so pg_dump's custom-format binary stream is not
 # decoded/re-encoded by a PowerShell text pipeline.
-$command = 'docker compose exec -T db pg_dump -Fc -U guardian guardian'
+$command = 'docker compose --env-file "' + $script:GuardianLicenseEnvPath + '" exec -T db pg_dump -Fc -U guardian guardian'
 cmd.exe /d /s /c "$command > `"$outFile`""
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $outFile) -or (Get-Item $outFile).Length -lt 128) {
   Remove-Item $outFile -ErrorAction SilentlyContinue
