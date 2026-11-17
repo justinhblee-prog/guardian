@@ -8,6 +8,7 @@ function Get-GuardianPaths {
     if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { throw 'LOCALAPPDATA를 확인할 수 없습니다.' }
     $configured = Join-Path $env:LOCALAPPDATA 'Guardian'
   }
+  if (-not [IO.Path]::IsPathRooted($configured)) { throw 'GUARDIAN_DATA_DIR는 절대 경로여야 합니다.' }
   $data = [IO.Path]::GetFullPath($configured).TrimEnd('\')
   $repoPrefix = $repo + '\'
   $dataPrefix = $data + '\'
@@ -28,6 +29,7 @@ function Get-GuardianPaths {
     FilterEnv = Join-Path $data 'filter-distribution\.env'
     Secrets = Join-Path $data 'secrets'
     Backups = Join-Path $data 'backups'
+    Outputs = Join-Path $data 'outputs'
     FilterSources = Join-Path $data 'filter-distribution\sources.json'
     FilterDist = Join-Path $data 'filter-distribution\dist'
     FilterLogs = Join-Path $data 'filter-distribution\logs'
@@ -35,11 +37,11 @@ function Get-GuardianPaths {
 }
 function Initialize-GuardianDataDirectories {
   param([Parameter(Mandatory)]$Paths)
-  foreach ($dir in @((Split-Path $Paths.LicenseEnv -Parent),(Split-Path $Paths.FilterEnv -Parent),$Paths.Secrets,$Paths.Backups,$Paths.FilterDist,$Paths.FilterLogs)) {
+  foreach ($dir in @((Split-Path $Paths.LicenseEnv -Parent),(Split-Path $Paths.FilterEnv -Parent),$Paths.Secrets,$Paths.Backups,$Paths.Outputs,$Paths.FilterDist,$Paths.FilterLogs)) {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
   }
   $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-  foreach ($dir in @($Paths.Root,$Paths.Secrets,(Split-Path $Paths.LicenseEnv -Parent),(Split-Path $Paths.FilterEnv -Parent),$Paths.Backups)) {
+  foreach ($dir in @($Paths.Root,$Paths.Secrets,(Split-Path $Paths.LicenseEnv -Parent),(Split-Path $Paths.FilterEnv -Parent),$Paths.Backups,$Paths.Outputs)) {
     & icacls.exe $dir /inheritance:r /grant:r ($identity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Guardian 운영 데이터 ACL 설정 실패: $dir" }
   }
