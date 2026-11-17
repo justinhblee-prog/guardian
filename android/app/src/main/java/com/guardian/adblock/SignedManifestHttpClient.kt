@@ -64,8 +64,12 @@ internal class SignedManifestHttpClient(
         require(manifestUri.query == null && manifestUri.ref == null) {
             "manifest URL에는 query 또는 fragment를 사용할 수 없습니다."
         }
-        // Bypass stale CDN copies of the mutable current-manifest pointer.
-        val manifestResponse = get("$manifestUrl?guardian_cache_bust=$nowEpochSeconds", 16 * 1024)
+        // GitHub raw CDN caches branch URLs. A harmless query parameter refreshes
+        // only that mutable manifest pointer; the laptop API rejects query strings.
+        val manifestRequestUrl = if (manifestUri.host.equals("raw.githubusercontent.com", true)) {
+            "$manifestUrl?guardian_cache_bust=$nowEpochSeconds"
+        } else manifestUrl
+        val manifestResponse = get(manifestRequestUrl, 16 * 1024)
         // Static CDNs (GitHub raw, object storage, Pages) cannot attach our
         // custom response header. Prefer the authenticated server header, then
         // retrieve the version-bound detached signature beside the manifest.
