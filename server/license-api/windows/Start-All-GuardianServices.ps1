@@ -1,11 +1,13 @@
 $ErrorActionPreference = 'Stop'
 $LicenseDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
 $FilterDir = (Resolve-Path (Join-Path $LicenseDir '..\filter-distribution')).Path
 foreach ($item in @(@{Name='License API';Dir=$LicenseDir},@{Name='Filter distribution';Dir=$FilterDir})) {
-  if (-not (Test-Path (Join-Path $item.Dir '.env'))) { throw "$($item.Name) .env가 없습니다. 설치 안내를 먼저 확인하세요." }
+  if ($item.Name -eq 'License API' -and -not (Test-Path $GuardianEnvPath)) { throw '외부 Guardian 환경 파일이 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.' }
+  if ($item.Name -eq 'Filter distribution' -and -not (Test-Path (Join-Path $item.Dir '.env'))) { throw '필터 배포 서버 .env가 없습니다.' }
   Push-Location $item.Dir
   try {
-    docker compose up -d --build
+    if ($item.Name -eq 'License API') { docker compose --env-file $GuardianEnvPath up -d --build } else { docker compose up -d --build }
     if ($LASTEXITCODE -ne 0) { throw "$($item.Name) 컨테이너 시작 실패" }
   } finally { Pop-Location }
 }
