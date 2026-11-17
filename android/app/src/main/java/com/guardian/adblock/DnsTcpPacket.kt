@@ -2,9 +2,9 @@ package com.guardian.adblock
 
 /**
  * Defensive TCP packet codec for DNS-over-TCP traffic addressed to Guardian's
- * virtual DNS endpoint. It deliberately supports only plain IPv4/IPv6 headers
- * (no IP fragments or IPv6 extension headers); TCP stream state is managed by
- * the VPN service, not by this codec.
+ * virtual DNS endpoint. IPv6 extension-header traversal is bounded and fragment
+ * reassembly is intentionally unsupported; TCP stream state is managed by the
+ * VPN service, not by this codec.
  */
 object DnsTcpPacket {
     data class Parsed(
