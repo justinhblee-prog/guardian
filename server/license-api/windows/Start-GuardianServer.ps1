@@ -1,12 +1,13 @@
 $ErrorActionPreference = 'Stop'
 $ServerDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
 Set-Location $ServerDir
-if (-not (Test-Path (Join-Path $ServerDir '.env'))) { throw '먼저 Setup-GuardianServer.ps1을 실행하세요.' }
+if (-not (Test-Path -LiteralPath $script:GuardianLicenseEnvPath)) { throw '먼저 Setup-GuardianServer.ps1을 실행하세요.' }
 $ready = $false
 for ($attempt = 1; $attempt -le 24; $attempt++) {
   docker info *> $null
   if ($LASTEXITCODE -eq 0) {
-    docker compose up -d --build
+    docker compose --env-file $script:GuardianLicenseEnvPath up -d --build
     if ($LASTEXITCODE -eq 0) { try { $response = Invoke-WebRequest -Uri 'http://127.0.0.1:8787/ready' -TimeoutSec 5 -UseBasicParsing; if ($response.StatusCode -eq 200) { $ready = $true; break } } catch {} }
   }
   Start-Sleep -Seconds 5
