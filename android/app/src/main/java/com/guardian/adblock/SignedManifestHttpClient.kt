@@ -4,6 +4,42 @@ import java.io.ByteArrayOutputStream
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 
+/** Resolve the version-bound sidecar used by static hosts without custom headers. */
+internal fun detachedManifestSignatureUrl(
+    manifestUrl: String,
+    manifestBytes: ByteArray,
+    expectedSourceId: String
+): String {
+    val manifestUri = URL(manifestUrl)
+    require(manifestUri.protocol.equals("https", true) &&
+        manifestUri.userInfo == null && manifestUri.query == null && manifestUri.ref == null) {
+        "manifest URL 형식이 올바르지 않습니다."
+    }
+    val text = FilterManifestVerifier.decodeUtf8Strict(manifestBytes)
+    fun field(name: String): String {
+        val matches = text.lineSequence().filter { it.startsWith("$name=") }.toList()
+        require(matches.size == 1) { "manifest $name 항목이 올바르지 않습니다." }
+        return matches.single().substringAfter('=')
+    }
+    val sourceId = field("sourceId")
+    val version = field("sourceVersion")
+    val generatedAt = field("generatedAt")
+    require(sourceId == expectedSourceId &&
+        sourceId.matches(Regex("[a-zA-Z0-9_-]{1,64}")) &&
+        version.matches(Regex("[a-zA-Z0-9._+-]{1,64}")) &&
+        version != "." && version != ".." &&
+        generatedAt.matches(Regex("[1-9][0-9]{0,15}"))) {
+        "manifest 서명 파일 경로가 올바르지 않습니다."
+    }
+    val signatureUrl = URL(manifestUri, "$sourceId.$version.$generatedAt.sig")
+    require(signatureUrl.protocol.equals("https", true) &&
+        signatureUrl.host.equals(manifestUri.host, true) &&
+        signatureUrl.port == manifestUri.port) {
+        "manifest 서명 파일의 출처가 일치하지 않습니다."
+    }
+    return signatureUrl.toExternalForm()
+}
+
 internal const val MAX_FILTER_DOWNLOAD_BYTES = 32 * 1024 * 1024
 
 /**
@@ -51,35 +87,8 @@ internal class SignedManifestHttpClient(
         manifestBytes: ByteArray,
         expectedSourceId: String
     ): String {
-        val manifestUri = URL(manifestUrl)
-        require(manifestUri.protocol.equals("https", true) &&
-            manifestUri.userInfo == null && manifestUri.query == null && manifestUri.ref == null) {
-            "manifest URL 형식이 올바르지 않습니다."
-        }
-        val text = FilterManifestVerifier.decodeUtf8Strict(manifestBytes)
-        fun field(name: String): String {
-            val matches = text.lineSequence().filter { it.startsWith("$name=") }.toList()
-            require(matches.size == 1) { "manifest $name 항목이 올바르지 않습니다." }
-            return matches.single().substringAfter('=')
-        }
-        val sourceId = field("sourceId")
-        val version = field("sourceVersion")
-        val generatedAt = field("generatedAt")
-        require(sourceId == expectedSourceId &&
-            sourceId.matches(Regex("[a-zA-Z0-9_-]{1,64}")) &&
-            version.matches(Regex("[a-zA-Z0-9._+-]{1,64}")) &&
-            version != "." && version != ".." &&
-            generatedAt.matches(Regex("[1-9][0-9]{0,15}"))) {
-            "manifest 서명 파일 경로가 올바르지 않습니다."
-        }
-        val signatureUrl = URL(manifestUri, "$sourceId.$version.$generatedAt.sig")
-        require(signatureUrl.protocol.equals("https", true) &&
-            signatureUrl.host.equals(manifestUri.host, true) &&
-            signatureUrl.port == manifestUri.port) {
-            "manifest 서명 파일의 출처가 일치하지 않습니다."
-        }
-        val encoded = get(signatureUrl.toExternalForm(), 4096).bytes
-            .toString(Charsets.US_ASCII).trim()
+        val signatureUrl = detachedManifestSignatureUrl(manifestUrl, manifestBytes, expectedSourceId)
+        val encoded = get(signatureUrl, 4096).bytes.toString(Charsets.US_ASCII).trim()
         require(encoded.matches(Regex("[A-Za-z0-9+/]+={0,2}"))) {
             "manifest detached signature 형식이 올바르지 않습니다."
         }
