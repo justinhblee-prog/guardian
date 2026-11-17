@@ -1789,15 +1789,17 @@ class MainActivity : Activity() {
                 val cachedProfile = FilterListManager.cachedProfile(this)
                 val securityEnabledNow = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
                 val androidAdsEnabledNow = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                val hasSecurityCacheNow = FilterListManager.hasCachedSecurityList(this)
+                val hasAndroidAdsCacheNow = FilterListManager.hasCachedAndroidAdsList(this)
                 val protectionCachesReady = try {
                     FilterListManager.isProfileCacheCurrent(
                         FilterListManager.hasCachedList(this),
                         selectedProfile.key,
                         cachedProfile.key,
                         securityEnabledNow,
-                        FilterListManager.hasCachedSecurityList(this),
+                        hasSecurityCacheNow,
                         androidAdsEnabledNow,
-                        FilterListManager.hasCachedAndroidAdsList(this)
+                        hasAndroidAdsCacheNow
                     )
                 } catch (cacheError: Exception) {
                     android.util.Log.e("Guardian", "Post-update protection cache validation failed", cacheError)
@@ -1836,8 +1838,8 @@ class MainActivity : Activity() {
                         if (resumeQueuedProtection) {
                             requestProtection()
                         } else {
-                            val securityStillMissing = securityEnabledNow && !FilterListManager.hasCachedSecurityList(this)
-                            val androidAdsStillMissing = androidAdsEnabledNow && !FilterListManager.hasCachedAndroidAdsList(this)
+                            val securityStillMissing = securityEnabledNow && !hasSecurityCacheNow
+                            val androidAdsStillMissing = androidAdsEnabledNow && !hasAndroidAdsCacheNow
                             val missing = when {
                                 securityStillMissing -> "악성코드·피싱 필터"
                                 androidAdsStillMissing -> "Android 앱 광고 필터"
