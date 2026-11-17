@@ -1,0 +1,88 @@
+name: Aider Qwen Local Runner Verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/aider-qwen-local.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aider-qwen-local-\${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-local-qwen:
+    name: Verify Aider to local Ollama Qwen
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 12
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Ollama model and run a real Aider inference
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:OLLAMA_API_BASE = 'http://127.0.0.1:11434'
+          $modelName = 'qwen2.5-coder:7b'
+          $api = $env:OLLAMA_API_BASE
+
+          Write-Host "Checking Ollama endpoint: $api"
+          $tags = Invoke-RestMethod -Uri "$api/api/tags" -TimeoutSec 20
+          $installed = @($tags.models | Where-Object {
+            $_.name -eq $modelName -or $_.model -eq $modelName
+          })
+          if ($installed.Count -eq 0) {
+            throw "Ollama model '$modelName' is not visible to the self-hosted Runner account."
+          }
+          Write-Host "Ollama model found: $modelName"
+
+          $aiderCommand = Get-Command aider -ErrorAction SilentlyContinue
+          $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+          $pyCommand = Get-Command py -ErrorAction SilentlyContinue
+
+          if ($aiderCommand) {
+            $aiderExe = $aiderCommand.Source
+            Write-Host "Aider executable: $aiderExe"
+            & $aiderExe --version
+            if ($LASTEXITCODE -ne 0) { throw 'Aider version check failed.' }
+            $prompt = 'Reply with this exact token and nothing else: QWEN_OLLAMA_CONNECTION_OK'
+            $output = & $aiderExe --model 'ollama_chat/qwen2.5-coder:7b' --message $prompt --no-auto-commits 2>&1 | Out-String
+            $exitCode = $LASTEXITCODE
+          } elseif ($pythonCommand) {
+            & $pythonCommand.Source -m aider --version
+            if ($LASTEXITCODE -ne 0) { throw 'Python Aider module version check failed.' }
+            $prompt = 'Reply with this exact token and nothing else: QWEN_OLLAMA_CONNECTION_OK'
+            $output = & $pythonCommand.Source -m aider --model 'ollama_chat/qwen2.5-coder:7b' --message $prompt --no-auto-commits 2>&1 | Out-String
+            $exitCode = $LASTEXITCODE
+          } elseif ($pyCommand) {
+            & $pyCommand.Source -m aider --version
+            if ($LASTEXITCODE -ne 0) { throw 'Python launcher Aider module version check failed.' }
+            $prompt = 'Reply with this exact token and nothing else: QWEN_OLLAMA_CONNECTION_OK'
+            $output = & $pyCommand.Source -m aider --model 'ollama_chat/qwen2.5-coder:7b' --message $prompt --no-auto-commits 2>&1 | Out-String
+            $exitCode = $LASTEXITCODE
+          } else {
+            throw 'Aider is not available in the self-hosted Runner service PATH or Python environment.'
+          }
+
+          $output | Tee-Object -FilePath "$env:RUNNER_TEMP\aider-qwen-smoke.log"
+          if ($exitCode -ne 0) {
+            throw "Aider inference failed with exit code $exitCode."
+          }
+          if ($output -notmatch 'QWEN_OLLAMA_CONNECTION_OK') {
+            throw 'Aider ran but the expected response token was not found; local inference is not verified.'
+          }
+          Write-Host 'PASS: Aider completed a real inference through local Ollama Qwen.'
+
+      - name: Upload inference log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aider-qwen-local-verification
+          path: \${{ runner.temp }}/aider-qwen-smoke.log
+          if-no-files-found: ignore
+          retention-days: 7
