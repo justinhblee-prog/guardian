@@ -62,5 +62,5 @@ Get-FileHash .\release\Guardian-AdBlock-Source-v0.7.14-dev.zip -Algorithm SHA256
 - Guardian 업스트림은 UDP/53, TCP/53, DNS-over-TLS(DoT/853), DNS-over-HTTPS(DoH/443)를 지원합니다.
 - 앱이 VPN을 우회해 직접 전송하는 DoH/DoT 요청은 가로채지 못할 수 있습니다. Android Private DNS 및 앱별 동작에 대한 별도 검증이 필요합니다.
 - DNS-over-TCP(53)는 지원하지만 IPv6 extension header와 IP fragmentation/reassembly는 지원하지 않습니다.
-- DNS 필터링은 웹페이지 요소 숨김, 동일 도메인(first-party) 광고, 앱 화면 내부 광고 제거를 보장하지 않습니다.
+- DNS 필터링 자체는 웹페이지 요소를 숨기지 않습니다. Guardian Browser는 지원되는 CSS 코스메틱 규칙을 자체 WebView 안에서만 적용합니다. 외부 브라우저/다른 앱의 화면 요소, scriptlet/procedural 규칙, HTTPS 내부 트래픽 및 앱 자체 UI 광고 제거는 지원하지 않으며 first-party 광고 차단을 보장하지 않습니다.
 - 정식 production APK/AAB는 운영 keystore, 보호된 CI secrets, 운영 공개키·API 주소 및 서버 배포 설정이 완료된 후 별도로 생성해야 합니다.
