@@ -257,7 +257,7 @@ before_failed="${before_failed:-0}"
 
 echo "VPN active. Triggering a permitted DNS lookup."
 allowed_output="$(adb shell ping -c 1 -W 5 example.com 2>&1 || true)"
-printf '%s\\n' "$allowed_output" | tee /tmp/guardian-allowed-dns.txt
+printf '%s\n' "$allowed_output" | tee /tmp/guardian-allowed-dns.txt
 sleep 2
 prefs="$(read_prefs)"
 after_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
@@ -269,7 +269,7 @@ if (( after_queries <= before_queries || after_forwarded <= before_forwarded ));
   read_prefs
   exit 1
 fi
-if ! grep -Eiq '^PING example\\.com \\([0-9a-fA-F:.]+\\)' <<<"$allowed_output"; then
+if ! grep -Eiq '^PING example\.com \([0-9a-fA-F:.]+\\)' <<<"$allowed_output"; then
   echo "Allowed hostname did not resolve to an IPv4 or IPv6 address through the active VPN."
   exit 1
 fi
@@ -277,7 +277,7 @@ fi
 echo "Triggering a blocked-domain DNS lookup."
 blocked_host="guardian-ci-${GITHUB_RUN_ID:-test}.doubleclick.net"
 blocked_output="$(adb shell ping -c 1 -W 5 "$blocked_host" 2>&1 || true)"
-printf '%s\\n' "$blocked_output" | tee /tmp/guardian-blocked-dns.txt
+printf '%s\n' "$blocked_output" | tee /tmp/guardian-blocked-dns.txt
 sleep 2
 prefs="$(read_prefs)"
 after_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
@@ -289,7 +289,7 @@ if (( after_blocked <= before_blocked )); then
   read_prefs
   exit 1
 fi
-if grep -Eiq "^PING ${blocked_host//./\\.} \\([0-9a-fA-F:.]+\\)" <<<"$blocked_output"; then
+if grep -Eiq "^PING ${blocked_host//./\.} \([0-9a-fA-F:.]+\\)" <<<"$blocked_output"; then
   echo "Blocked hostname unexpectedly resolved to an address."
   exit 1
 fi
