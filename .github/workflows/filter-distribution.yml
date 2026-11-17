@@ -33,9 +33,12 @@ jobs:
           node --check test/publisher.test.mjs
           node --check test/update-filters.test.mjs
       - name: Validate container deployment configuration
+        env:
+          GUARDIAN_FILTER_ENV_FILE: ${{ runner.temp }}/guardian-filter.env
+          GUARDIAN_FILTER_DIST_DIR: ${{ runner.temp }}/guardian-filter-dist
         run: |
-          cp .env.example .env
-          mkdir -p dist
+          cp .env.example "$GUARDIAN_FILTER_ENV_FILE"
+          mkdir -p "$GUARDIAN_FILTER_DIST_DIR"
           docker compose config --quiet
       - name: Run signing and distribution tests
         run: npm test
