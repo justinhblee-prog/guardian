@@ -1,6 +1,6 @@
 # Guardian AdBlock 멀티 디바이스 제품 설계
 
-기준일: 2026-11-16
+기준일: 2026-11-17
 
 ## 2026-11-17 통합 상태 — main 기준
 
@@ -92,15 +92,15 @@ Android APK를 Windows에 그대로 설치하거나 Android VPN 코드를 Window
 - 공통 signed manifest publisher와 License API/PostgreSQL 및 운영자 관리 대시보드는 구현·자동화 테스트가 통과했으나, 운영 노트북 실설치/공개 HTTPS/실제 기기 E2E는 미완료.
 - iPhone/iPad: 범위 미확정이며 현재 지원을 약속하지 않는다.
 
-## 2026-11-16 Android 우선 완료 기준
+## 2026-11-17 Android 우선 완료 기준
 
-Android v0.7.13-dev APK와 CI 에뮬레이터 검증은 확보했지만, 제품 출시 완료와는 구분한다. Android를 먼저 마무리하기 위한 잔여 게이트는 다음과 같다.
+Android v0.7.14-dev APK와 전체 소스 ZIP, API 35 에뮬레이터 VPN/DNS E2E 및 artifact 감사는 확보했습니다. 이는 실제 제품 출시 완료나 실기기 광고 제거 검증과는 구분합니다.
 
-1. 실기기 VPN 권한 승인, DNS 트래픽 전달/차단/허용, 보호 시작 실패 시 복구 동작 확인.
-2. Wi-Fi와 모바일 데이터 전환, IPv4/IPv6, Private DNS, 다른 VPN과 앱 제외 조합 확인.
-3. 실제 공개 HTTPS 필터 배포 주소 및 APK에 고정된 공개키를 이용한 manifest·필터 다운로드/서명검증 end-to-end 확인.
-4. 운영 License API/DB 연결 및 기기 활성화·갱신·해제 end-to-end 확인.
-5. 운영 keystore와 보호된 CI secrets를 준비한 production APK/AAB 서명·설치·업데이트 검증.
-6. Android 스마트폰/태블릿 검증 완료 후 Windows 설치형 패키지의 빌드·설치·제거·복구 검증 진행.
+1. Android 라이선스·기기 관리, signed filter client/publisher, License API 및 관리자 대시보드의 코드/CI 잔여 작업을 마감합니다.
+2. 운영 HTTPS 필터 게시와 License API/DB/TLS 연결을 위한 배포 구성·운영 절차를 안전하게 정리합니다. 운영 개인키는 저장소/채팅에 올리지 않습니다.
+3. 운영 keystore/secrets가 준비되면 production APK/AAB 서명·설치·업데이트를 검증합니다. 현재 production signing workflow는 설정 검증만 통과했고 실제 서명 작업은 skipped 상태입니다.
+4. 개발 항목 완료 후 Android 스마트폰/태블릿에서 VPN 권한, 실제 DNS 전달/차단/허용, 보호 시작·중지 및 실패 복구를 검증합니다.
+5. Wi-Fi↔모바일, IPv4/IPv6, Private DNS, 다른 VPN, 앱 제외, 화면 잠금/재부팅 및 장시간 안정성을 확인합니다.
+6. Android 및 공통 기능이 끝난 뒤 Windows EXE/설치 프로그램의 빌드·설치·제거·DNS 복구·재부팅 검증을 마지막으로 진행합니다.
 
-**현재 확보된 APK:** [Guardian Android v0.7.13-dev CI Artifact](https://github.com/justinhblee-prog/guardian/actions/runs/43815516892). Debug 서명 개발 빌드이며 Play Store/정식 상용 릴리스 파일이 아니다.
+**현재 확보된 개발 artifact:** [Guardian Android v0.7.14-dev APK + source ZIP](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851). Debug 서명 개발 빌드이며 Play Store/정식 production 릴리스 파일이 아니다.
