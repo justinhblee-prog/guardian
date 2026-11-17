@@ -10,7 +10,7 @@ function Get-GuardianPaths {
   }
   $data = [IO.Path]::GetFullPath($configured).TrimEnd('\')
   $repoPrefix = $repo + '\'
-  $dataPrefix = $data + '\\'
+  $dataPrefix = $data + '\'
   if ($data.Equals($repo,[StringComparison]::OrdinalIgnoreCase) -or $data.StartsWith($repoPrefix,[StringComparison]::OrdinalIgnoreCase) -or $repo.StartsWith($dataPrefix,[StringComparison]::OrdinalIgnoreCase)) {
     throw "Guardian 데이터 경로는 Git 저장소와 분리된 독립 경로여야 합니다: $data"
   }
