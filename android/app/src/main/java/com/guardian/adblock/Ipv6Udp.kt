@@ -17,7 +17,7 @@ object Ipv6Udp {
         val payloadLength = u16(packet, 4)
         if (payloadLength < 8 || 40 + payloadLength != length) return null
         val udpOffset = Ipv6ExtensionHeaderParser.transportOffset(
-            packet, length, expectedNextHeader = 17
+            packet, length, expectedNextHeader = 17, minimumTransportBytes = 8
         ) ?: return null
         val udpLength = u16(packet, udpOffset + 4)
         if (udpLength < 8 || udpLength != length - udpOffset) return null
