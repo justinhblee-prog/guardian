@@ -114,9 +114,56 @@ for node in root.iter("node"):
 if matches:
     x,y,klass,label=matches[0]
     print(x,y,klass,label)' "$wanted" <<<"$xml")"
+  # Quickstep can enter ANR after the large filter-cache warm-up. The
+  # dialog may appear between the initial recovery check and this hierarchy
+  # read, so handle it here as well instead of misreporting a missing app
+  # button. Use the dialog's accessibility resource id, not a fixed tap.
+  for recovery in 1 2 3; do
+    [[ -z "$bounds" ]] || break
+    if ! grep -q "Quickstep isn't responding" <<<"$xml"; then
+      break
+    fi
+    echo "Quickstep ANR appeared during UI lookup; selecting Wait and reopening Guardian (recovery $recovery/3)."
+    wait_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if node.attrib.get("resource-id")=="android:id/aerr_wait" and node.attrib.get("clickable")=="true":
+        p=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(p)==2:
+            x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' <<<"$xml")"
+    if [[ -z "$wait_bounds" ]]; then
+      echo "Quickstep ANR dialog did not expose its Wait control."
+      break
+    fi
+    read -r wx wy <<<"$wait_bounds"
+    adb shell input tap "$wx" "$wy"
+    sleep 3
+    adb shell am start -W -n "$PACKAGE/com.guardian.adblock.MainActivity" >/dev/null
+    sleep 4
+    adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
+    xml="$(adb exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+    bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if sys.argv[1] in node.attrib.get("text","") and node.attrib.get("clickable")=="true":
+        p=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(p)==2:
+            x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2,node.attrib.get("class",""),node.attrib.get("text",""))
+            break' "$wanted" <<<"$xml")"
+  done
   if [[ -z "$bounds" ]]; then
     echo "Could not locate clickable UI control: $wanted"
+    echo "Final UI hierarchy:"
     echo "$xml"
+    echo "Guardian process memory:"
+    adb shell dumpsys meminfo "$PACKAGE" | tail -80 || true
+    echo "Launcher process memory:"
+    adb shell dumpsys meminfo com.google.android.apps.nexuslauncher | tail -60 || true
+    echo "Live app/system ANR and memory diagnostics:"
+    grep -Ei 'ANR in|not responding|Quickstep|Guardian|FATAL EXCEPTION|OutOfMemory|lmkd|lowmemory' "$LIVE_LOG" | tail -240 || true
     return 1
   fi
   read -r x y klass label <<<"$bounds"
