@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   effectiveLicenseStatus, filterLicenses, sortLicenses, summarizeLicenses, validateIssueInput
 } from "../admin/admin-model.mjs";
@@ -39,4 +40,22 @@ test("license issue form accepts only bounded integer values", () => {
   for (const [days, devices] of [["0", "1"], ["36501", "1"], ["1.5", "1"], ["365", "0"], ["365", "21"], ["365", "1.5"]]) {
     assert.throws(() => validateIssueInput(days, devices), RangeError);
   }
+});
+
+
+test("admin dashboard exposes responsive management controls and visible operation status", async () => {
+  const html = await readFile(new URL("../admin/index.html", import.meta.url), "utf8");
+  for (const id of ["status", "dashboard", "statTotal", "statActive", "statExpired", "statRevoked", "issue", "search", "statusFilter", "sortOrder", "refresh", "disconnect", "licenses", "events"]) {
+    assert.match(html, new RegExp(`id=["']${id}["']`));
+  }
+  assert.ok(html.indexOf('id="status"') < html.indexOf('id="authPanel"'), "operation status must remain visible after authentication");
+  assert.match(html, /<script type="module" src="\/admin\.js"><\/script>/);
+});
+
+test("admin browser code does not persist credentials or inject API data as HTML", async () => {
+  const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
+  assert.doesNotMatch(js, /\b(?:localStorage|sessionStorage)\b/);
+  assert.doesNotMatch(js, /\.innerHTML\s*=/);
+  assert.match(js, /authorization:\s*`Bearer/);
+  assert.match(js, /textContent/);
 });
