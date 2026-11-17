@@ -11,6 +11,7 @@ docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop을 먼저 시작하세요.' }
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $envPath = $script:GuardianLicenseEnvPath
+if (Test-Path -LiteralPath $envPath) { throw '외부 운영 환경 파일이 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
 $secretDir = $script:GuardianSecretsDir
 # One-time safe migration for installations created by older versions.
 $legacyEnvPath = Join-Path $ServerDir '.env'
@@ -33,7 +34,6 @@ if (Test-Path -LiteralPath $legacySecretsDir) {
   }
   Remove-Item -LiteralPath $legacySecretsDir -Recurse -Force
 }
-if (Test-Path $envPath) { throw '.env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
 $privateKeyPath = Join-Path $secretDir 'guardian-license-private.pem'
 $publicKeyPath = Join-Path $secretDir 'guardian-license-public.pem'
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $privateKeyPath
