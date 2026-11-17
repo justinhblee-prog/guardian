@@ -55,12 +55,14 @@ async function installBundledRules() {
   });
 }
 
-chrome.runtime.onInstalled.addListener(() => {
-  installBundledRules().catch(error => console.error("Guardian rule installation failed", error));
-});
-chrome.runtime.onStartup.addListener(() => {
-  installBundledRules().catch(error => console.error("Guardian rule refresh failed", error));
-});
+if (typeof chrome !== "undefined") {
+  chrome.runtime.onInstalled.addListener(() => {
+    installBundledRules().catch(error => console.error("Guardian rule installation failed", error));
+  });
+  chrome.runtime.onStartup.addListener(() => {
+    installBundledRules().catch(error => console.error("Guardian rule refresh failed", error));
+  });
+}
 
 if (typeof module !== "undefined") {
   module.exports = { parseSharedRules, toDynamicRules, FIRST_DYNAMIC_RULE_ID };
