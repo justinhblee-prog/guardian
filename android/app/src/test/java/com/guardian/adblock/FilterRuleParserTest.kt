@@ -75,7 +75,7 @@ class FilterRuleParserTest {
     }
 
     @Test fun parsesReaderIncrementallyWithSameResultsAsText() {
-        val text = "||ads.example^\n@@||trusted.ads.example^\n||priority.example^\\$important"
+        val text = "||ads.example^\n@@||trusted.ads.example^\n||priority.example^\$important"
         val fromText = FilterRuleParser.parse(text)
         val fromReader = FilterRuleParser.parse(text.reader())
         assertEquals(fromText, fromReader)
