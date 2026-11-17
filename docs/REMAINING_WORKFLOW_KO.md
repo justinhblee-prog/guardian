@@ -204,5 +204,9 @@ Windows 설치 패키지 workflow는 `.github/workflows/windows-build.yml`에 �
 - PR Windows build/install [run 44100882615](https://github.com/justinhblee-prog/guardian/actions/runs/44100882615): 전체 성공. PyInstaller EXE 2종과 Inno Setup installer 생성, Authenticode 서명 상태 검사, 설치, 데스크톱/daemon self-test, --restore-dns, 예약 작업 삭제, restore 없이 직접 uninstall 후 예약 작업 삭제 검증 모두 통과.
 - PR cross-platform engine CI [run 44100882646](https://github.com/justinhblee-prog/guardian/actions/runs/44100882646): Ubuntu 24.04 및 Windows 2022에서 DNS/Windows integration tests 및 compileall 성공. 전체 테스트 33개.
 - PR artifact Guardian-AdBlock-Windows-Dev-Package를 직접 다운로드해 ZIP 무결성, 데스크톱 EXE, DNS daemon EXE, 설치 프로그램의 실제 존재·크기·SHA-256을 확인했습니다. 개발용 unsigned 패키지이며 production Authenticode 인증서는 설정되지 않았습니다.
-- 병합 후 main Windows build 및 cross-platform CI는 별도 실행 중이며 완료 결과를 확인해야 합니다.
+- 병합 후 main Windows build [run 44101373822](https://github.com/justinhblee-prog/guardian/actions/runs/44101373822) 및 cross-platform CI [run 44101373586](https://github.com/justinhblee-prog/guardian/actions/runs/44101373586): 전체 성공. Windows runner에서 EXE/installer 빌드, 서명 상태 검사, 설치 및 smoke test, DNS 복구, 직접 제거 후 예약 작업 삭제까지 통과. Windows 2022와 Ubuntu 24.04의 DNS/Windows integration tests 및 compileall도 통과.
+- main Windows artifact: Guardian-AdBlock-Windows-Dev-Package, 49,611,506 bytes, ZIP SHA-256 `f7a1bd8cb8501e6322bed9c4185b081f9ce7f48426d0d1b97bdb3cf40dd4a855`. 다운로드 후 ZIP 무결성 검사 통과.
+- Windows desktop EXE: 2,191,180 bytes, SHA-256 `8f59506875b8ee30035e078057b8d564ba11e3c4c0df35cef767228d4ec24946`.
+- Windows DNS daemon EXE: 2,088,078 bytes, SHA-256 `ae4a514e7487f10e4478dce7e441b5fa55dab41920beac91c32249a81d0563f5`.
+- Windows installer: 21,807,184 bytes, SHA-256 `0f696200422322a399f7e5bbe10d48cc89129db5a89aceee6d426093a438936d`. unsigned development package; production Authenticode certificate is not configured.
 - 실제 Windows PC의 네트워크 어댑터 DNS 변경/복구, 재부팅, Wi-Fi/Ethernet 전환, VPN/보안 제품 공존성은 아직 미검증입니다.
