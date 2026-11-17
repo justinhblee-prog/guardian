@@ -8,7 +8,7 @@ object FilterRuleComposer {
         userAllowDomains: List<String> = emptyList()
     ): List<String> {
         val parsed = composeParsed(
-            sources.asSequence().map { FilterRuleParser.parse(it.asSequence()) },
+            sources.asSequence().map { FilterRuleParser.parse(it) },
             userBlockDomains,
             userAllowDomains
         )
@@ -35,8 +35,8 @@ object FilterRuleComposer {
             ignored += parsed.ignored
         }
         val userRules = FilterRuleParser.parse(
-            userBlockDomains.asSequence().map { "block=$it" } +
-                userAllowDomains.asSequence().map { "allow=$it" }
+            (userBlockDomains.map { "block=$it" } +
+                userAllowDomains.map { "allow=$it" })
         )
         blocked.addAll(userRules.blocked)
         allowed.addAll(userRules.allowed)
