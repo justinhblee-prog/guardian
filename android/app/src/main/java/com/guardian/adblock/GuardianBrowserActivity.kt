@@ -20,6 +20,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import kotlin.concurrent.thread
 
 /**
  * Optional in-app browser. Cosmetic filtering is intentionally limited to
@@ -32,11 +33,14 @@ class GuardianBrowserActivity : Activity() {
     private lateinit var progress: ProgressBar
     private lateinit var status: TextView
     private var hideEmptyAdSlots = true
+    @Volatile private var cosmeticRules = CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES)
+    @Volatile private var cosmeticRuleCount = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         hideEmptyAdSlots = getPreferences(MODE_PRIVATE).getBoolean(KEY_HIDE_EMPTY_SLOTS, true)
         buildScreen()
+        loadCosmeticRules()
         webView.loadUrl(intent.getStringExtra(EXTRA_URL) ?: "https://www.google.com")
     }
 
@@ -127,7 +131,7 @@ class GuardianBrowserActivity : Activity() {
             override fun onPageFinished(view: WebView, url: String) {
                 address.setText(url)
                 status.text = if (hideEmptyAdSlots) {
-                    "빈 광고 영역 숨김 적용 · Guardian 내부 브라우저 전용"
+                    "지원 CSS 규칙 ${cosmeticRuleCount}개 · Guardian 내부 브라우저 전용"
                 } else {
                     "코스메틱 숨김 꺼짐 · Guardian 내부 브라우저"
                 }
@@ -161,6 +165,26 @@ class GuardianBrowserActivity : Activity() {
         webView.loadUrl(uri.toString())
     }
 
+    /** Load the active, validated filter caches away from the WebView UI thread. */
+    private fun loadCosmeticRules() {
+        thread(name = "guardian-browser-cosmetic-rules") {
+            val loaded = runCatching {
+                FilterListManager.cachedCosmeticRules(applicationContext)
+            }.getOrElse {
+                CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES)
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                cosmeticRules = loaded
+                cosmeticRuleCount = loaded.genericHideRules.size + loaded.domainHideRules.size
+                if (::webView.isInitialized && webView.url != null && hideEmptyAdSlots) {
+                    status.text = "지원 CSS 규칙 ${cosmeticRuleCount}개 · Guardian 내부 브라우저 전용"
+                    applyCosmeticStyles()
+                }
+            }
+        }
+    }
+
     private fun applyCosmeticStyles() {
         if (!::webView.isInitialized || !hideEmptyAdSlots) {
             if (::webView.isInitialized) webView.evaluateJavascript(
@@ -168,7 +192,7 @@ class GuardianBrowserActivity : Activity() {
             )
             return
         }
-        val rules = CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES)
+        val rules = cosmeticRules
         val host = runCatching { Uri.parse(webView.url ?: "").host.orEmpty() }.getOrDefault("")
         val css = CosmeticFilterEngine.cssForHost(rules, host)
         val encoded = org.json.JSONObject.quote(css)
