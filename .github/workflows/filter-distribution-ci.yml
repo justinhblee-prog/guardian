@@ -1,0 +1,46 @@
+name: Guardian Signed Filter Distribution CI
+
+on:
+  pull_request:
+    paths:
+      - 'server/filter-distribution/**'
+      - '.github/workflows/filter-distribution-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'server/filter-distribution/**'
+      - '.github/workflows/filter-distribution-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guardian-filter-distribution-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-filter-distribution:
+    name: Test signed filter publisher, updater and read-only server
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify package scripts and test inventory
+        working-directory: server/filter-distribution
+        run: |
+          node --version
+          npm --version
+          node -e "const p=require('./package.json'); if(p.scripts?.test !== 'node --test') process.exit(1)"
+          test -s test/server.test.mjs
+          test -s test/publisher.test.mjs
+
+      - name: Run signed filter distribution tests
+        working-directory: server/filter-distribution
+        run: npm test

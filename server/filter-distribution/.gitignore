@@ -7,3 +7,4 @@ node_modules/
 
 .guardian-filter-update/
 logs/
+.sources.json.before-private-access.bak

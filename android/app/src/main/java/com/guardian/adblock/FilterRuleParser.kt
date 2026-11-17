@@ -1,26 +1,32 @@
 package com.guardian.adblock
 
 import java.util.Locale
+import java.io.Reader
 
 /** Parser for DNS-compatible Adblock rules and hosts-file entries. */
 object FilterRuleParser {
-    data class Parsed(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>, val ignored: Int)
+    data class Parsed(
+        val blocked: Set<String>,
+        val allowed: Set<String>,
+        val importantBlocked: Set<String>,
+        val ignored: Int
+    )
 
-    // Reuse this immutable set for every rule. Creating it inside adblockDomain()
-    // allocates several objects per rule and can exhaust Android's small app heap
-    // when parsing multi-megabyte filter lists.
-    private val SUPPORTED_MODIFIERS = setOf("important", "all", "badfilter")
+    fun parse(lines: List<String>): Parsed = parseSequence(lines.asSequence())
 
-    fun parse(lines: List<String>): Parsed = parse(lines.asSequence())
+    /** Parses a decoded feed without first allocating a second list of every line. */
+    fun parse(text: String): Parsed = parseSequence(text.lineSequence())
 
-    /** Parses lazily so callers decoding large downloaded lists do not allocate a second line array. */
-    fun parse(lines: Sequence<String>): Parsed {
-        val blocked = linkedSetOf<String>()
-        val allowed = linkedSetOf<String>()
-        val importantBlocked = linkedSetOf<String>()
-        val disabledBlocked = linkedSetOf<String>()
-        val disabledImportantBlocked = linkedSetOf<String>()
-        val disabledAllowed = linkedSetOf<String>()
+    /** Parses a cached feed directly from disk without retaining a million-line String/List. */
+    fun parse(reader: Reader): Parsed = parseSequence(reader.buffered().lineSequence())
+
+    private fun parseSequence(lines: Sequence<String>): Parsed {
+        val blocked = HashSet<String>()
+        val allowed = HashSet<String>()
+        val importantBlocked = HashSet<String>()
+        val disabledBlocked = HashSet<String>()
+        val disabledImportantBlocked = HashSet<String>()
+        val disabledAllowed = HashSet<String>()
         var ignored = 0
 
         for (raw in lines) {
@@ -28,9 +34,12 @@ object FilterRuleParser {
             if (line.isEmpty() || line.startsWith("!") || line.startsWith("[")) continue
             val lower = line.lowercase(Locale.ROOT)
             when {
-                lower.startsWith("block-important=") -> addDomain(line.substringAfter('='), importantBlocked).also { if (!it) ignored++ }
-                lower.startsWith("block=") -> addDomain(line.substringAfter('='), blocked).also { if (!it) ignored++ }
-                lower.startsWith("allow=") -> addDomain(line.substringAfter('='), allowed).also { if (!it) ignored++ }
+                lower.startsWith("block-important=") ->
+                    addDomain(line.substringAfter('='), importantBlocked).also { if (!it) ignored++ }
+                lower.startsWith("block=") ->
+                    addDomain(line.substringAfter('='), blocked).also { if (!it) ignored++ }
+                lower.startsWith("allow=") ->
+                    addDomain(line.substringAfter('='), allowed).also { if (!it) ignored++ }
                 lower.startsWith("@@||") && hasModifier(line, "badfilter") -> {
                     val domain = adblockDomain(line.substring(4))
                     if (domain == null) ignored++ else disabledAllowed.add(domain)
@@ -53,8 +62,7 @@ object FilterRuleParser {
                 }
                 else -> {
                     val fields = line.split(Regex("\\s+"))
-                    if (fields.size >= 2 && (fields[0] == "0.0.0.0" || fields[0] == "127.0.0.1" ||
-                                fields[0] == "::" || fields[0] == "::1")) {
+                    if (fields.size >= 2 && fields[0] in setOf("0.0.0.0", "127.0.0.1", "::", "::1")) {
                         var added = false
                         fields.drop(1).forEach { host ->
                             if (host != "localhost" && addDomain(host, blocked)) added = true
@@ -64,49 +72,43 @@ object FilterRuleParser {
                 }
             }
         }
+
         blocked.removeAll(disabledBlocked)
         importantBlocked.removeAll(disabledImportantBlocked)
         allowed.removeAll(disabledAllowed)
         return Parsed(blocked, allowed, importantBlocked, ignored)
     }
 
-    private fun hasModifier(rule: String, modifier: String): Boolean {
-        val marker = rule.indexOf(36.toChar())
-        if (marker < 0 || marker == rule.lastIndex) return false
-        var start = marker + 1
-        while (start <= rule.length) {
-            val end = rule.indexOf(',', start).let { if (it < 0) rule.length else it }
-            if (rule.regionMatches(start, modifier, 0, modifier.length, ignoreCase = true) &&
-                end - start == modifier.length) return true
-            if (end == rule.length) break
-            start = end + 1
+    /** Scans a dollar-prefixed modifier suffix without String.split(). */
+    private fun modifierTokens(rule: String): List<String> {
+        val separator = rule.indexOf('$')
+        if (separator < 0 || separator == rule.lastIndex) return emptyList()
+        val tokens = ArrayList<String>()
+        var tokenStart = separator + 1
+        for (index in tokenStart..rule.length) {
+            if (index == rule.length || rule[index] == ',') {
+                tokens.add(rule.substring(tokenStart, index))
+                tokenStart = index + 1
+            }
         }
-        return false
+        return tokens
     }
 
+    private fun hasModifier(rule: String, modifier: String): Boolean =
+        modifierTokens(rule).any { it.equals(modifier, ignoreCase = true) }
+
     private fun adblockDomain(expression: String): String? {
-        // Context-sensitive, cosmetic, regex, URL/path, and rewriting rules
-        // are not guessed at DNS level; only safe hostname anchors are used.
-        val marker = expression.indexOf(36.toChar())
-        val hostEnd = if (marker < 0) expression.length else marker
-        val hostExpression = expression.substring(0, hostEnd).trimEnd('.')
-        // A DNS filter can safely apply a hostname anchor, but not an Adblock
-        // rule constrained to a URL path or to text following the separator.
+        // Only hostname anchors are safe to represent at DNS level.
+        val separator = expression.indexOf('$')
+        val hostExpression = (if (separator < 0) expression else expression.substring(0, separator)).trimEnd('.')
         val host = when {
             hostExpression.endsWith('^') -> hostExpression.dropLast(1)
             '^' in hostExpression -> return null
             else -> hostExpression
         }
-        if (marker >= 0) {
-            var start = marker + 1
-            while (start <= expression.length) {
-                val end = expression.indexOf(',', start).let { if (it < 0) expression.length else it }
-                val modifier = expression.substring(start, end)
-                if (modifier.isNotBlank() && modifier.lowercase(Locale.ROOT) !in SUPPORTED_MODIFIERS) return null
-                if (end == expression.length) break
-                start = end + 1
-            }
-        }
+        val modifiers = modifierTokens(expression)
+        val supportedModifiers = setOf("important", "all", "badfilter")
+        if (modifiers.any { it.isNotBlank() && it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
         if (host.isEmpty() || host.contains('*') || host.contains('/') || host.contains('|')) return null
         return normalize(host, requireDomainName = true)
     }

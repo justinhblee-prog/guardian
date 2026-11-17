@@ -82,12 +82,16 @@ class MainActivity : Activity() {
     private val filterUpdateRunning = AtomicBoolean(false)
     private val protectionCheckRunning = AtomicBoolean(false)
     @Volatile private var pendingProtectionStartAfterFilterUpdate = false
+    private var syncingFilterOptions = false
 
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             refreshStatus()
             when (intent?.action) {
-                FilterUpdateWorker.ACTION_FILTERS_CHANGED -> filterStatusText?.text = filterStatusDescription()
+                FilterUpdateWorker.ACTION_FILTERS_CHANGED -> {
+                    syncFilterOptionControls()
+                    filterStatusText?.text = filterStatusDescription()
+                }
                 GuardianVpnService.ACTION_UPSTREAM_TEST_RESULT -> {
                     upstreamTestText?.text = upstreamTestDescription()
                     upstreamTestButton?.isEnabled = true
@@ -184,6 +188,9 @@ class MainActivity : Activity() {
         ContextCompat.registerReceiver(this, stateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
         refreshStatus()
+        // A background worker may disable an optional source while this Activity
+        // is stopped. Reconcile any already-created controls with persisted state.
+        syncFilterOptionControls()
         // A filter update may finish while this Activity is stopped, when its
         // package-scoped broadcast receiver is not registered. Re-read persisted
         // cache metadata whenever the screen becomes visible again.
@@ -342,10 +349,32 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, dp(16))
         }
+        val companyMark = ImageView(this).apply {
+            contentDescription = "주식회사 유진컨설팅 로고"
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            val encoded = assets.open("eugene_consulting_logo.b64").bufferedReader().use { it.readText() }
+            val bytes = Base64.decode(encoded, Base64.DEFAULT)
+            val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            // Recolor only the Korean wordmark. Keep the symbol and English subtitle untouched.
+            val adjusted = source.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
+            for (y in 0 until adjusted.height.coerceAtMost(90)) {
+                for (x in 125 until adjusted.width) {
+                    val pixel = adjusted.getPixel(x, y)
+                    val alpha = android.graphics.Color.alpha(pixel)
+                    val red = android.graphics.Color.red(pixel)
+                    val green = android.graphics.Color.green(pixel)
+                    val blue = android.graphics.Color.blue(pixel)
+                    if (alpha > 0 && red < 90 && green < 90 && blue < 180) {
+                        adjusted.setPixel(x, y, android.graphics.Color.argb(alpha, 255, 255, 255))
+                    }
+                }
+            }
+            setImageBitmap(adjusted)
+        }
         val guardianMark = ImageView(this).apply {
             contentDescription = "GUARDIAN 보호 로고"
             scaleType = ImageView.ScaleType.FIT_CENTER
-            setImageResource(R.drawable.ic_launcher_foreground)
+            setImageResource(R.drawable.guardian_launcher_art)
         }
         wrap.addView(guardianMark, LinearLayout.LayoutParams(dp(46), dp(48)))
         val labels = LinearLayout(this).apply {
@@ -355,13 +384,8 @@ class MainActivity : Activity() {
         labels.addView(text("GUARDIAN", 17f, white, true))
         labels.addView(text("AD BLOCK", 8f, muted, true))
         wrap.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
-        val companyMark = ImageView(this).apply {
-            contentDescription = "주식회사 유진컨설팅 로고"
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            val encoded = assets.open("eugene_consulting_logo.b64").bufferedReader().use { it.readText() }
-            val bytes = Base64.decode(encoded, Base64.DEFAULT)
-            setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
-        }
+        val headerSpacer = View(this)
+        wrap.addView(headerSpacer, LinearLayout.LayoutParams(0, 1, 1f))
         wrap.addView(companyMark, LinearLayout.LayoutParams(dp(124), dp(42)))
         return wrap
     }
@@ -847,6 +871,22 @@ class MainActivity : Activity() {
         card.addView(row)
         card.addView(text(description, 10f, muted, false).withTop(4))
         return card
+    }
+
+    /** Keep visible filter controls aligned when a background worker disables an unavailable optional source. */
+    private fun syncFilterOptionControls() {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        syncingFilterOptions = true
+        try {
+            val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+            val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+            securityFilterSwitch?.isChecked = securityEnabled
+            securityFilterCheckBox?.isChecked = securityEnabled
+            androidAdsFilterSwitch?.isChecked = androidAdsEnabled
+            androidAdsFilterCheckBox?.isChecked = androidAdsEnabled
+        } finally {
+            syncingFilterOptions = false
+        }
     }
 
     private fun reloadProtectionRulesIfActive(prefs: android.content.SharedPreferences) {
@@ -1488,6 +1528,7 @@ class MainActivity : Activity() {
             setTextColor(white)
             isChecked = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
             setOnCheckedChangeListener { _, checked ->
+                if (syncingFilterOptions) return@setOnCheckedChangeListener
                 prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
                 if (checked && !FilterListManager.hasCachedSecurityList(this@MainActivity)) {
                     filterStatusText?.text = "보안 필터 목록을 다운로드합니다."
@@ -1510,6 +1551,7 @@ class MainActivity : Activity() {
             setTextColor(white)
             isChecked = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
             setOnCheckedChangeListener { _, checked ->
+                if (syncingFilterOptions) return@setOnCheckedChangeListener
                 prefs.edit().putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, checked).apply()
                 if (checked && !FilterListManager.hasCachedAndroidAdsList(this@MainActivity)) {
                     filterStatusText?.text = "Android 앱 광고 SDK 필터를 다운로드합니다."
@@ -1757,9 +1799,8 @@ class MainActivity : Activity() {
                             FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
                         ).apply()
-                        if (FilterUpdatePolicy.shouldDisableOptionalFilter(androidAdsWasEnabled, androidAdsWasCached)) {
-                            prefs.edit().putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
-                        }
+                        if (!androidAdsWasCached) prefs.edit()
+                            .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
                         null
                     }
                 } else null
@@ -1770,7 +1811,47 @@ class MainActivity : Activity() {
                 if (active) {
                     startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
                 }
-                android.util.Log.i("Guardian", "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}")
+                // Resume a queued protection start only when every currently enabled
+                // filter has a verified cache. In particular, a missing first-time
+                // security-list download must not create an automatic download/start loop.
+                val selectedProfile = FilterListManager.selectedProfile(this)
+                val cachedProfile = FilterListManager.cachedProfile(this)
+                val securityEnabledNow = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                val androidAdsEnabledNow = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                val hasSecurityCacheNow = try {
+                    FilterListManager.hasCachedSecurityList(this)
+                } catch (cacheError: Exception) {
+                    android.util.Log.e("Guardian", "Security cache check failed after update", cacheError)
+                    false
+                }
+                val hasAndroidAdsCacheNow = try {
+                    FilterListManager.hasCachedAndroidAdsList(this)
+                } catch (cacheError: Exception) {
+                    android.util.Log.e("Guardian", "Android ads cache check failed after update", cacheError)
+                    false
+                }
+                val protectionCachesReady = try {
+                    FilterListManager.isProfileCacheCurrent(
+                        FilterListManager.hasCachedList(this),
+                        selectedProfile.key,
+                        cachedProfile.key,
+                        securityEnabledNow,
+                        hasSecurityCacheNow,
+                        androidAdsEnabledNow,
+                        hasAndroidAdsCacheNow
+                    )
+                } catch (cacheError: Exception) {
+                    android.util.Log.e("Guardian", "Post-update protection cache validation failed", cacheError)
+                    false
+                }
+                val resumeQueuedProtection = ProtectionState.shouldResumeProtectionAfterFilterFailure(
+                    pendingProtectionStartAfterFilterUpdate,
+                    protectionCachesReady
+                )
+                android.util.Log.i(
+                    "Guardian",
+                    "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}, protectionCachesReady=$protectionCachesReady"
+                )
                 filterUpdateRunning.set(false)
                 runOnUiThread {
                     if (securityWasEnabled && securityResult == null && !securityWasCached) {
@@ -1797,7 +1878,20 @@ class MainActivity : Activity() {
                     androidAdsFilterCheckBox?.isEnabled = true
                     if (pendingProtectionStartAfterFilterUpdate) {
                         pendingProtectionStartAfterFilterUpdate = false
-                        requestProtection()
+                        if (resumeQueuedProtection) {
+                            requestProtection()
+                        } else {
+                            val securityStillMissing = securityEnabledNow && !hasSecurityCacheNow
+                            val androidAdsStillMissing = androidAdsEnabledNow && !hasAndroidAdsCacheNow
+                            val missing = when {
+                                securityStillMissing -> "악성코드·피싱 필터"
+                                androidAdsStillMissing -> "Android 앱 광고 필터"
+                                else -> "선택한 필터 구성"
+                            }
+                            setFilterUpdateStatus(
+                                "기본 광고 필터는 준비됐지만 $missing 캐시를 검증하지 못해 보호 시작을 보류했습니다. 네트워크 연결을 확인한 뒤 해당 필터를 다시 업데이트해 주세요."
+                            )
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -1825,7 +1919,9 @@ class MainActivity : Activity() {
     }
 
     private fun requestProtection() {
+        android.util.Log.i("GuardianProtection", "Protection button tapped; readiness check starting")
         if (!protectionCheckRunning.compareAndSet(false, true)) {
+            android.util.Log.w("GuardianProtection", "Readiness check already running; duplicate tap ignored")
             protectionFeedback?.text = "필터 상태를 확인하고 있습니다. 잠시만 기다려 주세요."
             return
         }
@@ -1833,15 +1929,22 @@ class MainActivity : Activity() {
         startButton?.isEnabled = false
         protectionFeedback?.text = "필터 캐시와 검증 상태를 확인하고 있습니다."
         thread(name = "guardian-protection-readiness") {
+            val startedAt = android.os.SystemClock.elapsedRealtime()
             val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
             val readiness = try {
+                android.util.Log.i("GuardianProtection", "Checking base filter cache")
                 val hasCachedList = FilterListManager.hasCachedList(this)
+                android.util.Log.i("GuardianProtection", "Base filter cache check complete: $hasCachedList")
                 val selectedProfile = FilterListManager.selectedProfile(this)
                 val cachedProfile = FilterListManager.cachedProfile(this)
                 val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                android.util.Log.i("GuardianProtection", "Checking security filter cache; enabled=$securityEnabled")
                 val hasSecurityCache = FilterListManager.hasCachedSecurityList(this)
+                android.util.Log.i("GuardianProtection", "Security filter cache check complete: $hasSecurityCache")
                 val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                android.util.Log.i("GuardianProtection", "Checking Android ads filter cache; enabled=$androidAdsEnabled")
                 val hasAndroidAdsCache = FilterListManager.hasCachedAndroidAdsList(this)
+                android.util.Log.i("GuardianProtection", "Android ads filter cache check complete: $hasAndroidAdsCache")
                 val ready = FilterListManager.isProfileCacheCurrent(
                     hasCachedList, selectedProfile.key, cachedProfile.key,
                     securityEnabled, hasSecurityCache, androidAdsEnabled, hasAndroidAdsCache
@@ -1854,8 +1957,10 @@ class MainActivity : Activity() {
                     androidAdsEnabled && !hasAndroidAdsCache -> "Android 앱 광고 SDK 필터를 내려받은 후 다시 시작해 주세요."
                     else -> "선택한 필터 구성을 아직 준비하지 못했습니다. 필터 업데이트를 완료한 후 다시 시작해 주세요."
                 }
+                android.util.Log.i("GuardianProtection", "Readiness check complete: ready=$ready elapsedMs=${android.os.SystemClock.elapsedRealtime() - startedAt}")
                 ready to message
             } catch (error: Exception) {
+                android.util.Log.e("GuardianProtection", "Readiness check failed after ${android.os.SystemClock.elapsedRealtime() - startedAt}ms", error)
                 false to "필터 캐시 검증 오류: ${error.message ?: error.javaClass.simpleName}"
             }
             runOnUiThread {
@@ -1863,6 +1968,7 @@ class MainActivity : Activity() {
                 protectionActionButton?.isEnabled = true
                 startButton?.isEnabled = true
                 if (!readiness.first) {
+                    android.util.Log.e("GuardianProtection", "Filter cache not ready: ${readiness.second}")
                     pendingProtectionStartAfterFilterUpdate = true
                     val alreadyUpdating = filterUpdateRunning.get()
                     if (!alreadyUpdating) showTab("rules")
@@ -1871,12 +1977,14 @@ class MainActivity : Activity() {
                     return@runOnUiThread
                 }
                 val consent = VpnService.prepare(this)
+                android.util.Log.i("GuardianProtection", "VPN consent check complete; consentRequired=${consent != null}")
                 if (consent != null) startActivityForResult(consent, REQUEST_VPN) else startProtection()
             }
         }
     }
 
     private fun startProtection() {
+        android.util.Log.i("GuardianProtection", "Starting GuardianVpnService after VPN consent")
         val service = Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_START)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service) else startService(service)

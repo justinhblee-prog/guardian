@@ -1,3 +1,4 @@
+#Requires -Version 7.2
 [CmdletBinding()]
 param([switch]$SkipAutoStart)
 $ErrorActionPreference = 'Stop'
