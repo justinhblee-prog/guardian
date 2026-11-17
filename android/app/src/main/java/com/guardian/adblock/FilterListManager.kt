@@ -228,6 +228,16 @@ object FilterListManager {
     fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
     fun cachedAndroidAdsLines(context: Context): List<String> = readCache(context, ANDROID_ADS_CACHE_FILE)
 
+    /** Parse an app-private cache incrementally to avoid retaining millions of line objects. */
+    internal fun parseCachedList(context: Context, cacheName: String): FilterRuleParser.Parsed {
+        require(cacheName in setOf(CACHE_FILE, SECURITY_CACHE_FILE, ANDROID_ADS_CACHE_FILE)) {
+            "지원하지 않는 필터 캐시입니다."
+        }
+        val file = recoverCache(context, cacheName)
+        check(file.isFile && file.length() > 0L) { "검증된 필터 캐시 파일을 찾을 수 없습니다: $cacheName" }
+        return file.bufferedReader(Charsets.UTF_8).use(FilterRuleParser::parse)
+    }
+
     fun update(context: Context): UpdateResult {
         val profile = selectedProfile(context)
         return download(context, profile.url, CACHE_FILE, profile.minimumRules, KEY_UPDATED_AT, KEY_BLOCK_COUNT, KEY_IGNORED_COUNT, profile.key)
