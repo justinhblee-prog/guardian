@@ -24,7 +24,7 @@ class Ipv6UdpTest {
         assertNull(Ipv6Udp.parseDns(corrupt, corrupt.size))
     }
 
-    @Test fun rejectsExtensionHeadersAndInconsistentLengths() {
+    @Test fun rejectsMalformedExtensionHeadersAndInconsistentLengths() {
         val packet = queryPacket()
         packet[6] = 0 // Hop-by-hop extension header, not UDP
         assertNull(Ipv6Udp.parseDns(packet, packet.size))
