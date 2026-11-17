@@ -82,26 +82,39 @@ fi
 # relying on a fixed screen coordinate.
 tap_text() {
   local wanted="$1"
-  local xml
+  local xml bounds
   adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   xml="$(adb exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  local bounds
+  printf '%s\n' "$xml" > /tmp/guardian-window-before-tap.xml
   bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
+matches=[]
 for node in root.iter("node"):
-    if sys.argv[1] in node.attrib.get("text",""):
+    if sys.argv[1] in node.attrib.get("text","") and node.attrib.get("clickable")=="true":
         parts=node.attrib.get("bounds","").strip("[]").split("][")
         if len(parts)==2:
             x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
-            print((x1+x2)//2,(y1+y2)//2)
-            break' "$wanted" <<<"$xml")"
+            matches.append(((x1+x2)//2,(y1+y2)//2,node.attrib.get("class",""),node.attrib.get("text","")))
+if matches:
+    x,y,klass,label=matches[0]
+    print(x,y,klass,label)' "$wanted" <<<"$xml")"
   if [[ -z "$bounds" ]]; then
-    echo "Could not locate UI control: $wanted"
+    echo "Could not locate clickable UI control: $wanted"
     echo "$xml"
     return 1
   fi
-  read -r x y <<<"$bounds"
+  read -r x y klass label <<<"$bounds"
+  echo "Tapping clickable UI node: text='$label' class='$klass' at $x,$y"
   adb shell input tap "$x" "$y"
+  sleep 2
+  if [[ "$wanted" == "보호 시작" ]] && ! grep -q "GuardianProtection.*Protection button tapped" "$LIVE_LOG"; then
+    echo "UI tap did not produce the expected protection-button click log."
+    echo "Captured UI hierarchy:"
+    cat /tmp/guardian-window-before-tap.xml
+    echo "Recent app log:"
+    grep -E 'Guardian|FATAL EXCEPTION|VpnService|ActivityManager|lmkd|OutOfMemory|lowmemory' "$LIVE_LOG" | tail -120 || true
+    return 1
+  fi
 }
 
 prefs="$(read_prefs)"
