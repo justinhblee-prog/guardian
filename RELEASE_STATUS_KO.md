@@ -1,13 +1,14 @@
-## 2026-11-16 최신 통합 상태 — main 기준
+## 2026-11-17 최신 통합 상태 — main 기준
 
 ### Android
-- Android 패키지: `com.guardian.adblock`, versionCode `23`, versionName `0.7.10-dev`.
-- 검증된 APK: 3,070,507 bytes, SHA-256 `04958ebbe6a4d57d6e0dc603cfd1b36af0085ad82cb307183e98e73c76f1b739`.
-- 전체 패키지 artifact: [Android APK + source + verification ZIP](https://github.com/justinhblee-prog/guardian/actions/runs/43781110905), artifact ID `14188698028`.
-- API 35 에뮬레이터에서 v0.7.9-dev → v0.7.10-dev 업데이트 설치 및 앱 실행 통과.
-- 단위 테스트, Lint, 개발용 서명, APK 생성 및 DNS 필터 asset 검사 통과.
-- 서명 유형은 개발용 Android debug 서명입니다. 운영 keystore/secrets 및 production 배포 URL/공개키가 설정되지 않아 production APK/AAB는 생성하지 않았습니다.
-- 실기기 VPN 승인, 실제 DNS 라우팅/광고 제거, Wi-Fi↔모바일 전환, 장시간 안정성 및 태블릿 실기기 검증은 미실시입니다. 에뮬레이터 결과로 대체하지 않습니다.
+- 최신 main 커밋: `28abc77342f34898dd03c198fef942c0b49a7fe0` (개발 버전 `0.7.14-dev`).
+- 패키지: `com.guardian.adblock`, versionCode `27`.
+- 검증 APK: 3,119,618 bytes, SHA-256 `24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78`.
+- [Android CI run 44060999851](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851): unit tests, lint, APK assembly, filter asset, package/version, checksum, source ZIP integrity, API 35 emulator install/launch 및 VPN DNS E2E **모두 성공**.
+- VPN E2E 실제 로그: `protection_active=true`, `dns_queries=8`, `dns_forwarded=7`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`. `example.com`은 IP 주소로 해석됐고 테스트 `doubleclick.net` 도메인은 `unknown host`로 차단됐다.
+- APK/source artifact ID `14317588578`; 최종 runtime report artifact ID `14318322870`.
+- APK는 개발용 debug 서명입니다. 실기기 스마트폰/태블릿 VPN 승인·라우팅·광고 제거 수용 테스트는 아직 미실시이며 에뮬레이터 결과로 대체하지 않습니다.
+- 운영 keystore/secrets 및 실제 HTTPS 필터 배포·라이선스 서버 주소/공개키가 설정되지 않아 production APK/AAB는 생성하지 않았습니다. [Production workflow run 44052664040](https://github.com/justinhblee-prog/guardian/actions/runs/44052664040)은 설정 검사와 임시 키 release 서명 검증에 성공했지만 production signing job은 의도적으로 skipped입니다.
 
 ### Windows
 - Windows DNS 엔진, IPv4/IPv6 UDP·TCP loopback DNS proxy, DNS upstream 검증 및 UDP truncation 시 TCP fallback 구현.
