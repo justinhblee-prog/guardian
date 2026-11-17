@@ -106,17 +106,14 @@ function renderActivations(license, root, items) {
       const button = createButton("기기 해제", "danger", async () => {
         if (!confirm("이 기기만 라이선스에서 해제할까요? 다른 등록 기기와 라이선스는 유지됩니다.")) return;
         button.disabled = true;
-        try {
-          await api(
+        const succeeded = await mutateAndReload(
+          () => api(
             `/v1/admin/licenses/${encodeURIComponent(license.id)}/activations/${encodeURIComponent(item.id)}/deactivate`,
             { method: "POST", body: "{}" }
-          );
-          await load();
-          statusText("선택한 기기의 등록을 해제했습니다.", "ok");
-        } catch (error) {
-          button.disabled = false;
-          statusText(error.message, "error");
-        }
+          ),
+          "선택한 기기의 등록을 해제했습니다."
+        );
+        if (!succeeded) button.disabled = false;
       });
       row.append(button);
     }
@@ -176,14 +173,11 @@ function renderLicenses() {
       const revokeButton = createButton("라이선스 정지", "danger", async () => {
         if (!confirm("이 라이선스를 정지하고 활성 기기를 모두 해제할까요?")) return;
         revokeButton.disabled = true;
-        try {
-          await api(`/v1/admin/licenses/${encodeURIComponent(item.id)}/revoke`, { method: "POST", body: "{}" });
-          await load();
-          statusText("라이선스를 정지했습니다.", "ok");
-        } catch (error) {
-          revokeButton.disabled = false;
-          statusText(error.message, "error");
-        }
+        const succeeded = await mutateAndReload(
+          () => api(`/v1/admin/licenses/${encodeURIComponent(item.id)}/revoke`, { method: "POST", body: "{}" }),
+          "라이선스를 정지했습니다."
+        );
+        if (!succeeded) revokeButton.disabled = false;
       });
       actions.append(revokeButton);
     }
@@ -234,6 +228,26 @@ function renderEvents() {
 
 function statusText(message, kind = "neutral") {
   setStatus(message, kind);
+}
+
+async function mutateAndReload(action, successMessage) {
+  if (!adminToken || loading) return false;
+  setBusy(true);
+  try {
+    await action();
+  } catch (error) {
+    statusText(error.message, "error");
+    return false;
+  } finally {
+    setBusy(false);
+  }
+  try {
+    await load();
+    statusText(successMessage, "ok");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function load() {
@@ -289,17 +303,23 @@ $("issue").addEventListener("click", async () => {
     statusText(error.message, "error");
     return;
   }
-  $("issue").disabled = true;
+  setBusy(true);
+  let data;
   try {
-    const data = await api("/v1/admin/licenses", { method: "POST", body: JSON.stringify(input) });
-    $("key").textContent = data.licenseKey;
-    $("issued").hidden = false;
-    await load();
-    statusText("발급 완료. 키는 지금 한 번만 표시됩니다.", "ok");
+    data = await api("/v1/admin/licenses", { method: "POST", body: JSON.stringify(input) });
   } catch (error) {
     statusText(error.message, "error");
+    return;
   } finally {
-    $("issue").disabled = false;
+    setBusy(false);
+  }
+  $("key").textContent = data.licenseKey;
+  $("issued").hidden = false;
+  try {
+    await load();
+    statusText("발급 완료. 키는 지금 한 번만 표시됩니다.", "ok");
+  } catch {
+    statusText("라이선스는 발급됐지만 목록 새로고침에 실패했습니다. 발급 키를 안전하게 보관하세요.", "error");
   }
 });
 
