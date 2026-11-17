@@ -468,3 +468,12 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Package versionCode 21 / `0.7.8-dev`.
 - CI run: https://github.com/justinhblee-prog/guardian/actions/runs/43573908206 — pending at documentation update time. Do not treat this source change as verified until that run completes successfully.
 - This is parser hardening only; it does not prove physical-device VPN routing or real ad-removal effectiveness.
+
+
+## Android v0.7.13-dev — VPN 시작 안정화 및 DNS E2E (2026-11-17)
+
+- PR #73 squash merge: `99ad460bf309fe55b7503fa828d8eb4be25386ea`.
+- Android CI [run 43918433672](https://github.com/justinhblee-prog/guardian/actions/runs/43918433672): unit tests, lint, debug APK, filter asset validation, emulator install/upgrade, VPN activation, allowed DNS resolution, blocked DNS rejection 모두 성공.
+- 로그 통계: active=true, queries=4, forwarded=3, blocked=1, failed=0. 허용 `example.com` → `104.20.23.154`; 차단 `guardian-ci-43918433672.doubleclick.net` → unknown host.
+- main merge 검증 run [44047861059](https://github.com/justinhblee-prog/guardian/actions/runs/44047861059)은 별도 실행 중으로, 성공 확인 전 main 최종 APK로 확정하지 않습니다.
+- 미완료: 실기기 수용 테스트, 네트워크 전환/Private DNS/앱 제외 매트릭스, 실제 운영 필터/라이선스 서버 연결, 운영 keystore 기반 production 서명.
