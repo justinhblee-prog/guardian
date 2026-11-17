@@ -267,10 +267,10 @@ if [[ "$active" -ne 1 ]]; then
   exit 1
 fi
 
-before_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
-before_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
-before_forwarded="$(sed -n 's/.*name="dns_forwarded"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
-before_failed="$(sed -n 's/.*name="dns_failed"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_forwarded="$(sed -n 's/.*name="dns_forwarded"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_failed="$(sed -n 's/.*name="dns_failed"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_queries="${before_queries:-0}"
 before_blocked="${before_blocked:-0}"
 before_forwarded="${before_forwarded:-0}"
@@ -281,10 +281,11 @@ allowed_output="$(adb shell ping -c 1 -W 5 example.com 2>&1 || true)"
 printf '%s\n' "$allowed_output" | tee /tmp/guardian-allowed-dns.txt
 sleep 2
 prefs="$(read_prefs)"
-after_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
-after_forwarded="$(sed -n 's/.*name="dns_forwarded"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+after_forwarded="$(sed -n 's/.*name="dns_forwarded"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 after_queries="${after_queries:-0}"
 after_forwarded="${after_forwarded:-0}"
+echo "Allowed DNS counters: queries ${before_queries} -> ${after_queries}; forwarded ${before_forwarded} -> ${after_forwarded}."
 if (( after_queries <= before_queries || after_forwarded <= before_forwarded )); then
   echo "Allowed DNS lookup was not observed as a forwarded Guardian query."
   read_prefs
@@ -301,8 +302,8 @@ blocked_output="$(adb shell ping -c 1 -W 5 "$blocked_host" 2>&1 || true)"
 printf '%s\n' "$blocked_output" | tee /tmp/guardian-blocked-dns.txt
 sleep 2
 prefs="$(read_prefs)"
-after_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
-after_failed="$(sed -n 's/.*name="dns_failed"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+after_failed="$(sed -n 's/.*name="dns_failed"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 after_blocked="${after_blocked:-0}"
 after_failed="${after_failed:-0}"
 if (( after_blocked <= before_blocked )); then
