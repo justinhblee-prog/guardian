@@ -10,14 +10,56 @@ object DomainFilter {
     private data class RuleSet(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>)
     @Volatile private var activeRules = RuleSet(bootstrapBlocked, emptySet(), emptySet())
 
-    /** Loads the canonical cross-platform rules shipped as an Android asset. */
-    fun loadRules(lines: List<String>) = loadParsedRules(FilterRuleParser.parse(lines))
+    /** Loads list-backed sources for callers that already hold a small collection. */
+    fun loadRuleSources(
+        sources: List<() -> List<String>>,
+        minimumRuleCounts: List<Int>,
+        userBlockDomains: List<String> = emptyList(),
+        userAllowDomains: List<String> = emptyList()
+    ) {
+        loadParsedRuleSources(
+            sources.map { load -> { FilterRuleParser.parse(load()) } },
+            minimumRuleCounts,
+            userBlockDomains,
+            userAllowDomains
+        )
+    }
 
-    /** Atomically installs already parsed rules without serializing them back into text. */
-    fun loadParsedRules(parsed: FilterRuleParser.Parsed) {
-        require(parsed.blocked.isNotEmpty() || parsed.importantBlocked.isNotEmpty()) { "Filter sources contain no valid DNS block rules" }
+    /** Merges reader-parsed sources so large disk feeds never become line-sized String lists. */
+    fun loadParsedRuleSources(
+        sources: List<() -> FilterRuleParser.Parsed>,
+        minimumRuleCounts: List<Int>,
+        userBlockDomains: List<String> = emptyList(),
+        userAllowDomains: List<String> = emptyList()
+    ) {
+        require(sources.isNotEmpty() && sources.size == minimumRuleCounts.size) {
+            "Filter source validation configuration is incomplete"
+        }
+        val blocked = HashSet<String>()
+        val allowed = HashSet<String>()
+        val importantBlocked = HashSet<String>()
+        sources.forEachIndexed { index, load ->
+            val parsed = load()
+            val count = parsed.blocked.size + parsed.importantBlocked.size
+            require(count >= minimumRuleCounts[index]) {
+                "Filter source ${index + 1} has too few valid DNS rules: $count"
+            }
+            blocked.addAll(parsed.blocked)
+            allowed.addAll(parsed.allowed)
+            importantBlocked.addAll(parsed.importantBlocked)
+        }
+        userBlockDomains.forEach { DomainFilter.normalizeRuleDomain(it)?.let(blocked::add) }
+        userAllowDomains.forEach { DomainFilter.normalizeRuleDomain(it)?.let(allowed::add) }
+        require(blocked.isNotEmpty() || importantBlocked.isNotEmpty()) {
+            "Filter sources contain no valid DNS block rules"
+        }
         // One volatile swap keeps allow/block precedence consistent during live updates.
-        activeRules = RuleSet(parsed.blocked, parsed.allowed, parsed.importantBlocked)
+        activeRules = RuleSet(blocked, allowed, importantBlocked)
+    }
+
+    /** Loads the canonical cross-platform rules shipped as an Android asset. */
+    fun loadRules(lines: List<String>) {
+        loadRuleSources(listOf({ lines }), listOf(1))
     }
 
     enum class BlockCategory { AD, TRACKER, OTHER }

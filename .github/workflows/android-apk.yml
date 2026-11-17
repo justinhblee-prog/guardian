@@ -107,11 +107,11 @@ jobs:
           keytool -list -v -keystore android/guardian-dev.keystore -storepass android -alias androiddebugkey | grep -F 'ED:AE:EC:C9:E4:A2:7E:64:F0:7D:92:64:3F:B8:51:40:72:50:83:AB:ED:55:3F:91:2A:0D:EE:03:87:FB:D8:2C'
       - name: Assemble previous dev version for upgrade test
         run: |
-          gradle -p android --no-daemon -PguardianVersionCode=24 -PguardianVersionName=0.7.11-dev assembleDebug
-          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.11-dev.apk
+          gradle -p android --no-daemon -PguardianVersionCode=26 -PguardianVersionName=0.7.13-dev assembleDebug
+          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.13-dev.apk
 
       - name: Assemble current debug APK for build verification
-        run: gradle -p android --no-daemon -PguardianVersionCode=26 -PguardianVersionName=0.7.13-dev assembleDebug
+        run: gradle -p android --no-daemon -PguardianVersionCode=27 -PguardianVersionName=0.7.14-dev assembleDebug
 
       - name: Verify bundled DNS filter library inside APK
         shell: bash
@@ -130,7 +130,7 @@ jobs:
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='26' versionName='0.7.13-dev'"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='27' versionName='0.7.14-dev'"
 
       - name: Verify APK exists and calculate checksum
         shell: bash
@@ -148,13 +148,13 @@ jobs:
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
-          # Guardian AdBlock v0.7.13-dev — 빌드 검증 결과
+          # Guardian AdBlock v0.7.14-dev — 빌드 검증 결과
 
           - 저장소 커밋: ${GITHUB_SHA}
           - GitHub Actions 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - versionCode: 26
-          - versionName: 0.7.13-dev
+          - versionCode: 27
+          - versionName: 0.7.14-dev
           - Android 단위 테스트: 통과
           - Android lintDebug: 통과
           - assembleDebug: 통과
@@ -345,12 +345,12 @@ jobs:
             APK_STATUS="빌드 단계 이전 실패 또는 APK 미생성"
           fi
           cat > release/FINAL_VERIFICATION_KO.md <<EOF
-          # Guardian AdBlock v0.7.13-dev — 최종 검증 상태
+          # Guardian AdBlock v0.7.14-dev — 최종 검증 상태
 
           - 커밋: ${GITHUB_SHA}
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - 버전: 0.7.13-dev (26)
+          - 버전: 0.7.14-dev (27)
           - APK 생성 상태: ${APK_STATUS}
           - APK SHA-256: ${APK_SHA256}
           - 테스트 및 빌드 단계의 실제 결과는 위 GitHub Actions 단계 결과를 기준으로 확인합니다.

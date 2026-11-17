@@ -57,6 +57,66 @@ jobs:
           fi
           grep -F "Release APK/AAB requires" /tmp/guardian-release-without-key.log
 
+
+      - name: Build and verify an ephemeral signed release APK (no production secrets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          TEMP_DIR="$(mktemp -d)"
+          trap 'rm -rf "$TEMP_DIR" android/app/build/outputs/apk/release' EXIT
+          STORE_PASSWORD="guardian-validation-only"
+          KEY_ALIAS="guardian-validation"
+          KEY_PASSWORD="guardian-validation-only"
+
+          # Generate throwaway RSA keys and a throwaway Android keystore. These
+          # values validate the Release build path only and are never uploaded.
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            -out "$TEMP_DIR/filter-private.pem"
+          openssl pkey -in "$TEMP_DIR/filter-private.pem" -pubout -outform DER \
+            | base64 -w0 > "$TEMP_DIR/filter-public.x509.b64"
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            -out "$TEMP_DIR/license-private.pem"
+          openssl pkey -in "$TEMP_DIR/license-private.pem" -pubout -outform DER \
+            | base64 -w0 > "$TEMP_DIR/license-public.x509.b64"
+          FILTER_PUBLIC_KEY="$(cat "$TEMP_DIR/filter-public.x509.b64")"
+          LICENSE_PUBLIC_KEY="$(cat "$TEMP_DIR/license-public.x509.b64")"
+
+          keytool -genkeypair -v -keystore "$TEMP_DIR/guardian-validation.jks" \
+            -storetype JKS -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+            -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
+            -dname "CN=Guardian CI Release Validation, OU=Temporary, O=Guardian, C=US"
+
+          gradle -p android --no-daemon \
+            -PguardianReleaseStoreFile="$TEMP_DIR/guardian-validation.jks" \
+            -PguardianReleaseStorePassword="$STORE_PASSWORD" \
+            -PguardianReleaseKeyAlias="$KEY_ALIAS" \
+            -PguardianReleaseKeyPassword="$KEY_PASSWORD" \
+            -PguardianManifestBaseUrl="https://filters.validation.invalid/guardian" \
+            -PguardianManifestPublicKey="$FILTER_PUBLIC_KEY" \
+            -PguardianLicenseApiBaseUrl="https://license.validation.invalid" \
+            -PguardianLicensePublicKey="$LICENSE_PUBLIC_KEY" \
+            -PguardianVersionName="0.0.0-validation" \
+            -PguardianVersionCode=1 \
+            clean assembleRelease
+
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
+          unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='1' versionName='0.0.0-validation'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" \
+            | tee "$TEMP_DIR/apk-signature.txt"
+          EXPECTED_CERT="$(keytool -list -v -keystore "$TEMP_DIR/guardian-validation.jks" \
+            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          APK_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' "$TEMP_DIR/apk-signature.txt" \
+            | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          test -n "$EXPECTED_CERT"
+          test "$APK_CERT" = "$EXPECTED_CERT"
+          echo "Ephemeral Release APK built, contains canonical DNS rules, and verifies against its temporary signer."
+          echo "No production keystore, public key, URL, or release artifact was used or uploaded."
+
   production-release:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest

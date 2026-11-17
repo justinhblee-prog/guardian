@@ -36,8 +36,9 @@ class FilterUpdateWorker(
 
             var optionalFailure = false
             val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-            val securityCacheReady = securityEnabled && FilterListManager.hasCachedSecurityList(applicationContext)
-            if (securityEnabled && FilterUpdatePolicy.isDue(
+            val securityCacheReady = FilterListManager.hasCachedSecurityList(applicationContext)
+            if (securityEnabled &&
+                FilterUpdatePolicy.isDue(
                     securityCacheReady,
                     FilterListManager.lastSecurityUpdatedAt(applicationContext), interval, now
                 )) {
@@ -45,21 +46,21 @@ class FilterUpdateWorker(
                     FilterListManager.updateSecurity(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                 } catch (e: Exception) {
+                    optionalFailure = securityCacheReady
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_SECURITY_LAST_ERROR,
                         e.message ?: e.javaClass.simpleName
                     )
                     if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityEnabled, securityCacheReady)) {
                         editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                    } else {
-                        optionalFailure = true
                     }
                     editor.apply()
                 }
             }
             val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-            val androidAdsCacheReady = androidAdsEnabled && FilterListManager.hasCachedAndroidAdsList(applicationContext)
-            if (androidAdsEnabled && FilterUpdatePolicy.isDue(
+            val androidAdsCacheReady = FilterListManager.hasCachedAndroidAdsList(applicationContext)
+            if (androidAdsEnabled &&
+                FilterUpdatePolicy.isDue(
                     androidAdsCacheReady,
                     FilterListManager.lastAndroidAdsUpdatedAt(applicationContext), interval, now
                 )) {
@@ -67,14 +68,13 @@ class FilterUpdateWorker(
                     FilterListManager.updateAndroidAds(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                 } catch (e: Exception) {
+                    optionalFailure = optionalFailure || androidAdsCacheReady
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                         e.message ?: e.javaClass.simpleName
                     )
                     if (FilterUpdatePolicy.shouldDisableOptionalFilter(androidAdsEnabled, androidAdsCacheReady)) {
                         editor.putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
-                    } else {
-                        optionalFailure = true
                     }
                     editor.apply()
                 }
@@ -113,13 +113,13 @@ class FilterUpdateWorker(
 
 /** Pure per-source refresh policy, also used to verify retry behavior. */
 internal object FilterUpdatePolicy {
+    /** Disable an optional source only when its first download failed and no trusted cache exists. */
+    fun shouldDisableOptionalFilter(wasEnabled: Boolean, hadValidCache: Boolean): Boolean =
+        wasEnabled && !hadValidCache
+
     fun isDue(hasValidCache: Boolean, lastUpdatedAt: Long, intervalMs: Long, now: Long): Boolean {
         if (!hasValidCache || lastUpdatedAt <= 0L) return true
         val interval = FilterUpdateScheduler.normalizeInterval(intervalMs)
         return now >= lastUpdatedAt && now - lastUpdatedAt >= interval
     }
-
-    /** An unavailable optional source must not prevent the base DNS protection from starting. */
-    fun shouldDisableOptionalFilter(enabled: Boolean, hasValidCache: Boolean): Boolean =
-        enabled && !hasValidCache
 }

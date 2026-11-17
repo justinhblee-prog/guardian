@@ -6,6 +6,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FilterUpdateSchedulePolicyTest {
+    @Test fun disablesOptionalFilterOnlyWhenItsFirstDownloadFailsWithoutCache() {
+        assertTrue(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hadValidCache = false))
+        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hadValidCache = true))
+        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = false, hadValidCache = false))
+    }
+
     @Test fun preservesSupportedSixHourAndDailyIntervals() {
         assertEquals(6L * 60L * 60L * 1000L, FilterUpdateScheduler.normalizeInterval(6L * 60L * 60L * 1000L))
         assertEquals(FilterUpdateScheduler.DEFAULT_INTERVAL_MS, FilterUpdateScheduler.normalizeInterval(FilterUpdateScheduler.DEFAULT_INTERVAL_MS))
@@ -53,11 +59,5 @@ class FilterUpdateSchedulePolicyTest {
     @Test fun invalidIntervalUsesWorkManagerMinimum() {
         assertFalse(FilterUpdatePolicy.isDue(true, 100_000L, 0L, 100_000L + FilterUpdateScheduler.MIN_INTERVAL_MS - 1L))
         assertTrue(FilterUpdatePolicy.isDue(true, 100_000L, 0L, 100_000L + FilterUpdateScheduler.MIN_INTERVAL_MS))
-    }
-
-    @Test fun failedFirstDownloadDisablesOnlyTheUnavailableOptionalFilter() {
-        assertTrue(FilterUpdatePolicy.shouldDisableOptionalFilter(enabled = true, hasValidCache = false))
-        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(enabled = true, hasValidCache = true))
-        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(enabled = false, hasValidCache = false))
     }
 }

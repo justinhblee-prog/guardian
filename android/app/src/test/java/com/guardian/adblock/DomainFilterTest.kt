@@ -25,6 +25,26 @@ class DomainFilterTest {
         assertFalse(DomainFilter.isBlocked("x.trusted.doubleclick.net"))
     }
 
+    @Test fun loadsParsedSourcesAndPreservesPerSourceValidation() {
+        DomainFilter.loadParsedRuleSources(
+            listOf(
+                { FilterRuleParser.parse("block=ads.example\nallow=trusted.ads.example") },
+                { FilterRuleParser.parse("block=tracker.example") }
+            ),
+            listOf(1, 1)
+        )
+        assertTrue(DomainFilter.isBlocked("cdn.ads.example"))
+        assertTrue(DomainFilter.isBlocked("tracker.example"))
+        assertFalse(DomainFilter.isBlocked("trusted.ads.example"))
+        assertThrows(IllegalArgumentException::class.java) {
+            DomainFilter.loadParsedRuleSources(
+                listOf({ FilterRuleParser.parse("allow=only.example") }),
+                listOf(1)
+            )
+        }
+        assertTrue(DomainFilter.isBlocked("tracker.example"))
+    }
+
     @Test fun rejectsSharedRulesWithoutValidBlockEntries() {
         assertThrows(IllegalArgumentException::class.java) {
             DomainFilter.loadRules(listOf("# empty", "block=bad domain", "allow=example.com", "unknown=ads.example"))

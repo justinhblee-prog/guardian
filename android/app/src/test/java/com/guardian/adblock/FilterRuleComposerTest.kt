@@ -38,7 +38,7 @@ class FilterRuleComposerTest {
                 FilterRuleParser.parse(sequenceOf("||shared.example^", "||second.example^"))
             )
         )
-        DomainFilter.loadParsedRules(parsed)
+        DomainFilter.loadParsedRuleSources(listOf({ parsed }), listOf(1))
         assertTrue(DomainFilter.isBlocked("shared.example"))
         assertTrue(DomainFilter.isBlocked("second.example"))
     }
