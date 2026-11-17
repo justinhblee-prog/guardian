@@ -1,8 +1,9 @@
 #Requires -Version 7.2
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $AndroidDir = Join-Path $RepoRoot 'android'
-$SecretDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'secrets'
+$SecretDir = $script:GuardianSecretsDir
 $licensePublicPath = Join-Path $SecretDir 'guardian-license-public.x509.b64'
 $filterPublicPath = Join-Path $SecretDir 'guardian-filter-public.x509.b64'
 
@@ -64,7 +65,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Android 검증/빌드 실패 (exit $LASTEXITCODE)" }
 } finally { Pop-Location }
 
-$outputDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'outputs'
+$outputDir = $script:GuardianOutputsDir
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 $apkSource = Join-Path $AndroidDir 'app\build\outputs\apk\debug\app-debug.apk'
 $apkTarget = Join-Path $outputDir 'Guardian-AdBlock-Debug.apk'
