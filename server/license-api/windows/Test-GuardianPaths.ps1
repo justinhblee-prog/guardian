@@ -2,8 +2,8 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
 $original = @{
-  DataDir = $env:GUARDIAN_DATA_DIR
-  LocalAppData = $env:LOCALAPPDATA
+  GUARDIAN_DATA_DIR = $env:GUARDIAN_DATA_DIR
+  LOCALAPPDATA = $env:LOCALAPPDATA
   OneDrive = $env:OneDrive
   OneDriveConsumer = $env:OneDriveConsumer
   OneDriveCommercial = $env:OneDriveCommercial
@@ -25,8 +25,8 @@ try {
   Remove-Item Env:GUARDIAN_DATA_DIR -ErrorAction SilentlyContinue
   $default=Get-GuardianPaths -RepositoryRoot $repo
   Assert-True ($default.Root -eq (Join-Path $env:LOCALAPPDATA 'Guardian')) 'default path must use LOCALAPPDATA'
-  Assert-True ($default.LicenseEnv -eq (Join-Path $default.Root 'license-api\.env')) 'license .env must be external'
-  Assert-True ($default.FilterSources -eq (Join-Path $default.Root 'filter-distribution\sources.json')) 'filter config must be external'
+  Assert-True ($default.LicenseEnv -eq (Join-Path (Join-Path $default.Root 'license-api') '.env')) 'license .env must be external'
+  Assert-True ($default.FilterSources -eq (Join-Path (Join-Path $default.Root 'filter-distribution') 'sources.json')) 'filter config must be external'
 
   $env:GUARDIAN_DATA_DIR=Join-Path $tempRoot 'ExternalGuardian'
   $external=Get-GuardianPaths -RepositoryRoot $repo
