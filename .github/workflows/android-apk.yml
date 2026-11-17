@@ -163,7 +163,7 @@ jobs:
           unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.14-dev/android/app/src/main/AndroidManifest.xml'
           unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.14-dev/server/license-api/admin/index.html'
           unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.14-dev/shared/filter_rules.txt'
-          if unzip -Z1 "$SOURCE_ZIP" | grep -Eiq '(^|/)([^/]*\\.(jks|keystore|p12|pfx|dpapi|pem)|\\.env|sources\\.json|[^/]*\\.bak)$|(^|/)secrets/|(^|/)(dist|logs)/'; then
+          if unzip -Z1 "$SOURCE_ZIP" | grep -Eiq '(^|/)([^/]*\.(jks|keystore|p12|pfx|dpapi|pem)|\.env|sources\.json|[^/]*\.bak)$|(^|/)secrets/|(^|/)(dist|logs)/'; then
             echo "Source archive contains a signing key, secret/config file, backup, or generated runtime output."
             exit 1
           fi
