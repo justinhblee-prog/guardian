@@ -477,3 +477,15 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 로그 통계: active=true, queries=4, forwarded=3, blocked=1, failed=0. 허용 `example.com` → `104.20.23.154`; 차단 `guardian-ci-43918433672.doubleclick.net` → unknown host.
 - main merge 검증 run [44047861059](https://github.com/justinhblee-prog/guardian/actions/runs/44047861059)은 별도 실행 중으로, 성공 확인 전 main 최종 APK로 확정하지 않습니다.
 - 미완료: 실기기 수용 테스트, 네트워크 전환/Private DNS/앱 제외 매트릭스, 실제 운영 필터/라이선스 서버 연결, 운영 keystore 기반 production 서명.
+
+
+## Android 0.7.14-dev — 모바일 클라이언트 및 서버 도구 통합 (2026-11-17)
+
+- PR #77 squash merge: `30a765cf539885f94a5924680a8d055d083afc79`.
+- Android PR run [44051352597](https://github.com/justinhblee-prog/guardian/actions/runs/44051352597) 성공: unit tests, lint, 0.7.13→0.7.14 업데이트, APK identity/checksum, API 35 emulator VPN/DNS E2E.
+- APK `com.guardian.adblock`, versionCode 27, versionName `0.7.14-dev`, 3,119,618 bytes; SHA-256 `24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78`.
+- VPN E2E: active=true, DNS queries=6, forwarded=5, blocked=1, ad-blocked=1, failed=0. `example.com` 허용 응답, 테스트용 `doubleclick.net` 차단 확인.
+- Signed filter distribution run 44052664109, filter distribution CI run 44052665884, License API/PostgreSQL integration run 44052664268 성공.
+- PR #77에는 Android manifest/서명/해시 검증 클라이언트, Windows DPAPI 서명·공개 배포 스크립트, Tailscale private access 및 License API 운영 스크립트가 포함됩니다.
+- 실제 Windows 노트북에서 private key 생성/배포, public CDN branch 게시, Tailscale 운영 연결, production keystore 설정은 아직 미수행입니다. Production-release job은 운영 키 부재로 skip되며 APK는 debug 서명본입니다.
+- 실제 스마트폰·태블릿 네트워크 전환/제조사별 수용 테스트는 미수행입니다. main branch 재검증 run 44052664083 및 production configuration run 44052664040 결과는 완료 후 반영합니다.
