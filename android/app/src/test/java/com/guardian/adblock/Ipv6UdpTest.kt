@@ -57,6 +57,17 @@ class Ipv6UdpTest {
         assertArrayEquals(byteArrayOf(1, 2, 3, 4), parsed.payload)
     }
 
+    @Test fun rejectsUndersizedIpv6AuthenticationHeader() {
+        val packet = ByteArray(60)
+        packet[0] = 0x60
+        packet[4] = 0
+        packet[5] = 20
+        packet[6] = 51 // Authentication Header
+        packet[40] = 17 // UDP follows
+        packet[41] = 0 // AH length field describes only 8 bytes; RFC minimum is 12
+        assertNull(Ipv6Udp.parseDns(packet, packet.size))
+    }
+
     @Test fun rejectsTruncatedUdpHeaderAfterValidExtensionHeader() {
         val packet = ByteArray(52)
         packet[0] = 0x60
