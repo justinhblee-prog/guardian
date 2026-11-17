@@ -33,3 +33,12 @@ def test_dns_readiness_rejects_unrelated_or_nonresponse_packet():
     query_only=bytearray(query)
     assert not is_dns_probe_response(query,bytes(wrong_id))
     assert not is_dns_probe_response(query,bytes(query_only))
+
+
+def test_proxy_readiness_rejects_unowned_loopback_dns(tmp_path, monkeypatch):
+    import windows_engine.desktop as desktop
+    monkeypatch.setattr(desktop, "HEALTH", tmp_path / "missing-daemon-health.json")
+    def unexpected_socket(*args, **kwargs):
+        raise AssertionError("must not trust an arbitrary loopback DNS responder")
+    monkeypatch.setattr(desktop.socket, "socket", unexpected_socket)
+    assert not desktop.proxy_ready()

@@ -6,8 +6,9 @@ from tkinter import messagebox
 from dns_engine import DomainRules,DnsProxy
 from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin
 from windows_engine.filter_updates import FilterUpdater
+from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_is_running
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
-CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"
+CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"
 TASK_NAME="GuardianDnsProxy"
 DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndication.com^\n||googleadservices.com^\n||adservice.google.com^\n||adnxs.com^\n||criteo.com^\n||taboola.com^\n||outbrain.com^\n||scorecardresearch.com^\n||quantserve.com^\n||mixpanel.com^\n||hotjar.com\n"
 def ensure_config():
@@ -45,6 +46,8 @@ def is_dns_probe_response(query,response):
             and bool(response[2]&0x80)
             and struct.unpack("!H",response[4:6])[0]==1)
 def proxy_ready():
+    # A generic DNS response on loopback is not proof that Guardian owns the port.
+    if not daemon_health_is_fresh(HEALTH): return False
     try:
         query=blocked_probe_query()
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
@@ -64,6 +67,12 @@ def ensure_daemon_running():
     raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53")
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
+    if daemon_process_is_running(HEALTH):
+        deadline=time.monotonic()+5
+        while daemon_process_is_running(HEALTH) and time.monotonic()<deadline:
+            time.sleep(.2)
+        if daemon_process_is_running(HEALTH):
+            raise NetworkConfigError("Guardian DNS background process did not stop; network protection state was not marked stopped")
     if delete:
         run_task("/Delete","/TN",TASK_NAME,"/F")
         for _ in range(5):
@@ -133,7 +142,11 @@ class GuardianDesktop:
                 self.start_button.configure(state="disabled")
                 messagebox.showerror("Guardian DNS 복구",f"이전 보호 상태를 자동 복구하지 못했습니다. DNS 백업을 보존했습니다.\n\n{exc}")
         elif STATE.exists():
-            write_state(False); stop_daemon()
+            write_state(False)
+            try: stop_daemon()
+            except Exception as exc:
+                self.set_active_ui(False,"보호 꺼짐 · 백그라운드 종료 확인 필요")
+                messagebox.showerror("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
     def start_protection(self):
         if self.active: return
         try:
@@ -145,7 +158,13 @@ class GuardianDesktop:
                 if proxy_ready(): self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
                 else: self.start_button.configure(state="disabled")
             else:
-                write_state(False); stop_daemon(); self.set_active_ui(False,"보호 시작 실패")
+                write_state(False)
+                try: stop_daemon()
+                except Exception as stop_error:
+                    self.set_active_ui(False,"보호 시작 실패 · 백그라운드 종료 확인 필요")
+                    messagebox.showerror("Guardian 보호 시작 실패",f"{exc}\\n\\n백그라운드 종료 실패: {stop_error}")
+                    return
+                self.set_active_ui(False,"보호 시작 실패")
             messagebox.showerror("Guardian 보호 시작 실패",str(exc))
     def stop_protection(self):
         if not self.active and not BACKUP.exists(): return
@@ -153,7 +172,13 @@ class GuardianDesktop:
         except Exception as exc:
             self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
             messagebox.showerror("DNS 복구 실패",f"백그라운드 DNS 프록시를 계속 유지하고 백업을 보존했습니다.\n\n{exc}"); return
-        write_state(False); stop_daemon(); self.set_active_ui(False)
+        write_state(False)
+        try: stop_daemon()
+        except Exception as exc:
+            self.set_active_ui(False,"DNS 복구 완료 · 백그라운드 종료 확인 필요")
+            messagebox.showerror("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
+            return
+        self.set_active_ui(False)
     def open_filter_settings(self):
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
         except Exception as exc: messagebox.showerror("필터 서버 설정",str(exc)); return
