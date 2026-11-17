@@ -130,8 +130,10 @@ object FilterListManager {
 
     private fun recoverCache(context: Context, cacheName: String): File {
         val target = File(context.filesDir, cacheName)
-        val signedConfigured = FilterDistributionSettings.configuredBaseUrl(context).isNotBlank() &&
-            BuildConfig.FILTER_MANIFEST_PUBLIC_KEY.isNotBlank()
+        val signedConfigured = FilterDistributionSettings.requiresSignedDelivery(
+            FilterDistributionSettings.configuredBaseUrl(context),
+            BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
+        )
         if (!signedConfigured) {
             // Unsigned legacy caches still need a hard local size boundary. A
             // corrupted/oversized cache must never be loaded into memory without
@@ -302,7 +304,7 @@ object FilterListManager {
         android.util.Log.i("Guardian", "Filter download started: cache=$cacheName url=$url")
         val manifestBaseUrl = FilterDistributionSettings.configuredBaseUrl(context).trimEnd('/')
         val manifestPublicKey = BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
-        if (manifestBaseUrl.isNotBlank() || manifestPublicKey.isNotBlank()) {
+        if (FilterDistributionSettings.requiresSignedDelivery(manifestBaseUrl, manifestPublicKey)) {
             require(manifestBaseUrl.isNotBlank() && manifestPublicKey.isNotBlank()) {
                 "서명 manifest 서버 주소와 공개키를 함께 설정해야 합니다."
             }
