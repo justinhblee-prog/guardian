@@ -1,6 +1,6 @@
 # Guardian 잔여 업무 순차 진행 계획
 
-기준 main 커밋: `bc627faf76cb96a190335487f735fdefec52b4f4`
+기준 main 커밋: `29ac16c3e6a33fc66cb9bdb322e100916015b356`
 최신 Android CI: [run 44097350550](https://github.com/justinhblee-prog/guardian/actions/runs/44097350550)
 최신 artifact 감사: [run 44062116800](https://github.com/justinhblee-prog/guardian/actions/runs/44062116800)
 상태 갱신: 2026-11-17
@@ -192,3 +192,17 @@ Windows 설치 패키지 workflow는 `.github/workflows/windows-build.yml`에 �
 - 소스 ZIP을 별도 Linux 환경에서 다시 추출해 `python -m pytest -q dns_engine windows_engine`: **26 passed**; `python -m compileall -q dns_engine windows_engine`: exit 0.
 - 에뮬레이터 결과는 Android 실기기 수용 테스트가 아닙니다. 실제 휴대폰/태블릿, Wi-Fi↔모바일 전환, IPv4/IPv6 네트워크 조합, Private DNS 및 장시간 백그라운드 안정성은 미검증입니다.
 - APK는 개발용 debug 서명본입니다. 운영 keystore/secrets가 없어 production APK/AAB는 생성하지 않았습니다. 운영 HTTPS 필터 게시/공개키 연결, 실제 License API/DB 배포, Windows native installer의 최신 설치·제거 검증도 미완료입니다.
+
+
+## 2026-11-17 Windows daemon readiness / installer 검증 — PR #95
+
+- PR #95 병합 커밋: 29ac16c3e6a33fc66cb9bdb322e100916015b356.
+- 문제: 이전 Windows 데스크톱은 127.0.0.1:53에서 임의 DNS 응답만 확인해 Guardian DNS daemon이 아닌 다른 로컬 DNS 서비스가 포트를 점유해도 준비 완료로 오인할 수 있었습니다.
+- 수정: 데몬이 IPv4/IPv6 UDP/TCP 소켓을 모두 바인딩한 후 PID/heartbeat 파일을 원자적으로 게시하고, 독립 heartbeat thread가 매초 갱신합니다. 데스크톱은 heartbeat 최신성 및 PID의 실제 프로세스 생존을 확인한 뒤 DNS 응답을 추가 검사합니다.
+- 중지: 예약 작업 종료 후 PID가 실제 종료됐는지 확인합니다. 종료가 확인되지 않으면 오류를 반환하며 UI에 상태를 알립니다. 기존 DNS 복구 성공과 데몬 종료 성공을 혼동하지 않도록 UI 예외 처리를 추가했습니다.
+- 회귀 테스트: heartbeat 유효/만료/미래 timestamp, 죽은 PID, 손상 JSON, 잘못된 marker, 현재 프로세스 생존, 임의 loopback DNS responder 거부 등을 포함합니다.
+- PR Windows build/install [run 44100882615](https://github.com/justinhblee-prog/guardian/actions/runs/44100882615): 전체 성공. PyInstaller EXE 2종과 Inno Setup installer 생성, Authenticode 서명 상태 검사, 설치, 데스크톱/daemon self-test, --restore-dns, 예약 작업 삭제, restore 없이 직접 uninstall 후 예약 작업 삭제 검증 모두 통과.
+- PR cross-platform engine CI [run 44100882646](https://github.com/justinhblee-prog/guardian/actions/runs/44100882646): Ubuntu 24.04 및 Windows 2022에서 DNS/Windows integration tests 및 compileall 성공. 전체 테스트 33개.
+- PR artifact Guardian-AdBlock-Windows-Dev-Package를 직접 다운로드해 ZIP 무결성, 데스크톱 EXE, DNS daemon EXE, 설치 프로그램의 실제 존재·크기·SHA-256을 확인했습니다. 개발용 unsigned 패키지이며 production Authenticode 인증서는 설정되지 않았습니다.
+- 병합 후 main Windows build 및 cross-platform CI는 별도 실행 중이며 완료 결과를 확인해야 합니다.
+- 실제 Windows PC의 네트워크 어댑터 DNS 변경/복구, 재부팅, Wi-Fi/Ethernet 전환, VPN/보안 제품 공존성은 아직 미검증입니다.
