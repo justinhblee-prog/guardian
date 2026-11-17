@@ -523,3 +523,17 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - APK SHA-256 (artifact 내부 `SHA256SUMS.txt`와 직접 추출 계산 일치): `3d5950f66f623a0d8c74d609b34dd940089a7604ab3acbef464c8873a22f6c8e`.
 - Artifact `guardian-android-debug`, ID `14297427865`, ZIP 크기 3,035,426 bytes, ZIP SHA-256 `43a085de3f4a2dc8a183f13631243f9aede718a7b04c24fbc0607a7eaa40d80c`, 만료 예정 2026-12-01.
 - 본 APK는 개발용 debug 서명입니다. 운영 서명키/릴리스 서명, 운영용 필터 manifest 배포 서버 및 라이선스 API 구성, 실기기 설치·VPN/네트워크 전환·장시간 안정성은 별도 출시 전 검증 항목입니다.
+
+
+## 2026-11-17 — Android VPN E2E 재확인 및 Release 서명 빌드 경로 검증
+
+- Android 앱 소스 커밋: `e74e72758e873096d4d14c4a5698e658647bef9b`.
+- Android CI [run 44014369795](https://github.com/justinhblee-prog/guardian/actions/runs/44014369795) — **success**. 단위 테스트, lint, Debug APK 조립, 패키지/버전 및 필터 자산 확인, 에뮬레이터 설치·실행 및 VPN DNS E2E 통과.
+- 실제 앱 UI에서 보호 시작을 누르고 Android VPN 동의 화면을 승인했습니다. VPN 활성 상태에서 `example.com` DNS 질의가 0→1, 전달 카운터가 0→1로 증가했고, 테스트용 `guardian-ci-44014369795.doubleclick.net`은 해석되지 않았습니다. 최종 DNS 질의 2, 차단 1, 전달 1, 실패 0.
+- 허용 도메인의 ICMP ping 응답은 0/1이었습니다. 이 검증은 DNS 전달과 도메인 차단만 입증하며 일반 웹 연결·ICMP 또는 모든 광고 제거를 입증하지 않습니다.
+- Android Debug APK: versionCode `26`, versionName `0.7.13-dev`. 이 PR 실행은 pull_request 조건으로 APK artifact 업로드가 생략됐습니다. 직전 배포 artifact는 run [44013646938](https://github.com/justinhblee-prog/guardian/actions/runs/44013646938), artifact ID `14297427865`이며 APK SHA-256은 `3d5950f66f623a0d8c74d609b34dd940089a7604ab3acbef464c8873a22f6c8e`입니다.
+- Production Release workflow 검증 개선 커밋: `5d70fbe8fbc54e17979eb842e22e27d13bd22fe3`.
+- Release workflow [run 44015284038](https://github.com/justinhblee-prog/guardian/actions/runs/44015284038) — **success**. 운영 keystore가 없으면 Release 빌드가 차단되는지 확인했고, 별도의 임시 RSA 공개키와 임시 JKS만 사용해 Release APK 조립, canonical DNS 필터 자산, package/version, APK 서명 및 임시 인증서 지문 일치를 검증했습니다.
+- 임시 Release APK와 키는 job 종료 시 삭제되며 artifact로 업로드하지 않습니다. 이 테스트는 Release 빌드 파이프라인 검증이지 운영 키로 서명한 정식 APK가 아닙니다. Production release job은 수동 실행 전용으로 유지됩니다.
+- 실제 Production APK/AAB에는 사용자 소유 운영 keystore와 보호된 CI secrets, 운영 HTTPS 필터 manifest URL·공개키, 운영 License API URL·공개키가 필요합니다. 해당 값은 아직 설정되지 않았으며 저장소나 채팅에 임의 키/주소를 만들지 않았습니다.
+- PR #75는 계속 **open / not merged** 상태입니다.
