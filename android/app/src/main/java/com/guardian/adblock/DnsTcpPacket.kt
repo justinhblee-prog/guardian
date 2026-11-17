@@ -146,7 +146,8 @@ internal object Ipv6ExtensionHeaderParser {
                 44 -> return null
                 else -> return null
             }
-            if (headerLength < 8 || offset + headerLength > packetLength) return null
+            val minimumHeaderLength = if (nextHeader == 51) 12 else 8
+            if (headerLength < minimumHeaderLength || offset + headerLength > packetLength) return null
             offset += headerLength
             nextHeader = following
         }
