@@ -5,9 +5,12 @@ $ErrorActionPreference = 'Stop'
 $pwshCommand = Get-Command 'pwsh' -ErrorAction SilentlyContinue
 if (-not $pwshCommand -or -not $pwshCommand.Source) { throw '필터 자동 게시 예약 작업에는 PowerShell 7.2 이상(pwsh.exe)이 필요합니다.' }
 $FilterDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\filter-distribution')).Path
-$SecretDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'secrets'
+$repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+$paths=Get-GuardianPaths -RepositoryRoot $repoRoot
+$SecretDir = $paths.Secrets
 $protectedPath = Join-Path $SecretDir 'guardian-filter-private.dpapi'
-$sourcesPath = Join-Path $FilterDir 'sources.json'
+$sourcesPath = $paths.FilterSources
 if (-not (Test-Path $protectedPath)) { throw '보호된 필터 서명키가 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.' }
 if (-not (Test-Path $sourcesPath)) { throw 'sources.json이 없습니다. sources.example.json을 복사하고 실제 HTTPS 배포 주소를 설정하세요.' }
 try { $scheduleTime = [DateTime]::ParseExact($DailyAt, 'HH:mm', [Globalization.CultureInfo]::InvariantCulture) }
