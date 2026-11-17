@@ -137,7 +137,6 @@ for attempt in $(seq 1 20); do
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 positive={"allow","허용","앱 사용 중에만 허용","이번만 허용","항상 허용","확인","ok"}
-negative=("dont allow","don\'t allow","do not allow","deny","거부","허용 안 함","허용하지 않음")
 for node in root.iter("node"):
     label=" ".join(node.attrib.get("text","").lower().split())
     if label in positive and node.attrib.get("clickable")=="true":
