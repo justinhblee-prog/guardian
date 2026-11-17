@@ -11,12 +11,12 @@ docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop을 먼저 시작하세요.' }
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $envPath = $script:GuardianLicenseEnvPath
-if (Test-Path -LiteralPath $envPath) { throw '외부 운영 환경 파일이 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
 $secretDir = $script:GuardianSecretsDir
 $legacyEnvPath = Join-Path $ServerDir '.env'
 $legacySecretsDir = Join-Path $ServerDir 'secrets'
 $hasLegacyEnv = Test-Path -LiteralPath $legacyEnvPath -PathType Leaf
 $hasLegacySecrets = Test-Path -LiteralPath $legacySecretsDir -PathType Container
+$hasExternalEnv = Test-Path -LiteralPath $envPath -PathType Leaf
 if ($hasLegacyEnv -xor $hasLegacySecrets) {
   throw '기존 저장소 설치 데이터가 일부만 존재합니다. 키/환경 파일을 자동 생성하거나 덮어쓰지 않고 중단합니다. 기존 .env와 secrets 폴더를 함께 확인하세요.'
 }
@@ -26,16 +26,23 @@ if ($hasLegacyEnv -and $hasLegacySecrets) {
   foreach ($requiredName in @('guardian-license-private.pem','guardian-license-public.x509.b64','guardian-filter-private.dpapi','guardian-filter-public.x509.b64')) {
     if ($legacyNames -notcontains $requiredName) { throw "기존 비밀정보 폴더에 필수 키 파일이 없습니다. 자동 이전/재생성을 중단합니다: $requiredName" }
   }
-  foreach ($file in $legacyFiles) {
-    $destination = Join-Path $secretDir $file.Name
-    if (Test-Path -LiteralPath $destination) { throw "기존 비밀 파일과 외부 파일이 충돌합니다. 자동 덮어쓰기를 중단합니다: $destination" }
+  if ($hasExternalEnv -and (Get-FileHash -LiteralPath $legacyEnvPath -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $envPath -Algorithm SHA256).Hash) {
+    throw "기존 .env와 외부 운영 환경 파일이 서로 다릅니다. 자동 병합하지 않습니다: $legacyEnvPath / $envPath"
   }
   foreach ($file in $legacyFiles) {
     $destination = Join-Path $secretDir $file.Name
-    Copy-Item -LiteralPath $file.FullName -Destination $destination
+    if (Test-Path -LiteralPath $destination) {
+      if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash) {
+        throw "기존 비밀 파일과 외부 파일의 내용이 다릅니다. 자동 덮어쓰기를 중단합니다: $destination"
+      }
+    }
+  }
+  foreach ($file in $legacyFiles) {
+    $destination = Join-Path $secretDir $file.Name
+    if (-not (Test-Path -LiteralPath $destination)) { Copy-Item -LiteralPath $file.FullName -Destination $destination }
     if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash) { throw "비밀 파일 외부 이전 검증 실패: $($file.Name)" }
   }
-  Copy-Item -LiteralPath $legacyEnvPath -Destination $envPath
+  if (-not $hasExternalEnv) { Copy-Item -LiteralPath $legacyEnvPath -Destination $envPath }
   if ((Get-FileHash -LiteralPath $legacyEnvPath -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $envPath -Algorithm SHA256).Hash) { throw '기존 .env 외부 이전 검증에 실패했습니다.' }
   Remove-Item -LiteralPath $legacySecretsDir -Recurse -Force
   Remove-Item -LiteralPath $legacyEnvPath -Force
@@ -44,6 +51,7 @@ if ($hasLegacyEnv -and $hasLegacySecrets) {
   Write-Host '이전이 완료되었습니다. Start-All-GuardianServices.ps1로 기존 서비스를 시작하세요.'
   return
 }
+if ($hasExternalEnv) { throw '외부 운영 환경 파일이 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $privateKeyPath = Join-Path $secretDir 'guardian-license-private.pem'
 $publicKeyPath = Join-Path $secretDir 'guardian-license-public.pem'
