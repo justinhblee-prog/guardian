@@ -8,6 +8,15 @@ MAIN_CACHE="adguard_dns_filter.txt"
 SECURITY_CACHE="hagezi_threat_intelligence.txt"
 ANDROID_CACHE="awavenue_android_ads.txt"
 
+# Keep a rolling app/system log from before the VPN tap. If ADB later drops
+# offline, post-failure adb logcat cannot recover the evidence.
+LIVE_LOG="/tmp/guardian-vpn-live-logcat.txt"
+adb logcat -c
+adb logcat -v threadtime >"$LIVE_LOG" 2>&1 &
+LOGCAT_PID=$!
+cleanup_logcat() { kill "$LOGCAT_PID" >/dev/null 2>&1 || true; }
+trap cleanup_logcat EXIT
+
 adb shell settings put global private_dns_mode off
 adb shell settings delete global private_dns_specifier >/dev/null 2>&1 || true
 adb shell am force-stop "$PACKAGE" || true
@@ -54,6 +63,8 @@ for attempt in $(seq 1 240); do
 done
 if [[ "$ready" -ne 1 ]]; then
   echo "Filter cache readiness timed out."
+  echo "Live logcat captured while ADB was connected (last 300 matching lines):"
+  grep -E 'Guardian|FATAL EXCEPTION|VpnService|ActivityManager|lmkd|OutOfMemory|lowmemory' "$LIVE_LOG" | tail -300 || true
   echo "Persisted filter update errors:"
   read_prefs || true
   echo "Filter cache files:"
@@ -137,7 +148,10 @@ done
 if [[ "$active" -ne 1 ]]; then
   echo "VPN did not become active. Current preferences and diagnostics:"
   read_prefs
-  adb logcat -d -t 3000 | grep -E 'Guardian|FATAL EXCEPTION|VpnService' | tail -200 || true
+  echo "Live logcat captured while ADB was connected (last 500 matching lines):"
+  grep -E 'Guardian|FATAL EXCEPTION|VpnService|ActivityManager|lmkd|OutOfMemory|lowmemory' "$LIVE_LOG" | tail -500 || true
+  echo "ADB state at failure:"
+  adb get-state 2>&1 || true
   exit 1
 fi
 
