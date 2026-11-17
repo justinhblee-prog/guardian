@@ -107,11 +107,11 @@ jobs:
           keytool -list -v -keystore android/guardian-dev.keystore -storepass android -alias androiddebugkey | grep -F 'ED:AE:EC:C9:E4:A2:7E:64:F0:7D:92:64:3F:B8:51:40:72:50:83:AB:ED:55:3F:91:2A:0D:EE:03:87:FB:D8:2C'
       - name: Assemble previous dev version for upgrade test
         run: |
-          gradle -p android --no-daemon -PguardianVersionCode=27 -PguardianVersionName=0.7.14-dev assembleDebug
+          gradle -p android --no-daemon -PguardianVersionCode=26 -PguardianVersionName=0.7.13-dev assembleDebug
           cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.13-dev.apk
 
       - name: Assemble current debug APK for build verification
-        run: gradle -p android --no-daemon -PguardianVersionCode=26 -PguardianVersionName=0.7.13-dev assembleDebug
+        run: gradle -p android --no-daemon -PguardianVersionCode=27 -PguardianVersionName=0.7.14-dev assembleDebug
 
       - name: Verify bundled DNS filter library inside APK
         shell: bash
@@ -345,7 +345,7 @@ jobs:
             APK_STATUS="빌드 단계 이전 실패 또는 APK 미생성"
           fi
           cat > release/FINAL_VERIFICATION_KO.md <<EOF
-          # Guardian AdBlock v0.7.13-dev — 최종 검증 상태
+          # Guardian AdBlock v0.7.14-dev — 최종 검증 상태
 
           - 커밋: ${GITHUB_SHA}
           - 실행: ${GITHUB_RUN_ID}
