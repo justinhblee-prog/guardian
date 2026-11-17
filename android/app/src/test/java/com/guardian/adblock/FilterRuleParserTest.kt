@@ -68,7 +68,7 @@ class FilterRuleParserTest {
     }
 
     @Test fun parsesLargeFeedTextWithoutMaterializingLineList() {
-        val text = (1..5000).joinToString("\\n") { "||host$it.example^" }
+        val text = (1..5000).joinToString("\n") { "||host$it.example^" }
         val parsed = FilterRuleParser.parse(text)
         assertEquals(5000, parsed.blocked.size)
         assertTrue(parsed.blocked.contains("host5000.example"))
