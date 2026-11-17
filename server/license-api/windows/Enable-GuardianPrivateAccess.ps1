@@ -36,7 +36,8 @@ $preflightConfig = Get-Content -Raw -LiteralPath $sourcesPath | ConvertFrom-Json
 if (-not $preflightConfig.sources -or $preflightConfig.sources.Count -lt 1) {
   throw 'sources.json에 필터 공급원이 없습니다.'
 }
-$secretDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'secrets'
+ . (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+$secretDir = $GuardianSecretsDir
 $protectedKeyPath = Join-Path $secretDir 'guardian-filter-private.dpapi'
 $filterPublicKeyPath = Join-Path $secretDir 'guardian-filter-public.x509.b64'
 if (-not (Test-Path -LiteralPath $protectedKeyPath -PathType Leaf) -or
