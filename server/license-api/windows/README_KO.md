@@ -52,7 +52,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 - 필터 배포 상태: http://127.0.0.1:8788/health
 
 ## 필터 배포
-필터 updater/publisher는 `server/filter-distribution`에 있습니다. upstream 필터 다운로드, 규칙 수 검증, 버전 생성, SHA-256, RSA-SHA256 manifest 서명까지 지원합니다. `sources.example.json`을 `sources.json`으로 복사해 실제 HTTPS 배포 주소와 공식 HTTPS 공급원/최소 규칙 수를 확인합니다. 최초 설치 스크립트가 필터 서명 개인키를 현재 사용자 DPAPI로 보호해 저장하므로 PEM을 환경변수·작업 인수·로그에 직접 기록하지 않습니다. 매일 04:17 업데이트 작업 등록: `./Register-GuardianFilterUpdateTask.ps1 -DailyAt '04:17'`. 이 작업은 매일 지정 시각 및 사용자 로그인 시 실행하고 결과를 `server/filter-distribution/logs/`에 기록합니다. 수동 실행은 `./Invoke-GuardianFilterUpdate.ps1`입니다. Node.js 22 이상이 필요합니다. 서명 개인키는 공개 웹 컨테이너나 Android 앱에 넣지 않습니다. `dist`만 읽기 전용으로 제공됩니다.
+필터 updater/publisher는 `server/filter-distribution`에 있습니다. upstream 필터 다운로드, 규칙 수 검증, 버전 생성, SHA-256, RSA-SHA256 manifest 서명까지 지원합니다. `sources.example.json`을 `sources.json`으로 복사해 실제 HTTPS 배포 주소와 공식 HTTPS 공급원/최소 규칙 수를 확인합니다. 최초 설치 스크립트가 필터 서명 개인키를 현재 사용자 DPAPI로 보호해 저장하므로 PEM을 환경변수·작업 인수·로그에 직접 기록하지 않습니다. 매일 04:17 업데이트 및 클라우드 게시 작업 등록: `./Register-GuardianFilterUpdateTask.ps1 -DailyAt '04:17'`. 이 작업은 매일 지정 시각 및 사용자 로그인 시 실행하며 upstream 다운로드 → 규칙 수/UTF-8 검증 → RSA 서명 → manifest/필터 해시 검증 → GitHub 정적 클라우드 게시까지 수행합니다. 로그는 `server/filter-distribution/logs/`에 기록됩니다. 수동 실행은 `./Update-And-Publish-GuardianFilters.ps1`입니다. Node.js 22 이상이 필요합니다. 서명 개인키는 공개 웹 컨테이너나 Android 앱에 넣지 않습니다. `dist`만 읽기 전용으로 제공됩니다.
 
 Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연결하고, **서명 필터 배포 서버**는 GitHub 정적 클라우드 원본에 연결합니다. 필터 원본은 `https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data`이며, 공개된 필터 콘텐츠·manifest·RSA detached signature만 저장합니다. 라이선스 API와 개인 서명키는 노트북에 남습니다.
 
@@ -62,7 +62,7 @@ Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연�
 
 1. Windows 노트북과 Android 모바일에 Tailscale을 설치하고 같은 Tailscale 계정/tailnet에 로그인합니다.
 2. Tailscale 관리 콘솔에서 MagicDNS와 HTTPS certificates를 활성화합니다. HTTPS 인증서 발급 시 기기 이름과 tailnet DNS 이름이 공개 인증서 투명성 로그에 기록될 수 있습니다.
-3. 노트북에서 Docker Desktop을 시작한 뒤 `Start-All-GuardianServices.ps1`로 라이선스 API와 필터 서버의 상태가 정상인지 확인합니다.
+3. 노트북에서 Docker Desktop을 시작한 뒤 `Start-All-GuardianServices.ps1`로 라이선스 API와 로컬 필터 서버의 상태가 정상인지 확인합니다.
 4. 관리자 PowerShell에서 다음 스크립트를 실행합니다. 이 스크립트는 Tailscale Serve로 라이선스 API만 비공개 연결하고, `sources.json`의 `baseUrl`을 GitHub 정적 클라우드 주소로 설정한 뒤 DPAPI 보호 서명키로 필터를 다운로드·서명·발행하고 클라우드에 게시합니다. 기존 `sources.json` 백업은 `.sources.json.before-private-access.bak`에 남깁니다.
 
 ```powershell
