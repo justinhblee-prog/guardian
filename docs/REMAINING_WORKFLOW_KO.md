@@ -161,3 +161,12 @@ flowchart TD
 6. Windows EXE/설치 프로그램의 최신 main 기준 빌드·설치·제거 및 실제 어댑터 DNS 복구 검증은 별도 단계이며, 현재 Android 성공을 Windows 완료로 간주하지 않음.
 
 Windows 설치 패키지 workflow는 `.github/workflows/windows-build.yml`에 구성되어 있으나 Windows hosted runner 사용은 사용자 요청 없이 추가 사용량을 발생시키지 않도록 별도 실행하지 않았습니다. Windows 코드/패키지의 검증은 Android CI와 분리해서 판정합니다.
+
+
+## Windows 패키징 감사 — 기존 실패 원인과 현재 상태
+
+- 기존 Windows build run [43785686270](https://github.com/justinhblee-prog/guardian/actions/runs/43785686270)은 EXE/설치 프로그램 생성까지 성공했으나 설치 후 제거 smoke test에서 실패했습니다.
+- 로그의 직접 실패 원인은 제거 직후 `GuardianDnsProxy` 예약 작업이 남아 있는 것이었습니다. 따라서 이 실행은 Windows 설치 패키지 검증 성공으로 간주하지 않습니다.
+- 이후 main의 Windows 설치/제거 코드와 workflow가 변경되었습니다. 현재 workflow는 데몬의 실제 하위 폴더 패키징, 런타임 의존성 확인, `--restore-dns` 후 제거, 예약 작업이 등록된 상태에서 직접 제거하는 두 경로, 제거 후 예약 작업 삭제 확인을 별도로 검사합니다.
+- 현재 main의 `.github/workflows/windows-build.yml` 및 installer 변경은 정적 검토만 완료했습니다. 이 변경 이후의 Windows hosted-runner 빌드·설치·제거 실행 결과는 아직 없습니다.
+- Windows runner 실행은 Android main CI 성공과 별개이며, 실제 Windows PC의 어댑터 DNS 변경·복구, 재부팅, Wi-Fi/Ethernet, VPN 공존성 검증도 별도입니다. 운영 서명 인증서가 없는 개발용 설치 파일은 서명되지 않으며 SmartScreen 경고가 발생할 수 있습니다.
