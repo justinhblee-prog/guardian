@@ -89,7 +89,15 @@ if [[ "$ready" -ne 1 ]]; then
   adb_cmd shell run-as "$PACKAGE" ls -la "$APP_DATA/files" || true
   adb_cmd shell run-as "$PACKAGE" cat "$PREFS" || true
   echo "Guardian filter/network log:"
-  adb_cmd logcat -d -t 6000 | grep -E "Guardian|Filter|WorkManager|OkHttp|UnknownHost|SSL|Exception|timeout" | tail -300 || true
+  adb_cmd logcat -d -t 12000 | grep -E "Guardian|Filter|WorkManager|OkHttp|UnknownHost|SSL|Exception|timeout" | tail -500 || true
+  echo "Guardian crash buffer:"
+  adb_cmd logcat -b crash -d -t 2000 || true
+  echo "Guardian process exit history:"
+  adb_cmd shell dumpsys activity exit-info "$PACKAGE" || true
+  echo "Guardian memory state:"
+  adb_cmd shell dumpsys meminfo "$PACKAGE" || true
+  echo "Process death/ANR events:"
+  adb_cmd logcat -b events -d -t 4000 | grep -E "am_proc_died|am_kill|am_crash|am_anr" | tail -120 || true
   echo "Emulator network state:"
   adb_cmd shell dumpsys connectivity | tail -160 || true
   exit 1

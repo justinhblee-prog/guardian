@@ -298,6 +298,8 @@ object FilterListManager {
         ignoredKey: String,
         cachedProfileKey: String? = null
     ): UpdateResult {
+        val startedAt = System.currentTimeMillis()
+        android.util.Log.i("Guardian", "Filter download started: cache=$cacheName url=$url")
         val manifestBaseUrl = FilterDistributionSettings.configuredBaseUrl(context).trimEnd('/')
         val manifestPublicKey = BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
         if (manifestBaseUrl.isNotBlank() || manifestPublicKey.isNotBlank()) {
@@ -345,6 +347,7 @@ object FilterListManager {
                         redirectsFollowed++
                     } else {
                         require(status in 200..299) { "필터 서버 HTTP $status" }
+                        android.util.Log.i("Guardian", "Filter HTTP response: cache=$cacheName status=$status elapsedMs=${System.currentTimeMillis() - startedAt}")
                         connection = candidate
                     }
                 } catch (e: Exception) {
@@ -365,9 +368,12 @@ object FilterListManager {
                 }
                 output.toByteArray()
             }
+            android.util.Log.i("Guardian", "Filter bytes downloaded: cache=$cacheName bytes=${bytes.size} elapsedMs=${System.currentTimeMillis() - startedAt}")
+            android.util.Log.i("Guardian", "Filter parsing started: cache=$cacheName")
             // Public community feeds may contain isolated legacy-encoding bytes in comments.
             // Replace malformed sequences; invalid rule tokens are then rejected by the parser.
             val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Lenient(bytes))
+            android.util.Log.i("Guardian", "Filter parsing completed: cache=$cacheName blocked=${parsed.blocked.size + parsed.importantBlocked.size} elapsedMs=${System.currentTimeMillis() - startedAt}")
             require((parsed.blocked.size + parsed.importantBlocked.size) >= minimumRules) {
                 "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size + parsed.importantBlocked.size}개뿐입니다."
             }
@@ -383,6 +389,7 @@ object FilterListManager {
                 .putInt(countKey, parsed.blocked.size + parsed.importantBlocked.size)
                 .putInt(ignoredKey, parsed.ignored)
             if (cachedProfileKey != null) metadata.putString(KEY_CACHED_PROFILE, cachedProfileKey)
+            android.util.Log.i("Guardian", "Filter cache commit started: cache=$cacheName")
             FilterCacheStore.replace(
                 target,
                 bytes,
@@ -401,6 +408,7 @@ object FilterListManager {
                     check(rollback.commit()) { "이전 필터 메타데이터를 복구하지 못했습니다." }
                 }
             )
+            android.util.Log.i("Guardian", "Filter cache committed: cache=$cacheName bytes=${bytes.size} elapsedMs=${System.currentTimeMillis() - startedAt}")
             return UpdateResult(parsed.blocked.size + parsed.importantBlocked.size, parsed.allowed.size, parsed.ignored, bytes.size, now)
         } finally {
             connection?.disconnect()
