@@ -1,5 +1,7 @@
 package com.guardian.adblock
 
+import java.io.Reader
+
 /**
  * Parses the CSS-only cosmetic subset of AdGuard/uBlock filter syntax.
  *
@@ -7,6 +9,8 @@ package com.guardian.adblock
  * and domain exceptions. Scriptlet/procedural rules are intentionally ignored.
  */
 object CosmeticFilterEngine {
+    private const val MAX_RULES = 5_000
+    private const val MAX_SELECTOR_CHARS = 1_000_000
     /** Conservative, generic ad-slot selectors used only by Guardian's own WebView. */
     val DEFAULT_RULES = listOf(
         "##.adsbygoogle",
@@ -55,12 +59,19 @@ object CosmeticFilterEngine {
         val ignored: Int
     )
 
-    fun parse(lines: List<String>): RuleSet {
+    fun parse(lines: List<String>): RuleSet = parse(lines.asSequence())
+
+    /** Parses a cached feed incrementally without materializing every line. */
+    fun parse(reader: Reader): RuleSet = parse(reader.buffered().lineSequence())
+
+    fun parse(lines: Sequence<String>): RuleSet {
         val generic = linkedSetOf<String>()
         val genericRules = mutableListOf<GenericHideRule>()
         val domainRules = mutableListOf<DomainHideRule>()
         val exceptions = linkedMapOf<String, MutableSet<String>>()
         var ignored = 0
+        var acceptedRules = 0
+        var selectorChars = 0
 
         for (raw in lines) {
             val line = raw.removePrefix("\uFEFF").trim()
@@ -87,15 +98,25 @@ object CosmeticFilterEngine {
                 ignored++
                 continue
             }
+            if (acceptedRules >= MAX_RULES || selectorChars + selector.length > MAX_SELECTOR_CHARS) {
+                ignored++
+                continue
+            }
 
             if (marker == "#@#") {
                 if (included.isEmpty() || excluded.isNotEmpty()) { ignored++; continue }
                 included.forEach { domain -> exceptions.getOrPut(domain) { linkedSetOf() }.add(selector) }
+                acceptedRules++
+                selectorChars += selector.length
             } else if (included.isEmpty()) {
                 generic.add(selector)
                 genericRules.add(GenericHideRule(selector, excluded))
+                acceptedRules++
+                selectorChars += selector.length
             } else {
                 domainRules.add(DomainHideRule(included, excluded, selector))
+                acceptedRules++
+                selectorChars += selector.length
             }
         }
 
@@ -106,6 +127,25 @@ object CosmeticFilterEngine {
             domainExceptions = exceptions.mapValues { it.value.toSet() },
             ignored = ignored
         )
+    }
+
+    /** Combines independently parsed filter sources while keeping exceptions global. */
+    fun merge(ruleSets: Iterable<RuleSet>): RuleSet {
+        val generic = linkedSetOf<String>()
+        val genericRules = mutableListOf<GenericHideRule>()
+        val domainRules = mutableListOf<DomainHideRule>()
+        val exceptions = linkedMapOf<String, MutableSet<String>>()
+        var ignored = 0
+        for (rules in ruleSets) {
+            generic.addAll(rules.genericHide)
+            genericRules.addAll(rules.genericHideRules)
+            domainRules.addAll(rules.domainHideRules)
+            rules.domainExceptions.forEach { (domain, selectors) ->
+                exceptions.getOrPut(domain) { linkedSetOf() }.addAll(selectors)
+            }
+            ignored += rules.ignored
+        }
+        return RuleSet(generic, genericRules, domainRules, exceptions.mapValues { it.value.toSet() }, ignored)
     }
 
     /** Returns CSS selectors to hide for the current document hostname. */
