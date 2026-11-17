@@ -25,6 +25,10 @@ PowerShell 7.2 이상(`pwsh`)에서 `server/license-api/windows` 폴더로 이�
 
 준비가 되지 않은 필수 항목은 `BLOCK`으로 표시되고 종료 코드 1을 반환합니다. 이 검사는 환경을 변경하거나 서버를 공개하지 않습니다.
 
+## 비밀정보 저장 경로
+
+모든 Windows 운영 스크립트는 `Guardian-Paths.ps1`을 통해 동일한 외부 데이터 경로를 사용합니다. 기본값은 `%LOCALAPPDATA%\\Guardian`이며 `GUARDIAN_DATA_DIR`로 변경할 수 있습니다. 저장소 내부, 저장소를 포함하는 상위 경로, OneDrive 환경변수 경로 아래는 보안상 거부됩니다. Docker Compose는 외부 `license-api.env`를 `--env-file`로 전달하므로 저장소 내부 `.env`가 필요하지 않습니다. 필터 배포용 `.env`에는 비밀값이 없으며 로컬 설정 파일로 유지됩니다.
+
 ## 최초 설치
 PowerShell에서 `server/license-api/windows` 폴더로 이동해 실행합니다.
 
@@ -33,7 +37,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\Setup-GuardianServer.ps1
 ```
 
-설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 기존 `.env`는 덮어쓰지 않습니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `secrets/guardian-filter-private.dpapi`에 보관하고, 평문 PEM 임시 파일은 삭제합니다. 필터 배포 서버용 `.env`와 `dist` 폴더도 준비하며, 로그인 시 두 서버를 함께 시작하는 예약 작업을 등록합니다. 개인키와 `.env`는 Git에 저장하거나 다른 사용자에게 공유하지 않습니다.
+설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 비밀정보·개인키·keystore·백업·빌드 출력은 기본적으로 `%LOCALAPPDATA%\\Guardian` 아래에 저장하며 저장소/OneDrive 내부 경로는 거부합니다. 경로를 바꾸려면 `GUARDIAN_DATA_DIR` 환경 변수에 저장소 및 OneDrive 바깥의 절대 경로를 지정하세요. 기존 설치본의 `server/license-api/.env`와 `secrets`가 있으면 최초 설치 실행 시 외부 경로로 복사하고 SHA-256을 비교한 뒤 저장소 안의 원본을 삭제합니다. 외부 환경 파일이 이미 있거나 파일명이 충돌하면 자동 덮어쓰기 없이 중단합니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `secrets/guardian-filter-private.dpapi`에 보관하고, 평문 PEM 임시 파일은 삭제합니다. 필터 배포 서버용 `.env`와 `dist` 폴더도 준비하며, 로그인 시 두 서버를 함께 시작하는 예약 작업을 등록합니다. 개인키와 `.env`는 Git에 저장하거나 다른 사용자에게 공유하지 않습니다.
 
 ## 노트북에서 공개키를 포함한 Android APK 다시 빌드
 최초 설치 스크립트가 만든 두 공개키를 앱에 고정하려면 Android Studio/JDK 17, Android SDK 및 Gradle 8.9가 설치되고 `gradle` 명령이 PATH에 등록된 노트북에서 다음을 실행합니다.
@@ -76,7 +80,7 @@ Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연�
 ./Prepare-GuardianProductionRelease.ps1
 ```
 
-이 스크립트는 기존 운영 라이선스/필터 공개키와 Tailscale HTTPS `/ready` 응답을 확인한 뒤 Android production keystore를 최초 1회 생성합니다. 키 저장소와 DPAPI 암호 파일은 노트북의 `server/license-api/secrets/` 아래에 두고 현재 Windows 사용자와 SYSTEM만 읽을 수 있도록 ACL을 제한합니다. keystore를 새로 만들거나 덮어쓰지 않으며, 같은 노트북에서 재실행하면 기존 키를 재사용합니다.
+이 스크립트는 기존 운영 라이선스/필터 공개키와 Tailscale HTTPS `/ready` 응답을 확인한 뒤 Android production keystore를 최초 1회 생성합니다. 키 저장소와 DPAPI 암호 파일은 `%LOCALAPPDATA%\\Guardian\\secrets` 아래에 두고 현재 Windows 사용자와 SYSTEM만 읽을 수 있도록 ACL을 제한합니다. keystore를 새로 만들거나 덮어쓰지 않으며, 같은 노트북에서 재실행하면 기존 키를 재사용합니다.
 
 GitHub CLI의 표준 입력으로 keystore Base64와 비밀번호를 Actions Secrets에 등록하고, 공개키·HTTPS 주소·버전 `1.0.0 (versionCode 28)`을 Repository Variables에 설정합니다. 비밀값을 콘솔이나 Git 저장소에 출력하지 않습니다. 실행 후 GitHub Actions의 **Guardian AdBlock Production Release** 워크플로를 수동 실행하면 서명 APK/AAB와 전체 소스 ZIP, SHA-256 검증 자료를 생성합니다.
 
@@ -110,10 +114,12 @@ GitHub CLI의 표준 입력으로 keystore Base64와 비밀번호를 Actions Sec
 라이선스 API 컨테이너 호스트 포트는 `127.0.0.1`에만 바인딩하고 Tailscale Serve를 통해 tailnet 내부에서만 접근합니다. 필터 CDN은 공개 읽기 전용이며 공개 데이터만 포함합니다. 공유기 포트포워딩, Windows 방화벽의 공용 포트 개방, Tailscale Funnel을 사용하지 마세요. 앱의 서버 주소 설정은 접속 URL만 저장하며 Tailscale 설치·로그인이나 노트북 전원/네트워크 상태를 대신 관리하지 않습니다.
 
 ## 키와 백업
-- `server/license-api/secrets/guardian-license-public.pem`: 라이선스 서명 공개키
-- `server/license-api/secrets/guardian-license-private.pem`: 라이선스 개인키
-- 필터 서명 개인키: `server/license-api/secrets/guardian-filter-private.dpapi` (현재 Windows 사용자 DPAPI 보호; 최초 설치 스크립트가 생성)
-- `.env` 파일: 관리자 토큰, DB 비밀번호 등 비밀값 포함
+- `%LOCALAPPDATA%\\Guardian\\secrets\\guardian-license-public.pem`: 라이선스 서명 공개키
+- `%LOCALAPPDATA%\\Guardian\\secrets\\guardian-license-private.pem`: 라이선스 개인키
+- 필터 서명 개인키: `%LOCALAPPDATA%\\Guardian\\secrets\\guardian-filter-private.dpapi` (현재 Windows 사용자 DPAPI 보호)
+- `%LOCALAPPDATA%\\Guardian\\license-api.env`: 관리자 토큰, DB 비밀번호 등 비밀값 포함
+- Android release keystore 및 DPAPI 암호: `%LOCALAPPDATA%\\Guardian\\secrets`
+- DB 백업 및 로컬 빌드 산출물: `%LOCALAPPDATA%\\Guardian\\backups`, `%LOCALAPPDATA%\\Guardian\\outputs`
 - `server/filter-distribution/dist/`: 서명된 manifest, signature, 필터 파일
 
 개인키와 `.env`는 절대 공유하거나 커밋하지 않습니다. DB 백업 파일은 암호화된 별도 위치에 보관하고 복구 리허설을 수행하세요. 필터 배포물은 GitHub `guardian-filter-data` 브랜치에도 보관되며, 노트북 고장 시에도 모바일 앱이 공개된 최신 manifest와 버전 고정 필터를 내려받을 수 있습니다.
