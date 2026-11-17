@@ -188,6 +188,9 @@ class MainActivity : Activity() {
         ContextCompat.registerReceiver(this, stateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
         refreshStatus()
+        // A background worker may disable an optional source while this Activity
+        // is stopped. Reconcile any already-created controls with persisted state.
+        syncFilterOptionControls()
         // A filter update may finish while this Activity is stopped, when its
         // package-scoped broadcast receiver is not registered. Re-read persisted
         // cache metadata whenever the screen becomes visible again.
