@@ -1,6 +1,6 @@
 # Guardian 잔여 업무 순차 진행 계획
 
-기준 커밋: `05c374a52b7489c231289db6b866fc1818fee2ea`
+기준 커밋: `99ad460bf309fe55b7503fa828d8eb4be25386ea`
 기준 PR: [#73 — optional filter fallback and Android VPN startup](https://github.com/justinhblee-prog/guardian/pull/73)
 기준 Android CI: [run 43907322511](https://github.com/justinhblee-prog/guardian/actions/runs/43907322511)
 상태 갱신: 2026-11-17
@@ -82,7 +82,7 @@ flowchart TD
 
 | 순서 | 작업 | 완료 기준 | 상태 |
 |---:|---|---|---|
-| 1 | PR #73 Android 필터 메모리 최적화 및 VPN 시작 fallback 검토 | 단위 테스트, lint, APK, 에뮬레이터 VPN E2E 성공; PR diff 검토 후 통합 | CI/E2E 통과 · 병합 전 최종 확인 |
+| 1 | PR #73 Android 필터 메모리 최적화 및 VPN 시작 fallback 검토 | 단위 테스트, lint, APK, 에뮬레이터 VPN E2E 성공; PR diff 검토 및 통합 | 완료 · squash merge `99ad460` |
 | 2 | 실제 Android 스마트폰 수용 테스트 | VPN 승인/시작/중지, 허용 DNS 응답, 차단 DNS 응답, 일반 인터넷 접속 확인 | 대기 |
 | 3 | Android 네트워크 안정성 매트릭스 | Wi-Fi↔모바일 전환, IPv4/IPv6, Private DNS, 앱 제외, 다른 VPN 조합과 복구 확인 | 대기 |
 | 4 | 서명 필터 운영 연동 | 실제 HTTPS 배포 URL과 앱 고정 공개키로 manifest 서명·해시·버전 anti-rollback·캐시 원자 교체·실패 복구 확인 | 대기 |
@@ -125,12 +125,17 @@ flowchart TD
 - APK: `Guardian-AdBlock-0.7.13-dev-run799.apk`, 3,102,025 bytes.
 - APK SHA-256: `41d809c37cb4a1a354178f037bc0ec6964d71306d0a2aa3e248b3928dcdd1a21`.
 - 후보 APK는 개발용 서명본이며 production 릴리스가 아니다.
-- PR #73은 open 상태다. 변경 파일 14개와 핵심 파서/캐시/필터 병합/VPN 시작/선택 필터 fallback/CI 스크립트를 검토했고, 현재 run 799의 런타임 E2E도 통과했다. 저장소의 별도 승인 리뷰는 아직 없다.
+- PR #73은 2026-11-17 `99ad460bf309fe55b7503fa828d8eb4be25386ea`로 squash merge 완료했다. 변경 파일 14개와 핵심 파서/캐시/필터 병합/VPN 시작/선택 필터 fallback/CI 스크립트를 검토했고, run `43918433672`에서 unit tests, lint, APK, 에뮬레이터 VPN DNS E2E가 성공했다.
 - 실제 Android 스마트폰 수용 테스트는 에뮬레이터 검증과 별개로 미수행이며, 실제 기기에 대한 VPN 허용·차단·네트워크 복구는 확인되지 않았다.
-- 다음 단계는 실기기 수용 테스트다. 원격 에뮬레이터만으로 실기기 완료 처리하지 않는다.
+- 다음 단계는 실제 Android 스마트폰 수용 테스트다. 원격 에뮬레이터만으로 실기기 완료 처리하지 않는다.
+- PR #73의 VPN E2E 로그에서 `protection_active=true`, `dns_queries=4`, `dns_forwarded=3`, `dns_blocked=1`, `dns_failed=0`을 확인했다. `example.com`은 `104.20.23.154`로 해석됐고, `guardian-ci-43918433672.doubleclick.net`은 `unknown host`로 차단됐다. ICMP ping 응답은 100% 손실이었으나 DNS 응답 자체와 무관하므로 ping 성공으로 보고하지 않는다.
+- PR #73 병합 후 main 커밋 `99ad460bf309fe55b7503fa828d8eb4be25386ea`에서 Android 전체 검증 run `44047861059`가 실행 중이다. 성공 확인 전에는 main APK 검증 완료로 표시하지 않는다.
 
 ## 변경 기록
 
 - 2026-11-17: 남은 Android → 운영 필터/라이선스 → production signing → Windows 패키징 순서를 명시하고, 중대 오류 기준과 단계별 완료 증거 규칙을 정의했다.
 
 - 2026-11-17: run `43917110473`의 APK SHA-256과 실제 VPN 활성화/허용 DNS/차단 DNS 및 통계 결과를 반영했다. PR #73의 자동 검증은 통과했으나 실기기 수용 테스트와 통합은 별도다.
+
+
+- 2026-11-17: PR #73을 검토 후 squash merge했고, Android VPN E2E 로그에서 허용 DNS 응답·차단 DNS 실패 및 서비스 통계를 확인했다. 병합 후 main CI run `44047861059` 검증 대기 상태를 기록했다.
