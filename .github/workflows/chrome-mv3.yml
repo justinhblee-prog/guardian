@@ -1,0 +1,36 @@
+name: Guardian Chrome Manifest V3
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'chrome-extension/**'
+      - 'shared/filter_rules.txt'
+      - 'scripts/build_chrome_extension.mjs'
+      - 'scripts/test_chrome_mv3.mjs'
+      - '.github/workflows/chrome-mv3.yml'
+  pull_request:
+    paths:
+      - 'chrome-extension/**'
+      - 'shared/filter_rules.txt'
+      - 'scripts/build_chrome_extension.mjs'
+      - 'scripts/test_chrome_mv3.mjs'
+      - '.github/workflows/chrome-mv3.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate extension rules from shared source
+        run: node scripts/build_chrome_extension.mjs
+      - name: Verify generated rules are committed and in sync
+        run: git diff --exit-code -- chrome-extension/rules.txt
+      - name: Test Manifest V3 and DNR rule conversion
+        run: node scripts/test_chrome_mv3.mjs
+      - name: Validate extension package
+        run: |
+          node -e "const m=require('./chrome-extension/manifest.json'); if(m.manifest_version!==3 || !m.background?.service_worker) process.exit(1)"
+          test -s chrome-extension/service-worker.js
+          test -s chrome-extension/rules.txt
