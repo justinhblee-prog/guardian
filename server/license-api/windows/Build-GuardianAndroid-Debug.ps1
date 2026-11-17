@@ -2,7 +2,10 @@
 $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $AndroidDir = Join-Path $RepoRoot 'android'
-$SecretDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'secrets'
+$repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+$paths=Get-GuardianPaths -RepositoryRoot $repoRoot
+$SecretDir = $paths.Secrets
 $licensePublicPath = Join-Path $SecretDir 'guardian-license-public.x509.b64'
 $filterPublicPath = Join-Path $SecretDir 'guardian-filter-public.x509.b64'
 

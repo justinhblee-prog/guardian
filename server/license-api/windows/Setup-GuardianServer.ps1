@@ -2,67 +2,67 @@
 [CmdletBinding()]
 param([switch]$SkipAutoStart)
 $ErrorActionPreference = 'Stop'
-$ServerDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-Set-Location $ServerDir
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$paths = Get-GuardianPaths -RepositoryRoot $repoRoot
+Initialize-GuardianDataDirectories -Paths $paths
+$serverDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$filterDir = (Resolve-Path (Join-Path $serverDir '..\filter-distribution')).Path
 foreach ($name in @('docker','openssl')) { if (-not (Get-Command $name -ErrorAction SilentlyContinue)) { throw "$name 명령을 찾을 수 없습니다." } }
 docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop을 먼저 시작하세요.' }
-$envPath = Join-Path $ServerDir '.env'
-if (Test-Path $envPath) { throw '.env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
-$secretDir = Join-Path $ServerDir 'secrets'
-New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
-$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-& icacls.exe $secretDir /inheritance:r /grant:r ($currentIdentity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw '서명키 보관 폴더의 Windows 접근 권한 제한 실패' }
-$privateKeyPath = Join-Path $secretDir 'guardian-license-private.pem'
-$publicKeyPath = Join-Path $secretDir 'guardian-license-public.pem'
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $privateKeyPath
-if ($LASTEXITCODE -ne 0) { throw 'RSA 개인키 생성 실패' }
-openssl pkey -in $privateKeyPath -pubout -out $publicKeyPath
-if ($LASTEXITCODE -ne 0) { throw 'RSA 공개키 생성 실패' }
-$licensePublicDerPath = Join-Path $secretDir 'guardian-license-public.der'
-openssl pkey -pubin -in $publicKeyPath -outform DER -out $licensePublicDerPath
+if ((Test-Path -LiteralPath $paths.LicenseEnv) -or (Test-Path -LiteralPath $paths.FilterEnv)) { throw '외부 운영 .env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
+$existingSecretFiles = @(Get-ChildItem -LiteralPath $paths.Secrets -File -Force -ErrorAction SilentlyContinue)
+if ($existingSecretFiles.Count -gt 0) { throw '외부 비밀 폴더에 기존 파일이 있습니다. 기존 키를 덮어쓰지 않습니다.' }
+$licensePrivate = Join-Path $paths.Secrets 'guardian-license-private.pem'
+$licensePublic = Join-Path $paths.Secrets 'guardian-license-public.pem'
+$filterPrivate = Join-Path $paths.Secrets 'guardian-filter-private.pem'
+$filterPublic = Join-Path $paths.Secrets 'guardian-filter-public.pem'
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $licensePrivate
+if ($LASTEXITCODE -ne 0) { throw 'RSA 라이선스 개인키 생성 실패' }
+openssl pkey -in $licensePrivate -pubout -out $licensePublic
+if ($LASTEXITCODE -ne 0) { throw 'RSA 라이선스 공개키 생성 실패' }
+$licenseDer = Join-Path $paths.Secrets 'guardian-license-public.der'
+openssl pkey -pubin -in $licensePublic -outform DER -out $licenseDer
 if ($LASTEXITCODE -ne 0) { throw '라이선스 공개키 DER 변환 실패' }
-$licensePublicBase64Path = Join-Path $secretDir 'guardian-license-public.x509.b64'
-[System.IO.File]::WriteAllText($licensePublicBase64Path, [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($licensePublicDerPath)), [System.Text.UTF8Encoding]::new($false))
-
-# Filter signing private material is protected with Windows DPAPI for the
-# current user; only its public X.509 key is intended for the Android build.
-$filterPrivateKeyPath = Join-Path $secretDir 'guardian-filter-private.pem'
-$filterPublicKeyPath = Join-Path $secretDir 'guardian-filter-public.pem'
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $filterPrivateKeyPath
+$licenseB64 = Join-Path $paths.Secrets 'guardian-license-public.x509.b64'
+[IO.File]::WriteAllText($licenseB64,[Convert]::ToBase64String([IO.File]::ReadAllBytes($licenseDer)),[Text.UTF8Encoding]::new($false))
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $filterPrivate
 if ($LASTEXITCODE -ne 0) { throw '필터 서명 RSA 개인키 생성 실패' }
-openssl pkey -in $filterPrivateKeyPath -pubout -out $filterPublicKeyPath
+openssl pkey -in $filterPrivate -pubout -out $filterPublic
 if ($LASTEXITCODE -ne 0) { throw '필터 서명 공개키 생성 실패' }
-$filterPrivateText = Get-Content -Raw $filterPrivateKeyPath
-$filterSecureString = ConvertTo-SecureString -String $filterPrivateText -AsPlainText -Force
-$filterProtectedText = ConvertFrom-SecureString -SecureString $filterSecureString
-[System.IO.File]::WriteAllText((Join-Path $secretDir 'guardian-filter-private.dpapi'), $filterProtectedText, [System.Text.UTF8Encoding]::new($false))
-Remove-Item $filterPrivateKeyPath -Force
-$filterPublicDerPath = Join-Path $secretDir 'guardian-filter-public.der'
-openssl pkey -pubin -in $filterPublicKeyPath -outform DER -out $filterPublicDerPath
+$filterPrivateText = Get-Content -Raw $filterPrivate
+$filterProtected = ConvertFrom-SecureString (ConvertTo-SecureString -String $filterPrivateText -AsPlainText -Force)
+[IO.File]::WriteAllText((Join-Path $paths.Secrets 'guardian-filter-private.dpapi'),$filterProtected,[Text.UTF8Encoding]::new($false))
+Remove-Item -LiteralPath $filterPrivate -Force
+$filterDer = Join-Path $paths.Secrets 'guardian-filter-public.der'
+openssl pkey -pubin -in $filterPublic -outform DER -out $filterDer
 if ($LASTEXITCODE -ne 0) { throw '필터 공개키 DER 변환 실패' }
-$filterPublicBase64Path = Join-Path $secretDir 'guardian-filter-public.x509.b64'
-[System.IO.File]::WriteAllText($filterPublicBase64Path, [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($filterPublicDerPath)), [System.Text.UTF8Encoding]::new($false))
-function New-Secret([int]$Bytes = 48) { $buffer = New-Object byte[] $Bytes; $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create(); try { $rng.GetBytes($buffer) } finally { $rng.Dispose() }; return [BitConverter]::ToString($buffer).Replace('-', '').ToLowerInvariant() }
-$dbPassword = New-Secret 48
-$adminToken = New-Secret 64
-$lookupSecret = New-Secret 64
-$pem = (Get-Content -Raw $privateKeyPath).Trim() -replace "`r?`n", '\n'
-$lines = @("POSTGRES_PASSWORD=$dbPassword", "GUARDIAN_ADMIN_TOKEN=$adminToken", "GUARDIAN_LICENSE_LOOKUP_SECRET=$lookupSecret", "GUARDIAN_LICENSE_PRIVATE_KEY=$pem", 'PORT=8787', 'GUARDIAN_RATE_LIMIT_WINDOW_MS=60000', 'GUARDIAN_RATE_LIMIT_MAX=30')
-[System.IO.File]::WriteAllText($envPath, ($lines -join "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
-& icacls.exe $envPath /inheritance:r /grant:r ($currentIdentity + ':F') '*S-1-5-18:F' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw '운영 환경 파일의 Windows 접근 권한 제한 실패' }
-$FilterDir = (Resolve-Path (Join-Path $ServerDir '..\filter-distribution')).Path
-$filterEnv = Join-Path $FilterDir '.env'
-if (-not (Test-Path $filterEnv)) { [System.IO.File]::WriteAllText($filterEnv, "HOST=0.0.0.0`nPORT=8788`nGUARDIAN_FILTER_DIST_DIR=/app/dist`n", [System.Text.UTF8Encoding]::new($false)) }
-New-Item -ItemType Directory -Force -Path (Join-Path $FilterDir 'dist') | Out-Null
-$sourcesPath = Join-Path $FilterDir 'sources.json'
-if (-not (Test-Path $sourcesPath)) { Copy-Item (Join-Path $FilterDir 'sources.example.json') $sourcesPath }
-if (-not $SkipAutoStart) { & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1'); $taskName = 'Guardian Operations'; $action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1') + '"'); $trigger = New-ScheduledTaskTrigger -AtLogOn; $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero); Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Start Guardian license API and signed filter distribution after Windows sign-in' -Force | Out-Null }
-Write-Host 'Guardian 노트북 운영 서버 기본 구성이 완료되었습니다.'
-Write-Host '관리자 화면: http://127.0.0.1:8787/admin'
-Write-Host "라이선스 공개키(Base64): $licensePublicBase64Path"
-Write-Host "필터 공개키(Base64): $filterPublicBase64Path"
-Write-Host '필터 서명 개인키는 현재 Windows 사용자 DPAPI로 보호해 저장했습니다.'
-Write-Host '기본 API 접근은 노트북 내부(localhost)로 제한됩니다.'
+$filterB64 = Join-Path $paths.Secrets 'guardian-filter-public.x509.b64'
+[IO.File]::WriteAllText($filterB64,[Convert]::ToBase64String([IO.File]::ReadAllBytes($filterDer)),[Text.UTF8Encoding]::new($false))
+function New-Secret([int]$Bytes=48) {
+  $buffer=[byte[]]::new($Bytes);$rng=[Security.Cryptography.RandomNumberGenerator]::Create()
+  try {$rng.GetBytes($buffer)} finally {$rng.Dispose()}
+  return [Convert]::ToHexString($buffer).ToLowerInvariant()
+}
+$pem = (Get-Content -Raw $licensePrivate).Trim() -replace "\r?\n", '\n'
+$lines = @("POSTGRES_PASSWORD=$(New-Secret 48)","GUARDIAN_ADMIN_TOKEN=$(New-Secret 64)","GUARDIAN_LICENSE_LOOKUP_SECRET=$(New-Secret 64)","GUARDIAN_LICENSE_PRIVATE_KEY=$pem",'PORT=8787','GUARDIAN_RATE_LIMIT_WINDOW_MS=60000','GUARDIAN_RATE_LIMIT_MAX=30')
+[IO.File]::WriteAllText($paths.LicenseEnv,($lines -join [Environment]::NewLine)+[Environment]::NewLine,[Text.UTF8Encoding]::new($false))
+Remove-Item -LiteralPath $licensePrivate -Force
+$filterEnvText = 'HOST=0.0.0.0'+[Environment]::NewLine+'PORT=8788'+[Environment]::NewLine+'GUARDIAN_FILTER_DIST_DIR=/app/dist'+[Environment]::NewLine
+[IO.File]::WriteAllText($paths.FilterEnv,$filterEnvText,[Text.UTF8Encoding]::new($false))
+$sourcesExample = Join-Path $filterDir 'sources.example.json'
+if (-not (Test-Path $paths.FilterSources)) { Copy-Item -LiteralPath $sourcesExample -Destination $paths.FilterSources }
+Write-Host 'Guardian 운영 서버 초기 구성이 완료되었습니다.'
+Write-Host "외부 데이터 경로: $($paths.Root)"
+Write-Host "라이선스 공개키: $licenseB64"
+Write-Host "필터 공개키: $filterB64"
+Write-Host '개인키, .env, DB 백업 및 필터 런타임 파일은 Git 저장소/OneDrive 외부에 보관됩니다.'
+if (-not $SkipAutoStart) {
+  & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1')
+  $taskName='Guardian Operations'
+  $action=New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1')+'"')
+  $trigger=New-ScheduledTaskTrigger -AtLogOn
+  $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
+  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Start Guardian license API and signed filter distribution after Windows sign-in' -Force | Out-Null
+}
