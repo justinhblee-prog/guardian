@@ -6,10 +6,11 @@ Guardian 라이선스 API/PostgreSQL과 서명 필터 배포 서버를 개인 Wi
 - Windows 10/11 64-bit
 - Docker Desktop (WSL 2 backend 권장), Windows 로그인 시 자동 시작 활성화
 - OpenSSL 명령행 도구
+- PowerShell 7.2 이상 (`pwsh.exe`; 서명 필터 게시 및 공개키 일치 검증에 필요)
 - Node.js 22 이상 (필터 업데이트/서명 발행 작업을 이 노트북에서 실행할 경우)
 
 ## 사전 점검
-PowerShell에서 `server/license-api/windows` 폴더로 이동해 필요한 작업에 맞는 준비 상태를 확인합니다.
+PowerShell 7.2 이상(`pwsh`)에서 `server/license-api/windows` 폴더로 이동해 필요한 작업에 맞는 준비 상태를 확인합니다. Windows 기본 `powershell.exe`(5.1)가 아니라 `pwsh.exe`를 사용하세요.
 
 ```powershell
 # Docker Desktop 및 OpenSSL: 노트북 서버 설치에 필요
