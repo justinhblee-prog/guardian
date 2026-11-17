@@ -128,6 +128,7 @@ flowchart TD
 - Production release configuration [run 44052664040](https://github.com/justinhblee-prog/guardian/actions/runs/44052664040): 설정 검증과 임시 키 서명 release APK 검증 성공. `production-release` job은 운영 keystore/secrets 부재로 의도적으로 skipped; production APK/AAB는 생성되지 않았다.
 - APK는 debug 서명 개발 빌드이며, 실기기 검증과 운영 서명키/서비스 설정 전에는 출시 후보 또는 production release로 표시하지 않는다.
 - Windows 클라이언트 및 설치 프로그램은 Android 검증/운영 준비 이후 단계로 유지한다.
+- 이전 runner 장애 조사 대상 PR #13–#18 상태 재확인: #13/#14/#15는 병합됐고 각각 관련 CI 성공(`43691955417`, `43686680935`, `43663200931)); #16은 관련 Android CI 성공(`43685368642`) 후 미병합 종료; #17은 PR-triggered run 기록 없음 후 미병합 종료; #18은 hosted runner dispatch 진단(`43654814670`)에서 `ubuntu-slim`과 `ubuntu-24.04` 모두 실제 runner 할당 및 확인 성공 후 미병합 종료. 닫힌 PR의 오래된 branch를 무리하게 재실행하지 않았으며, 현재 main의 run `44060999851`에서도 Android emulator job이 runner 할당부터 VPN E2E까지 정상 완료됐다.
 
 ## 변경 기록
 
@@ -142,3 +143,5 @@ flowchart TD
 
 
 - 2026-11-17: main run `44060999851`에서 Android 에뮬레이터 설치/실행 및 실제 VPN DNS E2E를 통과했다. 허용 도메인 응답, doubleclick 차단, DNS 통계(`8/7/1/1/0`)를 job log에서 확인하고 APK/source/report artifact를 재검증했다. 실기기 수용 검증은 별도 대기 상태로 유지한다.
+
+- 2026-11-17: PR #13–#18의 병합/종료 상태와 연결된 CI·runner 진단 결과를 재확인해 기록했다. 종료된 미병합 PR #16–#18은 오래된 branch에서 재실행하지 않고 현재 main 검증 결과와 분리했다.
