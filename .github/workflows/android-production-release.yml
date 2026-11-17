@@ -104,7 +104,7 @@ jobs:
           test -s "$APK"
           unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
           unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
-          BADGING="$ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK""
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
           echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='1' versionName='0.0.0-validation'"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" \
             | tee "$TEMP_DIR/apk-signature.txt"
