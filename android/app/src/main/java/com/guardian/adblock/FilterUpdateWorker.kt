@@ -101,6 +101,10 @@ class FilterUpdateWorker(
 
 /** Pure per-source refresh policy, also used to verify retry behavior. */
 internal object FilterUpdatePolicy {
+    /** Disable an optional source only when its first download failed and no trusted cache exists. */
+    fun shouldDisableOptionalFilter(wasEnabled: Boolean, hadValidCache: Boolean): Boolean =
+        wasEnabled && !hadValidCache
+
     fun isDue(hasValidCache: Boolean, lastUpdatedAt: Long, intervalMs: Long, now: Long): Boolean {
         if (!hasValidCache || lastUpdatedAt <= 0L) return true
         val interval = FilterUpdateScheduler.normalizeInterval(intervalMs)
