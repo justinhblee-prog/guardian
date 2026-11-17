@@ -127,27 +127,45 @@ fi
 echo "Requesting VPN start from the actual app UI."
 tap_text "보호 시작"
 
-# Accept Android's VPN consent prompt if it appears.
-for attempt in $(seq 1 15); do
+# Android's VPN confirmation dialog contains both "Allow" and
+# "Don't allow". Match only an explicit positive action; a substring search
+# for "allow" can select the denial button and silently reject VPN access.
+consent_accepted=0
+for attempt in $(seq 1 20); do
   adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
   xml="$(adb exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
+positive={"allow","허용","앱 사용 중에만 허용","이번만 허용","항상 허용","확인","ok"}
+negative=("dont allow","don\'t allow","do not allow","deny","거부","허용 안 함","허용하지 않음")
 for node in root.iter("node"):
-    label=node.attrib.get("text","").lower()
-    if any(k in label for k in ("allow","허용","확인","ok")):
+    label=" ".join(node.attrib.get("text","").lower().split())
+    if label in positive and node.attrib.get("clickable")=="true":
         parts=node.attrib.get("bounds","").strip("[]").split("][")
         if len(parts)==2:
             x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
-            print((x1+x2)//2,(y1+y2)//2)
-            break' <<<"$xml")"
+            print((x1+x2)//2,(y1+y2)//2,label)
+            break
+    if any(term in label for term in negative):
+        continue' <<<"$xml")"
   if [[ -n "$consent_bounds" ]]; then
-    read -r x y <<<"$consent_bounds"
+    read -r x y consent_label <<<"$consent_bounds"
+    echo "Accepting Android VPN consent using positive button '$consent_label' at $x,$y"
     adb shell input tap "$x" "$y"
+    consent_accepted=1
+    sleep 2
     break
   fi
   sleep 1
 done
+if [[ "$consent_accepted" -ne 1 ]]; then
+  echo "Android VPN consent dialog did not expose a recognized positive action."
+  echo "Current UI hierarchy:"
+  echo "$xml"
+  echo "Recent VPN consent log:"
+  grep -E 'GuardianProtection|VpnDialogs|ConfirmDialog|VpnService' "$LIVE_LOG" | tail -100 || true
+  exit 1
+fi
 
 active=0
 for attempt in $(seq 1 60); do
