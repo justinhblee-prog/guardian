@@ -13,10 +13,6 @@ object FilterUpdateScheduler {
     const val UNIQUE_WORK_NAME = "guardian_periodic_filter_update"
     const val DEFAULT_INTERVAL_MS = 24L * 60L * 60L * 1000L
     const val MIN_INTERVAL_MS = 15L * 60L * 1000L
-    // MainActivity performs the first-run refresh itself. Delay the periodic worker's
-    // first execution so it cannot race that initial download and duplicate large lists.
-    const val INITIAL_DELAY_MS = MIN_INTERVAL_MS
-
     internal fun normalizeInterval(intervalMs: Long): Long = intervalMs.coerceAtLeast(MIN_INTERVAL_MS)
 
     /**
@@ -46,7 +42,6 @@ object FilterUpdateScheduler {
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
         val request = PeriodicWorkRequestBuilder<FilterUpdateWorker>(interval, TimeUnit.MILLISECONDS)
-            .setInitialDelay(INITIAL_DELAY_MS, TimeUnit.MILLISECONDS)
             .setInitialDelay(initialDelayMs(interval), TimeUnit.MILLISECONDS)
             .setConstraints(constraints)
             .setBackoffCriteria(
