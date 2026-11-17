@@ -230,6 +230,13 @@ jobs:
               echo "EXIT STATUS: $status ($*)" >> "emulator-diagnostics/${name}.txt"
             fi
           }
+          # Preserve the VPN test's continuously captured logcat before the
+          # emulator action tears the AVD down and leaves ADB offline.
+          if [[ -s /tmp/guardian-vpn-live-logcat.txt ]]; then
+            cp /tmp/guardian-vpn-live-logcat.txt emulator-diagnostics/guardian-live-logcat.txt
+            grep -Ei 'ANR in|not responding|Guardian|VpnService|FATAL EXCEPTION|OutOfMemory|lmkd|lowmemory' \
+              /tmp/guardian-vpn-live-logcat.txt | tail -600 > emulator-diagnostics/guardian-live-summary.txt || true
+          fi
           capture devices adb devices -l
           capture getprop adb shell getprop
           capture logcat adb logcat -d -t 12000
