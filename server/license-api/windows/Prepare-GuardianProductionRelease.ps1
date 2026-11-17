@@ -26,6 +26,14 @@ $dnsName=([string]$tailStatus.Self.DNSName).TrimEnd('.')
 if([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',[StringComparison]::OrdinalIgnoreCase)){throw 'Tailscale MagicDNS 이름이 없습니다. 노트북의 Tailscale 로그인과 MagicDNS를 확인하세요.'}
 $licenseApiUrl='https://'+$dnsName
 try{$health=Invoke-WebRequest -Uri ($licenseApiUrl+'/ready') -TimeoutSec 8 -UseBasicParsing;if($health.StatusCode -ne 200){throw 'not ready'}}catch{throw 'Tailscale HTTPS 라이선스 API가 준비되지 않았습니다. Enable-GuardianPrivateAccess.ps1을 먼저 완료하세요.'}
+# Require the public filter branch and each configured source manifest before writing production GitHub settings.
+$manifestBaseUrl='https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
+if(-not(Test-Path -LiteralPath $paths.FilterSources -PathType Leaf)){throw '운영 sources.json이 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.'}
+$filterConfig=Get-Content -Raw -LiteralPath $paths.FilterSources | ConvertFrom-Json
+if($null -eq $filterConfig.sources -or @($filterConfig.sources).Count -lt 1){throw 'sources.json에 필터 공급원이 없습니다.'}
+$publishedBranch=(& git -C $repoRoot ls-remote --heads origin refs/heads/guardian-filter-data 2>$null | Out-String).Trim()
+if($LASTEXITCODE -ne 0 -or -not $publishedBranch){throw '공개 guardian-filter-data 브랜치가 없습니다. Update-And-Publish-GuardianFilters.ps1을 먼저 실행하세요.'}
+foreach($source in @($filterConfig.sources)){ $sourceId=[string]$source.id; if($sourceId -notmatch '^[A-Za-z0-9_-]+$'){throw 'sources.json source id 형식이 잘못되었습니다.'}; $manifestUri=('{0}/{1}.manifest' -f $manifestBaseUrl,$sourceId); try{$manifestResponse=Invoke-WebRequest -Uri $manifestUri -TimeoutSec 20 -UseBasicParsing; if($manifestResponse.StatusCode -ne 200 -or $manifestResponse.Content -notmatch ('(?m)^sourceId=' + [regex]::Escape($sourceId) + '$')){throw 'manifest identity mismatch'}}catch{throw ('공개 서명 필터 manifest가 없거나 잘못되었습니다: ' + $sourceId + '. 최초 필터 게시를 먼저 완료하세요.')}}
 New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
 $currentIdentity=[Security.Principal.WindowsIdentity]::GetCurrent().Name
 & icacls.exe $secretDir /inheritance:r /grant:r ($currentIdentity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
