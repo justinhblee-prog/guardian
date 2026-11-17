@@ -1,56 +1,38 @@
 # Guardian 잔여 업무 순차 진행 계획
 
-기준 커밋: `99ad460bf309fe55b7503fa828d8eb4be25386ea`
-기준 PR: [#73 — optional filter fallback and Android VPN startup](https://github.com/justinhblee-prog/guardian/pull/73)
-기준 Android CI: [run 43907322511](https://github.com/justinhblee-prog/guardian/actions/runs/43907322511)
+기준 main 커밋: `28abc77342f34898dd03c198fef942c0b49a7fe0`
+최신 Android CI: [run 44060999851](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851)
+최신 artifact 감사: [run 44062116800](https://github.com/justinhblee-prog/guardian/actions/runs/44062116800)
 상태 갱신: 2026-11-17
 
 ## 운영 원칙
 
-이 문서는 Guardian의 남은 일을 하나의 순차 작업 큐로 관리한다.
+이 문서는 Guardian의 개발·운영·검증 업무를 의존관계에 따라 관리한다.
 
-1. 한 번에 가장 앞에 있는 미완료 단계 하나를 진행한다.
-2. 코드 수정 후 관련 단위 테스트 → lint → APK 빌드 → 필요한 통합/E2E 테스트 순으로 검증한다.
-3. 성공 근거(커밋, CI 실행, 산출물, 테스트 로그)를 확인한 뒤에만 해당 항목을 완료 처리하고 다음 단계로 이동한다.
-4. 일반적인 코드·테스트·빌드 오류는 원인을 찾아 수정하고 재검증한다. 같은 오류가 반복되면 우회로 성공 처리하지 않고 근본 원인을 해결한다.
-5. 아래의 중대 중단 조건이 아닌 한 사용자에게 매번 승인이나 '다음' 입력을 요구하지 않는다.
-6. GitHub Actions 요금제·결제·사용량 한도를 변경하거나 유료 외부 AI API를 새로 호출하지 않는다.
-7. CI 이벤트 감사는 자동화할 수 있지만, 현재 저장소의 GitHub Actions만으로 AI가 임의 코드를 설계·수정·커밋하는 무인 개발 에이전트가 만들어지는 것은 아니다. 실제 코드 작업은 사용 가능한 개발 도구와 저장소 권한 안에서 수행하며, 실행하지 않은 작업을 백그라운드에서 진행 중이라고 표현하지 않는다.
+1. Android 모바일과 공통 필터/라이선스 기능을 먼저 완성한다. Windows 실행 파일·설치 프로그램은 마지막 개발 단계로 둔다.
+2. 사용자가 요청한 순서대로 기능 구현을 우선하고, 실제 스마트폰·운영 서버·네트워크 매트릭스 검증은 개발 항목을 마친 뒤 진행한다. 단, 코드 회귀 방지를 위한 자동화 테스트와 CI는 각 변경에 계속 수행한다.
+3. 독립적인 코드 작업은 병렬로 진행할 수 있지만, 의존성이 있는 배포·서명·출시 단계는 선행 조건을 확인한 뒤 진행한다.
+4. 완료 표시는 커밋, CI 실행, APK/소스 산출물, 체크섬, 테스트 로그 등 실제 증거가 있을 때만 한다.
+5. 일반적인 코드·테스트·빌드 오류는 원인을 찾아 수정하고 재검증한다. CI 인프라 장애를 앱 코드 결함으로 단정하지 않는다.
+6. 운영 개인키·keystore·관리자 비밀값은 저장소나 채팅에 올리지 않는다. 실제 운영 비밀값이 필요한 단계는 안전한 운영 환경 설정 전까지 미완료로 둔다.
+7. 사용자에게 매 단계 승인이나 '다음' 입력을 요구하지 않는다. GitHub Actions 요금제·결제·사용량 한도를 변경하거나 유료 외부 AI API를 새로 호출하지 않는다.
+8. 실행하지 않은 작업을 백그라운드에서 진행 중이라고 표현하지 않는다. GitHub 이벤트 감사는 산출물 검증 자동화이며, 임의 코드를 스스로 설계·수정하는 무인 개발 에이전트와 구분한다.
 
 ## 업무 흐름도
 
 ```mermaid
 flowchart TD
-    A["현재 상태·미완료 목록 확인"] --> B["1. PR #73 검토 및 Android VPN E2E 결과 확정"]
-    B --> C{"단계 검증 통과?"}
-    C -->|아니오| D["오류 분류·원인 수정·회귀 테스트"]
-    D --> C
-    C -->|예| E["2. 실제 Android 기기 수용 검증 준비/수행"]
-    E --> F{"실기기 게이트 통과?"}
-    F -->|아니오| G["기기·네트워크 조건별 결함 수정"]
-    G --> E
-    F -->|예| H["3. Wi-Fi/모바일·IPv4/IPv6·Private DNS·앱 제외 안정성"]
-    H --> I{"네트워크 매트릭스 통과?"}
-    I -->|아니오| J["네트워크 상태 복구·VPN 수명주기 수정"]
+    A["현재 main 상태·미완료 개발 목록 확인"] --> B["1. Android 라이선스·기기 관리"]
+    B --> C["2. 서명 필터 서버·Android 연동"]
+    C --> D["3. 운영자 라이선스 발급·관리 화면"]
+    D --> E["4. 모바일·태블릿·관리자 반응형 화면"]
+    E --> F["5. Android production signing/release 설정"]
+    F --> G["6. Windows EXE·설치 프로그램 (마지막 개발 단계)"]
+    G --> H["7. 실제 운영 서버·Android 기기·네트워크 수용 테스트"]
+    H --> I{"운영/실기기 검증 통과?"}
+    I -->|아니오| J["결함 수정·회귀 검증"]
     J --> H
-    I -->|예| K["4. 서명 필터 배포 서버·공개키·HTTPS E2E"]
-    K --> L{"서명·해시·롤백·복구 통과?"}
-    L -->|아니오| M["키/manifest/캐시 갱신 오류 수정"]
-    M --> K
-    L -->|예| N["5. License API·DB·기기 활성화/갱신/해제 E2E"]
-    N --> O{"라이선스 E2E 통과?"}
-    O -->|아니오| P["서버/API/앱 토큰 검증 수정"]
-    P --> N
-    O -->|예| Q["6. 운영 서명키·보호된 CI 설정 및 production APK/AAB"]
-    Q --> R{"서명·업데이트·설치 검증 통과?"}
-    R -->|아니오| S["릴리스 설정·서명·업그레이드 경로 수정"]
-    S --> Q
-    R -->|예| T["7. Android 출시 후보 확정"]
-    T --> U["8. Windows EXE/설치 프로그램 빌드·설치·복구 검증"]
-    U --> V{"Windows 검증 통과?"}
-    V -->|아니오| W["설치·DNS 복구·재부팅 결함 수정"]
-    W --> U
-    V -->|예| X["플랫폼별 검증 보고서 및 통합 릴리스 판정"]
+    I -->|예| K["8. 최종 APK/source/Windows 패키지 및 릴리스 판정"]
 ```
 
 ## 명령 실행 루프
@@ -82,15 +64,14 @@ flowchart TD
 
 | 순서 | 작업 | 완료 기준 | 상태 |
 |---:|---|---|---|
-| 1 | PR #73 Android 필터 메모리 최적화 및 VPN 시작 fallback 검토 | 단위 테스트, lint, APK, 에뮬레이터 VPN E2E 성공; PR diff 검토 및 통합 | 완료 · squash merge `99ad460` |
-| 2 | 실제 Android 스마트폰 수용 테스트 | VPN 승인/시작/중지, 허용 DNS 응답, 차단 DNS 응답, 일반 인터넷 접속 확인 | 대기 |
-| 3 | Android 네트워크 안정성 매트릭스 | Wi-Fi↔모바일 전환, IPv4/IPv6, Private DNS, 앱 제외, 다른 VPN 조합과 복구 확인 | 대기 |
-| 4 | 서명 필터 운영 연동 | 클라이언트·DPAPI 서명/게시 도구·distribution CI 통합; 실제 Windows key 생성/HTTPS 게시/앱 검증은 운영 환경에서 확인 | 코드·CI 완료 / 운영 배포 대기 |
-| 5 | 라이선스 운영 연동 | API/DB·Windows 운영 스크립트 통합 및 PostgreSQL integration CI; 실제 Tailscale 서버 배포와 기기 E2E는 운영 환경에서 확인 | 코드·CI 완료 / 운영 배포 대기 |
-| 6 | Android production 빌드 | 임시 키 release build 검증 완료; 운영 keystore/secrets 기반 production APK/AAB 서명 및 설치·업데이트 확인 | release 설정 검증 / 운영 키 대기 |
-| 7 | Android 출시 판정 | 실제 기기/네트워크/서버/서명 증거와 알려진 제한을 문서화 | 대기 |
-| 8 | Windows 클라이언트 패키징 | EXE·설치 프로그램 빌드, 설치·실행·제거, DNS 설정 백업/복구, 재부팅 후 복구 검증 | 대기 |
-| 9 | 통합 릴리스 문서화 | Android/Windows별 검증 결과와 미지원·미검증 범위를 분리해 최종 보고 | 대기 |
+| 1 | Android 라이선스·기기 관리 | Android entitlement 확인, 기기 활성화/해제, 만료·정지 처리 및 회귀 테스트 | 코드·CI 완료 |
+| 2 | 서명 필터 서버·Android 연동 | signed manifest, SHA-256, anti-rollback, publisher/updater 및 distribution CI | 코드·CI 완료 / 운영 키·HTTPS 게시 대기 |
+| 3 | 운영자 라이선스 발급·관리 화면 | 발급, 검색·필터·정렬, 기기별 해제, 라이선스 정지, 감사 로그, 반응형 관리자 화면 | PR #78 병합 · License API CI 성공 |
+| 4 | 모바일·태블릿·관리자 반응형 화면 | Android 공통 반응형 UI 및 모바일/데스크톱 관리자 화면 | 코드·CI 완료 / 실제 기기 화면 검증은 후순위 |
+| 5 | Android production signing/release | release 설정 검증 및 임시 키 서명 smoke test; production keystore/secrets는 운영 환경에서 별도 설정 | 설정 CI 완료 / 운영 키·secrets 대기 |
+| 6 | Windows EXE·설치 프로그램 | Windows 엔진/UI/설치 스크립트 패키징, 설치·제거·DNS 복구·재부팅 검증 | Android/공통 기능 완료 뒤 마지막으로 진행 |
+| 7 | 실제 운영·실기기 수용 테스트 | HTTPS 필터 게시, License API/DB 배포, Android VPN/DNS, Wi-Fi/모바일·IPv4/IPv6·Private DNS 검증 | 개발 완료 후 수행 |
+| 8 | 최종 패키지·통합 릴리스 문서 | APK, 전체 소스 ZIP, Windows 패키지, 체크섬 및 플랫폼별 미검증 범위 정리 | APK/source 개발 artifact 확보; production/Windows 최종본 대기 |
 
 ## 중대 오류 — 진행 중단 조건
 
@@ -104,6 +85,19 @@ flowchart TD
 - 유료 사용량·결제·외부 서비스 비용 발생이 필요한데 사용자 동의가 없는 경우
 
 그 외의 단위 테스트 실패, lint 경고/오류, 컴파일 오류, 다운로드 재시도 실패, CI 러너 일시 장애, 에뮬레이터 환경 문제는 로그와 단계 정보를 근거로 분류하고 가능한 수정·재검증을 진행한다. 인프라 장애를 앱 코드 결함으로 잘못 분류하지 않는다.
+
+## 2026-11-17 최신 검증 증거
+
+- main 커밋: `28abc77342f34898dd03c198fef942c0b49a7fe0`.
+- PR #78 운영자 라이선스 대시보드 개선 병합, License API main CI [44059072829](https://github.com/justinhblee-prog/guardian/actions/runs/44059072829) 성공.
+- PR #79 APK와 동일 커밋의 전체 소스 ZIP/체크섬 패키징 병합.
+- Android APK main CI [44060999851](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851) 성공: unit tests, lint, APK 업그레이드 설치, API 35 emulator VPN/DNS E2E.
+- Android artifact: `guardian-android-debug`, APK 3,119,618 bytes, SHA-256 `24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78`.
+- 전체 소스 ZIP: 446,281 bytes, SHA-256 `a22d74b994b919e19de4125a719243786b76fa50dbb2d19d85200345afdcee17`.
+- 자동 artifact 감사 [44062116800](https://github.com/justinhblee-prog/guardian/actions/runs/44062116800) 성공: APK/source SHA-256 및 ZIP 무결성 모두 통과.
+- Signed filter distribution CI [44052664109](https://github.com/justinhblee-prog/guardian/actions/runs/44052664109), main CI [44052665884](https://github.com/justinhblee-prog/guardian/actions/runs/44052665884) 성공.
+- Production release 설정 검증 [44052664040](https://github.com/justinhblee-prog/guardian/actions/runs/44052664040) 성공. production signing job은 운영 keystore/secrets가 없어 skipped이며 production APK/AAB는 생성되지 않았습니다.
+- 이 검증은 Android 에뮬레이터 결과입니다. 실제 스마트폰/태블릿 VPN/TUN 라우팅, 실제 광고 제거율, 운영 HTTPS/Tailscale 배포는 미검증입니다.
 
 ## 증거 및 완료 판정 규칙
 
