@@ -3,17 +3,15 @@
 param([switch]$SkipAutoStart)
 $ErrorActionPreference = 'Stop'
 $ServerDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+Initialize-GuardianSecureDirectories
 Set-Location $ServerDir
 foreach ($name in @('docker','openssl')) { if (-not (Get-Command $name -ErrorAction SilentlyContinue)) { throw "$name 명령을 찾을 수 없습니다." } }
 docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop을 먼저 시작하세요.' }
-$envPath = Join-Path $ServerDir '.env'
-if (Test-Path $envPath) { throw '.env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
-$secretDir = Join-Path $ServerDir 'secrets'
-New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
-$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-& icacls.exe $secretDir /inheritance:r /grant:r ($currentIdentity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw '서명키 보관 폴더의 Windows 접근 권한 제한 실패' }
+$envPath = $GuardianEnvPath
+if (Test-Path $envPath) { throw '외부 Guardian 환경 파일이 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
+$secretDir = $GuardianSecretsDir
 $privateKeyPath = Join-Path $secretDir 'guardian-license-private.pem'
 $publicKeyPath = Join-Path $secretDir 'guardian-license-public.pem'
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $privateKeyPath
@@ -51,8 +49,7 @@ $lookupSecret = New-Secret 64
 $pem = (Get-Content -Raw $privateKeyPath).Trim() -replace "`r?`n", '\n'
 $lines = @("POSTGRES_PASSWORD=$dbPassword", "GUARDIAN_ADMIN_TOKEN=$adminToken", "GUARDIAN_LICENSE_LOOKUP_SECRET=$lookupSecret", "GUARDIAN_LICENSE_PRIVATE_KEY=$pem", 'PORT=8787', 'GUARDIAN_RATE_LIMIT_WINDOW_MS=60000', 'GUARDIAN_RATE_LIMIT_MAX=30')
 [System.IO.File]::WriteAllText($envPath, ($lines -join "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
-& icacls.exe $envPath /inheritance:r /grant:r ($currentIdentity + ':F') '*S-1-5-18:F' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw '운영 환경 파일의 Windows 접근 권한 제한 실패' }
+Set-GuardianSecureFileAcl $envPath
 $FilterDir = (Resolve-Path (Join-Path $ServerDir '..\filter-distribution')).Path
 $filterEnv = Join-Path $FilterDir '.env'
 if (-not (Test-Path $filterEnv)) { [System.IO.File]::WriteAllText($filterEnv, "HOST=0.0.0.0`nPORT=8788`nGUARDIAN_FILTER_DIST_DIR=/app/dist`n", [System.Text.UTF8Encoding]::new($false)) }
@@ -62,6 +59,7 @@ if (-not (Test-Path $sourcesPath)) { Copy-Item (Join-Path $FilterDir 'sources.ex
 if (-not $SkipAutoStart) { & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1'); $taskName = 'Guardian Operations'; $action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1') + '"'); $trigger = New-ScheduledTaskTrigger -AtLogOn; $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero); Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Start Guardian license API and signed filter distribution after Windows sign-in' -Force | Out-Null }
 Write-Host 'Guardian 노트북 운영 서버 기본 구성이 완료되었습니다.'
 Write-Host '관리자 화면: http://127.0.0.1:8787/admin'
+Write-Host "Guardian 데이터 경로: $GuardianDataDir"
 Write-Host "라이선스 공개키(Base64): $licensePublicBase64Path"
 Write-Host "필터 공개키(Base64): $filterPublicBase64Path"
 Write-Host '필터 서명 개인키는 현재 Windows 사용자 DPAPI로 보호해 저장했습니다.'
