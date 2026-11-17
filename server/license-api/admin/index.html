@@ -73,13 +73,14 @@ button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
     <p class="muted">라이선스 발급, 기기 등록 현황, 권한 정지 및 보안 감사 기록을 한 곳에서 관리합니다.</p>
   </section>
 
+  <div class="status-line" role="status" aria-live="polite"><span class="status-dot" id="statusDot"></span><span id="status" class="muted">인증 전</span></div>
+
   <section class="panel auth-panel" id="authPanel">
     <div class="panel-head"><div><h2>관리자 인증</h2><p class="muted">관리자 API 토큰은 이 페이지의 메모리에만 보관되며 브라우저 저장소에 기록되지 않습니다.</p></div></div>
     <div class="auth-row">
       <div class="field"><label for="token">관리자 API 토큰</label><input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="GUARDIAN_ADMIN_TOKEN"></div>
       <button id="connect">인증하고 연결</button>
     </div>
-    <div class="status-line" role="status" aria-live="polite"><span class="status-dot" id="statusDot"></span><span id="status" class="muted">인증 전</span></div>
   </section>
 
   <section class="dashboard" id="dashboard" hidden>
