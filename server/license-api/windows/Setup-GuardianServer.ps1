@@ -3,17 +3,15 @@
 param([switch]$SkipAutoStart)
 $ErrorActionPreference = 'Stop'
 $ServerDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+Initialize-GuardianPrivateDataDirectory
 Set-Location $ServerDir
 foreach ($name in @('docker','openssl')) { if (-not (Get-Command $name -ErrorAction SilentlyContinue)) { throw "$name 명령을 찾을 수 없습니다." } }
 docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop을 먼저 시작하세요.' }
-$envPath = Join-Path $ServerDir '.env'
+$envPath = $script:GuardianLicenseEnvPath
 if (Test-Path $envPath) { throw '.env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
-$secretDir = Join-Path $ServerDir 'secrets'
-New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
-$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-& icacls.exe $secretDir /inheritance:r /grant:r ($currentIdentity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
-if ($LASTEXITCODE -ne 0) { throw '서명키 보관 폴더의 Windows 접근 권한 제한 실패' }
+$secretDir = $script:GuardianSecretsDir
 $privateKeyPath = Join-Path $secretDir 'guardian-license-private.pem'
 $publicKeyPath = Join-Path $secretDir 'guardian-license-public.pem'
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $privateKeyPath
@@ -61,6 +59,7 @@ $sourcesPath = Join-Path $FilterDir 'sources.json'
 if (-not (Test-Path $sourcesPath)) { Copy-Item (Join-Path $FilterDir 'sources.example.json') $sourcesPath }
 if (-not $SkipAutoStart) { & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1'); $taskName = 'Guardian Operations'; $action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1') + '"'); $trigger = New-ScheduledTaskTrigger -AtLogOn; $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero); Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Start Guardian license API and signed filter distribution after Windows sign-in' -Force | Out-Null }
 Write-Host 'Guardian 노트북 운영 서버 기본 구성이 완료되었습니다.'
+Write-Host "비밀정보 저장 위치(저장소/OneDrive 외부): $script:GuardianDataRoot"
 Write-Host '관리자 화면: http://127.0.0.1:8787/admin'
 Write-Host "라이선스 공개키(Base64): $licensePublicBase64Path"
 Write-Host "필터 공개키(Base64): $filterPublicBase64Path"
