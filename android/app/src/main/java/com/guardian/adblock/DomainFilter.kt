@@ -10,9 +10,24 @@ object DomainFilter {
     private data class RuleSet(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>)
     @Volatile private var activeRules = RuleSet(bootstrapBlocked, emptySet(), emptySet())
 
-    /** Loads independently parsed sources without materializing a second combined rule list. */
+    /** Loads list-backed sources for callers that already hold a small collection. */
     fun loadRuleSources(
         sources: List<() -> List<String>>,
+        minimumRuleCounts: List<Int>,
+        userBlockDomains: List<String> = emptyList(),
+        userAllowDomains: List<String> = emptyList()
+    ) {
+        loadParsedRuleSources(
+            sources.map { load -> { FilterRuleParser.parse(load()) } },
+            minimumRuleCounts,
+            userBlockDomains,
+            userAllowDomains
+        )
+    }
+
+    /** Merges reader-parsed sources so large disk feeds never become line-sized String lists. */
+    fun loadParsedRuleSources(
+        sources: List<() -> FilterRuleParser.Parsed>,
         minimumRuleCounts: List<Int>,
         userBlockDomains: List<String> = emptyList(),
         userAllowDomains: List<String> = emptyList()
@@ -24,7 +39,7 @@ object DomainFilter {
         val allowed = HashSet<String>()
         val importantBlocked = HashSet<String>()
         sources.forEachIndexed { index, load ->
-            val parsed = FilterRuleParser.parse(load())
+            val parsed = load()
             val count = parsed.blocked.size + parsed.importantBlocked.size
             require(count >= minimumRuleCounts[index]) {
                 "Filter source ${index + 1} has too few valid DNS rules: $count"
