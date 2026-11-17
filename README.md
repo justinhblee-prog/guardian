@@ -1,5 +1,18 @@
 # Guardian AdBlock — Android 0.7.14-dev / Windows client
 
+
+## 최신 main 검증 결과 — 2026-11-17
+
+- 최신 main 커밋: `bc627faf76cb96a190335487f735fdefec52b4f4` (검증 문서 후속 커밋은 main에 추가됨).
+- Android main CI [run 44097350550](https://github.com/justinhblee-prog/guardian/actions/runs/44097350550): **전체 성공**. Unit tests, lint, 이전 개발 버전 업그레이드, APK 패키징 검사, API 35 에뮬레이터 설치/실행, VPN DNS E2E 통과.
+- VPN E2E: VPN 활성화, 허용 DNS 응답, `guardian-ci-44097350550.doubleclick.net` 차단. `dns_queries=10`, `dns_forwarded=9`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`.
+- APK: `com.guardian.adblock`, versionCode 27, versionName `0.7.14-dev`, 3,124,402 bytes. SHA-256: `5a1ffd469b613d25ebef526ce282890f2ca3c2f1581c05cc1f7261a7a2b7c414`.
+- 전체 소스 ZIP: 452,657 bytes. SHA-256: `c227d548bad194d0a3c8806284d71fa4634923840d869804bb44c3f0d44e6e0d`.
+- 소스 ZIP 독립 테스트: `dns_engine` 및 `windows_engine` **26 passed**, Python compileall 통과.
+- 이번 APK는 개발용 debug 서명본입니다. Android 실기기/태블릿 수용 테스트, 운영 HTTPS 필터 서버·공개키 연결, 실제 License API/DB 배포 및 production signing은 아직 별도 미완료입니다. Windows native 설치/제거 검증 역시 Android CI와 별개입니다.
+- 상세 잔여 항목과 완료 기준: [docs/REMAINING_WORKFLOW_KO.md](docs/REMAINING_WORKFLOW_KO.md).
+
+
 ## 과거 통합 기록 (이후 최신 검증 기록 우선)
 
 ### Android
