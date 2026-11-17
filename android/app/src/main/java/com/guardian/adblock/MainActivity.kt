@@ -1782,7 +1782,35 @@ class MainActivity : Activity() {
                 if (active) {
                     startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
                 }
-                android.util.Log.i("Guardian", "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}")
+                // Resume a queued protection start only when every currently enabled
+                // filter has a verified cache. In particular, a missing first-time
+                // security-list download must not create an automatic download/start loop.
+                val selectedProfile = FilterListManager.selectedProfile(this)
+                val cachedProfile = FilterListManager.cachedProfile(this)
+                val securityEnabledNow = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                val androidAdsEnabledNow = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                val protectionCachesReady = try {
+                    FilterListManager.isProfileCacheCurrent(
+                        FilterListManager.hasCachedList(this),
+                        selectedProfile.key,
+                        cachedProfile.key,
+                        securityEnabledNow,
+                        FilterListManager.hasCachedSecurityList(this),
+                        androidAdsEnabledNow,
+                        FilterListManager.hasCachedAndroidAdsList(this)
+                    )
+                } catch (cacheError: Exception) {
+                    android.util.Log.e("Guardian", "Post-update protection cache validation failed", cacheError)
+                    false
+                }
+                val resumeQueuedProtection = ProtectionState.shouldResumeProtectionAfterFilterFailure(
+                    pendingProtectionStartAfterFilterUpdate,
+                    protectionCachesReady
+                )
+                android.util.Log.i(
+                    "Guardian",
+                    "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}, protectionCachesReady=$protectionCachesReady"
+                )
                 filterUpdateRunning.set(false)
                 runOnUiThread {
                     if (androidAdsWasEnabled && androidAdsResult == null && !androidAdsWasCached) {
@@ -1805,7 +1833,20 @@ class MainActivity : Activity() {
                     androidAdsFilterCheckBox?.isEnabled = true
                     if (pendingProtectionStartAfterFilterUpdate) {
                         pendingProtectionStartAfterFilterUpdate = false
-                        requestProtection()
+                        if (resumeQueuedProtection) {
+                            requestProtection()
+                        } else {
+                            val securityStillMissing = securityEnabledNow && !FilterListManager.hasCachedSecurityList(this)
+                            val androidAdsStillMissing = androidAdsEnabledNow && !FilterListManager.hasCachedAndroidAdsList(this)
+                            val missing = when {
+                                securityStillMissing -> "악성코드·피싱 필터"
+                                androidAdsStillMissing -> "Android 앱 광고 필터"
+                                else -> "선택한 필터 구성"
+                            }
+                            setFilterUpdateStatus(
+                                "기본 광고 필터는 준비됐지만 $missing 캐시를 검증하지 못해 보호 시작을 보류했습니다. 네트워크 연결을 확인한 뒤 해당 필터를 다시 업데이트해 주세요."
+                            )
+                        }
                     }
                 }
             } catch (e: Exception) {
