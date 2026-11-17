@@ -9,6 +9,7 @@ Set-Location $ServerDir
 foreach ($name in @('docker','openssl')) { if (-not (Get-Command $name -ErrorAction SilentlyContinue)) { throw "$name 명령을 찾을 수 없습니다." } }
 docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop을 먼저 시작하세요.' }
+$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $envPath = $script:GuardianLicenseEnvPath
 if (Test-Path $envPath) { throw '.env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
 $secretDir = $script:GuardianSecretsDir
