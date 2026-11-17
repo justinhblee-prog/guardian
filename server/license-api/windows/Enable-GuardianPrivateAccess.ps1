@@ -47,7 +47,7 @@ if (-not (Test-Path $sourcesPath)) { throw 'sources.json이 없습니다. Setup-
 $config = Get-Content -Raw $sourcesPath | ConvertFrom-Json
 if (-not $config.sources -or $config.sources.Count -lt 1) { throw 'sources.json에 필터 공급원이 없습니다.' }
 $originalConfig = Get-Content -Raw $sourcesPath
-$backupPath = $sourcesPath + '.before-private-access.bak'
+$backupPath = Join-Path $filterDir '.sources.json.before-private-access.bak'
 Copy-Item -LiteralPath $sourcesPath -Destination $backupPath -Force
 $config.baseUrl = 'https://' + $dnsName + ':8443'
 $tempPath = $sourcesPath + '.tmp'
