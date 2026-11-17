@@ -25,7 +25,7 @@ export GUARDIAN_FILTER_SIGNING_PRIVATE_KEY="$(awk '{printf "%s\\n", $0}' guardia
 
 ## 2-A. 자동 업데이트 (upstream 다운로드 + 검증 + 서명)
 
-수동 발행과 자동 수집을 모두 지원합니다. `sources.example.json`을 복사해 `sources.json`을 만들고, 신뢰할 upstream HTTPS 주소와 각 필터의 최소 규칙 수를 등록합니다. 예제에는 검증된 형식의 AdGuard DNS Filter 주소 1개만 넣었습니다. 나머지 필터 주소는 공급자 공식 배포처를 확인한 뒤 직접 추가하세요.
+수동 발행과 자동 수집을 모두 지원합니다. `sources.example.json`을 복사해 `sources.json`을 만들고, 각 upstream HTTPS 주소와 최소 규칙 수를 확인하세요. 현재 예제 설정에는 AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro, Security, Android 앱 광고 등 7개 공급원 URL이 포함되어 있습니다. 예제 URL과 최소 규칙 수는 시작점이므로 실제 운영 전에 각 공급자의 공식 배포처·라이선스·콘텐츠 형식을 확인하고 필요한 항목만 활성화하거나 수정하세요.
 
 ```sh
 cp sources.example.json sources.json
