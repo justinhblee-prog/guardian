@@ -111,6 +111,12 @@ internal object FilterManifestVerifier {
         return manifest
     }
 
+    /** Decodes public filter feeds while replacing isolated malformed bytes in comments. */
+    fun decodeUtf8Lenient(bytes: ByteArray): String = StandardCharsets.UTF_8.newDecoder()
+        .onMalformedInput(CodingErrorAction.REPLACE)
+        .onUnmappableCharacter(CodingErrorAction.REPLACE)
+        .decode(ByteBuffer.wrap(bytes)).toString()
+
     fun decodeUtf8Strict(bytes: ByteArray): String = try {
         StandardCharsets.UTF_8.newDecoder()
             .onMalformedInput(CodingErrorAction.REPORT)
