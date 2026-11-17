@@ -176,10 +176,29 @@ object CosmeticFilterEngine {
     fun cssForHost(rules: RuleSet, hostname: String): String =
         selectorsForHost(rules, hostname).joinToString("\n") { "$it { display: none !important; }" }
 
+    private val unsupportedCosmeticSyntax = listOf(
+        ":contains(",
+        ":has-text(",
+        ":matches-css",
+        ":matches-attr(",
+        ":matches-path(",
+        ":matches-prop(",
+        ":matches-url(",
+        ":xpath(",
+        ":upward(",
+        ":remove(",
+        ":style(",
+        ":watch-attr(",
+        ":min-text-length(",
+        ":max-text-length("
+    )
+
     private fun isSafeCssSelector(value: String): Boolean {
         if (value.isBlank() || value.length > 512) return false
         if (value.any { it == '{' || it == '}' || it == '<' || it == '>' || it == '\u0000' }) return false
-        if (value.contains("url(", ignoreCase = true) || value.contains("@import", ignoreCase = true)) return false
+        val normalized = value.lowercase()
+        if (normalized.startsWith("+js(") || unsupportedCosmeticSyntax.any(normalized::contains)) return false
+        if (normalized.contains("url(") || normalized.contains("@import")) return false
         return true
     }
 
