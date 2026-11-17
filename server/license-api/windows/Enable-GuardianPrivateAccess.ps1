@@ -27,8 +27,11 @@ foreach ($check in $checks) {
 }
 
 # Complete all local prerequisites before changing Tailscale Serve or sources.json.
+$repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
+$paths=Get-GuardianPaths -RepositoryRoot $repoRoot
 $filterDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\filter-distribution')).Path
-$sourcesPath = Join-Path $filterDir 'sources.json'
+$sourcesPath = $paths.FilterSources
 if (-not (Test-Path -LiteralPath $sourcesPath -PathType Leaf)) {
   throw 'sources.json이 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.'
 }
@@ -36,7 +39,7 @@ $preflightConfig = Get-Content -Raw -LiteralPath $sourcesPath | ConvertFrom-Json
 if (-not $preflightConfig.sources -or $preflightConfig.sources.Count -lt 1) {
   throw 'sources.json에 필터 공급원이 없습니다.'
 }
-$secretDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'secrets'
+$secretDir = $paths.Secrets
 $protectedKeyPath = Join-Path $secretDir 'guardian-filter-private.dpapi'
 $filterPublicKeyPath = Join-Path $secretDir 'guardian-filter-public.x509.b64'
 if (-not (Test-Path -LiteralPath $protectedKeyPath -PathType Leaf) -or
@@ -80,7 +83,7 @@ if ([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',
 # The signed manifest embeds absolute GitHub raw URLs. Publish only signed public assets to the static cloud branch.
 $config = $preflightConfig
 $originalConfig = Get-Content -Raw -LiteralPath $sourcesPath
-$backupPath = Join-Path $filterDir '.sources.json.before-private-access.bak'
+$backupPath = Join-Path (Split-Path $sourcesPath -Parent) 'sources.json.before-private-access.bak'
 Copy-Item -LiteralPath $sourcesPath -Destination $backupPath -Force
 $config.baseUrl = 'https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
 $tempPath = $sourcesPath + '.tmp'
