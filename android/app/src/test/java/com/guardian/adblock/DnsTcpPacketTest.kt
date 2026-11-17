@@ -83,6 +83,17 @@ class DnsTcpPacketTest {
         assertEquals(0x12345678L, parsed.sequence)
     }
 
+    @Test fun rejectsTruncatedTcpHeaderAfterValidExtensionHeader() {
+        val packet = ByteArray(56)
+        packet[0] = 0x60
+        packet[4] = 0
+        packet[5] = 16
+        packet[6] = 60 // Destination Options
+        packet[40] = 6 // TCP follows
+        packet[41] = 0
+        assertNull(DnsTcpPacket.parse(packet, packet.size))
+    }
+
     @Test fun rejectsIpv6FragmentHeaderAndMalformedExtensionLength() {
         val base = ipv6Request()
         val fragment = ByteArray(base.size + 8)
