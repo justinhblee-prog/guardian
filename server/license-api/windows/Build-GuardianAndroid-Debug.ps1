@@ -1,3 +1,4 @@
+#Requires -Version 7.2
 $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $AndroidDir = Join-Path $RepoRoot 'android'
