@@ -6,6 +6,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ServerDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+. (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
 $FilterDir = (Resolve-Path (Join-Path $ServerDir '..\filter-distribution')).Path
 $checks = [System.Collections.Generic.List[object]]::new()
 
@@ -71,7 +72,7 @@ if ($ForFilterUpdate) {
   }
   Add-Check 'Node.js 22+ / npm' ($nodeAvailable -and $npmAvailable -and $nodeMajor -ge 22) '서명 필터 공급원 다운로드 및 manifest 발행에 필요.'
 
-  $protectedKey = Join-Path (Join-Path $ServerDir 'secrets') 'guardian-filter-private.dpapi'
+  $protectedKey = Join-Path $script:GuardianSecretsDir 'guardian-filter-private.dpapi'
   Add-Check 'DPAPI 필터 서명키' (Test-Path $protectedKey) '현재 Windows 사용자 계정으로 생성된 보호 키가 필요합니다.'
   $sourcesPath = Join-Path $FilterDir 'sources.json'
   $sourcesReady = $false
