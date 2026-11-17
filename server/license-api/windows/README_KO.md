@@ -54,11 +54,11 @@ Set-ExecutionPolicy -Scope Process Bypass
 ## 필터 배포
 필터 updater/publisher는 `server/filter-distribution`에 있습니다. upstream 필터 다운로드, 규칙 수 검증, 버전 생성, SHA-256, RSA-SHA256 manifest 서명까지 지원합니다. `sources.example.json`을 `sources.json`으로 복사해 실제 HTTPS 배포 주소와 공식 HTTPS 공급원/최소 규칙 수를 확인합니다. 최초 설치 스크립트가 필터 서명 개인키를 현재 사용자 DPAPI로 보호해 저장하므로 PEM을 환경변수·작업 인수·로그에 직접 기록하지 않습니다. 매일 04:17 업데이트 작업 등록: `./Register-GuardianFilterUpdateTask.ps1 -DailyAt '04:17'`. 이 작업은 매일 지정 시각 및 사용자 로그인 시 실행하고 결과를 `server/filter-distribution/logs/`에 기록합니다. 수동 실행은 `./Invoke-GuardianFilterUpdate.ps1`입니다. Node.js 22 이상이 필요합니다. 서명 개인키는 공개 웹 컨테이너나 Android 앱에 넣지 않습니다. `dist`만 읽기 전용으로 제공됩니다.
 
-Android 앱의 설정에서 **운영 서버 주소 (노트북)**에는 라이선스 API의 HTTPS 주소를, **서명 필터 배포 서버**에는 필터 서버의 HTTPS 주소를 각각 저장합니다. `sources.json`의 `baseUrl`은 앱의 필터 서버 주소와 정확히 일치해야 합니다. 아래의 비공개 Tailscale 연결을 사용하면 공용 서버를 별도로 호스팅하지 않고도 노트북의 서비스를 모바일에서 안전하게 사용할 수 있습니다.
+Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연결하고, **서명 필터 배포 서버**는 GitHub 정적 클라우드 원본에 연결합니다. 필터 원본은 `https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data`이며, 공개된 필터 콘텐츠·manifest·RSA detached signature만 저장합니다. 라이선스 API와 개인 서명키는 노트북에 남습니다.
 
 ## 노트북과 모바일의 비공개 연결 (권장)
 
-Guardian 운영 서버는 개인 Windows 노트북에서 실행하고 Android 모바일 앱이 접속하는 구조입니다. 서버 컨테이너는 계속 `127.0.0.1`에만 바인딩하며, Tailscale Serve가 HTTPS를 종료해 노트북 내부 포트로 전달합니다. Tailscale Serve는 같은 tailnet 기기만 접근할 수 있는 비공개 서비스이며, Funnel과 달리 인터넷 전체에 공개하지 않습니다.
+라이선스 API와 서명키는 개인 Windows 노트북에서 운영합니다. Android 앱은 라이선스 API에만 Tailscale Serve HTTPS로 접속합니다. 필터 배포는 별도 정적 클라우드 원본(GitHub 공개 저장소의 전용 `guardian-filter-data` 브랜치)을 사용하므로 노트북이 꺼져 있어도 앱에서 업데이트를 받을 수 있습니다. 클라우드에는 필터 텍스트, manifest, detached signature만 올라가며 라이선스 DB, 개인키, `.env`는 게시하지 않습니다.
 
 1. Windows 노트북과 Android 모바일에 Tailscale을 설치하고 같은 Tailscale 계정/tailnet에 로그인합니다.
 2. Tailscale 관리 콘솔에서 MagicDNS와 HTTPS certificates를 활성화합니다. HTTPS 인증서 발급 시 기기 이름과 tailnet DNS 이름이 공개 인증서 투명성 로그에 기록될 수 있습니다.
@@ -66,15 +66,14 @@ Guardian 운영 서버는 개인 Windows 노트북에서 실행하고 Android �
 4. 관리자 PowerShell에서 다음 스크립트를 실행합니다. 이 스크립트는 Tailscale Serve를 설정하고 `sources.json`의 `baseUrl`을 노트북의 필터 HTTPS 주소로 바꾼 뒤, DPAPI 보호 서명키로 필터를 다시 다운로드·서명·발행합니다. 기존 `sources.json` 백업은 `.sources.json.before-private-access.bak`에 남깁니다.
 
 ```powershell
-.\\Enable-GuardianPrivateAccess.ps1
+.\Enable-GuardianPrivateAccess.ps1
 ```
 
-5. 스크립트가 출력하는 두 HTTPS 주소를 Android 앱 설정에 각각 입력합니다.
-   - **운영 서버 주소 (노트북)**: `https://<노트북-MagicDNS-이름>` (HTTPS 443 → localhost:8787)
-   - **서명 필터 배포 서버**: `https://<노트북-MagicDNS-이름>:8443` (HTTPS 8443 → localhost:8788)
-6. 모바일의 Tailscale 연결을 켠 상태에서 앱의 라이선스 연결 및 필터 업데이트를 확인합니다.
+5. 스크립트가 출력하는 라이선스 API HTTPS 주소를 Android 앱의 **운영 서버 주소 (노트북)**에 입력합니다.
+6. Android 앱의 **서명 필터 배포 서버**에는 `https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data`를 입력합니다. 정적 GitHub 원본은 공개 읽기 CDN이며 앱은 manifest의 RSA 서명 sidecar와 필터 SHA-256을 검증합니다.
+7. 모바일의 Tailscale 연결을 켠 상태에서 라이선스 연결을 확인하고, 필터 업데이트는 일반 인터넷 연결에서 확인합니다.
 
-이 방식은 공유기 포트포워딩, 공용 IP, 외부 공개 DNS, Cloudflare Tunnel 또는 Tailscale Funnel을 요구하지 않습니다. 노트북이 켜져 있고 절전 상태가 아니며 Tailscale에 연결되어 있어야 합니다. 두 HTTPS 주소는 tailnet에 가입된 기기만 접근할 수 있습니다. Tailscale Serve의 HTTPS 포트별 프록시 기능을 사용합니다.
+라이선스 API 연결은 공유기 포트포워딩, 공용 IP, Cloudflare Tunnel 또는 Tailscale Funnel 없이 tailnet 내부에서만 동작합니다. 라이선스 API를 사용할 때는 노트북이 켜져 있고 Tailscale에 연결되어 있어야 합니다. 필터 파일은 공개 CDN에서 읽으므로 노트북 전원과 무관하게 업데이트할 수 있습니다. 필터 콘텐츠는 공개 정보이며 무결성과 출처는 앱에 고정된 RSA 공개키로 검증합니다.
 
 **주의:** 이 스크립트는 기존 Tailscale Serve의 HTTPS 443 및 8443 설정을 Guardian용으로 설정합니다. 같은 포트를 이미 다른 용도로 사용 중이라면 실행 전에 기존 Serve 구성을 확인하세요. 비공개 연결을 종료할 때는 `tailscale serve status`로 현재 구성을 확인한 후 해당 포트만 해제하세요. `tailscale funnel`을 실행하지 마세요.
 
@@ -82,7 +81,7 @@ Guardian 운영 서버는 개인 Windows 노트북에서 실행하고 Android �
 예약 작업은 Windows 로그인 시 전체 서비스를 시작합니다. Docker Compose의 `restart: unless-stopped`는 Docker 엔진 재시작 후 컨테이너 복구를 돕습니다. 로그인 전 부팅 단계부터 운영하려면 별도 서비스 계정과 권한 설계가 필요합니다. 노트북이 꺼져 있거나 절전 상태이면 서버도 접속할 수 없습니다. 운영 중 절전 방지, 전원 연결, 네트워크 안정성 및 Windows 업데이트 재부팅 정책을 별도로 관리해야 합니다.
 
 ## 네트워크 보안
-두 서비스의 호스트 포트는 계속 `127.0.0.1`에만 바인딩됩니다. Android 접속은 Tailscale Serve가 제공하는 HTTPS와 tailnet 접근 제어를 사용합니다. 공유기 포트포워딩, Windows 방화벽의 공용 포트 개방, Tailscale Funnel을 사용하지 마세요. 앱의 서버 주소 설정은 접속 URL만 저장하며 Tailscale 설치·로그인이나 노트북 전원/네트워크 상태를 대신 관리하지 않습니다. 다른 사설 VPN/터널을 선택하는 경우에도 동일하게 유효한 HTTPS 인증서와 접근제어를 검증해야 합니다.
+라이선스 API 컨테이너 호스트 포트는 `127.0.0.1`에만 바인딩하고 Tailscale Serve를 통해 tailnet 내부에서만 접근합니다. 필터 CDN은 공개 읽기 전용이며 공개 데이터만 포함합니다. 공유기 포트포워딩, Windows 방화벽의 공용 포트 개방, Tailscale Funnel을 사용하지 마세요. 앱의 서버 주소 설정은 접속 URL만 저장하며 Tailscale 설치·로그인이나 노트북 전원/네트워크 상태를 대신 관리하지 않습니다.
 
 ## 키와 백업
 - `server/license-api/secrets/guardian-license-public.pem`: 라이선스 서명 공개키
@@ -91,7 +90,7 @@ Guardian 운영 서버는 개인 Windows 노트북에서 실행하고 Android �
 - `.env` 파일: 관리자 토큰, DB 비밀번호 등 비밀값 포함
 - `server/filter-distribution/dist/`: 서명된 manifest, signature, 필터 파일
 
-개인키와 `.env`는 절대 공유하거나 커밋하지 않습니다. DB 백업 파일은 암호화된 별도 위치에 보관하고 복구 리허설을 수행하세요. 필터 배포물도 노트북 고장에 대비해 별도 백업해야 합니다.
+개인키와 `.env`는 절대 공유하거나 커밋하지 않습니다. DB 백업 파일은 암호화된 별도 위치에 보관하고 복구 리허설을 수행하세요. 필터 배포물은 GitHub `guardian-filter-data` 브랜치에도 보관되며, 노트북 고장 시에도 모바일 앱이 공개된 최신 manifest와 버전 고정 필터를 내려받을 수 있습니다.
 
 ## 완료 전 검증
-HTTPS/TLS, 접근제어, Android 앱의 공개키 일치, 실제 필터 갱신, 라이선스 발급/활성화/갱신/해제, 노트북 재부팅·절전·네트워크 장애 복구, 실제 Android 기기 E2E 테스트가 필요합니다. 이 문서는 배포 도구 설명이며 실제 노트북 설치, 외부 HTTPS 공개, 휴대폰 E2E 검증이 끝났다는 의미는 아닙니다.
+HTTPS/TLS, 접근제어, Android 앱의 공개키 일치, 실제 필터 갱신, 라이선스 발급/활성화/갱신/해제, 노트북 재부팅·절전·네트워크 장애 복구, 실제 Android 기기 E2E 테스트가 필요합니다. 이 문서는 배포 도구 설명이며 실제 노트북 설치, GitHub 클라우드 브랜치 최초 게시, Android 모바일 E2E 검증이 끝났다는 의미는 아닙니다.
