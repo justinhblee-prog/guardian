@@ -123,17 +123,26 @@ object DnsTcpPacket {
      * Walks a bounded IPv6 extension-header chain to locate TCP. Fragment headers
      * remain deliberately unsupported because reassembly is not implemented.
      */
-    private fun ipv6TcpOffset(packet: ByteArray, packetLength: Int): Int? {
+    private fun ipv6TcpOffset(packet: ByteArray, packetLength: Int): Int? =
+        Ipv6ExtensionHeaderParser.transportOffset(packet, packetLength, expectedNextHeader = 6)
+
+/**
+ * Shared bounded IPv6 extension-header walker for UDP and TCP DNS packets.
+ * Fragment headers are rejected because IP fragment reassembly is not implemented.
+ */
+internal object Ipv6ExtensionHeaderParser {
+    fun transportOffset(packet: ByteArray, packetLength: Int, expectedNextHeader: Int): Int? {
+        if (packetLength < 40 || packetLength > packet.size ||
+            ((packet[0].toInt() ushr 4) and 0x0f) != 6) return null
         var nextHeader = packet[6].toInt() and 0xff
         var offset = 40
         var count = 0
-        while (nextHeader != 6) {
+        while (nextHeader != expectedNextHeader) {
             if (++count > 8 || offset - 40 > 2048 || offset + 2 > packetLength) return null
             val following = packet[offset].toInt() and 0xff
             val headerLength = when (nextHeader) {
                 0, 43, 60, 135, 139, 140 -> ((packet[offset + 1].toInt() and 0xff) + 1) * 8
                 51 -> ((packet[offset + 1].toInt() and 0xff) + 2) * 4
-                // Fragmented DNS TCP segments need IP reassembly before checksum validation.
                 44 -> return null
                 else -> return null
             }
@@ -141,9 +150,9 @@ object DnsTcpPacket {
             offset += headerLength
             nextHeader = following
         }
-        if (offset + 20 > packetLength || offset - 40 > 2048) return null
-        return offset
+        return offset.takeIf { it - 40 <= 2048 }
     }
+}
 
     private fun tcpChecksumValid(packet: ByteArray, version: Int, offset: Int, length: Int,
                                  source: ByteArray, destination: ByteArray): Boolean =
