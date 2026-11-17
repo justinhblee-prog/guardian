@@ -30,15 +30,38 @@ if ($LASTEXITCODE -ne 0) { throw 'Tailscale 연결 상태를 확인하지 못했
 try { $tailStatus = $statusText | ConvertFrom-Json } catch { throw 'Tailscale status JSON을 해석하지 못했습니다.' }
 $dnsName = ([string]$tailStatus.Self.DNSName).TrimEnd('.')
 if ([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net', [StringComparison]::OrdinalIgnoreCase)) {
-  throw 'Tailscale 기기의 MagicDNS 이름을 확인할 수 없습니다. Tailscale 연결 및 MagicDNS/HTTPS 인증서 설정을 확인하세요.'
+  throw 'Tailscale 기기의 MagicDNS 이름을 확인할 수 없습니다. Tailscale 연결 및 HTTPS 인증서 설정을 확인하세요.'
 }
 
-# Keep both backend containers bound to localhost. Tailscale Serve terminates
-# HTTPS and forwards privately to those loopback-only ports.
+# Configure two HTTPS listeners while the Docker backends remain loopback-only.
 & $tailscale serve --bg --https=443 http://127.0.0.1:8787
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve의 HTTPS 443 설정 실패' }
 & $tailscale serve --bg --https=8443 http://127.0.0.1:8788
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve의 HTTPS 8443 설정 실패' }
+
+# The signed manifest embeds absolute filter URLs. Update the publisher base URL
+# and republish all sources so the mobile app receives the correct private URL.
+$filterDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\filter-distribution')).Path
+$sourcesPath = Join-Path $filterDir 'sources.json'
+if (-not (Test-Path $sourcesPath)) { throw 'sources.json이 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.' }
+$config = Get-Content -Raw $sourcesPath | ConvertFrom-Json
+if (-not $config.sources -or $config.sources.Count -lt 1) { throw 'sources.json에 필터 공급원이 없습니다.' }
+$originalConfig = Get-Content -Raw $sourcesPath
+$backupPath = $sourcesPath + '.before-private-access.bak'
+Copy-Item -LiteralPath $sourcesPath -Destination $backupPath -Force
+$config.baseUrl = 'https://' + $dnsName + ':8443'
+$tempPath = $sourcesPath + '.tmp'
+try {
+  $serialized = $config | ConvertTo-Json -Depth 20
+  [System.IO.File]::WriteAllText($tempPath, $serialized + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+  Move-Item -LiteralPath $tempPath -Destination $sourcesPath -Force
+  & (Join-Path $PSScriptRoot 'Invoke-GuardianFilterUpdate.ps1')
+  if (-not $?) { throw '필터 다운로드/서명/manifest 발행 작업이 실패했습니다.' }
+} catch {
+  [System.IO.File]::WriteAllText($sourcesPath, $originalConfig, [System.Text.UTF8Encoding]::new($false))
+  Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+  throw
+}
 
 & $tailscale serve status
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 상태 확인 실패' }
@@ -48,6 +71,7 @@ Write-Host 'Guardian 노트북 비공개 접속 주소'
 Write-Host ('라이선스 API: https://' + $dnsName)
 Write-Host ('서명 필터 서버: https://' + $dnsName + ':8443')
 Write-Host ''
+Write-Host '필터 manifest와 서명 파일도 새 비공개 HTTPS 주소로 다시 발행했습니다.'
 Write-Host '모바일에서 같은 Tailscale 계정/네트워크에 연결한 뒤 위 두 HTTPS 주소를 Guardian 앱 설정에 각각 입력하세요.'
 Write-Host '이 구성은 Tailscale tailnet 내부 전용입니다. Funnel, 공유기 포트포워딩, 공용 방화벽 개방은 사용하지 않습니다.'
 Write-Host '노트북이 켜져 있고 절전 상태가 아니며 Tailscale에 연결되어 있어야 모바일에서 접속할 수 있습니다.'
