@@ -47,6 +47,7 @@ class Ipv6UdpTest {
         packet[48] = 17 // UDP follows
         packet[49] = 0
         System.arraycopy(base, 40, packet, 56, 12)
+        packet[62] = 0; packet[63] = 0
         val checksum = udpChecksum(packet, 56, 12)
         packet[62] = (checksum ushr 8).toByte()
         packet[63] = checksum.toByte()
