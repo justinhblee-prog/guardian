@@ -410,20 +410,20 @@ class GuardianVpnService : VpnService() {
         // Load each source only when requested. The old path retained every raw
         // feed, parsed each feed for validation, composed a second 1M+ line list,
         // then parsed that combined list again. That multiplied peak heap use.
-        val sources = mutableListOf<() -> List<String>>()
+        val sources = mutableListOf<() -> FilterRuleParser.Parsed>()
         val minimumRuleCounts = mutableListOf<Int>()
         sources.add {
-            assets.open("filter_rules.txt").bufferedReader().use { it.readLines() }
+            assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
         }
         minimumRuleCounts.add(1)
-        sources.add { FilterListManager.cachedLines(this) }
+        sources.add { FilterListManager.parseCachedList(this, "adguard_dns_filter.txt") }
         minimumRuleCounts.add(selectedProfile.minimumRules)
         if (securityEnabled) {
-            sources.add { FilterListManager.cachedSecurityLines(this) }
+            sources.add { FilterListManager.parseCachedList(this, "hagezi_threat_intelligence.txt") }
             minimumRuleCounts.add(FilterListManager.MIN_SECURITY_BLOCKS)
         }
         if (androidAdsEnabled) {
-            sources.add { FilterListManager.cachedAndroidAdsLines(this) }
+            sources.add { FilterListManager.parseCachedList(this, "awavenue_android_ads.txt") }
             minimumRuleCounts.add(FilterListManager.MIN_ANDROID_ADS_BLOCKS)
         }
         val userBlock = prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
@@ -431,7 +431,7 @@ class GuardianVpnService : VpnService() {
         val userAllow = prefs.getString(KEY_USER_ALLOW, "").orEmpty().lineSequence()
             .map { it.trim() }.filter { it.isNotEmpty() }.toList()
         android.util.Log.i("Guardian", "VPN rules load started; sources=${sources.size}, security=$securityEnabled, androidAds=$androidAdsEnabled")
-        DomainFilter.loadRuleSources(sources, minimumRuleCounts, userBlock, userAllow)
+        DomainFilter.loadParsedRuleSources(sources, minimumRuleCounts, userBlock, userAllow)
         android.util.Log.i("Guardian", "VPN rules load completed; blocked=${DomainFilter.blockedRuleCount()}, allowed=${DomainFilter.allowedRuleCount()}, freeHeap=${Runtime.getRuntime().freeMemory()}")
     }
 
