@@ -85,9 +85,9 @@ flowchart TD
 | 1 | PR #73 Android 필터 메모리 최적화 및 VPN 시작 fallback 검토 | 단위 테스트, lint, APK, 에뮬레이터 VPN E2E 성공; PR diff 검토 및 통합 | 완료 · squash merge `99ad460` |
 | 2 | 실제 Android 스마트폰 수용 테스트 | VPN 승인/시작/중지, 허용 DNS 응답, 차단 DNS 응답, 일반 인터넷 접속 확인 | 대기 |
 | 3 | Android 네트워크 안정성 매트릭스 | Wi-Fi↔모바일 전환, IPv4/IPv6, Private DNS, 앱 제외, 다른 VPN 조합과 복구 확인 | 대기 |
-| 4 | 서명 필터 운영 연동 | 실제 HTTPS 배포 URL과 앱 고정 공개키로 manifest 서명·해시·버전 anti-rollback·캐시 원자 교체·실패 복구 확인 | 대기 |
-| 5 | 라이선스 운영 연동 | API/DB 운영 배포, 기기 활성화·갱신·해제, 만료/정지, 서명 토큰 검증 E2E 확인 | 대기 |
-| 6 | Android production 빌드 | 운영 keystore 및 보호된 CI secrets, production APK/AAB 서명, 설치·업데이트 검증 | 대기 |
+| 4 | 서명 필터 운영 연동 | 클라이언트·DPAPI 서명/게시 도구·distribution CI 통합; 실제 Windows key 생성/HTTPS 게시/앱 검증은 운영 환경에서 확인 | 코드·CI 완료 / 운영 배포 대기 |
+| 5 | 라이선스 운영 연동 | API/DB·Windows 운영 스크립트 통합 및 PostgreSQL integration CI; 실제 Tailscale 서버 배포와 기기 E2E는 운영 환경에서 확인 | 코드·CI 완료 / 운영 배포 대기 |
+| 6 | Android production 빌드 | 임시 키 release build 검증 완료; 운영 keystore/secrets 기반 production APK/AAB 서명 및 설치·업데이트 확인 | release 설정 검증 / 운영 키 대기 |
 | 7 | Android 출시 판정 | 실제 기기/네트워크/서버/서명 증거와 알려진 제한을 문서화 | 대기 |
 | 8 | Windows 클라이언트 패키징 | EXE·설치 프로그램 빌드, 설치·실행·제거, DNS 설정 백업/복구, 재부팅 후 복구 검증 | 대기 |
 | 9 | 통합 릴리스 문서화 | Android/Windows별 검증 결과와 미지원·미검증 범위를 분리해 최종 보고 | 대기 |
@@ -117,19 +117,15 @@ flowchart TD
 
 ## 현재 기준 상태
 
-- Android run `43917110473` (PR head `0f6ac0ebec4ce6812caf3be029584c1ebadc0460`)는 2026-11-17 완료, 전체 workflow success.
-- Android unit tests, lint, 이전 개발 버전 업그레이드 설치, 현재 APK 조립, 패키지/version, 번들 DNS 필터 및 SHA-256 확인 통과.
-- Android API 35 에뮬레이터에서 실제 앱 UI로 VPN 권한을 승인하고 VPN 터널 활성화를 확인했다.
-- 허용 DNS `example.com`은 IP 주소로 해석됐고, 테스트용 `guardian-ci-43917110473.doubleclick.net`은 `unknown host`로 차단됐다.
-- 앱 통계 확인: `protection_active=true`, `dns_queries=8`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`.
-- APK: `Guardian-AdBlock-0.7.13-dev-run799.apk`, 3,102,025 bytes.
-- APK SHA-256: `41d809c37cb4a1a354178f037bc0ec6964d71306d0a2aa3e248b3928dcdd1a21`.
-- 후보 APK는 개발용 서명본이며 production 릴리스가 아니다.
-- PR #73은 2026-11-17 `99ad460bf309fe55b7503fa828d8eb4be25386ea`로 squash merge 완료했다. 변경 파일 14개와 핵심 파서/캐시/필터 병합/VPN 시작/선택 필터 fallback/CI 스크립트를 검토했고, run `43918433672`에서 unit tests, lint, APK, 에뮬레이터 VPN DNS E2E가 성공했다.
-- 실제 Android 스마트폰 수용 테스트는 에뮬레이터 검증과 별개로 미수행이며, 실제 기기에 대한 VPN 허용·차단·네트워크 복구는 확인되지 않았다.
-- 다음 단계는 실제 Android 스마트폰 수용 테스트다. 원격 에뮬레이터만으로 실기기 완료 처리하지 않는다.
-- PR #73의 VPN E2E 로그에서 `protection_active=true`, `dns_queries=4`, `dns_forwarded=3`, `dns_blocked=1`, `dns_failed=0`을 확인했다. `example.com`은 `104.20.23.154`로 해석됐고, `guardian-ci-43918433672.doubleclick.net`은 `unknown host`로 차단됐다. ICMP ping 응답은 100% 손실이었으나 DNS 응답 자체와 무관하므로 ping 성공으로 보고하지 않는다.
-- PR #73 병합 후 main 커밋 `99ad460bf309fe55b7503fa828d8eb4be25386ea`에서 Android 전체 검증 run `44047861059`가 실행 중이다. 성공 확인 전에는 main APK 검증 완료로 표시하지 않는다.
+- PR #73 squash merge: `99ad460bf309fe55b7503fa828d8eb4be25386ea`; PR #77 squash merge: `30a765cf539885f94a5924680a8d055d083afc79`.
+- Android 0.7.14-dev PR validation [run 44051352597](https://github.com/justinhblee-prog/guardian/actions/runs/44051352597) completed successfully: unit tests, lint, 0.7.13→0.7.14 upgrade install, API 35 emulator install/launch, VPN activation, allowed DNS response, blocked DNS rejection.
+- APK: `com.guardian.adblock`, versionCode 27, versionName `0.7.14-dev`, 3,119,618 bytes. SHA-256: `24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78`.
+- VPN E2E: `protection_active=true`, `dns_queries=6`, `dns_forwarded=5`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`. `example.com` resolved to `172.66.147.243`; `guardian-ci-44051352597.doubleclick.net` returned `unknown host`. ICMP ping loss is not reported as DNS failure.
+- Signed Filter Distribution run `44052664109`, Filter Distribution CI `44052665884`, License API/PostgreSQL integration `44052664268` succeeded.
+- Main Android run `44052664083` and production release configuration run `44052664040` are running at this document update time. Production-release job is skipped because no production keystore/secrets are configured.
+- PR #77 adds signed manifest/signature/hash client verification, Windows DPAPI filter signing and public publishing scripts, Tailscale private access, License API setup and scheduled publishing scripts. Actual Windows laptop key creation, public data branch publication, HTTPS/Tailscale operational deployment are not yet performed.
+- Real Android phone/tablet acceptance tests, Wi-Fi↔mobile transition, IPv4/IPv6, Private DNS, VPN coexistence and long-running background tests remain outstanding.
+- The APK is debug-signed. No production-signed APK/AAB is claimed.
 
 ## 변경 기록
 
@@ -139,3 +135,5 @@ flowchart TD
 
 
 - 2026-11-17: PR #73을 검토 후 squash merge했고, Android VPN E2E 로그에서 허용 DNS 응답·차단 DNS 실패 및 서비스 통계를 확인했다. 병합 후 main CI run `44047861059` 검증 대기 상태를 기록했다.
+
+- 2026-11-17: PR #77 was squash-merged as `30a765c`; Android 0.7.14-dev PR E2E and signed filter/license API CI evidence recorded. Main-branch post-merge workflows remain in progress at this update.
