@@ -35,6 +35,51 @@ class Ipv6UdpTest {
         assertNull(Ipv6Udp.parseDns(queryPacket(), 1000))
     }
 
+    @Test fun parsesIpv6UdpDnsAfterHopByHopAndDestinationOptions() {
+        val base = queryPacket()
+        val packet = ByteArray(base.size + 16)
+        System.arraycopy(base, 0, packet, 0, 40)
+        packet[4] = 0
+        packet[5] = 28 // 16 extension-header bytes + 12 UDP bytes
+        packet[6] = 0 // Hop-by-Hop Options
+        packet[40] = 60 // Destination Options follows
+        packet[41] = 0
+        packet[48] = 17 // UDP follows
+        packet[49] = 0
+        System.arraycopy(base, 40, packet, 56, 12)
+        val checksum = udpChecksum(packet, 56, 12)
+        packet[62] = (checksum ushr 8).toByte()
+        packet[63] = checksum.toByte()
+
+        val parsed = Ipv6Udp.parseDns(packet, packet.size)
+        assertNotNull(parsed)
+        assertEquals(53000, parsed!!.sourcePort)
+        assertArrayEquals(byteArrayOf(1, 2, 3, 4), parsed.payload)
+    }
+
+    @Test fun rejectsIpv6UdpFragmentAndMalformedExtensionHeader() {
+        val base = queryPacket()
+        val fragment = ByteArray(base.size + 8)
+        System.arraycopy(base, 0, fragment, 0, 40)
+        fragment[4] = 0
+        fragment[5] = 20
+        fragment[6] = 44
+        fragment[40] = 17
+        fragment[41] = 0
+        System.arraycopy(base, 40, fragment, 48, 12)
+        assertNull(Ipv6Udp.parseDns(fragment, fragment.size))
+
+        val malformed = ByteArray(base.size + 8)
+        System.arraycopy(base, 0, malformed, 0, 40)
+        malformed[4] = 0
+        malformed[5] = 20
+        malformed[6] = 60
+        malformed[40] = 17
+        malformed[41] = 10
+        System.arraycopy(base, 40, malformed, 48, 12)
+        assertNull(Ipv6Udp.parseDns(malformed, malformed.size))
+    }
+
     @Test fun responseHasValidIpv6UdpChecksum() {
         val parsed = Ipv6Udp.parseDns(queryPacket(), queryPacket().size)!!
         val response = Ipv6Udp.response(parsed, byteArrayOf(5, 6, 7))
