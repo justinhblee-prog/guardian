@@ -210,3 +210,14 @@ Windows 설치 패키지 workflow는 `.github/workflows/windows-build.yml`에 �
 - Windows DNS daemon EXE: 2,088,078 bytes, SHA-256 `ae4a514e7487f10e4478dce7e441b5fa55dab41920beac91c32249a81d0563f5`.
 - Windows installer: 21,807,184 bytes, SHA-256 `0f696200422322a399f7e5bbe10d48cc89129db5a89aceee6d426093a438936d`. unsigned development package; production Authenticode certificate is not configured.
 - 실제 Windows PC의 네트워크 어댑터 DNS 변경/복구, 재부팅, Wi-Fi/Ethernet 전환, VPN/보안 제품 공존성은 아직 미검증입니다.
+
+
+## 2026-11-17 최종 통합 재검증 — Android run 44101506633
+
+- Android main CI [run 44101506633](https://github.com/justinhblee-prog/guardian/actions/runs/44101506633): 전체 성공. Unit tests, lint, APK build, 이전 개발 버전 업그레이드, API 35 emulator install/launch, VPN permission, allowed DNS 및 blocked ad-domain E2E, final verification artifact 업로드 통과.
+- VPN E2E: protection_active=true, dns_queries=10, dns_forwarded=9, dns_blocked=1, dns_ad_blocked=1, dns_failed=0. 허용 example.com DNS 응답과 guardian-ci-44101506633.doubleclick.net 차단을 확인했습니다.
+- APK: com.guardian.adblock, versionCode 27, versionName 0.7.14-dev, 3,124,402 bytes, SHA-256 5a1ffd469b613d25ebef526ce282890f2ca3c2f1581c05cc1f7261a7a2b7c414.
+- 전체 소스 ZIP: 457,363 bytes, SHA-256 99538276265f7ed910749421c6bb7257486a92fc088919bdbdeb1560c41bd9ca. ZIP 무결성 및 windows_engine/daemon_health.py 포함 여부 확인.
+- 최신 소스 ZIP을 별도 Linux 환경에서 추출해 python -m pytest -q dns_engine windows_engine: **33 passed**; python -m compileall -q dns_engine windows_engine: 통과.
+- Windows main build [run 44101373822](https://github.com/justinhblee-prog/guardian/actions/runs/44101373822) 및 cross-platform engine CI [run 44101373586](https://github.com/justinhblee-prog/guardian/actions/runs/44101373586): 전체 성공. Windows installer install/self-test/restore/uninstall 및 예약 작업 정리 경로 통과.
+- Android APK는 debug 서명본, Windows installer는 unsigned 개발용입니다. Android/Windows 실기기 수용 테스트, 운영 HTTPS signed-filter 배포, 실제 License API/PostgreSQL 배포, production signing은 별도 미완료입니다.
