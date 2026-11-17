@@ -1793,8 +1793,18 @@ class MainActivity : Activity() {
                 val cachedProfile = FilterListManager.cachedProfile(this)
                 val securityEnabledNow = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
                 val androidAdsEnabledNow = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-                val hasSecurityCacheNow = FilterListManager.hasCachedSecurityList(this)
-                val hasAndroidAdsCacheNow = FilterListManager.hasCachedAndroidAdsList(this)
+                val hasSecurityCacheNow = try {
+                    FilterListManager.hasCachedSecurityList(this)
+                } catch (cacheError: Exception) {
+                    android.util.Log.e("Guardian", "Security cache check failed after update", cacheError)
+                    false
+                }
+                val hasAndroidAdsCacheNow = try {
+                    FilterListManager.hasCachedAndroidAdsList(this)
+                } catch (cacheError: Exception) {
+                    android.util.Log.e("Guardian", "Android ads cache check failed after update", cacheError)
+                    false
+                }
                 val protectionCachesReady = try {
                     FilterListManager.isProfileCacheCurrent(
                         FilterListManager.hasCachedList(this),
