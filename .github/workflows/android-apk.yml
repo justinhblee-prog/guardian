@@ -150,12 +150,23 @@ jobs:
 
           # Archive the exact commit that produced the APK, including app source,
           # tests, shared rules, server tools, scripts, workflows and docs.
-          git archive --format=zip --prefix=Guardian-AdBlock-Source-v0.7.14-dev/ "$GITHUB_SHA" > "$SOURCE_ZIP"
+          git archive --format=zip --prefix=Guardian-AdBlock-Source-v0.7.14-dev/ "$GITHUB_SHA" -- . \
+            ':(exclude,top)android/guardian-dev.keystore' \
+            ':(exclude,glob)**/*.jks' ':(exclude,glob)**/*.keystore' \
+            ':(exclude,glob)**/*.p12' ':(exclude,glob)**/*.pfx' \
+            ':(exclude,glob)**/*.dpapi' ':(exclude,glob)**/*.pem' \
+            ':(exclude,glob)**/.env' ':(exclude,glob)**/sources.json' \
+            ':(exclude,glob)**/*.bak' ':(exclude,glob)**/secrets/**' \
+            ':(exclude,glob)**/dist/**' ':(exclude,glob)**/logs/**' > "$SOURCE_ZIP"
           test -s "$SOURCE_ZIP"
           unzip -t "$SOURCE_ZIP" >/dev/null
           unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.14-dev/android/app/src/main/AndroidManifest.xml'
           unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.14-dev/server/license-api/admin/index.html'
           unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.14-dev/shared/filter_rules.txt'
+          if unzip -Z1 "$SOURCE_ZIP" | grep -Eiq '(^|/)([^/]*\\.(jks|keystore|p12|pfx|dpapi|pem)|\\.env|sources\\.json|[^/]*\\.bak)$|(^|/)secrets/|(^|/)(dist|logs)/'; then
+            echo "Source archive contains a signing key, secret/config file, backup, or generated runtime output."
+            exit 1
+          fi
 
           # Keep both deliverables covered by one manifest; the APK-local
           # SHA256SUMS.txt remains available for simple APK-only checks.
@@ -182,6 +193,7 @@ jobs:
           - 전체 소스 ZIP 크기: ${SOURCE_BYTES} bytes
           - 전체 소스 ZIP SHA-256: ${SOURCE_SHA256}
           - 소스 ZIP 무결성 및 Android manifest/License Admin/shared filter 파일 검사: 통과
+          - 소스 ZIP 내 서명키/개인키/DPAPI/환경 파일/운영 산출물 제외 검사: 통과
           - Android API 35 에뮬레이터 업그레이드 및 VPN E2E: 이 workflow 후속 단계에서 실행하고 최종 보고서에 별도 기록
           - 에뮬레이터 테스트 실패 시에도 빌드 산출물은 별도 제공하며, 해당 APK를 런타임 검증 완료로 간주하지 않습니다.
           - 이 결과는 Android 실기기 VPN/광고 차단 수용 테스트를 의미하지 않습니다.
