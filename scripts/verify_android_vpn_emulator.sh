@@ -89,20 +89,33 @@ fi
 tap_text() {
   local wanted="$1"
   local xml bounds
-  # Quickstep may ANR under the default low-memory AVD while large filter
-  # caches are warming. Wait once, stop only the test emulator's launcher
-  # process if it remains wedged, then foreground Guardian directly.
+  # The API 35 Pixel launcher can wedge while the emulator is loading the
+  # large filter caches. Close the launcher ANR (not Guardian), disable only
+  # that launcher in this disposable AVD, and keep the already foregrounded
+  # Guardian activity available for the VPN consent flow.
   for recovery in 1 2 3; do
     adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
     xml="$(adb exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
     if grep -q "Quickstep isn't responding" <<<"$xml"; then
-      echo "Android Quickstep is temporarily unresponsive; choosing Wait and foregrounding Guardian (recovery $recovery/3)."
-      adb shell input tap 540 1332 || true
+      echo "Android Quickstep ANR detected; closing the emulator launcher (recovery $recovery/3)."
+      close_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if node.attrib.get("resource-id")=="android:id/aerr_close" and node.attrib.get("clickable")=="true":
+        p=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(p)==2:
+            x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' <<<"$xml")"
+      if [[ -z "$close_bounds" ]]; then
+        echo "Quickstep ANR dialog did not expose its Close app control."
+        return 1
+      fi
+      read -r cx cy <<<"$close_bounds"
+      adb shell input tap "$cx" "$cy"
       sleep 2
-      adb shell am force-stop com.android.launcher3 || true
+      adb shell pm disable-user --user 0 com.android.launcher3 >/dev/null 2>&1 || true
       sleep 1
-      adb shell am start -W -n "$PACKAGE/com.guardian.adblock.MainActivity" >/dev/null
-      sleep 5
       continue
     fi
     break
@@ -131,27 +144,25 @@ if matches:
     if ! grep -q "Quickstep isn't responding" <<<"$xml"; then
       break
     fi
-    echo "Quickstep ANR appeared during UI lookup; selecting Wait and reopening Guardian (recovery $recovery/3)."
-    wait_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+    echo "Quickstep ANR appeared during UI lookup; closing the emulator launcher (recovery $recovery/3)."
+    close_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
-    if node.attrib.get("resource-id")=="android:id/aerr_wait" and node.attrib.get("clickable")=="true":
+    if node.attrib.get("resource-id")=="android:id/aerr_close" and node.attrib.get("clickable")=="true":
         p=node.attrib.get("bounds","").strip("[]").split("][")
         if len(p)==2:
             x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
             print((x1+x2)//2,(y1+y2)//2)
             break' <<<"$xml")"
-    if [[ -z "$wait_bounds" ]]; then
-      echo "Quickstep ANR dialog did not expose its Wait control."
+    if [[ -z "$close_bounds" ]]; then
+      echo "Quickstep ANR dialog did not expose its Close app control."
       break
     fi
-    read -r wx wy <<<"$wait_bounds"
-    adb shell input tap "$wx" "$wy" || true
+    read -r cx cy <<<"$close_bounds"
+    adb shell input tap "$cx" "$cy" || true
     sleep 2
-    adb shell am force-stop com.android.launcher3 || true
+    adb shell pm disable-user --user 0 com.android.launcher3 >/dev/null 2>&1 || true
     sleep 1
-    adb shell am start -W -n "$PACKAGE/com.guardian.adblock.MainActivity" >/dev/null
-    sleep 5
     adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
     xml="$(adb exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
     bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
@@ -171,7 +182,7 @@ for node in root.iter("node"):
     echo "Guardian process memory:"
     adb shell dumpsys meminfo "$PACKAGE" | tail -80 || true
     echo "Launcher process memory:"
-    adb shell dumpsys meminfo com.google.android.apps.nexuslauncher | tail -60 || true
+    adb shell dumpsys meminfo com.android.launcher3 | tail -60 || true
     echo "Live app/system ANR and memory diagnostics:"
     grep -Ei 'ANR in|not responding|Quickstep|Guardian|FATAL EXCEPTION|OutOfMemory|lmkd|lowmemory' "$LIVE_LOG" | tail -240 || true
     return 1
