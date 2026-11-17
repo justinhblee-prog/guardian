@@ -43,8 +43,25 @@ if (-not (Test-Path -LiteralPath $protectedKeyPath -PathType Leaf) -or
     -not (Test-Path -LiteralPath $filterPublicKeyPath -PathType Leaf)) {
   throw '필터 서명 DPAPI 개인키 또는 공개키가 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.'
 }
-try { $null = ConvertTo-SecureString -String (Get-Content -Raw -LiteralPath $protectedKeyPath) }
+$preflightSecureKey = $null
+try { $preflightSecureKey = ConvertTo-SecureString -String (Get-Content -Raw -LiteralPath $protectedKeyPath) }
 catch { throw '현재 Windows 계정에서 DPAPI 필터 서명키를 복호화할 수 없습니다.' }
+$preflightPointer = [IntPtr]::Zero
+$preflightRsa = [System.Security.Cryptography.RSA]::Create()
+try {
+  $preflightPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($preflightSecureKey)
+  $preflightPrivatePem = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($preflightPointer)
+  $preflightRsa.ImportFromPem($preflightPrivatePem)
+  $derivedPublicKey = [Convert]::ToBase64String($preflightRsa.ExportSubjectPublicKeyInfo())
+  $configuredPublicKey = (Get-Content -Raw -LiteralPath $filterPublicKeyPath).Trim()
+  if ($derivedPublicKey -cne $configuredPublicKey) {
+    throw 'DPAPI 필터 서명 개인키와 Android 공개키가 일치하지 않습니다. Setup-GuardianServer.ps1로 키 구성을 복구하세요.'
+  }
+} finally {
+  $preflightRsa.Dispose()
+  $preflightPrivatePem = $null
+  if ($preflightPointer -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($preflightPointer) }
+}
 $nodeCommand = Get-Command 'node' -ErrorAction SilentlyContinue
 $npmCommand = Get-Command 'npm' -ErrorAction SilentlyContinue
 if (-not $nodeCommand -or -not $npmCommand) { throw '필터 게시에는 Node.js 22 이상과 npm이 필요합니다.' }
