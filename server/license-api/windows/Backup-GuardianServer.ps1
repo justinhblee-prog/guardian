@@ -18,8 +18,8 @@ $process=[Diagnostics.Process]::new()
 $process.StartInfo=$psi
 $fileStream=$null
 try {
-  if(-not $process.Start()){throw 'Docker 백업 프로세스를 시작하지 못했습니다.'}
   $fileStream=[IO.File]::Open($outFile,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+  if(-not $process.Start()){throw 'Docker 백업 프로세스를 시작하지 못했습니다.'}
   $copyTask=$process.StandardOutput.BaseStream.CopyToAsync($fileStream)
   $stderrTask=$process.StandardError.ReadToEndAsync()
   $process.WaitForExit()
