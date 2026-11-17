@@ -1,39 +1,23 @@
 @echo off
 setlocal
-pushd "%~dp0"
+set "PUBLISH_SCRIPT=%~dp0..\license-api\windows\Update-And-Publish-GuardianFilters.ps1"
 
-where node >nul 2>nul
+if not exist "%PUBLISH_SCRIPT%" (
+  echo [Guardian] Laptop publisher script is missing: "%PUBLISH_SCRIPT%"
+  exit /b 1
+)
+
+where powershell.exe >nul 2>nul
 if errorlevel 1 (
-  echo [Guardian] Node.js 22 or later is required.
-  popd
-  exit /b 1
-)
-node -e "const major=Number(process.versions.node.split('.')[0]); if(major<22){console.error('Node.js 22 or later is required.');process.exit(1)}"
-if errorlevel 1 (
-  popd
+  echo [Guardian] Windows PowerShell is required.
   exit /b 1
 )
 
-if not defined GUARDIAN_FILTER_SIGNING_PRIVATE_KEY (
-  echo [Guardian] GUARDIAN_FILTER_SIGNING_PRIVATE_KEY is not set for this Windows account.
-  echo [Guardian] Configure it securely for the scheduled task account. Do not put the PEM in this batch file.
-  popd
-  exit /b 1
-)
-if not exist "sources.json" (
-  echo [Guardian] sources.json is missing.
-  echo [Guardian] Copy sources.example.json to sources.json and configure trusted HTTPS sources.
-  popd
-  exit /b 1
-)
-
-echo [Guardian] Starting validated filter update and signed publication...
-call npm run update -- "%~dp0sources.json"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PUBLISH_SCRIPT%"
 set "RESULT=%ERRORLEVEL%"
 if not "%RESULT%"=="0" (
-  echo [Guardian] Update failed with exit code %RESULT%.
+  echo [Guardian] Signed update or cloud publication failed with exit code %RESULT%.
 ) else (
-  echo [Guardian] Filter update completed. Review dist output before deployment.
+  echo [Guardian] Signed filters were verified and published to the static cloud origin.
 )
-popd
 exit /b %RESULT%
