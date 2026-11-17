@@ -37,7 +37,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\Setup-GuardianServer.ps1
 ```
 
-설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 비밀정보·개인키·keystore·백업·빌드 출력은 기본적으로 `%LOCALAPPDATA%\\Guardian` 아래에 저장하며 저장소/OneDrive 내부 경로는 거부합니다. 경로를 바꾸려면 `GUARDIAN_DATA_DIR` 환경 변수에 저장소 및 OneDrive 바깥의 절대 경로를 지정하세요. 기존 설치본의 `server/license-api/.env`와 `secrets`가 있으면 최초 설치 실행 시 외부 경로로 복사하고 SHA-256을 비교한 뒤 저장소 안의 원본을 삭제합니다. 외부 환경 파일이 이미 있거나 파일명이 충돌하면 자동 덮어쓰기 없이 중단합니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `secrets/guardian-filter-private.dpapi`에 보관하고, 평문 PEM 임시 파일은 삭제합니다. 필터 배포 서버용 `.env`와 `dist` 폴더도 준비하며, 로그인 시 두 서버를 함께 시작하는 예약 작업을 등록합니다. 개인키와 `.env`는 Git에 저장하거나 다른 사용자에게 공유하지 않습니다.
+설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 비밀정보·개인키·keystore·백업·빌드 출력은 기본적으로 `%LOCALAPPDATA%\\Guardian` 아래에 저장하며 저장소/OneDrive 내부 경로는 거부합니다. 경로를 바꾸려면 `GUARDIAN_DATA_DIR` 환경 변수에 저장소 및 OneDrive 바깥의 절대 경로를 지정하세요. 기존 설치본의 `server/license-api/.env`와 `secrets`가 모두 있으면 최초 실행 시 외부 경로로 복사하고 SHA-256을 비교한 뒤 저장소 안의 원본을 삭제합니다. 이 경우 기존 라이선스/필터 키와 DB 비밀번호를 그대로 보존하기 위해 마이그레이션만 수행하고 종료합니다. 완료 메시지 확인 후 `Start-All-GuardianServices.ps1`로 서비스를 시작하세요. 기존 데이터가 일부만 있거나 외부 파일과 충돌하면 자동 덮어쓰기·새 키 생성을 하지 않고 중단합니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `secrets/guardian-filter-private.dpapi`에 보관하고, 평문 PEM 임시 파일은 삭제합니다. 필터 배포 서버용 `.env`와 `dist` 폴더도 준비하며, 로그인 시 두 서버를 함께 시작하는 예약 작업을 등록합니다. 개인키와 `.env`는 Git에 저장하거나 다른 사용자에게 공유하지 않습니다.
 
 ## 노트북에서 공개키를 포함한 Android APK 다시 빌드
 최초 설치 스크립트가 만든 두 공개키를 앱에 고정하려면 Android Studio/JDK 17, Android SDK 및 Gradle 8.9가 설치되고 `gradle` 명령이 PATH에 등록된 노트북에서 다음을 실행합니다.
