@@ -83,6 +83,22 @@ fi
 tap_text() {
   local wanted="$1"
   local xml bounds
+  # The Android emulator's Quickstep launcher can show a transient ANR
+  # dialog while the app is downloading large filter lists. Dismiss only
+  # that launcher dialog with Wait, then explicitly bring Guardian forward.
+  for recovery in 1 2 3; do
+    adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
+    xml="$(adb exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+    if grep -q "Quickstep isn't responding" <<<"$xml"; then
+      echo "Android Quickstep is temporarily unresponsive; choosing Wait and foregrounding Guardian (recovery $recovery/3)."
+      adb shell input tap 540 1332
+      sleep 3
+      adb shell am start -W -n "$PACKAGE/com.guardian.adblock.MainActivity" >/dev/null
+      sleep 4
+      continue
+    fi
+    break
+  done
   adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   xml="$(adb exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   printf '%s\n' "$xml" > /tmp/guardian-window-before-tap.xml
