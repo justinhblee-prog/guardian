@@ -1,28 +1,29 @@
-# 최신 인수인계 기준 — 2026-11-15
+# 최신 인수인계 기준 — 2026-11-17
 
 이 섹션은 아래의 과거 버전별 안내보다 우선합니다.
 
-- 현재 개발 기준: Android `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`.
-- 문서 갱신 시점 main: `a5876e7a68c32e9721b8763aa36e89b2150746e7`.
-- PR #25의 Android CI 성공과 PR #38의 DNS-over-TCP wraparound 테스트가 main에 반영되었습니다.
-- PR #40은 Production Release workflow의 main push 검증을 수정 중입니다. 설정 검증 CI는 성공했지만 Android emulator 실행이 아직 끝나지 않았으므로 PR 전체 성공으로 판정하지 않습니다.
-- PR #41은 만료된 서명 라이선스의 기기 등록 해제 기능을 최신 main에 재적용했습니다. Android CI는 진행 중이며 아직 병합되지 않았습니다.
-- PR #16은 PR #41의 충돌 대체본입니다. PR #41 검증·병합 후 중복 PR을 정리합니다.
-- 라이선스 API, signed filter distribution, publisher locking, per-device admin activation release 및 Android client hardening은 main에 반영된 범위와 운영 미검증 범위를 구분합니다.
-- 운영 keystore/secrets, 운영 API 주소/공개키/DB 및 도메인/TLS는 실제 운영 배포 검증이 끝나지 않았습니다.
-- Windows 설치 프로그램은 마지막 단계로 보류합니다. 물리 Android 기기 VPN/DNS 수용 테스트는 추후 별도 수행합니다.
+- 저장소: justinhblee-prog/guardian, branch main.
+- 현재 Android: com.guardian.adblock, versionCode 27, versionName 0.7.14-dev.
+- main commit: 28abc77342f34898dd03c198fef942c0b49a7fe0.
+- PR #78: 반응형 운영자 라이선스 관리 대시보드 병합 및 License API CI 성공.
+- PR #79: APK와 동일 커밋의 전체 소스 ZIP, 두 산출물 SHA-256, ZIP 무결성 및 자동 artifact 감사 병합.
+- Android CI [44060999851](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851) 성공: unit tests, lint, APK build, 이전 버전 업데이트 설치, API 35 emulator VPN/DNS E2E.
+- Artifact [guardian-android-debug](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851), APK SHA-256 24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78, source ZIP SHA-256 a22d74b994b919e19de4125a719243786b76fa50dbb2d19d85200345afdcee17.
+- 후속 감사 [44062116800](https://github.com/justinhblee-prog/guardian/actions/runs/44062116800)에서 APK/source 체크섬과 ZIP 무결성 검증 성공.
+- Signed filter CI [44052664109](https://github.com/justinhblee-prog/guardian/actions/runs/44052664109), [44052665884](https://github.com/justinhblee-prog/guardian/actions/runs/44052665884), License API CI [44059072829](https://github.com/justinhblee-prog/guardian/actions/runs/44059072829) 성공.
+- Production release 설정 검증 [44052664040](https://github.com/justinhblee-prog/guardian/actions/runs/44052664040) 성공. 실제 운영 keystore/secrets가 없어 production signing job은 skipped이며 production APK/AAB는 없습니다.
+- 실기기 VPN/TUN·광고 제거율·운영 HTTPS/TLS 서버 검증은 미완료입니다. Windows EXE/설치 프로그램은 마지막 단계입니다.
 
 ## 다음 내부 개발 순서
 
-1. PR #40을 최신 main에 재기반화하고 Android CI 및 release workflow 검증을 완료합니다.
-2. PR #41의 Android 테스트/lint/build/emulator 결과를 확인하고 통과 시 병합합니다.
-3. PR #16 중복본을 정리하고 만료 라이선스의 FREE 권한 유지 및 기기 해제 동작을 문서화합니다.
-4. RELEASE_STATUS_KO.md, VERIFICATION.md, FINAL_HANDOFF_KO.md, README/빌드 안내의 버전·CI·잔여 범위를 일치시킵니다.
-5. Android 내부 회귀 테스트와 소스 패키지/manifest/checksum 검증을 완료합니다.
-6. Windows 설치·배포 패키지는 Android 및 공통 기능의 나머지 내부 작업 완료 후 마지막으로 진행합니다.
+1. Android 모바일/태블릿과 공통 필터·라이선스 기능의 남은 코드 작업을 마감합니다.
+2. 운영 필터 배포와 License API/DB/TLS에 필요한 설정·스크립트를 안전하게 정리합니다. 운영 개인키는 저장소나 채팅에 저장하지 않습니다.
+3. production signing workflow는 유지하되, 운영 keystore/secrets가 준비되기 전에는 정식 서명본을 만들지 않습니다.
+4. 개발 작업 완료 후 실제 Android 기기 VPN/DNS, 네트워크 전환, Private DNS 및 광고 차단 수용 시험을 진행합니다.
+5. Windows EXE/설치 프로그램과 PC 실환경 설치·복구 검증은 마지막에 진행합니다.
+6. 플랫폼별 최종 패키지·체크섬·검증 보고서를 통합합니다.
 
-실기기 수용 테스트는 추후 요청에 따라 진행하며, CI 에뮬레이터 성공을 실기기 통과로 표현하지 않습니다.
-
+개발 단계의 코드 회귀 테스트/CI는 계속 수행하되, 실제 기기·운영 서버 테스트는 개발 완료 전 단계의 대체 조건으로 사용하지 않습니다.
 ---
 
 # Guardian AdBlock Android v0.7.4-dev — 설치 및 기기 수용 테스트
