@@ -58,6 +58,31 @@ class Ipv6UdpTest {
         assertArrayEquals(byteArrayOf(1, 2, 3, 4), parsed.payload)
     }
 
+    @Test fun rejectsActiveIpv6RoutingHeaderButAcceptsCompletedRoute() {
+        val base = queryPacket()
+        fun packetWithSegmentsLeft(segmentsLeft: Int): ByteArray {
+            val packet = ByteArray(base.size + 8)
+            System.arraycopy(base, 0, packet, 0, 40)
+            packet[4] = 0
+            packet[5] = 20
+            packet[6] = 43 // Routing header
+            packet[40] = 17 // UDP follows
+            packet[41] = 0
+            packet[42] = 0 // Routing Type 0 (not interpreted when segments-left is zero)
+            packet[43] = segmentsLeft.toByte()
+            System.arraycopy(base, 40, packet, 48, 12)
+            packet[54] = 0; packet[55] = 0
+            val checksum = udpChecksum(packet, 48, 12)
+            packet[54] = (checksum ushr 8).toByte()
+            packet[55] = checksum.toByte()
+            return packet
+        }
+
+        assertNull(Ipv6Udp.parseDns(packetWithSegmentsLeft(1), 60))
+        val completed = packetWithSegmentsLeft(0)
+        assertNotNull(Ipv6Udp.parseDns(completed, completed.size))
+    }
+
     @Test fun rejectsUndersizedIpv6AuthenticationHeader() {
         val packet = ByteArray(60)
         packet[0] = 0x60
