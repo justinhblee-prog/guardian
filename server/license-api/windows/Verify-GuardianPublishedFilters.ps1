@@ -46,13 +46,146 @@ try {
       $version = [string]$values.sourceVersion
       $generatedAt = [string]$values.generatedAt
       $expectedUrl = '{0}/filters/{1}/{2}.txt' -f $ManifestBaseUrl, $sourceId, $version
+      $configuredMinimum = [int64]$source.minimumRules
+      $manifestMinimum = 0L
       if ($values.manifestVersion -ne '1' -or $values.sourceId -ne $sourceId -or
-          $version -notmatch '^[A-Za-z0-9._+-]{1,64}$' -or
-          $generatedAt -notmatch '^[1-9][0-9]{0,15}$' -or
-          $values.sha256 -notmatch '^[a-f0-9]{64}$' -or
-          $values.minimumRules -notmatch '^[1-9][0-9]*$' -or
+          $version -notmatch '^[A-Za-z0-9._+-]{1,64}
+      $signatureUri = '{0}/{1}.{2}.{3}.sig' -f $ManifestBaseUrl, $sourceId, $version, $generatedAt
+      Invoke-WebRequest -Uri $signatureUri -OutFile $signatureTemp -TimeoutSec 20 -UseBasicParsing
+      $signatureText = [IO.File]::ReadAllText($signatureTemp, [Text.Encoding]::ASCII).Trim()
+      $signature = [Convert]::FromBase64String($signatureText)
+      if ([Convert]::ToBase64String($signature) -cne $signatureText -or
+          $signature.Length -ne ($rsa.KeySize / 8) -or
+          -not $rsa.VerifyData($manifestBytes, $signature, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)) {
+        throw 'manifest RSA-SHA256 detached signature 검증에 실패했습니다.'
+      }
+      Invoke-WebRequest -Uri $values.url -OutFile $filterTemp -TimeoutSec 30 -UseBasicParsing
+      $filterBytes = [IO.File]::ReadAllBytes($filterTemp)
+      if ($filterBytes.Length -lt 1 -or $filterBytes.Length -gt 10MB) {
+        throw '필터 파일 크기가 허용 범위를 벗어났습니다.'
+      }
+      $utf8Filter = [Text.UTF8Encoding]::new($false, $true)
+      $filterText = $utf8Filter.GetString($filterBytes)
+      if ($filterBytes -contains 0) {
+        throw '필터 payload에 NUL 바이트가 포함되어 있습니다.'
+      }
+      $actualRuleCount = @($filterText -split '\r?\n' | Where-Object {
+        $line = $_.Trim()
+        $line -and -not $line.StartsWith('!') -and -not $line.StartsWith('#') -and
+          -not $line.StartsWith('[') -and -not $line.StartsWith('@@')
+      }).Count
+      if ($actualRuleCount -lt $manifestMinimum) {
+        throw ('필터 payload 규칙 수가 부족합니다: {0} / {1}' -f $actualRuleCount, $manifestMinimum)
+      }
+      $actualHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($filterBytes)).ToLowerInvariant()
+      if ($actualHash -cne [string]$values.sha256) {
+        throw '필터 payload SHA-256 검증에 실패했습니다.'
+      }
+    } catch {
+      throw ('공개 서명 필터 검증 실패: ' + $sourceId + '. manifest, detached signature, payload를 확인하세요. ' + $_.Exception.Message)
+    } finally {
+      Remove-Item -LiteralPath $manifestTemp, $signatureTemp, $filterTemp -Force -ErrorAction SilentlyContinue
+    }
+  }
+  Write-Host ('모든 {0}개 운영 필터 manifest의 RSA 서명과 payload SHA-256 검증을 통과했습니다.' -f $Sources.Count)
+} finally {
+  $rsa.Dispose()
+}
+ -or
+          $generatedAt -notmatch '^[1-9][0-9]{0,15}
+      $signatureUri = '{0}/{1}.{2}.{3}.sig' -f $ManifestBaseUrl, $sourceId, $version, $generatedAt
+      Invoke-WebRequest -Uri $signatureUri -OutFile $signatureTemp -TimeoutSec 20 -UseBasicParsing
+      $signatureText = [IO.File]::ReadAllText($signatureTemp, [Text.Encoding]::ASCII).Trim()
+      $signature = [Convert]::FromBase64String($signatureText)
+      if ([Convert]::ToBase64String($signature) -cne $signatureText -or
+          $signature.Length -ne ($rsa.KeySize / 8) -or
+          -not $rsa.VerifyData($manifestBytes, $signature, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)) {
+        throw 'manifest RSA-SHA256 detached signature 검증에 실패했습니다.'
+      }
+      Invoke-WebRequest -Uri $values.url -OutFile $filterTemp -TimeoutSec 30 -UseBasicParsing
+      $filterBytes = [IO.File]::ReadAllBytes($filterTemp)
+      if ($filterBytes.Length -lt 1 -or $filterBytes.Length -gt 10MB) {
+        throw '필터 파일 크기가 허용 범위를 벗어났습니다.'
+      }
+      $actualHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($filterBytes)).ToLowerInvariant()
+      if ($actualHash -cne [string]$values.sha256) {
+        throw '필터 payload SHA-256 검증에 실패했습니다.'
+      }
+    } catch {
+      throw ('공개 서명 필터 검증 실패: ' + $sourceId + '. manifest, detached signature, payload를 확인하세요. ' + $_.Exception.Message)
+    } finally {
+      Remove-Item -LiteralPath $manifestTemp, $signatureTemp, $filterTemp -Force -ErrorAction SilentlyContinue
+    }
+  }
+  Write-Host ('모든 {0}개 운영 필터 manifest의 RSA 서명과 payload SHA-256 검증을 통과했습니다.' -f $Sources.Count)
+} finally {
+  $rsa.Dispose()
+}
+ -or
+          $values.sha256 -notmatch '^[a-f0-9]{64}
+      $signatureUri = '{0}/{1}.{2}.{3}.sig' -f $ManifestBaseUrl, $sourceId, $version, $generatedAt
+      Invoke-WebRequest -Uri $signatureUri -OutFile $signatureTemp -TimeoutSec 20 -UseBasicParsing
+      $signatureText = [IO.File]::ReadAllText($signatureTemp, [Text.Encoding]::ASCII).Trim()
+      $signature = [Convert]::FromBase64String($signatureText)
+      if ([Convert]::ToBase64String($signature) -cne $signatureText -or
+          $signature.Length -ne ($rsa.KeySize / 8) -or
+          -not $rsa.VerifyData($manifestBytes, $signature, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)) {
+        throw 'manifest RSA-SHA256 detached signature 검증에 실패했습니다.'
+      }
+      Invoke-WebRequest -Uri $values.url -OutFile $filterTemp -TimeoutSec 30 -UseBasicParsing
+      $filterBytes = [IO.File]::ReadAllBytes($filterTemp)
+      if ($filterBytes.Length -lt 1 -or $filterBytes.Length -gt 10MB) {
+        throw '필터 파일 크기가 허용 범위를 벗어났습니다.'
+      }
+      $actualHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($filterBytes)).ToLowerInvariant()
+      if ($actualHash -cne [string]$values.sha256) {
+        throw '필터 payload SHA-256 검증에 실패했습니다.'
+      }
+    } catch {
+      throw ('공개 서명 필터 검증 실패: ' + $sourceId + '. manifest, detached signature, payload를 확인하세요. ' + $_.Exception.Message)
+    } finally {
+      Remove-Item -LiteralPath $manifestTemp, $signatureTemp, $filterTemp -Force -ErrorAction SilentlyContinue
+    }
+  }
+  Write-Host ('모든 {0}개 운영 필터 manifest의 RSA 서명과 payload SHA-256 검증을 통과했습니다.' -f $Sources.Count)
+} finally {
+  $rsa.Dispose()
+}
+ -or
+          $values.minimumRules -notmatch '^[1-9][0-9]*
+      $signatureUri = '{0}/{1}.{2}.{3}.sig' -f $ManifestBaseUrl, $sourceId, $version, $generatedAt
+      Invoke-WebRequest -Uri $signatureUri -OutFile $signatureTemp -TimeoutSec 20 -UseBasicParsing
+      $signatureText = [IO.File]::ReadAllText($signatureTemp, [Text.Encoding]::ASCII).Trim()
+      $signature = [Convert]::FromBase64String($signatureText)
+      if ([Convert]::ToBase64String($signature) -cne $signatureText -or
+          $signature.Length -ne ($rsa.KeySize / 8) -or
+          -not $rsa.VerifyData($manifestBytes, $signature, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)) {
+        throw 'manifest RSA-SHA256 detached signature 검증에 실패했습니다.'
+      }
+      Invoke-WebRequest -Uri $values.url -OutFile $filterTemp -TimeoutSec 30 -UseBasicParsing
+      $filterBytes = [IO.File]::ReadAllBytes($filterTemp)
+      if ($filterBytes.Length -lt 1 -or $filterBytes.Length -gt 10MB) {
+        throw '필터 파일 크기가 허용 범위를 벗어났습니다.'
+      }
+      $actualHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($filterBytes)).ToLowerInvariant()
+      if ($actualHash -cne [string]$values.sha256) {
+        throw '필터 payload SHA-256 검증에 실패했습니다.'
+      }
+    } catch {
+      throw ('공개 서명 필터 검증 실패: ' + $sourceId + '. manifest, detached signature, payload를 확인하세요. ' + $_.Exception.Message)
+    } finally {
+      Remove-Item -LiteralPath $manifestTemp, $signatureTemp, $filterTemp -Force -ErrorAction SilentlyContinue
+    }
+  }
+  Write-Host ('모든 {0}개 운영 필터 manifest의 RSA 서명과 payload SHA-256 검증을 통과했습니다.' -f $Sources.Count)
+} finally {
+  $rsa.Dispose()
+}
+ -or
+          -not [int64]::TryParse($values.minimumRules, [ref]$manifestMinimum) -or
+          $configuredMinimum -lt 1 -or $manifestMinimum -ne $configuredMinimum -or
           $values.url -cne $expectedUrl) {
-        throw 'manifest 필드 또는 필터 URL 검증에 실패했습니다.'
+        throw 'manifest 필드, sources.json 최소 규칙 수 또는 필터 URL 검증에 실패했습니다.'
       }
       $signatureUri = '{0}/{1}.{2}.{3}.sig' -f $ManifestBaseUrl, $sourceId, $version, $generatedAt
       Invoke-WebRequest -Uri $signatureUri -OutFile $signatureTemp -TimeoutSec 20 -UseBasicParsing
