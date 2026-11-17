@@ -1,7 +1,7 @@
 # Guardian 잔여 업무 순차 진행 계획
 
-기준 main 커밋: `73d2c26bff2c94614d41855026767691fd092030`
-최신 Android CI: [run 44070321721](https://github.com/justinhblee-prog/guardian/actions/runs/44070321721)
+기준 main 커밋: `bc627faf76cb96a190335487f735fdefec52b4f4`
+최신 Android CI: [run 44097350550](https://github.com/justinhblee-prog/guardian/actions/runs/44097350550)
 최신 artifact 감사: [run 44062116800](https://github.com/justinhblee-prog/guardian/actions/runs/44062116800)
 상태 갱신: 2026-11-17
 
@@ -178,3 +178,17 @@ Windows 설치 패키지 workflow는 `.github/workflows/windows-build.yml`에 �
 - `python -m compileall -q dns_engine windows_engine`: exit code 0.
 - This independently validates the portable DNS engine and mocked Windows integration tests from the exact source artifact. It does not execute Windows PowerShell, Task Scheduler, Inno Setup, Authenticode, Windows adapter DNS changes, or a native Windows EXE.
 - Native Windows packaging and install/uninstall verification remain outstanding. The prior Windows runner failure and current unverified changes are recorded above.
+
+
+## 2026-11-17 최신 main 검증 — PR #94 / run 44097350550
+
+- PR #94 `Fix queued protection resume race after filter update` 병합 커밋: `bc627faf76cb96a190335487f735fdefec52b4f4`.
+- 수정 내용: 필터 업데이트 완료 콜백에서 보호 시작 대기 플래그를 UI 스레드에서 스냅샷/초기화하고, 그 시점의 검증된 캐시 준비 상태를 함께 평가합니다. 백그라운드 스레드에서 미리 계산한 오래된 대기 플래그 값 때문에 사용자의 보호 시작 요청이 누락되는 경쟁 조건을 방지합니다. 기존 안전 게이트(활성화된 모든 필터 캐시가 검증된 경우에만 보호 재개)는 유지합니다.
+- PR CI run [44095702720](https://github.com/justinhblee-prog/guardian/actions/runs/44095702720): Android unit tests, lint, 이전 개발 APK 업그레이드 빌드, API 35 에뮬레이터 설치/실행 및 VPN DNS E2E 성공.
+- Main CI run [44097350550](https://github.com/justinhblee-prog/guardian/actions/runs/44097350550): 전체 job success. Unit tests, lint, 이전 버전 업그레이드, APK 패키지/버전/번들 필터 검사, API 35 에뮬레이터 설치·실행, VPN 권한 승인 및 DNS E2E 성공.
+- 실제 VPN E2E 로그: VPN tunnel active, 허용 DNS `example.com` 응답 확인, 테스트 광고 도메인 `guardian-ci-44097350550.doubleclick.net`은 `unknown host`로 차단. 앱 상태 `protection_active=true`, `dns_queries=10`, `dns_forwarded=9`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`.
+- APK: `com.guardian.adblock`, versionCode 27, versionName `0.7.14-dev`, 3,124,402 bytes, SHA-256 `5a1ffd469b613d25ebef526ce282890f2ca3c2f1581c05cc1f7261a7a2b7c414`.
+- 전체 소스 ZIP: 452,657 bytes, SHA-256 `c227d548bad194d0a3c8806284d71fa4634923840d869804bb44c3f0d44e6e0d`. Artifact ZIP 무결성, APK/source 파일 크기와 SHA-256을 내려받아 독립 재검산했습니다.
+- 소스 ZIP을 별도 Linux 환경에서 다시 추출해 `python -m pytest -q dns_engine windows_engine`: **26 passed**; `python -m compileall -q dns_engine windows_engine`: exit 0.
+- 에뮬레이터 결과는 Android 실기기 수용 테스트가 아닙니다. 실제 휴대폰/태블릿, Wi-Fi↔모바일 전환, IPv4/IPv6 네트워크 조합, Private DNS 및 장시간 백그라운드 안정성은 미검증입니다.
+- APK는 개발용 debug 서명본입니다. 운영 keystore/secrets가 없어 production APK/AAB는 생성하지 않았습니다. 운영 HTTPS 필터 게시/공개키 연결, 실제 License API/DB 배포, Windows native installer의 최신 설치·제거 검증도 미완료입니다.
