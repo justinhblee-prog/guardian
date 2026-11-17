@@ -561,3 +561,32 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 노트북과 Android 모바일이 같은 Tailscale tailnet에 연결되어 있어야 합니다. Tailscale Serve는 tailnet 내부 전용이며 Funnel, 공유기 포트포워딩, 공용 방화벽 개방은 사용하지 않습니다.
 - 운영 안내: `server/license-api/windows/README_KO.md`.
 - 아직 사용자의 실제 노트북/모바일에 설치·연결하거나 실기기에서 HTTPS/API/필터 다운로드를 검증한 것은 아닙니다. 실제 기기 E2E 검증 전까지 운영 배포 완료로 표시하지 않습니다.
+
+
+## 2026-11-17 노트북 서명 + 정적 클라우드 필터 배포
+
+- 배포 구조: Windows 노트북은 License API와 필터 수집/서명/게시를 담당하고, Android 앱은 GitHub raw CDN에서 공개 필터 파일을 직접 받습니다.
+- 정적 원본 URL: `https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data` (전용 브랜치가 최초 게시되면 활성화).
+- 노트북 게시 도구: `server/license-api/windows/Publish-GuardianFilterToCloud.ps1`, 전체 업데이트 wrapper: `Update-And-Publish-GuardianFilters.ps1`.
+- 예약 업데이트는 upstream 수집 → UTF-8/규칙 수 검증 → RSA-SHA256 서명 → manifest 및 SHA-256 재검증 → GitHub 정적 원본 게시를 실행합니다.
+- 게시 대상은 필터 텍스트, manifest, 버전별 detached signature, 공개키뿐입니다. 개인 서명키/DPAPI 파일, 라이선스 DB, `.env`, `sources.json`은 게시하지 않습니다.
+- Android `SignedManifestHttpClient`는 사용자 지정 서명 헤더를 지원하지 않는 CDN에서 manifest 옆 버전별 signature sidecar를 받아 고정 RSA 공개키로 검증하도록 확장했습니다. GitHub raw의 현재 manifest cache-busting도 추가했습니다.
+- GitHub raw 브랜치의 서명·해시·파일 허용 목록을 검사하는 `.github/workflows/filter-cloud-origin.yml`을 추가했습니다.
+
+### 2026-11-17 CI / APK 검증 결과
+
+- Android CI [#44022257197](https://github.com/justinhblee-prog/guardian/actions/runs/44022257197): **성공** — Unit tests, Lint, APK assembly, 패키지/버전/필터 자산/SHA-256 검사, API 35 에뮬레이터 설치·실행 및 VPN DNS E2E 통과.
+- 실제 UI에서 `보호 시작`을 누르고 Android VPN 권한을 허용했습니다. `protection_active=true`.
+- 허용 DNS `example.com`: 질의 1건이 upstream으로 전달되고 해석 성공. 차단 DNS `guardian-ci-44022257197.doubleclick.net`: 해석 실패. 최종 카운터: DNS queries 2, blocked 1, forwarded 1, failed 0.
+- ICMP ping은 1회 응답을 받지 못했으므로 일반 인터넷/ICMP 연결 성공으로 해석하지 않습니다. 검증된 것은 VPN 경유 DNS 전달 및 차단입니다.
+- APK: `com.guardian.adblock`, versionCode 26, versionName `0.7.13-dev`, 3,118,990 bytes.
+- APK SHA-256: `a28d47871fd34135912b58c5f603b07df2356bf3e3586ce20e894d3fb4f1bcc3`.
+- Artifact ZIP SHA-256: `6bf6fbd4905af671e0aec9f2dd94f8ea625b7726c071563994b97e47caa739b3`.
+- License API [#44022257179](https://github.com/justinhblee-prog/guardian/actions/runs/44022257179), Filter Distribution CI [#44022257184](https://github.com/justinhblee-prog/guardian/actions/runs/44022257184), filter distribution tests [#44022257224](https://github.com/justinhblee-prog/guardian/actions/runs/44022257224): **성공**.
+- Production Release validation [#44022257290](https://github.com/justinhblee-prog/guardian/actions/runs/44022257290): 설정 검증 및 임시 서명 smoke 성공, 실제 production signing job은 운영 keystore/secrets 부재로 의도적으로 skipped.
+
+### 실제 운영 게시 전 남은 단계
+
+- `guardian-filter-data` 브랜치는 아직 생성/게시되지 않았습니다. 최초 게시에는 사용자의 노트북에만 있는 DPAPI 보호 개인키와 해당 노트북의 GitHub push 인증이 필요하므로 이 세션에서 임의 키를 만들어 운영 원본인 것처럼 게시하지 않았습니다.
+- PR #75는 open 상태이며 병합하지 않았습니다. PR 반영 후 노트북에서 `Enable-GuardianPrivateAccess.ps1`을 한 번 실행하면 최초 필터 수집·서명·클라우드 게시가 진행됩니다. 이후 예약 작업을 등록하면 자동 게시됩니다.
+- 실제 Android 모바일 기기의 클라우드 다운로드 및 License API 연결은 노트북 최초 게시 이후 별도 실기기 E2E가 필요합니다.
