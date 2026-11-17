@@ -258,7 +258,6 @@ jobs:
           APK='android/app/build/outputs/apk/release/app-release.apk'
           AAB='android/app/build/outputs/bundle/release/app-release.aab'
           test -s "$AAB"
-          sha256sum "$APK" "$AAB" | tee release/SHA256SUMS.txt
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
           # Guardian AdBlock ${GUARDIAN_VERSION_NAME} — Production release build
 
