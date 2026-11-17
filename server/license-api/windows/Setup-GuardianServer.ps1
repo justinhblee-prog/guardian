@@ -11,8 +11,29 @@ docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop을 먼저 시작하세요.' }
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $envPath = $script:GuardianLicenseEnvPath
-if (Test-Path $envPath) { throw '.env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
 $secretDir = $script:GuardianSecretsDir
+# One-time safe migration for installations created by older versions.
+$legacyEnvPath = Join-Path $ServerDir '.env'
+$legacySecretsDir = Join-Path $ServerDir 'secrets'
+if ((Test-Path -LiteralPath $legacyEnvPath) -and (Test-Path -LiteralPath $envPath)) {
+  throw "기존 저장소 .env와 외부 운영 환경 파일이 모두 있습니다. 자동 병합하지 않습니다: $legacyEnvPath / $envPath"
+}
+if (Test-Path -LiteralPath $legacyEnvPath) {
+  Copy-Item -LiteralPath $legacyEnvPath -Destination $envPath
+  if ((Get-FileHash -LiteralPath $legacyEnvPath -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $envPath -Algorithm SHA256).Hash) { throw '기존 .env 외부 이전 검증에 실패했습니다.' }
+  Remove-Item -LiteralPath $legacyEnvPath -Force
+}
+if (Test-Path -LiteralPath $legacySecretsDir) {
+  $legacyFiles = @(Get-ChildItem -LiteralPath $legacySecretsDir -File -Force)
+  foreach ($file in $legacyFiles) {
+    $destination = Join-Path $secretDir $file.Name
+    if (Test-Path -LiteralPath $destination) { throw "기존 비밀 파일과 외부 파일이 충돌합니다. 자동 덮어쓰기를 중단합니다: $destination" }
+    Copy-Item -LiteralPath $file.FullName -Destination $destination
+    if ((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash) { throw "비밀 파일 외부 이전 검증 실패: $($file.Name)" }
+  }
+  Remove-Item -LiteralPath $legacySecretsDir -Recurse -Force
+}
+if (Test-Path $envPath) { throw '.env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
 $privateKeyPath = Join-Path $secretDir 'guardian-license-private.pem'
 $publicKeyPath = Join-Path $secretDir 'guardian-license-public.pem'
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out $privateKeyPath
