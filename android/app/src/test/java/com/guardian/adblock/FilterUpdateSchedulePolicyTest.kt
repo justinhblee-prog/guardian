@@ -17,6 +17,16 @@ class FilterUpdateSchedulePolicyTest {
         assertEquals(FilterUpdateScheduler.DEFAULT_INTERVAL_MS, FilterUpdateScheduler.normalizeInterval(FilterUpdateScheduler.DEFAULT_INTERVAL_MS))
     }
 
+    @Test fun periodicFirstRunWaitsOneFullConfiguredInterval() {
+        assertEquals(6L * 60L * 60L * 1000L, FilterUpdateScheduler.initialDelayMs(6L * 60L * 60L * 1000L))
+        assertEquals(FilterUpdateScheduler.DEFAULT_INTERVAL_MS, FilterUpdateScheduler.initialDelayMs(FilterUpdateScheduler.DEFAULT_INTERVAL_MS))
+    }
+
+    @Test fun shortOrInvalidPeriodicInitialDelayUsesWorkManagerMinimum() {
+        assertEquals(FilterUpdateScheduler.MIN_INTERVAL_MS, FilterUpdateScheduler.initialDelayMs(0L))
+        assertEquals(FilterUpdateScheduler.MIN_INTERVAL_MS, FilterUpdateScheduler.initialDelayMs(60_000L))
+    }
+
     @Test fun clampsInvalidOrTooShortIntervalsToWorkManagerMinimum() {
         assertEquals(FilterUpdateScheduler.MIN_INTERVAL_MS, FilterUpdateScheduler.normalizeInterval(0L))
         assertEquals(FilterUpdateScheduler.MIN_INTERVAL_MS, FilterUpdateScheduler.normalizeInterval(60_000L))
