@@ -257,3 +257,20 @@ Android 설정에서 라이선스 API 주소와 서명 필터 배포 주소를 �
 - Artifact ZIP 크기: 3,016,433 bytes. SHA-256: `236eb593314e5dcc07e68f0286066b033fb6650583373c110aeeaf95786d2f60`. 보존 만료: 2026-11-30.
 - 위 APK에는 보안 필터의 일반 사용자 백그라운드 갱신 및 최초 다운로드 실패 시 활성화 상태 유지 수정이 포함됩니다.
 - 서명은 개발용 debug 인증서이며 production 서명이 아닙니다. 실제 Android 휴대폰/태블릿의 VPN·DNS·광고/피싱 차단 수용 테스트는 별도 미검증입니다.
+
+
+## 2026-11-17 최신 통합 검증 정정 — Android v0.7.14-dev
+
+이 절이 위에 남아 있는 이전 Android 버전 및 CI 기록보다 우선합니다.
+
+- 최신 main 커밋: `1b41b4dfd611ae53c446fe2b1a703d9f4bceee61` (PR #93 병합).
+- GitHub Actions main 빌드: https://github.com/justinhblee-prog/guardian/actions/runs/44091546831 — 전체 job 성공.
+- 패키지: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`.
+- Android 단위 테스트, Lint, Debug APK 빌드, 이전 개발판 업그레이드, APK 내 DNS 필터 라이브러리, package/version, APK SHA-256, 소스 ZIP, API 35 에뮬레이터 설치·실행 및 VPN DNS E2E: 성공.
+- VPN E2E 로그: VPN 터널 활성화, 허용 DNS 조회 성공, 테스트용 `doubleclick.net` 차단(주소 미반환), DNS 질의 12건, 전달 11건, 차단 1건, 광고 차단 1건, 실패 0건.
+- APK: 3,124,398 bytes; SHA-256 `e7d6bb03fe1e6b8cb80cba3a5ee4ceef531390a333865a60519ad8790c3e87d4`.
+- 전체 소스 ZIP: 450,165 bytes; SHA-256 `e3534e5909e778667f0b28cfdbaa5c166f252f882a51bc164ddb137bfae19970`.
+- 다운로드한 Artifact ZIP을 직접 풀어 APK와 소스 파일의 크기 및 SHA-256을 독립 재계산했습니다.
+- PR #93의 첫 실행 필터 갱신/WorkManager 경합 방지 수정이 main에 병합되었습니다.
+- 이 결과는 API 35 에뮬레이터 E2E입니다. Android 실기기 VPN·DNS·광고 차단 수용 테스트, 운영 HTTPS 필터 배포, 실제 라이선스 서버 연결 및 production 서명은 별도 미완료입니다.
+- 이 APK는 개발용 debug 서명본이며 production APK/AAB가 아닙니다.
