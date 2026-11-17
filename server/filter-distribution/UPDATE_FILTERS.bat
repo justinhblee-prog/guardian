@@ -7,13 +7,13 @@ if not exist "%PUBLISH_SCRIPT%" (
   exit /b 1
 )
 
-where powershell.exe >nul 2>nul
+where pwsh.exe >nul 2>nul
 if errorlevel 1 (
-  echo [Guardian] Windows PowerShell is required.
+  echo [Guardian] PowerShell 7.2 or later (pwsh.exe) is required.
   exit /b 1
 )
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PUBLISH_SCRIPT%"
+pwsh.exe -NoProfile -ExecutionPolicy Bypass -File "%PUBLISH_SCRIPT%"
 set "RESULT=%ERRORLEVEL%"
 if not "%RESULT%"=="0" (
   echo [Guardian] Signed update or cloud publication failed with exit code %RESULT%.
