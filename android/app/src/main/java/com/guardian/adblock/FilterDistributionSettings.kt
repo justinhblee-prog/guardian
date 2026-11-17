@@ -25,6 +25,10 @@ internal object FilterDistributionSettings {
             .edit().remove(KEY_FILTER_MANIFEST_BASE_URL).apply()
     }
 
+    /** Any half-configured signed-delivery setting must fail closed, never fall back to unsigned lists. */
+    internal fun requiresSignedDelivery(baseUrl: String, publicKey: String): Boolean =
+        baseUrl.isNotBlank() || publicKey.isNotBlank()
+
     internal fun parseBaseUrl(value: String): String {
         val raw = value.trim().trimEnd('/')
         require(raw.isNotBlank()) { "필터 배포 서버 주소를 입력하세요." }
