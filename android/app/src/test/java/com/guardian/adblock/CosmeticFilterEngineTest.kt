@@ -87,6 +87,21 @@ class CosmeticFilterEngineTest {
         assertTrue(rules.ignored >= 3)
     }
 
+    @Test fun ignoresScriptletsAndExtendedProceduralSelectors() {
+        val rules = CosmeticFilterEngine.parse(listOf(
+            "example.com##+js(abort-on-property-read, ad)",
+            "example.com##div:contains(ad)",
+            "example.com##div:has-text(ad)",
+            "example.com##div:style(color:red)",
+            "example.com##div:matches-css(display:block)",
+            "example.com##div:has(.ad)"
+        ))
+
+        assertEquals(setOf("div:has(.ad)"),
+            CosmeticFilterEngine.selectorsForHost(rules, "example.com"))
+        assertEquals(5, rules.ignored)
+    }
+
     @Test fun producesCssOnlyHideDeclarations() {
         val rules = CosmeticFilterEngine.parse(listOf("example.com##.ad-container"))
         val css = CosmeticFilterEngine.cssForHost(rules, "www.example.com")
