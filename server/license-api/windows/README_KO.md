@@ -4,9 +4,9 @@ Guardian 라이선스 API/PostgreSQL과 서명 필터 배포 서버를 개인 Wi
 
 ## 운영 데이터 저장 위치 (보안 필수)
 
-최신 설치 스크립트는 비밀정보와 런타임 데이터를 Git 저장소/OneDrive 외부에 보관합니다. 기본 경로는 `%LOCALAPPDATA%\\Guardian` (일반적으로 `C:\\Users\\<사용자>\\AppData\\Local\\Guardian`)입니다. 라이선스 개인키, 필터 DPAPI 키, Android release JKS/암호, Docker 환경 파일, 필터 설정·산출물·로그, DB 백업이 이 경로 아래에 저장됩니다.
+최신 설치 스크립트는 비밀정보와 런타임 데이터를 Git 저장소/OneDrive 외부에 보관합니다. 기본 경로는 `%LOCALAPPDATA%\Guardian` (일반적으로 `C:\Users\<사용자>\AppData\Local\Guardian`)입니다. 라이선스 개인키, 필터 DPAPI 키, Android release JKS/암호, Docker 환경 파일, 필터 설정·산출물·로그, DB 백업이 이 경로 아래에 저장됩니다.
 
-다른 로컬 디스크를 사용하려면 설치 및 운영 스크립트를 실행하는 Windows 사용자 환경에 `GUARDIAN_DATA_DIR`를 영구 환경 변수로 설정하십시오. 예: `D:\\GuardianData`. 저장소 폴더나 OneDrive 폴더 안의 경로는 보안상 거부됩니다. 설치 전 기존 저장소 내부 `secrets` 또는 `.env`가 있다면 임의로 복사/삭제하지 말고 백업 및 키 보존 여부를 먼저 확인하십시오.
+다른 로컬 디스크를 사용하려면 설치 및 운영 스크립트를 실행하는 Windows 사용자 환경에 `GUARDIAN_DATA_DIR`를 영구 환경 변수로 설정하십시오. 예: `D:\GuardianData`. 저장소 폴더나 OneDrive 폴더 안의 경로는 보안상 거부됩니다. 설치 전 기존 저장소 내부 `secrets` 또는 `.env`가 있다면 임의로 복사/삭제하지 말고 백업 및 키 보존 여부를 먼저 확인하십시오.
 
 ## 준비물
 - Windows 10/11 64-bit
@@ -39,7 +39,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\Setup-GuardianServer.ps1
 ```
 
-설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 외부 데이터 경로에 ACL을 적용하고 기존 `.env`는 덮어쓰지 않습니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `%LOCALAPPDATA%\\Guardian\\secrets\\guardian-filter-private.dpapi`에 보관하고 평문 PEM 임시 파일은 삭제합니다. Docker 환경 파일, 필터 설정·dist·로그와 백업도 외부 경로에 저장합니다.
+설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 외부 데이터 경로에 ACL을 적용하고 기존 `.env`는 덮어쓰지 않습니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `%LOCALAPPDATA%\Guardian\secrets\guardian-filter-private.dpapi`에 보관하고 평문 PEM 임시 파일은 삭제합니다. Docker 환경 파일, 필터 설정·dist·로그와 백업도 외부 경로에 저장합니다.
 
 ## 노트북에서 공개키를 포함한 Android APK 다시 빌드
 최초 설치 스크립트가 만든 두 공개키를 앱에 고정하려면 Android Studio/JDK 17, Android SDK 및 Gradle 8.9가 설치되고 `gradle` 명령이 PATH에 등록된 노트북에서 다음을 실행합니다.
@@ -70,7 +70,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 
 ## 필터 배포
-필터 updater/publisher는 `server/filter-distribution`에 있습니다. upstream 필터 다운로드, 규칙 수 검증, 버전 생성, SHA-256, RSA-SHA256 manifest 서명까지 지원합니다. 저장소의 `sources.example.json`을 외부 데이터 경로의 `filter-distribution/sources.json`으로 복사해 실제 HTTPS 배포 주소와 공식 HTTPS 공급원/최소 규칙 수를 확인합니다. 최초 설치 스크립트가 필터 서명 개인키를 현재 사용자 DPAPI로 보호해 저장하므로 PEM을 환경변수·작업 인수·로그에 직접 기록하지 않습니다. 아래의 Tailscale/클라우드 연결 설정을 실행하면 `sources.json`의 GitHub 정적 원본 주소 설정, 최초 서명 게시, Tailscale 비공개 API 연결과 함께 매일 04:17 업데이트 및 클라우드 게시 작업이 자동 등록됩니다. 실행 시각을 변경하려면 `./Enable-GuardianPrivateAccess.ps1 -DailyAt '05:30'`처럼 지정하거나 `./Register-GuardianFilterUpdateTask.ps1 -DailyAt '05:30'`으로 예약 작업만 변경할 수 있습니다. 이 작업은 매일 지정 시각 및 사용자 로그인 시 실행하며 upstream 다운로드 → 규칙 수/UTF-8 검증 → RSA 서명 → manifest/필터 해시 검증 → GitHub 정적 클라우드 게시까지 수행합니다. 로그는 `%LOCALAPPDATA%\\Guardian\\filter-distribution\\logs/`에 기록됩니다. 수동 실행은 `./Update-And-Publish-GuardianFilters.ps1`입니다. Node.js 22 이상이 필요합니다. 서명 개인키는 공개 웹 컨테이너나 Android 앱에 넣지 않습니다. `dist`만 읽기 전용으로 제공됩니다.
+필터 updater/publisher는 `server/filter-distribution`에 있습니다. upstream 필터 다운로드, 규칙 수 검증, 버전 생성, SHA-256, RSA-SHA256 manifest 서명까지 지원합니다. 저장소의 `sources.example.json`을 외부 데이터 경로의 `filter-distribution/sources.json`으로 복사해 실제 HTTPS 배포 주소와 공식 HTTPS 공급원/최소 규칙 수를 확인합니다. 최초 설치 스크립트가 필터 서명 개인키를 현재 사용자 DPAPI로 보호해 저장하므로 PEM을 환경변수·작업 인수·로그에 직접 기록하지 않습니다. 아래의 Tailscale/클라우드 연결 설정을 실행하면 `sources.json`의 GitHub 정적 원본 주소 설정, 최초 서명 게시, Tailscale 비공개 API 연결과 함께 매일 04:17 업데이트 및 클라우드 게시 작업이 자동 등록됩니다. 실행 시각을 변경하려면 `./Enable-GuardianPrivateAccess.ps1 -DailyAt '05:30'`처럼 지정하거나 `./Register-GuardianFilterUpdateTask.ps1 -DailyAt '05:30'`으로 예약 작업만 변경할 수 있습니다. 이 작업은 매일 지정 시각 및 사용자 로그인 시 실행하며 upstream 다운로드 → 규칙 수/UTF-8 검증 → RSA 서명 → manifest/필터 해시 검증 → GitHub 정적 클라우드 게시까지 수행합니다. 로그는 `%LOCALAPPDATA%\Guardian\filter-distribution\logs/`에 기록됩니다. 수동 실행은 `./Update-And-Publish-GuardianFilters.ps1`입니다. Node.js 22 이상이 필요합니다. 서명 개인키는 공개 웹 컨테이너나 Android 앱에 넣지 않습니다. `dist`만 읽기 전용으로 제공됩니다.
 
 Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연결하고, **서명 필터 배포 서버**는 GitHub 정적 클라우드 원본에 연결합니다. 필터 원본은 `https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data`이며, 공개된 필터 콘텐츠·manifest·RSA detached signature만 저장합니다. 라이선스 API와 개인 서명키는 노트북에 남습니다.
 
@@ -116,11 +116,11 @@ GitHub CLI의 표준 입력으로 keystore Base64와 비밀번호를 Actions Sec
 라이선스 API 컨테이너 호스트 포트는 `127.0.0.1`에만 바인딩하고 Tailscale Serve를 통해 tailnet 내부에서만 접근합니다. 필터 CDN은 공개 읽기 전용이며 공개 데이터만 포함합니다. 공유기 포트포워딩, Windows 방화벽의 공용 포트 개방, Tailscale Funnel을 사용하지 마세요. 앱의 서버 주소 설정은 접속 URL만 저장하며 Tailscale 설치·로그인이나 노트북 전원/네트워크 상태를 대신 관리하지 않습니다.
 
 ## 키와 백업
-- `%LOCALAPPDATA%\\Guardian\\secrets/`: 공개키, DPAPI 필터 개인키, Android release JKS 및 DPAPI 암호 파일
-- `%LOCALAPPDATA%\\Guardian\\license-api/.env`: 관리자 토큰, DB 비밀번호, 라이선스 개인키
-- `%LOCALAPPDATA%\\Guardian\\filter-distribution/.env`: 필터 서버 설정
-- `%LOCALAPPDATA%\\Guardian\\filter-distribution/sources.json`, `dist/`, `logs/`: 외부 필터 설정·배포 산출물·로그
-- `%LOCALAPPDATA%\\Guardian\\backups/`: PostgreSQL 백업 파일
+- `%LOCALAPPDATA%\Guardian\secrets/`: 공개키, DPAPI 필터 개인키, Android release JKS 및 DPAPI 암호 파일
+- `%LOCALAPPDATA%\Guardian\license-api/.env`: 관리자 토큰, DB 비밀번호, 라이선스 개인키
+- `%LOCALAPPDATA%\Guardian\filter-distribution/.env`: 필터 서버 설정
+- `%LOCALAPPDATA%\Guardian\filter-distribution/sources.json`, `dist/`, `logs/`: 외부 필터 설정·배포 산출물·로그
+- `%LOCALAPPDATA%\Guardian\backups/`: PostgreSQL 백업 파일
 
 개인키와 `.env`는 절대 공유하거나 커밋하지 않습니다. DB 백업 파일은 암호화된 별도 위치에 보관하고 복구 리허설을 수행하세요. 필터 배포물은 GitHub `guardian-filter-data` 브랜치에도 보관되며, 노트북 고장 시에도 모바일 앱이 공개된 최신 manifest와 버전 고정 필터를 내려받을 수 있습니다.
 
