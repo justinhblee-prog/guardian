@@ -16,12 +16,11 @@ object Ipv6Udp {
         if (((packet[0].toInt() ushr 4) and 0x0f) != 6) return null
         val payloadLength = u16(packet, 4)
         if (payloadLength < 8 || 40 + payloadLength != length) return null
-        // Extension headers and fragmentation are deliberately rejected until a
-        // complete reassembly/extension-header implementation is available.
-        if ((packet[6].toInt() and 0xff) != 17) return null
-        val udpOffset = 40
+        val udpOffset = Ipv6ExtensionHeaderParser.transportOffset(
+            packet, length, expectedNextHeader = 17, minimumTransportBytes = 8
+        ) ?: return null
         val udpLength = u16(packet, udpOffset + 4)
-        if (udpLength < 8 || udpLength != payloadLength) return null
+        if (udpLength < 8 || udpLength != length - udpOffset) return null
         if (u16(packet, udpOffset + 2) != 53) return null
         // IPv6 UDP checksum is mandatory; reject zero and verify the pseudo-header.
         val checksum = u16(packet, udpOffset + 6)
