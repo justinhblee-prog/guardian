@@ -23,6 +23,10 @@ function Test-Command([string]$Name) {
 }
 
 # The laptop server itself requires Docker Desktop and OpenSSL.
+if ($ForAndroidBuild -or $ForFilterUpdate) {
+  $powerShellReady = $PSVersionTable.PSVersion -ge [Version]'7.2'
+  Add-Check 'PowerShell 7.2+' $powerShellReady '공개키 일치 검증 및 RSA 서명 게시에는 pwsh.exe 7.2 이상이 필요합니다.'
+}
 $dockerAvailable = Test-Command 'docker'
 if (-not $dockerAvailable) {
   Add-Check 'Docker CLI' $false 'Docker Desktop을 설치하고 PATH에서 docker 명령을 사용할 수 있게 하세요.'

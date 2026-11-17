@@ -14,6 +14,7 @@ on:
       - 'scripts/verify_android_emulator.sh'
       - 'scripts/verify_android_vpn_emulator.sh'
       - '.github/workflows/android-apk.yml'
+      - '.github/workflows/android-production-release.yml'
   pull_request:
     paths:
       - 'android/**'
@@ -21,6 +22,8 @@ on:
       - 'README.md'
       - 'VERIFY_ANDROID_CORE.sh'
       - 'android/core-checks/**'
+      - 'scripts/verify_android_emulator.sh'
+      - 'scripts/verify_android_vpn_emulator.sh'
       - '.github/workflows/android-apk.yml'
 
 # Keep only the newest branch run; rapid source commits should not waste runners.
@@ -172,6 +175,21 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Prepare KVM permissions for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -e /dev/kvm ]]; then
+            echo "::error::GitHub runner does not expose /dev/kvm; Android x86_64 emulator cannot use hardware acceleration."
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+          echo "KVM is available to the runner user:"
+          ls -l /dev/kvm
+          id
+
       - name: Install and launch APK on Android emulator
         id: android_emulator
         # Preserve the build artifact if emulator infrastructure or the E2E
@@ -182,11 +200,15 @@ jobs:
         with:
           api-level: 35
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_2
+          # Bound the action's boot polling and retain the standard ADB path.
+          emulator-boot-timeout: 300
           # Run the entire verification in one Bash process; the action's
           # line-oriented script runner cannot preserve shell loops/conditionals.
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
+          # Use a lower-resolution AVD to reduce software-rendered frame-buffer
+          # pressure while Guardian warms the three large filter caches.
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim -memory 4096 -cores 4
           script: bash scripts/verify_android_emulator.sh && bash scripts/verify_android_vpn_emulator.sh
 
       - name: Capture emulator diagnostics on failure
@@ -209,6 +231,13 @@ jobs:
               echo "EXIT STATUS: $status ($*)" >> "emulator-diagnostics/${name}.txt"
             fi
           }
+          # Preserve the VPN test's continuously captured logcat before the
+          # emulator action tears the AVD down and leaves ADB offline.
+          if [[ -s /tmp/guardian-vpn-live-logcat.txt ]]; then
+            cp /tmp/guardian-vpn-live-logcat.txt emulator-diagnostics/guardian-live-logcat.txt
+            grep -Ei 'ANR in|not responding|Guardian|VpnService|FATAL EXCEPTION|OutOfMemory|lmkd|lowmemory' \
+              /tmp/guardian-vpn-live-logcat.txt | tail -600 > emulator-diagnostics/guardian-live-summary.txt || true
+          fi
           capture devices adb devices -l
           capture getprop adb shell getprop
           capture logcat adb logcat -d -t 12000
@@ -248,6 +277,13 @@ jobs:
           - VPN E2E가 실패한 경우 APK는 빌드 검증 산출물일 뿐, 차단 기능 검증 완료로 간주하지 않습니다.
           - 실기기 검증은 별도입니다.
           EOF
+
+      - name: Enforce Android emulator runtime verification gate
+        if: always() && steps.android_emulator.outcome != 'success'
+        shell: bash
+        run: |
+          echo "::error::Android emulator install/launch or VPN DNS E2E did not pass. Build artifact is not runtime-verified."
+          exit 1
 
       - name: Upload final verification report
         if: always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))

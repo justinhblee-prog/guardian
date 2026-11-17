@@ -113,3 +113,22 @@ Docker 컨테이너 내부 프로세스는 포트 포워딩을 위해 `0.0.0.0:8
 ## 동시 manifest 발행 잠금
 
 Publisher는 동일 output 디렉터리에서 source별 배타적 lock 파일(`.<sourceId>.publish.lock`)을 사용해 동시 발행을 거부합니다. 잠금은 같은 디렉터리/공유 파일시스템을 사용하는 프로세스만 조정하며, 별도 ephemeral volume을 사용하는 독립 replica 사이에는 적용되지 않습니다. 강제 종료로 lock이 남으면 publisher 프로세스가 실행 중이지 않은지 확인한 후 운영자가 수동으로 제거해야 합니다. 자동 stale-lock 회수는 수행하지 않습니다. 잠금 경로 정리는 신뢰된 운영 계정만 output 디렉터리에 쓸 수 있다는 전제를 둡니다.
+
+
+## 4. 노트북 서명 + GitHub 정적 클라우드 배포
+
+운영 필터 파일은 개인 Windows 노트북에서 upstream 다운로드, 규칙 수/UTF-8 검증, RSA-SHA256 서명을 수행한 뒤 GitHub 공개 저장소의 전용 `guardian-filter-data` 브랜치에 정적 파일로 게시할 수 있습니다. 별도 웹 서버나 유료 스토리지 없이 GitHub raw CDN에서 모바일 앱이 직접 내려받습니다.
+
+- 정적 원본: `https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data`
+- 게시 스크립트: `server/license-api/windows/Publish-GuardianFilterToCloud.ps1`
+- 전체 수동 실행: `server/license-api/windows/Update-And-Publish-GuardianFilters.ps1`
+- 자동 작업: `Register-GuardianFilterUpdateTask.ps1`가 매일 다운로드 → 검증 → 서명 → 클라우드 게시까지 실행합니다.
+- `UPDATE_FILTERS.bat`도 Windows 노트북용 게시 wrapper를 호출합니다.
+
+게시 전에 노트북은 DPAPI 보호 개인키에서 공개키를 추출하고, 각 manifest의 RSA-SHA256 detached signature와 참조 필터의 SHA-256을 다시 검증합니다. 공개 브랜치에는 필터 원문, manifest, 버전별 `.sig`, 공개키 파일만 올라갑니다. 개인 서명키, `.env`, 라이선스 DB, `sources.json`, 로그는 게시 대상이 아니며 게시 스크립트가 허용 파일 경로와 파일 크기를 검사합니다.
+
+정적 CDN은 사용자 지정 `X-Guardian-Signature` 응답 헤더를 제공하지 않으므로 Android 앱은 manifest 응답 헤더가 없을 때 `sourceId.sourceVersion.generatedAt.sig` sidecar를 같은 HTTPS 디렉터리에서 받아옵니다. 앱은 고정된 RSA 공개키로 manifest 서명을 검증한 다음 필터 SHA-256을 검증합니다. 현재 manifest의 CDN 캐시 지연은 GitHub raw 요청의 cache-busting query로 줄이고, 버전 고정 필터와 서명 파일은 immutable 경로를 사용합니다.
+
+GitHub 정적 원본은 공개 저장소의 공개 파일입니다. 필터 목록이 공개되어도 괜찮다는 전제에서만 사용하세요. 라이선스 API는 계속 노트북에서 실행하고 Tailscale Serve를 통해 tailnet 내부에만 공개합니다. 필터 업데이트 다운로드는 노트북이 꺼져 있어도 가능하지만 새 필터 수집·서명·게시 작업은 노트북이 켜져 있어야 합니다.
+
+`.github/workflows/filter-cloud-origin.yml`은 `guardian-filter-data` 브랜치에 게시된 각 manifest의 RSA 서명, SHA-256, 파일 경로와 공개 파일 허용 목록을 자동 검증합니다. 실제 클라우드 최초 게시 및 모바일 실기기 다운로드 검증은 노트북의 DPAPI 키와 GitHub 쓰기 인증으로 게시한 후 별도로 확인해야 합니다.

@@ -228,6 +228,16 @@ object FilterListManager {
     fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
     fun cachedAndroidAdsLines(context: Context): List<String> = readCache(context, ANDROID_ADS_CACHE_FILE)
 
+    /** Parse an app-private cache incrementally to avoid retaining millions of line objects. */
+    internal fun parseCachedList(context: Context, cacheName: String): FilterRuleParser.Parsed {
+        require(cacheName in setOf(CACHE_FILE, SECURITY_CACHE_FILE, ANDROID_ADS_CACHE_FILE)) {
+            "지원하지 않는 필터 캐시입니다."
+        }
+        val file = recoverCache(context, cacheName)
+        check(file.isFile && file.length() > 0L) { "검증된 필터 캐시 파일을 찾을 수 없습니다: $cacheName" }
+        return file.bufferedReader(Charsets.UTF_8).use(FilterRuleParser::parse)
+    }
+
     fun update(context: Context): UpdateResult {
         val profile = selectedProfile(context)
         return download(context, profile.url, CACHE_FILE, profile.minimumRules, KEY_UPDATED_AT, KEY_BLOCK_COUNT, KEY_IGNORED_COUNT, profile.key)
@@ -323,8 +333,9 @@ object FilterListManager {
                 }
                 output.toByteArray()
             }
-            val lines = FilterManifestVerifier.decodeUtf8Strict(bytes).lineSequence().toList()
-            val parsed = FilterRuleParser.parse(lines)
+            // Public community feeds may contain isolated legacy-encoding bytes in comments.
+            // Replace malformed sequences; invalid rule tokens are then rejected by the parser.
+            val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Lenient(bytes))
             require((parsed.blocked.size + parsed.importantBlocked.size) >= minimumRules) {
                 "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size + parsed.importantBlocked.size}개뿐입니다."
             }
@@ -388,7 +399,9 @@ object FilterListManager {
             "서명 manifest의 최소 규칙 수가 앱 정책보다 낮습니다."
         }
         val bytes = download.content
-        val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Strict(bytes).lineSequence().toList())
+        // Signed payloads are hash-verified, but the filter syntax may still contain harmless
+        // legacy-encoded comments. Decode with replacement; malformed rule tokens fail validation.
+        val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Lenient(bytes))
         val effectiveMinimum = maxOf(minimumRules, download.manifest.minimumRules)
         require(parsed.blocked.size + parsed.importantBlocked.size >= effectiveMinimum) {
             "서명 필터의 유효한 차단 도메인이 최소 규칙 수보다 적습니다."

@@ -468,3 +468,125 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Package versionCode 21 / `0.7.8-dev`.
 - CI run: https://github.com/justinhblee-prog/guardian/actions/runs/43573908206 — pending at documentation update time. Do not treat this source change as verified until that run completes successfully.
 - This is parser hardening only; it does not prove physical-device VPN routing or real ad-removal effectiveness.
+
+## Android VPN DNS E2E 및 필터 파서 메모리 개선 — 2026-11-17
+
+- 검증 커밋: `773581639f8fce4e87a9f8fbbd145cfce8fb827e`
+- GitHub Actions: [run 44007917861](https://github.com/justinhblee-prog/guardian/actions/runs/44007917861) — **success**.
+- Android 단위 테스트, lint, 기존 버전 설치/업그레이드 빌드, 새 debug APK 빌드 및 패키지 검증 통과.
+- 에뮬레이터 VPN DNS E2E: VPN 터널 활성화, `example.com` DNS 전달 성공(queries 0→1, forwarded 0→1), 테스트용 `*.doubleclick.net` 도메인 조회 차단, blocked 1, failed 0.
+- 필터 캐시 파일을 전체 `List<String>`로 읽는 대신 Reader 기반으로 한 줄씩 파싱하도록 변경해, 대용량 보안 필터의 라인 문자열/리스트 중복 적재를 줄였습니다. 단위 테스트에서 Reader 파싱 결과가 String 파싱 결과와 일치하고, 소스별 최소 규칙 수 검증 및 기존 활성 규칙 유지 동작을 확인했습니다.
+- APK: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`, 3,116,166 bytes.
+- APK SHA-256: `7ed4d0f022764c4a702faff2dd07d4141c15e017f5a4df2b71e5528b33c560d3`.
+- APK는 고정 개발 인증서의 debug 서명본입니다. production signing secrets/운영 URL·공개키 설정, 실제 기기 설치, 실기기 VPN 권한, Wi-Fi↔모바일 전환, 장시간 안정성 및 실제 앱별 광고 제거율은 미검증입니다.
+- 이 결과는 에뮬레이터의 DNS 기반 도메인 차단을 검증한 것이며 HTTPS 페이지 요소 제거, 앱 내부 DoH/DoT 우회 차단, 모든 광고 제거를 의미하지 않습니다.
+
+
+## 2026-11-17 — 최초 선택형 필터 다운로드 실패 복구 및 Android E2E 재검증
+
+- 관련 소스 커밋:
+  - `ddeb6ec6efa5dd96847cba778c540455241d8684`: 최초 보안 필터 다운로드 실패 시 캐시가 없는 선택형 필터를 자동 비활성화하는 정책 및 회귀 테스트 추가.
+  - `b4a586844fe2df6da6e3648377d263a5fb040662`: 필터 캐시 검증 예외를 안전하게 처리하고 보호 시작 자동 재시도 루프를 방지.
+  - `7b89f6bfdb3fd69952f221a8016c1f59ae3c286b`: 백그라운드 WorkManager 갱신에도 동일한 첫 다운로드 실패 복구 정책 적용. 유효한 기존 캐시가 있는 업데이트 실패는 기존 목록을 유지하고 재시도.
+- GitHub Actions [run 44011629697](https://github.com/justinhblee-prog/guardian/actions/runs/44011629697) — **success**.
+- Android 단위 테스트, lintDebug, 이전 개발 버전 업그레이드 빌드, 현재 APK 빌드, 공유 DNS 규칙 포함 여부, 패키지/버전, APK SHA-256, 에뮬레이터 설치·실행 및 VPN DNS E2E 검증 통과.
+- 에뮬레이터 E2E에서 세 필터 캐시가 준비된 것을 확인: 기본 광고·추적 189,860개, 보안/피싱 1,460,014개, Android 앱 광고 SDK 918개.
+- 앱 UI에서 VPN 권한을 승인하고 VPN 활성화를 확인했습니다. `example.com` DNS 질의는 전달 카운터가 0→1로 증가하며 정상 해석됐고, 테스트용 `guardian-ci-44011629697.doubleclick.net`은 해석되지 않고 차단 카운터가 1 증가했습니다. 전체 DNS 질의 2, 차단 1, 업스트림 전달 1, DNS 실패 0.
+- 주의: 허용 도메인의 ICMP ping 응답은 수신되지 않았습니다. 이 E2E는 DNS 해석·전달 및 도메인 차단을 검증한 것이며, ICMP/일반 트래픽 중계나 모든 광고 제거를 입증하지 않습니다.
+- APK: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`, 3,117,198 bytes.
+- APK SHA-256: `fc2a15c64b82bdbe56be6e5b0161d5e240a81430061bcd2f82b537cfd97bc115`.
+- GitHub artifact: `guardian-android-debug`, ID `14296304673`, ZIP SHA-256 `97e588ef856b03e203a42ec5ef00cddc60e3d85c7e47bdf09e63a431c53049b6`, 만료 예정 2026-12-01.
+- APK는 개발용 debug 인증서로 서명되어 있습니다. 실기기 VPN 승인·DNS 경로·Wi-Fi↔모바일 데이터 전환·장시간 안정성, 운영 서명 keystore, 운영 서명 manifest/필터 배포 서버, 라이선스 API 운영 주소·키는 여전히 미검증/미설정입니다. 정식 운영 출시 완료로 판정하지 않습니다.
+
+
+## 2026-11-17 — Android 필터 설정 UI 동기화 및 최신 APK 검증
+
+- 소스 커밋: `8fa7fef54d0c25db6acd53cc7ff873078e32ccd9`.
+- 변경: 백그라운드 필터 업데이트가 캐시 없는 선택형 필터를 자동 비활성화할 때, 보호 화면의 Switch와 필터 화면의 CheckBox를 저장된 설정에 맞춰 동기화합니다. 프로그램에 의한 체크 상태 변경이 사용자 설정 저장 리스너를 다시 실행하지 않도록 가드했습니다.
+- GitHub Actions [run 44012527802](https://github.com/justinhblee-prog/guardian/actions/runs/44012527802) — **success**. Android 단위 테스트, lintDebug, debug 서명 인증서 일관성, 이전 버전 업그레이드용 빌드, 최신 APK 빌드, 공유 DNS 필터 자산, 패키지 식별/버전, SHA-256, 에뮬레이터 설치·실행 및 VPN DNS E2E 통과.
+- E2E: 앱 UI에서 보호 시작 버튼을 누르고 Android VPN 동의 화면에서 승인했습니다. 세 필터 캐시가 준비된 후 VPN 터널이 활성화됐습니다. `example.com`은 DNS 질의 0→1 및 업스트림 전달 0→1로 정상 해석됐고, 테스트 도메인 `guardian-ci-44012527802.doubleclick.net`은 해석 실패로 차단됐습니다. 최종 카운터: DNS 질의 2, 차단 1, 전달 1, DNS 실패 0. 필터 캐시: 기본 189,860 규칙, 보안/피싱 1,460,014 규칙, Android 앱 광고 SDK 918 규칙.
+- 참고: 허용 도메인의 ICMP ping 응답은 0/1이었습니다. 테스트는 DNS 해석·전달과 도메인 차단을 입증하며 ICMP 연결성, 일반 웹 트래픽 전체 또는 모든 광고 제거를 입증하지 않습니다.
+- APK: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`, 3,117,390 bytes.
+- APK SHA-256: `aa74154acd2e5a4af888884caa1b531f86b0b5f8fb6139f214e16b3712568a07`.
+- GitHub artifact: `guardian-android-debug`, ID `14297262286`, ZIP SHA-256 `12473c5ce9a43727e0c214055bda1b2c58e7eef9c028d029f09e3a88c4d51bbd`, 만료 예정 2026-12-01.
+- APK는 고정 개발용 debug 인증서로 서명됐습니다. 운영 keystore/서명, 운영용 서명 필터 manifest 및 배포 서버, 라이선스 API 운영 URL/공개키, 실기기 VPN·DNS·네트워크 전환·장시간 안정성 검증은 별도 출시 전 필수 항목입니다.
+
+
+## 2026-11-17 — Android 재실행 시 필터 UI 동기화 및 최신 산출물 재검증
+
+- 최신 소스 커밋: `e74e72758e873096d4d14c4a5698e658647bef9b`.
+- 변경: 앱이 백그라운드에 있는 동안 필터 업데이트가 선택형 필터를 비활성화한 경우, Activity 재진입 시 필터 Switch/CheckBox 상태를 저장 설정과 다시 동기화합니다.
+- GitHub Actions [run 44013646938](https://github.com/justinhblee-prog/guardian/actions/runs/44013646938) — **success**. 단위 테스트, lint, 개발 서명 인증서, 이전 버전 업그레이드 빌드, 현재 APK 빌드, 번들 DNS 필터 라이브러리, 패키지/버전, 체크섬, 에뮬레이터 설치 및 앱 UI 기반 VPN DNS E2E 단계가 모두 통과했습니다.
+- 실제 앱 UI에서 '보호 시작' 버튼을 누르고 Android VPN 승인 창을 수락했습니다. 세 필터 캐시 준비 후 VPN 터널이 활성화됐습니다. `example.com` DNS 응답 전달 성공(질의 0→1, 전달 0→1), 테스트용 `guardian-ci-44013646938.doubleclick.net` 이름 해석 차단을 확인했습니다. 최종 상태: DNS 질의 2, 차단 1, 전달 1, DNS 실패 0.
+- 주의: 에뮬레이터의 `ping example.com` ICMP 응답은 0/1이었습니다. 이 E2E는 DNS 전달/도메인 차단을 검증하며 ICMP, 일반 웹 연결 전반, 모든 광고 형식 제거를 입증하지 않습니다.
+- APK: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`, 3,117,390 bytes.
+- APK SHA-256 (artifact 내부 `SHA256SUMS.txt`와 직접 추출 계산 일치): `3d5950f66f623a0d8c74d609b34dd940089a7604ab3acbef464c8873a22f6c8e`.
+- Artifact `guardian-android-debug`, ID `14297427865`, ZIP 크기 3,035,426 bytes, ZIP SHA-256 `43a085de3f4a2dc8a183f13631243f9aede718a7b04c24fbc0607a7eaa40d80c`, 만료 예정 2026-12-01.
+- 본 APK는 개발용 debug 서명입니다. 운영 서명키/릴리스 서명, 운영용 필터 manifest 배포 서버 및 라이선스 API 구성, 실기기 설치·VPN/네트워크 전환·장시간 안정성은 별도 출시 전 검증 항목입니다.
+
+
+## 2026-11-17 — Android VPN E2E 재확인 및 Release 서명 빌드 경로 검증
+
+- Android 앱 소스 커밋: `e74e72758e873096d4d14c4a5698e658647bef9b`.
+- Android CI [run 44014369795](https://github.com/justinhblee-prog/guardian/actions/runs/44014369795) — **success**. 단위 테스트, lint, Debug APK 조립, 패키지/버전 및 필터 자산 확인, 에뮬레이터 설치·실행 및 VPN DNS E2E 통과.
+- 실제 앱 UI에서 보호 시작을 누르고 Android VPN 동의 화면을 승인했습니다. VPN 활성 상태에서 `example.com` DNS 질의가 0→1, 전달 카운터가 0→1로 증가했고, 테스트용 `guardian-ci-44014369795.doubleclick.net`은 해석되지 않았습니다. 최종 DNS 질의 2, 차단 1, 전달 1, 실패 0.
+- 허용 도메인의 ICMP ping 응답은 0/1이었습니다. 이 검증은 DNS 전달과 도메인 차단만 입증하며 일반 웹 연결·ICMP 또는 모든 광고 제거를 입증하지 않습니다.
+- Android Debug APK: versionCode `26`, versionName `0.7.13-dev`. 이 PR 실행은 pull_request 조건으로 APK artifact 업로드가 생략됐습니다. 직전 배포 artifact는 run [44013646938](https://github.com/justinhblee-prog/guardian/actions/runs/44013646938), artifact ID `14297427865`이며 APK SHA-256은 `3d5950f66f623a0d8c74d609b34dd940089a7604ab3acbef464c8873a22f6c8e`입니다.
+- Production Release workflow 검증 개선 커밋: `5d70fbe8fbc54e17979eb842e22e27d13bd22fe3`.
+- Release workflow [run 44015284038](https://github.com/justinhblee-prog/guardian/actions/runs/44015284038) — **success**. 운영 keystore가 없으면 Release 빌드가 차단되는지 확인했고, 별도의 임시 RSA 공개키와 임시 JKS만 사용해 Release APK 조립, canonical DNS 필터 자산, package/version, APK 서명 및 임시 인증서 지문 일치를 검증했습니다.
+- 임시 Release APK와 키는 job 종료 시 삭제되며 artifact로 업로드하지 않습니다. 이 테스트는 Release 빌드 파이프라인 검증이지 운영 키로 서명한 정식 APK가 아닙니다. Production release job은 수동 실행 전용으로 유지됩니다.
+- 실제 Production APK/AAB에는 사용자 소유 운영 keystore와 보호된 CI secrets, 운영 HTTPS 필터 manifest URL·공개키, 운영 License API URL·공개키가 필요합니다. 해당 값은 아직 설정되지 않았으며 저장소나 채팅에 임의 키/주소를 만들지 않았습니다.
+- PR #75는 계속 **open / not merged** 상태입니다.
+
+
+## 2026-11-17 추가 검증 — 배포 서버 테스트 자동화
+
+- 서명 필터 배포 서비스 전용 GitHub Actions workflow `.github/workflows/filter-distribution-ci.yml`을 추가했습니다.
+- PR #75의 [Filter Distribution CI run 44016938516](https://github.com/justinhblee-prog/guardian/actions/runs/44016938516): **success**.
+- Node.js 22에서 publisher / updater / read-only distribution server의 자동 테스트 **37개 통과, 실패 0개**.
+- 검증 범위: RSA detached signature, immutable filter version, HTTPS upstream 제한, source 수/크기 상한, batch staging, 동시 실행 잠금, symlink/path traversal 차단, HTTP 응답 헤더와 파일 크기 경계.
+- 이 CI는 임시 테스트 키와 로컬 테스트 서버만 사용하며 운영 키, 운영 도메인 또는 인터넷 공개 배포를 구성하지 않습니다.
+- Android 최신 Debug APK 검증: [run 44015701642](https://github.com/justinhblee-prog/guardian/actions/runs/44015701642) — unit tests, lint, package identity, filter asset, APK checksum, emulator 설치·실행 및 실제 앱 UI 기반 VPN DNS E2E 성공.
+- 검증 APK: `0.7.13-dev`, versionCode `26`, SHA-256 `3d5950f66f623a0d8c74d609b34dd940089a7604ab3acbef464c8873a22f6c8e`.
+- PR #75는 open / not merged 상태를 유지합니다.
+
+
+## 2026-11-17 노트북 호스트 + 모바일 클라이언트 배포 구조
+
+운영 서버는 사용자의 Windows 노트북에서 실행하고 Android 모바일 앱이 접속하는 방식으로 확정했습니다. 별도 클라우드 서버 호스팅을 전제로 하지 않습니다.
+
+- 라이선스 API와 필터 배포 컨테이너는 `127.0.0.1` 바인딩을 유지합니다.
+- `server/license-api/windows/Enable-GuardianPrivateAccess.ps1`을 추가했습니다. Tailscale Serve HTTPS 443 → 노트북 localhost:8787, HTTPS 8443 → localhost:8788로 연결합니다.
+- 스크립트는 노트북의 MagicDNS 이름을 읽어 `sources.json`의 `baseUrl`을 갱신하고 DPAPI 보호 필터 서명키를 이용해 필터 manifest/서명을 다시 발행하도록 구성했습니다.
+- 노트북과 Android 모바일이 같은 Tailscale tailnet에 연결되어 있어야 합니다. Tailscale Serve는 tailnet 내부 전용이며 Funnel, 공유기 포트포워딩, 공용 방화벽 개방은 사용하지 않습니다.
+- 운영 안내: `server/license-api/windows/README_KO.md`.
+- 아직 사용자의 실제 노트북/모바일에 설치·연결하거나 실기기에서 HTTPS/API/필터 다운로드를 검증한 것은 아닙니다. 실제 기기 E2E 검증 전까지 운영 배포 완료로 표시하지 않습니다.
+
+
+## 2026-11-17 노트북 서명 + 정적 클라우드 필터 배포
+
+- 배포 구조: Windows 노트북은 License API와 필터 수집/서명/게시를 담당하고, Android 앱은 GitHub raw CDN에서 공개 필터 파일을 직접 받습니다.
+- 정적 원본 URL: `https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data` (전용 브랜치가 최초 게시되면 활성화).
+- 노트북 게시 도구: `server/license-api/windows/Publish-GuardianFilterToCloud.ps1`, 전체 업데이트 wrapper: `Update-And-Publish-GuardianFilters.ps1`.
+- 예약 업데이트는 upstream 수집 → UTF-8/규칙 수 검증 → RSA-SHA256 서명 → manifest 및 SHA-256 재검증 → GitHub 정적 원본 게시를 실행합니다.
+- 게시 대상은 필터 텍스트, manifest, 버전별 detached signature, 공개키뿐입니다. 개인 서명키/DPAPI 파일, 라이선스 DB, `.env`, `sources.json`은 게시하지 않습니다.
+- Android `SignedManifestHttpClient`는 사용자 지정 서명 헤더를 지원하지 않는 CDN에서 manifest 옆 버전별 signature sidecar를 받아 고정 RSA 공개키로 검증하도록 확장했습니다. GitHub raw의 현재 manifest cache-busting도 추가했습니다.
+- GitHub raw 브랜치의 서명·해시·파일 허용 목록을 검사하는 `.github/workflows/filter-cloud-origin.yml`을 추가했습니다.
+
+### 2026-11-17 CI / APK 검증 결과
+
+- Android CI [#44022257197](https://github.com/justinhblee-prog/guardian/actions/runs/44022257197): **성공** — Unit tests, Lint, APK assembly, 패키지/버전/필터 자산/SHA-256 검사, API 35 에뮬레이터 설치·실행 및 VPN DNS E2E 통과.
+- 실제 UI에서 `보호 시작`을 누르고 Android VPN 권한을 허용했습니다. `protection_active=true`.
+- 허용 DNS `example.com`: 질의 1건이 upstream으로 전달되고 해석 성공. 차단 DNS `guardian-ci-44022257197.doubleclick.net`: 해석 실패. 최종 카운터: DNS queries 2, blocked 1, forwarded 1, failed 0.
+- ICMP ping은 1회 응답을 받지 못했으므로 일반 인터넷/ICMP 연결 성공으로 해석하지 않습니다. 검증된 것은 VPN 경유 DNS 전달 및 차단입니다.
+- APK: `com.guardian.adblock`, versionCode 26, versionName `0.7.13-dev`, 3,118,990 bytes.
+- APK SHA-256: `a28d47871fd34135912b58c5f603b07df2356bf3e3586ce20e894d3fb4f1bcc3`.
+- Artifact ZIP SHA-256: `6bf6fbd4905af671e0aec9f2dd94f8ea625b7726c071563994b97e47caa739b3`.
+- License API [#44022257179](https://github.com/justinhblee-prog/guardian/actions/runs/44022257179), Filter Distribution CI [#44022257184](https://github.com/justinhblee-prog/guardian/actions/runs/44022257184), filter distribution tests [#44022257224](https://github.com/justinhblee-prog/guardian/actions/runs/44022257224): **성공**.
+- Production Release validation [#44022257290](https://github.com/justinhblee-prog/guardian/actions/runs/44022257290): 설정 검증 및 임시 서명 smoke 성공, 실제 production signing job은 운영 keystore/secrets 부재로 의도적으로 skipped.
+
+### 실제 운영 게시 전 남은 단계
+
+- `guardian-filter-data` 브랜치는 아직 생성/게시되지 않았습니다. 최초 게시에는 사용자의 노트북에만 있는 DPAPI 보호 개인키와 해당 노트북의 GitHub push 인증이 필요하므로 이 세션에서 임의 키를 만들어 운영 원본인 것처럼 게시하지 않았습니다.
+- PR #75는 open 상태이며 병합하지 않았습니다. PR 반영 후 노트북에서 `Enable-GuardianPrivateAccess.ps1`을 한 번 실행하면 최초 필터 수집·서명·클라우드 게시가 진행됩니다. 이후 예약 작업을 등록하면 자동 게시됩니다.
+- 실제 Android 모바일 기기의 클라우드 다운로드 및 License API 연결은 노트북 최초 게시 이후 별도 실기기 E2E가 필요합니다.

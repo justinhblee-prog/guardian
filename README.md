@@ -253,3 +253,31 @@ Android 설정에서 라이선스 API 주소와 서명 필터 배포 주소를 �
 - Artifact ZIP 크기: 3,016,433 bytes. SHA-256: `236eb593314e5dcc07e68f0286066b033fb6650583373c110aeeaf95786d2f60`. 보존 만료: 2026-11-30.
 - 위 APK에는 보안 필터의 일반 사용자 백그라운드 갱신 및 최초 다운로드 실패 시 활성화 상태 유지 수정이 포함됩니다.
 - 서명은 개발용 debug 인증서이며 production 서명이 아닙니다. 실제 Android 휴대폰/태블릿의 VPN·DNS·광고/피싱 차단 수용 테스트는 별도 미검증입니다.
+
+
+## 2026-11-17 최신 Android VPN/DNS 실동작 검증 — v0.7.13-dev
+
+이 절은 이전 Android 검증 기록보다 우선합니다.
+
+- 검증 대상 APK 소스 커밋: `902df391e342df10145b774c0da71ab2ded78ece`.
+- GitHub Actions VPN/DNS 에뮬레이터 E2E 실행: [#43992908130](https://github.com/justinhblee-prog/guardian/actions/runs/43992908130).
+- 패키지: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`.
+- API 35 Android 에뮬레이터에서 앱 설치·실행, 보호 시작 버튼, VPN 권한 승인, VPN 활성화 확인을 수행했습니다.
+- 허용 도메인 `example.com` DNS 조회 성공, 광고 테스트 도메인 `*.doubleclick.net` DNS 조회 차단 실패 확인, 내부 DNS 차단 카운터 증가를 확인했습니다. 해당 실행의 관찰값은 query 3, forwarded 2, blocked 1입니다.
+- 테스트 당시 필터 캐시: base 약 189,823개, security 약 1,460,014개, Android ads 918개 규칙.
+- 검증 APK: 3,115,338 bytes; SHA-256 `568b914404f87cbd9f44cf39722d4c00711f5f9460a03f96d6cefb0652860a41`.
+- 검증 Artifact ZIP SHA-256: `7d6c360cb9a443a7965b17d0571cc8ae0b081c9010c7976a6f7b57e70f6a7546`.
+- 서명: Android debug 개발용 인증서. Production 서명 아님.
+- 별도 workflow #43993743041에서 Android 빌드·패키지 검증 및 에뮬레이터 설치·실행이 추가로 성공했습니다.
+- 검증 범위는 에뮬레이터 VPN 및 DNS 경로입니다. 실제 휴대폰/태블릿, Wi-Fi↔모바일 데이터 전환, IPv4/IPv6 조합, Private DNS, 다른 VPN/앱 제외 및 장시간 안정성은 아직 미검증입니다.
+- 운영 HTTPS 필터 배포/공개키 연결, production keystore/CI secrets, 실제 라이선스 발급·결제 역시 운영 환경에서 미검증입니다.
+
+이 결과는 이전 문서의 “VPN 런타임 미검증” 기록을 에뮬레이터 범위에서만 대체합니다. 실기기 검증이나 정식 출시 완료를 뜻하지 않습니다.
+
+
+## 2026-11-17 최신 Android/Release 파이프라인 검증 정정
+
+- Android API 35 에뮬레이터에서 실제 앱 UI의 VPN 승인과 터널 활성화, 허용 DNS 전달, 테스트 광고 도메인 차단을 재검증했습니다([run 44014369795](https://github.com/justinhblee-prog/guardian/actions/runs/44014369795)). 최종 DNS 질의 2 / 전달 1 / 차단 1 / 실패 0. ICMP ping은 별도 성공하지 않았으며 이 결과는 DNS 경로 검증에 한정됩니다.
+- Production Release workflow의 secret-free smoke test를 추가했습니다([run 44015284038](https://github.com/justinhblee-prog/guardian/actions/runs/44015284038)). 운영 keystore 부재 시 Release가 차단되는지, 임시 키로 Release APK 빌드·패키지·필터 자산·서명 검증이 가능한지 CI에서 확인했습니다.
+- 임시 키와 APK는 CI job 종료 시 삭제되며 공개 artifact로 배포하지 않습니다. 운영 keystore, 운영 HTTPS 필터 배포 URL/공개키 및 License API URL/공개키가 설정되지 않아 정식 Production APK/AAB는 아직 생성하지 않았습니다.
+- PR #75는 미병합 상태를 유지합니다. 최신 상세 기록은 [RELEASE_STATUS_KO.md](RELEASE_STATUS_KO.md)를 참고하세요.
