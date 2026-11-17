@@ -117,6 +117,27 @@ jobs:
           echo "Ephemeral Release APK built, contains canonical DNS rules, and verifies against its temporary signer."
           echo "No production keystore, public key, URL, or release artifact was used or uploaded."
 
+      - name: Verify production source archive and checksum without secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_ZIP="/tmp/Guardian-AdBlock-Source-Validation.zip"
+          git archive --format=zip --prefix=Guardian-AdBlock-Source-Validation/ "$GITHUB_SHA" -- . \
+            ':(exclude)android/guardian-dev.keystore' \
+            ':(exclude)**/*.jks' ':(exclude)**/*.keystore' \
+            ':(exclude)**/*.p12' ':(exclude)**/*.pfx' ':(exclude)**/.env' > "$SOURCE_ZIP"
+          test -s "$SOURCE_ZIP"
+          unzip -t "$SOURCE_ZIP" >/dev/null
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'android/app/src/main/AndroidManifest.xml'
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'server/license-api/admin/index.html'
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'shared/filter_rules.txt'
+          if unzip -Z1 "$SOURCE_ZIP" | grep -Fq 'guardian-dev.keystore'; then
+            echo "Development keystore must not be included in production source archive."
+            exit 1
+          fi
+          sha256sum "$SOURCE_ZIP" | tee /tmp/guardian-source-validation.sha256
+          test "$(awk '{print length($1)}' /tmp/guardian-source-validation.sha256)" -eq 64
+
   production-release:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
@@ -237,7 +258,6 @@ jobs:
           APK='android/app/build/outputs/apk/release/app-release.apk'
           AAB='android/app/build/outputs/bundle/release/app-release.aab'
           test -s "$AAB"
-          sha256sum "$APK" "$AAB" | tee release/SHA256SUMS.txt
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
           # Guardian AdBlock ${GUARDIAN_VERSION_NAME} — Production release build
 
@@ -253,7 +273,30 @@ jobs:
           - License API URL configured: ${GUARDIAN_LICENSE_API_BASE_URL:+yes}
           - Physical-device VPN/DNS and real-world ad filtering acceptance: not performed by this workflow
           EOF
-          zip -qr "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip" . -x '.git/*' '*/build/*' '.gradle/*' '*/.gradle/*' '*/local.properties' '*/.idea/*' '*.apk' '*.aab' '*.jks' '*.keystore' '*.p12' '*.pfx' '.env' 'release/*.zip'
+          SOURCE_ZIP="release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip"
+          git archive --format=zip --prefix="Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}/" "$GITHUB_SHA" -- . \
+            ':(exclude)android/guardian-dev.keystore' \
+            ':(exclude)**/*.jks' ':(exclude)**/*.keystore' \
+            ':(exclude)**/*.p12' ':(exclude)**/*.pfx' ':(exclude)**/.env' > "$SOURCE_ZIP"
+          test -s "$SOURCE_ZIP"
+          unzip -t "$SOURCE_ZIP" >/dev/null
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'android/app/src/main/AndroidManifest.xml'
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'server/license-api/admin/index.html'
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'shared/filter_rules.txt'
+          if unzip -Z1 "$SOURCE_ZIP" | grep -Fq 'guardian-dev.keystore'; then
+            echo "Development keystore must not be included in production source archive."
+            exit 1
+          fi
+          sha256sum "$APK" "$AAB" "$SOURCE_ZIP" | tee release/SHA256SUMS.txt
+          SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
+          SOURCE_SHA256="$(sha256sum "$SOURCE_ZIP" | awk '{print $1}')"
+          cat >> release/VERIFICATION_SUMMARY_KO.md <<EOF
+          - Source ZIP: $(basename "$SOURCE_ZIP")
+          - Source ZIP bytes: ${SOURCE_BYTES}
+          - Source ZIP SHA-256: ${SOURCE_SHA256}
+          - Source ZIP integrity and required source files: passed
+          - Development keystore excluded from source ZIP: yes
+          EOF
           rm -f android/app/guardian-release.jks
           ls -lh "$APK" "$AAB" release/SHA256SUMS.txt release/VERIFICATION_SUMMARY_KO.md release/signature-verification.txt release/aab-signature-verification.txt release/signer-certificate.txt "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip"
 
