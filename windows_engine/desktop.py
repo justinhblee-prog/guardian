@@ -142,7 +142,11 @@ class GuardianDesktop:
                 self.start_button.configure(state="disabled")
                 messagebox.showerror("Guardian DNS 복구",f"이전 보호 상태를 자동 복구하지 못했습니다. DNS 백업을 보존했습니다.\n\n{exc}")
         elif STATE.exists():
-            write_state(False); stop_daemon()
+            write_state(False)
+            try: stop_daemon()
+            except Exception as exc:
+                self.set_active_ui(False,"보호 꺼짐 · 백그라운드 종료 확인 필요")
+                messagebox.showerror("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
     def start_protection(self):
         if self.active: return
         try:
@@ -154,7 +158,13 @@ class GuardianDesktop:
                 if proxy_ready(): self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
                 else: self.start_button.configure(state="disabled")
             else:
-                write_state(False); stop_daemon(); self.set_active_ui(False,"보호 시작 실패")
+                write_state(False)
+                try: stop_daemon()
+                except Exception as stop_error:
+                    self.set_active_ui(False,"보호 시작 실패 · 백그라운드 종료 확인 필요")
+                    messagebox.showerror("Guardian 보호 시작 실패",f"{exc}\\n\\n백그라운드 종료 실패: {stop_error}")
+                    return
+                self.set_active_ui(False,"보호 시작 실패")
             messagebox.showerror("Guardian 보호 시작 실패",str(exc))
     def stop_protection(self):
         if not self.active and not BACKUP.exists(): return
@@ -162,7 +172,13 @@ class GuardianDesktop:
         except Exception as exc:
             self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
             messagebox.showerror("DNS 복구 실패",f"백그라운드 DNS 프록시를 계속 유지하고 백업을 보존했습니다.\n\n{exc}"); return
-        write_state(False); stop_daemon(); self.set_active_ui(False)
+        write_state(False)
+        try: stop_daemon()
+        except Exception as exc:
+            self.set_active_ui(False,"DNS 복구 완료 · 백그라운드 종료 확인 필요")
+            messagebox.showerror("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
+            return
+        self.set_active_ui(False)
     def open_filter_settings(self):
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
         except Exception as exc: messagebox.showerror("필터 서버 설정",str(exc)); return
