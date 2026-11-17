@@ -123,16 +123,20 @@ jobs:
           set -euo pipefail
           SOURCE_ZIP="/tmp/Guardian-AdBlock-Source-Validation.zip"
           git archive --format=zip --prefix=Guardian-AdBlock-Source-Validation/ "$GITHUB_SHA" -- . \
-            ':(exclude)android/guardian-dev.keystore' \
-            ':(exclude)**/*.jks' ':(exclude)**/*.keystore' \
-            ':(exclude)**/*.p12' ':(exclude)**/*.pfx' ':(exclude)**/.env' > "$SOURCE_ZIP"
+            ':(exclude,top)android/guardian-dev.keystore' \
+            ':(exclude,glob)**/*.jks' ':(exclude,glob)**/*.keystore' \
+            ':(exclude,glob)**/*.p12' ':(exclude,glob)**/*.pfx' \
+            ':(exclude,glob)**/*.dpapi' ':(exclude,glob)**/*.pem' \
+            ':(exclude,glob)**/.env' ':(exclude,glob)**/sources.json' \
+            ':(exclude,glob)**/*.bak' ':(exclude,glob)**/secrets/**' \
+            ':(exclude,glob)**/dist/**' ':(exclude,glob)**/logs/**' > "$SOURCE_ZIP"
           test -s "$SOURCE_ZIP"
           unzip -t "$SOURCE_ZIP" >/dev/null
           unzip -Z1 "$SOURCE_ZIP" | grep -F 'android/app/src/main/AndroidManifest.xml'
           unzip -Z1 "$SOURCE_ZIP" | grep -F 'server/license-api/admin/index.html'
           unzip -Z1 "$SOURCE_ZIP" | grep -F 'shared/filter_rules.txt'
-          if unzip -Z1 "$SOURCE_ZIP" | grep -Fq 'guardian-dev.keystore'; then
-            echo "Development keystore must not be included in production source archive."
+          if unzip -Z1 "$SOURCE_ZIP" | grep -Eiq '(^|/)([^/]*\.(jks|keystore|p12|pfx|dpapi|pem)|\.env|sources\.json|[^/]*\.bak)$|(^|/)secrets/|(^|/)(dist|logs)/'; then
+            echo "Production source archive contains a signing key, secret/config file, backup, or generated runtime output."
             exit 1
           fi
           sha256sum "$SOURCE_ZIP" | tee /tmp/guardian-source-validation.sha256
@@ -275,9 +279,13 @@ jobs:
           EOF
           SOURCE_ZIP="release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip"
           git archive --format=zip --prefix="Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}/" "$GITHUB_SHA" -- . \
-            ':(exclude)android/guardian-dev.keystore' \
-            ':(exclude)**/*.jks' ':(exclude)**/*.keystore' \
-            ':(exclude)**/*.p12' ':(exclude)**/*.pfx' ':(exclude)**/.env' > "$SOURCE_ZIP"
+            ':(exclude,top)android/guardian-dev.keystore' \
+            ':(exclude,glob)**/*.jks' ':(exclude,glob)**/*.keystore' \
+            ':(exclude,glob)**/*.p12' ':(exclude,glob)**/*.pfx' \
+            ':(exclude,glob)**/*.dpapi' ':(exclude,glob)**/*.pem' \
+            ':(exclude,glob)**/.env' ':(exclude,glob)**/sources.json' \
+            ':(exclude,glob)**/*.bak' ':(exclude,glob)**/secrets/**' \
+            ':(exclude,glob)**/dist/**' ':(exclude,glob)**/logs/**' > "$SOURCE_ZIP"
           test -s "$SOURCE_ZIP"
           unzip -t "$SOURCE_ZIP" >/dev/null
           unzip -Z1 "$SOURCE_ZIP" | grep -F 'android/app/src/main/AndroidManifest.xml'
