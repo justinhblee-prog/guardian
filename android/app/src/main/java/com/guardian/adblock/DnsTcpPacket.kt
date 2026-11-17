@@ -126,35 +126,6 @@ object DnsTcpPacket {
     private fun ipv6TcpOffset(packet: ByteArray, packetLength: Int): Int? =
         Ipv6ExtensionHeaderParser.transportOffset(packet, packetLength, expectedNextHeader = 6, minimumTransportBytes = 20)
 
-/**
- * Shared bounded IPv6 extension-header walker for UDP and TCP DNS packets.
- * Fragment headers are rejected because IP fragment reassembly is not implemented.
- */
-internal object Ipv6ExtensionHeaderParser {
-    fun transportOffset(packet: ByteArray, packetLength: Int, expectedNextHeader: Int, minimumTransportBytes: Int): Int? {
-        if (packetLength < 40 || packetLength > packet.size ||
-            ((packet[0].toInt() ushr 4) and 0x0f) != 6) return null
-        var nextHeader = packet[6].toInt() and 0xff
-        var offset = 40
-        var count = 0
-        while (nextHeader != expectedNextHeader) {
-            if (++count > 8 || offset - 40 > 2048 || offset + 2 > packetLength) return null
-            val following = packet[offset].toInt() and 0xff
-            val headerLength = when (nextHeader) {
-                0, 43, 60, 135, 139, 140 -> ((packet[offset + 1].toInt() and 0xff) + 1) * 8
-                51 -> ((packet[offset + 1].toInt() and 0xff) + 2) * 4
-                44 -> return null
-                else -> return null
-            }
-            val minimumHeaderLength = if (nextHeader == 51) 12 else 8
-            if (headerLength < minimumHeaderLength || offset + headerLength > packetLength) return null
-            offset += headerLength
-            nextHeader = following
-        }
-        return offset.takeIf { it - 40 <= 2048 && packetLength - it >= minimumTransportBytes }
-    }
-}
-
     private fun tcpChecksumValid(packet: ByteArray, version: Int, offset: Int, length: Int,
                                  source: ByteArray, destination: ByteArray): Boolean =
         tcpChecksumSum(packet, version, offset, length, source, destination) == 0xffff
@@ -217,3 +188,33 @@ internal object Ipv6ExtensionHeaderParser {
         b[i + 2] = (v ushr 8).toByte(); b[i + 3] = v.toByte()
     }
 }
+
+/**
+ * Shared bounded IPv6 extension-header walker for UDP and TCP DNS packets.
+ * Fragment headers are rejected because IP fragment reassembly is not implemented.
+ */
+internal object Ipv6ExtensionHeaderParser {
+    fun transportOffset(packet: ByteArray, packetLength: Int, expectedNextHeader: Int, minimumTransportBytes: Int): Int? {
+        if (packetLength < 40 || packetLength > packet.size ||
+            ((packet[0].toInt() ushr 4) and 0x0f) != 6) return null
+        var nextHeader = packet[6].toInt() and 0xff
+        var offset = 40
+        var count = 0
+        while (nextHeader != expectedNextHeader) {
+            if (++count > 8 || offset - 40 > 2048 || offset + 2 > packetLength) return null
+            val following = packet[offset].toInt() and 0xff
+            val headerLength = when (nextHeader) {
+                0, 43, 60, 135, 139, 140 -> ((packet[offset + 1].toInt() and 0xff) + 1) * 8
+                51 -> ((packet[offset + 1].toInt() and 0xff) + 2) * 4
+                44 -> return null
+                else -> return null
+            }
+            val minimumHeaderLength = if (nextHeader == 51) 12 else 8
+            if (headerLength < minimumHeaderLength || offset + headerLength > packetLength) return null
+            offset += headerLength
+            nextHeader = following
+        }
+        return offset.takeIf { it - 40 <= 2048 && packetLength - it >= minimumTransportBytes }
+    }
+}
+
