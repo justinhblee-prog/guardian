@@ -3,6 +3,7 @@ package com.guardian.adblock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import java.io.StringReader
 import org.junit.Test
 
 class CosmeticFilterEngineTest {
@@ -105,4 +106,31 @@ class CosmeticFilterEngineTest {
         assertTrue(selectors.contains("iframe[src*='doubleclick.net']"))
         assertTrue(selectors.contains("iframe[src*='googlesyndication.com']"))
     }
+
+    @Test fun parsesCachedFeedIncrementallyFromReader() {
+        val rules = StringReader(
+            "! generated filter\n##.generic-ad\nnews.example##.sponsored\n||ads.example^\n"
+        ).use { CosmeticFilterEngine.parse(it) }
+
+        assertEquals(setOf(".generic-ad"), rules.genericHide)
+        assertEquals(setOf(".sponsored"),
+            CosmeticFilterEngine.selectorsForHost(rules, "news.example"))
+    }
+
+    @Test fun mergesExceptionsAcrossIndependentFilterSources() {
+        val base = CosmeticFilterEngine.parse(listOf(
+            "##.generic-ad",
+            "news.example##.sponsored"
+        ))
+        val optional = CosmeticFilterEngine.parse(listOf(
+            "news.example#@#.generic-ad"
+        ))
+        val merged = CosmeticFilterEngine.merge(listOf(base, optional))
+
+        assertEquals(setOf(".sponsored"),
+            CosmeticFilterEngine.selectorsForHost(merged, "news.example"))
+        assertEquals(setOf(".generic-ad"),
+            CosmeticFilterEngine.selectorsForHost(merged, "shop.example"))
+    }
+
 }
