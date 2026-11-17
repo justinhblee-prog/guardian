@@ -141,7 +141,6 @@ jobs:
           ls -lh "$APK"
 
       - name: Package source and release verification summary
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         shell: bash
         run: |
           set -euo pipefail
@@ -183,7 +182,7 @@ jobs:
           - 전체 소스 ZIP 크기: ${SOURCE_BYTES} bytes
           - 전체 소스 ZIP SHA-256: ${SOURCE_SHA256}
           - 소스 ZIP 무결성 및 Android manifest/License Admin/shared filter 파일 검사: 통과
-          - Android API 35 에뮬레이터 업그레이드 및 VPN E2E: APK 업로드 후 별도 실행
+          - Android API 35 에뮬레이터 업그레이드 및 VPN E2E: 이 workflow 후속 단계에서 실행하고 최종 보고서에 별도 기록
           - 에뮬레이터 테스트 실패 시에도 빌드 산출물은 별도 제공하며, 해당 APK를 런타임 검증 완료로 간주하지 않습니다.
           - 이 결과는 Android 실기기 VPN/광고 차단 수용 테스트를 의미하지 않습니다.
           EOF
