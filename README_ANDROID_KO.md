@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.7.13-dev
+# Guardian AdBlock Android 0.7.14-dev
 
 ## 제품 개요
 
@@ -8,7 +8,7 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 최소 Android: API 26
 - compile/target SDK: 35
 - 빌드 JDK: 17
-- 현재 버전: `0.7.13-dev` (versionCode 26)
+- 현재 버전: `0.7.14-dev` (versionCode 27)
 
 ## 현재 구현 기능
 
@@ -69,7 +69,7 @@ Android는 VPN 앱 자신이 만든 소켓을 자체 TUN 경로에서 제외합�
 
 ## 빌드
 
-GitHub Actions의 `Guardian AdBlock Android APK` 워크플로는 PR과 push에서 Android 단위 테스트, lint, debug APK 조립·에뮬레이터 설치/실행·패키지명·버전·SHA-256 검증을 수행합니다. 성공한 `main` push와 수동 `workflow_dispatch`에서는 설치 APK, SHA-256, 소스 ZIP 및 한국어 검증 요약을 하나의 artifact로 업로드합니다. PR 검증은 빌드/에뮬레이터 검사만 수행하고 artifact는 업로드하지 않습니다.
+GitHub Actions의 `Guardian AdBlock Android APK` 워크플로는 PR과 push에서 Android 단위 테스트, lint, debug APK 조립·에뮬레이터 설치/실행·패키지명·버전·SHA-256 검증을 수행합니다. 성공한 `main` push와 수동 `workflow_dispatch`에서는 설치 APK, 동일 커밋 전체 소스 ZIP, 두 파일의 SHA-256 및 한국어 검증 요약을 `guardian-android-debug` artifact로 업로드합니다. PR 검증은 빌드/에뮬레이터 검사만 수행하고 artifact는 업로드하지 않습니다.
 
 로컬 빌드 환경:
 - JDK 17

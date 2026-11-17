@@ -141,14 +141,33 @@ jobs:
           ls -lh "$APK"
 
       - name: Package source and release verification summary
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p release
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
-          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          SOURCE_ZIP='release/Guardian-AdBlock-Source-v0.7.14-dev.zip'
+
+          # Archive the exact commit that produced the APK, including app source,
+          # tests, shared rules, server tools, scripts, workflows and docs.
+          git archive --format=zip --prefix=Guardian-AdBlock-Source-v0.7.14-dev/ "$GITHUB_SHA" > "$SOURCE_ZIP"
+          test -s "$SOURCE_ZIP"
+          unzip -t "$SOURCE_ZIP" >/dev/null
+          unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.14-dev/android/app/src/main/AndroidManifest.xml'
+          unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.14-dev/server/license-api/admin/index.html'
+          unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.14-dev/shared/filter_rules.txt'
+
+          # Keep both deliverables covered by one manifest; the APK-local
+          # SHA256SUMS.txt remains available for simple APK-only checks.
+          sha256sum "$APK" "$SOURCE_ZIP" > release/SHA256SUMS.txt
+          APK_SHA256="$(awk '$2 ~ /app-debug[.]apk$/ {print $1; exit}' release/SHA256SUMS.txt)"
+          SOURCE_SHA256="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7.14-dev[.]zip$/ {print $1; exit}' release/SHA256SUMS.txt)"
+          SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
+          test "${#APK_SHA256}" -eq 64
+          test "${#SOURCE_SHA256}" -eq 64
+
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
-          # Guardian AdBlock v0.7.14-dev — 빌드 검증 결과
+          # Guardian AdBlock v0.7.14-dev — 빌드 및 소스 패키지 검증 결과
 
           - 저장소 커밋: ${GITHUB_SHA}
           - GitHub Actions 실행: ${GITHUB_RUN_ID}
@@ -158,19 +177,26 @@ jobs:
           - Android 단위 테스트: 통과
           - Android lintDebug: 통과
           - assembleDebug: 통과
-          - Android API 35 에뮬레이터 업그레이드 및 VPN E2E: APK 업로드 후 별도 실행
           - APK SHA-256: ${APK_SHA256}
+          - 전체 소스 ZIP: Guardian-AdBlock-Source-v0.7.14-dev.zip
+          - 전체 소스 ZIP 크기: ${SOURCE_BYTES} bytes
+          - 전체 소스 ZIP SHA-256: ${SOURCE_SHA256}
+          - 소스 ZIP 무결성 및 Android manifest/License Admin/shared filter 파일 검사: 통과
+          - Android API 35 에뮬레이터 업그레이드 및 VPN E2E: 이 workflow 후속 단계에서 실행하고 최종 보고서에 별도 기록
           - 에뮬레이터 테스트 실패 시에도 빌드 산출물은 별도 제공하며, 해당 APK를 런타임 검증 완료로 간주하지 않습니다.
           - 이 결과는 Android 실기기 VPN/광고 차단 수용 테스트를 의미하지 않습니다.
           EOF
 
-      - name: Upload verified Android debug package
+      - name: Upload verified Android debug and source package
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: actions/upload-artifact@v4
         with:
           name: guardian-android-debug
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/debug/SHA256SUMS.txt
+            release/Guardian-AdBlock-Source-v0.7.14-dev.zip
+            release/SHA256SUMS.txt
             release/VERIFICATION_SUMMARY_KO.md
           if-no-files-found: error
           retention-days: 14

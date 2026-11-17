@@ -95,7 +95,7 @@ jobs:
               '',
               '## 자동 후속 처리',
               run.conclusion === 'success'
-                ? '- APK 산출물 다운로드 및 SHA-256 무결성 검증을 다음 단계로 실행합니다.'
+                ? '- APK와 전체 소스 ZIP을 다운로드하고 각각 SHA-256/ZIP 무결성을 검증합니다.'
                 : noRunnerEvidence
                   ? '- 실행 단계가 시작되지 않은 실패로 분류했습니다. 앱 소스 오류로 단정하지 않습니다.'
                   : '- 실패 단계 정보를 수집했습니다. 이 워크플로는 자동으로 코드를 수정하거나 실패를 성공으로 바꾸지 않습니다.',
@@ -121,33 +121,49 @@ jobs:
           github-token: ${{ github.token }}
           path: audit/input
 
-      - name: Verify APK artifact and checksum
+      - name: Verify APK and source artifact checksums
         if: steps.source.outputs.conclusion == 'success'
         shell: bash
         run: |
           set -euo pipefail
           apk="$(find audit/input -type f -name app-debug.apk -print -quit)"
-          sums="$(find audit/input -type f -name SHA256SUMS.txt -print -quit)"
+          apk_sums="$(find audit/input -path '*/android/app/build/outputs/apk/debug/SHA256SUMS.txt' -print -quit)"
+          package_sums="$(find audit/input -path '*/release/SHA256SUMS.txt' -print -quit)"
+          source_zip="$(find audit/input -type f -name 'Guardian-AdBlock-Source-v0.7.14-dev.zip' -print -quit)"
           summary="$(find audit/input -type f -name VERIFICATION_SUMMARY_KO.md -print -quit)"
           test -n "$apk" && test -s "$apk"
-          test -n "$sums" && test -s "$sums"
+          test -n "$apk_sums" && test -s "$apk_sums"
+          test -n "$package_sums" && test -s "$package_sums"
+          test -n "$source_zip" && test -s "$source_zip"
           test -n "$summary" && test -s "$summary"
-          expected="$(awk 'NR==1 {print $1}' "$sums")"
-          actual="$(sha256sum "$apk" | awk '{print $1}')"
-          test "${#expected}" -eq 64
-          test "$expected" = "$actual"
+
+          expected_apk="$(awk '$2 ~ /app-debug[.]apk$/ {print $1; exit}' "$package_sums")"
+          expected_source="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]14-dev[.]zip$/ {print $1; exit}' "$package_sums")"
+          apk_manifest="$(awk 'NR==1 {print $1}' "$apk_sums")"
+          actual_apk="$(sha256sum "$apk" | awk '{print $1}')"
+          actual_source="$(sha256sum "$source_zip" | awk '{print $1}')"
+          test "${#expected_apk}" -eq 64
+          test "${#expected_source}" -eq 64
+          test "$expected_apk" = "$actual_apk"
+          test "$apk_manifest" = "$actual_apk"
+          test "$expected_source" = "$actual_source"
           unzip -t "$apk" >/dev/null
-          bytes="$(wc -c < "$apk" | tr -d ' ')"
+          unzip -t "$source_zip" >/dev/null
+          source_bytes="$(wc -c < "$source_zip" | tr -d ' ')"
+          apk_bytes="$(wc -c < "$apk" | tr -d ' ')"
           {
             echo
-            echo "## APK artifact audit"
+            echo "## APK and source artifact audit"
             echo "- APK: present and readable"
-            echo "- Size: ${bytes} bytes"
-            echo "- SHA-256: ${actual}"
-            echo "- ZIP integrity: passed"
+            echo "- APK size: ${apk_bytes} bytes"
+            echo "- APK SHA-256: ${actual_apk}"
+            echo "- Source ZIP: present and readable"
+            echo "- Source ZIP size: ${source_bytes} bytes"
+            echo "- Source ZIP SHA-256: ${actual_source}"
+            echo "- APK/source ZIP integrity: passed"
             echo "- Source verification summary: present"
           } >> audit/GUARDIAN_EVENT_AUDIT.md
-          echo "Verified APK artifact: ${bytes} bytes, SHA-256 ${actual}"
+          echo "Verified APK and source ZIP: APK ${apk_bytes} bytes; source ${source_bytes} bytes."
 
       - name: Upload event audit report
         if: always() && steps.source.outputs.run_id != ''
