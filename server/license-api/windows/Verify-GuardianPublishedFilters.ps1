@@ -46,8 +46,14 @@ try {
       $version = [string]$values.sourceVersion
       $generatedAt = [string]$values.generatedAt
       $expectedUrl = '{0}/filters/{1}/{2}.txt' -f $ManifestBaseUrl, $sourceId, $version
-      $configuredMinimum = [int64]$source.minimumRules
+      $configuredMinimum = 0L
       $manifestMinimum = 0L
+      if ($null -eq $source.minimumRules -or
+          -not [int64]::TryParse([string]$source.minimumRules, [ref]$configuredMinimum) -or
+          -not [int64]::TryParse([string]$values.minimumRules, [ref]$manifestMinimum) -or
+          $configuredMinimum -lt 1 -or $manifestMinimum -ne $configuredMinimum) {
+        throw 'sources.json과 서명 manifest의 최소 규칙 수가 일치하지 않습니다.'
+      }
       if ($values.manifestVersion -ne '1' -or $values.sourceId -ne $sourceId -or
           $version -notmatch '^[A-Za-z0-9._+-]{1,64}
       $signatureUri = '{0}/{1}.{2}.{3}.sig' -f $ManifestBaseUrl, $sourceId, $version, $generatedAt
@@ -64,8 +70,7 @@ try {
       if ($filterBytes.Length -lt 1 -or $filterBytes.Length -gt 10MB) {
         throw '필터 파일 크기가 허용 범위를 벗어났습니다.'
       }
-      $utf8Filter = [Text.UTF8Encoding]::new($false, $true)
-      $filterText = $utf8Filter.GetString($filterBytes)
+      $filterText = [Text.UTF8Encoding]::new($false, $true).GetString($filterBytes)
       if ($filterBytes -contains 0) {
         throw '필터 payload에 NUL 바이트가 포함되어 있습니다.'
       }
@@ -182,10 +187,8 @@ try {
   $rsa.Dispose()
 }
  -or
-          -not [int64]::TryParse($values.minimumRules, [ref]$manifestMinimum) -or
-          $configuredMinimum -lt 1 -or $manifestMinimum -ne $configuredMinimum -or
           $values.url -cne $expectedUrl) {
-        throw 'manifest 필드, sources.json 최소 규칙 수 또는 필터 URL 검증에 실패했습니다.'
+        throw 'manifest 필드 또는 필터 URL 검증에 실패했습니다.'
       }
       $signatureUri = '{0}/{1}.{2}.{3}.sig' -f $ManifestBaseUrl, $sourceId, $version, $generatedAt
       Invoke-WebRequest -Uri $signatureUri -OutFile $signatureTemp -TimeoutSec 20 -UseBasicParsing
