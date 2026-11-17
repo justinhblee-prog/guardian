@@ -1,6 +1,9 @@
+#Requires -Version 7.2
 [CmdletBinding()]
 param([string]$DailyAt = '04:17')
 $ErrorActionPreference = 'Stop'
+$pwshCommand = Get-Command 'pwsh' -ErrorAction SilentlyContinue
+if (-not $pwshCommand -or -not $pwshCommand.Source) { throw '필터 자동 게시 예약 작업에는 PowerShell 7.2 이상(pwsh.exe)이 필요합니다.' }
 $FilterDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\filter-distribution')).Path
 $SecretDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'secrets'
 $protectedPath = Join-Path $SecretDir 'guardian-filter-private.dpapi'
@@ -26,7 +29,7 @@ if ($LASTEXITCODE -ne 0 -or [int]$nodeMajorText -lt 22) { throw 'Node.js 22 이�
 try { $null = ConvertTo-SecureString -String (Get-Content -Raw $protectedPath) }
 catch { throw '현재 Windows 계정에서 DPAPI 필터 서명키를 복호화할 수 없습니다.' }
 $scriptPath = Join-Path $PSScriptRoot 'Update-And-Publish-GuardianFilters.ps1'
-$action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + $scriptPath + '"') -WorkingDirectory $FilterDir
+$action = New-ScheduledTaskAction -Execute $pwshCommand.Source -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + $scriptPath + '"') -WorkingDirectory $FilterDir
 $triggers = @(
   (New-ScheduledTaskTrigger -Daily -At $scheduleTime),
   (New-ScheduledTaskTrigger -AtLogOn)
