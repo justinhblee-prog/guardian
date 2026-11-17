@@ -1873,12 +1873,12 @@ class MainActivity : Activity() {
                     securityFilterCheckBox?.isEnabled = true
                     androidAdsFilterCheckBox?.isEnabled = true
                     if (pendingProtectionStartAfterFilterUpdate) {
+                        // Snapshot and clear on the UI thread. The readiness callback may set
+                        // this flag while the background update is already finishing.
+                        val protectionStartWasRequested = pendingProtectionStartAfterFilterUpdate
                         pendingProtectionStartAfterFilterUpdate = false
-                        // Read the queued-start flag on the UI thread at completion time.
-                        // The readiness callback may set it while this background update is
-                        // already finishing; reading it earlier can lose the user's start request.
                         if (ProtectionState.shouldResumeProtectionAfterFilterFailure(
-                                startWasRequested = pendingProtectionStartAfterFilterUpdate,
+                                startWasRequested = protectionStartWasRequested,
                                 cachedFiltersReady = protectionCachesReady
                             )) {
                             requestProtection()
