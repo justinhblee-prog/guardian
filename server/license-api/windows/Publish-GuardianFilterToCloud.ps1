@@ -24,6 +24,14 @@ try {
   $plainKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
   $rsa.ImportFromPem($plainKey)
   $publicKeyBase64 = [Convert]::ToBase64String($rsa.ExportSubjectPublicKeyInfo())
+  $androidPublicKeyPath = Join-Path $repoRoot 'server\\license-api\\secrets\\guardian-filter-public.x509.b64'
+  if (-not (Test-Path -LiteralPath $androidPublicKeyPath -PathType Leaf)) {
+    throw 'Android 빌드용 필터 공개키가 없습니다. Setup-GuardianServer.ps1을 다시 실행하고 키 구성을 확인하세요.'
+  }
+  $androidPublicKeyBase64 = (Get-Content -Raw -LiteralPath $androidPublicKeyPath).Trim()
+  if ($androidPublicKeyBase64 -cne $publicKeyBase64) {
+    throw 'DPAPI 개인키와 Android 빌드 공개키가 일치하지 않습니다. 필터 배포를 중단합니다. 키 구성을 복구한 뒤 Android APK를 다시 빌드하세요.'
+  }
   [IO.File]::WriteAllText((Join-Path $dist 'guardian-filter-public-key.x509.b64'), $publicKeyBase64 + [Environment]::NewLine, [Text.Encoding]::ASCII)
   $files = @(Get-ChildItem -LiteralPath $dist -File -Recurse -Force)
   if ($files.Count -lt 3) { throw '배포할 필터 산출물이 너무 적습니다.' }
