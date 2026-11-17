@@ -33,7 +33,7 @@ $filterConfig=Get-Content -Raw -LiteralPath $paths.FilterSources | ConvertFrom-J
 if($null -eq $filterConfig.sources -or @($filterConfig.sources).Count -lt 1){throw 'sources.json에 필터 공급원이 없습니다.'}
 $publishedBranch=(& git -C $repoRoot ls-remote --heads origin refs/heads/guardian-filter-data 2>$null | Out-String).Trim()
 if($LASTEXITCODE -ne 0 -or -not $publishedBranch){throw '공개 guardian-filter-data 브랜치가 없습니다. Update-And-Publish-GuardianFilters.ps1을 먼저 실행하세요.'}
-foreach($source in @($filterConfig.sources)){ $sourceId=[string]$source.id; if($sourceId -notmatch '^[A-Za-z0-9_-]+$'){throw 'sources.json source id 형식이 잘못되었습니다.'}; $manifestUri=('{0}/{1}.manifest' -f $manifestBaseUrl,$sourceId); try{$manifestResponse=Invoke-WebRequest -Uri $manifestUri -TimeoutSec 20 -UseBasicParsing; if($manifestResponse.StatusCode -ne 200 -or $manifestResponse.Content -notmatch ('(?m)^sourceId=' + [regex]::Escape($sourceId) + '$')){throw 'manifest identity mismatch'}}catch{throw ('공개 서명 필터 manifest가 없거나 잘못되었습니다: ' + $sourceId + '. 최초 필터 게시를 먼저 완료하세요.')}}
+& (Join-Path $PSScriptRoot 'Verify-GuardianPublishedFilters.ps1') -Sources @($filterConfig.sources) -ManifestBaseUrl $manifestBaseUrl -PublicKeyPath $filterPublicPath
 New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
 $currentIdentity=[Security.Principal.WindowsIdentity]::GetCurrent().Name
 & icacls.exe $secretDir /inheritance:r /grant:r ($currentIdentity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
