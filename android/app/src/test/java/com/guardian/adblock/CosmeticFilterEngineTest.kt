@@ -113,7 +113,7 @@ class CosmeticFilterEngineTest {
         ).use { CosmeticFilterEngine.parse(it) }
 
         assertEquals(setOf(".generic-ad"), rules.genericHide)
-        assertEquals(setOf(".sponsored"),
+        assertEquals(setOf(".generic-ad", ".sponsored"),
             CosmeticFilterEngine.selectorsForHost(rules, "news.example"))
     }
 
