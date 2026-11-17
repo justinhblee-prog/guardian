@@ -4,7 +4,7 @@ Guardian 라이선스 API/PostgreSQL과 서명 필터 배포 서버를 개인 Wi
 
 ## 운영 데이터 저장 위치 (보안 필수)
 
-최신 설치 스크립트는 비밀정보와 런타임 데이터를 Git 저장소/OneDrive 외부에 보관합니다. 기본 경로는 `%LOCALAPPDATA%\Guardian` (일반적으로 `C:\Users\<사용자>\AppData\Local\Guardian`)입니다. 라이선스 개인키, 필터 DPAPI 키, Android release JKS/암호, Docker 환경 파일, 필터 설정·산출물·로그, DB 백업이 이 경로 아래에 저장됩니다.
+최신 설치 스크립트는 비밀정보와 런타임 데이터를 Git 저장소/OneDrive 외부에 보관합니다. 기본 경로는 `%LOCALAPPDATA%\Guardian` (일반적으로 `C:\Users\<사용자>\AppData\Local\Guardian`)입니다. 라이선스 개인키, 필터 DPAPI 키, Android release JKS/암호, Docker 환경 파일, 필터 설정·산출물·로그, Android Debug APK, DB 백업이 이 경로 아래에 저장됩니다.
 
 다른 로컬 디스크를 사용하려면 설치 및 운영 스크립트를 실행하는 Windows 사용자 환경에 `GUARDIAN_DATA_DIR`를 영구 환경 변수로 설정하십시오. 예: `D:\GuardianData`. 저장소 폴더나 OneDrive 폴더 안의 경로는 보안상 거부됩니다. 설치 전 기존 저장소 내부 `secrets` 또는 `.env`가 있다면 임의로 복사/삭제하지 말고 백업 및 키 보존 여부를 먼저 확인하십시오.
 
@@ -48,7 +48,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ./Build-GuardianAndroid-Debug.ps1
 ```
 
-이 스크립트는 공개키를 빌드 프로세스에만 주입하고 단위 테스트·Lint·Debug APK 빌드를 실행합니다. APK와 SHA-256은 `server/license-api/outputs/`에 생성됩니다. 개인키는 APK에 포함되지 않습니다. 이 스크립트 산출물은 기존 개발용 서명 인증서를 사용하는 Debug APK이며, 상용 배포용 Production 서명 APK가 아닙니다. Release 서명은 별도 보호된 keystore와 Release 빌드 검증 절차가 필요합니다.
+이 스크립트는 공개키를 빌드 프로세스에만 주입하고 단위 테스트·Lint·Debug APK 빌드를 실행합니다. APK와 SHA-256은 `%LOCALAPPDATA%\Guardian\outputs/`에 생성됩니다. 개인키는 APK에 포함되지 않습니다. 이 스크립트 산출물은 기존 개발용 서명 인증서를 사용하는 Debug APK이며, 상용 배포용 Production 서명 APK가 아닙니다. Release 서명은 별도 보호된 keystore와 Release 빌드 검증 절차가 필요합니다.
 
 ## 운영 명령
 - 전체 시작 및 상태 확인: `./Start-All-GuardianServices.ps1`
