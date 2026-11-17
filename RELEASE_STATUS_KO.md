@@ -480,3 +480,20 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - APK SHA-256: `7ed4d0f022764c4a702faff2dd07d4141c15e017f5a4df2b71e5528b33c560d3`.
 - APK는 고정 개발 인증서의 debug 서명본입니다. production signing secrets/운영 URL·공개키 설정, 실제 기기 설치, 실기기 VPN 권한, Wi-Fi↔모바일 전환, 장시간 안정성 및 실제 앱별 광고 제거율은 미검증입니다.
 - 이 결과는 에뮬레이터의 DNS 기반 도메인 차단을 검증한 것이며 HTTPS 페이지 요소 제거, 앱 내부 DoH/DoT 우회 차단, 모든 광고 제거를 의미하지 않습니다.
+
+
+## 2026-11-17 — 최초 선택형 필터 다운로드 실패 복구 및 Android E2E 재검증
+
+- 관련 소스 커밋:
+  - `ddeb6ec6efa5dd96847cba778c540455241d8684`: 최초 보안 필터 다운로드 실패 시 캐시가 없는 선택형 필터를 자동 비활성화하는 정책 및 회귀 테스트 추가.
+  - `b4a586844fe2df6da6e3648377d263a5fb040662`: 필터 캐시 검증 예외를 안전하게 처리하고 보호 시작 자동 재시도 루프를 방지.
+  - `7b89f6bfdb3fd69952f221a8016c1f59ae3c286b`: 백그라운드 WorkManager 갱신에도 동일한 첫 다운로드 실패 복구 정책 적용. 유효한 기존 캐시가 있는 업데이트 실패는 기존 목록을 유지하고 재시도.
+- GitHub Actions [run 44011629697](https://github.com/justinhblee-prog/guardian/actions/runs/44011629697) — **success**.
+- Android 단위 테스트, lintDebug, 이전 개발 버전 업그레이드 빌드, 현재 APK 빌드, 공유 DNS 규칙 포함 여부, 패키지/버전, APK SHA-256, 에뮬레이터 설치·실행 및 VPN DNS E2E 검증 통과.
+- 에뮬레이터 E2E에서 세 필터 캐시가 준비된 것을 확인: 기본 광고·추적 189,860개, 보안/피싱 1,460,014개, Android 앱 광고 SDK 918개.
+- 앱 UI에서 VPN 권한을 승인하고 VPN 활성화를 확인했습니다. `example.com` DNS 질의는 전달 카운터가 0→1로 증가하며 정상 해석됐고, 테스트용 `guardian-ci-44011629697.doubleclick.net`은 해석되지 않고 차단 카운터가 1 증가했습니다. 전체 DNS 질의 2, 차단 1, 업스트림 전달 1, DNS 실패 0.
+- 주의: 허용 도메인의 ICMP ping 응답은 수신되지 않았습니다. 이 E2E는 DNS 해석·전달 및 도메인 차단을 검증한 것이며, ICMP/일반 트래픽 중계나 모든 광고 제거를 입증하지 않습니다.
+- APK: `com.guardian.adblock`, versionCode `26`, versionName `0.7.13-dev`, 3,117,198 bytes.
+- APK SHA-256: `fc2a15c64b82bdbe56be6e5b0161d5e240a81430061bcd2f82b537cfd97bc115`.
+- GitHub artifact: `guardian-android-debug`, ID `14296304673`, ZIP SHA-256 `97e588ef856b03e203a42ec5ef00cddc60e3d85c7e47bdf09e63a431c53049b6`, 만료 예정 2026-12-01.
+- APK는 개발용 debug 인증서로 서명되어 있습니다. 실기기 VPN 승인·DNS 경로·Wi-Fi↔모바일 데이터 전환·장시간 안정성, 운영 서명 keystore, 운영 서명 manifest/필터 배포 서버, 라이선스 API 운영 주소·키는 여전히 미검증/미설정입니다. 정식 운영 출시 완료로 판정하지 않습니다.
