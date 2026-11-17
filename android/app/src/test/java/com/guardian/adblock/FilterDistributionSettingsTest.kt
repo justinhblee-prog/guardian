@@ -5,6 +5,14 @@ import org.junit.Test
 
 class FilterDistributionSettingsTest {
     @Test
+    fun anyPartialOrCompleteSignedConfigurationRequiresSignedDelivery() {
+        assertEquals(false, FilterDistributionSettings.requiresSignedDelivery("", ""))
+        assertEquals(true, FilterDistributionSettings.requiresSignedDelivery("https://filters.example.com", ""))
+        assertEquals(true, FilterDistributionSettings.requiresSignedDelivery("", "base64-public-key"))
+        assertEquals(true, FilterDistributionSettings.requiresSignedDelivery("https://filters.example.com", "base64-public-key"))
+    }
+
+    @Test
     fun acceptsHttpsOriginAndOptionalPathPrefix() {
         assertEquals(
             "https://filters.example.com",
