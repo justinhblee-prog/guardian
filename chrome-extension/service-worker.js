@@ -4,12 +4,12 @@ const MAX_DYNAMIC_RULES_PER_UPDATE = 30000;
 
 function parseSharedRules(source) {
   const parsed = [];
-  for (const [index, raw] of source.split(/\\r?\\n/).entries()) {
+  for (const [index, raw] of source.split(/\r?\n/).entries()) {
     const line = raw.trim();
     if (!line || line.startsWith("#")) continue;
     const match = /^(block|allow)=([a-z0-9.-]+)$/i.exec(line);
     if (!match) throw new Error(`Unsupported shared rule at line ${index + 1}`);
-    const domain = match[2].toLowerCase().replace(/^\\.+|\\.+$/g, "");
+    const domain = match[2].toLowerCase().replace(/^\.+|\.+$/g, "");
     if (!domain || domain.length > 253 || domain.split(".").some(label =>
       !label || label.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)
     )) throw new Error(`Invalid domain at line ${index + 1}`);
