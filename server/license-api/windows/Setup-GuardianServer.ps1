@@ -22,6 +22,10 @@ if ($hasLegacyEnv -xor $hasLegacySecrets) {
 }
 if ($hasLegacyEnv -and $hasLegacySecrets) {
   $legacyFiles = @(Get-ChildItem -LiteralPath $legacySecretsDir -File -Force)
+  $legacyNames = @($legacyFiles | ForEach-Object { $_.Name })
+  foreach ($requiredName in @('guardian-license-private.pem','guardian-license-public.x509.b64','guardian-filter-private.dpapi','guardian-filter-public.x509.b64')) {
+    if ($legacyNames -notcontains $requiredName) { throw "기존 비밀정보 폴더에 필수 키 파일이 없습니다. 자동 이전/재생성을 중단합니다: $requiredName" }
+  }
   foreach ($file in $legacyFiles) {
     $destination = Join-Path $secretDir $file.Name
     if (Test-Path -LiteralPath $destination) { throw "기존 비밀 파일과 외부 파일이 충돌합니다. 자동 덮어쓰기를 중단합니다: $destination" }
