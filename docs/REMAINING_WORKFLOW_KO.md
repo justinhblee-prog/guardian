@@ -1,7 +1,7 @@
 # Guardian 잔여 업무 순차 진행 계획
 
-기준 main 커밋: `28abc77342f34898dd03c198fef942c0b49a7fe0`
-최신 Android CI: [run 44060999851](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851)
+기준 main 커밋: `e3eefac72ede85709035cff71caa382ca49d7039`
+최신 Android CI: [run 44068019346](https://github.com/justinhblee-prog/guardian/actions/runs/44068019346)
 최신 artifact 감사: [run 44062116800](https://github.com/justinhblee-prog/guardian/actions/runs/44062116800)
 상태 갱신: 2026-11-17
 
@@ -88,6 +88,11 @@ flowchart TD
 
 ## 2026-11-17 최신 검증 증거
 
+- PR #83 cosmetic scriptlet/procedural selector 안전성 수정 병합: `ea337e5bd36123ca06202f092ea222cf3225ac9c`. Main CI [44066812922](https://github.com/justinhblee-prog/guardian/actions/runs/44066812922) 성공: 단위 테스트, lint, debug APK, 업그레이드 설치, API 35 에뮬레이터 VPN/DNS E2E.
+- PR #84 IPv6 TCP/53 확장 헤더 파싱 병합: `e3eefac72ede85709035cff71caa382ca49d7039`. PR CI [44067049572](https://github.com/justinhblee-prog/guardian/actions/runs/44067049572) 및 main CI [44068019346](https://github.com/justinhblee-prog/guardian/actions/runs/44068019346) 성공. Hop-by-Hop/Destination Options 등 제한된 비조각 IPv6 확장 헤더 체인을 처리하고 Fragment 헤더는 재조립 미지원으로 거부합니다.
+- PR #85는 IPv6 UDP/53에도 동일한 제한형 확장 헤더 파서를 공유하고, UDP checksum/transport length 검증과 malformed/truncated/AH/fragment 회귀 테스트를 추가하는 작업입니다. 초기 테스트에서 UDP checksum을 복사한 뒤 0으로 초기화하지 않은 테스트 픽스처 문제와 shared parser의 package scope 문제를 확인해 수정했습니다. 최신 run [44069078186](https://github.com/justinhblee-prog/guardian/actions/runs/44069078186)에서 단위 테스트 통과, lint/build/emulator E2E 진행 중입니다.
+- Main run [44066812922](https://github.com/justinhblee-prog/guardian/actions/runs/44066812922) APK: 3,123,218 bytes, SHA-256 `3f8874c97649d5ee3f5aa48edecb2e634663eba097d43a94a05eab48c9873153`; source ZIP 449,067 bytes, SHA-256 `5ab85ecac9d2988b671ddfe8afc8e72d79bd2e1847f8af8975ea4c78fcabf677`. 두 ZIP 무결성 및 APK/source 체크섬을 다운로드 후 독립 확인했습니다.
+
 - main 커밋: `28abc77342f34898dd03c198fef942c0b49a7fe0`.
 - PR #78 운영자 라이선스 대시보드 개선 병합, License API main CI [44059072829](https://github.com/justinhblee-prog/guardian/actions/runs/44059072829) 성공.
 - PR #79 APK와 동일 커밋의 전체 소스 ZIP/체크섬 패키징 병합.
@@ -131,3 +136,4 @@ flowchart TD
 - 2026-11-17: PR #73을 검토 후 squash merge했고, Android VPN E2E 로그에서 허용 DNS 응답·차단 DNS 실패 및 서비스 통계를 확인했다. 병합 후 main CI run `44047861059` 검증 대기 상태를 기록했다.
 
 - 2026-11-17: PR #77 was squash-merged as `30a765c`; Android 0.7.14-dev PR E2E and signed filter/license API CI evidence recorded. Main-branch post-merge workflows remain in progress at this update.
+- 2026-11-17: PR #83 and #84 merged after full Android emulator VPN/DNS E2E success. Main APK/source ZIP hashes were downloaded and independently verified. PR #85 adds IPv6 UDP extension-header support; its latest unit tests pass and remaining CI stages are pending.
