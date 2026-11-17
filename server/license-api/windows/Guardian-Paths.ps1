@@ -2,37 +2,37 @@
 function Get-GuardianPaths {
   [CmdletBinding()]
   param([Parameter(Mandatory)][string]$RepositoryRoot)
-  $repo = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd('\')
+  $repo = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd([char[]]@('\','/'))
   $configured = [Environment]::GetEnvironmentVariable('GUARDIAN_DATA_DIR')
   if ([string]::IsNullOrWhiteSpace($configured)) {
     if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { throw 'LOCALAPPDATA를 확인할 수 없습니다.' }
     $configured = Join-Path $env:LOCALAPPDATA 'Guardian'
   }
   if (-not [IO.Path]::IsPathRooted($configured)) { throw 'GUARDIAN_DATA_DIR는 절대 경로여야 합니다.' }
-  $data = [IO.Path]::GetFullPath($configured).TrimEnd('\')
-  $repoPrefix = $repo + '\'
-  $dataPrefix = $data + '\'
+  $data = [IO.Path]::GetFullPath($configured).TrimEnd([char[]]@('\','/'))
+  $repoPrefix = $repo + [IO.Path]::DirectorySeparatorChar
+  $dataPrefix = $data + [IO.Path]::DirectorySeparatorChar
   if ($data.Equals($repo,[StringComparison]::OrdinalIgnoreCase) -or $data.StartsWith($repoPrefix,[StringComparison]::OrdinalIgnoreCase) -or $repo.StartsWith($dataPrefix,[StringComparison]::OrdinalIgnoreCase)) {
     throw "Guardian 데이터 경로는 Git 저장소와 분리된 독립 경로여야 합니다: $data"
   }
-  if ($data -match '(?i)(^|\\)OneDrive(?: - [^\\]+)?(\\|$)') { throw "Guardian 운영 데이터는 OneDrive 외부에 있어야 합니다: $data" }
+  if ($data -match '(?i)(^|[\\/])OneDrive(?: - [^\\/]+)?([\\/]|$)') { throw "Guardian 운영 데이터는 OneDrive 외부에 있어야 합니다: $data" }
   $oneDriveRoots = @($env:OneDrive,$env:OneDriveConsumer,$env:OneDriveCommercial) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
   foreach ($root in $oneDriveRoots) {
-    $od = [IO.Path]::GetFullPath($root).TrimEnd('\')
-    if ($data.Equals($od,[StringComparison]::OrdinalIgnoreCase) -or $data.StartsWith(($od+'\'),[StringComparison]::OrdinalIgnoreCase)) {
+    $od = [IO.Path]::GetFullPath($root).TrimEnd([char[]]@('\','/'))
+    if ($data.Equals($od,[StringComparison]::OrdinalIgnoreCase) -or $data.StartsWith(($od + [IO.Path]::DirectorySeparatorChar),[StringComparison]::OrdinalIgnoreCase)) {
       throw "Guardian 운영 데이터는 OneDrive 외부에 있어야 합니다: $data"
     }
   }
   [pscustomobject]@{
     Root = $data
-    LicenseEnv = Join-Path $data 'license-api\.env'
-    FilterEnv = Join-Path $data 'filter-distribution\.env'
+    LicenseEnv = [IO.Path]::Combine($data,'license-api','.env')
+    FilterEnv = [IO.Path]::Combine($data,'filter-distribution','.env')
     Secrets = Join-Path $data 'secrets'
     Backups = Join-Path $data 'backups'
     Outputs = Join-Path $data 'outputs'
-    FilterSources = Join-Path $data 'filter-distribution\sources.json'
-    FilterDist = Join-Path $data 'filter-distribution\dist'
-    FilterLogs = Join-Path $data 'filter-distribution\logs'
+    FilterSources = [IO.Path]::Combine($data,'filter-distribution','sources.json')
+    FilterDist = [IO.Path]::Combine($data,'filter-distribution','dist')
+    FilterLogs = [IO.Path]::Combine($data,'filter-distribution','logs')
   }
 }
 function Initialize-GuardianDataDirectories {
