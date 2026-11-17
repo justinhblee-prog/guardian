@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: aider-qwen-local-\${{ github.ref }}
+  group: aider-qwen-local-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -84,6 +84,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: aider-qwen-local-verification
-          path: \${{ runner.temp }}/aider-qwen-smoke.log
+          path: ${{ runner.temp }}/aider-qwen-smoke.log
           if-no-files-found: ignore
           retention-days: 7
