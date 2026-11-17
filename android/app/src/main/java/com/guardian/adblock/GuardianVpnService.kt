@@ -131,7 +131,15 @@ class GuardianVpnService : VpnService() {
             return
         }
         try {
-            startProtectionInternal(requestGeneration, startId)
+            try {
+                startProtectionInternal(requestGeneration, startId)
+            } catch (error: Exception) {
+                reportUnexpectedStartupFailure(requestGeneration, startId, error)
+            } catch (error: LinkageError) {
+                // Native/runtime library loading failures are Errors, not Exceptions.
+                // Surface them instead of leaving the foreground service apparently starting.
+                reportUnexpectedStartupFailure(requestGeneration, startId, error)
+            }
         } finally {
             starting.set(false)
             // Keep only the latest still-current request. An older worker can
@@ -145,6 +153,29 @@ class GuardianVpnService : VpnService() {
         }
     }
 
+    private fun reportUnexpectedStartupFailure(
+        requestGeneration: Long,
+        startId: Int,
+        error: Throwable
+    ) {
+        android.util.Log.e("GuardianProtection", "Unexpected VPN startup failure", error)
+        // A stale worker must not overwrite an explicit stop or a newer start request.
+        if (!startCancellation.isCurrent(requestGeneration) || running.get()) return
+        tunnelActive = false
+        try { tun?.close() } catch (closeError: Exception) {
+            android.util.Log.w("GuardianProtection", "Failed to close partial VPN tunnel", closeError)
+        }
+        tun = null
+        try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (stopError: Exception) {
+            android.util.Log.w("GuardianProtection", "Failed to remove startup notification", stopError)
+        }
+        val detail = error.message?.takeIf { it.isNotBlank() } ?: "상세 오류 메시지가 없습니다."
+        publishState(
+            false,
+            "보호 시작 중 예기치 않은 오류가 발생했습니다 (${error.javaClass.simpleName}): $detail"
+        )
+        stopSelf(startId)
+    }
     private fun startProtectionInternal(requestGeneration: Long, startId: Int) {
         tunnelActive = false
         try {
