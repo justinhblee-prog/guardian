@@ -1,6 +1,7 @@
 package com.guardian.adblock
 
 import java.io.File
+import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.Properties
@@ -41,7 +42,10 @@ internal class ManifestTimestampStore(private val stateFile: File) {
         check(parent.exists() || parent.mkdirs()) { "manifest 상태 디렉터리를 만들 수 없습니다." }
         val temporary = File(parent, stateFile.name + ".tmp")
         try {
-            temporary.outputStream().use { properties.store(it, "Guardian accepted filter manifest timestamps") }
+            FileOutputStream(temporary).use { output ->
+                properties.store(output, "Guardian accepted filter manifest timestamps")
+                output.fd.sync()
+            }
             try {
                 Files.move(temporary.toPath(), stateFile.toPath(),
                     StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)

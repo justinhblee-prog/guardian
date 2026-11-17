@@ -1,6 +1,7 @@
 package com.guardian.adblock
 
 import java.io.File
+import java.io.FileOutputStream
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -40,7 +41,13 @@ internal object FilterCacheStore {
         recover(target)
         val temporary = File(target.parentFile, "${target.name}.tmp")
         val backup = File(target.parentFile, "${target.name}.bak")
-        temporary.writeBytes(bytes)
+        // Persist the complete payload before renaming it into the committed cache path.
+        // SharedPreferences metadata is committed only after this sync, so a power loss
+        // cannot leave a durable manifest hash pointing at unwritten filter bytes.
+        FileOutputStream(temporary).use { output ->
+            output.write(bytes)
+            output.fd.sync()
+        }
         backup.delete()
         val hadPrevious = target.isFile
         if (hadPrevious) move(target, backup)
