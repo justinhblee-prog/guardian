@@ -1,42 +1,40 @@
-## 2026-11-15 최신 통합 상태 — main 기준
+## 2026-11-17 최신 통합 상태 — main 기준
 
-- Android: `com.guardian.adblock`, versionCode `21`, versionName `0.7.8-dev`.
-- 기준 main 커밋: `d998686527faca009c602bc0d1f8d27f7786373f` (PR #64 squash merge).
-- **PR #64 병합:** DNS 필터 프로필별 서명 manifest 버전·SHA-256·generatedAt 메타데이터를 분리했습니다. 기존 AdGuard 메타데이터 키는 유지하고 프로필 간 버전 충돌 회귀 테스트를 추가했습니다.
-- PR #64 CI run [43717750800](https://github.com/justinhblee-prog/guardian/actions/runs/43717750800): 전체 성공 후 main에 병합했습니다.
-- PR #64 병합 후 main CI run [43718615111](https://github.com/justinhblee-prog/guardian/actions/runs/43718615111): 문서 갱신 시점 확인 중이며, 성공으로 기록하지 않습니다.
-- PR #43, #46, #47, #50, #51, #52, #54, #55, #56, #57, #58, #59, #60, #61, #62, #64는 main 병합 완료입니다.
-- 최종 설치 APK/source ZIP: 아직 최종 artifact 다운로드 및 SHA-256 검증 전입니다. 일반 push CI는 artifact를 의도적으로 업로드하지 않습니다.
-- 운영 keystore/서명 secrets, 공개키를 포함한 실제 HTTPS manifest 배포, 운영 License API/DB/TLS 배포는 미완료입니다.
-- 실기기 VPN/TUN 라우팅, 실제 광고 차단 효과 및 Android 태블릿 수용 테스트는 미검증입니다. 에뮬레이터 검증으로 대체하지 않습니다.
-- Android 모바일/태블릿 및 공통 필터·라이선스 기능을 먼저 완료하고 Windows 클라이언트/설치 프로그램은 마지막에 진행합니다.
+- Android: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`.
+- main 커밋: `28abc77342f34898dd03c198fef942c0b49a7fe0`.
+- PR #78: 운영자 라이선스 대시보드 개선 병합. License API main CI [44059072829](https://github.com/justinhblee-prog/guardian/actions/runs/44059072829) 성공.
+- PR #79: Android APK와 동일 커밋의 전체 소스 ZIP, SHA-256 manifest, 자동 artifact 감사를 추가해 병합.
+- Android CI [44060999851](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851) 성공: unit tests, lint, APK build, 이전 개발 버전 업데이트 설치, API 35 emulator VPN/DNS E2E.
+- APK artifact [guardian-android-debug](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851), artifact ID `14317588578`.
+- APK: 3,119,618 bytes, SHA-256 `24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78`.
+- 전체 소스 ZIP: 446,281 bytes, SHA-256 `a22d74b994b919e19de4125a719243786b76fa50dbb2d19d85200345afdcee17`.
+- 자동 artifact 감사 [44062116800](https://github.com/justinhblee-prog/guardian/actions/runs/44062116800) 성공: APK/source SHA-256 및 ZIP 무결성 모두 통과.
+- Signed filter distribution CI [44052664109](https://github.com/justinhblee-prog/guardian/actions/runs/44052664109), [44052665884](https://github.com/justinhblee-prog/guardian/actions/runs/44052665884) 성공.
+- Production release 설정/임시 서명 smoke test [44052664040](https://github.com/justinhblee-prog/guardian/actions/runs/44052664040) 성공. production signing job은 운영 keystore/secrets 부재로 skipped이며 production APK/AAB는 미생성입니다.
+- 실제 Android 스마트폰/태블릿 VPN/TUN·네트워크 매트릭스·광고 제거율, 운영 HTTPS 필터 게시, License API/DB/TLS/Tailscale 배포는 미검증입니다.
+- Windows EXE/설치 프로그램은 Android 및 공통 기능 이후 마지막 단계로 보류합니다.
 
-# 최신 개발 인수인계 — 2026-11-15
+# 최신 개발 인수인계 — 2026-11-17
 
-> 이 섹션이 아래의 과거 0.7.1-dev 인수인계보다 우선합니다.
+> 이 섹션이 아래의 과거 버전별 인수인계보다 우선합니다.
 
 - 저장소: https://github.com/justinhblee-prog/guardian
-- 현재 앱 기준: `com.guardian.adblock`, versionCode `21`, `0.7.8-dev`.
-- 문서 갱신 시점 main: `a5876e7a68c32e9721b8763aa36e89b2150746e7`.
-- PR #25(Android CI 경로 및 smoke-script 검증)와 PR #38(DNS TCP sequence wraparound 회귀 테스트)은 main 병합 완료.
-- PR #26은 RELEASE_STATUS_KO.md를 최신 개발/검증 상태로 갱신해 main 병합 완료.
-- PR #40: main push 시 production release 설정 검증을 실행하고 실제 production 서명은 수동 실행으로 제한합니다. 설정 검증 성공, Android emulator CI 미완료 상태입니다.
-- PR #41: 만료된 서명 라이선스의 Pro 권한은 종료하되 검증된 licenseRef를 이용해 서버 기기 슬롯을 해제할 수 있도록 보강했습니다. 회귀 테스트와 Android CI 진행 중이며 미병합입니다.
-- 운영 keystore, signing secrets, production API endpoint/public key, 운영 PostgreSQL, TLS 도메인은 아직 실제 운영 설정/배포 검증되지 않았습니다.
-- 실기기 VPN/TUN, 실제 DNS 라우팅·광고 제거율, Wi-Fi↔모바일 전환 및 장시간 안정성은 미검증입니다.
-- Windows installer 및 Windows 네트워크 변경/복구 실환경 검증은 마지막 단계로 보류합니다.
+- 현재 기준: Android 0.7.14-dev / versionCode 27, main commit `28abc77342f34898dd03c198fef942c0b49a7fe0`.
+- Android license/device management, signed filter client/publisher, License API/PostgreSQL 및 운영자 웹 대시보드의 코드와 CI는 반영되었습니다.
+- APK + 동일 커밋 전체 소스 ZIP artifact가 main에 생성되고 별도 이벤트 감사에서 해시·ZIP 무결성까지 검증되었습니다.
+- 개발용 debug APK는 확보했지만 production keystore/secrets가 없어 production APK/AAB는 없습니다.
+- 사용자 우선순위: Android 모바일과 공통 기능을 먼저 마무리하고, 실제 기기/운영 환경 검증은 개발 작업 완료 후 진행하며, Windows 패키징은 마지막에 수행합니다.
 
-## 완료 판정 규칙
+## 다음 내부 개발 순서
 
-- main에 병합된 코드와 PR 브랜치의 미병합 코드를 구분합니다.
-- GitHub Actions의 개별 성공 job과 전체 workflow 성공을 구분합니다.
-- debug APK 빌드 성공을 production 서명본 배포로 표현하지 않습니다.
-- 에뮬레이터 설치/실행 성공을 실기기 VPN/DNS 수용 테스트로 대체하지 않습니다.
-- 운영 secrets 및 endpoint가 없으면 production release 완료로 판정하지 않습니다.
-- 실패한 검증은 원인·수정·재실행 결과가 확인되기 전까지 미완료로 둡니다.
+1. Android 모바일/태블릿 및 공통 라이선스·필터 기능의 남은 코드 작업을 마감합니다.
+2. 운영 서명 필터 공개키·HTTPS 배포와 License API/DB/TLS 운영 배포에 필요한 구성을 문서·스크립트 수준에서 마무리합니다. 개인 운영키는 저장소/채팅에 넣지 않습니다.
+3. production signing workflow의 보호된 secrets 입력 경로를 유지하고, 운영 keystore가 안전한 환경에 준비되기 전에는 production APK/AAB를 생성하지 않습니다.
+4. 위 개발 항목이 끝난 뒤 실제 Android 기기 VPN/DNS, Wi-Fi↔모바일, IPv4/IPv6, Private DNS, 앱 제외, 광고 차단 수용 시험을 수행합니다.
+5. Windows EXE/설치 프로그램 빌드·설치·제거·DNS 복구·재부팅 검증은 마지막에 진행합니다.
+6. Android/Windows별 검증 결과와 미지원 범위를 분리해 통합 릴리스 판정을 기록합니다.
 
----
-
+실기기 검증 전에는 에뮬레이터 성공을 실제 기기 통과로 표현하지 않습니다.
 # Guardian AdBlock Android 0.7.1-dev — 개발 인수인계
 
 작성일: 2026-11-13
