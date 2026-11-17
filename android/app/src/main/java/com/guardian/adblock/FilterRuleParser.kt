@@ -17,12 +17,12 @@ object FilterRuleParser {
     fun parse(text: String): Parsed = parseSequence(text.lineSequence())
 
     private fun parseSequence(lines: Sequence<String>): Parsed {
-        val blocked = linkedSetOf<String>()
-        val allowed = linkedSetOf<String>()
-        val importantBlocked = linkedSetOf<String>()
-        val disabledBlocked = linkedSetOf<String>()
-        val disabledImportantBlocked = linkedSetOf<String>()
-        val disabledAllowed = linkedSetOf<String>()
+        val blocked = HashSet<String>()
+        val allowed = HashSet<String>()
+        val importantBlocked = HashSet<String>()
+        val disabledBlocked = HashSet<String>()
+        val disabledImportantBlocked = HashSet<String>()
+        val disabledAllowed = HashSet<String>()
         var ignored = 0
 
         for (raw in lines) {
