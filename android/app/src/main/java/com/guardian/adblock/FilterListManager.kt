@@ -228,6 +228,35 @@ object FilterListManager {
     fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
     fun cachedAndroidAdsLines(context: Context): List<String> = readCache(context, ANDROID_ADS_CACHE_FILE)
 
+    /**
+     * Loads only validated, enabled cache files for the optional Guardian WebView.
+     * Parsing is streaming so large DNS lists are not duplicated as line lists.
+     */
+    fun cachedCosmeticRules(context: Context): CosmeticFilterEngine.RuleSet {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val cacheNames = buildList {
+            if (runCatching { hasCachedList(context) }.getOrDefault(false)) add(CACHE_FILE)
+            if (prefs.getBoolean(KEY_SECURITY_ENABLED, false) &&
+                runCatching { hasCachedSecurityList(context) }.getOrDefault(false)) {
+                add(SECURITY_CACHE_FILE)
+            }
+            if (prefs.getBoolean(KEY_ANDROID_ADS_ENABLED, true) &&
+                runCatching { hasCachedAndroidAdsList(context) }.getOrDefault(false)) {
+                add(ANDROID_ADS_CACHE_FILE)
+            }
+        }
+        val sources = mutableListOf(CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES))
+        for (cacheName in cacheNames) {
+            val parsed = runCatching {
+                val file = recoverCache(context, cacheName)
+                if (!file.isFile || file.length() <= 0L) null
+                else file.bufferedReader(Charsets.UTF_8).use { CosmeticFilterEngine.parse(it) }
+            }.getOrNull()
+            if (parsed != null) sources.add(parsed)
+        }
+        return CosmeticFilterEngine.merge(sources)
+    }
+
     /** Parse an app-private cache incrementally to avoid retaining millions of line objects. */
     internal fun parseCachedList(context: Context, cacheName: String): FilterRuleParser.Parsed {
         require(cacheName in setOf(CACHE_FILE, SECURITY_CACHE_FILE, ANDROID_ADS_CACHE_FILE)) {
