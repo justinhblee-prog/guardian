@@ -10,6 +10,9 @@
 - 전체 소스 ZIP: 452,657 bytes. SHA-256: `c227d548bad194d0a3c8806284d71fa4634923840d869804bb44c3f0d44e6e0d`.
 - 소스 ZIP 독립 테스트: `dns_engine` 및 `windows_engine` **26 passed**, Python compileall 통과.
 - 이번 APK는 개발용 debug 서명본입니다. Android 실기기/태블릿 수용 테스트, 운영 HTTPS 필터 서버·공개키 연결, 실제 License API/DB 배포 및 production signing은 아직 별도 미완료입니다. Windows native 설치/제거 검증 역시 Android CI와 별개입니다.
+- Windows PR #95 병합: `29ac16c3e6a33fc66cb9bdb322e100916015b356`. Windows DNS readiness now requires a fresh daemon PID heartbeat and a live process; shutdown failures are reported instead of silently marking the daemon stopped.
+- Windows PR validation: [build/install run 44100882615](https://github.com/justinhblee-prog/guardian/actions/runs/44100882615) and [cross-platform engine tests 44100882646](https://github.com/justinhblee-prog/guardian/actions/runs/44100882646) succeeded. The Windows installer built, installed, launched both packaged EXEs in self-test mode, restored DNS, and passed both restore-before-uninstall and direct-uninstall scheduled-task cleanup paths. Ubuntu and Windows Python suites passed.
+- Windows package remains unsigned development output. Actual Windows laptop DNS adapter, reboot, Wi-Fi/Ethernet and VPN coexistence acceptance tests remain outstanding.
 - 상세 잔여 항목과 완료 기준: [docs/REMAINING_WORKFLOW_KO.md](docs/REMAINING_WORKFLOW_KO.md).
 
 
