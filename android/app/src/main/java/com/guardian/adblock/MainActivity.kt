@@ -82,12 +82,16 @@ class MainActivity : Activity() {
     private val filterUpdateRunning = AtomicBoolean(false)
     private val protectionCheckRunning = AtomicBoolean(false)
     @Volatile private var pendingProtectionStartAfterFilterUpdate = false
+    private var syncingFilterOptions = false
 
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             refreshStatus()
             when (intent?.action) {
-                FilterUpdateWorker.ACTION_FILTERS_CHANGED -> filterStatusText?.text = filterStatusDescription()
+                FilterUpdateWorker.ACTION_FILTERS_CHANGED -> {
+                    syncFilterOptionControls()
+                    filterStatusText?.text = filterStatusDescription()
+                }
                 GuardianVpnService.ACTION_UPSTREAM_TEST_RESULT -> {
                     upstreamTestText?.text = upstreamTestDescription()
                     upstreamTestButton?.isEnabled = true
@@ -866,6 +870,22 @@ class MainActivity : Activity() {
         return card
     }
 
+    /** Keep visible filter controls aligned when a background worker disables an unavailable optional source. */
+    private fun syncFilterOptionControls() {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        syncingFilterOptions = true
+        try {
+            val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+            val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+            securityFilterSwitch?.isChecked = securityEnabled
+            securityFilterCheckBox?.isChecked = securityEnabled
+            androidAdsFilterSwitch?.isChecked = androidAdsEnabled
+            androidAdsFilterCheckBox?.isChecked = androidAdsEnabled
+        } finally {
+            syncingFilterOptions = false
+        }
+    }
+
     private fun reloadProtectionRulesIfActive(prefs: android.content.SharedPreferences) {
         if (ProtectionState.isActive(
                 prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
@@ -1505,6 +1525,7 @@ class MainActivity : Activity() {
             setTextColor(white)
             isChecked = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
             setOnCheckedChangeListener { _, checked ->
+                if (syncingFilterOptions) return@setOnCheckedChangeListener
                 prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
                 if (checked && !FilterListManager.hasCachedSecurityList(this@MainActivity)) {
                     filterStatusText?.text = "보안 필터 목록을 다운로드합니다."
@@ -1527,6 +1548,7 @@ class MainActivity : Activity() {
             setTextColor(white)
             isChecked = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
             setOnCheckedChangeListener { _, checked ->
+                if (syncingFilterOptions) return@setOnCheckedChangeListener
                 prefs.edit().putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, checked).apply()
                 if (checked && !FilterListManager.hasCachedAndroidAdsList(this@MainActivity)) {
                     filterStatusText?.text = "Android 앱 광고 SDK 필터를 다운로드합니다."
