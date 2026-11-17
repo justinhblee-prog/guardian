@@ -235,7 +235,10 @@ object FilterListManager {
     fun cachedCosmeticRules(context: Context): CosmeticFilterEngine.RuleSet {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val cacheNames = buildList {
-            if (runCatching { hasCachedList(context) }.getOrDefault(false)) add(CACHE_FILE)
+            val baseProfileMatches = selectedProfile(context).key == cachedProfile(context).key
+            if (baseProfileMatches && runCatching { hasCachedList(context) }.getOrDefault(false)) {
+                add(CACHE_FILE)
+            }
             if (prefs.getBoolean(KEY_SECURITY_ENABLED, false) &&
                 runCatching { hasCachedSecurityList(context) }.getOrDefault(false)) {
                 add(SECURITY_CACHE_FILE)
