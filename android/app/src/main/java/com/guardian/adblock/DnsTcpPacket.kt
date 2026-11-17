@@ -211,6 +211,9 @@ internal object Ipv6ExtensionHeaderParser {
             }
             val minimumHeaderLength = if (nextHeader == 51) 12 else 8
             if (headerLength < minimumHeaderLength || offset + headerLength > packetLength) return null
+            // A Routing header with segments left still changes the packet's
+            // final destination; Guardian cannot safely synthesize its reply.
+            if (nextHeader == 43 && (packet[offset + 3].toInt() and 0xff) != 0) return null
             offset += headerLength
             nextHeader = following
         }
