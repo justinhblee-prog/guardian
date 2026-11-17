@@ -77,17 +77,9 @@ if ([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',
   throw 'Tailscale 기기의 MagicDNS 이름을 확인할 수 없습니다. Tailscale 연결 및 HTTPS 인증서 설정을 확인하세요.'
 }
 
-# Expose only the loopback-bound License API to the private Tailscale tailnet.
-& $tailscale serve --bg --https=443 http://127.0.0.1:8787
-if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve의 HTTPS 443 설정 실패' }
-
 # The signed manifest embeds absolute GitHub raw URLs. Publish only signed public assets to the static cloud branch.
-$filterDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\filter-distribution')).Path
-$sourcesPath = Join-Path $filterDir 'sources.json'
-if (-not (Test-Path $sourcesPath)) { throw 'sources.json이 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.' }
-$config = Get-Content -Raw $sourcesPath | ConvertFrom-Json
-if (-not $config.sources -or $config.sources.Count -lt 1) { throw 'sources.json에 필터 공급원이 없습니다.' }
-$originalConfig = Get-Content -Raw $sourcesPath
+$config = $preflightConfig
+$originalConfig = Get-Content -Raw -LiteralPath $sourcesPath
 $backupPath = Join-Path $filterDir '.sources.json.before-private-access.bak'
 Copy-Item -LiteralPath $sourcesPath -Destination $backupPath -Force
 $config.baseUrl = 'https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
@@ -106,6 +98,11 @@ try {
   throw
 }
 
+# Enable the private API endpoint only after the signed public filter origin is live.
+& $tailscale serve --bg --https=443 http://127.0.0.1:8787
+if ($LASTEXITCODE -ne 0) {
+  throw '필터 클라우드 게시에는 성공했지만 Tailscale Serve의 HTTPS 443 설정에 실패했습니다. Tailscale Serve 상태/포트 충돌을 확인하세요.'
+}
 & $tailscale serve status
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 상태 확인 실패' }
 
