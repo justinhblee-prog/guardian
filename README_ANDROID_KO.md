@@ -306,13 +306,16 @@ IPv6 DNS 업스트림 주소를 정규화할 때 주소 문자열이 제공되�
 - 분류별 집계는 기능 적용 이후부터 쌓이며, 기존 전체 차단 건수를 소급 분류하지 않습니다.
 
 
-## 0.7.13-dev 최신 VPN/DNS 검증 및 필터 시작 안정성 수정 — 2026-11-17
+## 0.7.14-dev — signed filter distribution + VPN E2E (2026-11-17)
 
-- 패키지: `com.guardian.adblock`, versionCode 26, versionName `0.7.13-dev`.
-- PR #73의 optional filter fallback, 대용량 필터 Reader 파싱, VPN 시작 안정화 및 E2E 검증 개선을 main에 squash merge했습니다. merge commit: `99ad460bf309fe55b7503fa828d8eb4be25386ea`.
-- PR CI [run 43918433672](https://github.com/justinhblee-prog/guardian/actions/runs/43918433672): Android unit tests, lint, APK build, bundled filter asset validation, emulator install/upgrade 및 VPN DNS E2E 모두 성공.
-- VPN E2E 로그: `protection_active=true`, `dns_queries=4`, `dns_forwarded=3`, `dns_blocked=1`, `dns_failed=0`. `example.com`은 `104.20.23.154`로 해석됐고 `guardian-ci-43918433672.doubleclick.net`은 `unknown host`로 차단됐습니다.
-- CI의 ping ICMP 응답은 100% 손실이었으나 DNS 조회는 성공했습니다. ICMP 응답을 인터넷 연결 성공으로 과장하지 않습니다.
-- PR 병합 후 main 검증 [run 44047861059](https://github.com/justinhblee-prog/guardian/actions/runs/44047861059)은 문서 갱신 시점에 실행 중이며, 최종 APK artifact 및 checksum은 성공 완료 후 별도로 확인합니다.
-- 위 검증은 API 35 Android 에뮬레이터입니다. 실제 스마트폰/태블릿 설치, Wi-Fi↔모바일 전환, 제조사별 백그라운드 유지, 실제 광고 제거율은 아직 실기기에서 검증되지 않았습니다.
-- APK는 개발용 debug 서명본이며 production 서명 릴리스가 아닙니다.
+- 통합 커밋: PR #73 `99ad460` (VPN 시작 fallback/대용량 필터 파싱), PR #77 `30a765c` (signed filter client, 배포 서버 도구, 라이선스 API 운영 스크립트, 릴리스 검증).
+- 패키지: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`.
+- Android PR 검증 [run 44051352597](https://github.com/justinhblee-prog/guardian/actions/runs/44051352597): unit tests, lint, 0.7.13→0.7.14 업그레이드 설치, API 35 에뮬레이터 VPN/DNS E2E 성공.
+- APK 크기: 3,119,618 bytes. SHA-256: `24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78`.
+- E2E 로그: `protection_active=true`, `dns_queries=6`, `dns_forwarded=5`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`. 허용 `example.com` → `172.66.147.243`; 차단 `guardian-ci-44051352597.doubleclick.net` → `unknown host`.
+- 에뮬레이터는 Android 15 / API 35입니다. ICMP ping 응답은 손실됐지만 DNS 응답과 차단 판정은 성공했습니다.
+- Signed Filter Distribution [run 44052664109](https://github.com/justinhblee-prog/guardian/actions/runs/44052664109), Distribution CI [run 44052665884](https://github.com/justinhblee-prog/guardian/actions/runs/44052665884), License API/PostgreSQL integration [run 44052664268](https://github.com/justinhblee-prog/guardian/actions/runs/44052664268) 성공.
+- main Android 재검증 [run 44052664083](https://github.com/justinhblee-prog/guardian/actions/runs/44052664083)과 production release configuration 검증 [run 44052664040](https://github.com/justinhblee-prog/guardian/actions/runs/44052664040)은 문서 갱신 시점에 실행 중입니다.
+- 서명 필터·라이선스 서버 코드는 반영됐지만, Windows 노트북에서 DPAPI 개인키 생성, 실제 공개 배포 branch 게시, Tailscale private API 운영 배포는 아직 수행하지 않았습니다.
+- production keystore/secrets가 없어 production-release job은 skip됩니다. APK는 개발용 debug 서명본이며 production 릴리스가 아닙니다.
+- 실제 Android 스마트폰/태블릿 설치, Wi-Fi↔모바일 전환, IPv4/IPv6, Private DNS, 다른 VPN과의 충돌, 장시간 백그라운드 유지 및 실제 광고 제거율은 별도 실기기 수용 테스트가 필요합니다.
