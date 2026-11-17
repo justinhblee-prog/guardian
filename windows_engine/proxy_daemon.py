@@ -3,8 +3,9 @@ import json,os,socket,struct,sys,threading,time
 from pathlib import Path
 from dns_engine import DnsProxy,DomainRules
 from windows_engine.filter_updates import FilterUpdater,FilterUpdateError
+from windows_engine.daemon_health import write_daemon_health,remove_daemon_health
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
-CONFIG=APP_DIR/"guardian.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; UPDATE_STATUS=APP_DIR/"filter-update-status.json"
+CONFIG=APP_DIR/"guardian.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; UPDATE_STATUS=APP_DIR/"filter-update-status.json"; HEALTH=APP_DIR/"daemon-health.json"
 def load_runtime():
     data=json.loads(CONFIG.read_text(encoding="utf-8"))
     rules=DomainRules.from_text((APP_DIR/data.get("rules_file","rules.txt")).read_text(encoding="utf-8"))
@@ -31,6 +32,11 @@ def main():
     port=int(data.get("listen_port",53)); proxy=DnsProxy(rules,tuple(data.get("upstreams",["1.1.1.1","8.8.8.8","2606:4700:4700::1111","2001:4860:4860::8888"])),listen=(("127.0.0.1",port),("::1",port)))
     rules_path=APP_DIR/data.get("rules_file","rules.txt")
     stop=threading.Event()
+    proxy.start()  # Bind all IPv4/IPv6 UDP/TCP sockets before publishing readiness.
+    write_daemon_health(HEALTH)
+    def heartbeat_tasks():
+        while not stop.wait(1):
+            write_daemon_health(HEALTH)
     def background_tasks():
         last_mtime=rules_path.stat().st_mtime_ns; last_update_check=0
         while not stop.wait(1):
@@ -64,8 +70,10 @@ def main():
                     status_tmp.write_text(json.dumps(status,ensure_ascii=False),encoding="utf-8")
                     os.replace(status_tmp,UPDATE_STATUS)
                 except OSError: pass
+    heartbeat=threading.Thread(target=heartbeat_tasks,daemon=True); heartbeat.start()
     writer=threading.Thread(target=background_tasks,daemon=True); writer.start()
     try: proxy.serve_forever()
-    finally: stop.set(); writer.join(timeout=2)
+    finally:
+        stop.set(); writer.join(timeout=2); heartbeat.join(timeout=2); remove_daemon_health(HEALTH,os.getpid())
     return 0
 if __name__=="__main__": raise SystemExit(main())
