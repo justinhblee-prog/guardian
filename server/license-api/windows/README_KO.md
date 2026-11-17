@@ -63,7 +63,7 @@ Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연�
 1. Windows 노트북과 Android 모바일에 Tailscale을 설치하고 같은 Tailscale 계정/tailnet에 로그인합니다.
 2. Tailscale 관리 콘솔에서 MagicDNS와 HTTPS certificates를 활성화합니다. HTTPS 인증서 발급 시 기기 이름과 tailnet DNS 이름이 공개 인증서 투명성 로그에 기록될 수 있습니다.
 3. 노트북에서 Docker Desktop을 시작한 뒤 `Start-All-GuardianServices.ps1`로 라이선스 API와 필터 서버의 상태가 정상인지 확인합니다.
-4. 관리자 PowerShell에서 다음 스크립트를 실행합니다. 이 스크립트는 Tailscale Serve를 설정하고 `sources.json`의 `baseUrl`을 노트북의 필터 HTTPS 주소로 바꾼 뒤, DPAPI 보호 서명키로 필터를 다시 다운로드·서명·발행합니다. 기존 `sources.json` 백업은 `.sources.json.before-private-access.bak`에 남깁니다.
+4. 관리자 PowerShell에서 다음 스크립트를 실행합니다. 이 스크립트는 Tailscale Serve로 라이선스 API만 비공개 연결하고, `sources.json`의 `baseUrl`을 GitHub 정적 클라우드 주소로 설정한 뒤 DPAPI 보호 서명키로 필터를 다운로드·서명·발행하고 클라우드에 게시합니다. 기존 `sources.json` 백업은 `.sources.json.before-private-access.bak`에 남깁니다.
 
 ```powershell
 .\Enable-GuardianPrivateAccess.ps1
@@ -75,7 +75,7 @@ Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연�
 
 라이선스 API 연결은 공유기 포트포워딩, 공용 IP, Cloudflare Tunnel 또는 Tailscale Funnel 없이 tailnet 내부에서만 동작합니다. 라이선스 API를 사용할 때는 노트북이 켜져 있고 Tailscale에 연결되어 있어야 합니다. 필터 파일은 공개 CDN에서 읽으므로 노트북 전원과 무관하게 업데이트할 수 있습니다. 필터 콘텐츠는 공개 정보이며 무결성과 출처는 앱에 고정된 RSA 공개키로 검증합니다.
 
-**주의:** 이 스크립트는 기존 Tailscale Serve의 HTTPS 443 및 8443 설정을 Guardian용으로 설정합니다. 같은 포트를 이미 다른 용도로 사용 중이라면 실행 전에 기존 Serve 구성을 확인하세요. 비공개 연결을 종료할 때는 `tailscale serve status`로 현재 구성을 확인한 후 해당 포트만 해제하세요. `tailscale funnel`을 실행하지 마세요.
+**주의:** 이 스크립트는 기존 Tailscale Serve의 HTTPS 443 설정을 Guardian 라이선스 API용으로 설정합니다. 같은 포트를 이미 다른 용도로 사용 중이라면 실행 전에 기존 Serve 구성을 확인하세요. 비공개 연결을 종료할 때는 `tailscale serve status`로 현재 구성을 확인한 후 해당 포트만 해제하세요. `tailscale funnel`을 실행하지 마세요.
 
 ## 자동 시작과 절전
 예약 작업은 Windows 로그인 시 전체 서비스를 시작합니다. Docker Compose의 `restart: unless-stopped`는 Docker 엔진 재시작 후 컨테이너 복구를 돕습니다. 로그인 전 부팅 단계부터 운영하려면 별도 서비스 계정과 권한 설계가 필요합니다. 노트북이 꺼져 있거나 절전 상태이면 서버도 접속할 수 없습니다. 운영 중 절전 방지, 전원 연결, 네트워크 안정성 및 Windows 업데이트 재부팅 정책을 별도로 관리해야 합니다.
