@@ -57,6 +57,17 @@ class Ipv6UdpTest {
         assertArrayEquals(byteArrayOf(1, 2, 3, 4), parsed.payload)
     }
 
+    @Test fun rejectsTruncatedUdpHeaderAfterValidExtensionHeader() {
+        val packet = ByteArray(52)
+        packet[0] = 0x60
+        packet[4] = 0
+        packet[5] = 12
+        packet[6] = 60 // Destination Options
+        packet[40] = 17 // UDP follows
+        packet[41] = 0
+        assertNull(Ipv6Udp.parseDns(packet, packet.size))
+    }
+
     @Test fun rejectsIpv6UdpFragmentAndMalformedExtensionHeader() {
         val base = queryPacket()
         val fragment = ByteArray(base.size + 8)
