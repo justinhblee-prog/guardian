@@ -34,13 +34,11 @@ try {
       throw "비밀값 또는 운영 파일이 dist에 포함되어 있습니다: $relative"
     }
     if ($file.Length -gt 10MB) { throw "파일 크기 제한 초과: $relative" }
-    $allowedPath = ($relative -eq 'guardian-filter-public-key.x509.b64') -or
-      ($relative -match '^[A-Za-z0-9_.+-]+\.manifest$') -or
-      ($relative -match '^[A-Za-z0-9_.+-]+\.[A-Za-z0-9_.+-]+\.[0-9]+\.sig$') -or
-      ($relative -match '^filters/[A-Za-z0-9_-]{1,64}/[A-Za-z0-9_.+-]{1,64}\.txt$')
-    if (-not $allowedPath) {
-      throw "허용되지 않는 배포 파일 경로: $relative"
-    }
+    if ($relative -eq 'guardian-filter-public-key.x509.b64') { continue }
+    if ($relative -match '^[A-Za-z0-9_.+-]+\.manifest$') { continue }
+    if ($relative -match '^[A-Za-z0-9_.+-]+\.[A-Za-z0-9_.+-]+\.[0-9]+\.sig$') { continue }
+    if ($relative -match '^filters/[A-Za-z0-9_-]{1,64}/[A-Za-z0-9_.+-]{1,64}\.txt$') { continue }
+    throw "허용되지 않는 배포 파일 경로: $relative"
   }
   $manifestFiles = @(Get-ChildItem -LiteralPath $dist -File -Filter '*.manifest')
   if ($manifestFiles.Count -lt 1) { throw '서명 manifest가 없습니다.' }
