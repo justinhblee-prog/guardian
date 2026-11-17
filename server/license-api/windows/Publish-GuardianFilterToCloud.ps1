@@ -25,7 +25,7 @@ try {
   $plainKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
   $rsa.ImportFromPem($plainKey)
   $publicKeyBase64 = [Convert]::ToBase64String($rsa.ExportSubjectPublicKeyInfo())
-  $androidPublicKeyPath = Join-Path $repoRoot 'server\\license-api\\secrets\\guardian-filter-public.x509.b64'
+  $androidPublicKeyPath = Join-Path (Join-Path (Join-Path (Join-Path $repoRoot 'server') 'license-api') 'secrets') 'guardian-filter-public.x509.b64'
   if (-not (Test-Path -LiteralPath $androidPublicKeyPath -PathType Leaf)) {
     throw 'Android 빌드용 필터 공개키가 없습니다. Setup-GuardianServer.ps1을 다시 실행하고 키 구성을 확인하세요.'
   }
