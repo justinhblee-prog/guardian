@@ -1,6 +1,7 @@
 package com.guardian.adblock
 
 import java.util.Locale
+import java.io.Reader
 
 /** Parser for DNS-compatible Adblock rules and hosts-file entries. */
 object FilterRuleParser {
@@ -15,6 +16,9 @@ object FilterRuleParser {
 
     /** Parses a decoded feed without first allocating a second list of every line. */
     fun parse(text: String): Parsed = parseSequence(text.lineSequence())
+
+    /** Parses a cached feed directly from disk without retaining a million-line String/List. */
+    fun parse(reader: Reader): Parsed = parseSequence(reader.buffered().lineSequence())
 
     private fun parseSequence(lines: Sequence<String>): Parsed {
         val blocked = HashSet<String>()
