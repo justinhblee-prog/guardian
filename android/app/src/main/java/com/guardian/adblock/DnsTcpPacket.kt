@@ -50,9 +50,7 @@ object DnsTcpPacket {
             destination = packet.copyOfRange(16, 20)
         } else if (version == 6) {
             if (length < 60 || u16(packet, 4) + 40 != length) return null
-            // Extension headers and jumbograms are not supported by this codec.
-            if ((packet[6].toInt() and 0xff) != 6) return null
-            tcpOffset = 40
+            tcpOffset = ipv6TcpOffset(packet, length) ?: return null
             source = packet.copyOfRange(8, 24)
             destination = packet.copyOfRange(24, 40)
         } else return null
@@ -119,6 +117,32 @@ object DnsTcpPacket {
         put16(out, tcp + 16, tcpChecksum(out, request.version, tcp, tcpLength,
             request.destination, request.source))
         return out
+    }
+
+    /**
+     * Walks a bounded IPv6 extension-header chain to locate TCP. Fragment headers
+     * remain deliberately unsupported because reassembly is not implemented.
+     */
+    private fun ipv6TcpOffset(packet: ByteArray, packetLength: Int): Int? {
+        var nextHeader = packet[6].toInt() and 0xff
+        var offset = 40
+        var count = 0
+        while (nextHeader != 6) {
+            if (++count > 8 || offset - 40 > 2048 || offset + 2 > packetLength) return null
+            val following = packet[offset].toInt() and 0xff
+            val headerLength = when (nextHeader) {
+                0, 43, 60, 135, 139, 140 -> ((packet[offset + 1].toInt() and 0xff) + 1) * 8
+                51 -> ((packet[offset + 1].toInt() and 0xff) + 2) * 4
+                // Fragmented DNS TCP segments need IP reassembly before checksum validation.
+                44 -> return null
+                else -> return null
+            }
+            if (headerLength < 8 || offset + headerLength > packetLength) return null
+            offset += headerLength
+            nextHeader = following
+        }
+        if (offset + 20 > packetLength || offset - 40 > 2048) return null
+        return offset
     }
 
     private fun tcpChecksumValid(packet: ByteArray, version: Int, offset: Int, length: Int,

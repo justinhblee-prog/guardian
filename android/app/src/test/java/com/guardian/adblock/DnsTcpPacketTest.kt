@@ -62,6 +62,50 @@ class DnsTcpPacketTest {
         assertNull(DnsTcpPacket.parse(reservedTcpBit, reservedTcpBit.size))
     }
 
+    @Test fun parsesIpv6TcpAfterHopByHopAndDestinationOptions() {
+        val base = ipv6Request()
+        val packet = ByteArray(base.size + 16)
+        System.arraycopy(base, 0, packet, 0, 40)
+        packet[4] = 0
+        packet[5] = 36
+        packet[6] = 0 // Hop-by-Hop Options
+        packet[40] = 60 // Destination Options follows
+        packet[41] = 0 // 8-byte header
+        packet[48] = 6 // TCP follows
+        packet[49] = 0 // 8-byte header
+        System.arraycopy(base, 40, packet, 56, 20)
+        sealTcp6(packet, 56)
+
+        val parsed = DnsTcpPacket.parse(packet, packet.size)
+        assertNotNull(parsed)
+        assertEquals(6, parsed!!.version)
+        assertEquals(53000, parsed.sourcePort)
+        assertEquals(0x12345678L, parsed.sequence)
+    }
+
+    @Test fun rejectsIpv6FragmentHeaderAndMalformedExtensionLength() {
+        val base = ipv6Request()
+        val fragment = ByteArray(base.size + 8)
+        System.arraycopy(base, 0, fragment, 0, 40)
+        fragment[4] = 0
+        fragment[5] = 28
+        fragment[6] = 44
+        fragment[40] = 6
+        fragment[41] = 0
+        System.arraycopy(base, 40, fragment, 48, 20)
+        assertNull(DnsTcpPacket.parse(fragment, fragment.size))
+
+        val malformed = ByteArray(base.size + 8)
+        System.arraycopy(base, 0, malformed, 0, 40)
+        malformed[4] = 0
+        malformed[5] = 28
+        malformed[6] = 60
+        malformed[40] = 6
+        malformed[41] = 10 // claims an 88-byte extension header
+        System.arraycopy(base, 40, malformed, 48, 20)
+        assertNull(DnsTcpPacket.parse(malformed, malformed.size))
+    }
+
     @Test fun rejectsCorruptTcpChecksum() {
         val packet = ipv4Request()
         packet[packet.size - 1] = 1
@@ -116,8 +160,8 @@ class DnsTcpPacketTest {
         return p
     }
 
-    private fun sealTcp6(p: ByteArray) {
-        p[56] = 0; p[57] = 0
+    private fun sealTcp6(p: ByteArray, tcpOffset: Int = 40) {
+        p[tcpOffset + 16] = 0; p[tcpOffset + 17] = 0
         var sum = 0L
         fun add(start: Int, length: Int) {
             var i = start
@@ -128,12 +172,13 @@ class DnsTcpPacketTest {
             if (i < start + length) sum += ((p[i].toInt() and 255) shl 8).toLong()
         }
         add(8, 32)
-        sum += 20
+        val tcpLength = p.size - tcpOffset
+        sum += tcpLength
         sum += 6
-        add(40, 20)
+        add(tcpOffset, tcpLength)
         while ((sum ushr 16) != 0L) sum = (sum and 65535) + (sum ushr 16)
         val value = sum.inv().toInt() and 65535
-        p[56] = (value ushr 8).toByte(); p[57] = value.toByte()
+        p[tcpOffset + 16] = (value ushr 8).toByte(); p[tcpOffset + 17] = value.toByte()
     }
 
     private fun ipv4Request(): ByteArray {
