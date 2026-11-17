@@ -11,8 +11,9 @@ $filterDir = (Resolve-Path (Join-Path $serverDir '..\filter-distribution')).Path
 foreach ($name in @('docker','openssl')) { if (-not (Get-Command $name -ErrorAction SilentlyContinue)) { throw "$name 명령을 찾을 수 없습니다." } }
 docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop을 먼저 시작하세요.' }
-if (Test-Path -LiteralPath $paths.LicenseEnv) { throw '외부 운영 .env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
-if ((Test-Path (Join-Path $paths.Secrets 'guardian-license-private.pem')) -or (Test-Path (Join-Path $paths.Secrets 'guardian-filter-private.dpapi'))) { throw '기존 운영 서명키가 있습니다. 기존 키를 덮어쓰지 않습니다.' }
+if ((Test-Path -LiteralPath $paths.LicenseEnv) -or (Test-Path -LiteralPath $paths.FilterEnv)) { throw '외부 운영 .env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
+$existingSecretFiles = @(Get-ChildItem -LiteralPath $paths.Secrets -File -Force -ErrorAction SilentlyContinue)
+if ($existingSecretFiles.Count -gt 0) { throw '외부 비밀 폴더에 기존 파일이 있습니다. 기존 키를 덮어쓰지 않습니다.' }
 $licensePrivate = Join-Path $paths.Secrets 'guardian-license-private.pem'
 $licensePublic = Join-Path $paths.Secrets 'guardian-license-public.pem'
 $filterPrivate = Join-Path $paths.Secrets 'guardian-filter-private.pem'
