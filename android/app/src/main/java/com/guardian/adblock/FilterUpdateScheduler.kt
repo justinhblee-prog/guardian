@@ -19,6 +19,13 @@ object FilterUpdateScheduler {
 
     internal fun normalizeInterval(intervalMs: Long): Long = intervalMs.coerceAtLeast(MIN_INTERVAL_MS)
 
+    /**
+     * The Activity performs the first-run download immediately. Delay the periodic
+     * worker's first execution by one full interval so it cannot race that initial
+     * download and redundantly fetch the same base list before optional lists run.
+     */
+    internal fun initialDelayMs(intervalMs: Long): Long = normalizeInterval(intervalMs)
+
     /** Preserve any supported interval in the settings spinner; use the daily default only for unknown values. */
     internal fun selectionIndex(intervalMs: Long, supportedIntervals: List<Long>, defaultIndex: Int): Int {
         val index = supportedIntervals.indexOf(intervalMs)
@@ -40,6 +47,7 @@ object FilterUpdateScheduler {
             .build()
         val request = PeriodicWorkRequestBuilder<FilterUpdateWorker>(interval, TimeUnit.MILLISECONDS)
             .setInitialDelay(INITIAL_DELAY_MS, TimeUnit.MILLISECONDS)
+            .setInitialDelay(initialDelayMs(interval), TimeUnit.MILLISECONDS)
             .setConstraints(constraints)
             .setBackoffCriteria(
                 androidx.work.BackoffPolicy.EXPONENTIAL,
