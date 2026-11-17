@@ -138,3 +138,26 @@ flowchart TD
 - 2026-11-17: PR #77 was squash-merged as `30a765c`; Android 0.7.14-dev PR E2E and signed filter/license API CI evidence recorded. Main-branch post-merge workflows remain in progress at this update.
 - 2026-11-17: PR #83, #84, and #85 merged after full Android emulator VPN/DNS E2E success. IPv6 UDP/TCP share bounded extension-header parsing; IPv4/IPv6 fragment reassembly and full TCP retransmission/partial-ACK recovery remain unsupported.
 - 2026-11-17: PR #87 adds DNS-over-TCP out-of-order and overlapping-payload regression tests. PR CI is running; no production code changes.
+
+
+## 2026-11-17 후속 검증 정정 — main run 44091546831
+
+- PR #93 `Prevent first-run filter refresh from racing WorkManager` 병합 커밋: `1b41b4dfd611ae53c446fe2b1a703d9f4bceee61`.
+- Main Android workflow [44091546831](https://github.com/justinhblee-prog/guardian/actions/runs/44091546831): 전체 job `success`. Unit tests, lint, debug APK, upgrade install, API 35 emulator install/launch, VPN DNS E2E 및 artifact upload가 모두 성공했습니다.
+- 실제 VPN 로그: 터널 활성화, 허용 DNS 성공, 테스트용 `guardian-ci-44091546831.doubleclick.net` 차단, `dns_queries=12`, `dns_forwarded=11`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`.
+- APK: 3,124,398 bytes, SHA-256 `e7d6bb03fe1e6b8cb80cba3a5ee4ceef531390a333865a60519ad8790c3e87d4`.
+- 전체 소스 ZIP: 450,165 bytes, SHA-256 `e3534e5909e778667f0b28cfdbaa5c166f252f882a51bc164ddb137bfae19970`.
+- Artifact를 직접 내려받아 ZIP 내부 APK/source의 실제 크기와 SHA-256을 독립 재계산했습니다. Artifact 보존 만료일은 GitHub의 artifact 설정을 따릅니다.
+- PR #13/#14/#15는 이미 병합되었습니다. PR #16은 후속 PR #54로 대체되어 #54가 main에 병합되었습니다. PR #17은 signed-manifest publisher foundation에 재적용된 PR #24로 대체되었고, #24는 해당 feature branch에 병합되었습니다. PR #18은 runner 사전 배정 진단 전용이므로 제품 변경 PR로 재실행/병합하지 않고 닫혔습니다. 따라서 #13~#18의 닫힌 원본 PR을 그대로 재실행하는 대신 유지되는 후속 변경과 최신 main CI를 확인했습니다.
+- 이전 runner 배정 문제는 이번 main run에서 재현되지 않았습니다. 별도 billing/usage/Actions 설정은 변경하지 않았습니다.
+
+## 다음 개발·검증 단계의 현재 경계
+
+1. Android 기능 개발 및 에뮬레이터 VPN/DNS 회귀 검증: 현재 main에서 완료.
+2. Android 실기기·태블릿 수용 테스트: 미실시.
+3. 운영 필터 공개 branch 최초 게시, 운영 공개키와 앱 키 일치, 모바일 HTTPS 다운로드·서명·SHA-256·anti-rollback end-to-end: 미실시.
+4. License API/PostgreSQL의 실제 Windows 노트북 배포, Tailscale HTTPS 연결, 발급·갱신·기기 해제 실서버 E2E: 미실시.
+5. Production keystore와 보호된 CI secrets가 준비되지 않아 production APK/AAB는 생성하지 않음.
+6. Windows EXE/설치 프로그램의 최신 main 기준 빌드·설치·제거 및 실제 어댑터 DNS 복구 검증은 별도 단계이며, 현재 Android 성공을 Windows 완료로 간주하지 않음.
+
+Windows 설치 패키지 workflow는 `.github/workflows/windows-build.yml`에 구성되어 있으나 Windows hosted runner 사용은 사용자 요청 없이 추가 사용량을 발생시키지 않도록 별도 실행하지 않았습니다. Windows 코드/패키지의 검증은 Android CI와 분리해서 판정합니다.
