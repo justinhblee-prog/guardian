@@ -170,3 +170,11 @@ Windows 설치 패키지 workflow는 `.github/workflows/windows-build.yml`에 �
 - 이후 main의 Windows 설치/제거 코드와 workflow가 변경되었습니다. 현재 workflow는 데몬의 실제 하위 폴더 패키징, 런타임 의존성 확인, `--restore-dns` 후 제거, 예약 작업이 등록된 상태에서 직접 제거하는 두 경로, 제거 후 예약 작업 삭제 확인을 별도로 검사합니다.
 - 현재 main의 `.github/workflows/windows-build.yml` 및 installer 변경은 정적 검토만 완료했습니다. 이 변경 이후의 Windows hosted-runner 빌드·설치·제거 실행 결과는 아직 없습니다.
 - Windows runner 실행은 Android main CI 성공과 별개이며, 실제 Windows PC의 어댑터 DNS 변경·복구, 재부팅, Wi-Fi/Ethernet, VPN 공존성 검증도 별도입니다. 운영 서명 인증서가 없는 개발용 설치 파일은 서명되지 않으며 SmartScreen 경고가 발생할 수 있습니다.
+
+
+## Windows DNS engine source-package verification — 2026-11-17
+
+- From the exact source ZIP built by main run `44091546831`, extracted the `dns_engine/` and `windows_engine/` source and ran `python -m pytest -q dns_engine windows_engine` in a Linux environment: **26 passed**.
+- `python -m compileall -q dns_engine windows_engine`: exit code 0.
+- This independently validates the portable DNS engine and mocked Windows integration tests from the exact source artifact. It does not execute Windows PowerShell, Task Scheduler, Inno Setup, Authenticode, Windows adapter DNS changes, or a native Windows EXE.
+- Native Windows packaging and install/uninstall verification remain outstanding. The prior Windows runner failure and current unverified changes are recorded above.
