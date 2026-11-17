@@ -10,7 +10,10 @@ services:
     ports:
       - "127.0.0.1:8788:8788"
     volumes:
-      - ${GUARDIAN_FILTER_DIST_DIR:?Set GUARDIAN_FILTER_DIST_DIR to external dist}:/app/dist:ro
+      - type: bind
+        source: ${GUARDIAN_FILTER_DIST_DIR:?Set GUARDIAN_FILTER_DIST_DIR to external dist}
+        target: /app/dist
+        read_only: true
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8788/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
