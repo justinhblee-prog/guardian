@@ -1,4 +1,4 @@
-# Guardian AdBlock — Android 0.7.13-dev / Windows client
+# Guardian AdBlock — Android 0.7.14-dev / Windows client
 
 ## 과거 통합 기록 (이후 최신 검증 기록 우선)
 
