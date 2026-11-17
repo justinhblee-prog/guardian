@@ -35,36 +35,48 @@ class FilterUpdateWorker(
             prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
 
             var optionalFailure = false
-            if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false) &&
-                FilterUpdatePolicy.isDue(
-                    FilterListManager.hasCachedSecurityList(applicationContext),
+            val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+            val securityCacheReady = securityEnabled && FilterListManager.hasCachedSecurityList(applicationContext)
+            if (securityEnabled && FilterUpdatePolicy.isDue(
+                    securityCacheReady,
                     FilterListManager.lastSecurityUpdatedAt(applicationContext), interval, now
                 )) {
                 try {
                     FilterListManager.updateSecurity(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                 } catch (e: Exception) {
-                    optionalFailure = true
-                    prefs.edit().putString(
+                    val editor = prefs.edit().putString(
                         FilterListManager.KEY_SECURITY_LAST_ERROR,
                         e.message ?: e.javaClass.simpleName
-                    ).apply()
+                    )
+                    if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityEnabled, securityCacheReady)) {
+                        editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                    } else {
+                        optionalFailure = true
+                    }
+                    editor.apply()
                 }
             }
-            if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true) &&
-                FilterUpdatePolicy.isDue(
-                    FilterListManager.hasCachedAndroidAdsList(applicationContext),
+            val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+            val androidAdsCacheReady = androidAdsEnabled && FilterListManager.hasCachedAndroidAdsList(applicationContext)
+            if (androidAdsEnabled && FilterUpdatePolicy.isDue(
+                    androidAdsCacheReady,
                     FilterListManager.lastAndroidAdsUpdatedAt(applicationContext), interval, now
                 )) {
                 try {
                     FilterListManager.updateAndroidAds(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                 } catch (e: Exception) {
-                    optionalFailure = true
-                    prefs.edit().putString(
+                    val editor = prefs.edit().putString(
                         FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                         e.message ?: e.javaClass.simpleName
-                    ).apply()
+                    )
+                    if (FilterUpdatePolicy.shouldDisableOptionalFilter(androidAdsEnabled, androidAdsCacheReady)) {
+                        editor.putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+                    } else {
+                        optionalFailure = true
+                    }
+                    editor.apply()
                 }
             }
 
@@ -106,4 +118,8 @@ internal object FilterUpdatePolicy {
         val interval = FilterUpdateScheduler.normalizeInterval(intervalMs)
         return now >= lastUpdatedAt && now - lastUpdatedAt >= interval
     }
+
+    /** An unavailable optional source must not prevent the base DNS protection from starting. */
+    fun shouldDisableOptionalFilter(enabled: Boolean, hasValidCache: Boolean): Boolean =
+        enabled && !hasValidCache
 }

@@ -8,23 +8,34 @@ MAIN_CACHE="adguard_dns_filter.txt"
 SECURITY_CACHE="hagezi_threat_intelligence.txt"
 ANDROID_CACHE="awavenue_android_ads.txt"
 
-adb shell settings put global private_dns_mode off
-adb shell settings delete global private_dns_specifier >/dev/null 2>&1 || true
-adb shell am force-stop "$PACKAGE" || true
-adb shell monkey -p "$PACKAGE" 1 >/dev/null
+# A stalled ADB command must not consume the entire emulator job timeout.
+adb_cmd() {
+  timeout --signal=TERM --kill-after=2s 30s adb "$@"
+}
+
+# Polling must be bounded tightly so a wedged ADB daemon cannot multiply
+# the cache-wait loop into a job-long hang. Normal commands keep the longer cap.
+adb_poll() {
+  timeout --signal=TERM --kill-after=2s 8s adb "$@"
+}
+
+adb_cmd shell settings put global private_dns_mode off
+adb_cmd shell settings delete global private_dns_specifier >/dev/null 2>&1 || true
+adb_cmd shell am force-stop "$PACKAGE" || true
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
 sleep 3
 
 read_prefs() {
-  adb shell run-as "$PACKAGE" cat "$PREFS" 2>/dev/null | tr -d '\r' || true
+  adb_cmd shell run-as "$PACKAGE" cat "$PREFS" 2>/dev/null | tr -d '\r' || true
 }
 
 cache_ready() {
   local listing prefs
-  listing="$(timeout --signal=TERM --kill-after=2s 12s adb shell run-as "$PACKAGE" ls -1 "$APP_DATA/files" 2>&1)" || {
+  listing="$(adb_poll shell run-as "$PACKAGE" ls -1 "$APP_DATA/files" 2>&1)" || {
     if (( ${attempt:-1} == 1 )); then echo "Cache listing unavailable: $listing" >&2; fi
     return 1
   }
-  prefs="$(read_prefs)"
+  prefs="$(adb_poll shell run-as "$PACKAGE" cat "$PREFS" 2>/dev/null | tr -d '\r' || true)"
   grep -Fxq "$MAIN_CACHE" <<<"$listing" || return 1
   grep -q 'name="filter_list_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs" || return 1
 
@@ -42,9 +53,9 @@ cache_ready() {
 
 echo "Waiting for all enabled filter lists to be downloaded and cached."
 ready=0
-for attempt in $(seq 1 240); do
+for attempt in $(seq 1 60); do
   if (( attempt % 10 == 1 )); then
-    echo "Filter cache wait: $(( (attempt - 1) * 2 ))s elapsed; checking all three enabled lists."
+    echo "Filter cache wait: $(( (attempt - 1) * 2 ))s elapsed; checking enabled filter lists (bounded ADB poll)."
   fi
   if cache_ready; then
     ready=1
@@ -57,13 +68,13 @@ if [[ "$ready" -ne 1 ]]; then
   echo "Persisted filter update errors:"
   read_prefs || true
   echo "Filter cache files:"
-  adb shell run-as "$PACKAGE" ls -la "$APP_DATA" || true
-  adb shell run-as "$PACKAGE" ls -la "$APP_DATA/files" || true
-  adb shell run-as "$PACKAGE" cat "$PREFS" || true
+  adb_cmd shell run-as "$PACKAGE" ls -la "$APP_DATA" || true
+  adb_cmd shell run-as "$PACKAGE" ls -la "$APP_DATA/files" || true
+  adb_cmd shell run-as "$PACKAGE" cat "$PREFS" || true
   echo "Guardian filter/network log:"
-  adb logcat -d -t 6000 | grep -E "Guardian|Filter|WorkManager|OkHttp|UnknownHost|SSL|Exception|timeout" | tail -300 || true
+  adb_cmd logcat -d -t 6000 | grep -E "Guardian|Filter|WorkManager|OkHttp|UnknownHost|SSL|Exception|timeout" | tail -300 || true
   echo "Emulator network state:"
-  adb shell dumpsys connectivity | tail -160 || true
+  adb_cmd shell dumpsys connectivity | tail -160 || true
   exit 1
 fi
 
@@ -72,25 +83,28 @@ fi
 tap_text() {
   local wanted="$1"
   local xml
-  adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  xml="$(adb exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   local bounds
   bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
-    if sys.argv[1] in node.attrib.get("text",""):
+    if (sys.argv[1] in node.attrib.get("text","")
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("clickable") == "true"
+        and node.attrib.get("enabled") == "true"):
         parts=node.attrib.get("bounds","").strip("[]").split("][")
         if len(parts)==2:
             x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
             print((x1+x2)//2,(y1+y2)//2)
             break' "$wanted" <<<"$xml")"
   if [[ -z "$bounds" ]]; then
-    echo "Could not locate UI control: $wanted"
+    echo "Could not locate visible clickable UI control: $wanted"
     echo "$xml"
     return 1
   fi
   read -r x y <<<"$bounds"
-  adb shell input tap "$x" "$y"
+  adb_cmd shell input tap "$x" "$y"
 }
 
 prefs="$(read_prefs)"
@@ -105,13 +119,24 @@ tap_text "보호 시작"
 
 # Accept Android's VPN consent prompt if it appears.
 for attempt in $(seq 1 15); do
-  adb shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
-  xml="$(adb exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+  echo "Checking Android VPN consent dialog (attempt $attempt/15)."
+  adb_poll shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
+  xml="$(adb_poll exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
+try:
+    root=ET.fromstring(sys.stdin.read())
+except ET.ParseError:
+    raise SystemExit(0)
 for node in root.iter("node"):
-    label=node.attrib.get("text","").lower()
-    if any(k in label for k in ("allow","허용","확인","ok")):
+    label=node.attrib.get("text","").strip().lower()
+    resource_id=node.attrib.get("resource-id","")
+    is_ok_button=(resource_id == "android:id/button1" or label in ("ok","allow","허용","확인"))
+    if (is_ok_button
+        and node.attrib.get("package") == "com.android.vpndialogs"
+        and node.attrib.get("class") == "android.widget.Button"
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("clickable") == "true"
+        and node.attrib.get("enabled") == "true"):
         parts=node.attrib.get("bounds","").strip("[]").split("][")
         if len(parts)==2:
             x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
@@ -119,7 +144,9 @@ for node in root.iter("node"):
             break' <<<"$xml")"
   if [[ -n "$consent_bounds" ]]; then
     read -r x y <<<"$consent_bounds"
-    adb shell input tap "$x" "$y"
+    echo "Approving Android VPN consent dialog at ($x,$y)."
+    adb_poll shell input tap "$x" "$y"
+    sleep 2
     break
   fi
   sleep 1
@@ -137,7 +164,7 @@ done
 if [[ "$active" -ne 1 ]]; then
   echo "VPN did not become active. Current preferences and diagnostics:"
   read_prefs
-  adb logcat -d -t 3000 | grep -E 'Guardian|FATAL EXCEPTION|VpnService' | tail -200 || true
+  adb_cmd logcat -d -t 3000 | grep -E 'Guardian|FATAL EXCEPTION|VpnService' | tail -200 || true
   exit 1
 fi
 
@@ -147,7 +174,7 @@ before_queries="${before_queries:-0}"
 before_blocked="${before_blocked:-0}"
 
 echo "VPN active. Triggering a permitted DNS lookup."
-adb shell ping -c 1 -W 5 example.com >/tmp/guardian-allowed-dns.txt 2>&1 || true
+adb_cmd shell ping -c 1 -W 5 example.com >/tmp/guardian-allowed-dns.txt 2>&1 || true
 sleep 2
 prefs="$(read_prefs)"
 after_allowed="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
@@ -157,9 +184,15 @@ if (( after_allowed <= before_queries )); then
   read_prefs
   exit 1
 fi
+if ! grep -Eq 'PING example\.com \([^)]*\)' /tmp/guardian-allowed-dns.txt; then
+  echo "Allowed DNS query was observed, but example.com did not resolve to an address through the active VPN."
+  cat /tmp/guardian-allowed-dns.txt || true
+  read_prefs
+  exit 1
+fi
 
 echo "Triggering a blocked-domain DNS lookup."
-adb shell ping -c 1 -W 5 "guardian-ci-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-blocked-dns.txt 2>&1 || true
+adb_cmd shell ping -c 1 -W 5 "guardian-ci-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-blocked-dns.txt 2>&1 || true
 sleep 2
 prefs="$(read_prefs)"
 after_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
@@ -170,8 +203,14 @@ if (( after_blocked <= before_blocked )); then
   read_prefs
   exit 1
 fi
+if grep -Eq 'PING guardian-ci-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-blocked-dns.txt; then
+  echo "Blocked test domain unexpectedly resolved to an address."
+  cat /tmp/guardian-blocked-dns.txt || true
+  read_prefs
+  exit 1
+fi
 
-echo "VPN E2E passed: tunnel active, allowed DNS observed, and blocked DNS counter incremented."
+echo "VPN E2E passed: tunnel active, allowed DNS resolved, and blocked DNS returned no address."
 echo "Allowed lookup:"
 cat /tmp/guardian-allowed-dns.txt || true
 echo "Blocked lookup:"

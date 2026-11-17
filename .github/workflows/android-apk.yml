@@ -21,6 +21,7 @@ on:
       - 'README.md'
       - 'VERIFY_ANDROID_CORE.sh'
       - 'android/core-checks/**'
+      - 'scripts/verify_android_vpn_emulator.sh'
       - '.github/workflows/android-apk.yml'
 
 # Keep only the newest branch run; rapid source commits should not waste runners.
@@ -34,7 +35,9 @@ permissions:
 jobs:
   build-apk:
     name: Test and assemble debug APK
-    runs-on: ubuntu-latest
+    # Pin the stable Ubuntu 24.04 image: ubuntu-latest moved to 26.04,
+    # whose Android Emulator runtime is missing libpulse.so.0.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout source
@@ -172,22 +175,115 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Install Android emulator host runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpulse0
+
+      - name: Enable KVM access for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            test -r /dev/kvm
+            test -w /dev/kvm
+            echo "KVM access enabled for the ephemeral GitHub-hosted runner."
+          else
+            echo "KVM device is unavailable on this runner; x86_64 emulator cannot run without hardware acceleration."
+            exit 1
+          fi
+
+      - name: Preinstall Android emulator package with retry
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "Android Emulator SDK install attempt $attempt/3"
+            if sdkmanager --install 'emulator' 'system-images;android-35;google_apis;x86_64' --channel=0; then
+              EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"
+              if [ -x "$EMULATOR_BIN" ]; then
+                "$EMULATOR_BIN" -version
+                exit 0
+              fi
+              echo "SDK install returned success but emulator binary is missing: $EMULATOR_BIN"
+            fi
+            sleep 10
+          done
+          echo "Android Emulator SDK package could not be installed after 3 attempts."
+          exit 1
+
       - name: Install and launch APK on Android emulator
         id: android_emulator
-        # Preserve the build artifact if emulator infrastructure or the E2E
-        # acceptance test fails; report that result separately in the summary.
+        # Keep the APK artifact even if emulator infrastructure or VPN E2E fails.
         continue-on-error: true
-        timeout-minutes: 25
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          profile: pixel_6
-          # Run the entire verification in one Bash process; the action's
-          # line-oriented script runner cannot preserve shell loops/conditionals.
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
-          script: bash scripts/verify_android_emulator.sh && bash scripts/verify_android_vpn_emulator.sh
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          AVD_NAME=guardian-ci
+          EMULATOR_BIN="$ANDROID_HOME/emulator/emulator"
+          AVD_LOG="$RUNNER_TEMP/guardian-emulator.log"
+          export ANDROID_SERIAL=emulator-5554
+          # Keep AVD creation and emulator lookup on one explicit directory.
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          export ANDROID_SDK_HOME="$HOME"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "Runner kernel: $(uname -a)"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
+          if [ -e /dev/kvm ]; then
+            echo "/dev/kvm is present"
+            ls -l /dev/kvm
+          else
+            echo "/dev/kvm is absent; emulator will select software acceleration"
+          fi
+          AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          "$AVDMANAGER" create avd --force --name "$AVD_NAME" --package 'system-images;android-35;google_apis;x86_64' --device 'pixel_2' <<< 'no'
+          echo "=== AVD manager inventory ==="
+          "$AVDMANAGER" list avd
+          echo "=== AVD files ==="
+          find "$ANDROID_AVD_HOME" -maxdepth 3 -type f -printf '%p (%s bytes)\\n' || true
+          test -s "$ANDROID_AVD_HOME/$AVD_NAME.ini"
+          test -s "$ANDROID_AVD_HOME/$AVD_NAME.avd/config.ini"
+          "$EMULATOR_BIN" -list-avds | grep -Fx "$AVD_NAME"
+          adb start-server
+          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -netfast -dns-server 8.8.8.8,1.1.1.1 > "$AVD_LOG" 2>&1 &
+          EMULATOR_PID=$!
+          echo "Started emulator PID=$EMULATOR_PID, log=$AVD_LOG"
+          ready=0
+          for attempt in $(seq 1 600); do
+            if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
+              echo "Emulator process exited before ADB registration."
+              break
+            fi
+            state="$(timeout 8s adb devices | awk '$1=="emulator-5554" {print $2}')"
+            if [ "$state" = "device" ]; then
+              boot="$(timeout 10s adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [ "$boot" = "1" ]; then
+                ready=1
+                break
+              fi
+            fi
+            if (( attempt % 15 == 0 )); then
+              echo "Waiting for emulator boot ($attempt/600); ADB state=${state:-missing}"
+              adb devices -l || true
+              tail -n 30 "$AVD_LOG" || true
+            fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "Emulator failed to reach sys.boot_completed=1."
+            echo "=== ADB devices ==="
+            adb devices -l || true
+            echo "=== Emulator process ==="
+            ps -ef | grep -E '[e]mulator|[q]emu' || true
+            echo "=== Emulator log (last 500 lines) ==="
+            tail -n 500 "$AVD_LOG" || true
+            exit 1
+          fi
+          echo "Android emulator boot completed on emulator-5554."
+          bash scripts/verify_android_emulator.sh
+          bash scripts/verify_android_vpn_emulator.sh
 
       - name: Capture emulator diagnostics on failure
         if: steps.android_emulator.outcome == 'failure'
@@ -210,12 +306,19 @@ jobs:
             fi
           }
           capture devices adb devices -l
+          capture adb-server adb server-status
           capture getprop adb shell getprop
           capture logcat adb logcat -d -t 12000
           capture activities adb shell dumpsys activity activities
+          capture ui-dump adb shell uiautomator dump /sdcard/guardian-window.xml
+          if timeout --signal=TERM --kill-after=3s 15s adb exec-out cat /sdcard/guardian-window.xml > emulator-diagnostics/ui-hierarchy.xml 2>&1; then :; fi
+          if timeout --signal=TERM --kill-after=3s 15s adb exec-out screencap -p > emulator-diagnostics/screen.png 2>/dev/null; then :; fi
           capture package adb shell dumpsys package com.guardian.adblock
           capture vpn adb shell dumpsys vpn
-          capture emulator-version emulator -version
+          capture emulator-version "$ANDROID_HOME/emulator/emulator" -version
+          capture emulator-processes ps -ef
+          if [ -e /dev/kvm ]; then ls -l /dev/kvm > emulator-diagnostics/kvm.txt 2>&1; else echo '/dev/kvm absent' > emulator-diagnostics/kvm.txt; fi
+          if [ -s "$RUNNER_TEMP/guardian-emulator.log" ]; then cp "$RUNNER_TEMP/guardian-emulator.log" emulator-diagnostics/emulator.log; fi
           date -u +%FT%TZ > emulator-diagnostics/captured-at.txt
           printf 'Diagnostics collection finished (individual commands are bounded to 15s).\n'
 
@@ -229,12 +332,18 @@ jobs:
           retention-days: 7
 
       - name: Write final runtime verification result
-        if: always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+        if: always()
         shell: bash
         run: |
           mkdir -p release
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
-          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          if [ -s "$APK" ]; then
+            APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+            APK_STATUS="생성됨"
+          else
+            APK_SHA256="미생성"
+            APK_STATUS="빌드 단계 이전 실패 또는 APK 미생성"
+          fi
           cat > release/FINAL_VERIFICATION_KO.md <<EOF
           # Guardian AdBlock v0.7.13-dev — 최종 검증 상태
 
@@ -242,18 +351,25 @@ jobs:
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
           - 버전: 0.7.13-dev (26)
-          - 단위 테스트 / lintDebug / APK 빌드 / 패키지 검사: 통과
-          - 에뮬레이터 업그레이드 및 VPN DNS E2E: ${{ steps.android_emulator.outcome }}
+          - APK 생성 상태: ${APK_STATUS}
           - APK SHA-256: ${APK_SHA256}
+          - 테스트 및 빌드 단계의 실제 결과는 위 GitHub Actions 단계 결과를 기준으로 확인합니다.
+          - 에뮬레이터 업그레이드 및 VPN DNS E2E: ${{ steps.android_emulator.outcome }}
           - VPN E2E가 실패한 경우 APK는 빌드 검증 산출물일 뿐, 차단 기능 검증 완료로 간주하지 않습니다.
           - 실기기 검증은 별도입니다.
           EOF
 
       - name: Upload final verification report
-        if: always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: guardian-android-final-verification
           path: release/FINAL_VERIFICATION_KO.md
           if-no-files-found: error
           retention-days: 14
+
+      - name: Fail workflow when Android VPN runtime verification fails
+        if: steps.android_emulator.outcome == 'failure'
+        run: |
+          echo "Android emulator VPN/DNS runtime verification failed. APK build artifacts and the failure report were preserved."
+          exit 1
