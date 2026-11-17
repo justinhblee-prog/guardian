@@ -2,7 +2,7 @@
 function Get-GuardianPaths {
   [CmdletBinding()]
   param([Parameter(Mandatory)][string]$RepositoryRoot)
-  $repo = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd('\')
+  $repo = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd([char[]]@('\','/'))
   $configured = [Environment]::GetEnvironmentVariable('GUARDIAN_DATA_DIR')
   if ([string]::IsNullOrWhiteSpace($configured)) {
     if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { throw 'LOCALAPPDATA를 확인할 수 없습니다.' }
@@ -10,8 +10,8 @@ function Get-GuardianPaths {
   }
   if (-not [IO.Path]::IsPathRooted($configured)) { throw 'GUARDIAN_DATA_DIR는 절대 경로여야 합니다.' }
   $data = [IO.Path]::GetFullPath($configured).TrimEnd('\')
-  $repoPrefix = $repo + '\'
-  $dataPrefix = $data + '\'
+  $repoPrefix = $repo + [IO.Path]::DirectorySeparatorChar
+  $dataPrefix = $data + [IO.Path]::DirectorySeparatorChar
   if ($data.Equals($repo,[StringComparison]::OrdinalIgnoreCase) -or $data.StartsWith($repoPrefix,[StringComparison]::OrdinalIgnoreCase) -or $repo.StartsWith($dataPrefix,[StringComparison]::OrdinalIgnoreCase)) {
     throw "Guardian 데이터 경로는 Git 저장소와 분리된 독립 경로여야 합니다: $data"
   }
@@ -19,7 +19,7 @@ function Get-GuardianPaths {
   $oneDriveRoots = @($env:OneDrive,$env:OneDriveConsumer,$env:OneDriveCommercial) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
   foreach ($root in $oneDriveRoots) {
     $od = [IO.Path]::GetFullPath($root).TrimEnd('\')
-    if ($data.Equals($od,[StringComparison]::OrdinalIgnoreCase) -or $data.StartsWith(($od+'\'),[StringComparison]::OrdinalIgnoreCase)) {
+    if ($data.Equals($od,[StringComparison]::OrdinalIgnoreCase) -or $data.StartsWith(($od + [IO.Path]::DirectorySeparatorChar),[StringComparison]::OrdinalIgnoreCase)) {
       throw "Guardian 운영 데이터는 OneDrive 외부에 있어야 합니다: $data"
     }
   }
