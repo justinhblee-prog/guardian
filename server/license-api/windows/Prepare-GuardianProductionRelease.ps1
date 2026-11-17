@@ -13,7 +13,7 @@ $keyPasswordPath=Join-Path $secretDir 'guardian-release-key-password.dpapi'
 if($VersionName -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$' -or $VersionCode -lt 1){throw '정식 버전은 x.y.z 형식이고 versionCode는 양의 정수여야 합니다.'}
 foreach($path in @($licensePublicPath,$filterPublicPath)){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw "운영 공개키가 없습니다: $path. Setup-GuardianServer.ps1을 먼저 실행하세요."}}
 foreach($name in @('keytool','gh','tailscale','git')){if(-not(Get-Command $name -ErrorAction SilentlyContinue)){throw "$name 명령을 찾을 수 없습니다."}}
-$repoRoot=(Resolve-Path (Join-Path $serverDir '..\..\..')).Path
+$repoRoot=(Resolve-Path (Join-Path $serverDir '..\..')).Path
 $remote=(& git -C $repoRoot remote get-url origin 2>$null | Out-String).Trim()
 if($LASTEXITCODE -ne 0 -or $remote -notmatch 'github\.com[:/]justinhblee-prog/guardian(?:\.git)?$'){throw '현재 저장소 origin이 justinhblee-prog/guardian인지 확인할 수 없습니다.'}
 & gh auth status --hostname github.com *> $null
