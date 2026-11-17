@@ -6,8 +6,9 @@ from tkinter import messagebox
 from dns_engine import DomainRules,DnsProxy
 from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin
 from windows_engine.filter_updates import FilterUpdater
+from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_is_running
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
-CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"
+CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"
 TASK_NAME="GuardianDnsProxy"
 DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndication.com^\n||googleadservices.com^\n||adservice.google.com^\n||adnxs.com^\n||criteo.com^\n||taboola.com^\n||outbrain.com^\n||scorecardresearch.com^\n||quantserve.com^\n||mixpanel.com^\n||hotjar.com\n"
 def ensure_config():
@@ -45,6 +46,8 @@ def is_dns_probe_response(query,response):
             and bool(response[2]&0x80)
             and struct.unpack("!H",response[4:6])[0]==1)
 def proxy_ready():
+    # A generic DNS response on loopback is not proof that Guardian owns the port.
+    if not daemon_health_is_fresh(HEALTH): return False
     try:
         query=blocked_probe_query()
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
@@ -64,6 +67,12 @@ def ensure_daemon_running():
     raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53")
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
+    if daemon_process_is_running(HEALTH):
+        deadline=time.monotonic()+5
+        while daemon_process_is_running(HEALTH) and time.monotonic()<deadline:
+            time.sleep(.2)
+        if daemon_process_is_running(HEALTH):
+            raise NetworkConfigError("Guardian DNS background process did not stop; network protection state was not marked stopped")
     if delete:
         run_task("/Delete","/TN",TASK_NAME,"/F")
         for _ in range(5):
