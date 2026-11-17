@@ -537,3 +537,15 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 임시 Release APK와 키는 job 종료 시 삭제되며 artifact로 업로드하지 않습니다. 이 테스트는 Release 빌드 파이프라인 검증이지 운영 키로 서명한 정식 APK가 아닙니다. Production release job은 수동 실행 전용으로 유지됩니다.
 - 실제 Production APK/AAB에는 사용자 소유 운영 keystore와 보호된 CI secrets, 운영 HTTPS 필터 manifest URL·공개키, 운영 License API URL·공개키가 필요합니다. 해당 값은 아직 설정되지 않았으며 저장소나 채팅에 임의 키/주소를 만들지 않았습니다.
 - PR #75는 계속 **open / not merged** 상태입니다.
+
+
+## 2026-11-17 추가 검증 — 배포 서버 테스트 자동화
+
+- 서명 필터 배포 서비스 전용 GitHub Actions workflow `.github/workflows/filter-distribution-ci.yml`을 추가했습니다.
+- PR #75의 [Filter Distribution CI run 44016938516](https://github.com/justinhblee-prog/guardian/actions/runs/44016938516): **success**.
+- Node.js 22에서 publisher / updater / read-only distribution server의 자동 테스트 **37개 통과, 실패 0개**.
+- 검증 범위: RSA detached signature, immutable filter version, HTTPS upstream 제한, source 수/크기 상한, batch staging, 동시 실행 잠금, symlink/path traversal 차단, HTTP 응답 헤더와 파일 크기 경계.
+- 이 CI는 임시 테스트 키와 로컬 테스트 서버만 사용하며 운영 키, 운영 도메인 또는 인터넷 공개 배포를 구성하지 않습니다.
+- Android 최신 Debug APK 검증: [run 44015701642](https://github.com/justinhblee-prog/guardian/actions/runs/44015701642) — unit tests, lint, package identity, filter asset, APK checksum, emulator 설치·실행 및 실제 앱 UI 기반 VPN DNS E2E 성공.
+- 검증 APK: `0.7.13-dev`, versionCode `26`, SHA-256 `3d5950f66f623a0d8c74d609b34dd940089a7604ab3acbef464c8873a22f6c8e`.
+- PR #75는 open / not merged 상태를 유지합니다.
