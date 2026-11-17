@@ -4,48 +4,140 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>Guardian License Admin</title>
+<meta name="color-scheme" content="dark">
+<title>Guardian · License Admin</title>
 <style>
-:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0a101e;color:#f1f6ff}
-*{box-sizing:border-box}body{margin:0;padding:20px;max-width:900px;margin-inline:auto}
-h1{font-size:24px;margin:4px 0 8px}.muted{color:#9aaac4;font-size:13px}
-.panel{background:#141d30;border:1px solid #273653;border-radius:16px;padding:16px;margin:16px 0}
-input,button{font:inherit;border-radius:10px;padding:12px;border:1px solid #344663;background:#1b273d;color:#fff;width:100%;margin:6px 0}
-button{background:#48dcae;color:#0a101e;font-weight:700;border:0;cursor:pointer}
-button.secondary{background:#344663;color:#fff}button.danger{background:#7e3445;color:white;width:auto}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.row{border-top:1px solid #344663;padding:12px 0;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
-.key{overflow-wrap:anywhere;background:#0a101e;padding:12px;border-radius:8px}
-.license-actions{display:flex;gap:8px;flex-wrap:wrap;min-width:180px}.license-actions button{width:auto;margin:0}.device-list{margin:0 0 12px 0;padding:12px;background:#0d1728;border:1px solid #273653;border-radius:10px}.device-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #273653;flex-wrap:wrap}.device-row button{width:auto;margin:0}.device-row .muted{overflow-wrap:anywhere}
-@media(max-width:560px){body{padding:14px}.grid{grid-template-columns:1fr}.row{align-items:flex-start}}
+:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:#0a101e;color:#f1f6ff;font-synthesis:none}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 12% 0%,#17233d 0,transparent 42%),#0a101e}
+button,input,select{font:inherit}
+button{border:0;cursor:pointer}
+button:disabled{opacity:.55;cursor:wait}
+.shell{width:min(1160px,100%);margin:0 auto;padding:28px 22px 56px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
+.brand{display:flex;align-items:center;gap:13px}
+.brand-mark{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(145deg,#7658f5,#4830c7);font-size:23px;font-weight:900;box-shadow:0 8px 28px #4930c755}
+.brand-name{font-size:16px;font-weight:850;letter-spacing:2px}.brand-sub{color:#9aaac4;font-size:11px;margin-top:4px;letter-spacing:1.5px}
+.top-note{font-size:12px;color:#9aaac4;text-align:right}
+h1{font-size:26px;letter-spacing:-.5px;margin:0 0 7px}h2{font-size:17px;margin:0 0 6px}h3{font-size:14px;margin:0}
+.muted{color:#9aaac4;font-size:13px;line-height:1.55}.intro{margin:0 0 24px}
+.panel{background:linear-gradient(150deg,#17243a,#121d30);border:1px solid #2a3b58;border-radius:18px;padding:20px;box-shadow:0 12px 36px #0002}
+.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
+.auth-panel{max-width:680px}.auth-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end}
+.field{display:flex;flex-direction:column;gap:7px;min-width:0}.field label,.field-label{font-size:12px;color:#b8c6dc;font-weight:650}
+input,select{width:100%;min-width:0;padding:12px 13px;border:1px solid #344966;border-radius:11px;background:#0d1728;color:#f1f6ff;outline:none}
+input:focus,select:focus{border-color:#8b78ff;box-shadow:0 0 0 3px #755cf533}
+button{padding:12px 16px;border-radius:11px;background:#7356ed;color:#fff;font-weight:750;transition:filter .15s,transform .15s}
+button:hover{filter:brightness(1.08)}button:active{transform:translateY(1px)}
+button.secondary{background:#293a56;color:#e5edfa;border:1px solid #3a4d6b}
+button.danger{background:#7b3548;color:#fff}
+button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
+.status-line{display:flex;align-items:center;gap:9px;margin-top:14px;min-height:22px}.status-dot{width:8px;height:8px;border-radius:50%;background:#7b879a}.status-dot.ok{background:#48dcae;box-shadow:0 0 0 4px #48dcae22}.status-dot.error{background:#ff7188}
+.dashboard[hidden],.issued[hidden],.device-list[hidden]{display:none!important}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:22px 0}
+.stat{padding:16px 18px;border:1px solid #2b3b57;border-radius:15px;background:#111c2e}
+.stat-label{color:#9aaac4;font-size:11px;font-weight:650}.stat-value{font-size:26px;font-weight:850;letter-spacing:-.5px;margin-top:7px;font-variant-numeric:tabular-nums}
+.stat.active .stat-value{color:#48dcae}.stat.expired .stat-value{color:#f6c66a}.stat.revoked .stat-value{color:#ff8191}
+.content-grid{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.5fr);gap:16px;align-items:start}
+.stack{display:grid;gap:16px}.issue-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:15px 0}
+.full{grid-column:1/-1}.issued{margin-top:16px;padding:14px;border:1px solid #3c5e62;background:#10272a;border-radius:13px}
+.key{overflow-wrap:anywhere;font:12px ui-monospace,monospace;line-height:1.6;padding:12px;margin:9px 0;background:#08151a;border-radius:9px;border:1px solid #28504d;color:#9ff1d7}
+.toolbar{display:grid;grid-template-columns:minmax(0,1fr) 150px 160px auto;gap:9px;margin:15px 0}
+.license-list,.event-list{display:grid;gap:10px}
+.license-card{border:1px solid #2b3b57;border-radius:14px;padding:15px;background:#101b2d}
+.license-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.license-ref{font:700 13px ui-monospace,monospace;overflow-wrap:anywhere;color:#e4eaff}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;white-space:nowrap;background:#26364e;color:#c5d2e6}
+.pill.active{background:#164438;color:#80ebc6}.pill.expired{background:#493a1d;color:#f7d48a}.pill.revoked{background:#4b2632;color:#ff9aab}
+.license-meta{display:flex;flex-wrap:wrap;gap:7px 15px;margin:10px 0 13px;color:#a9b8cf;font-size:11px}
+.actions{display:flex;flex-wrap:wrap;gap:8px}.actions button{padding:9px 12px;font-size:11px}
+.device-list{margin-top:12px;padding:12px;background:#0c1728;border:1px solid #2b3b57;border-radius:11px}
+.device-row,.event-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #293953}.device-row:first-of-type,.event-row:first-of-type{border-top:0}
+.device-row button{padding:8px 10px;font-size:11px;flex:0 0 auto}.device-info{min-width:0}.device-info strong,.event-title{font-size:12px}.device-info .muted,.event-detail{font-size:11px;overflow-wrap:anywhere}
+.event-row{align-items:flex-start}.event-icon{width:30px;height:30px;display:grid;place-items:center;flex:0 0 auto;border-radius:9px;background:#26364e;color:#bcaeff;font-weight:800}
+.event-info{min-width:0;flex:1}.empty{padding:24px 12px;text-align:center;color:#91a2bd;font-size:12px;border:1px dashed #354761;border-radius:12px}
+.notice{font-size:11px;color:#91a2bd;line-height:1.55;margin-top:10px}
+@media(max-width:850px){.content-grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.toolbar{grid-template-columns:minmax(0,1fr) 1fr}.toolbar button{grid-column:auto}}
+@media(max-width:560px){.shell{padding:20px 14px 40px}.topbar{align-items:flex-start}.top-note{max-width:125px;font-size:10px}h1{font-size:22px}.panel{padding:16px}.auth-row{grid-template-columns:1fr}.auth-row button{width:100%}.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}.toolbar button{grid-column:1/-1}.issue-grid{grid-template-columns:1fr}.stats{gap:8px}.stat{padding:13px}.stat-value{font-size:22px}.license-top{align-items:flex-start}.license-meta{display:grid;gap:6px}}
 </style>
 </head>
 <body>
-<h1>GUARDIAN · 라이선스 관리자</h1>
-<p class="muted">관리자 API에 직접 연결됩니다. HTTPS 환경에서만 사용하고 인증 토큰은 브라우저에 저장하지 않습니다.</p>
-<section class="panel">
-<label for="token">관리자 API 토큰</label>
-<input id="token" type="password" autocomplete="off" placeholder="GUARDIAN_ADMIN_TOKEN">
-<button id="connect">인증 및 목록 불러오기</button>
-<p id="status" class="muted" aria-live="polite">인증 전</p>
-</section>
-<section class="panel">
-<h2>라이선스 발급</h2>
-<div class="grid">
-<label>유효 기간(일)<input id="days" type="number" min="1" max="36500" value="365"></label>
-<label>최대 활성 기기<input id="devices" type="number" min="1" max="20" value="1"></label>
-</div>
-<button id="issue">새 라이선스 발급</button>
-<div id="issued" hidden><p>발급된 키 — 이 화면을 벗어나면 다시 표시되지 않습니다.</p><div class="key" id="key"></div><button class="secondary" id="copy">키 복사</button></div>
-</section>
-<section class="panel">
-<h2>최근 라이선스</h2>
-<div id="licenses" class="muted">관리자 인증 후 표시됩니다.</div>
-</section>
-<section class="panel">
-<h2>최근 보안·관리 감사 기록</h2>
-<p class="muted">최근 100건 · 발급, 활성화, 비활성화, 정지 기록</p>
-<div id="events" class="muted">관리자 인증 후 표시됩니다.</div>
-</section>
-<script src="/admin.js" defer></script>
-</body></html>
+<main class="shell">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark" aria-hidden="true">G</div><div><div class="brand-name">GUARDIAN</div><div class="brand-sub">LICENSE CONTROL CENTER</div></div></div>
+    <div class="top-note">보안 관리자 전용<br>HTTPS 연결 권장</div>
+  </header>
+
+  <section class="intro">
+    <h1>라이선스 관리</h1>
+    <p class="muted">라이선스 발급, 기기 등록 현황, 권한 정지 및 보안 감사 기록을 한 곳에서 관리합니다.</p>
+  </section>
+
+  <div class="status-line" role="status" aria-live="polite"><span class="status-dot" id="statusDot"></span><span id="status" class="muted">인증 전</span></div>
+
+  <section class="panel auth-panel" id="authPanel">
+    <div class="panel-head"><div><h2>관리자 인증</h2><p class="muted">관리자 API 토큰은 이 페이지의 메모리에만 보관되며 브라우저 저장소에 기록되지 않습니다.</p></div></div>
+    <div class="auth-row">
+      <div class="field"><label for="token">관리자 API 토큰</label><input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="GUARDIAN_ADMIN_TOKEN"></div>
+      <button id="connect">인증하고 연결</button>
+    </div>
+  </section>
+
+  <section class="dashboard" id="dashboard" hidden>
+    <div class="stats" aria-label="라이선스 요약">
+      <article class="stat"><div class="stat-label">전체 라이선스</div><div class="stat-value" id="statTotal">0</div></article>
+      <article class="stat active"><div class="stat-label">사용 가능</div><div class="stat-value" id="statActive">0</div></article>
+      <article class="stat expired"><div class="stat-label">만료</div><div class="stat-value" id="statExpired">0</div></article>
+      <article class="stat revoked"><div class="stat-label">정지</div><div class="stat-value" id="statRevoked">0</div></article>
+    </div>
+
+    <div class="content-grid">
+      <div class="stack">
+        <section class="panel">
+          <div class="panel-head"><div><h2>새 라이선스 발급</h2><p class="muted">발급 키는 생성 직후 한 번만 표시됩니다.</p></div></div>
+          <div class="issue-grid">
+            <div class="field"><label for="days">유효 기간 (일)</label><input id="days" type="number" min="1" max="36500" step="1" value="365"></div>
+            <div class="field"><label for="devices">최대 기기 수</label><input id="devices" type="number" min="1" max="20" step="1" value="1"></div>
+          </div>
+          <button id="issue" style="width:100%">라이선스 발급</button>
+          <div class="issued" id="issued" hidden>
+            <strong>발급된 라이선스 키</strong>
+            <p class="notice">이 화면을 닫거나 새로고침하면 다시 확인할 수 없습니다. 안전한 곳에 보관하세요.</p>
+            <div class="key" id="key"></div>
+            <button class="secondary" id="copy" style="width:100%">키 복사</button>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><h2>관리 세션</h2><p class="muted">작업이 끝나면 관리자 연결을 종료하세요.</p></div></div>
+          <button class="secondary" id="disconnect" style="width:100%">관리자 연결 종료</button>
+          <p class="notice">라이선스 키와 관리자 토큰은 화면 외부로 자동 전송하거나 저장하지 않습니다.</p>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="panel">
+          <div class="panel-head"><div><h2>라이선스 목록</h2><p class="muted">최근 발급된 최대 200건 · 기기별 관리 및 정지</p></div></div>
+          <div class="toolbar">
+            <input id="search" type="search" placeholder="라이선스 참조·ID 검색" aria-label="라이선스 검색">
+            <select id="statusFilter" aria-label="상태 필터">
+              <option value="all">모든 상태</option><option value="active">사용 가능</option><option value="expired">만료</option><option value="revoked">정지</option>
+            </select>
+            <select id="sortOrder" aria-label="정렬 기준">
+              <option value="newest">최근 발급순</option><option value="expiry">만료 임박순</option><option value="devices">활성 기기순</option>
+            </select>
+            <button class="secondary" id="refresh">새로고침</button>
+          </div>
+          <div class="license-list" id="licenses" aria-live="polite"><div class="empty">관리자 인증이 필요합니다.</div></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><h2>보안 감사 기록</h2><p class="muted">최근 100건 · 발급, 활성화, 기기 해제, 정지</p></div></div>
+          <div class="event-list" id="events"><div class="empty">관리자 인증이 필요합니다.</div></div>
+        </section>
+      </div>
+    </div>
+  </section>
+</main>
+<script type="module" src="/admin.js"></script>
+</body>
+</html>
