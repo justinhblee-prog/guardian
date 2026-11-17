@@ -549,3 +549,15 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Android 최신 Debug APK 검증: [run 44015701642](https://github.com/justinhblee-prog/guardian/actions/runs/44015701642) — unit tests, lint, package identity, filter asset, APK checksum, emulator 설치·실행 및 실제 앱 UI 기반 VPN DNS E2E 성공.
 - 검증 APK: `0.7.13-dev`, versionCode `26`, SHA-256 `3d5950f66f623a0d8c74d609b34dd940089a7604ab3acbef464c8873a22f6c8e`.
 - PR #75는 open / not merged 상태를 유지합니다.
+
+
+## 2026-11-17 노트북 호스트 + 모바일 클라이언트 배포 구조
+
+운영 서버는 사용자의 Windows 노트북에서 실행하고 Android 모바일 앱이 접속하는 방식으로 확정했습니다. 별도 클라우드 서버 호스팅을 전제로 하지 않습니다.
+
+- 라이선스 API와 필터 배포 컨테이너는 `127.0.0.1` 바인딩을 유지합니다.
+- `server/license-api/windows/Enable-GuardianPrivateAccess.ps1`을 추가했습니다. Tailscale Serve HTTPS 443 → 노트북 localhost:8787, HTTPS 8443 → localhost:8788로 연결합니다.
+- 스크립트는 노트북의 MagicDNS 이름을 읽어 `sources.json`의 `baseUrl`을 갱신하고 DPAPI 보호 필터 서명키를 이용해 필터 manifest/서명을 다시 발행하도록 구성했습니다.
+- 노트북과 Android 모바일이 같은 Tailscale tailnet에 연결되어 있어야 합니다. Tailscale Serve는 tailnet 내부 전용이며 Funnel, 공유기 포트포워딩, 공용 방화벽 개방은 사용하지 않습니다.
+- 운영 안내: `server/license-api/windows/README_KO.md`.
+- 아직 사용자의 실제 노트북/모바일에 설치·연결하거나 실기기에서 HTTPS/API/필터 다운로드를 검증한 것은 아닙니다. 실제 기기 E2E 검증 전까지 운영 배포 완료로 표시하지 않습니다.
