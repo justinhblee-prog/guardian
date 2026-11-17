@@ -118,14 +118,16 @@ flowchart TD
 ## 현재 기준 상태
 
 - PR #73 squash merge: `99ad460bf309fe55b7503fa828d8eb4be25386ea`; PR #77 squash merge: `30a765cf539885f94a5924680a8d055d083afc79`.
-- Android 0.7.14-dev PR validation [run 44051352597](https://github.com/justinhblee-prog/guardian/actions/runs/44051352597) completed successfully: unit tests, lint, 0.7.13→0.7.14 upgrade install, API 35 emulator install/launch, VPN activation, allowed DNS response, blocked DNS rejection.
-- APK: `com.guardian.adblock`, versionCode 27, versionName `0.7.14-dev`, 3,119,618 bytes. SHA-256: `24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78`.
-- VPN E2E: `protection_active=true`, `dns_queries=6`, `dns_forwarded=5`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`. `example.com` resolved to `172.66.147.243`; `guardian-ci-44051352597.doubleclick.net` returned `unknown host`. ICMP ping loss is not reported as DNS failure.
-- Signed Filter Distribution run `44052664109`, Filter Distribution CI `44052665884`, License API/PostgreSQL integration `44052664268` succeeded.
-- Main Android run `44052664083` and production release configuration run `44052664040` are running at this document update time. Production-release job is skipped because no production keystore/secrets are configured.
-- PR #77 adds signed manifest/signature/hash client verification, Windows DPAPI filter signing and public publishing scripts, Tailscale private access, License API setup and scheduled publishing scripts. Actual Windows laptop key creation, public data branch publication, HTTPS/Tailscale operational deployment are not yet performed.
-- Real Android phone/tablet acceptance tests, Wi-Fi↔mobile transition, IPv4/IPv6, Private DNS, VPN coexistence and long-running background tests remain outstanding.
-- The APK is debug-signed. No production-signed APK/AAB is claimed.
+- 최신 main 커밋: `28abc77342f34898dd03c198fef942c0b49a7fe0`.
+- Android APK workflow [run 44060999851](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851): **success**. Unit tests, lint, debug APK assembly, bundled DNS filter, package/version, checksum, source ZIP integrity, emulator install/launch 및 VPN DNS E2E가 모두 통과했다.
+- APK: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`, 3,119,618 bytes. SHA-256: `24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78`.
+- 실제 에뮬레이터 로그: `protection_active=true`, `dns_queries=8`, `dns_forwarded=7`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`. `example.com`은 `104.20.23.154`로 해석됐고, `guardian-ci-44060999851.doubleclick.net`은 `unknown host`로 거부됐다. ICMP ping 응답 손실은 DNS 실패로 간주하지 않는다.
+- 최종 runtime report artifact: `guardian-android-final-verification`, artifact ID `14318322870`; APK/source artifact ID `14317588578`.
+- 실기기 스마트폰/태블릿 VPN 승인, 실제 네트워크 경로, 광고 제거 수용 테스트는 아직 미실시다. 에뮬레이터 E2E 결과로 대체하지 않는다. 다음 게이트는 실기기 수용 테스트이며, 현재 CI runner만으로 실제 기기 검증을 완료했다고 표시할 수 없다.
+- Signed Filter Distribution CI [run 44052665884](https://github.com/justinhblee-prog/guardian/actions/runs/44052665884) 및 License API/PostgreSQL integration [run 44059072829](https://github.com/justinhblee-prog/guardian/actions/runs/44059072829): 성공. 실제 운영 HTTPS/TLS 도메인·서명 개인키·DB 호스팅 및 Android 앱과의 운영 E2E는 미완료.
+- Production release configuration [run 44052664040](https://github.com/justinhblee-prog/guardian/actions/runs/44052664040): 설정 검증과 임시 키 서명 release APK 검증 성공. `production-release` job은 운영 keystore/secrets 부재로 의도적으로 skipped; production APK/AAB는 생성되지 않았다.
+- APK는 debug 서명 개발 빌드이며, 실기기 검증과 운영 서명키/서비스 설정 전에는 출시 후보 또는 production release로 표시하지 않는다.
+- Windows 클라이언트 및 설치 프로그램은 Android 검증/운영 준비 이후 단계로 유지한다.
 
 ## 변경 기록
 
@@ -137,3 +139,6 @@ flowchart TD
 - 2026-11-17: PR #73을 검토 후 squash merge했고, Android VPN E2E 로그에서 허용 DNS 응답·차단 DNS 실패 및 서비스 통계를 확인했다. 병합 후 main CI run `44047861059` 검증 대기 상태를 기록했다.
 
 - 2026-11-17: PR #77 was squash-merged as `30a765c`; Android 0.7.14-dev PR E2E and signed filter/license API CI evidence recorded. Main-branch post-merge workflows remain in progress at this update.
+
+
+- 2026-11-17: main run `44060999851`에서 Android 에뮬레이터 설치/실행 및 실제 VPN DNS E2E를 통과했다. 허용 도메인 응답, doubleclick 차단, DNS 통계(`8/7/1/1/0`)를 job log에서 확인하고 APK/source/report artifact를 재검증했다. 실기기 수용 검증은 별도 대기 상태로 유지한다.
