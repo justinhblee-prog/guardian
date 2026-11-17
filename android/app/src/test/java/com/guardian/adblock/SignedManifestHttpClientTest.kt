@@ -99,4 +99,22 @@ class SignedManifestHttpClientTest {
         }
     }
 
+    @Test
+    fun refusesManifestUrlWithQueryBeforeOpeningConnection() {
+        try {
+            SignedManifestHttpClient().download(
+                "https://example.invalid/adguard.manifest?unexpected=value",
+                "adguard",
+                "not-a-key",
+                0L
+            )
+            throw AssertionError("manifest URL query must be rejected")
+        } catch (expected: IllegalArgumentException) {
+            assertEquals(
+                "manifest URL에는 query 또는 fragment를 사용할 수 없습니다.",
+                expected.message
+            )
+        }
+    }
+
 }
