@@ -1,27 +1,29 @@
-## 2026-11-16 최신 통합 상태 — main 기준
+## 2026-11-17 최신 통합 상태 — main 기준
 
 ### Android
-- Android 패키지: `com.guardian.adblock`, versionCode `23`, versionName `0.7.10-dev`.
-- 검증된 APK: 3,070,507 bytes, SHA-256 `04958ebbe6a4d57d6e0dc603cfd1b36af0085ad82cb307183e98e73c76f1b739`.
-- 전체 패키지 artifact: [Android APK + source + verification ZIP](https://github.com/justinhblee-prog/guardian/actions/runs/43781110905), artifact ID `14188698028`.
-- API 35 에뮬레이터에서 v0.7.9-dev → v0.7.10-dev 업데이트 설치 및 앱 실행 통과.
-- 단위 테스트, Lint, 개발용 서명, APK 생성 및 DNS 필터 asset 검사 통과.
-- 서명 유형은 개발용 Android debug 서명입니다. 운영 keystore/secrets 및 production 배포 URL/공개키가 설정되지 않아 production APK/AAB는 생성하지 않았습니다.
-- 실기기 VPN 승인, 실제 DNS 라우팅/광고 제거, Wi-Fi↔모바일 전환, 장시간 안정성 및 태블릿 실기기 검증은 미실시입니다. 에뮬레이터 결과로 대체하지 않습니다.
+- 패키지: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`.
+- main 커밋: `28abc77342f34898dd03c198fef942c0b49a7fe0`.
+- Android CI [run 44060999851](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851): unit tests, lint, APK 빌드, 이전 버전 업데이트 설치, API 35 에뮬레이터 VPN/DNS E2E 전체 성공.
+- 설치용 개발 artifact [guardian-android-debug](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851), artifact ID `14317588578`.
+- APK: 3,119,618 bytes, SHA-256 `24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78`.
+- 동일 커밋 전체 소스 ZIP: 446,281 bytes, SHA-256 `a22d74b994b919e19de4125a719243786b76fa50dbb2d19d85200345afdcee17`.
+- 후속 artifact 감사 [run 44062116800](https://github.com/justinhblee-prog/guardian/actions/runs/44062116800): APK/source ZIP 각각의 SHA-256 및 ZIP 무결성 검증 성공.
+- 이 APK는 Android debug 개발 서명본입니다. production keystore/secrets가 없으므로 정식 production APK/AAB로 표시하지 않습니다.
+- API 35 에뮬레이터 E2E는 성공했지만 실제 스마트폰/태블릿 VPN/TUN 라우팅, 네트워크 전환, 광고 제거율은 미검증입니다.
+
+### 필터·라이선스 운영 코드
+- PR #78 운영자 라이선스 대시보드 개선 병합: 발급, 검색·상태 필터·정렬, 요약 통계, 기기별 해제, 라이선스 정지, 감사 기록.
+- License API main CI [run 44059072829](https://github.com/justinhblee-prog/guardian/actions/runs/44059072829) 성공: JavaScript 구문, Docker Compose, Windows 운영 스크립트, PostgreSQL 통합 테스트.
+- Signed filter distribution CI [run 44052664109](https://github.com/justinhblee-prog/guardian/actions/runs/44052664109) 및 main publisher/updater CI [run 44052665884](https://github.com/justinhblee-prog/guardian/actions/runs/44052665884) 성공.
+- 실제 운영 서명 개인키 생성, HTTPS 필터 manifest 공개 게시, 운영 License API/DB/TLS/Tailscale 서버 배포 및 실제 앱 기기 E2E는 아직 미완료입니다.
+
+### Production signing
+- Production Release 설정 검증 [run 44052664040](https://github.com/justinhblee-prog/guardian/actions/runs/44052664040) 성공: workflow YAML, Gradle release 설정, 개인키 없이 release 차단, 임시 키 서명 APK smoke test.
+- 운영 keystore/secrets가 없어 production-release job은 skipped입니다. 실제 production APK/AAB는 생성되지 않았습니다.
 
 ### Windows
-- Windows DNS 엔진, IPv4/IPv6 UDP·TCP loopback DNS proxy, DNS upstream 검증 및 UDP truncation 시 TCP fallback 구현.
-- Windows 데스크톱 제어 UI, 관리자 권한 흐름, DNS 어댑터 IPv4/IPv6 설정 백업·복구 및 실패 시 rollback 구현.
-- 창을 닫아도 보호를 유지하도록 부팅 시 실행되는 Windows 작업 스케줄러 백그라운드 DNS 프로세스를 추가했습니다. 제거 과정은 DNS 원상 복구가 실패하면 중단하도록 설계했습니다.
-- HTTPS/RSA-SHA256 서명 manifest, filter SHA-256, source version 및 anti-rollback 검증을 수행하는 Windows 필터 업데이트 클라이언트와 UI 설정을 구현했습니다. 운영 서버 주소와 pinned 공개키가 아직 제공/설정되지 않아 자동 업데이트는 미활성 상태입니다.
-- Windows CI: 22개 테스트가 Ubuntu 및 Windows 2022에서 통과했습니다([run 43785636135](https://github.com/justinhblee-prog/guardian/actions/runs/43785636135)).
-- Windows EXE/설치 프로그램 빌드 및 실제 설치·실행·제거 검증은 현재 별도 workflow에서 진행 중입니다([run 43785686270](https://github.com/justinhblee-prog/guardian/actions/runs/43785686270)). 완료 전까지 Windows 설치 패키지를 검증 완료로 표시하지 않습니다.
-- Windows 구현은 DNS 기반 보호이며 WFP 커널 드라이버가 아닙니다. 실제 Windows PC의 Ethernet/Wi-Fi DNS 전환, 재부팅 복구, VPN/보안 제품 공존성은 아직 실기기 검증이 필요합니다.
-
-### 공통 운영 준비
-- 저장소에는 서명 필터 배포 서버와 License API의 구현/배포 템플릿이 있으나, 운영 도메인·TLS·서명 개인키·공개키·DB가 실제 호스팅되어 end-to-end로 검증된 상태는 아닙니다.
-- 운영 서명 키나 개인 비밀값은 저장소 또는 채팅에 추가하지 않았습니다.
-- Windows 상세 안내: [WINDOWS_BUILD_KO.md](WINDOWS_BUILD_KO.md).
+- Windows DNS 엔진, 데스크톱 UI, DNS 백업·복구 및 운영 스크립트는 저장소에 존재합니다.
+- 사용자 우선순위에 따라 Windows EXE/설치 프로그램 패키징과 실기기 설치·제거·재부팅 복구 검증은 Android 및 공통 기능 이후 마지막 단계로 보류합니다.
 
 # Guardian AdBlock Android — 개발/릴리스 상태
 
