@@ -26,6 +26,32 @@ foreach ($check in $checks) {
   }
 }
 
+# Complete all local prerequisites before changing Tailscale Serve or sources.json.
+$filterDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\filter-distribution')).Path
+$sourcesPath = Join-Path $filterDir 'sources.json'
+if (-not (Test-Path -LiteralPath $sourcesPath -PathType Leaf)) {
+  throw 'sources.json이 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.'
+}
+$preflightConfig = Get-Content -Raw -LiteralPath $sourcesPath | ConvertFrom-Json
+if (-not $preflightConfig.sources -or $preflightConfig.sources.Count -lt 1) {
+  throw 'sources.json에 필터 공급원이 없습니다.'
+}
+$secretDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'secrets'
+$protectedKeyPath = Join-Path $secretDir 'guardian-filter-private.dpapi'
+$filterPublicKeyPath = Join-Path $secretDir 'guardian-filter-public.x509.b64'
+if (-not (Test-Path -LiteralPath $protectedKeyPath -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $filterPublicKeyPath -PathType Leaf)) {
+  throw '필터 서명 DPAPI 개인키 또는 공개키가 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.'
+}
+try { $null = ConvertTo-SecureString -String (Get-Content -Raw -LiteralPath $protectedKeyPath) }
+catch { throw '현재 Windows 계정에서 DPAPI 필터 서명키를 복호화할 수 없습니다.' }
+$nodeCommand = Get-Command 'node' -ErrorAction SilentlyContinue
+$npmCommand = Get-Command 'npm' -ErrorAction SilentlyContinue
+if (-not $nodeCommand -or -not $npmCommand) { throw '필터 게시에는 Node.js 22 이상과 npm이 필요합니다.' }
+$nodeMajorText = & node -p "process.versions.node.split('.')[0]"
+if ($LASTEXITCODE -ne 0 -or [int]$nodeMajorText -lt 22) { throw 'Node.js 22 이상을 설치한 뒤 다시 실행하세요.' }
+if (-not (Get-Command 'git' -ErrorAction SilentlyContinue)) { throw 'Git CLI를 찾을 수 없습니다. Git for Windows를 설치하세요.' }
+
 $statusText = (& $tailscale status --json | Out-String)
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale 연결 상태를 확인하지 못했습니다.' }
 try { $tailStatus = $statusText | ConvertFrom-Json } catch { throw 'Tailscale status JSON을 해석하지 못했습니다.' }
