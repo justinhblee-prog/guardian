@@ -1833,7 +1833,9 @@ class MainActivity : Activity() {
     }
 
     private fun requestProtection() {
+        android.util.Log.i("GuardianProtection", "Protection button tapped; readiness check starting")
         if (!protectionCheckRunning.compareAndSet(false, true)) {
+            android.util.Log.w("GuardianProtection", "Readiness check already running; duplicate tap ignored")
             protectionFeedback?.text = "필터 상태를 확인하고 있습니다. 잠시만 기다려 주세요."
             return
         }
@@ -1841,15 +1843,22 @@ class MainActivity : Activity() {
         startButton?.isEnabled = false
         protectionFeedback?.text = "필터 캐시와 검증 상태를 확인하고 있습니다."
         thread(name = "guardian-protection-readiness") {
+            val startedAt = android.os.SystemClock.elapsedRealtime()
             val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
             val readiness = try {
+                android.util.Log.i("GuardianProtection", "Checking base filter cache")
                 val hasCachedList = FilterListManager.hasCachedList(this)
+                android.util.Log.i("GuardianProtection", "Base filter cache check complete: $hasCachedList")
                 val selectedProfile = FilterListManager.selectedProfile(this)
                 val cachedProfile = FilterListManager.cachedProfile(this)
                 val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                android.util.Log.i("GuardianProtection", "Checking security filter cache; enabled=$securityEnabled")
                 val hasSecurityCache = FilterListManager.hasCachedSecurityList(this)
+                android.util.Log.i("GuardianProtection", "Security filter cache check complete: $hasSecurityCache")
                 val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                android.util.Log.i("GuardianProtection", "Checking Android ads filter cache; enabled=$androidAdsEnabled")
                 val hasAndroidAdsCache = FilterListManager.hasCachedAndroidAdsList(this)
+                android.util.Log.i("GuardianProtection", "Android ads filter cache check complete: $hasAndroidAdsCache")
                 val ready = FilterListManager.isProfileCacheCurrent(
                     hasCachedList, selectedProfile.key, cachedProfile.key,
                     securityEnabled, hasSecurityCache, androidAdsEnabled, hasAndroidAdsCache
@@ -1862,8 +1871,10 @@ class MainActivity : Activity() {
                     androidAdsEnabled && !hasAndroidAdsCache -> "Android 앱 광고 SDK 필터를 내려받은 후 다시 시작해 주세요."
                     else -> "선택한 필터 구성을 아직 준비하지 못했습니다. 필터 업데이트를 완료한 후 다시 시작해 주세요."
                 }
+                android.util.Log.i("GuardianProtection", "Readiness check complete: ready=$ready elapsedMs=${android.os.SystemClock.elapsedRealtime() - startedAt}")
                 ready to message
             } catch (error: Exception) {
+                android.util.Log.e("GuardianProtection", "Readiness check failed after ${android.os.SystemClock.elapsedRealtime() - startedAt}ms", error)
                 false to "필터 캐시 검증 오류: ${error.message ?: error.javaClass.simpleName}"
             }
             runOnUiThread {
@@ -1871,6 +1882,7 @@ class MainActivity : Activity() {
                 protectionActionButton?.isEnabled = true
                 startButton?.isEnabled = true
                 if (!readiness.first) {
+                    android.util.Log.e("GuardianProtection", "Filter cache not ready: ${readiness.second}")
                     pendingProtectionStartAfterFilterUpdate = true
                     val alreadyUpdating = filterUpdateRunning.get()
                     if (!alreadyUpdating) showTab("rules")
@@ -1879,12 +1891,14 @@ class MainActivity : Activity() {
                     return@runOnUiThread
                 }
                 val consent = VpnService.prepare(this)
+                android.util.Log.i("GuardianProtection", "VPN consent check complete; consentRequired=${consent != null}")
                 if (consent != null) startActivityForResult(consent, REQUEST_VPN) else startProtection()
             }
         }
     }
 
     private fun startProtection() {
+        android.util.Log.i("GuardianProtection", "Starting GuardianVpnService after VPN consent")
         val service = Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_START)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service) else startService(service)
