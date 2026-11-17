@@ -39,7 +39,7 @@ try {
       ($relative -match '^[A-Za-z0-9_.+-]+\.[A-Za-z0-9_.+-]+\.[0-9]+\.sig$') -or
       ($relative -match '^filters/[A-Za-z0-9_-]{1,64}/[A-Za-z0-9_.+-]{1,64}\.txt$')
     if (-not $allowedPath) {
-    }
+      throw "허용되지 않는 배포 파일 경로: $relative"
     }
   }
   $manifestFiles = @(Get-ChildItem -LiteralPath $dist -File -Filter '*.manifest')
