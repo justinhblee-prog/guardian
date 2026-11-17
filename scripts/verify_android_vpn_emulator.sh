@@ -144,9 +144,7 @@ for node in root.iter("node"):
         if len(parts)==2:
             x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
             print((x1+x2)//2,(y1+y2)//2,label)
-            break
-    if any(term in label for term in negative):
-        continue' <<<"$xml")"
+            break' <<<"$xml")"
   if [[ -n "$consent_bounds" ]]; then
     read -r x y consent_label <<<"$consent_bounds"
     echo "Accepting Android VPN consent using positive button '$consent_label' at $x,$y"
