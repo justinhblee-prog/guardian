@@ -205,7 +205,9 @@ jobs:
           # Run the entire verification in one Bash process; the action's
           # line-oriented script runner cannot preserve shell loops/conditionals.
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim
+          # The default Pixel 6 AVD RAM is tight when Guardian warms three large
+          # filter caches. Give Android system/Quickstep enough headroom.
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-audio -no-boot-anim -memory 4096 -cores 4
           script: bash scripts/verify_android_emulator.sh && bash scripts/verify_android_vpn_emulator.sh
 
       - name: Capture emulator diagnostics on failure
