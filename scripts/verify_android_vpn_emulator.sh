@@ -21,9 +21,18 @@ adb_poll() {
 
 adb_cmd shell settings put global private_dns_mode off
 adb_cmd shell settings delete global private_dns_specifier >/dev/null 2>&1 || true
-adb_cmd shell am force-stop "$PACKAGE" || true
-adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+
+# The preceding emulator verification already launched the app and its first-run
+# filter refresh may still be running. Do not force-stop that process: doing so
+# cancels the very downloads this readiness gate is waiting for. Bring the
+# existing Activity back to the foreground and verify that Android accepted it.
+launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1)"
+printf '%s\\n' "$launch_result"
+grep -q 'Status: ok' <<<"$launch_result"
 sleep 3
+foreground="$(adb_cmd shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tail -1 || true)"
+echo "Guardian foreground activity: ${foreground:-not reported}"
+grep -q "$PACKAGE" <<<"$foreground"
 
 read_prefs() {
   adb_cmd shell run-as "$PACKAGE" cat "$PREFS" 2>/dev/null | tr -d '\r' || true
@@ -53,13 +62,21 @@ cache_ready() {
 
 echo "Waiting for all enabled filter lists to be downloaded and cached."
 ready=0
-for attempt in $(seq 1 60); do
+for attempt in $(seq 1 120); do
   if (( attempt % 10 == 1 )); then
     echo "Filter cache wait: $(( (attempt - 1) * 2 ))s elapsed; checking enabled filter lists (bounded ADB poll)."
   fi
   if cache_ready; then
     ready=1
     break
+  fi
+  if (( attempt % 15 == 0 )); then
+    echo "Current Guardian filter preferences:"
+    read_prefs | grep -E 'filter_|security_|android_ads_' || true
+    echo "Current filter cache files:"
+    adb_poll shell run-as "$PACKAGE" ls -lh "$APP_DATA/files" 2>&1 || true
+    echo "Recent Guardian app logs:"
+    adb_poll logcat -d -t 1500 -s Guardian:V GuardianProtection:V GuardianVpn:V 2>&1 | tail -100 || true
   fi
   sleep 2
 done
