@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.7.11-dev
+# Guardian AdBlock Android 0.7.13-dev
 
 ## 제품 개요
 
@@ -8,7 +8,7 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 최소 Android: API 26
 - compile/target SDK: 35
 - 빌드 JDK: 17
-- 현재 버전: `0.7.11-dev` (versionCode 24)
+- 현재 버전: `0.7.13-dev` (versionCode 26)
 
 ## 현재 구현 기능
 
@@ -304,3 +304,15 @@ IPv6 DNS 업스트림 주소를 정규화할 때 주소 문자열이 제공되�
 - 광고/추적 분류는 도메인 이름 기반의 휴리스틱 추정이며, 원본 필터 규칙에 정식 taxonomy가 포함된 것은 아닙니다.
 - 절약 데이터는 차단 요청 1건당 24KB를 가정한 추정치입니다. 실제 응답 바이트 또는 페이지 로딩 데이터 절감량을 측정한 값이 아닙니다.
 - 분류별 집계는 기능 적용 이후부터 쌓이며, 기존 전체 차단 건수를 소급 분류하지 않습니다.
+
+
+## 0.7.13-dev 최신 VPN/DNS 검증 및 필터 시작 안정성 수정 — 2026-11-17
+
+- 패키지: `com.guardian.adblock`, versionCode 26, versionName `0.7.13-dev`.
+- PR #73의 optional filter fallback, 대용량 필터 Reader 파싱, VPN 시작 안정화 및 E2E 검증 개선을 main에 squash merge했습니다. merge commit: `99ad460bf309fe55b7503fa828d8eb4be25386ea`.
+- PR CI [run 43918433672](https://github.com/justinhblee-prog/guardian/actions/runs/43918433672): Android unit tests, lint, APK build, bundled filter asset validation, emulator install/upgrade 및 VPN DNS E2E 모두 성공.
+- VPN E2E 로그: `protection_active=true`, `dns_queries=4`, `dns_forwarded=3`, `dns_blocked=1`, `dns_failed=0`. `example.com`은 `104.20.23.154`로 해석됐고 `guardian-ci-43918433672.doubleclick.net`은 `unknown host`로 차단됐습니다.
+- CI의 ping ICMP 응답은 100% 손실이었으나 DNS 조회는 성공했습니다. ICMP 응답을 인터넷 연결 성공으로 과장하지 않습니다.
+- PR 병합 후 main 검증 [run 44047861059](https://github.com/justinhblee-prog/guardian/actions/runs/44047861059)은 문서 갱신 시점에 실행 중이며, 최종 APK artifact 및 checksum은 성공 완료 후 별도로 확인합니다.
+- 위 검증은 API 35 Android 에뮬레이터입니다. 실제 스마트폰/태블릿 설치, Wi-Fi↔모바일 전환, 제조사별 백그라운드 유지, 실제 광고 제거율은 아직 실기기에서 검증되지 않았습니다.
+- APK는 개발용 debug 서명본이며 production 서명 릴리스가 아닙니다.
