@@ -33,12 +33,11 @@ if ([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',
   throw 'Tailscale 기기의 MagicDNS 이름을 확인할 수 없습니다. Tailscale 연결 및 HTTPS 인증서 설정을 확인하세요.'
 }
 
-# Configure two HTTPS listeners while the Docker backends remain loopback-only.
+# Expose only the loopback-bound License API to the private Tailscale tailnet.
 & $tailscale serve --bg --https=443 http://127.0.0.1:8787
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve의 HTTPS 443 설정 실패' }
 
-# The signed manifest embeds absolute filter URLs. Update the publisher base URL
-# and republish all sources so the mobile app receives the correct private URL.
+# The signed manifest embeds absolute GitHub raw URLs. Publish only signed public assets to the static cloud branch.
 $filterDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\filter-distribution')).Path
 $sourcesPath = Join-Path $filterDir 'sources.json'
 if (-not (Test-Path $sourcesPath)) { throw 'sources.json이 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.' }
@@ -69,7 +68,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 상태 확인 실패' }
 Write-Host ''
 Write-Host 'Guardian 노트북 비공개 접속 주소'
 Write-Host ('라이선스 API: https://' + $dnsName)
-Write-Host ('서명 필터 서버: https://' + $dnsName + ':8443')
+Write-Host '서명 필터 클라우드: https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
 Write-Host ''
 Write-Host '필터 manifest와 서명 파일을 GitHub 정적 클라우드 원본에 게시했습니다.'
 Write-Host '모바일의 운영 서버 주소에는 위 Tailscale HTTPS 주소를, 서명 필터 배포 서버에는 출력된 GitHub 정적 클라우드 주소를 입력하세요. 필터 업데이트는 노트북이 꺼져 있어도 받을 수 있습니다.'
