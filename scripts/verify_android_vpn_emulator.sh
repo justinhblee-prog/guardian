@@ -343,7 +343,7 @@ sleep 2
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 installed_package_count="$(adb_cmd shell pm list packages --user 0 | tr -d '\r' | grep -c '^package:')"
-expected_exclusion_app_count=$((installed_package_count - 1))
+expected_exclusion_app_count="$installed_package_count"
 visible_exclusion_app_count="$(python3 -c 'import re,sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
