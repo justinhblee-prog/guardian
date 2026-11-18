@@ -201,6 +201,24 @@ for node in root.iter("node"):
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
 tap_content_description "보호"
 sleep 1
+# The app-specific management button is near the bottom of the Protection tab.
+# Scroll until it is actually visible before asking UIAutomator to tap it.
+app_management_visible=0
+for attempt in $(seq 1 5); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  app_management_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if grep -Fq 'text="앱별 보호 제외 관리"' <<<"$app_management_xml"; then
+    app_management_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 540 1500 540 600 450
+  sleep 1
+done
+if [[ "$app_management_visible" -ne 1 ]]; then
+  echo "App-specific protection management button did not appear while scrolling the Protection tab."
+  echo "$app_management_xml"
+  exit 1
+fi
 tap_text "앱별 보호 제외 관리"
 sleep 2
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
