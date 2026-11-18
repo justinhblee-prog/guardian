@@ -36,6 +36,20 @@
 
 현재 예제의 AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal/Pro/TIF Medium, AWAvenue Ads Rule은 각각 GPL-3.0 또는 MPL-2.0 공개 라이선스 표시가 확인됩니다. 원본 목록을 유료 앱과 함께 재배포할 때는 목록별 저작권·라이선스 고지, 수정 여부, 대응 소스 제공 등 적용 조건을 확인해야 합니다. 기술적으로 다운로드·서명할 수 있다는 사실은 상용 재배포 승인을 뜻하지 않습니다. 세부 출처·검토 기준과 현재 미승인 경계는 [제3자 필터 원본 라이선스 감사](THIRD_PARTY_FILTER_LICENSES_KO.md)를 참조합니다. 법률 검토가 끝나지 않은 upstream은 상용 운영 설정에서 활성화하지 않습니다.
 
+## 1-B. 필터 원본의 상용 재배포 승인 게이트
+
+필터 publisher/updater는 공개 upstream URL을 다운로드하고 RSA 서명을 생성할 수 있다는 이유만으로 상용 앱에 포함해 배포할 수 없습니다. 현재 7개 예제 source는 공개 라이선스 식별자(GPL-3.0 또는 MPL-2.0)를 표시하지만, 예제 설정은 모두 승인되지 않은 상태입니다.
+
+운영 `sources.json`의 각 source는 다음 세 필드를 명시해야 합니다.
+
+- `licenseId`: 원본 파일에 실제 적용되는 라이선스 식별자. 프로젝트 README의 표기만으로 파일 내부의 모든 제3자 데이터까지 동일 라이선스라고 가정하지 않습니다.
+- `redistributionApproved`: 해당 source를 Guardian 상용 제품에 재배포할 수 있다는 검토가 끝난 경우에만 boolean `true`.
+- `redistributionApprovalRef`: 법무 검토 티켓, 승인 문서 또는 기타 추적 가능한 내부 기록 ID. 빈 문자열/공백은 허용되지 않습니다.
+
+Updater는 세 값 중 하나라도 누락되거나 승인 플래그가 true가 아니면 **upstream 네트워크 요청 전에 전체 배치를 중단**합니다. 승인하지 않은 source를 단순히 비활성화하는 대신 운영 config에서 제거하거나 검토 후 별도 승인해야 합니다. 예제 config의 기본값은 모두 `false`이며, 이를 그대로 복사한 상태에서는 게시되지 않습니다.
+
+이 gate는 기술적 오발행을 방지하는 운영 통제이지 법률 판단을 자동으로 수행하는 기능이 아닙니다. 승인 참조를 기입하기 전에 실제 upstream 파일·라이선스·출처 고지·수정 여부·대응 소스 의무를 확인하고, 필요하면 법률 검토를 받으세요. 관련 구현은 [filter distribution operations guide](../server/filter-distribution/README_KO.md) 및 [제3자 필터 원본 라이선스 감사](THIRD_PARTY_FILTER_LICENSES_KO.md)를 참조합니다.
+
 ## 2. 라이선스 — 서버 기반 발급/인증
 
 ### 상품 정책(초안)
