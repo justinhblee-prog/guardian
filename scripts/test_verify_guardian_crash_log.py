@@ -1,6 +1,6 @@
 import unittest
 
-from verify_guardian_crash_log import guardian_process_crashed
+from scripts.verify_guardian_crash_log import guardian_process_crashed
 
 
 class GuardianCrashLogTests(unittest.TestCase):
