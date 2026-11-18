@@ -2199,10 +2199,9 @@ class MainActivity : Activity() {
     private fun buildAppExclusions(body: LinearLayout) {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val excluded = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty().toMutableSet()
-        // App exclusions must include installed system/integration apps that do
-        // not expose a launcher icon (for example Android Auto).
-        // QUERY_ALL_PACKAGES in the manifest is required for this user-facing
-        // per-app VPN exclusion feature on Android 11+.
+        // Android 11+ limits package visibility. The manifest explicitly
+        // exposes supported non-launcher integrations (Android Auto and Samsung
+        // Wallet) while launcher-visible apps remain discoverable through queries.
         val apps = packageManager.getInstalledApplications(0)
             .map { it.packageName to it.loadLabel(packageManager).toString() }
             .filter { it.first != packageName }
