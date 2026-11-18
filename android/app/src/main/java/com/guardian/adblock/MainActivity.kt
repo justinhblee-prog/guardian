@@ -2464,9 +2464,11 @@ class MainActivity : Activity() {
     }
 
     private fun startProtection() {
-        android.util.Log.i("GuardianProtection", "Starting GuardianVpnService after VPN consent")
-        val service = Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_START)
         try {
+            android.util.Log.i("GuardianProtection", "Starting GuardianVpnService after VPN consent")
+            // Keep class resolution inside the diagnostic boundary too: a loader
+            // failure can happen while evaluating GuardianVpnService::class.java.
+            val service = Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_START)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service) else startService(service)
             val message = "보호 시작 요청을 전달했습니다. VPN 연결을 확인하고 있습니다."
             if (currentTab == "home" && ::status.isInitialized && ::statusTitle.isInitialized) {
