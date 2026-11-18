@@ -462,12 +462,15 @@ jobs:
           set -euo pipefail
           TAG="guardian-dev-v29"
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          APK_ASSET="release/guardian-android-dev.apk"
           MANIFEST="release/guardian-android-dev.json"
+          cp "$APK" "$APK_ASSET"
+          test -s "$APK_ASSET"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#guardian-android-dev.apk" "$MANIFEST" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload "$TAG" "$APK_ASSET" "$MANIFEST" --repo "$GITHUB_REPOSITORY" --clobber
           else
             gh release create "$TAG" \
-              "$APK#guardian-android-dev.apk" \
+              "$APK_ASSET" \
               "$MANIFEST" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
