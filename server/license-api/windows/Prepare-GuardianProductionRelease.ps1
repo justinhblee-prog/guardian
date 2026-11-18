@@ -84,8 +84,13 @@ if((Test-Path $keystorePath) -or (Test-Path $storePasswordPath) -or (Test-Path $
 & icacls.exe $keystorePath /inheritance:r /grant:r ($currentIdentity + ':F') '*S-1-5-18:F' | Out-Null
 if($LASTEXITCODE -ne 0){throw 'Android keystore 파일 ACL 설정 실패'}
 # Validate the local key material before changing any GitHub repository secret or variable.
-& keytool -list -keystore $keystorePath -storepass $storePassword -alias guardian-release *> $null
-if($LASTEXITCODE -ne 0){throw '로컬 Android release keystore 검증 실패. GitHub 설정은 변경하지 않았습니다.'}
+$env:GUARDIAN_RELEASE_STORE_PASSWORD=$storePassword
+try {
+  & keytool -list -keystore $keystorePath -storepass:env GUARDIAN_RELEASE_STORE_PASSWORD -alias guardian-release *> $null
+  if($LASTEXITCODE -ne 0){throw '로컬 Android release keystore 검증 실패. GitHub 설정은 변경하지 않았습니다.'}
+} finally {
+  Remove-Item Env:GUARDIAN_RELEASE_STORE_PASSWORD -ErrorAction SilentlyContinue
+}
 $keystoreBase64=[Convert]::ToBase64String([IO.File]::ReadAllBytes($keystorePath))
 $filterPublic=(Get-Content -Raw $filterPublicPath).Trim();$licensePublic=(Get-Content -Raw $licensePublicPath).Trim()
 $manifestUrl='https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
