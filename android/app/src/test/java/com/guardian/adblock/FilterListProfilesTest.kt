@@ -45,6 +45,7 @@ class FilterListProfilesTest {
 
     @Test fun androidAppAdsFilterUsesOfficialAwaVenueRegistrySource() {
         assertTrue(FilterListManager.ANDROID_ADS_URL.endsWith("/filter_53.txt"))
+        assertTrue(FilterListManager.SECURITY_FILTER_URL.endsWith("/adblock/tif.medium.txt"))
         assertTrue(FilterListManager.MIN_ANDROID_ADS_BLOCKS >= 100)
     }
 
