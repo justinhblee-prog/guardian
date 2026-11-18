@@ -78,6 +78,7 @@ class MainActivity : Activity() {
     private var activityChart: ActivityStatsChart? = null
     private var receiverRegistered = false
     private var currentTab = "home"
+    private var contentScrollView: ScrollView? = null
     private var focusLicenseActivationOnBuild = false
     private var licenseKeyInput: EditText? = null
     private val filterUpdateRunning = AtomicBoolean(false)
@@ -115,7 +116,19 @@ class MainActivity : Activity() {
         window.statusBarColor = bg
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
-        showTab("home")
+        val restoredTab = ActivityScreenState.restoreTab(savedInstanceState?.getString(STATE_CURRENT_TAB))
+        val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
+        showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
+        if (restoredTab == "rules") {
+            (lastNonConfigurationInstance as? RuleEditorDraft)?.let { draft ->
+                blockRulesInput.setText(draft.blockRules)
+                allowRulesInput.setText(draft.allowRules)
+            }
+        }
+        val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
+        if (restoredScrollY > 0 && !restoreLicenseFocus) {
+            contentScrollView?.post { contentScrollView?.scrollTo(0, restoredScrollY) }
+        }
         requestNotificationPermissionIfNeeded()
         LicenseRefreshScheduler.sync(this)
         val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
@@ -160,6 +173,20 @@ class MainActivity : Activity() {
                 android.util.Log.e("Guardian", "Startup filter readiness check failed", error)
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(STATE_CURRENT_TAB, currentTab)
+        outState.putBoolean(STATE_FOCUS_LICENSE_ACTIVATION, focusLicenseActivationOnBuild)
+        outState.putInt(STATE_SCROLL_Y, contentScrollView?.scrollY ?: 0)
+        super.onSaveInstanceState(outState)
+    }
+
+    private data class RuleEditorDraft(val blockRules: String, val allowRules: String)
+
+    override fun onRetainNonConfigurationInstance(): Any? {
+        if (currentTab != "rules" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
+        return RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
     }
 
     @Deprecated("Deprecated in Java")
@@ -272,6 +299,7 @@ class MainActivity : Activity() {
             insets
         }
         val scroll = ScrollView(this).apply { isFillViewport = true }
+        contentScrollView = scroll
         val screenWidthDp = resources.configuration.screenWidthDp.coerceAtLeast(1)
         val horizontalPadding = dp(ResponsiveLayoutPolicy.horizontalPaddingDp(screenWidthDp))
         val body = LinearLayout(this).apply {
@@ -2343,5 +2371,8 @@ class MainActivity : Activity() {
     companion object {
         private const val REQUEST_VPN = 100
         private const val MAX_USER_RULES = 1000
+        private const val STATE_CURRENT_TAB = "guardian.ui.current_tab"
+        private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
+        private const val STATE_SCROLL_Y = "guardian.ui.scroll_y"
     }
 }
