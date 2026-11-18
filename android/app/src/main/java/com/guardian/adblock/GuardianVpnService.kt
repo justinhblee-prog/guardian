@@ -761,10 +761,7 @@ class GuardianVpnService : VpnService() {
         }
     }
 
-    private fun stopProtection(
-        explicitStop: Boolean = false,
-        preserveRestoreIntent: Boolean = false
-    ) {
+    private fun stopProtection(explicitStop: Boolean = false) {
         pendingStart.set(null)
         startCancellation.cancel()
         tunnelActive = false
@@ -775,21 +772,7 @@ class GuardianVpnService : VpnService() {
         // An explicit user stop must clear the persisted restart intent even
         // when startup was still in flight and no TUN descriptor was committed.
         if (ProtectionState.shouldPublishStoppedState(explicitStop, wasActive)) {
-            if (preserveRestoreIntent &&
-                ProtectionRestorePolicy.shouldPreserveRestoreIntentOnServiceDestroy(wasActive) &&
-                !explicitStop
-            ) {
-                // Package replacement can tear down the service before
-                // MY_PACKAGE_REPLACED is delivered. Preserve KEY_ACTIVE so
-                // ProtectionRestoreReceiver can reconnect automatically.
-                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                    .putBoolean(KEY_ACTIVE, true)
-                    .putString(KEY_STATUS, "앱 업데이트 후 DNS 보호 자동 재연결 중입니다.")
-                    .apply()
-                sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
-            } else {
-                publishState(false, "DNS 보호가 중지되었습니다.")
-            }
+            publishState(false, "DNS 보호가 중지되었습니다.")
         }
         stopSelf()
     }
@@ -800,7 +783,7 @@ class GuardianVpnService : VpnService() {
     }
 
     override fun onDestroy() {
-        stopProtection(preserveRestoreIntent = true)
+        stopProtection()
         super.onDestroy()
     }
 }
