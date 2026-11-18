@@ -60,9 +60,9 @@ Write-Host "필터 공개키: $filterB64"
 Write-Host '개인키, .env, DB 백업 및 필터 런타임 파일은 Git 저장소/OneDrive 외부에 보관됩니다.'
 if (-not $SkipAutoStart) {
   & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1')
-  $taskName='Guardian Operations'
-  $action=New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1')+'"')
-  $trigger=New-ScheduledTaskTrigger -AtLogOn
-  $settings=New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
-  Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Description 'Start Guardian license API and signed filter distribution after Windows sign-in' -Force | Out-Null
+  try {
+    & (Join-Path $PSScriptRoot 'Register-GuardianStartupTask.ps1')
+  } catch {
+    Write-Warning "Guardian 서버 구성은 완료됐지만 자동 시작 작업 등록은 보류됐습니다. 나중에 Register-GuardianStartupTask.ps1을 실행해 복구할 수 있습니다. $($_.Exception.Message)"
+  }
 }

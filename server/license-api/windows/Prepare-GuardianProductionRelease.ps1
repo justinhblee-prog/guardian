@@ -24,9 +24,11 @@ $remote=(& git -C $repoRoot remote get-url origin 2>$null | Out-String).Trim()
 if($LASTEXITCODE -ne 0 -or $remote -notmatch 'github\.com[:/]justinhblee-prog/guardian(?:\.git)?$'){throw '현재 저장소 origin이 justinhblee-prog/guardian인지 확인할 수 없습니다.'}
 & gh auth status --hostname github.com *> $null
 if($LASTEXITCODE -ne 0){throw 'GitHub CLI 인증이 필요합니다. gh auth login 후 다시 실행하세요.'}
-$tailStatusText=(& tailscale status --json | Out-String)
-if($LASTEXITCODE -ne 0){throw 'Tailscale 연결 상태를 확인하지 못했습니다.'}
-$tailStatus=$tailStatusText | ConvertFrom-Json
+$tailscaleCommand=Get-Command 'tailscale' -ErrorAction Stop
+$tailscaleExecutable=$tailscaleCommand.Source
+if(-not $tailscaleExecutable){$tailscaleExecutable=$tailscaleCommand.Name}
+. (Join-Path $PSScriptRoot 'Get-GuardianTailscaleStatus.ps1')
+$tailStatus=Get-GuardianTailscaleStatus -Executable $tailscaleExecutable
 $dnsName=([string]$tailStatus.Self.DNSName).TrimEnd('.')
 if([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',[StringComparison]::OrdinalIgnoreCase)){throw 'Tailscale MagicDNS 이름이 없습니다. 노트북의 Tailscale 로그인과 MagicDNS를 확인하세요.'}
 $licenseApiUrl='https://'+$dnsName
