@@ -3,11 +3,15 @@ name: Guardian AdBlock Production Release
   pull_request:
     paths:
       - 'android/app/build.gradle.kts'
+      - 'server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
+      - 'server/license-api/windows/README_KO.md'
       - '.github/workflows/android-production-release.yml'
   push:
     branches: [main]
     paths:
       - 'android/app/build.gradle.kts'
+      - 'server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
+      - 'server/license-api/windows/README_KO.md'
       - '.github/workflows/android-production-release.yml'
   workflow_dispatch:
 permissions:
@@ -55,6 +59,17 @@ jobs:
           (( DEFAULT_PRODUCTION_VERSION_CODE > DEVELOPMENT_VERSION_CODE ))
           grep -F 'GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE' .github/workflows/android-production-release.yml
           grep -F '$VersionCode -lt $minimumProductionVersionCode' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
+      - name: Guard production signing secrets from process arguments
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT='server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
+          grep -F -- '-storepass:env GUARDIAN_RELEASE_STORE_PASSWORD' "$SCRIPT"
+          grep -F -- 'Remove-Item Env:GUARDIAN_RELEASE_STORE_PASSWORD' "$SCRIPT"
+          if grep -F -- '-storepass $storePassword' "$SCRIPT"; then
+            echo 'Keystore password must not be passed as a command-line argument.'
+            exit 1
+          fi
       - name: Validate stable in-app update publishing contract
         shell: bash
         run: |
