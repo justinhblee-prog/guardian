@@ -323,7 +323,7 @@ echo "Verifying the app-exclusion search field is automatically revealed and fil
 tap_content_description "설정"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -348,7 +348,7 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$consent_x" "$consent_y"
   sleep 2
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
     echo "Installed-app inventory disclosure did not close after accepting consent."
     echo "$app_inventory_xml"
@@ -359,7 +359,7 @@ fi
 settings_tab_selected=0
 for attempt in $(seq 1 5); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+  settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if any(node.attrib.get("content-desc")=="설정"
