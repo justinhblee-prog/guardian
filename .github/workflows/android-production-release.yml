@@ -73,7 +73,7 @@ jobs:
             exit 1
           fi
           PRIVATE_API_SCRIPT='server/license-api/windows/Enable-GuardianPrivateApiOnly.ps1'
-          grep -F -- 'serve --bg --https=443 $healthUrl' "$PRIVATE_API_SCRIPT"
+          grep -F -- 'serve --bg --https=443 $serveTarget' "$PRIVATE_API_SCRIPT"
           if grep -Ei 'tailscale funnel|Publish-GuardianFilterToCloud|Invoke-GuardianFilterUpdate' "$PRIVATE_API_SCRIPT"; then
             echo 'Private API-only bootstrap must not publish public filter data or enable Funnel.'
             exit 1
