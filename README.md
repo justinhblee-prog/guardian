@@ -1,20 +1,19 @@
 # Guardian AdBlock — Android 0.7.14-dev / Windows client
 
 
-## 최신 main 검증 결과 — 2026-11-17
+## 최신 main 검증 결과 — 2026-11-18
 
-- 최신 main 코드 병합 커밋: 29ac16c3e6a33fc66cb9bdb322e100916015b356 (이후 문서 갱신 커밋은 별도).
-- Android main CI [run 44101506633](https://github.com/justinhblee-prog/guardian/actions/runs/44101506633): **전체 성공**. Unit tests, lint, 이전 개발 APK 업그레이드, APK package/version/filter-library 검사, API 35 emulator install/launch, VPN permission, DNS E2E 통과.
-- VPN E2E: VPN 활성화, 허용 example.com DNS 응답, guardian-ci-44101506633.doubleclick.net 차단. dns_queries=10, dns_forwarded=9, dns_blocked=1, dns_ad_blocked=1, dns_failed=0.
-- Android APK: com.guardian.adblock, versionCode 27, versionName 0.7.14-dev, 3,124,402 bytes. SHA-256: 5a1ffd469b613d25ebef526ce282890f2ca3c2f1581c05cc1f7261a7a2b7c414.
-- 전체 소스 ZIP: 457,363 bytes. SHA-256: 99538276265f7ed910749421c6bb7257486a92fc088919bdbdeb1560c41bd9ca. ZIP 안에 Windows daemon heartbeat 코드 및 테스트도 포함됩니다.
-- 소스 ZIP을 별도 Linux 환경에서 검증: dns_engine/windows_engine **33 passed**, Python compileall 통과.
-- Windows PR #95 병합: 29ac16c3e6a33fc66cb9bdb322e100916015b356. Loopback DNS 응답만으로 데몬 준비를 오인하지 않도록 PID/heartbeat 및 프로세스 생존을 확인하고, 중지 시 데몬 종료 확인과 UI 오류 처리를 추가했습니다.
-- Windows main build [run 44101373822](https://github.com/justinhblee-prog/guardian/actions/runs/44101373822) 및 Windows/Ubuntu engine CI [run 44101373586](https://github.com/justinhblee-prog/guardian/actions/runs/44101373586): 전체 성공. EXE 2종 및 Inno Setup 설치 프로그램 생성, 무인 설치, 두 EXE self-test, DNS restore, 예약 작업 정리, restore 없이 직접 uninstall 테스트 통과.
-- Windows package artifact: 49,611,506 bytes, ZIP SHA-256 f7a1bd8cb8501e6322bed9c4185b081f9ce7f48426d0d1b97bdb3cf40dd4a855. Desktop EXE 2,191,180 bytes; DNS daemon EXE 2,088,078 bytes; installer 21,807,184 bytes.
-- Android APK는 개발용 debug 서명본이며 Windows 설치 프로그램은 unsigned 개발용입니다. Android/Windows 실기기 수용 테스트, 운영 HTTPS signed-filter 배포, 실제 License API/PostgreSQL 배포 및 production signing은 별도 미완료입니다.
+- 최신 Android main 커밋: `d95c7f6fb87803577e0a4ea758bbe4dfe2a68968` (PR #116 병합).
+- Android CI [run 44213812389](https://github.com/justinhblee-prog/guardian/actions/runs/44213812389): Android unit tests, lintDebug, assembleDebug, APK 내 `assets/filter_rules.txt` 존재 및 canonical shared asset 일치, package/version/checksum, API 35 emulator 설치·실행, VPN DNS E2E 모두 성공.
+- VPN E2E는 에뮬레이터에서 VPN 활성화, 허용 DNS 응답, 테스트용 광고 도메인 차단을 확인했습니다. 실기기 수용 테스트는 아닙니다.
+- APK: `com.guardian.adblock`, versionCode 27, versionName `0.7.14-dev`, 3,125,266 bytes. SHA-256: `0ab54e099de1e69264b143757973b012e2a3d29c8627c4385fda5a794816ca0d`.
+- 전체 소스 ZIP: 471,471 bytes. SHA-256: `b8b766b6ab0c15742372ce36ec16c882575e00c6cda3c3f7f65d0adfe5b63261`. Artifact ZIP과 내부 APK/source 파일의 SHA-256 및 ZIP 무결성을 내려받아 재확인했습니다.
+- PR #114/#115/#116에서 VPN 시작 예외·LinkageError, 패킷 루프 LinkageError, 보호 시작 전 필터 readiness LinkageError 진단을 보강했습니다. #116 병합 커밋은 `d95c7f6`입니다.
+- 기존에 보고된 실기기 `Library file not found`의 정확한 원인은 아직 특정되지 않았습니다. CI에서 APK 내부 canonical asset은 확인됐지만, 실제 휴대전화의 파일/캐시 상태와 오류 로그는 확보되지 않았습니다.
+- Android APK는 개발용 debug 서명본입니다. 운영 keystore/secrets, 운영 HTTPS signed-filter 게시 및 License API 주소/공개키가 준비되지 않아 production APK/AAB는 생성하지 않았습니다.
+- Windows 개발 EXE/설치 프로그램은 이전 main CI에서 빌드·설치·제거 smoke test가 통과했지만, Android 우선순위에 따라 최신 Windows 패키징 및 실제 Windows PC 수용 테스트는 별도 단계로 유지합니다.
+- Android 실기기·태블릿 VPN 승인/라우팅/네트워크 전환/광고 제거 수용 테스트와 운영 서버 end-to-end는 미실시입니다.
 - 상세 잔여 항목과 완료 기준: [docs/REMAINING_WORKFLOW_KO.md](docs/REMAINING_WORKFLOW_KO.md).
-
 
 ## 과거 통합 기록 (이후 최신 검증 기록 우선)
 
