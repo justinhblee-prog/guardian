@@ -255,9 +255,13 @@ jobs:
           retention-days: 14
 
       - name: Install Android emulator host runtime libraries
+        timeout-minutes: 5
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libpulse0
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get --no-install-recommends -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y libpulse0
 
       - name: Enable KVM access for Android emulator
         shell: bash
