@@ -347,7 +347,7 @@ expected_exclusion_app_count=$((installed_package_count - 1))
 visible_exclusion_app_count="$(python3 -c 'import re,sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
-    match=re.search(r"전체 ([0-9]+)개", node.attrib.get("text",""))
+    match=re.search(r"전체 설치 앱 ([0-9]+)개", node.attrib.get("text",""))
     if match:
         print(match.group(1))
         break
@@ -368,6 +368,9 @@ search=any(node.attrib.get("class")=="android.widget.EditText"
     for node in root.iter("node"))
 if not search:
     raise SystemExit("App-exclusion search input is not visible after opening its management screen.")' <<<"$app_search_xml"
+tap_content_description "앱별 보호 제외 검색 입력"
+adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
+adb_cmd shell input keyevent KEYCODE_DEL
 adb_cmd shell input text 'com.android.settings'
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
