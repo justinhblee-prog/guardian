@@ -762,7 +762,8 @@ class MainActivity : Activity() {
                     FilterListManager.KEY_LAST_ERROR,
                     FilterListManager.KEY_SECURITY_LAST_ERROR,
                     FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
-                ).any { !prefs.getString(it, null).isNullOrBlank() }
+                ).any { !prefs.getString(it, null).isNullOrBlank() },
+                lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null)
             )
             runOnUiThread {
                 try {

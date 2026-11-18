@@ -107,4 +107,25 @@ class ProtectionDiagnosticsTest {
         assertTrue(report.contains("서명 필터 배포 설정: 설정됨"))
         assertTrue(report.contains("라이선스 API 설정: 설정됨"))
     }
+    @Test fun supportReportClassifiesStartupFailureWithoutCopyingRawExceptionMessage() {
+        val summary = ProtectionDiagnostics.startupFailureSummary(
+            "필터 규칙 로드 실패 (FileNotFoundException): Library file not found at /data/user/0/private/path"
+        )
+        assertTrue(summary == "필터 규칙/리소스 로드 실패 (FileNotFoundException)")
+        assertTrue(!summary.contains("Library file not found"))
+        assertTrue(!summary.contains("/data/user/0"))
+    }
+
+    @Test fun supportReportDoesNotTreatNormalServiceStatusAsStartupFailure() {
+        assertTrue(ProtectionDiagnostics.startupFailureSummary("DNS 보호가 실행 중입니다.") == "최근 시작 오류 기록 없음")
+    }
+
+    @Test fun supportReportRecognizesNativeLibraryStartupFailures() {
+        val summary = ProtectionDiagnostics.startupFailureSummary(
+            "보호 시작 중 예기치 않은 오류가 발생했습니다 (UnsatisfiedLinkError): missing native library"
+        )
+        assertTrue(summary.contains("VPN 시작 중 런타임 예외"))
+        assertTrue(summary.contains("UnsatisfiedLinkError"))
+        assertTrue(!summary.contains("missing native library"))
+    }
 }

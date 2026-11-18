@@ -2,6 +2,27 @@ package com.guardian.adblock
 
 /** Builds truthful protection copy from observed tunnel traffic, not VPN state alone. */
 object ProtectionDiagnostics {
+    /**
+     * Converts persisted service status into a safe, actionable startup phase.
+     * Raw exception messages may contain local paths or endpoints, so only the
+     * known phase and exception class are included in support reports.
+     */
+    fun startupFailureSummary(serviceMessage: String?): String {
+        val message = serviceMessage?.trim().orEmpty()
+        if (message.isEmpty()) return "최근 시작 오류 기록 없음"
+        val phase = when {
+            message.startsWith("포그라운드 서비스 시작 실패") -> "Android 포그라운드 서비스 시작 실패"
+            message.startsWith("필터 규칙 로드 실패") -> "필터 규칙/리소스 로드 실패"
+            message.startsWith("업스트림 DNS 연결을 확인하지 못해") ||
+                message.startsWith("보호 시작 전 DNS 연결 확인 실패") -> "업스트림 DNS 사전 연결 확인 실패"
+            message.startsWith("VPN 연결 생성 실패") -> "Android VPN 인터페이스 생성 실패"
+            message.startsWith("보호 시작 중 예기치 않은 오류") -> "VPN 시작 중 런타임 예외"
+            else -> return "최근 시작 오류 기록 없음"
+        }
+        val exceptionType = Regex("\\(([A-Za-z][A-Za-z0-9_]*(?:Exception|Error))(?::|\\))")
+            .find(message)?.groupValues?.getOrNull(1)
+        return phase + (exceptionType?.let { " ($it)" } ?: "")
+    }
     fun statusDetail(
         active: Boolean,
         queries: Long,
@@ -46,7 +67,8 @@ object ProtectionDiagnostics {
         hasBaseUpdateTimestamp: Boolean,
         signedFilterDeliveryConfigured: Boolean,
         licenseApiConfigured: Boolean,
-        filterUpdateErrorPresent: Boolean
+        filterUpdateErrorPresent: Boolean,
+        lastServiceStatus: String? = null
     ): String {
         fun cacheState(enabled: Boolean, bytes: Long): String = when {
             !enabled -> "사용 안 함"
@@ -69,6 +91,7 @@ object ProtectionDiagnostics {
             appendLine("서명 필터 배포 설정: ${if (signedFilterDeliveryConfigured) "설정됨" else "미설정"}")
             appendLine("라이선스 API 설정: ${if (licenseApiConfigured) "설정됨" else "미설정"}")
             appendLine("최근 필터 업데이트 오류 기록: ${if (filterUpdateErrorPresent) "있음" else "없음"}")
+            appendLine("최근 보호 시작 오류: ${startupFailureSummary(lastServiceStatus)}")
             appendLine()
             appendLine("개인정보 보호: DNS 요청/방문 도메인, 사용자 지정 차단·허용 규칙, 라이선스 키·토큰, 서버 주소 및 공개키는 이 보고서에 포함하지 않았습니다.")
         }
