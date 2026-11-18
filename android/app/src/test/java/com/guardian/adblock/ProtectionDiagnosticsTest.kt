@@ -61,6 +61,20 @@ class ProtectionDiagnosticsTest {
         assertTrue(detail.contains("VPN 연결 실패"))
     }
 
+    @Test fun exceptionTraceSummaryIdentifiesCallersWithoutLeakingMessagesOrPaths() {
+        val cause = java.io.FileNotFoundException("Library file not found at /data/user/0/private/libx.so")
+        cause.stackTrace = arrayOf(StackTraceElement("androidx.loader.NativeLoader", "load", "NativeLoader.kt", 42))
+        val error = IllegalStateException("private endpoint https://secret.invalid", cause)
+        error.stackTrace = arrayOf(StackTraceElement("com.guardian.adblock.MainActivity", "requestProtection", "MainActivity.kt", 2110))
+        val summary = ProtectionDiagnostics.exceptionTraceSummary(error)
+        assertTrue(summary.contains("IllegalStateException <- FileNotFoundException"))
+        assertTrue(summary.contains("com.guardian.adblock.MainActivity.requestProtection:2110"))
+        assertTrue(summary.contains("androidx.loader.NativeLoader.load:42"))
+        assertTrue(!summary.contains("Library file not found"))
+        assertTrue(!summary.contains("/data/user/0"))
+        assertTrue(!summary.contains("https://secret.invalid"))
+    }
+
     @Test fun supportReportShowsAssetAndCacheReadinessWithoutSensitiveData() {
         val report = ProtectionDiagnostics.supportReport(
             appVersion = "0.7.14-dev",
