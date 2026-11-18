@@ -1,27 +1,24 @@
-## 2026-11-17 최신 통합 상태 — main 기준
+## 2026-11-18 최신 통합 상태 — main 기준
 
 ### Android
-- 최신 main 커밋: `28abc77342f34898dd03c198fef942c0b49a7fe0` (개발 버전 `0.7.14-dev`).
-- 패키지: `com.guardian.adblock`, versionCode `27`.
-- 검증 APK: 3,119,618 bytes, SHA-256 `24db2c1db46a66d2117cb35f7541c893b3321ee7de46363b615fd1a585319c78`.
-- [Android CI run 44060999851](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851): unit tests, lint, APK assembly, filter asset, package/version, checksum, source ZIP integrity, API 35 emulator install/launch 및 VPN DNS E2E **모두 성공**.
-- VPN E2E 실제 로그: `protection_active=true`, `dns_queries=8`, `dns_forwarded=7`, `dns_blocked=1`, `dns_ad_blocked=1`, `dns_failed=0`. `example.com`은 IP 주소로 해석됐고 테스트 `doubleclick.net` 도메인은 `unknown host`로 차단됐다.
-- APK/source artifact ID `14317588578`; 최종 runtime report artifact ID `14318322870`.
-- APK는 개발용 debug 서명입니다. 실기기 스마트폰/태블릿 VPN 승인·라우팅·광고 제거 수용 테스트는 아직 미실시이며 에뮬레이터 결과로 대체하지 않습니다.
-- 운영 keystore/secrets 및 실제 HTTPS 필터 배포·라이선스 서버 주소/공개키가 설정되지 않아 production APK/AAB는 생성하지 않았습니다. [Production workflow run 44052664040](https://github.com/justinhblee-prog/guardian/actions/runs/44052664040)은 설정 검사와 임시 키 release 서명 검증에 성공했지만 production signing job은 의도적으로 skipped입니다.
+- 최신 main 커밋: `d95c7f6fb87803577e0a4ea758bbe4dfe2a68968` (개발 버전 `0.7.14-dev`, versionCode 27).
+- Android main CI [run 44213812389](https://github.com/justinhblee-prog/guardian/actions/runs/44213812389): unit tests, lintDebug, assembleDebug, canonical filter asset 검증, APK package/version/checksum, API 35 emulator install/launch 및 VPN DNS E2E 전체 성공.
+- APK: 3,125,266 bytes, SHA-256 `0ab54e099de1e69264b143757973b012e2a3d29c8627c4385fda5a794816ca0d`.
+- 전체 소스 ZIP: 471,471 bytes, SHA-256 `b8b766b6ab0c15742372ce36ec16c882575e00c6cda3c3f7f65d0adfe5b63261`. Artifact 다운로드 후 APK/source checksum과 ZIP 무결성을 재확인했습니다.
+- PR #114/#115/#116: 예기치 않은 VPN 시작 실패, packet-loop LinkageError, readiness-check LinkageError 진단 보강이 main에 병합됐습니다. #116 병합 커밋 `d95c7f6fb87803577e0a4ea758bbe4dfe2a68968`.
+- APK 내부 `assets/filter_rules.txt`가 존재하고 `shared/filter_rules.txt`와 byte-for-byte 일치함을 CI에서 확인했습니다. 다만 사용자가 이전에 보고한 실기기 `Library file not found`의 정확한 원인은 실기기 로그/파일 상태 없이는 특정할 수 없으며, 해결 완료로 판정하지 않습니다.
+- APK는 debug 서명 개발 빌드입니다. 실기기 스마트폰/태블릿 VPN 승인·라우팅·네트워크 전환·실제 광고 제거 수용 테스트는 미실시입니다.
+- 운영 keystore/secrets, 운영 HTTPS 필터 게시 및 실제 License API 연결이 확인되지 않아 production APK/AAB는 생성하지 않았습니다.
 
 ### Windows
-- Windows DNS 엔진, IPv4/IPv6 UDP·TCP loopback DNS proxy, DNS upstream 검증 및 UDP truncation 시 TCP fallback 구현.
-- Windows 데스크톱 제어 UI, 관리자 권한 흐름, DNS 어댑터 IPv4/IPv6 설정 백업·복구 및 실패 시 rollback 구현.
-- 창을 닫아도 보호를 유지하도록 부팅 시 실행되는 Windows 작업 스케줄러 백그라운드 DNS 프로세스를 추가했습니다. 제거 과정은 DNS 원상 복구가 실패하면 중단하도록 설계했습니다.
-- HTTPS/RSA-SHA256 서명 manifest, filter SHA-256, source version 및 anti-rollback 검증을 수행하는 Windows 필터 업데이트 클라이언트와 UI 설정을 구현했습니다. 운영 서버 주소와 pinned 공개키가 아직 제공/설정되지 않아 자동 업데이트는 미활성 상태입니다.
-- Windows CI: 22개 테스트가 Ubuntu 및 Windows 2022에서 통과했습니다([run 43785636135](https://github.com/justinhblee-prog/guardian/actions/runs/43785636135)).
-- Windows EXE/설치 프로그램 빌드 및 실제 설치·실행·제거 검증은 현재 별도 workflow에서 진행 중입니다([run 43785686270](https://github.com/justinhblee-prog/guardian/actions/runs/43785686270)). 완료 전까지 Windows 설치 패키지를 검증 완료로 표시하지 않습니다.
-- Windows 구현은 DNS 기반 보호이며 WFP 커널 드라이버가 아닙니다. 실제 Windows PC의 Ethernet/Wi-Fi DNS 전환, 재부팅 복구, VPN/보안 제품 공존성은 아직 실기기 검증이 필요합니다.
+- Windows DNS 엔진, desktop UI, daemon, filter updater 및 installer 구현은 저장소에 유지됩니다.
+- 이전 main CI [run 44101373822](https://github.com/justinhblee-prog/guardian/actions/runs/44101373822)에서 개발용 EXE/installer 빌드, 설치·self-test·DNS 복구·제거 smoke test가 통과했습니다.
+- 개발용 패키지는 unsigned이며, 실제 Windows PC의 어댑터 DNS 변경/복구, 재부팅, 네트워크 전환 및 VPN/보안 제품 공존성은 미검증입니다. Android 우선순위에 따라 최신 Windows 패키징은 후속 단계입니다.
 
 ### 공통 운영 준비
-- 저장소에는 서명 필터 배포 서버와 License API의 구현/배포 템플릿이 있으나, 운영 도메인·TLS·서명 개인키·공개키·DB가 실제 호스팅되어 end-to-end로 검증된 상태는 아닙니다.
-- 운영 서명 키나 개인 비밀값은 저장소 또는 채팅에 추가하지 않았습니다.
+- 서명 필터 배포 서버와 License API/PostgreSQL 구현 및 설정 스크립트는 저장소에 있으나, 운영 도메인·TLS·서명 개인키·공개키·DB가 실제 호스팅되어 end-to-end 검증된 상태는 아닙니다.
+- 운영 keystore·개인키·비밀값을 저장소나 채팅에 추가하지 않았습니다.
+- 운영 설정 스크립트는 사용자 PC의 로컬 키/서비스와 GitHub secrets/variables를 변경할 수 있으므로, 실제 운영 설정 작업은 명시적 실행 권한과 로컬 사전조건 확인 없이 실행하지 않습니다.
 - Windows 상세 안내: [WINDOWS_BUILD_KO.md](WINDOWS_BUILD_KO.md).
 
 # Guardian AdBlock Android — 개발/릴리스 상태
