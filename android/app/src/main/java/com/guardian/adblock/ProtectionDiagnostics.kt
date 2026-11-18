@@ -91,7 +91,11 @@ object ProtectionDiagnostics {
         signedFilterDeliveryConfigured: Boolean,
         licenseApiConfigured: Boolean,
         filterUpdateErrorPresent: Boolean,
-        lastServiceStatus: String? = null
+        lastServiceStatus: String? = null,
+        bundledRuleAssetBytes: Long = -1L,
+        nativeLibraryDirectoryReadable: Boolean = false,
+        nativeLibraryNames: List<String> = emptyList(),
+        supportedAbis: List<String> = emptyList()
     ): String {
         fun cacheState(enabled: Boolean, bytes: Long): String = when {
             !enabled -> "사용 안 함"
@@ -103,7 +107,24 @@ object ProtectionDiagnostics {
             appendLine("앱 버전: $appVersion")
             appendLine("Android: $androidRelease (API $apiLevel)")
             appendLine("VPN 보호 상태: ${if (protectionActive) "활성" else "비활성"}")
-            appendLine("내장 DNS 규칙 파일: ${if (bundledRuleAssetAvailable) "정상" else "누락 또는 읽기 실패"}")
+            val assetDescription = when {
+                !bundledRuleAssetAvailable -> "누락 또는 읽기 실패"
+                bundledRuleAssetBytes >= 0L -> "정상 (${bundledRuleAssetBytes} bytes)"
+                else -> "정상"
+            }
+            appendLine("내장 DNS 규칙 파일: $assetDescription")
+            appendLine("앱 네이티브 라이브러리 디렉터리: ${if (nativeLibraryDirectoryReadable) "읽기 가능" else "읽기 불가 또는 없음"}")
+            val safeLibraryNames = nativeLibraryNames
+                .filter { it.matches(Regex("lib[A-Za-z0-9_+.-]+\\.so")) }
+                .distinct()
+                .sorted()
+                .take(32)
+            appendLine("설치된 네이티브 라이브러리: ${safeLibraryNames.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "없음 또는 확인 불가"}")
+            val safeAbis = supportedAbis
+                .filter { it.matches(Regex("[A-Za-z0-9_-]{1,32}")) }
+                .distinct()
+                .take(8)
+            appendLine("기기 ABI: ${safeAbis.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "확인 불가"}")
             appendLine("선택 필터 프로필: $selectedProfile")
             appendLine("기본 필터 캐시: ${cacheState(true, baseCacheBytes)}")
             appendLine("보안 필터: ${cacheState(securityFilterEnabled, securityCacheBytes)}")

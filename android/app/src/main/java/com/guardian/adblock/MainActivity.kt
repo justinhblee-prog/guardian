@@ -719,13 +719,35 @@ class MainActivity : Activity() {
             fun cacheBytes(name: String): Long = File(filesDir, name)
                 .takeIf { it.isFile && it.length() > 0L }
                 ?.length() ?: 0L
+            var assetBytes = -1L
             val assetAvailable = try {
-                assets.open("filter_rules.txt").use { it.read() >= 0 }
+                assetBytes = assets.open("filter_rules.txt").use { input ->
+                    var total = 0L
+                    val buffer = ByteArray(4096)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                    }
+                    total
+                }
+                assetBytes > 0L
             } catch (_: Exception) {
                 false
             } catch (_: LinkageError) {
                 false
             }
+            val nativeLibraryDirectory = File(applicationInfo.nativeLibraryDir)
+            val nativeLibraryFiles = try {
+                nativeLibraryDirectory.listFiles()
+                    ?.filter { it.isFile && it.name.matches(Regex("lib[A-Za-z0-9_+.-]+\\.so")) }
+                    ?.map { it.name }
+                    .orEmpty()
+            } catch (_: SecurityException) {
+                emptyList()
+            }
+            val nativeLibraryDirectoryReadable = nativeLibraryDirectory.isDirectory &&
+                nativeLibraryDirectory.canRead()
             val selectedProfile = try {
                 FilterListManager.selectedProfile(this).key
             } catch (_: Exception) {
@@ -763,7 +785,11 @@ class MainActivity : Activity() {
                     FilterListManager.KEY_SECURITY_LAST_ERROR,
                     FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
                 ).any { !prefs.getString(it, null).isNullOrBlank() },
-                lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null)
+                lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null),
+                bundledRuleAssetBytes = assetBytes,
+                nativeLibraryDirectoryReadable = nativeLibraryDirectoryReadable,
+                nativeLibraryNames = nativeLibraryFiles,
+                supportedAbis = Build.SUPPORTED_ABIS.toList()
             )
             runOnUiThread {
                 try {
