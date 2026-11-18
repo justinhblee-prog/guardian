@@ -14,6 +14,29 @@ import org.junit.Test
 class LicenseApiClientTest {
 
     @Test
+    fun acceptsRsa2048OrStrongerPinnedLicenseKey() {
+        val generator = KeyPairGenerator.getInstance("RSA")
+        generator.initialize(2048)
+        val encoded = Base64.getEncoder().encodeToString(generator.generateKeyPair().public.encoded)
+        validateLicensePublicKeyConfiguration(encoded)
+    }
+
+    @Test
+    fun rejectsMissingMalformedAndWeakPinnedLicenseKeys() {
+        val generator = KeyPairGenerator.getInstance("RSA")
+        generator.initialize(1024)
+        val weakKey = Base64.getEncoder().encodeToString(generator.generateKeyPair().public.encoded)
+        listOf("", "not-base64!", weakKey).forEach { encoded ->
+            try {
+                validateLicensePublicKeyConfiguration(encoded)
+                throw AssertionError("invalid pinned license key must be rejected")
+            } catch (_: IllegalArgumentException) { }
+        }
+    }
+
+
+
+    @Test
     fun refreshForbiddenInvalidatesLocalEntitlementButTransientFailuresDoNot() {
         assertTrue(LicenseApiException(403, "device inactive").invalidatesEntitlement)
         assertFalse(LicenseApiException(401, "unauthorized").invalidatesEntitlement)
