@@ -67,12 +67,12 @@ wait_for_network() {
 wait_for_network
 adb_cmd logcat -c
 
-python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.17-dev.apk 30 0.7.17-dev android/app/build/outputs/apk/debug/app-debug.apk 31 0.7.18-dev
+python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.18-dev.apk 31 0.7.18-dev android/app/build/outputs/apk/debug/app-debug.apk 32 0.7.19-dev
 
 previous_installed=0
 for attempt in 1 2 3; do
   if adb_cmd shell service check package 2>/dev/null | grep -q 'found' &&
-     adb_cmd install -r -t /tmp/guardian-0.7.17-dev.apk; then
+     adb_cmd install -r -t /tmp/guardian-0.7.18-dev.apk; then
     previous_installed=1
     break
   fi
@@ -86,21 +86,12 @@ done
 test "$previous_installed" -eq 1
 adb_cmd shell pm path com.guardian.adblock | grep -F 'package:'
 
-upgraded=0
-for attempt in 1 2 3; do
-  if adb_cmd shell service check package 2>/dev/null | grep -q 'found' &&
-     adb_cmd install -r -t android/app/build/outputs/apk/debug/app-debug.apk; then
-    upgraded=1
-    break
-  fi
-  echo "APK upgrade attempt ${attempt} failed."
-  if ! adb_cmd shell service check package 2>/dev/null | grep -q 'found'; then
-    recover_emulator_framework
-  else
-    sleep 5
-  fi
-done
-test "$upgraded" -eq 1
+# Keep the previous APK installed for the full VPN E2E scenario. The following
+# script starts protection on this version, then replaces it with the new APK
+# while the tunnel is active to verify MY_PACKAGE_REPLACED auto-recovery.
+CURRENT_APK='android/app/build/outputs/apk/debug/app-debug.apk'
+test -s "$CURRENT_APK"
+echo "Previous development version is installed; the new APK is ready for the live-VPN update test."
 adb_cmd shell pm path com.guardian.adblock | grep -F 'package:'
 
 # The first launch requests Android 13+ notification permission. Grant it in the

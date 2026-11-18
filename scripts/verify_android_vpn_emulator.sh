@@ -143,6 +143,32 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
+tap_content_description() {
+  local wanted="$1"
+  local xml bounds
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("content-desc","") == sys.argv[1]
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("clickable") == "true"
+        and node.attrib.get("enabled") == "true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' "$wanted" <<<"$xml")"
+  if [[ -z "$bounds" ]]; then
+    echo "Could not locate visible control by content description: $wanted"
+    echo "$xml"
+    return 1
+  fi
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 tap_first_edit_text() {
   local xml bounds
   for attempt in $(seq 1 5); do
@@ -171,6 +197,70 @@ for node in root.iter("node"):
   read -r x y <<<"$bounds"
   adb_cmd shell input tap "$x" "$y"
 }
+
+echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
+tap_content_description "보호"
+sleep 1
+# The app-specific management button is near the bottom of the Protection tab.
+# Scroll until it is actually visible before asking UIAutomator to tap it.
+app_management_visible=0
+for attempt in $(seq 1 12); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  app_management_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  # ScrollView dumps may include off-screen descendants. Only stop when the
+  # control is truly visible, enabled and clickable, matching tap_text below.
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any("앱별 보호 제외 관리" in node.attrib.get("text","")
+       and node.attrib.get("class")=="android.widget.Button"
+       and node.attrib.get("visible-to-user","true")=="true"
+       and node.attrib.get("clickable")=="true"
+       and node.attrib.get("enabled")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$app_management_xml"; then
+    app_management_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 540 1500 540 600 450
+  sleep 1
+done
+if [[ "$app_management_visible" -ne 1 ]]; then
+  echo "App-specific protection management button did not appear while scrolling the Protection tab."
+  echo "$app_management_xml"
+  exit 1
+fi
+tap_text "앱별 보호 제외 관리"
+sleep 2
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+app_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+search=any(node.attrib.get("class")=="android.widget.EditText"
+    and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
+    and node.attrib.get("visible-to-user","true")=="true"
+    for node in root.iter("node"))
+if not search:
+    raise SystemExit("App-exclusion search input is not visible after opening its management screen.")' <<<"$app_search_xml"
+adb_cmd shell input text 'com.android.settings'
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+app_filtered_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+search=any(node.attrib.get("class")=="android.widget.EditText"
+    and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
+    and node.attrib.get("visible-to-user","true")=="true"
+    for node in nodes)
+result=any("com.android.settings" in node.attrib.get("text","") for node in nodes)
+if not search:
+    raise SystemExit("App-exclusion search field disappeared after entering text.")
+if not result:
+    raise SystemExit("Typing an installed package name did not filter the app list.")' <<<"$app_filtered_xml"
+adb_cmd shell input keyevent KEYCODE_BACK || true
+tap_content_description "홈"
+echo "App-exclusion search visibility, focus, and filtering passed."
 
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
@@ -349,3 +439,86 @@ cat /tmp/guardian-allowed-dns.txt || true
 echo "Blocked lookup:"
 cat /tmp/guardian-blocked-dns.txt || true
 read_prefs
+
+echo "Verifying automatic VPN protection recovery after an in-place app update."
+before_update_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_update_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_update_queries="${before_update_queries:-0}"
+before_update_blocked="${before_update_blocked:-0}"
+if ! grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
+  echo "Refusing to test app replacement because the previous APK does not have active VPN protection."
+  read_prefs
+  exit 1
+fi
+# Simulate an installation from a pre-restore-intent build. The new app must
+# migrate using the legacy active flag if the durable preference did not exist.
+legacy_prefs="$(read_prefs | sed 's|<boolean name="protection_restore_requested" value="true" />||g; s|<boolean name="protection_restore_requested" value="false" />||g')"
+printf '%s' "$legacy_prefs" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
+if grep -q 'name="protection_restore_requested"' <<<"$(read_prefs)"; then
+  echo "Legacy upgrade fixture unexpectedly retained the new restore-intent preference."
+  read_prefs
+  exit 1
+fi
+adb_cmd logcat -c
+adb_cmd install -r -t android/app/build/outputs/apk/debug/app-debug.apk
+adb_cmd shell pm path "$PACKAGE" | grep -F 'package:'
+restore_requested=0
+restore_receiver_seen=0
+for attempt in $(seq 1 60); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_restore_requested"[^>]*value="true"' <<<"$prefs"; then
+    restore_requested=1
+  fi
+  if adb_poll logcat -d -t 6000 -s GuardianProtection:I 2>/dev/null |
+      grep -Fq 'Requested VPN restore after system event: android.intent.action.MY_PACKAGE_REPLACED'; then
+    restore_receiver_seen=1
+  fi
+  if [[ "$restore_requested" -eq 1 && "$restore_receiver_seen" -eq 1 ]]; then
+    break
+  fi
+  sleep 2
+done
+if [[ "$restore_requested" -ne 1 || "$restore_receiver_seen" -ne 1 ]]; then
+  echo "Package replacement did not request automatic VPN restoration."
+  echo "restore_requested=$restore_requested receiver_seen=$restore_receiver_seen"
+  read_prefs
+  adb_cmd logcat -d -t 6000 | grep -E 'GuardianProtection|GuardianVpn|MY_PACKAGE_REPLACED|FATAL EXCEPTION' | tail -250 || true
+  adb_cmd shell dumpsys vpn || true
+  exit 1
+fi
+
+echo "New version requested VPN restoration automatically. Verifying the restored tunnel blocks DNS."
+after_update_dns=0
+for attempt in $(seq 1 45); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
+    adb_cmd shell ping -c 1 -W 5 "guardian-after-update-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-after-update-blocked-dns.txt 2>&1 || true
+    sleep 2
+    prefs="$(read_prefs)"
+    current_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+    current_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+    current_queries="${current_queries:-0}"
+    current_blocked="${current_blocked:-0}"
+    if (( current_queries > before_update_queries && current_blocked > before_update_blocked )); then
+      after_update_dns=1
+      break
+    fi
+  fi
+  sleep 2
+done
+if [[ "$after_update_dns" -ne 1 ]]; then
+  echo "VPN did not automatically restore DNS protection after package replacement."
+  read_prefs
+  cat /tmp/guardian-after-update-blocked-dns.txt 2>/dev/null || true
+  adb_cmd logcat -d -t 8000 | grep -E 'GuardianProtection|GuardianVpn|MY_PACKAGE_REPLACED|FATAL EXCEPTION' | tail -300 || true
+  adb_cmd shell dumpsys vpn || true
+  adb_cmd shell dumpsys connectivity | tail -160 || true
+  exit 1
+fi
+if grep -Eq 'PING guardian-after-update-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-after-update-blocked-dns.txt; then
+  echo "Post-update blocked domain unexpectedly resolved to an address."
+  cat /tmp/guardian-after-update-blocked-dns.txt || true
+  exit 1
+fi
+
+echo "Automatic package-update recovery passed: receiver relaunched VPN, DNS queries resumed, and the test ad domain was blocked."

@@ -23,6 +23,27 @@ class ProtectionRestorePolicyTest {
         ))
     }
 
+    @Test fun restoresAfterPackageReplacementWhenDurableIntentSurvivesServiceShutdown() {
+        assertTrue(ProtectionRestorePolicy.shouldRestore(
+            ProtectionRestorePolicy.ACTION_MY_PACKAGE_REPLACED,
+            persistedActive = false,
+            restoreRequested = true
+        ))
+    }
+
+    @Test fun explicitUserStopOverridesStalePersistedActiveFlag() {
+        assertFalse(ProtectionRestorePolicy.shouldRestore(
+            ProtectionRestorePolicy.ACTION_MY_PACKAGE_REPLACED,
+            persistedActive = true,
+            restoreRequested = false
+        ))
+        assertFalse(ProtectionRestorePolicy.shouldRestore(
+            ProtectionRestorePolicy.ACTION_BOOT_COMPLETED,
+            persistedActive = true,
+            restoreRequested = false
+        ))
+    }
+
     @Test fun ignoresUnrelatedBroadcastsEvenWhenProtectionWasPreviouslyEnabled() {
         assertFalse(ProtectionRestorePolicy.shouldRestore("android.intent.action.TIME_SET", true))
         assertFalse(ProtectionRestorePolicy.shouldRestore(null, true))

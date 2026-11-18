@@ -69,6 +69,8 @@ class MainActivity : Activity() {
     private var filterStatusText: TextView? = null
     private var filterUpdateButton: Button? = null
     private var appFilterFeedback: TextView? = null
+    private var appExclusionsSearchInput: EditText? = null
+    private var focusAppExclusionsOnBuild = false
     private var blockRateValue: TextView? = null
     private var blockedCountValue: TextView? = null
     private var queryCountValue: TextView? = null
@@ -363,9 +365,14 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun showTab(tab: String, focusLicenseActivation: Boolean = false) {
+    private fun showTab(
+        tab: String,
+        focusLicenseActivation: Boolean = false,
+        focusAppExclusions: Boolean = false
+    ) {
         currentTab = tab
         focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings"
+        focusAppExclusionsOnBuild = focusAppExclusions && tab == "settings"
         licenseKeyInput = null
         startButton = null
         protectionStatusText = null
@@ -386,6 +393,7 @@ class MainActivity : Activity() {
         filterStatusText = null
         filterUpdateButton = null
         appFilterFeedback = null
+        appExclusionsSearchInput = null
         blockRateValue = null
         blockedCountValue = null
         queryCountValue = null
@@ -450,6 +458,24 @@ class MainActivity : Activity() {
                     }
                 }
                 focusLicenseActivationOnBuild = false
+            }
+        }
+
+        if (focusAppExclusionsOnBuild && tab == "settings") {
+            window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            scroll.post {
+                appExclusionsSearchInput?.let { input ->
+                    val bounds = android.graphics.Rect()
+                    input.getDrawingRect(bounds)
+                    scroll.offsetDescendantRectToMyCoords(input, bounds)
+                    scroll.smoothScrollTo(0, (bounds.top - dp(18)).coerceAtLeast(0))
+                    input.requestFocus()
+                    input.post {
+                        val keyboard = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                        keyboard.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                    }
+                }
+                focusAppExclusionsOnBuild = false
             }
         }
         if (usesNavigationRail) {
@@ -1088,7 +1114,7 @@ class MainActivity : Activity() {
                 isAllCaps = false
                 setTextColor(white)
                 background = shape(panel2, 12)
-                setOnClickListener { showTab("settings") }
+                setOnClickListener { showTab("settings", focusAppExclusions = true) }
             }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(8) })
         }.withTop(18))
 
@@ -1213,17 +1239,22 @@ class MainActivity : Activity() {
             ).withTop(8) as TextView
             var downloadedUpdate: File? = null
             val installUpdateButton = Button(this).apply {
-                text = "다운로드한 업데이트 설치"
+                text = "지금 개발 업데이트 설치"
                 isAllCaps = false
-                setTextColor(bg)
-                background = shape(panel2, 12)
-                isEnabled = false
+                typeface = Typeface.DEFAULT_BOLD
+                setUpdateInstallButtonReady(this, false)
                 setOnClickListener {
-                    val apk = downloadedUpdate ?: return@setOnClickListener
+                    val apk = downloadedUpdate ?: run {
+                        updateStatus.text = "먼저 '지금 업데이트 확인'을 눌러 APK 다운로드를 완료하세요."
+                        return@setOnClickListener
+                    }
                     try {
                         val launched = DevUpdateManager.install(this@MainActivity, apk)
-                        updateStatus.text = if (launched) "Android 설치 확인 화면을 열었습니다." else
-                            "이 앱의 알 수 없는 앱 설치 허용을 켠 뒤 이 버튼을 다시 누르세요."
+                        updateStatus.text = if (launched) {
+                            "Android 설치 확인 화면을 열었습니다. 업데이트가 끝나면 Guardian이 이전 보호 설정을 확인해 VPN 보호를 자동으로 다시 연결합니다."
+                        } else {
+                            "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '지금 개발 업데이트 설치'를 다시 누르세요."
+                        }
                     } catch (error: Exception) {
                         updateStatus.text = error.message ?: "설치 화면을 열지 못했습니다."
                     }
@@ -1244,6 +1275,8 @@ class MainActivity : Activity() {
                     background = shape(accent, 12)
                     setOnClickListener {
                         isEnabled = false
+                        downloadedUpdate = null
+                        setUpdateInstallButtonReady(installUpdateButton, false)
                         updateStatus.text = "개발 업데이트를 확인하고 있습니다…"
                         thread(name = "guardian-dev-update-manual") {
                             try {
@@ -1251,6 +1284,7 @@ class MainActivity : Activity() {
                                 if (update == null) {
                                     runOnUiThread {
                                         updateStatus.text = "현재 설치된 버전이 최신 개발 버전입니다."
+                                        setUpdateInstallButtonReady(installUpdateButton, false)
                                         isEnabled = true
                                     }
                                 } else {
@@ -1260,12 +1294,14 @@ class MainActivity : Activity() {
                                     val apk = DevUpdateManager.download(this@MainActivity, update)
                                     runOnUiThread {
                                         downloadedUpdate = apk
-                                        updateStatus.text = "다운로드 및 SHA-256/서명 지문 확인 완료: ${update.versionName}. 설치 버튼을 누르세요."
-                                        installUpdateButton.isEnabled = true
+                                        setUpdateInstallButtonReady(installUpdateButton, true)
+                                        updateStatus.text = "다운로드 및 SHA-256/서명 지문 확인 완료: ${update.versionName}. 강조된 '지금 개발 업데이트 설치' 버튼을 누르세요."
                                     }
                                 }
                             } catch (error: Exception) {
                                 runOnUiThread {
+                                    downloadedUpdate = null
+                                    setUpdateInstallButtonReady(installUpdateButton, false)
                                     updateStatus.text = error.message ?: "업데이트 확인 또는 다운로드에 실패했습니다."
                                 }
                             } finally {
@@ -1283,17 +1319,22 @@ class MainActivity : Activity() {
             ).withTop(8) as TextView
             var downloadedUpdate: File? = null
             val installUpdateButton = Button(this).apply {
-                text = "다운로드한 정식 업데이트 설치"
+                text = "지금 정식 업데이트 설치"
                 isAllCaps = false
-                setTextColor(bg)
-                background = shape(panel2, 12)
-                isEnabled = false
+                typeface = Typeface.DEFAULT_BOLD
+                setUpdateInstallButtonReady(this, false)
                 setOnClickListener {
-                    val apk = downloadedUpdate ?: return@setOnClickListener
+                    val apk = downloadedUpdate ?: run {
+                        updateStatus.text = "먼저 '지금 정식 업데이트 확인'을 눌러 APK 다운로드를 완료하세요."
+                        return@setOnClickListener
+                    }
                     try {
                         val launched = GuardianStableUpdateManager.install(this@MainActivity, apk)
-                        updateStatus.text = if (launched) "Android 설치 확인 화면을 열었습니다." else
-                            "이 앱의 알 수 없는 앱 설치 허용을 켠 뒤 이 버튼을 다시 누르세요."
+                        updateStatus.text = if (launched) {
+                            "Android 설치 확인 화면을 열었습니다. 업데이트가 끝나면 Guardian이 이전 보호 설정을 확인해 VPN 보호를 자동으로 다시 연결합니다."
+                        } else {
+                            "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '지금 정식 업데이트 설치'를 다시 누르세요."
+                        }
                     } catch (error: Exception) {
                         updateStatus.text = error.message ?: "설치 화면을 열지 못했습니다."
                     }
@@ -1314,6 +1355,8 @@ class MainActivity : Activity() {
                     background = shape(accent, 12)
                     setOnClickListener {
                         isEnabled = false
+                        downloadedUpdate = null
+                        setUpdateInstallButtonReady(installUpdateButton, false)
                         updateStatus.text = "정식 업데이트를 확인하고 있습니다…"
                         thread(name = "guardian-stable-update-manual") {
                             try {
@@ -1321,6 +1364,7 @@ class MainActivity : Activity() {
                                 if (update == null) {
                                     runOnUiThread {
                                         updateStatus.text = "현재 설치된 정식 버전이 최신입니다."
+                                        setUpdateInstallButtonReady(installUpdateButton, false)
                                         isEnabled = true
                                     }
                                 } else {
@@ -1330,12 +1374,14 @@ class MainActivity : Activity() {
                                     val apk = GuardianStableUpdateManager.download(this@MainActivity, update)
                                     runOnUiThread {
                                         downloadedUpdate = apk
-                                        updateStatus.text = "다운로드 및 SHA-256/패키지/서명 검증 완료: ${update.versionName}. 아래 설치 버튼을 누르세요."
-                                        installUpdateButton.isEnabled = true
+                                        setUpdateInstallButtonReady(installUpdateButton, true)
+                                        updateStatus.text = "다운로드 및 SHA-256/패키지/서명 검증 완료: ${update.versionName}. 강조된 '지금 정식 업데이트 설치' 버튼을 누르세요."
                                     }
                                 }
                             } catch (error: Exception) {
                                 runOnUiThread {
+                                    downloadedUpdate = null
+                                    setUpdateInstallButtonReady(installUpdateButton, false)
                                     updateStatus.text = error.message ?: "정식 업데이트 확인 또는 다운로드에 실패했습니다."
                                 }
                             } finally {
@@ -2055,23 +2101,46 @@ class MainActivity : Activity() {
             .distinctBy { it.first }
             .sortedBy { it.second.lowercase(Locale.ROOT) }
         val search = EditText(this).apply {
-            hint = "앱 이름 또는 패키지명 검색"
+            hint = "앱 이름 또는 패키지명 입력"
+            contentDescription = "앱별 보호 제외 검색 입력"
             setHintTextColor(muted)
             setTextColor(white)
-            textSize = 13f
+            textSize = 14f
+            minHeight = dp(50)
             setSingleLine(true)
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            setPadding(dp(13), dp(12), dp(13), dp(12))
-            background = shape(panel2, 12)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(15), dp(12), dp(15), dp(12))
+            background = shape(panel2, 12).apply { setStroke(dp(1), accent) }
+            if (Build.VERSION.SDK_INT >= 29) {
+                textCursorDrawable = GradientDrawable().apply {
+                    setColor(accent)
+                    setSize(dp(2), dp(20))
+                }
+            }
+            setOnFocusChangeListener { view, focused ->
+                view.background = shape(panel2, 12).apply {
+                    setStroke(dp(2), if (focused) accent else muted)
+                }
+            }
         }
-        body.addView(search, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+        appExclusionsSearchInput = search
         val card = card(panel, 16).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            addView(text("설치된 앱 검색", 13f, white, true))
+            addView(text("앱 이름 또는 패키지명을 입력하면 목록이 즉시 필터링됩니다.", 11f, muted, false).withTop(4))
+            addView(search, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(9) })
+        }
+        val appListCard = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
         val appList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        card.addView(appList)
+        appListCard.addView(appList)
         body.addView(card.withTop(10))
+        body.addView(appListCard.withTop(8))
         appFilterFeedback = text(
             "설치 앱 ${apps.size}개 · 보호 제외 앱 ${excluded.size}개",
             11f, muted, false
@@ -2427,19 +2496,36 @@ class MainActivity : Activity() {
         // process still owns the VPN tunnel before showing protection as active.
         val persistedActive = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)
         val active = ProtectionState.isActive(persistedActive, GuardianVpnService.isTunnelActive())
-        val staleSession = persistedActive && !active
-        val message = if (staleSession) {
-            "VPN 서비스가 다시 연결되는 중입니다. 복구되지 않으면 보호 다시 연결을 눌러 주세요."
-        } else prefs.getString(GuardianVpnService.KEY_STATUS, null)
+        val recoveryPending = prefs.getBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false) && !active
+        val staleSession = persistedActive && !active && !recoveryPending
+        val message = when {
+            recoveryPending -> "VPN 보호를 자동으로 다시 연결하고 있습니다."
+            staleSession -> "VPN 서비스가 다시 연결되는 중입니다. 자동 복구가 되지 않으면 '다시 연결'을 눌러 주세요."
+            else -> prefs.getString(GuardianVpnService.KEY_STATUS, null)
+        }
         // Not every tab creates the dashboard status views. Update only views
         // that exist so opening Rules/Protection/Settings cannot crash the app.
         if (currentTab == "home" && ::statusTitle.isInitialized) {
-            statusTitle.text = when { active -> "보호가 실행 중입니다"; staleSession -> "보호 복구 대기 중"; else -> "보호가 꺼져 있습니다" }
-            statusDot.text = when { active -> "●  PROTECTION ACTIVE"; staleSession -> "●  RECOVERY PENDING"; else -> "●  PROTECTION OFF" }
-            statusDot.setTextColor(if (active || staleSession) accent else red)
-            startButton?.text = when { active -> "보호 실행 중"; staleSession -> "보호 다시 연결"; else -> "보호 시작" }
-            startButton?.isEnabled = !active
-            startButton?.alpha = if (active) 0.58f else 1f
+            statusTitle.text = when {
+                active -> "보호가 실행 중입니다"
+                recoveryPending -> "보호 자동 복구 중"
+                staleSession -> "보호 복구 대기 중"
+                else -> "보호가 꺼져 있습니다"
+            }
+            statusDot.text = when {
+                active -> "●  PROTECTION ACTIVE"
+                recoveryPending || staleSession -> "●  AUTOMATIC RECOVERY"
+                else -> "●  PROTECTION OFF"
+            }
+            statusDot.setTextColor(if (active || recoveryPending || staleSession) accent else red)
+            startButton?.text = when {
+                active -> "보호 실행 중"
+                recoveryPending -> "보호 복구 중"
+                staleSession -> "다시 연결"
+                else -> "보호 시작"
+            }
+            startButton?.isEnabled = !active && !recoveryPending
+            startButton?.alpha = if (active || recoveryPending) 0.58f else 1f
         }
         if (currentTab == "home" && ::status.isInitialized) {
             status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
@@ -2447,6 +2533,7 @@ class MainActivity : Activity() {
         if (currentTab == "protection") {
             protectionStatusText?.text = when {
                 active -> "보호가 실행 중입니다"
+                recoveryPending -> "보호 자동 복구 중"
                 staleSession -> "보호 복구 대기 중"
                 else -> "보호가 꺼져 있습니다"
             }
@@ -2459,9 +2546,15 @@ class MainActivity : Activity() {
                 privateDnsMode(),
                 message
             )
-            protectionActionButton?.text = when { active -> "보호 중지"; staleSession -> "보호 다시 연결"; else -> "보호 시작" }
-            protectionActionButton?.setTextColor(if (active) white else bg)
-            protectionActionButton?.background = shape(if (active) panel2 else accent, 13)
+            protectionActionButton?.text = when {
+                active -> "보호 중지"
+                recoveryPending -> "보호 복구 중"
+                staleSession -> "다시 연결"
+                else -> "보호 시작"
+            }
+            protectionActionButton?.isEnabled = !recoveryPending
+            protectionActionButton?.setTextColor(if (active || recoveryPending) white else bg)
+            protectionActionButton?.background = shape(if (active || recoveryPending) panel2 else accent, 13)
         }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
         val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
@@ -2520,6 +2613,15 @@ class MainActivity : Activity() {
             }
         }
         return domains.toList()
+    }
+
+    private fun setUpdateInstallButtonReady(button: Button, ready: Boolean) {
+        button.isEnabled = ready
+        button.setTextColor(if (ready) bg else muted)
+        button.background = shape(if (ready) accent else panel2, 12).apply {
+            setStroke(dp(1), if (ready) accent else muted)
+        }
+        button.alpha = if (ready) 1f else 0.78f
     }
 
     private fun applyToggleTint(toggle: CompoundButton) {
