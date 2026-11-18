@@ -111,8 +111,12 @@ class ProtectionDiagnosticsTest {
 
         assertTrue(report.contains("기본 필터 프로필 일치: 불일치"))
         assertTrue(report.contains("기본 필터 검증: 실패 또는 준비되지 않음 · 유효 규칙 1200개"))
-        assertTrue(report.contains("보안 필터: 있음 (2048 bytes) · 검증 정상 · 유효 규칙 4500개"))
-        assertTrue(report.contains("Android 앱 광고 필터: 있음 (1024 bytes) · 검증 실패 또는 준비되지 않음 · 유효 규칙 25개"))
+        assertTrue(report.contains("보안 필터: 있음 (2048 bytes)"), report)
+        assertTrue(report.contains("검증 정상"), report)
+        assertTrue(report.contains("유효 규칙 4500개"), report)
+        assertTrue(report.contains("Android 앱 광고 필터: 있음 (1024 bytes)"), report)
+        assertTrue(report.contains("검증 실패 또는 준비되지 않음"), report)
+        assertTrue(report.contains("유효 규칙 25개"), report)
         assertTrue(!report.contains("/data/"))
         assertTrue(!report.contains("https://"))
     }
