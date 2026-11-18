@@ -31,6 +31,21 @@ $manifestBaseUrl='https://raw.githubusercontent.com/justinhblee-prog/guardian/gu
 if(-not(Test-Path -LiteralPath $paths.FilterSources -PathType Leaf)){throw '운영 sources.json이 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.'}
 $filterConfig=Get-Content -Raw -LiteralPath $paths.FilterSources | ConvertFrom-Json
 if($null -eq $filterConfig.sources -or @($filterConfig.sources).Count -lt 1){throw 'sources.json에 필터 공급원이 없습니다.'}
+# Production release configuration must not bypass the publisher's fail-closed redistribution gate.
+# Require a reviewed license identifier, explicit approval and a traceable approval reference
+# for every source before creating a keystore or writing any GitHub secrets/variables.
+$unapprovedSources = @($filterConfig.sources | Where-Object {
+  $license = $_.PSObject.Properties['licenseId']
+  $approved = $_.PSObject.Properties['redistributionApproved']
+  $approvalRef = $_.PSObject.Properties['redistributionApprovalRef']
+  $null -eq $license -or [string]::IsNullOrWhiteSpace([string]$license.Value) -or
+    $null -eq $approved -or $approved.Value -ne $true -or
+    $null -eq $approvalRef -or [string]::IsNullOrWhiteSpace([string]$approvalRef.Value)
+})
+if($unapprovedSources.Count -gt 0){
+  $blockedIds = ($unapprovedSources | ForEach-Object { [string]$_.id }) -join ', '
+  throw "운영 필터 재배포 승인 증빙이 없어 Release 설정을 중단합니다: $blockedIds. 권리 검토 후 licenseId, redistributionApproved=true, redistributionApprovalRef를 sources.json에 기록하세요."
+}
 $publishedBranch=(& git -C $repoRoot ls-remote --heads origin refs/heads/guardian-filter-data 2>$null | Out-String).Trim()
 if($LASTEXITCODE -ne 0 -or -not $publishedBranch){throw '공개 guardian-filter-data 브랜치가 없습니다. Update-And-Publish-GuardianFilters.ps1을 먼저 실행하세요.'}
 & (Join-Path $PSScriptRoot 'Verify-GuardianPublishedFilters.ps1') -Sources @($filterConfig.sources) -ManifestBaseUrl $manifestBaseUrl -PublicKeyPath $filterPublicPath
