@@ -2199,9 +2199,9 @@ class MainActivity : Activity() {
     private fun buildAppExclusions(body: LinearLayout) {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val excluded = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty().toMutableSet()
-        // Android 11+ limits package visibility. The manifest explicitly
-        // exposes supported non-launcher integrations (Android Auto and Samsung
-        // Wallet) while launcher-visible apps remain discoverable through queries.
+        // QUERY_ALL_PACKAGES is required here because this control must list every
+        // installed app, including non-launcher and system apps. The inventory is
+        // used only to render this on-device exclusion picker; it is never uploaded.
         val apps = packageManager.getInstalledApplications(0)
             .map { it.packageName to it.loadLabel(packageManager).toString() }
             .filter { it.first != packageName }
