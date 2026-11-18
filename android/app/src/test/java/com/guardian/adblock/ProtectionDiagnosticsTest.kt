@@ -31,6 +31,19 @@ class ProtectionDiagnosticsTest {
         assertTrue(detail.contains("우회"))
     }
 
+    @Test fun observedDnsCountersExplicitlyWarnAboutAppOwnedEncryptedDnsBypass() {
+        val detail = ProtectionDiagnostics.statusDetail(true, 7, 2, 5, 0, "off")
+        assertTrue(detail.contains("DoH/DoT"))
+        assertTrue(detail.contains("HTTPS/TLS 기반 DNS"))
+        assertTrue(detail.contains("DNS 필터를 우회"))
+    }
+
+    @Test fun noObservedDnsStillExplainsEncryptedDnsCoverageLimit() {
+        val detail = ProtectionDiagnostics.statusDetail(true, 0, 0, 0, 0, "off")
+        assertTrue(detail.contains("DoH/DoT"))
+        assertTrue(detail.contains("실제 광고 제거 여부는 별도 확인"))
+    }
+
     @Test fun inactiveTunnelNeverReportsObservedProtection() {
         val detail = ProtectionDiagnostics.statusDetail(false, 99, 80, 19, 0, "off")
         assertTrue(detail.contains("보호를 시작하면"))
