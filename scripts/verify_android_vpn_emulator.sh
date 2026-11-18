@@ -322,38 +322,12 @@ echo "Verifying the app-exclusion search field is automatically revealed and fil
 # The Settings destination can be missed when the preceding Premium screen
 # leaves a nested scroll container at a non-zero offset. Retry the tab action
 # and verify the selected navigation state before searching its long content.
-settings_tab_selected=0
-for attempt in $(seq 1 5); do
-  tap_content_description "설정"
-  sleep 1
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if any(node.attrib.get("content-desc")=="설정"
-       and node.attrib.get("selected")=="true"
-       and node.attrib.get("visible-to-user","true")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' <<<"$settings_tab_xml"; then
-    settings_tab_selected=1
-    break
-  fi
-  echo "Settings tab selection not reflected yet; retrying ($attempt/5)."
-done
-if [[ "$settings_tab_selected" -ne 1 ]]; then
-  echo "Could not navigate to the Settings tab before app-inventory verification."
-  echo "$settings_tab_xml"
-  exit 1
-fi
-sleep 1
 # The Premium-screen check intentionally cancels the first-run disclosure.
-# When Settings is opened for the actual inventory test, accept it explicitly
-# before scrolling; otherwise the modal blocks the search field underneath.
+# Accept it before navigating to Settings: while the AlertDialog is open,
+# the underlying bottom navigation is not present in the accessibility tree.
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
-  # Resolve the AlertDialog positive button by stable Android resource ID.
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
@@ -383,6 +357,32 @@ for node in root.iter("node"):
     exit 1
   fi
 fi
+
+settings_tab_selected=0
+for attempt in $(seq 1 5); do
+  tap_content_description "설정"
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("content-desc")=="설정"
+       and node.attrib.get("selected")=="true"
+       and node.attrib.get("visible-to-user","true")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$settings_tab_xml"; then
+    settings_tab_selected=1
+    break
+  fi
+  echo "Settings tab selection not reflected yet; retrying ($attempt/5)."
+done
+if [[ "$settings_tab_selected" -ne 1 ]]; then
+  echo "Could not navigate to the Settings tab before app-inventory verification."
+  echo "$settings_tab_xml"
+  exit 1
+fi
+sleep 1
 # Settings is a long page; scroll until the app inventory search input is visible.
 app_search_visible=0
 for attempt in $(seq 1 16); do
