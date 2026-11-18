@@ -34,7 +34,8 @@ internal object GuardianStableUpdateManager {
             if (!GuardianStableUpdatePolicy.isStableRelease(
                     release.optBoolean("draft", true), release.optBoolean("prerelease", false), tag
                 )) continue
-            val assets = release.optJSONArray("assets")\n                ?: error("최신 정식 Release에 업데이트 자산 목록이 없습니다.")
+            val assets = release.optJSONArray("assets")
+                ?: error("최신 정식 Release에 업데이트 자산 목록이 없습니다.")
             var manifestUrl: String? = null
             var apkUrl: String? = null
             for (assetIndex in 0 until assets.length()) {
@@ -44,12 +45,15 @@ internal object GuardianStableUpdateManager {
                     APK_ASSET -> apkUrl = asset.optString("browser_download_url")
                 }
             }
-            require(!manifestUrl.isNullOrBlank() && !apkUrl.isNullOrBlank()) {\n                "최신 정식 Release에 guardian-android.json 또는 guardian-android.apk가 없습니다."\n            }
+            require(!manifestUrl.isNullOrBlank() && !apkUrl.isNullOrBlank()) {
+                "최신 정식 Release에 guardian-android.json 또는 guardian-android.apk가 없습니다."
+            }
             require(isGuardianReleaseAssetUrl(manifestUrl)) { "정식 업데이트 manifest 주소가 Guardian 공식 GitHub Release가 아닙니다." }
             require(isGuardianReleaseAssetUrl(apkUrl)) { "정식 APK 주소가 Guardian 공식 GitHub Release가 아닙니다." }
 
             val manifest = JSONObject(readHttps(manifestUrl, 64 * 1024))
-            require(manifest.optInt("manifestVersion", 0) == 1) { "지원하지 않는 정식 업데이트 manifest 버전입니다." }\n            if (manifest.optString("packageName") != PACKAGE_NAME) continue
+            require(manifest.optInt("manifestVersion", 0) == 1) { "지원하지 않는 정식 업데이트 manifest 버전입니다." }
+            if (manifest.optString("packageName") != PACKAGE_NAME) continue
             val versionName = manifest.optString("versionName")
             val versionCode = manifest.optInt("versionCode", 0)
             require(versionName.matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+$")) && versionCode > 0) {
