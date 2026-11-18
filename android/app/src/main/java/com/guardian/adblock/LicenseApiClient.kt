@@ -104,6 +104,8 @@ internal object LicenseApiClient {
     @Synchronized
     fun activate(context: Context, licenseKey: String, appVersion: String): LicenseEntitlementVerifier.Entitlement {
         require(licenseKey.isNotBlank() && licenseKey.length <= 100) { "라이선스 키를 확인하세요." }
+        // Fail locally before the server allocates a device activation slot.
+        validateLicensePublicKeyConfiguration(BuildConfig.LICENSE_PUBLIC_KEY)
         val response = post(context,
             "/v1/licenses/activate",
             JSONObject()
