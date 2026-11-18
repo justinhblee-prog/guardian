@@ -222,8 +222,8 @@ class MainActivity : Activity() {
                     val now = System.currentTimeMillis()
                     val lastCheck = updatePrefs.getLong("last_check_at", 0L)
                     if (now - lastCheck >= 24L * 60L * 60L * 1000L) {
-                        updatePrefs.edit().putLong("last_check_at", now).apply()
                         val available = GuardianStableUpdateManager.checkForUpdate()
+                        updatePrefs.edit().putLong("last_check_at", now).apply()
                         if (available != null) {
                             val apk = GuardianStableUpdateManager.download(this, available)
                             runOnUiThread {
