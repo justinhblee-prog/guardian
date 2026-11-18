@@ -421,6 +421,15 @@ if ! grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
   read_prefs
   exit 1
 fi
+# Simulate an installation from a pre-restore-intent build. The new app must
+# migrate using the legacy active flag if the durable preference did not exist.
+legacy_prefs="$(python3 -c 'import re,sys; sys.stdout.write(re.sub(r"<boolean name=\\"protection_restore_requested\\" value=\\"(?:true|false)\\"\\s*/>", "", sys.stdin.read()))' <<<"$(read_prefs)")"
+printf '%s' "$legacy_prefs" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
+if grep -q 'name="protection_restore_requested"' <<<"$(read_prefs)"; then
+  echo "Legacy upgrade fixture unexpectedly retained the new restore-intent preference."
+  read_prefs
+  exit 1
+fi
 adb_cmd logcat -c
 adb_cmd install -r -t android/app/build/outputs/apk/debug/app-debug.apk
 adb_cmd shell pm path "$PACKAGE" | grep -F 'package:'
