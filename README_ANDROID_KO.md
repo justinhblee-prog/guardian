@@ -116,6 +116,8 @@ gradle -p android --no-daemon clean testDebugUnitTest assembleRelease bundleRele
 
 Release 서명 설정과 키 파일 존재 여부는 Gradle task에서 검사합니다. 현재 운영 keystore는 아직 제공/설정되지 않았으므로 production-signed APK/AAB를 만들었다고 간주하지 않습니다.
 
+**개발 빌드에서 첫 정식 빌드로 전환:** Debug APK는 개발용 인증서로 서명되고 Release APK는 별도의 운영 keystore로 서명되므로, Android는 개발 APK 위에 정식 APK를 덮어 설치하도록 허용하지 않습니다. 첫 정식 설치 전 개발판의 사용자 지정 규칙 등 필요한 설정을 별도로 기록하고 개발판을 제거한 뒤 정식 APK를 새로 설치해야 합니다. 앱 제거 시 로컬 앱 데이터는 삭제됩니다. 이후 동일한 운영 keystore로 서명한 정식 버전끼리는 정상 업그레이드할 수 있습니다.
+
 ## 명확한 제한 및 미검증 사항
 
 - 현재 필터링은 시스템 가상 DNS를 통한 IPv4/IPv6 UDP/53 및 TCP/53 DNS 질의를 처리합니다.
