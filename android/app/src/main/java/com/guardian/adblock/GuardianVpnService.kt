@@ -93,6 +93,7 @@ class GuardianVpnService : VpnService() {
 
     @Volatile private var lastUpstreamFailure: String? = null
     private var tun: ParcelFileDescriptor? = null
+    @Volatile private var packetWorker: Thread? = null
     private val running = AtomicBoolean(false)
     private val starting = AtomicBoolean(false)
     private data class PendingStart(val generation: Long, val startId: Int)
@@ -164,6 +165,14 @@ class GuardianVpnService : VpnService() {
         tun = null
         try { oldTun?.close() } catch (error: Exception) {
             android.util.Log.w("GuardianProtection", "Could not close old TUN before exclusion refresh", error)
+        }
+        // Wait for the previous blocking packet reader to exit before allowing a
+        // new worker to set running=true; otherwise its finally block could stop
+        // the newly-created tunnel after observing the shared flag.
+        try { packetWorker?.join(1500L) } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            publishState(false, "앱별 보호 제외 재적용이 중단되었습니다. 다시 시도해 주세요.")
+            return
         }
         prefs.edit().putBoolean(KEY_ACTIVE, false).commit()
         val generation = startCancellation.onStartRequested()
@@ -341,7 +350,7 @@ class GuardianVpnService : VpnService() {
             running.set(true)
             tunnelActive = true
             publishState(true, "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다.")
-            thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
+            packetWorker = thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
         }
         if (!committed) {
             try { descriptor.close() } catch (_: Exception) { }
