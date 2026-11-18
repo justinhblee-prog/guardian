@@ -451,12 +451,18 @@ echo "New version requested VPN restoration automatically. Verifying the tunnel 
 after_update_dns=0
 for attempt in $(seq 1 45); do
   prefs="$(read_prefs)"
-  current_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-  current_queries="${current_queries:-0}"
-  if (( current_queries > before_update_queries )) &&
-     grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
-    after_update_dns=1
-    break
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
+    adb_cmd shell ping -c 1 -W 5 "guardian-restored-${GITHUB_RUN_ID:-test}.example.com" >/tmp/guardian-after-update-allowed-dns.txt 2>&1 || true
+    sleep 2
+    prefs="$(read_prefs)"
+    current_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+    current_queries="${current_queries:-0}"
+    if (( current_queries > before_update_queries )); then
+      if grep -Eq 'PING guardian-restored-[^ ]*\.example\.com \([^)]*\)' /tmp/guardian-after-update-allowed-dns.txt; then
+        after_update_dns=1
+        break
+      fi
+    fi
   fi
   sleep 2
 done
