@@ -12,6 +12,7 @@ $tailscale = $tailscaleCommand.Source
 if (-not $tailscale) { $tailscale = $tailscaleCommand.Name }
 
 $healthUrl = 'http://127.0.0.1:8787/ready'
+$serveTarget = 'http://127.0.0.1:8787'
 try {
   $health = Invoke-WebRequest -Uri $healthUrl -TimeoutSec 8 -UseBasicParsing
   if ($health.StatusCode -ne 200) { throw 'not ready' }
@@ -28,7 +29,7 @@ if ([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',
 }
 
 # Serve only the local license API over the private tailnet.
-& $tailscale serve --bg --https=443 $healthUrl
+& $tailscale serve --bg --https=443 $serveTarget
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 설정에 실패했습니다. 기존 HTTPS 443 Serve 구성을 확인하세요.' }
 & $tailscale serve status
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 상태 확인 실패' }
