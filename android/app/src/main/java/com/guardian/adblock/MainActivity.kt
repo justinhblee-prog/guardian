@@ -134,7 +134,26 @@ class MainActivity : Activity() {
             }
         }
         if (restoredScrollY > 0 && !restoreLicenseFocus) {
-            contentScrollView?.post { contentScrollView?.scrollTo(0, restoredScrollY) }
+            contentScrollView?.let { scroll ->
+                scroll.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        scroll.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        if (restoredTab == "rules" && retainedRuleDraft != null) {
+                            val editorBounds = android.graphics.Rect()
+                            blockRulesInput.getDrawingRect(editorBounds)
+                            scroll.offsetDescendantRectToMyCoords(blockRulesInput, editorBounds)
+                            scroll.scrollTo(0, (editorBounds.top - dp(24)).coerceAtLeast(0))
+                        } else {
+                            scroll.scrollTo(0, restoredScrollY)
+                        }
+                        val maximumScroll = (scroll.getChildAt(0)?.height ?: 0) - scroll.height
+                        android.util.Log.i(
+                            "GuardianUI",
+                            "Restored Activity scroll position; requested=$restoredScrollY actual=${scroll.scrollY} max=${maximumScroll.coerceAtLeast(0)}"
+                        )
+                    }
+                })
+            }
         }
         requestNotificationPermissionIfNeeded()
         LicenseRefreshScheduler.sync(this)
