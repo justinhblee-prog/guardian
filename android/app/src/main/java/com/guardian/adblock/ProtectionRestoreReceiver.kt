@@ -24,6 +24,15 @@ class ProtectionRestoreReceiver : BroadcastReceiver() {
             return
         }
 
+        // Clear the stale "active" bit before relaunching the service. The UI must
+        // not claim protection is live until the new TUN has actually been established.
+        prefs.edit()
+            .putBoolean(GuardianVpnService.KEY_ACTIVE, false)
+            .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, true)
+            .putString(GuardianVpnService.KEY_STATUS, "VPN 보호를 자동으로 다시 연결하고 있습니다.")
+            .commit()
+        context.sendBroadcast(Intent(GuardianVpnService.ACTION_STATUS_CHANGED).setPackage(context.packageName))
+
         val service = Intent(context, GuardianVpnService::class.java)
             .setAction(GuardianVpnService.ACTION_START)
         try {
@@ -36,6 +45,8 @@ class ProtectionRestoreReceiver : BroadcastReceiver() {
         } catch (error: Exception) {
             Log.e("GuardianProtection", "Could not request VPN restore after system event: $action", error)
             prefs.edit()
+                .putBoolean(GuardianVpnService.KEY_ACTIVE, false)
+                .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
                 .putString(
                     GuardianVpnService.KEY_STATUS,
                     "기기 재시작 또는 앱 업데이트 후 VPN 자동 복구를 시작하지 못했습니다. Guardian을 열면 자동 복구를 다시 시도합니다."
