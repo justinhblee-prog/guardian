@@ -9,7 +9,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 val guardianVersionName = providers.gradleProperty("guardianVersionName")
-    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse("0.7.13-dev")
+    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse("0.7.14-dev")
 val guardianVersionCode = providers.gradleProperty("guardianVersionCode")
     .orElse(providers.environmentVariable("GUARDIAN_VERSION_CODE"))
     .map { raw ->
