@@ -32,6 +32,14 @@ internal fun validateLicensePublicKeyConfiguration(encoded: String) {
     require(key.modulus.bitLength() >= 2048) { "라이선스 검증 공개키는 RSA 2048비트 이상이어야 합니다." }
 }
 
+internal fun isLicensePublicKeyConfigurationValid(encoded: String): Boolean =
+    try {
+        validateLicensePublicKeyConfiguration(encoded)
+        true
+    } catch (_: IllegalArgumentException) {
+        false
+    }
+
 /** Parse only an HTTPS origin; API paths are appended from fixed internal constants. */
 internal fun parseLicenseApiBaseUrl(value: String): URL {
     val base = value.trim()
@@ -140,6 +148,9 @@ internal object LicenseApiClient {
 
     @Synchronized
     fun deactivate(context: Context): Boolean {
+        // Never discard the local renewal credential merely because the app's
+        // pinned verifier key is missing or malformed.
+        validateLicensePublicKeyConfiguration(BuildConfig.LICENSE_PUBLIC_KEY)
         // Expired signed tokens do not grant Pro access, but their verified licenseRef
         // is still required to release the server-side device activation slot.
         val current = LicenseEntitlementStore.currentForRefresh(context)
