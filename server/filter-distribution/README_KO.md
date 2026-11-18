@@ -70,15 +70,15 @@ node scripts/publish-manifest.mjs \
 
 앱이 사용하는 sourceId와 최소 규칙 수:
 
-| 앱 필터 | sourceId | 최소 규칙 | 공개 라이선스 표시 |
+| 앱 필터 | sourceId | 최소 규칙 | 공개 라이선스 표시 | 공개 라이선스 표시 |
 |---|---|---:|
-| AdGuard DNS Filter | `adguard` | 1000 |
-| 1Hosts Lite | `1hosts_lite` | 100 |
-| OISD Big | `oisd_big` | 100 |
-| HaGeZi Normal | `hagezi_normal` | 100 |
-| HaGeZi Pro | `hagezi_pro` | 100 |
-| 보안 필터 | `security` | 100 |
-| Android 앱 광고 | `android_ads` | 100 |
+| AdGuard DNS Filter | `adguard` | 1000 | GPL-3.0 |
+| 1Hosts Lite | `1hosts_lite` | 100 | MPL-2.0 |
+| OISD Big | `oisd_big` | 100 | GPL-3.0 |
+| HaGeZi Normal | `hagezi_normal` | 100 | GPL-3.0 |
+| HaGeZi Pro | `hagezi_pro` | 100 | GPL-3.0 |
+| 보안 필터 | `security` | 100 | GPL-3.0 |
+| Android 앱 광고 | `android_ads` | 100 | GPL-3.0 |
 
 각 sourceId/version에 대해 같은 버전의 다른 콘텐츠로 덮어쓰는 것을 publisher가 거부합니다. 새 필터는 반드시 새 sourceVersion으로 발행하세요. 동일 초 내 연속 발행도 anti-rollback 조건을 만족하도록 generatedAt을 증가시킵니다.
 
