@@ -514,7 +514,7 @@ fi
 tap_text "앱별 보호 제외 관리"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-post_vpn_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+post_vpn_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("class")=="android.widget.EditText"
