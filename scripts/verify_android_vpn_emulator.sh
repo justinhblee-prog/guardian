@@ -114,7 +114,8 @@ tap_text() {
   bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
-    if (sys.argv[1] in node.attrib.get("text","")
+    if ((sys.argv[1] in node.attrib.get("text","")
+         or sys.argv[1] in node.attrib.get("content-desc",""))
         and node.attrib.get("visible-to-user", "true") == "true"
         and node.attrib.get("clickable") == "true"
         and node.attrib.get("enabled") == "true"):
@@ -131,6 +132,74 @@ for node in root.iter("node"):
   read -r x y <<<"$bounds"
   adb_cmd shell input tap "$x" "$y"
 }
+
+tap_first_edit_text() {
+  local xml bounds
+  for attempt in $(seq 1 5); do
+    adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+    xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+    bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("class") == "android.widget.EditText"
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("enabled") == "true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' <<<"$xml")"
+    if [[ -n "$bounds" ]]; then break; fi
+    adb_cmd shell input swipe 540 1500 540 600 450
+    sleep 1
+  done
+  if [[ -z "$bounds" ]]; then
+    echo "Could not locate a visible enabled rule editor after scrolling."
+    echo "$xml"
+    return 1
+  fi
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
+# Exercise a real Activity recreation in landscape while unsaved user-rule text
+# is present. The tab and draft must survive rotation without saving to prefs.
+echo "Verifying filter-screen and unsaved rule state survive device rotation."
+tap_text "필터"
+tap_first_edit_text
+adb_cmd shell input text 'rotation-preserved.example'
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+before_rotation_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any("rotation-preserved.example" in node.attrib.get("text","") for node in root.iter("node")):
+    raise SystemExit("Synthetic rule text was not entered before rotation.")' <<<"$before_rotation_xml"
+adb_cmd shell settings put system accelerometer_rotation 0
+adb_cmd shell settings put system user_rotation 1
+sleep 3
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+rotation_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+selected=any(node.attrib.get("content-desc")=="필터" and node.attrib.get("selected")=="true" for node in nodes)
+draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
+if not (selected and draft):
+    raise SystemExit("Activity rotation lost the selected filter tab, restored scroll position, or unsaved rule draft.")' <<<"$rotation_xml"
+if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Activity restored after configuration change; tab=rules scrollY=[1-9][0-9]* hasRuleDraft=true"; then
+  echo "Activity did not retain the unsaved rule editor draft across rotation."
+  adb_cmd logcat -d -s GuardianUI:I | tail -80
+  exit 1
+fi
+if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Saving Activity state; tab=rules scrollY=[1-9][0-9]*"; then
+  echo "Activity did not save the scrolled filter-editor position before rotation."
+  exit 1
+fi
+adb_cmd shell settings put system user_rotation 0
+sleep 2
+adb_cmd shell input keyevent KEYCODE_BACK || true
+tap_text "홈"
+echo "Activity rotation state restoration passed."
 
 prefs="$(read_prefs)"
 if grep -q 'name="protection_active".*value="true"' <<<"$prefs"; then

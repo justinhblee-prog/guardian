@@ -117,17 +117,43 @@ class MainActivity : Activity() {
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
         val restoredTab = ActivityScreenState.restoreTab(savedInstanceState?.getString(STATE_CURRENT_TAB))
+        val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
+        val retainedRuleDraft = lastNonConfigurationInstance as? RuleEditorDraft
+        if (savedInstanceState != null) {
+            android.util.Log.i(
+                "GuardianUI",
+                "Activity restored after configuration change; tab=$restoredTab scrollY=$restoredScrollY hasRuleDraft=${retainedRuleDraft != null}"
+            )
+        }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
         showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
         if (restoredTab == "rules") {
-            (lastNonConfigurationInstance as? RuleEditorDraft)?.let { draft ->
+            retainedRuleDraft?.let { draft ->
                 blockRulesInput.setText(draft.blockRules)
                 allowRulesInput.setText(draft.allowRules)
             }
         }
-        val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
         if (restoredScrollY > 0 && !restoreLicenseFocus) {
-            contentScrollView?.post { contentScrollView?.scrollTo(0, restoredScrollY) }
+            contentScrollView?.let { scroll ->
+                scroll.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        scroll.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        if (restoredTab == "rules" && retainedRuleDraft != null) {
+                            val editorBounds = android.graphics.Rect()
+                            blockRulesInput.getDrawingRect(editorBounds)
+                            scroll.offsetDescendantRectToMyCoords(blockRulesInput, editorBounds)
+                            scroll.scrollTo(0, (editorBounds.top - dp(24)).coerceAtLeast(0))
+                        } else {
+                            scroll.scrollTo(0, restoredScrollY)
+                        }
+                        val maximumScroll = (scroll.getChildAt(0)?.height ?: 0) - scroll.height
+                        android.util.Log.i(
+                            "GuardianUI",
+                            "Restored Activity scroll position; requested=$restoredScrollY actual=${scroll.scrollY} max=${maximumScroll.coerceAtLeast(0)}"
+                        )
+                    }
+                })
+            }
         }
         requestNotificationPermissionIfNeeded()
         LicenseRefreshScheduler.sync(this)
@@ -176,9 +202,11 @@ class MainActivity : Activity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        val savedScrollY = contentScrollView?.scrollY ?: 0
+        android.util.Log.i("GuardianUI", "Saving Activity state; tab=$currentTab scrollY=$savedScrollY")
         outState.putString(STATE_CURRENT_TAB, currentTab)
         outState.putBoolean(STATE_FOCUS_LICENSE_ACTIVATION, focusLicenseActivationOnBuild)
-        outState.putInt(STATE_SCROLL_Y, contentScrollView?.scrollY ?: 0)
+        outState.putInt(STATE_SCROLL_Y, savedScrollY)
         super.onSaveInstanceState(outState)
     }
 
@@ -186,7 +214,9 @@ class MainActivity : Activity() {
 
     override fun onRetainNonConfigurationInstance(): Any? {
         if (currentTab != "rules" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
-        return RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
+        val draft = RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
+        android.util.Log.i("GuardianUI", "Retaining rule editor draft; blockChars=${draft.blockRules.length} allowChars=${draft.allowRules.length}")
+        return draft
     }
 
     @Deprecated("Deprecated in Java")
@@ -1515,6 +1545,8 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
                 setPadding(if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4), if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4))
+                contentDescription = label
+                isSelected = active
                 setOnClickListener { showTab(id) }
                 if (active) background = shape(Color.rgb(31, 54, 76), 14)
             }
