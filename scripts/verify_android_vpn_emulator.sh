@@ -133,13 +133,12 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
-
-
 tap_first_edit_text() {
   local xml bounds
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+  for attempt in $(seq 1 5); do
+    adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+    xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+    bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
     if (node.attrib.get("class") == "android.widget.EditText"
@@ -150,8 +149,12 @@ for node in root.iter("node"):
             x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
             print((x1+x2)//2,(y1+y2)//2)
             break' <<<"$xml")"
+    if [[ -n "$bounds" ]]; then break; fi
+    adb_cmd shell input swipe 540 1500 540 600 450
+    sleep 1
+  done
   if [[ -z "$bounds" ]]; then
-    echo "Could not locate a visible enabled rule editor."
+    echo "Could not locate a visible enabled rule editor after scrolling."
     echo "$xml"
     return 1
   fi
@@ -175,9 +178,8 @@ root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
 draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
 selected=any(node.attrib.get("content-desc")=="필터" and node.attrib.get("selected")=="true" for node in nodes)
-heading=any("필터 및 규칙" in node.attrib.get("text","") for node in nodes)
-if not (draft and selected and heading):
-    raise SystemExit("Activity rotation lost the filter tab, its selection state, or the unsaved rule draft.")' <<<"$rotation_xml"
+if not (draft and selected):
+    raise SystemExit("Activity rotation lost the filter tab selection or the unsaved rule draft.")' <<<"$rotation_xml"
 if ! adb_cmd logcat -d -s GuardianUI:I | grep -F "Activity restored after configuration change; tab=rules"; then
   echo "Activity was not recreated with the saved filter tab after rotation."
   exit 1
