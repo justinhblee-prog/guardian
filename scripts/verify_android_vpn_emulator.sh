@@ -143,6 +143,27 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
+dismiss_dev_update_prompt() {
+  local xml
+  for attempt in $(seq 1 8); do
+    adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
+    xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+    if ! grep -Fq 'text="Guardian 개발 업데이트"' <<<"$xml"; then
+      return 0
+    fi
+    if grep -Fq 'text="나중에"' <<<"$xml"; then
+      tap_text "나중에"
+      sleep 1
+      echo "Dismissed the optional development update prompt for emulator navigation."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Development update prompt remained visible and could not be dismissed safely."
+  echo "$xml"
+  return 1
+}
+
 tap_content_description() {
   local wanted="$1"
   local xml bounds
@@ -199,6 +220,7 @@ for node in root.iter("node"):
 }
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
+dismiss_dev_update_prompt
 tap_content_description "보호"
 sleep 1
 # The app-specific management button is near the bottom of the Protection tab.
