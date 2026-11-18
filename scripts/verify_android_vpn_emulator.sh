@@ -321,34 +321,7 @@ echo "Verifying the app-exclusion search field is automatically revealed and fil
 # than looking for a Protection-tab shortcut that is not present in this UI.
 tap_content_description "설정"
 sleep 2
-# Settings is a long page; scroll until the app inventory search input is visible.
-app_search_visible=0
-for attempt in $(seq 1 16); do
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if any(node.attrib.get("class")=="android.widget.EditText"
-       and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
-       and node.attrib.get("visible-to-user","true")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' <<<"$app_inventory_xml"; then
-    app_search_visible=1
-    break
-  fi
-  adb_cmd shell input swipe 540 1500 540 600 450
-  sleep 1
-done
-if [[ "$app_search_visible" -ne 1 ]]; then
-  echo "App-exclusion search field did not appear while scrolling the Settings tab."
-  echo "$app_inventory_xml"
-  exit 1
-fi
-sleep 2
-adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
+# The Premium-screen check intentionally cancels the first-run disclosure.\n# When Settings is opened for the actual inventory test, accept it explicitly\n# before scrolling; otherwise the modal blocks the search field underneath.\nif grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
   # Resolve the AlertDialog positive button by stable Android resource ID.
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -379,6 +352,33 @@ for node in root.iter("node"):
     exit 1
   fi
 fi
+\n# Settings is a long page; scroll until the app inventory search input is visible.
+app_search_visible=0
+for attempt in $(seq 1 16); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("class")=="android.widget.EditText"
+       and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
+       and node.attrib.get("visible-to-user","true")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$app_inventory_xml"; then
+    app_search_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 540 1500 540 600 450
+  sleep 1
+done
+if [[ "$app_search_visible" -ne 1 ]]; then
+  echo "App-exclusion search field did not appear while scrolling the Settings tab."
+  echo "$app_inventory_xml"
+  exit 1
+fi
+sleep 2
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 installed_package_count="$(adb_cmd shell pm list packages --user 0 | tr -d '\r' | grep -c '^package:')"
 expected_exclusion_app_count="$installed_package_count"
 visible_exclusion_app_count="$(python3 -c 'import re,sys,xml.etree.ElementTree as ET
