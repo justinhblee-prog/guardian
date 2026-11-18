@@ -351,7 +351,7 @@ cat /tmp/guardian-blocked-dns.txt || true
 read_prefs
 
 echo "Verifying automatic VPN protection recovery after an in-place app update."
-before_update_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_update_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_update_queries="${before_update_queries:-0}"
 if ! grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
   echo "Refusing to test app replacement because the previous APK does not have active VPN protection."
@@ -390,7 +390,7 @@ echo "New version requested VPN restoration automatically. Verifying the tunnel 
 after_update_dns=0
 for attempt in $(seq 1 45); do
   prefs="$(read_prefs)"
-  current_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+  current_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
   current_queries="${current_queries:-0}"
   if (( current_queries > before_update_queries )) &&
      grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
@@ -409,12 +409,12 @@ if [[ "$after_update_dns" -ne 1 ]]; then
 fi
 
 echo "Checking that the restored VPN still blocks a known ad domain."
-before_restore_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_restore_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_restore_blocked="${before_restore_blocked:-0}"
 adb_cmd shell ping -c 1 -W 5 "guardian-after-update-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-after-update-blocked-dns.txt 2>&1 || true
 sleep 2
 prefs="$(read_prefs)"
-after_restore_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_restore_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 after_restore_blocked="${after_restore_blocked:-0}"
 if (( after_restore_blocked <= before_restore_blocked )); then
   echo "Restored VPN did not block the post-update test domain."
@@ -422,7 +422,7 @@ if (( after_restore_blocked <= before_restore_blocked )); then
   read_prefs
   exit 1
 fi
-if grep -Eq 'PING guardian-after-update-[^ ]*\\.doubleclick\\.net \\([^)]*\\)' /tmp/guardian-after-update-blocked-dns.txt; then
+if grep -Eq 'PING guardian-after-update-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-after-update-blocked-dns.txt; then
   echo "Post-update blocked domain unexpectedly resolved to an address."
   cat /tmp/guardian-after-update-blocked-dns.txt || true
   exit 1
