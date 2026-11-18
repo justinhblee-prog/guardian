@@ -120,7 +120,7 @@ class MainActivity : Activity() {
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
         showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
         if (restoredTab == "rules") {
-            (lastCustomNonConfigurationInstance as? RuleEditorDraft)?.let { draft ->
+            (lastNonConfigurationInstance as? RuleEditorDraft)?.let { draft ->
                 blockRulesInput.setText(draft.blockRules)
                 allowRulesInput.setText(draft.allowRules)
             }
@@ -184,7 +184,7 @@ class MainActivity : Activity() {
 
     private data class RuleEditorDraft(val blockRules: String, val allowRules: String)
 
-    override fun onRetainCustomNonConfigurationInstance(): Any? {
+    override fun onRetainNonConfigurationInstance(): Any? {
         if (currentTab != "rules" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
         return RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
     }
