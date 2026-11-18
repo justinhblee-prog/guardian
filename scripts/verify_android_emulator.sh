@@ -107,7 +107,7 @@ adb_cmd shell pm path com.guardian.adblock | grep -F 'package:'
   adb_cmd shell pm grant com.guardian.adblock android.permission.POST_NOTIFICATIONS
   # Exercise the optional threat-intelligence feed in CI instead of silently
   # accepting a run where only the default advertising list was downloaded.
-  adb_cmd shell run-as com.guardian.adblock sh -c 'mkdir -p shared_prefs && printf \'%s\' \'<map><boolean name="security_filter_enabled" value="true" /></map>\' > shared_prefs/guardian_settings.xml'
+  adb_cmd shell run-as com.guardian.adblock sh -c "mkdir -p shared_prefs && printf '%s' '<map><boolean name=\"security_filter_enabled\" value=\"true\" /></map>' > shared_prefs/guardian_settings.xml"
   adb_cmd shell am start -n com.guardian.adblock/.MainActivity
 sleep 8
 adb_cmd shell dumpsys activity activities | tee /tmp/guardian-activities.txt
