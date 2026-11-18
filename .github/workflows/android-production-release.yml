@@ -55,6 +55,17 @@ jobs:
           (( DEFAULT_PRODUCTION_VERSION_CODE > DEVELOPMENT_VERSION_CODE ))
           grep -F 'GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE' .github/workflows/android-production-release.yml
           grep -F '$VersionCode -lt $minimumProductionVersionCode' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
+      - name: Validate stable in-app update publishing contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'guardian-android.apk' .github/workflows/android-production-release.yml
+          grep -F 'guardian-android.json' .github/workflows/android-production-release.yml
+          grep -F 'signerSha256' .github/workflows/android-production-release.yml
+          grep -F 'isGuardianReleaseAssetUrl' android/app/src/main/java/com/guardian/adblock/GuardianStableUpdateManager.kt
+          grep -F 'getPackageArchiveInfo' android/app/src/main/java/com/guardian/adblock/GuardianStableUpdateManager.kt
+          grep -F 'candidateVersionCode > installedVersionCode' android/app/src/main/java/com/guardian/adblock/GuardianStableUpdatePolicy.kt
+          node --test scripts/test-create-guardian-update-manifest.mjs
       - name: Validate Gradle release configuration without production secrets
         run: gradle -p android --no-daemon tasks --all
       - name: Confirm release build is blocked without a private keystore
@@ -328,7 +339,9 @@ jobs:
             echo "Development keystore must not be included in production source archive."
             exit 1
           fi
-          sha256sum "$APK" "$AAB" "$SOURCE_ZIP" | tee release/SHA256SUMS.txt
+          cp "$APK" release/guardian-android.apk
+          node scripts/create-guardian-update-manifest.mjs "$APK" release/signature-verification.txt "$GUARDIAN_VERSION_NAME" "$GUARDIAN_VERSION_CODE" release/guardian-android.json
+          sha256sum "$APK" "$AAB" "$SOURCE_ZIP" release/guardian-android.apk release/guardian-android.json | tee release/SHA256SUMS.txt
           SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
           SOURCE_SHA256="$(sha256sum "$SOURCE_ZIP" | awk '{print $1}')"
           cat >> release/VERIFICATION_SUMMARY_KO.md <<EOF
@@ -339,7 +352,7 @@ jobs:
           - Development keystore excluded from source ZIP: yes
           EOF
           rm -f android/app/guardian-release.jks
-          ls -lh "$APK" "$AAB" release/SHA256SUMS.txt release/VERIFICATION_SUMMARY_KO.md release/signature-verification.txt release/aab-signature-verification.txt release/signer-certificate.txt "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip"
+          ls -lh "$APK" "$AAB" release/guardian-android.apk release/guardian-android.json release/SHA256SUMS.txt release/VERIFICATION_SUMMARY_KO.md release/signature-verification.txt release/aab-signature-verification.txt release/signer-certificate.txt "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip"
 
       - name: Upload signed APK, AAB and source package
         uses: actions/upload-artifact@v4
@@ -354,6 +367,8 @@ jobs:
             release/aab-signature-verification.txt
             release/signer-certificate.txt
             release/Guardian-AdBlock-Source-v${{ env.GUARDIAN_VERSION_NAME }}.zip
+            release/guardian-android.apk
+            release/guardian-android.json
           if-no-files-found: error
           retention-days: 30
 
@@ -370,6 +385,8 @@ jobs:
           fi
           gh release create "$TAG" \
             "android/app/build/outputs/apk/release/app-release.apk#Guardian Android APK" \
+            "release/guardian-android.apk#Guardian stable update APK" \
+            "release/guardian-android.json#Guardian stable update manifest" \
             "android/app/build/outputs/bundle/release/app-release.aab#Guardian Android AAB" \
             "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip#Guardian source ZIP" \
             "release/SHA256SUMS.txt#SHA-256 checksums" \
