@@ -28,6 +28,11 @@ class ProtectionRestorePolicyTest {
         assertFalse(ProtectionRestorePolicy.shouldRestore(null, true))
     }
 
+    @Test fun activeProtectionIntentSurvivesUnexpectedServiceTeardown() {
+        assertTrue(ProtectionRestorePolicy.shouldPreserveRestoreIntentOnServiceDestroy(true))
+        assertFalse(ProtectionRestorePolicy.shouldPreserveRestoreIntentOnServiceDestroy(false))
+    }
+
     @Test fun explicitStoppedStateDoesNotTriggerRestore() {
         assertFalse(ProtectionRestorePolicy.shouldRestore(
             ProtectionRestorePolicy.ACTION_BOOT_COMPLETED, false
