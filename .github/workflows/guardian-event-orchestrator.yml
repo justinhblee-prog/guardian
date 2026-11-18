@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: "Android workflow run ID to audit (optional)"
-        required: false
+        description: "Android workflow run ID to audit"
+        required: true
         type: string
 
 permissions:
@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   audit-and-continue:
-    name: Audit completed Android work and prepare the next action
+    name: Audit completed Android work and verify delivered artifacts
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -32,13 +32,13 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-                        let run;
+            let run;
             if (context.eventName === 'workflow_run') {
               run = context.payload.workflow_run;
             } else {
               const runId = context.payload.inputs?.run_id;
-              if (!runId) {
-                core.setFailed('Manual audit requires run_id.');
+              if (!runId || !/^\\d+$/.test(runId)) {
+                core.setFailed('Manual audit requires a numeric run_id.');
                 return;
               }
               const response = await github.rest.actions.getWorkflowRun({
@@ -95,7 +95,7 @@ jobs:
               '',
               '## 자동 후속 처리',
               run.conclusion === 'success'
-                ? '- APK와 전체 소스 ZIP을 다운로드하고 각각 SHA-256/ZIP 무결성을 검증합니다.'
+                ? '- APK와 전체 소스 ZIP을 다운로드하고 버전 메타데이터, SHA-256, ZIP 무결성을 검증합니다.'
                 : noRunnerEvidence
                   ? '- 실행 단계가 시작되지 않은 실패로 분류했습니다. 앱 소스 오류로 단정하지 않습니다.'
                   : '- 실패 단계 정보를 수집했습니다. 이 워크플로는 자동으로 코드를 수정하거나 실패를 성공으로 바꾸지 않습니다.',
@@ -104,7 +104,7 @@ jobs:
               '- CI/에뮬레이터 검증은 Android 실기기 VPN 승인, 실제 DNS 경로, 광고 차단 효과를 증명하지 않습니다.',
               '- 이 이벤트 파이프라인은 추가 AI API 키나 유료 외부 에이전트를 호출하지 않습니다.'
             ];
-            fs.writeFileSync('audit/GUARDIAN_EVENT_AUDIT.md', lines.join('\n') + '\n');
+            fs.writeFileSync('audit/GUARDIAN_EVENT_AUDIT.md', lines.join('\\n') + '\\n');
             core.setOutput('run_id', String(run.id));
             core.setOutput('conclusion', run.conclusion || 'unknown');
             core.setOutput('classification', classification);
@@ -129,21 +129,31 @@ jobs:
           apk="$(find audit/input -type f -name app-debug.apk -print -quit)"
           apk_sums="$(find audit/input -path '*/android/app/build/outputs/apk/debug/SHA256SUMS.txt' -print -quit)"
           package_sums="$(find audit/input -path '*/release/SHA256SUMS.txt' -print -quit)"
-          source_zip="$(find audit/input -type f -name 'Guardian-AdBlock-Source-v0.7.14-dev.zip' -print -quit)"
           summary="$(find audit/input -type f -name VERIFICATION_SUMMARY_KO.md -print -quit)"
           test -n "$apk" && test -s "$apk"
           test -n "$apk_sums" && test -s "$apk_sums"
           test -n "$package_sums" && test -s "$package_sums"
-          test -n "$source_zip" && test -s "$source_zip"
           test -n "$summary" && test -s "$summary"
 
-          expected_apk="$(awk '$2 ~ /app-debug[.]apk$/ {print $1; exit}' "$package_sums")"
-          expected_source="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]14-dev[.]zip$/ {print $1; exit}' "$package_sums")"
-          apk_manifest="$(awk 'NR==1 {print $1}' "$apk_sums")"
+          version_name="$(sed -n 's/^- versionName: //p' "$summary" | head -n 1 | tr -d '\\r')"
+          version_code="$(sed -n 's/^- versionCode: //p' "$summary" | head -n 1 | tr -d '\\r')"
+          package_name="$(sed -n 's/^- 패키지: //p' "$summary" | head -n 1 | tr -d '\\r')"
+          [[ "$version_name" =~ ^[A-Za-z0-9._-]+$ ]]
+          [[ "$version_code" =~ ^[0-9]+$ ]]
+          test "$package_name" = "com.guardian.adblock"
+
+          source_name="Guardian-AdBlock-Source-v${version_name}.zip"
+          source_zip="$(find audit/input -type f -name "$source_name" -print -quit)"
+          test -n "$source_zip" && test -s "$source_zip"
+
+          expected_apk="$(awk '$2 == "android/app/build/outputs/apk/debug/app-debug.apk" {print $1; exit}' "$package_sums")"
+          expected_source="$(awk -v name="release/$source_name" '$2 == name {print $1; exit}' "$package_sums")"
+          apk_manifest="$(awk '$2 == "app-debug.apk" {print $1; exit}' "$apk_sums")"
           actual_apk="$(sha256sum "$apk" | awk '{print $1}')"
           actual_source="$(sha256sum "$source_zip" | awk '{print $1}')"
-          test "${#expected_apk}" -eq 64
-          test "${#expected_source}" -eq 64
+          [[ "$expected_apk" =~ ^[a-fA-F0-9]{64}$ ]]
+          [[ "$expected_source" =~ ^[a-fA-F0-9]{64}$ ]]
+          [[ "$apk_manifest" =~ ^[a-fA-F0-9]{64}$ ]]
           test "$expected_apk" = "$actual_apk"
           test "$apk_manifest" = "$actual_apk"
           test "$expected_source" = "$actual_source"
@@ -154,16 +164,18 @@ jobs:
           {
             echo
             echo "## APK and source artifact audit"
+            echo "- Package: ${package_name}"
+            echo "- Version: ${version_name} (${version_code})"
             echo "- APK: present and readable"
             echo "- APK size: ${apk_bytes} bytes"
             echo "- APK SHA-256: ${actual_apk}"
-            echo "- Source ZIP: present and readable"
+            echo "- Source ZIP: ${source_name}"
             echo "- Source ZIP size: ${source_bytes} bytes"
             echo "- Source ZIP SHA-256: ${actual_source}"
             echo "- APK/source ZIP integrity: passed"
             echo "- Source verification summary: present"
           } >> audit/GUARDIAN_EVENT_AUDIT.md
-          echo "Verified APK and source ZIP: APK ${apk_bytes} bytes; source ${source_bytes} bytes."
+          echo "Verified Guardian ${version_name} APK and source ZIP: APK ${apk_bytes} bytes; source ${source_bytes} bytes."
 
       - name: Upload event audit report
         if: always() && steps.source.outputs.run_id != ''
