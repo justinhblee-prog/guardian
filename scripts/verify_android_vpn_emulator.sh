@@ -319,8 +319,34 @@ for node in root.iter("node"):
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
 # The app-exclusion picker is part of Settings. Open that tab directly rather
 # than looking for a Protection-tab shortcut that is not present in this UI.
-tap_content_description "설정"
-sleep 2
+# The Settings destination can be missed when the preceding Premium screen
+# leaves a nested scroll container at a non-zero offset. Retry the tab action
+# and verify the selected navigation state before searching its long content.
+settings_tab_selected=0
+for attempt in $(seq 1 5); do
+  tap_content_description "설정"
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("content-desc")=="설정"
+       and node.attrib.get("selected")=="true"
+       and node.attrib.get("visible-to-user","true")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$settings_tab_xml"; then
+    settings_tab_selected=1
+    break
+  fi
+  echo "Settings tab selection not reflected yet; retrying ($attempt/5)."
+done
+if [[ "$settings_tab_selected" -ne 1 ]]; then
+  echo "Could not navigate to the Settings tab before app-inventory verification."
+  echo "$settings_tab_xml"
+  exit 1
+fi
+sleep 1
 # The Premium-screen check intentionally cancels the first-run disclosure.
 # When Settings is opened for the actual inventory test, accept it explicitly
 # before scrolling; otherwise the modal blocks the search field underneath.
