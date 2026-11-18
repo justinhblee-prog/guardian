@@ -60,6 +60,36 @@ cache_ready() {
   return 0
 }
 
+echo "Verifying the dedicated Guardian Premium menu and license activation focus."
+tap_content_description "프리미엄"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+premium_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+text=" ".join(node.attrib.get("text","") for node in root.iter("node"))
+for expected in ("Guardian Premium", "GUARDIAN  /  PRO MEMBERSHIP", "앱 코드 피싱 보호", "검사 엔진 연동 필요"):
+    if expected not in text:
+        raise SystemExit("Premium screen is missing expected content: "+expected)' <<<"$premium_xml"
+if grep -Fq 'text="PRO 라이선스 활성화"' <<<"$premium_xml"; then
+  tap_text "PRO 라이선스 활성화"
+else
+  tap_text "PRO 라이선스 관리"
+fi
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+premium_license_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("class")=="android.widget.EditText"
+    and node.attrib.get("content-desc")=="PRO 라이선스 활성화 코드 입력"
+    and node.attrib.get("visible-to-user","true")=="true"
+    and node.attrib.get("focused")=="true"
+    for node in root.iter("node")):
+    raise SystemExit("Premium CTA did not focus the PRO license activation input.")' <<<"$premium_license_xml"
+adb_cmd shell input keyevent KEYCODE_BACK || true
+echo "Premium menu, entitlement status, and license activation focus passed."
+
 echo "Waiting for all enabled filter lists to be downloaded and cached."
 # This CI scenario explicitly enables the optional security filter before
 # first launch; require its cache and parsed rule count rather than treating it
