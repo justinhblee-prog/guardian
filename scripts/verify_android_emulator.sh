@@ -67,12 +67,12 @@ wait_for_network() {
 wait_for_network
 adb_cmd logcat -c
 
-python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.15-dev.apk 28 0.7.15-dev android/app/build/outputs/apk/debug/app-debug.apk 29 0.7.16-dev
+python3 scripts/verify_apk_metadata.py /tmp/guardian-0.7.16-dev.apk 29 0.7.16-dev android/app/build/outputs/apk/debug/app-debug.apk 29 0.7.16-dev
 
 previous_installed=0
 for attempt in 1 2 3; do
   if adb_cmd shell service check package 2>/dev/null | grep -q 'found' &&
-     adb_cmd install -r -t /tmp/guardian-0.7.15-dev.apk; then
+     adb_cmd install -r -t /tmp/guardian-0.7.16-dev.apk; then
     previous_installed=1
     break
   fi
