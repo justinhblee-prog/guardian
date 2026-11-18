@@ -1,8 +1,9 @@
 # Guardian 잔여 업무 순차 진행 계획
 
-기준 main 커밋: `4a3a351b9e21dfd2abd66a24b3cb16a066f060a8` (PR #127 병합)
-최신 main Android CI: [run 44242543546](https://github.com/justinhblee-prog/guardian/actions/runs/44242543546) — 마지막 확인 시 in progress
-최신 완료 E2E 증거: [PR #127 run 44241375918](https://github.com/justinhblee-prog/guardian/actions/runs/44241375918)
+기준 main 커밋: `c59faf094495fcf8d0289a108584644fa2b0ad11` (PR #129 병합)
+최신 main Android CI: [run 44243684769](https://github.com/justinhblee-prog/guardian/actions/runs/44243684769) — 마지막 확인 시 에뮬레이터 설치/실행 단계
+최신 완료 Android E2E 증거: [PR #129 run 44242946910](https://github.com/justinhblee-prog/guardian/actions/runs/44242946910) — 성공
+최신 License API CI: [run 44243134988](https://github.com/justinhblee-prog/guardian/actions/runs/44243134988) — 성공
 상태 갱신: 2026-11-18
 
 ## 운영 원칙
@@ -64,8 +65,8 @@ flowchart TD
 
 | 순서 | 작업 | 완료 기준 | 상태 |
 |---:|---|---|---|
-| 1 | Android 라이선스·기기 관리 | Android entitlement 확인, 기기 활성화/해제, 만료·정지 처리 및 회귀 테스트 | 코드·CI 완료 |
-| 2 | 서명 필터 서버·Android 연동 | signed manifest, SHA-256, anti-rollback, publisher/updater 및 distribution CI | 코드·CI 완료 / 운영 키·HTTPS 게시 대기 |
+| 1 | Android 라이선스·기기 관리 | Android entitlement 확인, 기기 활성화/해제, 만료·정지 처리 및 회귀 테스트 | 코드·CI 완료 / 실제 운영 서버 연결 검증 대기 |
+| 2 | 서명 필터 서버·Android 연동 | signed manifest, SHA-256, anti-rollback, publisher/updater 및 distribution CI | 코드·CI 완료 / 운영 키·HTTPS 게시·upstream 상용 재배포 라이선스 검토 대기 |
 | 3 | 운영자 라이선스 발급·관리 화면 | 발급, 검색·필터·정렬, 기기별 해제, 라이선스 정지, 감사 로그, 반응형 관리자 화면 | PR #78 병합 · License API CI 성공 |
 | 4 | 모바일·태블릿·관리자 반응형 화면 | Android 공통 반응형 UI 및 모바일/데스크톱 관리자 화면 | 코드·CI 완료 / 실제 기기 화면 검증은 후순위 |
 | 5 | Android production signing/release | release 설정 검증 및 임시 키 서명 smoke test; production keystore/secrets는 운영 환경에서 별도 설정 | 설정 CI 완료 / 운영 키·secrets 대기 |
@@ -87,6 +88,17 @@ flowchart TD
 그 외의 단위 테스트 실패, lint 경고/오류, 컴파일 오류, 다운로드 재시도 실패, CI 러너 일시 장애, 에뮬레이터 환경 문제는 로그와 단계 정보를 근거로 분류하고 가능한 수정·재검증을 진행한다. 인프라 장애를 앱 코드 결함으로 잘못 분류하지 않는다.
 
 ## 2026-11-18 최신 Android 검증 증거
+
+- PR #128 Android 시작 실패 진단 보강 병합: `4f1e47494caacea595be9326fd3af3cd4ae30538`. 지원 보고서에 시작 실패 단계와 예외 클래스만 포함하고 원본 메시지·로컬 경로는 제외합니다. PR CI [44242872020](https://github.com/justinhblee-prog/guardian/actions/runs/44242872020) 성공, 단위 테스트·에뮬레이터 E2E 포함.
+- PR #129 검증 문서 최신화 병합: `c59faf094495fcf8d0289a108584644fa2b0ad11`. PR CI [44242946910](https://github.com/justinhblee-prog/guardian/actions/runs/44242946910) 성공.
+- PR #130 PowerShell 필터 검증 스크립트 파서 수정 병합: `c8ff95cfa0e2c1fc9ad6b4298ec4369227a17800`. License API CI [44243134988](https://github.com/justinhblee-prog/guardian/actions/runs/44243134988) 성공.
+- PR #131 제3자 필터 라이선스 감사 문서 병합: `d1c50471b106735129eafe604125aad4d430b09b`. GPL-3.0/MPL-2.0 upstream을 운영 배포 승인으로 오해하지 않도록 상용 재배포 전 검토 항목을 명시했습니다.
+- PR #127 사용자 지정 규칙 VPN E2E 검증 성공 및 main 병합: `4a3a351b9e21dfd2abd66a24b3cb16a066f060a8`.
+- PR #127 검증은 사용자 규칙 입력 후 화면 회전, 저장, VPN DNS 차단 및 차단 카운터 증가를 확인했습니다. 완료 artifact `14399892262`의 APK SHA-256은 `339e3b21ca6b93f5cba3a332475c27c1080ac71778960317830cdb37ec448124`입니다.
+- 병합 후 main run [44243684769](https://github.com/justinhblee-prog/guardian/actions/runs/44243684769)은 마지막 확인 시 에뮬레이터 설치/실행 단계였습니다. 해당 run은 PR #128/#129 진단·문서 변경이 아니라 PR #129 merge SHA 기준이므로, 이후 main의 PR #128 병합 결과와 구분합니다.
+- 실기기 `Library file not found` 원인은 미확정이며, 실제 휴대전화의 진단 보고서/로그가 없으므로 실기기 해결 상태는 미완료입니다.
+- 운영 signing key, 실제 License API/DB 배포, signed filter HTTPS 게시, production APK/AAB는 미완료입니다.
+
 
 - PR #127 사용자 지정 규칙 VPN E2E 검증 성공 및 main 병합: `4a3a351b9e21dfd2abd66a24b3cb16a066f060a8`.
 - PR #127 검증은 사용자 규칙 입력 후 화면 회전, 저장, VPN DNS 차단 및 차단 카운터 증가를 확인했습니다. 완료 artifact `14399892262`의 APK SHA-256은 `339e3b21ca6b93f5cba3a332475c27c1080ac71778960317830cdb37ec448124`입니다.
