@@ -317,38 +317,34 @@ for node in root.iter("node"):
 }
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
-tap_content_description "보호"
-sleep 1
-# The app-specific management button is near the bottom of the Protection tab.
-# Scroll until it is actually visible before asking UIAutomator to tap it.
-app_management_visible=0
-for attempt in $(seq 1 12); do
+# The app-exclusion picker is part of Settings. Open that tab directly rather
+# than looking for a Protection-tab shortcut that is not present in this UI.
+tap_content_description "설정"
+sleep 2
+# Settings is a long page; scroll until the app inventory search input is visible.
+app_search_visible=0
+for attempt in $(seq 1 16); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_management_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  # ScrollView dumps may include off-screen descendants. Only stop when the
-  # control is truly visible, enabled and clickable, matching tap_text below.
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if any("앱별 보호 제외 관리" in node.attrib.get("text","")
-       and node.attrib.get("class")=="android.widget.Button"
+if any(node.attrib.get("class")=="android.widget.EditText"
+       and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
        and node.attrib.get("visible-to-user","true")=="true"
-       and node.attrib.get("clickable")=="true"
-       and node.attrib.get("enabled")=="true"
        for node in root.iter("node")):
     raise SystemExit(0)
-raise SystemExit(1)' <<<"$app_management_xml"; then
-    app_management_visible=1
+raise SystemExit(1)' <<<"$app_inventory_xml"; then
+    app_search_visible=1
     break
   fi
   adb_cmd shell input swipe 540 1500 540 600 450
   sleep 1
 done
-if [[ "$app_management_visible" -ne 1 ]]; then
-  echo "App-specific protection management button did not appear while scrolling the Protection tab."
-  echo "$app_management_xml"
+if [[ "$app_search_visible" -ne 1 ]]; then
+  echo "App-exclusion search field did not appear while scrolling the Settings tab."
+  echo "$app_inventory_xml"
   exit 1
 fi
-tap_text "앱별 보호 제외 관리"
 sleep 2
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
