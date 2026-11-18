@@ -128,4 +128,28 @@ class ProtectionDiagnosticsTest {
         assertTrue(summary.contains("UnsatisfiedLinkError"))
         assertTrue(!summary.contains("missing native library"))
     }
+
+    @Test fun supportReportIncludesRootCauseClassButNeverRawErrorMessage() {
+        val root = java.io.FileNotFoundException("Library file not found at /private/app/lib")
+        val wrapped = IllegalStateException("wrapper details", root)
+        val chain = ProtectionDiagnostics.exceptionTypeChain(wrapped)
+        assertTrue(chain == "IllegalStateException <- FileNotFoundException")
+        val report = ProtectionDiagnostics.startupFailureSummary(
+            "필터 규칙 로드 실패 ($chain): Library file not found at /private/app/lib"
+        )
+        assertTrue(report.contains("IllegalStateException <- FileNotFoundException"))
+        assertTrue(!report.contains("Library file not found"))
+        assertTrue(!report.contains("/private/app/lib"))
+    }
+
+    @Test fun exceptionTypeChainIsBoundedAndHandlesRepeatedCauses() {
+        val root = java.io.IOException("root")
+        val middle = IllegalStateException("middle", root)
+        val top = RuntimeException("top", middle)
+        assertTrue(
+            ProtectionDiagnostics.exceptionTypeChain(top, maxDepth = 2) ==
+                "RuntimeException <- IllegalStateException"
+        )
+    }
+
 }

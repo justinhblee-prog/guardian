@@ -172,7 +172,7 @@ class GuardianVpnService : VpnService() {
         val detail = error.message?.takeIf { it.isNotBlank() } ?: "상세 오류 메시지가 없습니다."
         publishState(
             false,
-            "보호 시작 중 예기치 않은 오류가 발생했습니다 (${error.javaClass.simpleName}): $detail"
+            "보호 시작 중 예기치 않은 오류가 발생했습니다 (${ProtectionDiagnostics.exceptionTypeChain(error)}): $detail"
         )
         stopSelf(startId)
     }
@@ -183,7 +183,7 @@ class GuardianVpnService : VpnService() {
             startForeground(41, buildNotification())
         } catch (e: Exception) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            publishState(false, "포그라운드 서비스 시작 실패 (${e.javaClass.simpleName}): ${e.message ?: "권한 또는 Android 정책을 확인하세요."}")
+            publishState(false, "포그라운드 서비스 시작 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${e.message ?: "권한 또는 Android 정책을 확인하세요."}")
             stopSelf(startId)
             return
         }
@@ -192,7 +192,7 @@ class GuardianVpnService : VpnService() {
             loadConfiguredRules()
         } catch (e: Exception) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            publishState(false, "필터 규칙 로드 실패 (${e.javaClass.simpleName}): ${e.message ?: "원인 정보 없음"}")
+            publishState(false, "필터 규칙 로드 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${e.message ?: "원인 정보 없음"}")
             stopSelf(startId)
             return
         }
@@ -258,7 +258,7 @@ class GuardianVpnService : VpnService() {
         }
         if (descriptor == null) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            val detail = establishError?.let { " (${it.javaClass.simpleName}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
+            val detail = establishError?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
             publishState(false, "VPN 연결 생성 실패$detail. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요.")
             stopSelf(startId)
             return
