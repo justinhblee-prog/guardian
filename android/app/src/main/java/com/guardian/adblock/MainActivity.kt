@@ -215,6 +215,7 @@ class MainActivity : Activity() {
             }
         } else {
             // Stable channel: check published production releases once per day.
+            // Store the throttle timestamp only after the release feed responds successfully.
             // Android always displays its own install-consent screen; no silent install is attempted.
             thread(name = "guardian-stable-update-startup") {
                 try {
