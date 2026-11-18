@@ -1,9 +1,9 @@
 # Guardian 잔여 업무 순차 진행 계획
 
-기준 main 커밋: `29ac16c3e6a33fc66cb9bdb322e100916015b356`
-최신 Android CI: [run 44097350550](https://github.com/justinhblee-prog/guardian/actions/runs/44097350550)
+기준 main 커밋: `d95c7f6fb87803577e0a4ea758bbe4dfe2a68968`
+최신 Android CI: [run 44213812389](https://github.com/justinhblee-prog/guardian/actions/runs/44213812389)
 최신 artifact 감사: [run 44062116800](https://github.com/justinhblee-prog/guardian/actions/runs/44062116800)
-상태 갱신: 2026-11-17
+상태 갱신: 2026-11-18
 
 ## 운영 원칙
 
@@ -221,3 +221,23 @@ Windows 설치 패키지 workflow는 `.github/workflows/windows-build.yml`에 �
 - 최신 소스 ZIP을 별도 Linux 환경에서 추출해 python -m pytest -q dns_engine windows_engine: **33 passed**; python -m compileall -q dns_engine windows_engine: 통과.
 - Windows main build [run 44101373822](https://github.com/justinhblee-prog/guardian/actions/runs/44101373822) 및 cross-platform engine CI [run 44101373586](https://github.com/justinhblee-prog/guardian/actions/runs/44101373586): 전체 성공. Windows installer install/self-test/restore/uninstall 및 예약 작업 정리 경로 통과.
 - Android APK는 debug 서명본, Windows installer는 unsigned 개발용입니다. Android/Windows 실기기 수용 테스트, 운영 HTTPS signed-filter 배포, 실제 License API/PostgreSQL 배포, production signing은 별도 미완료입니다.
+
+
+## 2026-11-18 최신 Android 시작 진단 및 main 검증 — PR #114~#116
+
+- PR #114 `Report unexpected VPN startup and native library failures` 병합: `77e29265dc95f21e31299fbdad0df2ab69b9e919`. VPN startup 경로의 예기치 않은 `Exception`/ `LinkageError`를 기록하고, stale start 요청을 보호하며 partial TUN/foreground 상태를 정리하고 실패 상태를 게시합니다.
+- PR #115 `Handle Android VPN packet loop linkage failures` 병합: `4e3b0546180bed044f1a58274aa055c217df0c04`. 패킷 루프의 `LinkageError`도 finally cleanup과 실패 상태 보고를 거치도록 했습니다.
+- PR #116 `Report Android filter readiness linkage errors` 병합: `d95c7f6fb87803577e0a4ea758bbe4dfe2a68968`. 보호 시작 전 filter cache readiness 검사에서 발생하는 `LinkageError`를 로그와 사용자 표시 오류로 전달하고 버튼 상태를 복구합니다.
+- PR #116 CI [44213013986](https://github.com/justinhblee-prog/guardian/actions/runs/44213013986) 및 병합 후 main CI [44213812389](https://github.com/justinhblee-prog/guardian/actions/runs/44213812389) 전체 성공. Main run에서 Android unit tests, lint, APK 조립/asset/package/checksum, API 35 emulator install/launch 및 VPN DNS E2E 통과.
+- main APK: `com.guardian.adblock`, versionCode 27, `0.7.14-dev`, 3,125,266 bytes, SHA-256 `0ab54e099de1e69264b143757973b012e2a3d29c8627c4385fda5a794816ca0d`.
+- Source ZIP: 471,471 bytes, SHA-256 `b8b766b6ab0c15742372ce36ec16c882575e00c6cda3c3f7f65d0adfe5b63261`. 다운로드 후 ZIP 무결성 및 내부 파일 checksum을 재확인했습니다.
+- CI는 APK 내부 `assets/filter_rules.txt`가 존재하고 `shared/filter_rules.txt`와 byte-for-byte 일치함을 확인합니다. 그러나 이는 실기기에서 사용자가 본 `Library file not found`의 원인을 특정하거나 해결했음을 뜻하지 않습니다. 실기기 파일 상태와 logcat 증거가 없어 해당 오류는 미해결/미검증으로 유지합니다.
+- 운영 keystore/secrets 및 실제 signed-filter HTTPS 게시·License API 운영 주소/키가 확인되지 않아 production APK/AAB는 생성하지 않았습니다. 실기기 VPN/광고 제거 수용 테스트도 미실시입니다.
+
+## 다음 작업 우선순위 정정
+
+1. Android 실기기 오류 진단에 필요한 앱 내 진단 수집·오류 메시지 정합성을 코드 수준에서 보강하되, 실제 기기 로그가 없으면 root cause 해결로 표시하지 않습니다.
+2. Android 앱/라이선스/필터 배포의 운영 준비 코드와 자동화 검증을 완료합니다. 실제 로컬 키 생성, GitHub secrets/variables 변경, Tailscale/서버 실행은 사용자 PC와 운영 계정에 영향을 주므로 사전조건과 권한이 확인되기 전 실행하지 않습니다.
+3. Android tablet responsive/rotation 및 device lifecycle 테스트를 추가합니다.
+4. Windows 최신 패키징/설치 검증은 Android 우선 개발을 마친 뒤 진행합니다.
+5. 운영 서버·실기기 acceptance와 production signing은 필요한 운영 키/장치/서버가 제공된 이후 별도 완료 판정합니다.
