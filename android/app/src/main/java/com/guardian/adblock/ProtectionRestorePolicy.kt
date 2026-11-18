@@ -11,4 +11,8 @@ internal object ProtectionRestorePolicy {
 
     fun shouldRestore(action: String?, persistedActive: Boolean): Boolean =
         persistedActive && (action == ACTION_BOOT_COMPLETED || action == ACTION_MY_PACKAGE_REPLACED)
+
+    // Android may destroy the foreground VPN service while replacing the APK.
+    // Keep the user's restore intent until the package-replaced receiver starts it again.
+    fun shouldPreserveRestoreIntentOnServiceDestroy(wasActive: Boolean): Boolean = wasActive
 }
