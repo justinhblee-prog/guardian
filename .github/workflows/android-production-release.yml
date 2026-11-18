@@ -348,7 +348,7 @@ jobs:
               !/^[a-f0-9]{64}$/.test(manifest.signerSha256)) {
             throw new Error('Invalid stable update manifest values.');
           }
-          fs.writeFileSync('release/guardian-android.json', JSON.stringify(manifest, null, 2) + '\\n', { mode: 0o600 });
+          fs.writeFileSync('release/guardian-android.json', JSON.stringify(manifest, null, 2) + String.fromCharCode(10), { mode: 0o600 });
           NODE
           sha256sum "$APK" "$AAB" "$SOURCE_ZIP" release/guardian-android.apk release/guardian-android.json | tee release/SHA256SUMS.txt
           SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
