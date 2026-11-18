@@ -28,7 +28,7 @@ jobs:
           abort 'GitHub workflow trigger key must be a string on.' unless workflow.key?('on')
           RUBY
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Enforce production filter redistribution approvals\n        shell: bash\n        run: node server/filter-distribution/scripts/verify-production-approvals.mjs server/filter-distribution/sources.example.json\n\n      - name: Require the signed public filter origin branch\n        shell: bash\n        run: |\n          set -euo pipefail\n          git ls-remote --exit-code --heads origin refs/heads/guardian-filter-data >/dev/null\n          echo "Signed public filter origin branch is present."\n\n        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
@@ -42,7 +42,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Validate Gradle release configuration without production secrets
+      - name: Test production filter redistribution approval gate\n        run: node --test server/filter-distribution/test/production-approval-gate.test.mjs\n      - name: Validate Gradle release configuration without production secrets
         run: gradle -p android --no-daemon tasks --all
       - name: Confirm release build is blocked without a private keystore
         shell: bash
