@@ -2476,17 +2476,32 @@ class MainActivity : Activity() {
                 protectionStatusText?.text = "연결 확인 중"
                 protectionFeedback?.text = message
             }
-        } catch (e: Exception) {
-            val message = e.message ?: "Android가 VPN 서비스를 시작하지 못했습니다."
-            if (currentTab == "home" && ::status.isInitialized && ::statusTitle.isInitialized) {
-                statusTitle.text = "시작하지 못했습니다"
-                status.text = message
-            } else if (currentTab == "protection") {
-                protectionStatusText?.text = "시작하지 못했습니다"
-                protectionFeedback?.text = message
-            } else {
-                filterStatusText?.text = "보호를 시작하지 못했습니다: $message"
-            }
+        } catch (error: Exception) {
+            reportProtectionStartRequestFailure(error)
+        } catch (error: LinkageError) {
+            // Class/native runtime loading failures are Errors, not Exceptions.
+            // Keep the safe caller trace so handset-only loader failures are diagnosable.
+            reportProtectionStartRequestFailure(error)
+        }
+    }
+
+    private fun reportProtectionStartRequestFailure(error: Throwable) {
+        android.util.Log.e("GuardianProtection", "Could not dispatch GuardianVpnService start request", error)
+        val message = "보호 시작 중 예기치 않은 오류가 발생했습니다 " +
+            "(${ProtectionDiagnostics.exceptionTypeChain(error)}): " +
+            (error.message ?: "Android가 VPN 서비스를 시작하지 못했습니다.")
+        getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
+            .putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error, 16))
+            .putString(GuardianVpnService.KEY_STATUS, message)
+            .apply()
+        if (currentTab == "home" && ::status.isInitialized && ::statusTitle.isInitialized) {
+            statusTitle.text = "시작하지 못했습니다"
+            status.text = message
+        } else if (currentTab == "protection") {
+            protectionStatusText?.text = "시작하지 못했습니다"
+            protectionFeedback?.text = message
+        } else {
+            filterStatusText?.text = "보호를 시작하지 못했습니다: $message"
         }
     }
 
