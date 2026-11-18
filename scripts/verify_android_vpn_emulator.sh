@@ -34,6 +34,82 @@ foreground="$(adb_cmd shell dumpsys activity activities | grep -E 'mResumedActiv
 echo "Guardian foreground activity: ${foreground:-not reported}"
 grep -q "$PACKAGE" <<<"$foreground"
 
+tap_content_description() {
+  local wanted="$1"
+  local xml bounds
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("content-desc","") == sys.argv[1]
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("clickable") == "true"
+        and node.attrib.get("enabled") == "true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' "$wanted" <<<"$xml")"
+  if [[ -z "$bounds" ]]; then
+    echo "Could not locate visible control by content description: $wanted"
+    echo "$xml"
+    return 1
+  fi
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
+tap_text() {
+  local wanted="$1"
+  local xml
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  local bounds
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if ((sys.argv[1] in node.attrib.get("text","")
+         or sys.argv[1] in node.attrib.get("content-desc",""))
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("clickable") == "true"
+        and node.attrib.get("enabled") == "true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' "$wanted" <<<"$xml")"
+  if [[ -z "$bounds" ]]; then
+    echo "Could not locate visible clickable UI control: $wanted"
+    echo "$xml"
+    return 1
+  fi
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
+dismiss_dev_update_prompt() {
+  local xml
+  for attempt in $(seq 1 8); do
+    adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
+    xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+    if ! grep -Fq 'text="Guardian 개발 업데이트"' <<<"$xml"; then
+      return 0
+    fi
+    if grep -Fq 'text="나중에"' <<<"$xml"; then
+      tap_text "나중에"
+      sleep 1
+      echo "Dismissed the optional development update prompt for emulator navigation."
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Development update prompt remained visible and could not be dismissed safely."
+  echo "$xml"
+  return 1
+}
+
+
 read_prefs() {
   adb_cmd shell run-as "$PACKAGE" cat "$PREFS" 2>/dev/null | tr -d '\r' || true
 }
@@ -59,6 +135,65 @@ cache_ready() {
   fi
   return 0
 }
+
+echo "Verifying the dedicated Guardian Premium menu and license activation focus."
+dismiss_dev_update_prompt
+tap_content_description "프리미엄"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+premium_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+text=" ".join(node.attrib.get("text","") for node in root.iter("node"))
+for expected in ("Guardian Premium", "GUARDIAN  /  PRO MEMBERSHIP"):
+    if expected not in text:
+        raise SystemExit("Premium screen is missing expected content: "+expected)' <<<"$premium_xml"
+if grep -Fq 'text="PRO 라이선스 활성화"' <<<"$premium_xml"; then
+  tap_text "PRO 라이선스 활성화"
+else
+  tap_text "PRO 라이선스 관리"
+fi
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+premium_license_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("class")=="android.widget.EditText"
+    and node.attrib.get("content-desc")=="PRO 라이선스 활성화 코드 입력"
+    and node.attrib.get("visible-to-user","true")=="true"
+    and node.attrib.get("focused")=="true"
+    for node in root.iter("node")):
+    raise SystemExit("Premium CTA did not focus the PRO license activation input.")' <<<"$premium_license_xml"
+adb_cmd shell input keyevent KEYCODE_BACK || true
+
+# The PRO feature cards are below the membership details on a phone-sized
+# viewport. Return to Premium, scroll the actual page, and verify the feature
+# card only after it enters the visible UI hierarchy.
+tap_content_description "프리미엄"
+sleep 1
+premium_features_visible=0
+for attempt in $(seq 1 8); do
+  adb_cmd shell input swipe 540 1500 540 650 450
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  premium_features_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+visible={node.attrib.get("text","") for node in root.iter("node")
+         if node.attrib.get("visible-to-user","true")=="true"}
+if "앱 코드 피싱 보호" in visible and "검사 엔진 연동 필요" in visible:
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$premium_features_xml"; then
+    premium_features_visible=1
+    break
+  fi
+done
+if [[ "$premium_features_visible" -ne 1 ]]; then
+  echo "Premium phishing-protection status card did not become visible after scrolling."
+  echo "$premium_features_xml"
+  exit 1
+fi
+echo "Premium menu, entitlement status, activation-field focus, and feature status passed."
 
 echo "Waiting for all enabled filter lists to be downloaded and cached."
 # This CI scenario explicitly enables the optional security filter before
@@ -115,81 +250,6 @@ fi
 
 # Locate the visible home-screen control by its accessibility text rather than
 # relying on a fixed screen coordinate.
-tap_text() {
-  local wanted="$1"
-  local xml
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  local bounds
-  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-for node in root.iter("node"):
-    if ((sys.argv[1] in node.attrib.get("text","")
-         or sys.argv[1] in node.attrib.get("content-desc",""))
-        and node.attrib.get("visible-to-user", "true") == "true"
-        and node.attrib.get("clickable") == "true"
-        and node.attrib.get("enabled") == "true"):
-        parts=node.attrib.get("bounds","").strip("[]").split("][")
-        if len(parts)==2:
-            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
-            print((x1+x2)//2,(y1+y2)//2)
-            break' "$wanted" <<<"$xml")"
-  if [[ -z "$bounds" ]]; then
-    echo "Could not locate visible clickable UI control: $wanted"
-    echo "$xml"
-    return 1
-  fi
-  read -r x y <<<"$bounds"
-  adb_cmd shell input tap "$x" "$y"
-}
-
-dismiss_dev_update_prompt() {
-  local xml
-  for attempt in $(seq 1 8); do
-    adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
-    xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
-    if ! grep -Fq 'text="Guardian 개발 업데이트"' <<<"$xml"; then
-      return 0
-    fi
-    if grep -Fq 'text="나중에"' <<<"$xml"; then
-      tap_text "나중에"
-      sleep 1
-      echo "Dismissed the optional development update prompt for emulator navigation."
-      return 0
-    fi
-    sleep 1
-  done
-  echo "Development update prompt remained visible and could not be dismissed safely."
-  echo "$xml"
-  return 1
-}
-
-tap_content_description() {
-  local wanted="$1"
-  local xml bounds
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-for node in root.iter("node"):
-    if (node.attrib.get("content-desc","") == sys.argv[1]
-        and node.attrib.get("visible-to-user", "true") == "true"
-        and node.attrib.get("clickable") == "true"
-        and node.attrib.get("enabled") == "true"):
-        parts=node.attrib.get("bounds","").strip("[]").split("][")
-        if len(parts)==2:
-            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
-            print((x1+x2)//2,(y1+y2)//2)
-            break' "$wanted" <<<"$xml")"
-  if [[ -z "$bounds" ]]; then
-    echo "Could not locate visible control by content description: $wanted"
-    echo "$xml"
-    return 1
-  fi
-  read -r x y <<<"$bounds"
-  adb_cmd shell input tap "$x" "$y"
-}
-
 tap_first_edit_text() {
   local xml bounds
   for attempt in $(seq 1 5); do
@@ -220,7 +280,6 @@ for node in root.iter("node"):
 }
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
-dismiss_dev_update_prompt
 tap_content_description "보호"
 sleep 1
 # The app-specific management button is near the bottom of the Protection tab.
