@@ -2198,6 +2198,32 @@ class MainActivity : Activity() {
 
     private fun buildAppExclusions(body: LinearLayout) {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED, false)) {
+            AlertDialog.Builder(this)
+                .setTitle("설치 앱 목록 접근 안내")
+                .setMessage(
+                    "앱별 보호 제외 기능을 제공하기 위해 Guardian이 기기에 설치된 앱의 이름과 패키지명을 조회합니다. " +
+                        "이 목록과 선택한 제외 설정은 이 기기에서만 사용하며 Guardian 서버로 전송하거나 광고·분석에 사용하지 않습니다. " +
+                        "동의하면 전체 설치 앱 목록을 표시합니다."
+                )
+                .setNegativeButton("취소", null)
+                .setPositiveButton("동의하고 계속") { _, _ ->
+                    val saved = prefs.edit()
+                        .putBoolean(KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED, true)
+                        .commit()
+                    if (saved) {
+                        showTab("protection")
+                    } else {
+                        android.widget.Toast.makeText(
+                            this,
+                            "동의 상태를 저장하지 못했습니다. 저장 공간을 확인해 주세요.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+                .show()
+            return
+        }
         val excluded = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty().toMutableSet()
         // QUERY_ALL_PACKAGES is required here because this control must list every
         // installed app, including non-launcher and system apps. The inventory is
@@ -2932,6 +2958,7 @@ class MainActivity : Activity() {
     companion object {
         private const val REQUEST_VPN = 100
         private const val MAX_USER_RULES = 1000
+        private const val KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED = "app_inventory_disclosure_accepted_v1"
         private const val STATE_CURRENT_TAB = "guardian.ui.current_tab"
         private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
         private const val STATE_SCROLL_Y = "guardian.ui.scroll_y"
