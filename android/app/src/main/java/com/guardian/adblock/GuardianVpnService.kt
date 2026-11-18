@@ -169,9 +169,13 @@ class GuardianVpnService : VpnService() {
         // Wait for the previous blocking packet reader to exit before allowing a
         // new worker to set running=true; otherwise its finally block could stop
         // the newly-created tunnel after observing the shared flag.
-        try { packetWorker?.join(1500L) } catch (error: InterruptedException) {
+        try { packetWorker?.join(5000L) } catch (error: InterruptedException) {
             Thread.currentThread().interrupt()
             publishState(false, "앱별 보호 제외 재적용이 중단되었습니다. 다시 시도해 주세요.")
+            return
+        }
+        if (packetWorker?.isAlive == true) {
+            publishState(false, "이전 VPN 패킷 처리가 종료되지 않아 제외 설정을 재적용하지 못했습니다. 보호 상태를 확인해 주세요.")
             return
         }
         prefs.edit().putBoolean(KEY_ACTIVE, false).commit()
