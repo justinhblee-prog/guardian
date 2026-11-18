@@ -48,6 +48,12 @@ internal object DevUpdateManager {
                 }
             }
             if (manifestUrl.isNullOrBlank() || apkUrl.isNullOrBlank()) continue
+            require(manifestUrl.startsWith("https://github.com/justinhblee-prog/guardian/releases/download/")) {
+                "개발 업데이트 manifest 주소가 허용된 GitHub 저장소가 아닙니다."
+            }
+            require(apkUrl.startsWith("https://github.com/justinhblee-prog/guardian/releases/download/")) {
+                "개발 APK 주소가 허용된 GitHub 저장소가 아닙니다."
+            }
             val manifest = JSONObject(readHttps(manifestUrl, 64 * 1024))
             if (manifest.optString("packageName") != PACKAGE_NAME) continue
             val versionCode = manifest.optInt("versionCode", 0)
@@ -136,13 +142,19 @@ internal object DevUpdateManager {
     }
 
     private fun installedSignerSha256(context: Context): String {
+        val signingFlag = if (Build.VERSION.SDK_INT >= 28) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            @Suppress("DEPRECATION")
+            PackageManager.GET_SIGNATURES
+        }
         val info = if (Build.VERSION.SDK_INT >= 33) {
             context.packageManager.getPackageInfo(
-                context.packageName, PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
+                context.packageName, PackageManager.PackageInfoFlags.of(signingFlag.toLong())
             )
         } else {
             @Suppress("DEPRECATION")
-            context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            context.packageManager.getPackageInfo(context.packageName, signingFlag)
         }
         val signatures = if (Build.VERSION.SDK_INT >= 28) {
             info.signingInfo?.apkContentsSigners
