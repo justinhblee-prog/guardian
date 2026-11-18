@@ -1,3 +1,13 @@
+## 2026-11-18 정식 출시 준비 최신 보충 (PR #155 / #156)
+- Main code commit: `794f98f7a5e2acc8443658b599e6ff00eb8a128f`.
+- PR #155 merged: production GitHub Actions now rechecks source-level license ID, explicit redistribution approval and traceable reference from `GUARDIAN_FILTER_APPROVALS_JSON`; it requires the signed static origin branch `guardian-filter-data` before production signing.
+- PR #156 merged: production defaults to `1.0.0 (versionCode 30)`, greater than current development `0.7.16-dev (29)`; local and CI checks reject non-monotonic release version codes.
+- First switch from development signature to production signature requires uninstall/reinstall because Android rejects in-place APK updates when certificates differ. Subsequent production updates signed by the same production key can update in place.
+- PR validations: #155 production workflow [44285423084](https://github.com/justinhblee-prog/guardian/actions/runs/44285423084), filter tests [44285423164](https://github.com/justinhblee-prog/guardian/actions/runs/44285423164), publisher tests [44285423259](https://github.com/justinhblee-prog/guardian/actions/runs/44285423259): success. #156 release validation [44286941377](https://github.com/justinhblee-prog/guardian/actions/runs/44286941377) and License API [44286941353](https://github.com/justinhblee-prog/guardian/actions/runs/44286941353): success.
+- Main License API post-merge [44287304874](https://github.com/justinhblee-prog/guardian/actions/runs/44287304874): success. Main release validation [44287304813](https://github.com/justinhblee-prog/guardian/actions/runs/44287304813): check its live status before claiming final success.
+- Current hard blockers: the public `guardian-filter-data` branch is absent; all seven example filters remain unapproved with no approval references; actual Windows/Tailscale/PostgreSQL deployment and production signing credentials have not been verified; physical-device VPN/DNS acceptance and the reported handset error remain outstanding.
+- No production key, secret, billing option, runner configuration or user-local service has been created or changed.
+
 ## 2026-11-18 최신 통합 상태 — main 기준
 
 ### Android
