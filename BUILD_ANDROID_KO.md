@@ -1,11 +1,12 @@
-# 최신 Android 빌드 기준 — 2026-11-15
+# 최신 Android 빌드 기준 — 2026-11-18
 
-- 현재 개발 기준: `com.guardian.adblock`, versionCode `21`, `0.7.8-dev`.
-- Android CI는 단위 테스트, lintDebug, assembleDebug, 패키지 ID/version, SHA-256을 검증합니다. 관련 PR에서는 API 35 emulator 설치 및 앱 실행도 검사합니다.
-- push/PR CI의 debug APK는 검증 산출물이며, production 서명본이 아닙니다.
-- 최종 소스 ZIP/APK artifact는 해당 CI 실행의 artifact 목록과 체크섬을 확인한 뒤에만 전달합니다. 과거 0.7.7-dev artifact를 현재 0.7.8-dev 산출물로 혼동하지 않습니다.
-- production APK/AAB 서명은 별도 수동 workflow와 소유자 관리 release keystore/secrets가 필요합니다. 비밀키나 비밀번호를 저장소/채팅에 올리지 않습니다.
-- CI 성공은 실기기 VPN/DNS 라우팅 및 실제 광고 제거 효과를 증명하지 않습니다.
+- 현재 main 기준: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`.
+- 최신 main 커밋: `1e5ec6c4c943e56c36accaac49220eecdbdec98f`.
+- Android main CI [run 44270330488](https://github.com/justinhblee-prog/guardian/actions/runs/44270330488): 단위 테스트, lint, Debug APK 조립·패키지/버전·필터 asset·SHA-256 검사, Android API 35 에뮬레이터 설치/실행·업그레이드 및 VPN DNS E2E 전체 성공.
+- 해당 run의 APK는 검증용 Debug 빌드이며 운영 배포용 Release 서명본이 아닙니다. PR 검증 run에서는 artifact 업로드가 생략될 수 있으므로 실제 전달 시에는 성공한 main push 또는 수동 실행의 artifact를 사용합니다.
+- PR #146의 안전한 시작 실패 스택 요약 기능은 main에 병합됐고, 해당 변경의 전체 CI 및 에뮬레이터 검증 [run 44270330488](https://github.com/justinhblee-prog/guardian/actions/runs/44270330488)이 통과했습니다.
+- 운영 Release APK/AAB는 소유자 관리 production keystore와 GitHub Actions secrets/variables가 실제 설정된 경우에만 생성합니다. 비밀키나 비밀번호를 저장소/채팅에 올리지 않습니다.
+- CI 성공은 실기기 VPN/DNS 라우팅 및 실제 광고 제거 효과를 증명하지 않습니다. 실기기에서 보고된 오류의 실제 호출 위치도 실기기 진단 기록 없이는 확정하지 않습니다.
 
 ---
 
