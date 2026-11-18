@@ -2199,12 +2199,18 @@ class MainActivity : Activity() {
     private fun buildAppExclusions(body: LinearLayout) {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val excluded = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty().toMutableSet()
-        val launchIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val apps = packageManager.queryIntentActivities(launchIntent, 0)
-            .map { it.activityInfo.packageName to it.loadLabel(packageManager).toString() }
+        // App exclusions must include installed system/integration apps that do
+        // not expose a launcher icon (for example Android Auto).
+        // QUERY_ALL_PACKAGES in the manifest is required for this user-facing
+        // per-app VPN exclusion feature on Android 11+.
+        val apps = packageManager.getInstalledApplications(0)
+            .map { it.packageName to it.loadLabel(packageManager).toString() }
             .filter { it.first != packageName }
             .distinctBy { it.first }
-            .sortedBy { it.second.lowercase(Locale.ROOT) }
+            .sortedWith(compareBy<Pair<String, String>>(
+                { it.second.lowercase(Locale.ROOT) },
+                { it.first.lowercase(Locale.ROOT) }
+            ))
         val search = EditText(this).apply {
             hint = "앱 이름 또는 패키지명 입력"
             contentDescription = "앱별 보호 제외 검색 입력"
@@ -2256,7 +2262,7 @@ class MainActivity : Activity() {
             val query = rawQuery.trim().lowercase(Locale.ROOT)
             val visible = apps.filter { (pkg, label) ->
                 query.isEmpty() || label.lowercase(Locale.ROOT).contains(query) || pkg.lowercase(Locale.ROOT).contains(query)
-            }.take(250)
+            }
             visible.forEach { (pkg, label) ->
                 val check = CheckBox(this).apply {
                     text = "$label\n$pkg"
