@@ -203,7 +203,7 @@ jobs:
           - 저장소 커밋: ${GITHUB_SHA}
           - GitHub Actions 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - versionCode: 31
+          - versionCode: 32
           - versionName: 0.7.19-dev
           - Android 단위 테스트: 통과
           - Android lintDebug: 통과
@@ -231,7 +231,7 @@ jobs:
           {
             "packageName": "com.guardian.adblock",
             "versionName": "0.7.19-dev",
-            "versionCode": 31,
+            "versionCode": 32,
             "sha256": "$SHA256",
             "signerSha256": "$SIGNER_SHA256",
             "channel": "development"
