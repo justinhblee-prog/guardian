@@ -78,6 +78,9 @@ if((Test-Path $keystorePath) -or (Test-Path $storePasswordPath) -or (Test-Path $
 }
 & icacls.exe $keystorePath /inheritance:r /grant:r ($currentIdentity + ':F') '*S-1-5-18:F' | Out-Null
 if($LASTEXITCODE -ne 0){throw 'Android keystore 파일 ACL 설정 실패'}
+# Validate the local key material before changing any GitHub repository secret or variable.
+& keytool -list -keystore $keystorePath -storepass $storePassword -alias guardian-release *> $null
+if($LASTEXITCODE -ne 0){throw '로컬 Android release keystore 검증 실패. GitHub 설정은 변경하지 않았습니다.'}
 $keystoreBase64=[Convert]::ToBase64String([IO.File]::ReadAllBytes($keystorePath))
 $filterPublic=(Get-Content -Raw $filterPublicPath).Trim();$licensePublic=(Get-Content -Raw $licensePublicPath).Trim()
 $manifestUrl='https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
@@ -91,8 +94,6 @@ Set-GitHubVariable 'GUARDIAN_LICENSE_PUBLIC_KEY' $licensePublic
 Set-GitHubVariable 'GUARDIAN_LICENSE_API_BASE_URL' $licenseApiUrl
 Set-GitHubVariable 'GUARDIAN_VERSION_NAME' $VersionName
 Set-GitHubVariable 'GUARDIAN_VERSION_CODE' ([string]$VersionCode)
-& keytool -list -keystore $keystorePath -storepass $storePassword -alias guardian-release *> $null
-if($LASTEXITCODE -ne 0){throw 'GitHub 설정 후 로컬 release keystore 재검증 실패'}
 Write-Host 'Guardian Android production signing 설정을 GitHub에 등록했습니다.'
 Write-Host "버전: $VersionName (versionCode $VersionCode)"
 Write-Host "라이선스 API 주소: $licenseApiUrl"
