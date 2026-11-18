@@ -1,4 +1,4 @@
-# Guardian Signed Filter Distribution
+ GPL-3.0 | GPL-3.0 | GPL-3.0 | GPL-3.0 | GPL-3.0 | MPL-2.0 | GPL-3.0 |# Guardian Signed Filter Distribution
 
 Node.js 22 기반의 서명 manifest 및 버전 고정 필터 배포 서버입니다. 앱의 `SignedManifestHttpClient`가 기대하는 `X-Guardian-Signature` 응답 헤더와 manifest 형식을 그대로 제공합니다.
 
@@ -25,7 +25,7 @@ export GUARDIAN_FILTER_SIGNING_PRIVATE_KEY="$(awk '{printf "%s\\n", $0}' guardia
 
 ## 2-A. 자동 업데이트 (upstream 다운로드 + 검증 + 서명)
 
-수동 발행과 자동 수집을 모두 지원합니다. `sources.example.json`을 복사해 `sources.json`을 만들고, 각 upstream HTTPS 주소와 최소 규칙 수를 확인하세요. 현재 예제 설정에는 AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro, Security, Android 앱 광고 등 7개 공급원 URL이 포함되어 있습니다. 예제 URL과 최소 규칙 수는 시작점이므로 실제 운영 전에 각 공급자의 공식 배포처·라이선스·콘텐츠 형식을 확인하고 필요한 항목만 활성화하거나 수정하세요.
+수동 발행과 자동 수집을 모두 지원합니다. `sources.example.json`을 복사해 `sources.json`을 만들 수 있습니다. 예제에는 AdGuard DNS Filter, 1Hosts Lite, OISD Big, HaGeZi Normal, HaGeZi Pro, Security, Android 앱 광고 등 7개 공급원 URL과 공개 라이선스 식별자가 기록되어 있지만, 모든 항목은 기본적으로 `redistributionApproved: false`로 잠겨 있습니다. **라이선스 검토 및 상용 재배포 승인 기록이 없는 source는 다운로드·서명·게시할 수 없습니다.** 검토가 완료된 개별 source에 한해 `redistributionApproved: true`와 추적 가능한 `redistributionApprovalRef`(예: 사내 법무 티켓/승인 문서 ID)를 기록하세요. 승인 참조를 공란 또는 공백으로 두면 게시가 거부됩니다. 기술적 다운로드 성공이나 공개 라이선스 이름만으로 승인된 것으로 간주하지 마세요. 예제 URL과 최소 규칙 수도 실제 운영 전에 원본 배포처와 대조해야 합니다.
 
 ```sh
 cp sources.example.json sources.json
@@ -33,7 +33,7 @@ export GUARDIAN_FILTER_SIGNING_PRIVATE_KEY="$(awk '{printf "%s\\n", $0}' guardia
 npm run update -- ./sources.json
 ```
 
-Updater는 네트워크 요청 전에 RSA 2048~4096비트 서명키 존재 여부, 유형 및 크기를 확인합니다. HTTPS만 허용하고 redirect는 거부하며, 요청당 30초 timeout, 파일당 10 MiB 및 배치 전체 64 MiB 상한, 최대 100개 source 제한, UTF-8/NUL 검사, 최소 규칙 수 검사를 통과한 파일만 서명합니다. 버전은 UTC 날짜와 콘텐츠 SHA-256 앞 12자리 조합으로 생성하므로 같은 날짜의 변경도 별도 immutable 버전으로 발행됩니다. 모든 upstream 응답을 먼저 수집·검증하고 임시 파일로 준비한 뒤에만 게시를 시작하므로, 뒤쪽 upstream 하나라도 다운로드·검증에 실패하면 해당 실행에서는 어떤 manifest도 갱신하지 않습니다. 임시 파일은 전용 권한(0600)으로 생성하고 게시 전에 파일 내용을 동기화합니다. 단, 게시 단계에서 파일시스템 오류가 발생한 경우 여러 source 전체를 하나의 트랜잭션으로 되돌리지는 못하므로 source별 게시 결과를 확인해야 합니다. 동일 output 디렉터리의 자동 업데이트 실행은 `.guardian-update.lock`으로 직렬화합니다. 실행 중 잠금이 이미 있으면 네트워크 요청 전에 중단합니다. 잠금 해제 시에는 현재 경로가 해당 프로세스가 만든 파일과 동일한 파일 객체인지 확인한 뒤에만 제거하여, 잠금 경로가 교체된 경우 다른 실행의 잠금을 지우지 않습니다. 강제 종료·전원 차단으로 잠금 파일이 남을 수 있으므로, 다른 updater 프로세스가 실행 중이지 않은 것을 확인한 뒤 운영자가 잠금 파일을 수동으로 제거해야 합니다. 잠금은 자동 만료시키지 않아 실제 실행 중인 작업을 잘못 중복 실행하지 않도록 합니다.
+Updater는 네트워크 요청 전에 RSA 2048~4096비트 서명키 존재 여부, 유형 및 크기와 각 source의 `licenseId`, 명시적 재배포 승인 플래그, 추적 가능한 승인 참조를 확인합니다. 승인되지 않은 source가 하나라도 있으면 upstream에 접속하거나 manifest를 쓰기 전에 전체 배치를 중단합니다. HTTPS만 허용하고 redirect는 거부하며, 요청당 30초 timeout, 파일당 10 MiB 및 배치 전체 64 MiB 상한, 최대 100개 source 제한, UTF-8/NUL 검사, 최소 규칙 수 검사를 통과한 파일만 서명합니다. 버전은 UTC 날짜와 콘텐츠 SHA-256 앞 12자리 조합으로 생성하므로 같은 날짜의 변경도 별도 immutable 버전으로 발행됩니다. 모든 upstream 응답을 먼저 수집·검증하고 임시 파일로 준비한 뒤에만 게시를 시작하므로, 뒤쪽 upstream 하나라도 다운로드·검증에 실패하면 해당 실행에서는 어떤 manifest도 갱신하지 않습니다. 임시 파일은 전용 권한(0600)으로 생성하고 게시 전에 파일 내용을 동기화합니다. 단, 게시 단계에서 파일시스템 오류가 발생한 경우 여러 source 전체를 하나의 트랜잭션으로 되돌리지는 못하므로 source별 게시 결과를 확인해야 합니다. 동일 output 디렉터리의 자동 업데이트 실행은 `.guardian-update.lock`으로 직렬화합니다. 실행 중 잠금이 이미 있으면 네트워크 요청 전에 중단합니다. 잠금 해제 시에는 현재 경로가 해당 프로세스가 만든 파일과 동일한 파일 객체인지 확인한 뒤에만 제거하여, 잠금 경로가 교체된 경우 다른 실행의 잠금을 지우지 않습니다. 강제 종료·전원 차단으로 잠금 파일이 남을 수 있으므로, 다른 updater 프로세스가 실행 중이지 않은 것을 확인한 뒤 운영자가 잠금 파일을 수동으로 제거해야 합니다. 잠금은 자동 만료시키지 않아 실제 실행 중인 작업을 잘못 중복 실행하지 않도록 합니다.
 
 정기 실행은 배포/서명 PC에서만 구성합니다. Windows 작업 스케줄러에서는 작업의 **프로그램/스크립트**에 `UPDATE_FILTERS.bat`의 전체 경로를 지정하고, **시작 위치**에는 `server\\filter-distribution` 폴더를 지정합니다. 트리거는 원하는 일일 시간(예: 04:17)으로 설정하고, 작업 실행 계정에 Node.js 22 이상과 npm이 설치되어 있어야 합니다. `sources.example.json`을 `sources.json`으로 복사해 upstream 주소와 최소 규칙 수를 확인한 뒤 실행하세요. 실행 시 `GUARDIAN_FILTER_SIGNING_PRIVATE_KEY` 환경 변수가 해당 작업 프로세스에 제공되어야 합니다. 조직의 secret manager 또는 보호된 서명 환경을 통해 주입하고, PEM을 배치 파일·작업 인수·로그·저장소에 직접 기록하지 마세요. 이 변수가 없으면 배치 파일은 업데이트를 시작하지 않고 실패 코드로 종료합니다. 개인키를 Windows 운영 웹 서버나 Android 기기에 복사하지 마세요.
 
@@ -70,15 +70,15 @@ node scripts/publish-manifest.mjs \
 
 앱이 사용하는 sourceId와 최소 규칙 수:
 
-| 앱 필터 | sourceId | 최소 규칙 |
+| 앱 필터 | sourceId | 최소 규칙 | 공개 라이선스 표시 | 공개 라이선스 표시 |
 |---|---|---:|
-| AdGuard DNS Filter | `adguard` | 1000 |
-| 1Hosts Lite | `1hosts_lite` | 100 |
-| OISD Big | `oisd_big` | 100 |
-| HaGeZi Normal | `hagezi_normal` | 100 |
-| HaGeZi Pro | `hagezi_pro` | 100 |
-| 보안 필터 | `security` | 100 |
-| Android 앱 광고 | `android_ads` | 100 |
+| AdGuard DNS Filter | `adguard` | 1000 | GPL-3.0 |
+| 1Hosts Lite | `1hosts_lite` | 100 | MPL-2.0 |
+| OISD Big | `oisd_big` | 100 | GPL-3.0 |
+| HaGeZi Normal | `hagezi_normal` | 100 | GPL-3.0 |
+| HaGeZi Pro | `hagezi_pro` | 100 | GPL-3.0 |
+| 보안 필터 | `security` | 100 | GPL-3.0 |
+| Android 앱 광고 | `android_ads` | 100 | GPL-3.0 |
 
 각 sourceId/version에 대해 같은 버전의 다른 콘텐츠로 덮어쓰는 것을 publisher가 거부합니다. 새 필터는 반드시 새 sourceVersion으로 발행하세요. 동일 초 내 연속 발행도 anti-rollback 조건을 만족하도록 generatedAt을 증가시킵니다.
 

@@ -100,6 +100,19 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         upstream.search || upstream.hash) {
       throw new Error(`Source ${source.id} must use a clean HTTPS URL.`);
     }
+    // Fetching and signing a third-party list is separate from permission to
+    // redistribute it with a commercial app. Require a traceable approval
+    // before any upstream request or manifest publication.
+    if (typeof source.licenseId !== 'string' ||
+        !/^[A-Za-z0-9.+-]{1,64}$/.test(source.licenseId) ||
+        source.redistributionApproved !== true ||
+        typeof source.redistributionApprovalRef !== 'string' ||
+        !source.redistributionApprovalRef.trim() ||
+        source.redistributionApprovalRef.length > 128) {
+      throw new Error(
+        `Source ${source.id} is not approved for redistribution; set licenseId, redistributionApproved=true and redistributionApprovalRef only after license review.`
+      );
+    }
     return { ...source, upstream };
   });
 
