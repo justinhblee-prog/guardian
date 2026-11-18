@@ -37,6 +37,8 @@ class GuardianVpnService : VpnService() {
         const val KEY_USER_BLOCK = "user_block_domains"
         const val KEY_USER_ALLOW = "user_allow_domains"
         const val KEY_ACTIVE = "protection_active"
+        // Durable user intent, separate from whether this process currently owns a live TUN.
+        const val KEY_RESTORE_REQUESTED = "protection_restore_requested"
         const val KEY_STATUS = "protection_status"
         const val KEY_STARTUP_TRACE = "protection_startup_trace"
         const val KEY_DNS_QUERIES = "dns_queries"
@@ -96,8 +98,16 @@ class GuardianVpnService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_STOP -> stopProtection(explicitStop = true)
+            ACTION_STOP -> {
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                    .putBoolean(KEY_RESTORE_REQUESTED, false).commit()
+                stopProtection(explicitStop = true)
+            }
             ACTION_START -> {
+                // Commit before starting asynchronously so an in-place package update or
+                // process death cannot lose the user's explicit request to keep protection on.
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                    .putBoolean(KEY_RESTORE_REQUESTED, true).commit()
                 val generation = startCancellation.onStartRequested()
                 thread(name = "guardian-vpn-start") { startProtection(generation, startId) }
             }
@@ -106,8 +116,14 @@ class GuardianVpnService : VpnService() {
                 runUpstreamConnectivityTest(startId)
             }
             null -> {
+                val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+                val legacyActive = prefs.getBoolean(KEY_ACTIVE, false)
+                val restoreRequested = if (prefs.contains(KEY_RESTORE_REQUESTED)) {
+                    prefs.getBoolean(KEY_RESTORE_REQUESTED, false)
+                } else null
                 val shouldRestore = ProtectionState.shouldRestoreAfterServiceRestart(
-                    getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(KEY_ACTIVE, false)
+                    persistedActive = legacyActive,
+                    restoreRequested = restoreRequested
                 )
                 if (shouldRestore) {
                     val generation = startCancellation.onStartRequested()
@@ -761,7 +777,14 @@ class GuardianVpnService : VpnService() {
         }
     }
 
-    private fun stopProtection(explicitStop: Boolean = false) {
+    private fun stopProtection(
+        explicitStop: Boolean = false,
+        preserveRestoreIntent: Boolean = false
+    ) {
+        if (explicitStop) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean(KEY_RESTORE_REQUESTED, false).commit()
+        }
         pendingStart.set(null)
         startCancellation.cancel()
         tunnelActive = false
@@ -771,19 +794,22 @@ class GuardianVpnService : VpnService() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         // An explicit user stop must clear the persisted restart intent even
         // when startup was still in flight and no TUN descriptor was committed.
-        if (ProtectionState.shouldPublishStoppedState(explicitStop, wasActive)) {
+        if (!preserveRestoreIntent && ProtectionState.shouldPublishStoppedState(explicitStop, wasActive)) {
             publishState(false, "DNS 보호가 중지되었습니다.")
         }
         stopSelf()
     }
 
     override fun onRevoke() {
-        stopProtection()
+        // Android revoked the user's VPN authorization; do not silently retry it.
+        stopProtection(explicitStop = true)
         super.onRevoke()
     }
 
     override fun onDestroy() {
-        stopProtection()
+        // Process/service teardown is not an explicit user stop. Preserve the durable
+        // restore request so MY_PACKAGE_REPLACED and START_STICKY can rebuild the tunnel.
+        stopProtection(preserveRestoreIntent = true)
         super.onDestroy()
     }
 }
