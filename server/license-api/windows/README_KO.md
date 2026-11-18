@@ -76,7 +76,15 @@ Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연�
 
 ## Android 정식 릴리스 서명 준비
 
-노트북에서 라이선스 서버와 Tailscale HTTPS 연결, 최초 필터 클라우드 게시를 완료한 뒤 Git for Windows, GitHub CLI(`gh`) 로그인 및 JDK `keytool`이 준비된 PowerShell 7.2에서 실행합니다.
+노트북에서 `Setup-GuardianServer.ps1`로 운영 공개키를 생성하고 라이선스 API의 Tailscale HTTPS `/ready`가 정상 응답하도록 구성한 뒤, Git for Windows, GitHub CLI(`gh`) 로그인 및 JDK `keytool`이 준비된 PowerShell 7.2에서 실행합니다.
+
+먼저 서명키와 GitHub 운영 Secret/Variable만 준비하려면 다음 모드를 사용합니다. 이 모드는 필터 승인 변수를 모두 `false`로 설정해 기존의 오래된 승인값이 정식 배포를 통과시키지 못하도록 합니다.
+
+```powershell
+./Prepare-GuardianProductionRelease.ps1 -SigningOnly
+```
+
+필터 재배포 권리 검토, 승인 증빙, `guardian-filter-data` 공개 브랜치 게시까지 완료한 후에만 전체 운영 설정 모드를 실행합니다.
 
 ```powershell
 ./Prepare-GuardianProductionRelease.ps1
@@ -84,7 +92,7 @@ Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연�
 
 이 스크립트는 기존 운영 라이선스/필터 공개키와 Tailscale HTTPS `/ready` 응답을 확인한 뒤 Android production keystore를 최초 1회 생성합니다. 키 저장소와 DPAPI 암호 파일은 외부 Guardian 데이터 경로의 `secrets/` 아래에 두고 현재 Windows 사용자와 SYSTEM만 읽을 수 있도록 ACL을 제한합니다. keystore를 새로 만들거나 덮어쓰지 않으며, 같은 노트북에서 재실행하면 기존 키를 재사용합니다.
 
-GitHub CLI의 표준 입력으로 keystore Base64와 비밀번호를 Actions Secrets에 등록하고, 공개키·HTTPS 주소·버전 `1.0.0 (versionCode 31)`을 Repository Variables에 설정합니다. 또한 실제 운영 `sources.json`의 source ID, licenseId, 승인 플래그와 승인 참조만 포함한 `GUARDIAN_FILTER_APPROVALS_JSON`을 자동 등록합니다. source 하나라도 재배포 승인 증빙이 없으면 스크립트는 keystore 생성 및 GitHub 설정 변경 전에 중단하며, Actions의 정식 Release 워크플로도 이 승인 변수를 재검증합니다. 비밀값을 콘솔이나 Git 저장소에 출력하지 않습니다. 실행 후 GitHub Actions의 **Guardian AdBlock Production Release** 워크플로를 수동 실행하면 서명 APK/AAB와 전체 소스 ZIP, SHA-256 검증 자료를 생성합니다. 공개 `guardian-filter-data` 브랜치가 없거나 승인 변수가 없으면 배포는 계속되지 않습니다.
+GitHub CLI의 표준 입력으로 keystore Base64와 비밀번호를 Actions Secrets에 등록하고, 공개키·HTTPS 주소·버전 `1.0.0 (versionCode 31)`을 Repository Variables에 설정합니다. 또한 실제 운영 `sources.json`의 source ID, licenseId, 승인 플래그와 승인 참조만 포함한 `GUARDIAN_FILTER_APPROVALS_JSON`을 자동 등록합니다. 전체 운영 설정 모드는 source 하나라도 재배포 승인 증빙이 없으면 keystore 생성 및 GitHub 설정 변경 전에 중단합니다. `-SigningOnly` 모드는 서명키와 GitHub Secrets/Variables만 설정하고, 필터 승인 변수는 모두 거부(false)로 재설정합니다. Actions의 정식 Release 워크플로는 이 승인 변수를 다시 검증합니다. 비밀값을 콘솔이나 Git 저장소에 출력하지 않습니다. 실행 후 GitHub Actions의 **Guardian AdBlock Production Release** 워크플로를 수동 실행하면 서명 APK/AAB와 전체 소스 ZIP, SHA-256 검증 자료를 생성합니다. 공개 `guardian-filter-data` 브랜치가 없거나 승인 변수가 없으면 배포는 계속되지 않습니다.
 
 **중요:** `guardian-release.jks`와 DPAPI 암호 파일은 노트북의 암호화된 오프라인 백업에도 보관하세요. 이 keystore를 분실하면 기존 설치본을 동일한 앱 서명으로 업데이트할 수 없습니다. keystore 파일이나 비밀번호를 메신저·Git 저장소에 올리지 마세요. 운영 노트북과 Tailscale HTTPS 서비스가 아직 준비되지 않았다면 이 스크립트는 의도적으로 중단합니다.
 
