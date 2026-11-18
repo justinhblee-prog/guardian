@@ -43,7 +43,7 @@ tap_checkbox() {
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
     if (node.attrib.get("class") == "android.widget.CheckBox"
-        and sys.argv[1] in node.attrib.get("text","")
+        and node.attrib.get("text","").splitlines()[-1].strip() == sys.argv[1]
         and node.attrib.get("visible-to-user", "true") == "true"
         and node.attrib.get("clickable") == "true"
         and node.attrib.get("enabled") == "true"):
@@ -453,7 +453,7 @@ search=any(node.attrib.get("class")=="android.widget.EditText"
     and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
     and node.attrib.get("visible-to-user","true")=="true"
     for node in nodes)
-result=any("com.android.settings" in node.attrib.get("text","")
+result=any(node.attrib.get("text","").splitlines()[-1].strip()=="com.android.settings"
     and node.attrib.get("class")=="android.widget.CheckBox"
     and node.attrib.get("visible-to-user","true")=="true"
     and node.attrib.get("clickable")=="true"
@@ -621,7 +621,7 @@ exclusion_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 matches=[n for n in root.iter("node")
-         if "com.android.settings" in n.attrib.get("text","")
+         if n.attrib.get("text","").splitlines()[-1].strip()=="com.android.settings"
          and n.attrib.get("class")=="android.widget.CheckBox"
          and n.attrib.get("visible-to-user","true")=="true"
          and n.attrib.get("clickable")=="true"]
