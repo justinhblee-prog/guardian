@@ -20,9 +20,8 @@ try {
   throw 'Guardian License API가 준비되지 않았습니다. 먼저 Start-All-GuardianServices.ps1을 실행하고 /ready 응답을 확인하세요.'
 }
 
-$statusText = (& $tailscale status --json | Out-String)
-if ($LASTEXITCODE -ne 0) { throw 'Tailscale 연결 상태를 확인하지 못했습니다.' }
-try { $tailStatus = $statusText | ConvertFrom-Json } catch { throw 'Tailscale status JSON을 해석하지 못했습니다.' }
+. (Join-Path $PSScriptRoot 'Get-GuardianTailscaleStatus.ps1')
+$tailStatus = Get-GuardianTailscaleStatus -Executable $tailscale
 $dnsName = ([string]$tailStatus.Self.DNSName).TrimEnd('.')
 if ([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net', [StringComparison]::OrdinalIgnoreCase)) {
   throw 'Tailscale MagicDNS 이름을 확인할 수 없습니다. Tailscale 로그인과 MagicDNS/HTTPS 설정을 확인하세요.'
