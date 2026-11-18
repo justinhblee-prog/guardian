@@ -143,6 +143,32 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
+tap_content_description() {
+  local wanted="$1"
+  local xml bounds
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("content-desc","") == sys.argv[1]
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("clickable") == "true"
+        and node.attrib.get("enabled") == "true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' "$wanted" <<<"$xml")"
+  if [[ -z "$bounds" ]]; then
+    echo "Could not locate visible control by content description: $wanted"
+    echo "$xml"
+    return 1
+  fi
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 tap_first_edit_text() {
   local xml bounds
   for attempt in $(seq 1 5); do
@@ -171,6 +197,41 @@ for node in root.iter("node"):
   read -r x y <<<"$bounds"
   adb_cmd shell input tap "$x" "$y"
 }
+
+echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
+tap_content_description "보호"
+sleep 1
+tap_text "앱별 보호 제외 관리"
+sleep 2
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+app_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+search=any(node.attrib.get("class")=="android.widget.EditText"
+    and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
+    and node.attrib.get("visible-to-user","true")=="true"
+    for node in root.iter("node"))
+if not search:
+    raise SystemExit("App-exclusion search input is not visible after opening its management screen.")' <<<"$app_search_xml"
+adb_cmd shell input text 'com.android.settings'
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+app_filtered_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+search=any(node.attrib.get("class")=="android.widget.EditText"
+    and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
+    and node.attrib.get("visible-to-user","true")=="true"
+    for node in nodes)
+result=any("com.android.settings" in node.attrib.get("text","") for node in nodes)
+if not search:
+    raise SystemExit("App-exclusion search field disappeared after entering text.")
+if not result:
+    raise SystemExit("Typing an installed package name did not filter the app list.")' <<<"$app_filtered_xml"
+adb_cmd shell input keyevent KEYCODE_BACK || true
+tap_content_description "홈"
+echo "App-exclusion search visibility, focus, and filtering passed."
 
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
