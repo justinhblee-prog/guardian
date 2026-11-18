@@ -52,6 +52,9 @@ internal object GuardianStableUpdateManager {
             require(manifest.optInt("manifestVersion", 0) == 1) { "지원하지 않는 정식 업데이트 manifest 버전입니다." }\n            if (manifest.optString("packageName") != PACKAGE_NAME) continue
             val versionName = manifest.optString("versionName")
             val versionCode = manifest.optInt("versionCode", 0)
+            require(versionName.matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+$")) && versionCode > 0) {
+                "정식 업데이트 버전 정보가 올바르지 않습니다."
+            }
             if (!GuardianStableUpdatePolicy.isNewerVersion(BuildConfig.VERSION_CODE, versionCode)) return null
             require(tag == "v$versionName") { "정식 Release 태그와 manifest 버전이 일치하지 않습니다." }
             val digest = manifest.optString("sha256").lowercase()
