@@ -39,6 +39,7 @@ class GuardianVpnService : VpnService() {
         const val KEY_ACTIVE = "protection_active"
         // Durable user intent, separate from whether this process currently owns a live TUN.
         const val KEY_RESTORE_REQUESTED = "protection_restore_requested"
+        const val KEY_RECOVERY_PENDING = "protection_recovery_pending"
         const val KEY_STATUS = "protection_status"
         const val KEY_STARTUP_TRACE = "protection_startup_trace"
         const val KEY_DNS_QUERIES = "dns_queries"
@@ -509,6 +510,7 @@ class GuardianVpnService : VpnService() {
     private fun publishState(active: Boolean, message: String) {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putBoolean(KEY_ACTIVE, active)
+            .putBoolean(KEY_RECOVERY_PENDING, false)
             .putString(KEY_STATUS, message)
             .apply()
         sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
@@ -783,7 +785,9 @@ class GuardianVpnService : VpnService() {
     ) {
         if (explicitStop) {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                .putBoolean(KEY_RESTORE_REQUESTED, false).commit()
+                .putBoolean(KEY_RESTORE_REQUESTED, false)
+                .putBoolean(KEY_RECOVERY_PENDING, false)
+                .commit()
         }
         pendingStart.set(null)
         startCancellation.cancel()
