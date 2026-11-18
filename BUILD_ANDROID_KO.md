@@ -1,7 +1,7 @@
 # 최신 Android 빌드 기준 — 2026-11-18
 
 - 현재 main 기준: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`.
-- 최신 main 커밋: `1e5ec6c4c943e56c36accaac49220eecdbdec98f`.
+- Android 소스 기준 커밋(PR #146 진단 기능 병합): `1e5ec6c4c943e56c36accaac49220eecdbdec98f`. 문서 전용 후속 커밋은 기능 기준 커밋과 구분합니다.
 - Android main CI [run 44270330488](https://github.com/justinhblee-prog/guardian/actions/runs/44270330488): 단위 테스트, lint, Debug APK 조립·패키지/버전·필터 asset·SHA-256 검사, Android API 35 에뮬레이터 설치/실행·업그레이드 및 VPN DNS E2E 전체 성공.
 - 해당 run의 APK는 검증용 Debug 빌드이며 운영 배포용 Release 서명본이 아닙니다. PR 검증 run에서는 artifact 업로드가 생략될 수 있으므로 실제 전달 시에는 성공한 main push 또는 수동 실행의 artifact를 사용합니다.
 - PR #146의 안전한 시작 실패 스택 요약 기능은 main에 병합됐고, 해당 변경의 전체 CI 및 에뮬레이터 검증 [run 44270330488](https://github.com/justinhblee-prog/guardian/actions/runs/44270330488)이 통과했습니다.
@@ -10,7 +10,7 @@
 
 ---
 
-# Guardian AdBlock Android 0.6.5-dev — 빌드 안내
+# Guardian AdBlock Android 0.7.14-dev — 빌드 안내
 
 ## 필수 환경
 
