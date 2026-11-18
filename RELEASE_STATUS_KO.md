@@ -1,7 +1,7 @@
 ## 2026-11-18 최신 통합 상태 — main 기준
 
 ### Android
-- 최신 main 커밋: `1e5ec6c4c943e56c36accaac49220eecdbdec98f` (개발 버전 `0.7.14-dev`, versionCode `27`).
+- Android 기능 소스 기준 커밋(PR #146 진단 기능 병합): `1e5ec6c4c943e56c36accaac49220eecdbdec98f` (개발 버전 `0.7.14-dev`, versionCode `27`). 이후 main에는 문서 전용 변경 PR #147/#148이 추가 병합됐습니다.
 - Android main CI [run 44271297916](https://github.com/justinhblee-prog/guardian/actions/runs/44271297916): unit tests, lint, Debug APK build, package/version, canonical filter asset, APK checksum, source archive integrity/secret exclusion, Android API 35 emulator upgrade/install/launch 및 VPN DNS E2E 전체 성공.
 - 검증 Debug APK: 3,138,734 bytes, SHA-256 `b6d41d7c6511d34e49b4fc32516b942ba8e066222355b772d4458e0d2fc0394c`. 전체 소스 ZIP: 480,633 bytes, SHA-256 `1aac3d2cdb9ee61184debe415fd697562fca636e0571177edfdaf33115d3aa78`.
 - Artifact: [guardian-android-debug](https://github.com/justinhblee-prog/guardian/actions/runs/44271297916) (workflow artifact ID `14411938955`); 최종 에뮬레이터 결과 보고서 artifact ID `14412872214`.
