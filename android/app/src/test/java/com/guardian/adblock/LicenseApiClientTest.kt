@@ -1,4 +1,3 @@
-
 package com.guardian.adblock
 
 import android.content.Context
@@ -34,7 +33,18 @@ class LicenseApiClientTest {
         }
     }
 
-
+    @Test
+    fun invalidVerifierConfigurationIsRecognizedWithoutTreatingItAsTokenCorruption() {
+        assertFalse(isLicensePublicKeyConfigurationValid(""))
+        assertFalse(isLicensePublicKeyConfigurationValid("not-base64!"))
+        val generator = KeyPairGenerator.getInstance("RSA")
+        generator.initialize(1024)
+        val weakKey = Base64.getEncoder().encodeToString(generator.generateKeyPair().public.encoded)
+        assertFalse(isLicensePublicKeyConfigurationValid(weakKey))
+        generator.initialize(2048)
+        val validKey = Base64.getEncoder().encodeToString(generator.generateKeyPair().public.encoded)
+        assertTrue(isLicensePublicKeyConfigurationValid(validKey))
+    }
 
     @Test
     fun refreshForbiddenInvalidatesLocalEntitlementButTransientFailuresDoNot() {
