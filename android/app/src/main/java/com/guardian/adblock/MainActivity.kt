@@ -2240,7 +2240,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
             addView(text("설치된 앱 검색", 13f, white, true))
-            addView(text("앱 이름 또는 패키지명을 입력하면 목록이 즉시 필터링됩니다.", 11f, muted, false).withTop(4))
+            addView(text("전체 설치 앱 ${apps.size}개 · 앱 이름 또는 패키지명으로 검색하세요.", 11f, muted, false).withTop(4))
             addView(search, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(9) })
         }
         val appListCard = card(panel, 16).apply {
