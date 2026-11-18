@@ -1,6 +1,6 @@
 #Requires -Version 7.2
 [CmdletBinding()]
-param([string]$VersionName='1.0.0',[int]$VersionCode=30,[string]$Repository='justinhblee-prog/guardian')
+param([string]$VersionName='1.0.0',[int]$VersionCode=31,[string]$Repository='justinhblee-prog/guardian')
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
