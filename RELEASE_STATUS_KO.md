@@ -1,14 +1,22 @@
 ## 2026-11-18 최신 통합 상태 — main 기준
 
 ### Android
-- 최신 main 커밋: `d95c7f6fb87803577e0a4ea758bbe4dfe2a68968` (개발 버전 `0.7.14-dev`, versionCode 27).
-- Android main CI [run 44213812389](https://github.com/justinhblee-prog/guardian/actions/runs/44213812389): unit tests, lintDebug, assembleDebug, canonical filter asset 검증, APK package/version/checksum, API 35 emulator install/launch 및 VPN DNS E2E 전체 성공.
-- APK: 3,125,266 bytes, SHA-256 `0ab54e099de1e69264b143757973b012e2a3d29c8627c4385fda5a794816ca0d`.
-- 전체 소스 ZIP: 471,471 bytes, SHA-256 `b8b766b6ab0c15742372ce36ec16c882575e00c6cda3c3f7f65d0adfe5b63261`. Artifact 다운로드 후 APK/source checksum과 ZIP 무결성을 재확인했습니다.
-- PR #114/#115/#116: 예기치 않은 VPN 시작 실패, packet-loop LinkageError, readiness-check LinkageError 진단 보강이 main에 병합됐습니다. #116 병합 커밋 `d95c7f6fb87803577e0a4ea758bbe4dfe2a68968`.
-- APK 내부 `assets/filter_rules.txt`가 존재하고 `shared/filter_rules.txt`와 byte-for-byte 일치함을 CI에서 확인했습니다. 다만 사용자가 이전에 보고한 실기기 `Library file not found`의 정확한 원인은 실기기 로그/파일 상태 없이는 특정할 수 없으며, 해결 완료로 판정하지 않습니다.
-- APK는 debug 서명 개발 빌드입니다. 실기기 스마트폰/태블릿 VPN 승인·라우팅·네트워크 전환·실제 광고 제거 수용 테스트는 미실시입니다.
-- 운영 keystore/secrets, 운영 HTTPS 필터 게시 및 실제 License API 연결이 확인되지 않아 production APK/AAB는 생성하지 않았습니다.
+- 최신 main 커밋: `1e5ec6c4c943e56c36accaac49220eecdbdec98f` (개발 버전 `0.7.14-dev`, versionCode `27`).
+- Android main CI [run 44271297916](https://github.com/justinhblee-prog/guardian/actions/runs/44271297916): unit tests, lint, Debug APK build, package/version, canonical filter asset, APK checksum, source archive integrity/secret exclusion, Android API 35 emulator upgrade/install/launch 및 VPN DNS E2E 전체 성공.
+- 검증 Debug APK: 3,138,734 bytes, SHA-256 `b6d41d7c6511d34e49b4fc32516b942ba8e066222355b772d4458e0d2fc0394c`. 전체 소스 ZIP: 480,633 bytes, SHA-256 `1aac3d2cdb9ee61184debe415fd697562fca636e0571177edfdaf33115d3aa78`.
+- Artifact: [guardian-android-debug](https://github.com/justinhblee-prog/guardian/actions/runs/44271297916) (workflow artifact ID `14411938955`); 최종 에뮬레이터 결과 보고서 artifact ID `14412872214`.
+- PR #146은 안전한 예외 종류/호출 스택 프레임 요약을 지원 보고서에 추가했으며 main에 병합됐습니다. 개인정보 경로·URL·오류 메시지는 저장 요약에서 제외합니다. CI는 이 변경을 포함한 빌드와 에뮬레이터 VPN DNS E2E를 통과했습니다.
+- 사용자가 보고한 실기기 `Library file not found` 오류는 아직 실기기 로그로 재현·원인 확인되지 않았습니다. 에뮬레이터 성공을 실기기 해결로 간주하지 않습니다.
+- APK는 Debug 개발 서명본입니다. production keystore/secrets, production signer fingerprint, Release APK/AAB 및 실제 배포 설치 검증은 아직 없습니다.
+- 실기기 VPN/TUN 라우팅·네트워크 전환·실제 광고 제거 수용 테스트는 미실시입니다.
+
+### 공통 운영 준비
+- 서명 필터 배포 서버와 License API/PostgreSQL 구현 및 설정 스크립트는 저장소에 있으나, 운영 도메인·TLS·서명 개인키·공개키·DB가 실제 호스팅되어 end-to-end 검증된 상태는 아닙니다.
+- 운영 keystore·개인키·비밀값을 저장소나 채팅에 추가하지 않았습니다.
+- 필터 예시 원본의 재배포 승인 및 승인 참조가 비어 있어 production 필터 게시 게이트는 fail-closed입니다.
+- 실제 라이선스 API/DB/Tailscale 운영 연결은 사용자 PC 환경 검증이 필요합니다.
+- 운영 설정 스크립트는 사용자 PC의 로컬 키/서비스와 GitHub secrets/variables를 변경할 수 있으므로, 명시적 실행 권한과 로컬 사전조건 확인 없이 실행하지 않습니다.
+- Windows 상세 안내: [WINDOWS_BUILD_KO.md](WINDOWS_BUILD_KO.md).
 
 ### Windows
 - Windows DNS 엔진, desktop UI, daemon, filter updater 및 installer 구현은 저장소에 유지됩니다.
