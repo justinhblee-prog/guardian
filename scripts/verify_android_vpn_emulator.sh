@@ -388,7 +388,11 @@ search=any(node.attrib.get("class")=="android.widget.EditText"
     and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
     and node.attrib.get("visible-to-user","true")=="true"
     for node in nodes)
-result=any("com.android.settings" in node.attrib.get("text","") for node in nodes)
+result=any("com.android.settings" in node.attrib.get("text","")
+    and node.attrib.get("class")=="android.widget.CheckBox"
+    and node.attrib.get("visible-to-user","true")=="true"
+    and node.attrib.get("clickable")=="true"
+    for node in nodes)
 if not search:
     raise SystemExit("App-exclusion search field disappeared after entering text.")
 if not result:
@@ -534,6 +538,17 @@ fi
 tap_text "앱별 보호 제외 관리"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+post_vpn_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("class")=="android.widget.EditText"
+    and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
+    and node.attrib.get("visible-to-user","true")=="true"
+    for node in root.iter("node")):
+    raise SystemExit("App-exclusion search input is not visible while VPN is active.")' <<<"$post_vpn_search_xml"
+tap_content_description "앱별 보호 제외 검색 입력"
+adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
+adb_cmd shell input keyevent KEYCODE_DEL
 adb_cmd shell input text 'com.android.settings'
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
