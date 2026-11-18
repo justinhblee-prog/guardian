@@ -1275,7 +1275,6 @@ class MainActivity : Activity() {
                 }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
                 addView(installUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
             }.withTop(12))
-            }
         } else {
             val updateStatus = text(
                 "현재 정식 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 앱 실행 시 하루 한 번 새 정식 버전을 확인합니다.",
