@@ -37,7 +37,7 @@ jobs:
               run = context.payload.workflow_run;
             } else {
               const runId = context.payload.inputs?.run_id;
-              if (!runId || !/^\\d+$/.test(runId)) {
+              if (!runId || !/^\d+$/.test(runId)) {
                 core.setFailed('Manual audit requires a numeric run_id.');
                 return;
               }
@@ -104,7 +104,7 @@ jobs:
               '- CI/에뮬레이터 검증은 Android 실기기 VPN 승인, 실제 DNS 경로, 광고 차단 효과를 증명하지 않습니다.',
               '- 이 이벤트 파이프라인은 추가 AI API 키나 유료 외부 에이전트를 호출하지 않습니다.'
             ];
-            fs.writeFileSync('audit/GUARDIAN_EVENT_AUDIT.md', lines.join('\\n') + '\\n');
+            fs.writeFileSync('audit/GUARDIAN_EVENT_AUDIT.md', lines.join('\n') + '\n');
             core.setOutput('run_id', String(run.id));
             core.setOutput('conclusion', run.conclusion || 'unknown');
             core.setOutput('classification', classification);
@@ -135,9 +135,9 @@ jobs:
           test -n "$package_sums" && test -s "$package_sums"
           test -n "$summary" && test -s "$summary"
 
-          version_name="$(sed -n 's/^- versionName: //p' "$summary" | head -n 1 | tr -d '\\r')"
-          version_code="$(sed -n 's/^- versionCode: //p' "$summary" | head -n 1 | tr -d '\\r')"
-          package_name="$(sed -n 's/^- 패키지: //p' "$summary" | head -n 1 | tr -d '\\r')"
+          version_name="$(sed -n 's/^- versionName: //p' "$summary" | head -n 1 | tr -d '\r')"
+          version_code="$(sed -n 's/^- versionCode: //p' "$summary" | head -n 1 | tr -d '\r')"
+          package_name="$(sed -n 's/^- 패키지: //p' "$summary" | head -n 1 | tr -d '\r')"
           [[ "$version_name" =~ ^[A-Za-z0-9._-]+$ ]]
           [[ "$version_code" =~ ^[0-9]+$ ]]
           test "$package_name" = "com.guardian.adblock"
