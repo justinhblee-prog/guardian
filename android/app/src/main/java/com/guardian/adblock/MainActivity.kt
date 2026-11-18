@@ -117,16 +117,16 @@ class MainActivity : Activity() {
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
         val restoredTab = ActivityScreenState.restoreTab(savedInstanceState?.getString(STATE_CURRENT_TAB))
-        showTab(
-            restoredTab,
-            focusLicenseActivation = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
-        )
+        val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
+        showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
         if (restoredTab == "rules") {
-            savedInstanceState?.getString(STATE_BLOCK_RULES)?.let { blockRulesInput.setText(it) }
-            savedInstanceState?.getString(STATE_ALLOW_RULES)?.let { allowRulesInput.setText(it) }
+            (lastCustomNonConfigurationInstance as? RuleEditorDraft)?.let { draft ->
+                blockRulesInput.setText(draft.blockRules)
+                allowRulesInput.setText(draft.allowRules)
+            }
         }
         val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
-        if (restoredScrollY > 0 && restoredTab != "settings") {
+        if (restoredScrollY > 0 && !restoreLicenseFocus) {
             contentScrollView?.post { contentScrollView?.scrollTo(0, restoredScrollY) }
         }
         requestNotificationPermissionIfNeeded()
@@ -179,11 +179,14 @@ class MainActivity : Activity() {
         outState.putString(STATE_CURRENT_TAB, currentTab)
         outState.putBoolean(STATE_FOCUS_LICENSE_ACTIVATION, focusLicenseActivationOnBuild)
         outState.putInt(STATE_SCROLL_Y, contentScrollView?.scrollY ?: 0)
-        if (currentTab == "rules") {
-            if (::blockRulesInput.isInitialized) outState.putString(STATE_BLOCK_RULES, blockRulesInput.text.toString())
-            if (::allowRulesInput.isInitialized) outState.putString(STATE_ALLOW_RULES, allowRulesInput.text.toString())
-        }
         super.onSaveInstanceState(outState)
+    }
+
+    private data class RuleEditorDraft(val blockRules: String, val allowRules: String)
+
+    override fun onRetainCustomNonConfigurationInstance(): Any? {
+        if (currentTab != "rules" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
+        return RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
     }
 
     @Deprecated("Deprecated in Java")
@@ -2371,7 +2374,5 @@ class MainActivity : Activity() {
         private const val STATE_CURRENT_TAB = "guardian.ui.current_tab"
         private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
         private const val STATE_SCROLL_Y = "guardian.ui.scroll_y"
-        private const val STATE_BLOCK_RULES = "guardian.ui.block_rules"
-        private const val STATE_ALLOW_RULES = "guardian.ui.allow_rules"
     }
 }
