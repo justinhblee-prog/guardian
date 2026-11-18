@@ -343,10 +343,35 @@ sleep 2
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
-  tap_text "동의하고 계속"
-  sleep 1
+  # Resolve the AlertDialog positive button by stable Android resource ID.
+  consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("resource-id")=="android:id/button1"
+        and node.attrib.get("text")=="동의하고 계속"
+        and node.attrib.get("class")=="android.widget.Button"
+        and node.attrib.get("clickable")=="true"
+        and node.attrib.get("enabled")=="true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' <<<"$app_inventory_xml")"
+  if [[ -z "$consent_bounds" ]]; then
+    echo "Installed-app inventory disclosure is visible but its positive button could not be located."
+    echo "$app_inventory_xml"
+    exit 1
+  fi
+  read -r consent_x consent_y <<<"$consent_bounds"
+  adb_cmd shell input tap "$consent_x" "$consent_y"
+  sleep 2
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
+    echo "Installed-app inventory disclosure did not close after accepting consent."
+    echo "$app_inventory_xml"
+    exit 1
+  fi
 fi
 installed_package_count="$(adb_cmd shell pm list packages --user 0 | tr -d '\r' | grep -c '^package:')"
 expected_exclusion_app_count="$installed_package_count"
