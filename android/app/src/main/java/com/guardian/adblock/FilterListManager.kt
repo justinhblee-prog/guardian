@@ -13,7 +13,7 @@ object FilterListManager {
     const val FILTER_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt"
     const val KEY_FILTER_PROFILE = "filter_profile"
     const val KEY_CACHED_PROFILE = "filter_cached_profile"
-    const val SECURITY_FILTER_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_44.txt"
+    const val SECURITY_FILTER_URL = "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.medium.txt"
     const val ANDROID_ADS_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_53.txt"
     private const val CACHE_FILE = "adguard_dns_filter.txt"
     private const val SECURITY_CACHE_FILE = "hagezi_threat_intelligence.txt"

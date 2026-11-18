@@ -30,7 +30,7 @@
     },
     {
       "id": "security",
-      "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_44.txt",
+      "url": "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.medium.txt",
       "minimumRules": 100
     },
     {

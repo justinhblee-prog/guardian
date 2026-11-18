@@ -102,10 +102,18 @@ for attempt in 1 2 3; do
 done
 test "$upgraded" -eq 1
 adb_cmd shell pm path com.guardian.adblock | grep -F 'package:'
-  # The first launch requests Android 13+ notification permission. Grant it in the
-  # test fixture so the permission controller cannot cover the app during startup.
-  adb_cmd shell pm grant com.guardian.adblock android.permission.POST_NOTIFICATIONS
-  adb_cmd shell am start -n com.guardian.adblock/.MainActivity
+
+# The first launch requests Android 13+ notification permission. Grant it in the
+# test fixture so the permission controller cannot cover the app during startup.
+adb_cmd shell pm grant com.guardian.adblock android.permission.POST_NOTIFICATIONS
+
+# Enable the optional threat-intelligence feed before first launch. Keep remote
+# shell quoting explicit: adb shell joins arguments into one command string.
+adb_cmd shell run-as com.guardian.adblock mkdir -p shared_prefs
+printf '%s' '<map><boolean name="security_filter_enabled" value="true" /></map>' |
+  adb_cmd shell run-as com.guardian.adblock tee shared_prefs/guardian_settings.xml >/dev/null
+
+adb_cmd shell am start -n com.guardian.adblock/.MainActivity
 sleep 8
 adb_cmd shell dumpsys activity activities | tee /tmp/guardian-activities.txt
 grep -F 'com.guardian.adblock' /tmp/guardian-activities.txt

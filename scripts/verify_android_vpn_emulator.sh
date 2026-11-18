@@ -61,6 +61,16 @@ cache_ready() {
 }
 
 echo "Waiting for all enabled filter lists to be downloaded and cached."
+# This CI scenario explicitly enables the optional security filter before
+# first launch; require its cache and parsed rule count rather than treating it
+# as optional, otherwise the test could pass after silently disabling it.
+prefs="$(read_prefs)"
+grep -q 'name="security_filter_enabled"[^>]*value="true"' <<<"$prefs" || {
+  echo "Security filter was not enabled in the emulator fixture."
+  read_prefs
+  exit 1
+}
+
 ready=0
 for attempt in $(seq 1 120); do
   if (( attempt % 10 == 1 )); then
