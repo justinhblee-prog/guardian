@@ -1,3 +1,63 @@
+# Guardian Android 1.0 출시 게이트 및 잔여 업무
+
+기준 main 커밋: `10b2bded2cda6b9ef1cd825a5c16aaa1712dfd55`
+최신 main Android CI: [run 44263635299](https://github.com/justinhblee-prog/guardian/actions/runs/44263635299) — 성공, 30/30 단계
+최신 검증 artifact: `guardian-android-debug` (ID `14409536930`), `guardian-android-final-verification` (ID `14409004092`)
+상태 갱신: 2026-11-18
+
+## 출시 범위 고정
+
+- 단일 출시 완료 기준: [Issue #141](https://github.com/justinhblee-prog/guardian/issues/141)
+- Track A — Android 보호 엔진: [Issue #142](https://github.com/justinhblee-prog/guardian/issues/142)
+- Track B — 필터·서명 배포·라이선스: [Issue #143](https://github.com/justinhblee-prog/guardian/issues/143)
+- Track C — Release·서명·배포 검증: [Issue #144](https://github.com/justinhblee-prog/guardian/issues/144)
+
+새로 발견한 작업은 출시를 막는 필수 결함인지 먼저 판정합니다. 출시 필수 조건에 해당하지 않는 추가 개선은 1차 출시 체크리스트에 넣지 않고 출시 후 백로그로 분리합니다. 출시 범위를 넓히는 PR은 필수 보안·안정성 근거와 회귀 테스트를 함께 제시해야 합니다.
+
+## 최신 검증 결과
+
+- 커밋: `10b2bded2cda6b9ef1cd825a5c16aaa1712dfd55`
+- Android unit tests, lint, debug APK build, package/version, SHA-256, source ZIP checks, emulator upgrade 및 VPN DNS E2E: 모두 성공
+- APK: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`, 3,137,042 bytes
+- APK SHA-256: `01fac9f6e3a3126ccae21abda06516082470466e88c404b431fff09cf49cee45`
+- Source ZIP: 488,972 bytes, SHA-256 `2b55d60065f1a6c84c5ac3a89677b45b8f3b3eb1ef19d2c158e977c067549678`
+- 에뮬레이터 VPN DNS E2E 성공은 실기기에서의 VPN·광고 차단 수용 테스트를 뜻하지 않습니다.
+- Debug APK는 production signing이 적용되지 않은 개발 검증용입니다.
+
+## 1차 출시 필수 완료 기준
+
+- [ ] Android VPN 보호 시작/중지 및 서비스 재시작 복구
+- [ ] 허용 DNS 응답, 차단 DNS 거부 및 카운터 검증
+- [ ] 사용자 규칙 저장·회전·재시작 후 보존 및 VPN 적용
+- [ ] 필터 최초 다운로드, 서명·해시 검증, 캐시·오프라인 fallback 및 업데이트 실패 복구
+- [ ] 라이선스 entitlement 및 기기 등록/갱신/정지의 실제 운영 연결 확인
+- [ ] 재배포 승인이 확인된 필터 원본만 production 배포
+- [ ] 운영 서명키를 안전한 외부 비밀 저장소로 공급해 Release APK 생성
+- [ ] Release signer fingerprint, package/version, SHA-256 검증
+- [ ] 설치·업그레이드·회귀 검증 및 사용자 문서 완료
+- [ ] 실제 Android 기기에서 보호 시작·종료, DNS 차단, 네트워크 전환 검증
+
+## 병렬 트랙 운영 규칙
+
+- Track A는 VPN·DNS·필터 readiness·사용자 규칙 및 실기기 진단을 담당합니다.
+- Track B는 필터 배포·서명·캐시와 라이선스 서버 연동을 담당합니다.
+- Track C는 CI, release signing, artifact, checksum, 설치/업그레이드 및 문서를 담당합니다.
+- 서로 다른 파일과 의존성을 갖는 변경만 병렬화합니다. 같은 파일·API 계약을 변경하는 작업은 순차 통합합니다.
+- 각 트랙은 독립 브랜치와 PR로 관리하고, 트랙별 CI 통과 후 통합합니다.
+- GitHub Actions runner/billing/usage 설정을 변경하거나 유료 리소스를 새로 사용하지 않습니다.
+- 실기기, 운영 키, 재배포 승인, 사용자 PC 서버처럼 외부에서만 검증 가능한 조건은 코드 완료로 위장하지 않고 외부 blocker로 남깁니다.
+
+## 외부 의존 blocker
+
+| 항목 | 현재 상태 | 완료에 필요한 증거 |
+|---|---|---|
+| 실기기 `Library file not found` | 원인 미확정 | 실제 기기의 Guardian 지원 보고서 및 오류 재현 로그 |
+| 필터 재배포 권한 | 예시 원본 승인 미완료 | 각 upstream의 재배포 허용 근거와 승인 참조 |
+| 운영 Release 서명 | 실제 keystore/secrets 미설정 | CI 외부 비밀 저장소의 운영 키 및 signer fingerprint |
+| License API/DB/Tailscale | 사용자 Windows 환경 미검증 | 실제 연결·기기 lifecycle E2E 결과 |
+
+---
+
 # Guardian 잔여 업무 순차 진행 계획
 
 기준 main 커밋: `c59faf094495fcf8d0289a108584644fa2b0ad11` (PR #129 병합)
