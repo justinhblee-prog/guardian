@@ -3,6 +3,29 @@ package com.guardian.adblock
 /** Builds truthful protection copy from observed tunnel traffic, not VPN state alone. */
 object ProtectionDiagnostics {
     /**
+     * Returns a bounded, cycle-safe exception type chain without exposing messages,
+     * file paths, URLs, or other potentially sensitive exception details.
+     */
+    fun exceptionTypeChain(error: Throwable, maxDepth: Int = 4): String {
+        val limit = maxDepth.coerceIn(1, 8)
+        val seen = java.util.Collections.newSetFromMap(
+            java.util.IdentityHashMap<Throwable, Boolean>()
+        )
+        val names = mutableListOf<String>()
+        var current: Throwable? = error
+        while (current != null && names.size < limit && seen.add(current)) {
+            val name = current.javaClass.simpleName.ifBlank {
+                current.javaClass.name.substringAfterLast('.')
+            }
+            if (name.matches(Regex("[A-Za-z][A-Za-z0-9_]*(?:Exception|Error)"))) {
+                names.add(name)
+            }
+            current = current.cause
+        }
+        return names.ifEmpty { listOf("UnknownError") }.joinToString(" <- ")
+    }
+
+    /**
      * Converts persisted service status into a safe, actionable startup phase.
      * Raw exception messages may contain local paths or endpoints, so only the
      * known phase and exception class are included in support reports.
