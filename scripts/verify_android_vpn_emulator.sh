@@ -204,10 +204,21 @@ sleep 1
 # The app-specific management button is near the bottom of the Protection tab.
 # Scroll until it is actually visible before asking UIAutomator to tap it.
 app_management_visible=0
-for attempt in $(seq 1 5); do
+for attempt in $(seq 1 12); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   app_management_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if grep -Fq 'text="앱별 보호 제외 관리"' <<<"$app_management_xml"; then
+  # ScrollView dumps may include off-screen descendants. Only stop when the
+  # control is truly visible, enabled and clickable, matching tap_text below.
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any("앱별 보호 제외 관리" in node.attrib.get("text","")
+       and node.attrib.get("class")=="android.widget.Button"
+       and node.attrib.get("visible-to-user","true")=="true"
+       and node.attrib.get("clickable")=="true"
+       and node.attrib.get("enabled")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$app_management_xml"; then
     app_management_visible=1
     break
   fi
