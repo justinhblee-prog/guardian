@@ -342,6 +342,12 @@ tap_text "앱별 보호 제외 관리"
 sleep 2
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
+  tap_text "동의하고 계속"
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+fi
 installed_package_count="$(adb_cmd shell pm list packages --user 0 | tr -d '\r' | grep -c '^package:')"
 expected_exclusion_app_count="$installed_package_count"
 visible_exclusion_app_count="$(python3 -c 'import re,sys,xml.etree.ElementTree as ET
