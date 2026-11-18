@@ -1,18 +1,14 @@
 # Guardian AdBlock — Android 0.7.14-dev / Windows client
 
+## 최신 Android 검증 상태 — 2026-11-18
 
-## 최신 main 검증 결과 — 2026-11-18
-
-- 최신 Android main 커밋: `d95c7f6fb87803577e0a4ea758bbe4dfe2a68968` (PR #116 병합).
-- Android CI [run 44213812389](https://github.com/justinhblee-prog/guardian/actions/runs/44213812389): Android unit tests, lintDebug, assembleDebug, APK 내 `assets/filter_rules.txt` 존재 및 canonical shared asset 일치, package/version/checksum, API 35 emulator 설치·실행, VPN DNS E2E 모두 성공.
-- VPN E2E는 에뮬레이터에서 VPN 활성화, 허용 DNS 응답, 테스트용 광고 도메인 차단을 확인했습니다. 실기기 수용 테스트는 아닙니다.
-- APK: `com.guardian.adblock`, versionCode 27, versionName `0.7.14-dev`, 3,125,266 bytes. SHA-256: `0ab54e099de1e69264b143757973b012e2a3d29c8627c4385fda5a794816ca0d`.
-- 전체 소스 ZIP: 471,471 bytes. SHA-256: `b8b766b6ab0c15742372ce36ec16c882575e00c6cda3c3f7f65d0adfe5b63261`. Artifact ZIP과 내부 APK/source 파일의 SHA-256 및 ZIP 무결성을 내려받아 재확인했습니다.
-- PR #114/#115/#116에서 VPN 시작 예외·LinkageError, 패킷 루프 LinkageError, 보호 시작 전 필터 readiness LinkageError 진단을 보강했습니다. #116 병합 커밋은 `d95c7f6`입니다.
-- 기존에 보고된 실기기 `Library file not found`의 정확한 원인은 아직 특정되지 않았습니다. CI에서 APK 내부 canonical asset은 확인됐지만, 실제 휴대전화의 파일/캐시 상태와 오류 로그는 확보되지 않았습니다.
-- Android APK는 개발용 debug 서명본입니다. 운영 keystore/secrets, 운영 HTTPS signed-filter 게시 및 License API 주소/공개키가 준비되지 않아 production APK/AAB는 생성하지 않았습니다.
-- Windows 개발 EXE/설치 프로그램은 이전 main CI에서 빌드·설치·제거 smoke test가 통과했지만, Android 우선순위에 따라 최신 Windows 패키징 및 실제 Windows PC 수용 테스트는 별도 단계로 유지합니다.
-- Android 실기기·태블릿 VPN 승인/라우팅/네트워크 전환/광고 제거 수용 테스트와 운영 서버 end-to-end는 미실시입니다.
+- 현재 main 기준 커밋: `4a3a351b9e21dfd2abd66a24b3cb16a066f060a8` (PR #127 병합).
+- PR #127의 Android CI [run 44241375918](https://github.com/justinhblee-prog/guardian/actions/runs/44241375918) 성공: 사용자 지정 규칙 입력 → 화면 회전 → 저장 → VPN DNS 경로에서 차단 및 차단 카운터 증가를 확인했습니다.
+- PR #127 최종 검증 artifact: `guardian-android-final-verification`, artifact ID `14399892262`. APK SHA-256 `339e3b21ca6b93f5cba3a332475c27c1080ac71778960317830cdb37ec448124`, 버전 `0.7.14-dev` (versionCode 27). 해당 실행은 PR 검증 산출물이며 최신 main 커밋 빌드와 구분합니다.
+- PR #127 병합 커밋: `4a3a351b9e21dfd2abd66a24b3cb16a066f060a8`.
+- 병합 후 main Android workflow [run 44242543546](https://github.com/justinhblee-prog/guardian/actions/runs/44242543546)은 마지막 확인 시 실행 중이었습니다. 완료 전까지 최신 main APK/E2E 결과는 확정하지 않습니다.
+- 기존 실기기 `Library file not found` 오류의 원인은 아직 특정되지 않았습니다. 에뮬레이터 통과를 실기기 해결로 간주하지 않습니다.
+- APK는 개발용 debug 서명본입니다. 운영 keystore/secrets, 실제 HTTPS signed-filter 게시 및 License API 주소/공개키가 준비되지 않아 production APK/AAB는 생성하지 않았습니다.
 - 상세 잔여 항목과 완료 기준: [docs/REMAINING_WORKFLOW_KO.md](docs/REMAINING_WORKFLOW_KO.md).
 
 ## 과거 통합 기록 (이후 최신 검증 기록 우선)
