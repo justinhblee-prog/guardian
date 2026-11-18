@@ -65,6 +65,7 @@ jobs:
           grep -F 'isGuardianReleaseAssetUrl' android/app/src/main/java/com/guardian/adblock/GuardianStableUpdateManager.kt
           grep -F 'getPackageArchiveInfo' android/app/src/main/java/com/guardian/adblock/GuardianStableUpdateManager.kt
           grep -F 'candidateVersionCode > installedVersionCode' android/app/src/main/java/com/guardian/adblock/GuardianStableUpdatePolicy.kt
+          node --test scripts/test-create-guardian-update-manifest.mjs
       - name: Validate Gradle release configuration without production secrets
         run: gradle -p android --no-daemon tasks --all
       - name: Confirm release build is blocked without a private keystore
@@ -339,27 +340,7 @@ jobs:
             exit 1
           fi
           cp "$APK" release/guardian-android.apk
-          SIGNER_SHA256="$(sed -n 's/.*certificate SHA-256 digest: //p' release/signature-verification.txt | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          APK_SHA256="$(sha256sum release/guardian-android.apk | awk '{print $1}')"
-          test "${#SIGNER_SHA256}" -eq 64
-          test "${#APK_SHA256}" -eq 64
-          GUARDIAN_VERSION_NAME="$GUARDIAN_VERSION_NAME" GUARDIAN_VERSION_CODE="$GUARDIAN_VERSION_CODE" APK_SHA256="$APK_SHA256" SIGNER_SHA256="$SIGNER_SHA256" node <<'NODE'
-          const fs = require('node:fs');
-          const manifest = {
-            manifestVersion: 1,
-            packageName: 'com.guardian.adblock',
-            versionName: process.env.GUARDIAN_VERSION_NAME,
-            versionCode: Number(process.env.GUARDIAN_VERSION_CODE),
-            sha256: process.env.APK_SHA256,
-            signerSha256: process.env.SIGNER_SHA256
-          };
-          if (!Number.isSafeInteger(manifest.versionCode) || manifest.versionCode < 1 ||
-              !/^[a-f0-9]{64}$/.test(manifest.sha256) ||
-              !/^[a-f0-9]{64}$/.test(manifest.signerSha256)) {
-            throw new Error('Invalid stable update manifest values.');
-          }
-          fs.writeFileSync('release/guardian-android.json', JSON.stringify(manifest, null, 2) + String.fromCharCode(10), { mode: 0o600 });
-          NODE
+          node scripts/create-guardian-update-manifest.mjs "$APK" release/signature-verification.txt "$GUARDIAN_VERSION_NAME" "$GUARDIAN_VERSION_CODE" release/guardian-android.json
           sha256sum "$APK" "$AAB" "$SOURCE_ZIP" release/guardian-android.apk release/guardian-android.json | tee release/SHA256SUMS.txt
           SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
           SOURCE_SHA256="$(sha256sum "$SOURCE_ZIP" | awk '{print $1}')"
