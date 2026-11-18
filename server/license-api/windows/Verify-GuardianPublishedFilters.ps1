@@ -60,7 +60,7 @@ try {
       $signature = [Convert]::FromBase64String($signatureText)
       if ([Convert]::ToBase64String($signature) -cne $signatureText -or
           $signature.Length -ne ($rsa.KeySize / 8) -or
-          -not $rsa.VerifyData($manifestBytes, $signature, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1)) {
+          -not ($rsa.VerifyData($manifestBytes, $signature, [Security.Cryptography.HashAlgorithmName]::SHA256, [Security.Cryptography.RSASignaturePadding]::Pkcs1))) {
         throw 'manifest RSA-SHA256 detached signature 검증에 실패했습니다.'
       }
       Invoke-WebRequest -Uri $values.url -OutFile $filterTemp -TimeoutSec 30 -UseBasicParsing
