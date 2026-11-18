@@ -341,7 +341,25 @@ fi
 tap_text "앱별 보호 제외 관리"
 sleep 2
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-app_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+installed_package_count="$(adb_cmd shell pm list packages --user 0 | tr -d '\r' | grep -c '^package:')"
+expected_exclusion_app_count=$((installed_package_count - 1))
+visible_exclusion_app_count="$(python3 -c 'import re,sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    match=re.search(r"전체 ([0-9]+)개", node.attrib.get("text",""))
+    if match:
+        print(match.group(1))
+        break
+else:
+    raise SystemExit("Full installed-app count is missing from the exclusion UI.")' <<<"$app_inventory_xml")"
+if [[ "$visible_exclusion_app_count" -ne "$expected_exclusion_app_count" ]]; then
+  echo "App exclusion inventory is incomplete: UI=$visible_exclusion_app_count, PackageManager=$expected_exclusion_app_count (all installed packages minus Guardian)."
+  echo "$app_inventory_xml"
+  exit 1
+fi
+echo "Full installed-app inventory passed: $visible_exclusion_app_count apps are available for exclusion."
+app_search_xml="$app_inventory_xml"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 search=any(node.attrib.get("class")=="android.widget.EditText"
