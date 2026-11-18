@@ -321,7 +321,12 @@ echo "Verifying the app-exclusion search field is automatically revealed and fil
 # than looking for a Protection-tab shortcut that is not present in this UI.
 tap_content_description "설정"
 sleep 2
-# The Premium-screen check intentionally cancels the first-run disclosure.\n# When Settings is opened for the actual inventory test, accept it explicitly\n# before scrolling; otherwise the modal blocks the search field underneath.\nif grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
+# The Premium-screen check intentionally cancels the first-run disclosure.
+# When Settings is opened for the actual inventory test, accept it explicitly
+# before scrolling; otherwise the modal blocks the search field underneath.
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
   # Resolve the AlertDialog positive button by stable Android resource ID.
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -352,7 +357,7 @@ for node in root.iter("node"):
     exit 1
   fi
 fi
-\n# Settings is a long page; scroll until the app inventory search input is visible.
+# Settings is a long page; scroll until the app inventory search input is visible.
 app_search_visible=0
 for attempt in $(seq 1 16); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
