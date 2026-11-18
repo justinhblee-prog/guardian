@@ -449,6 +449,89 @@ if [[ "$active" -ne 1 ]]; then
   exit 1
 fi
 
+echo "Verifying live per-app VPN exclusion changes through the app UI."
+tap_content_description "보호"
+sleep 1
+app_management_visible=0
+for attempt in $(seq 1 12); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  app_management_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any("앱별 보호 제외 관리" in node.attrib.get("text","")
+       and node.attrib.get("class")=="android.widget.Button"
+       and node.attrib.get("visible-to-user","true")=="true"
+       and node.attrib.get("clickable")=="true"
+       and node.attrib.get("enabled")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$app_management_xml"; then
+    app_management_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 540 1500 540 600 450
+  sleep 1
+done
+if [[ "$app_management_visible" -ne 1 ]]; then
+  echo "App exclusion management button was not visible while VPN was active."
+  echo "$app_management_xml"
+  exit 1
+fi
+tap_text "앱별 보호 제외 관리"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+adb_cmd shell input text 'com.android.settings'
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+exclusion_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+matches=[n for n in root.iter("node")
+         if "com.android.settings" in n.attrib.get("text","")
+         and n.attrib.get("class")=="android.widget.CheckBox"
+         and n.attrib.get("visible-to-user","true")=="true"
+         and n.attrib.get("clickable")=="true"]
+if len(matches)!=1:
+    raise SystemExit("Expected exactly one visible Settings app exclusion checkbox, got "+str(len(matches)))' <<<"$exclusion_xml"
+tap_text "com.android.settings"
+excluded_applied=0
+for attempt in $(seq 1 30); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
+     grep -A2 -B1 'name="excluded_apps_applied"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+    excluded_applied=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$excluded_applied" -ne 1 ]]; then
+  echo "Selecting Settings did not result in an active VPN with the package recorded as applied."
+  read_prefs
+  adb_cmd logcat -d -t 3000 | grep -E 'GuardianProtection|GuardianVpn|exclusion|FATAL EXCEPTION' | tail -160 || true
+  exit 1
+fi
+echo "Live exclusion enable passed: Android accepted com.android.settings in the rebuilt VPN configuration."
+tap_text "com.android.settings"
+restored_included=0
+for attempt in $(seq 1 30); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
+     ! grep -A2 -B1 'name="excluded_apps_applied"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+    restored_included=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$restored_included" -ne 1 ]]; then
+  echo "Removing Settings from exclusions did not restore an active VPN without that package in the applied set."
+  read_prefs
+  adb_cmd logcat -d -t 3000 | grep -E 'GuardianProtection|GuardianVpn|exclusion|FATAL EXCEPTION' | tail -160 || true
+  exit 1
+fi
+adb_cmd shell input keyevent KEYCODE_BACK || true
+tap_content_description "홈"
+echo "Live per-app exclusion enable/disable and VPN reconfiguration passed."
+
 before_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_queries="${before_queries:-0}"
