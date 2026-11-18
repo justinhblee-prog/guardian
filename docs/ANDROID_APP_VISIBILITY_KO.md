@@ -8,7 +8,7 @@ Guardian의 앱별 보호 제외 기능은 사용자가 기기에 설치된 앱�
 
 - `android.permission.QUERY_ALL_PACKAGES`를 선언합니다.
 - 앱 목록은 `PackageManager.getInstalledApplications(0)`로 조회합니다.
-- Guardian 자체 앱만 선택 목록에서 제외합니다. 시스템 앱, 런처가 없는 앱, 기타 설치 앱은 임의로 숨기지 않습니다.
+- Guardian 자체 앱도 전체 목록에 표시하되, VPN 자체 앱이므로 선택할 수 없도록 비활성화합니다. 시스템 앱, 런처가 없는 앱, 기타 설치 앱은 숨기지 않습니다.
 - 앱 이름과 패키지명 모두 검색 대상으로 사용합니다.
 - 선택한 패키지명은 기기 로컬 SharedPreferences에 저장하고, 보호 VPN이 실행 중이면 VPN 구성을 재생성하여 Android의 앱별 제외 설정에 반영합니다.
 - 앱 인벤토리 전체를 서버로 전송하거나 광고·분석 목적으로 공유하지 않습니다. 앱 목록은 선택 UI 표시와 로컬 VPN 설정에만 사용합니다.
