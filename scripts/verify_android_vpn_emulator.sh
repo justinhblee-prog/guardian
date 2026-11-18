@@ -176,7 +176,7 @@ for attempt in $(seq 1 8); do
   adb_cmd shell input swipe 540 1500 540 650 450
   sleep 1
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  premium_features_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+  premium_features_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 visible={node.attrib.get("text","") for node in root.iter("node")
