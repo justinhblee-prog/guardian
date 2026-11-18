@@ -263,7 +263,9 @@ class GuardianVpnService : VpnService() {
         if (descriptor == null) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             val detail = establishError?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(e)).apply()
+            establishError?.let { error ->
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
+            }
             publishState(false, "VPN 연결 생성 실패$detail. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요.")
             stopSelf(startId)
             return
