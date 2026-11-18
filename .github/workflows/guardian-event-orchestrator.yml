@@ -148,7 +148,7 @@ jobs:
 
           expected_apk="$(awk '$2 == "android/app/build/outputs/apk/debug/app-debug.apk" {print $1; exit}' "$package_sums")"
           expected_source="$(awk -v name="release/$source_name" '$2 == name {print $1; exit}' "$package_sums")"
-          apk_manifest="$(awk '$2 == "app-debug.apk" {print $1; exit}' "$apk_sums")"
+          apk_manifest="$(awk '$2 == "android/app/build/outputs/apk/debug/app-debug.apk" {print $1; exit}' "$apk_sums")"
           actual_apk="$(sha256sum "$apk" | awk '{print $1}')"
           actual_source="$(sha256sum "$source_zip" | awk '{print $1}')"
           [[ "$expected_apk" =~ ^[a-fA-F0-9]{64}$ ]]
