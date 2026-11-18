@@ -3,11 +3,15 @@ name: Guardian AdBlock Production Release
   pull_request:
     paths:
       - 'android/app/build.gradle.kts'
+      - 'server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
+      - 'server/license-api/windows/README_KO.md'
       - '.github/workflows/android-production-release.yml'
   push:
     branches: [main]
     paths:
       - 'android/app/build.gradle.kts'
+      - 'server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
+      - 'server/license-api/windows/README_KO.md'
       - '.github/workflows/android-production-release.yml'
   workflow_dispatch:
 permissions:
@@ -55,6 +59,366 @@ jobs:
           (( DEFAULT_PRODUCTION_VERSION_CODE > DEVELOPMENT_VERSION_CODE ))
           grep -F 'GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE' .github/workflows/android-production-release.yml
           grep -F '$VersionCode -lt $minimumProductionVersionCode' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
+      - name: Guard production signing secrets from process arguments
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCRIPT='server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
+          grep -F 'keytool -list -keystore $keystorePath -storepass:env GUARDIAN_RELEASE_STORE_PASSWORD' "$SCRIPT"
+          if grep -E 'keytool -list .* -storepass[[:space:]]+\\        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'guardian-android.apk' .github/workflows/android-production-release.yml
+          grep -F 'guardian-android.json' .github/workflows/android-production-release.yml
+          grep -F 'signerSha256' .github/workflows/android-production-release.yml
+          grep -F 'isGuardianReleaseAssetUrl' android/app/src/main/java/com/guardian/adblock/GuardianStableUpdateManager.kt
+          grep -F 'getPackageArchiveInfo' android/app/src/main/java/com/guardian/adblock/GuardianStableUpdateManager.kt
+          grep -F 'candidateVersionCode > installedVersionCode' android/app/src/main/java/com/guardian/adblock/GuardianStableUpdatePolicy.kt
+          node --test scripts/test-create-guardian-update-manifest.mjs
+      - name: Validate Gradle release configuration without production secrets
+        run: gradle -p android --no-daemon tasks --all
+      - name: Confirm release build is blocked without a private keystore
+        shell: bash
+        run: |
+          set +e
+          gradle -p android --no-daemon assembleRelease > /tmp/guardian-release-without-key.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "Release build unexpectedly succeeded without a production keystore."
+            exit 1
+          fi
+          grep -F "Release APK/AAB requires" /tmp/guardian-release-without-key.log
+
+
+      - name: Build and verify an ephemeral signed release APK (no production secrets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          TEMP_DIR="$(mktemp -d)"
+          trap 'rm -rf "$TEMP_DIR" android/app/build/outputs/apk/release' EXIT
+          STORE_PASSWORD="guardian-validation-only"
+          KEY_ALIAS="guardian-validation"
+          KEY_PASSWORD="guardian-validation-only"
+
+          # Generate throwaway RSA keys and a throwaway Android keystore. These
+          # values validate the Release build path only and are never uploaded.
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            -out "$TEMP_DIR/filter-private.pem"
+          openssl pkey -in "$TEMP_DIR/filter-private.pem" -pubout -outform DER \
+            | base64 -w0 > "$TEMP_DIR/filter-public.x509.b64"
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+            -out "$TEMP_DIR/license-private.pem"
+          openssl pkey -in "$TEMP_DIR/license-private.pem" -pubout -outform DER \
+            | base64 -w0 > "$TEMP_DIR/license-public.x509.b64"
+          FILTER_PUBLIC_KEY="$(cat "$TEMP_DIR/filter-public.x509.b64")"
+          LICENSE_PUBLIC_KEY="$(cat "$TEMP_DIR/license-public.x509.b64")"
+
+          keytool -genkeypair -v -keystore "$TEMP_DIR/guardian-validation.jks" \
+            -storetype JKS -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+            -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
+            -dname "CN=Guardian CI Release Validation, OU=Temporary, O=Guardian, C=US"
+
+          gradle -p android --no-daemon \
+            -PguardianReleaseStoreFile="$TEMP_DIR/guardian-validation.jks" \
+            -PguardianReleaseStorePassword="$STORE_PASSWORD" \
+            -PguardianReleaseKeyAlias="$KEY_ALIAS" \
+            -PguardianReleaseKeyPassword="$KEY_PASSWORD" \
+            -PguardianManifestBaseUrl="https://filters.validation.invalid/guardian" \
+            -PguardianManifestPublicKey="$FILTER_PUBLIC_KEY" \
+            -PguardianLicenseApiBaseUrl="https://license.validation.invalid" \
+            -PguardianLicensePublicKey="$LICENSE_PUBLIC_KEY" \
+            -PguardianVersionName="0.0.0-validation" \
+            -PguardianVersionCode=1 \
+            clean assembleRelease
+
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
+          unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='1' versionName='0.0.0-validation'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" \
+            | tee "$TEMP_DIR/apk-signature.txt"
+          EXPECTED_CERT="$(keytool -list -v -keystore "$TEMP_DIR/guardian-validation.jks" \
+            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          APK_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' "$TEMP_DIR/apk-signature.txt" \
+            | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          test -n "$EXPECTED_CERT"
+          test "$APK_CERT" = "$EXPECTED_CERT"
+          echo "Ephemeral Release APK built, contains canonical DNS rules, and verifies against its temporary signer."
+          echo "No production keystore, public key, URL, or release artifact was used or uploaded."
+
+      - name: Verify production source archive and checksum without secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_ZIP="/tmp/Guardian-AdBlock-Source-Validation.zip"
+          git archive --format=zip --prefix=Guardian-AdBlock-Source-Validation/ "$GITHUB_SHA" -- . \
+            ':(exclude,top)android/guardian-dev.keystore' \
+            ':(exclude,glob)**/*.jks' ':(exclude,glob)**/*.keystore' \
+            ':(exclude,glob)**/*.p12' ':(exclude,glob)**/*.pfx' \
+            ':(exclude,glob)**/*.dpapi' ':(exclude,glob)**/*.pem' \
+            ':(exclude,glob)**/.env' ':(exclude,glob)**/sources.json' \
+            ':(exclude,glob)**/*.bak' ':(exclude,glob)**/secrets/**' \
+            ':(exclude,glob)**/dist/**' ':(exclude,glob)**/logs/**' > "$SOURCE_ZIP"
+          test -s "$SOURCE_ZIP"
+          unzip -t "$SOURCE_ZIP" >/dev/null
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'android/app/src/main/AndroidManifest.xml'
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'server/license-api/admin/index.html'
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'shared/filter_rules.txt'
+          if unzip -Z1 "$SOURCE_ZIP" | grep -Eiq '(^|/)([^/]*\.(jks|keystore|p12|pfx|dpapi|pem)|\.env|sources\.json|[^/]*\.bak)$|(^|/)secrets/|(^|/)(dist|logs)/'; then
+            echo "Production source archive contains a signing key, secret/config file, backup, or generated runtime output."
+            exit 1
+          fi
+          sha256sum "$SOURCE_ZIP" | tee /tmp/guardian-source-validation.sha256
+          test "$(awk '{print length($1)}' /tmp/guardian-source-validation.sha256)" -eq 64
+
+  production-release:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GUARDIAN_RELEASE_STORE_FILE: guardian-release.jks
+      GUARDIAN_RELEASE_STORE_PASSWORD: ${{ secrets.GUARDIAN_RELEASE_STORE_PASSWORD }}
+      GUARDIAN_RELEASE_KEY_ALIAS: ${{ secrets.GUARDIAN_RELEASE_KEY_ALIAS }}
+      GUARDIAN_RELEASE_KEY_PASSWORD: ${{ secrets.GUARDIAN_RELEASE_KEY_PASSWORD }}
+      GUARDIAN_MANIFEST_BASE_URL: ${{ vars.GUARDIAN_MANIFEST_BASE_URL }}
+      GUARDIAN_MANIFEST_PUBLIC_KEY: ${{ vars.GUARDIAN_MANIFEST_PUBLIC_KEY }}
+      GUARDIAN_LICENSE_PUBLIC_KEY: ${{ vars.GUARDIAN_LICENSE_PUBLIC_KEY }}
+      GUARDIAN_LICENSE_API_BASE_URL: ${{ vars.GUARDIAN_LICENSE_API_BASE_URL }}
+      GUARDIAN_VERSION_NAME: ${{ vars.GUARDIAN_VERSION_NAME }}
+      GUARDIAN_VERSION_CODE: ${{ vars.GUARDIAN_VERSION_CODE }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Enforce production filter redistribution approvals
+        shell: bash
+        env:
+          GUARDIAN_FILTER_APPROVALS_JSON: ${{ vars.GUARDIAN_FILTER_APPROVALS_JSON }}
+        run: node server/filter-distribution/scripts/verify-production-approvals.mjs --from-env
+
+      - name: Require the signed public filter origin branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git ls-remote --exit-code --heads origin refs/heads/guardian-filter-data >/dev/null
+          echo "Signed public filter origin branch is present."
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platform and build tools
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Validate release secrets and install keystore
+        shell: bash
+        env:
+          GUARDIAN_RELEASE_KEYSTORE_BASE64: ${{ secrets.GUARDIAN_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$GUARDIAN_RELEASE_KEYSTORE_BASE64"
+          test -n "$GUARDIAN_RELEASE_STORE_PASSWORD"
+          test -n "$GUARDIAN_RELEASE_KEY_ALIAS"
+          test -n "$GUARDIAN_RELEASE_KEY_PASSWORD"
+          test -n "$GUARDIAN_MANIFEST_BASE_URL"
+          test -n "$GUARDIAN_MANIFEST_PUBLIC_KEY"
+          test -n "$GUARDIAN_LICENSE_PUBLIC_KEY"
+          test -n "$GUARDIAN_LICENSE_API_BASE_URL"
+          [[ "$GUARDIAN_VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]
+          [[ "$GUARDIAN_VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
+          DEVELOPMENT_VERSION_CODE="$(grep -oE 'getOrElse\([0-9]+\)' android/app/build.gradle.kts | tail -n 1 | tr -cd '0-9')"
+          test -n "$DEVELOPMENT_VERSION_CODE"
+          if (( GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE )); then
+            echo "Production versionCode must exceed the current development versionCode ($DEVELOPMENT_VERSION_CODE)."
+            exit 1
+          fi
+          case "$GUARDIAN_MANIFEST_BASE_URL" in https://*) ;; *) echo "Manifest base URL must use HTTPS."; exit 1 ;; esac
+          case "$GUARDIAN_LICENSE_API_BASE_URL" in https://*) ;; *) echo "License API URL must use HTTPS."; exit 1 ;; esac
+          printf '%s' "$GUARDIAN_MANIFEST_PUBLIC_KEY" | base64 --decode > /tmp/guardian-manifest-public.der
+          printf '%s' "$GUARDIAN_LICENSE_PUBLIC_KEY" | base64 --decode > /tmp/guardian-license-public.der
+          for PUBLIC_KEY in /tmp/guardian-manifest-public.der /tmp/guardian-license-public.der; do
+            openssl pkey -pubin -inform DER -in "$PUBLIC_KEY" -text -noout > /tmp/guardian-public-key-details.txt
+            grep -Eq 'Public-Key: \((2048|3072|4096) bit\)' /tmp/guardian-public-key-details.txt
+          done
+          rm -f /tmp/guardian-manifest-public.der /tmp/guardian-license-public.der /tmp/guardian-public-key-details.txt
+          mkdir -p android/app
+          printf '%s' "$GUARDIAN_RELEASE_KEYSTORE_BASE64" | base64 --decode > android/app/guardian-release.jks
+          test -s android/app/guardian-release.jks
+          chmod 600 android/app/guardian-release.jks
+          keytool -list -keystore android/app/guardian-release.jks -storepass "$GUARDIAN_RELEASE_STORE_PASSWORD" -alias "$GUARDIAN_RELEASE_KEY_ALIAS" >/dev/null
+
+      - name: Run tests, lint and signed release builds
+        run: gradle -p android --no-daemon clean testDebugUnitTest lintRelease assembleRelease bundleRelease
+
+      - name: Verify bundled DNS filter library in APK and AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='android/app/build/outputs/apk/release/app-release.apk'
+          AAB='android/app/build/outputs/bundle/release/app-release.aab'
+          test -s "$APK"
+          test -s "$AAB"
+          unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
+          unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          unzip -Z1 "$AAB" | grep -Fx 'base/assets/filter_rules.txt'
+          unzip -p "$AAB" base/assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          echo "Release APK and AAB contain the canonical shared DNS filter library."
+
+      - name: Verify package identity and production signature
+        shell: bash
+        run: |
+          APK='android/app/build/outputs/apk/release/app-release.apk'
+          test -s "$APK"
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='${GUARDIAN_VERSION_CODE}' versionName='${GUARDIAN_VERSION_NAME}'"
+          mkdir -p release
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee release/signature-verification.txt
+
+      - name: Verify AAB signature and match APK/AAB signer certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='android/app/build/outputs/apk/release/app-release.apk'
+          AAB='android/app/build/outputs/bundle/release/app-release.aab'
+          test -s "$AAB"
+          jarsigner -verify -verbose -certs "$AAB" > release/aab-signature-verification.txt
+          EXPECTED_CERT="$(keytool -list -v -keystore android/app/guardian-release.jks -storepass "$GUARDIAN_RELEASE_STORE_PASSWORD" -alias "$GUARDIAN_RELEASE_KEY_ALIAS" | awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          APK_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' release/signature-verification.txt | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          AAB_CERT="$(keytool -printcert -jarfile "$AAB" | awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          test -n "$EXPECTED_CERT"
+          test -n "$APK_CERT"
+          test -n "$AAB_CERT"
+          test "$APK_CERT" = "$EXPECTED_CERT"
+          test "$AAB_CERT" = "$EXPECTED_CERT"
+          printf 'APK and AAB signer certificate SHA-256: %s\\n' "$EXPECTED_CERT" | tee release/signer-certificate.txt
+
+      - name: Create release verification package
+        shell: bash
+        run: |
+          mkdir -p release
+          APK='android/app/build/outputs/apk/release/app-release.apk'
+          AAB='android/app/build/outputs/bundle/release/app-release.aab'
+          test -s "$AAB"
+          cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
+          # Guardian AdBlock ${GUARDIAN_VERSION_NAME} — Production release build
+
+          - Source commit: ${GITHUB_SHA}
+          - Package: com.guardian.adblock
+          - versionCode: ${GUARDIAN_VERSION_CODE}
+          - versionName: ${GUARDIAN_VERSION_NAME}
+          - Android unit tests: passed
+          - Android lintRelease: passed
+          - Signed release APK: created and apksigner verified
+          - Release AAB: created
+          - Manifest distribution URL configured: ${GUARDIAN_MANIFEST_BASE_URL:+yes}
+          - License API URL configured: ${GUARDIAN_LICENSE_API_BASE_URL:+yes}
+          - Physical-device VPN/DNS and real-world ad filtering acceptance: not performed by this workflow
+          EOF
+          SOURCE_ZIP="release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip"
+          git archive --format=zip --prefix="Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}/" "$GITHUB_SHA" -- . \
+            ':(exclude,top)android/guardian-dev.keystore' \
+            ':(exclude,glob)**/*.jks' ':(exclude,glob)**/*.keystore' \
+            ':(exclude,glob)**/*.p12' ':(exclude,glob)**/*.pfx' \
+            ':(exclude,glob)**/*.dpapi' ':(exclude,glob)**/*.pem' \
+            ':(exclude,glob)**/.env' ':(exclude,glob)**/sources.json' \
+            ':(exclude,glob)**/*.bak' ':(exclude,glob)**/secrets/**' \
+            ':(exclude,glob)**/dist/**' ':(exclude,glob)**/logs/**' > "$SOURCE_ZIP"
+          test -s "$SOURCE_ZIP"
+          unzip -t "$SOURCE_ZIP" >/dev/null
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'android/app/src/main/AndroidManifest.xml'
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'server/license-api/admin/index.html'
+          unzip -Z1 "$SOURCE_ZIP" | grep -F 'shared/filter_rules.txt'
+          if unzip -Z1 "$SOURCE_ZIP" | grep -Fq 'guardian-dev.keystore'; then
+            echo "Development keystore must not be included in production source archive."
+            exit 1
+          fi
+          cp "$APK" release/guardian-android.apk
+          node scripts/create-guardian-update-manifest.mjs "$APK" release/signature-verification.txt "$GUARDIAN_VERSION_NAME" "$GUARDIAN_VERSION_CODE" release/guardian-android.json
+          sha256sum "$APK" "$AAB" "$SOURCE_ZIP" release/guardian-android.apk release/guardian-android.json | tee release/SHA256SUMS.txt
+          SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
+          SOURCE_SHA256="$(sha256sum "$SOURCE_ZIP" | awk '{print $1}')"
+          cat >> release/VERIFICATION_SUMMARY_KO.md <<EOF
+          - Source ZIP: $(basename "$SOURCE_ZIP")
+          - Source ZIP bytes: ${SOURCE_BYTES}
+          - Source ZIP SHA-256: ${SOURCE_SHA256}
+          - Source ZIP integrity and required source files: passed
+          - Development keystore excluded from source ZIP: yes
+          EOF
+          rm -f android/app/guardian-release.jks
+          ls -lh "$APK" "$AAB" release/guardian-android.apk release/guardian-android.json release/SHA256SUMS.txt release/VERIFICATION_SUMMARY_KO.md release/signature-verification.txt release/aab-signature-verification.txt release/signer-certificate.txt "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip"
+
+      - name: Upload signed APK, AAB and source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Guardian-AdBlock-Production-Release-v${{ env.GUARDIAN_VERSION_NAME }}
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+            release/SHA256SUMS.txt
+            release/VERIFICATION_SUMMARY_KO.md
+            release/signature-verification.txt
+            release/aab-signature-verification.txt
+            release/signer-certificate.txt
+            release/Guardian-AdBlock-Source-v${{ env.GUARDIAN_VERSION_NAME }}.zip
+            release/guardian-android.apk
+            release/guardian-android.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish immutable GitHub production release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v${GUARDIAN_VERSION_NAME}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists. Refusing to overwrite a published production release."
+            exit 1
+          fi
+          gh release create "$TAG" \
+            "android/app/build/outputs/apk/release/app-release.apk#Guardian Android APK" \
+            "release/guardian-android.apk#Guardian stable update APK" \
+            "release/guardian-android.json#Guardian stable update manifest" \
+            "android/app/build/outputs/bundle/release/app-release.aab#Guardian Android AAB" \
+            "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip#Guardian source ZIP" \
+            "release/SHA256SUMS.txt#SHA-256 checksums" \
+            "release/VERIFICATION_SUMMARY_KO.md#Release verification report" \
+            "release/signature-verification.txt#APK signature verification" \
+            "release/aab-signature-verification.txt#AAB signature verification" \
+            "release/signer-certificate.txt#Signer certificate fingerprint" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Guardian AdBlock ${GUARDIAN_VERSION_NAME}" \
+            --notes-file release/VERIFICATION_SUMMARY_KO.md
+
+
+      - name: Remove production keystore from runner workspace
+        if: always()
+        shell: bash
+        run: rm -f android/app/guardian-release.jks
+ "$SCRIPT"; then
+            echo 'Keystore password must not be passed as a command-line argument.'
+            exit 1
+          fi
+          grep -F 'Remove-Item Env:GUARDIAN_RELEASE_STORE_PASSWORD' "$SCRIPT"
+
       - name: Validate stable in-app update publishing contract
         shell: bash
         run: |
