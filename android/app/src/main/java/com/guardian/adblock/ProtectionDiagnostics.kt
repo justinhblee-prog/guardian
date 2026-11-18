@@ -26,6 +26,26 @@ object ProtectionDiagnostics {
     }
 
     /**
+     * Captures bounded stack-frame identity without exception messages, paths, URLs or arguments.
+     */
+    fun exceptionTraceSummary(error: Throwable, maxFrames: Int = 8): String {
+        val frames = mutableListOf<String>()
+        val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Throwable, Boolean>())
+        var current: Throwable? = error
+        val limit = maxFrames.coerceIn(1, 16)
+        while (current != null && seen.add(current) && frames.size < limit) {
+            for (frame in current.stackTrace) {
+                if (frames.size >= limit) break
+                val owner = frame.className.takeIf { it.matches(Regex("[A-Za-z0-9_$.]{1,180}")) } ?: continue
+                val method = frame.methodName.takeIf { it.matches(Regex("[A-Za-z0-9_$<>]{1,100}")) } ?: continue
+                frames.add("$owner.$method:${frame.lineNumber.coerceAtLeast(-1)}")
+            }
+            current = current.cause
+        }
+        return "${exceptionTypeChain(error)} | ${frames.joinToString(" <- ").ifBlank { "stack unavailable" }}"
+    }
+
+    /**
      * Converts persisted service status into a safe, actionable startup phase.
      * Raw exception messages may contain local paths or endpoints, so only the
      * known phase and exception class are included in support reports.
@@ -95,6 +115,7 @@ object ProtectionDiagnostics {
         licenseApiConfigured: Boolean,
         filterUpdateErrorPresent: Boolean,
         lastServiceStatus: String? = null,
+        lastStartupTrace: String? = null,
         bundledRuleAssetBytes: Long = -1L,
         nativeLibraryDirectoryReadable: Boolean = false,
         nativeLibraryNames: List<String> = emptyList(),
