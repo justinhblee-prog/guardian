@@ -1,6 +1,6 @@
 #Requires -Version 7.2
 [CmdletBinding()]
-param([string]$VersionName='1.0.0',[int]$VersionCode=31,[string]$Repository='justinhblee-prog/guardian')
+param([string]$VersionName='1.0.0',[int]$VersionCode=31,[string]$Repository='justinhblee-prog/guardian',[switch]$SigningOnly)
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
@@ -31,29 +31,31 @@ $dnsName=([string]$tailStatus.Self.DNSName).TrimEnd('.')
 if([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',[StringComparison]::OrdinalIgnoreCase)){throw 'Tailscale MagicDNS 이름이 없습니다. 노트북의 Tailscale 로그인과 MagicDNS를 확인하세요.'}
 $licenseApiUrl='https://'+$dnsName
 try{$health=Invoke-WebRequest -Uri ($licenseApiUrl+'/ready') -TimeoutSec 8 -UseBasicParsing;if($health.StatusCode -ne 200){throw 'not ready'}}catch{throw 'Tailscale HTTPS 라이선스 API가 준비되지 않았습니다. Enable-GuardianPrivateAccess.ps1을 먼저 완료하세요.'}
-# Require the public filter branch and each configured source manifest before writing production GitHub settings.
-$manifestBaseUrl='https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
-if(-not(Test-Path -LiteralPath $paths.FilterSources -PathType Leaf)){throw '운영 sources.json이 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.'}
-$filterConfig=Get-Content -Raw -LiteralPath $paths.FilterSources | ConvertFrom-Json
-if($null -eq $filterConfig.sources -or @($filterConfig.sources).Count -lt 1){throw 'sources.json에 필터 공급원이 없습니다.'}
-# Production release configuration must not bypass the publisher's fail-closed redistribution gate.
-# Require a reviewed license identifier, explicit approval and a traceable approval reference
-# for every source before creating a keystore or writing any GitHub secrets/variables.
-$unapprovedSources = @($filterConfig.sources | Where-Object {
-  $license = $_.PSObject.Properties['licenseId']
-  $approved = $_.PSObject.Properties['redistributionApproved']
-  $approvalRef = $_.PSObject.Properties['redistributionApprovalRef']
-  $null -eq $license -or [string]::IsNullOrWhiteSpace([string]$license.Value) -or
-    $null -eq $approved -or $approved.Value -ne $true -or
-    $null -eq $approvalRef -or [string]::IsNullOrWhiteSpace([string]$approvalRef.Value)
-})
-if($unapprovedSources.Count -gt 0){
-  $blockedIds = ($unapprovedSources | ForEach-Object { [string]$_.id }) -join ', '
-  throw "운영 필터 재배포 승인 증빙이 없어 Release 설정을 중단합니다: $blockedIds. 권리 검토 후 licenseId, redistributionApproved=true, redistributionApprovalRef를 sources.json에 기록하세요."
+if(-not $SigningOnly){
+  # Full release setup requires reviewed filter rights and a published signed manifest.
+  $manifestBaseUrl='https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
+  if(-not(Test-Path -LiteralPath $paths.FilterSources -PathType Leaf)){throw '운영 sources.json이 없습니다. Setup-GuardianServer.ps1을 먼저 실행하세요.'}
+  $filterConfig=Get-Content -Raw -LiteralPath $paths.FilterSources | ConvertFrom-Json
+  if($null -eq $filterConfig.sources -or @($filterConfig.sources).Count -lt 1){throw 'sources.json에 필터 공급원이 없습니다.'}
+  $unapprovedSources = @($filterConfig.sources | Where-Object {
+    $license = $_.PSObject.Properties['licenseId']
+    $approved = $_.PSObject.Properties['redistributionApproved']
+    $approvalRef = $_.PSObject.Properties['redistributionApprovalRef']
+    $null -eq $license -or [string]::IsNullOrWhiteSpace([string]$license.Value) -or
+      $null -eq $approved -or $approved.Value -ne $true -or
+      $null -eq $approvalRef -or [string]::IsNullOrWhiteSpace([string]$approvalRef.Value)
+  })
+  if($unapprovedSources.Count -gt 0){
+    $blockedIds = ($unapprovedSources | ForEach-Object { [string]$_.id }) -join ', '
+    throw "운영 필터 재배포 승인 증빙이 없어 Release 설정을 중단합니다: $blockedIds. 권리 검토 후 licenseId, redistributionApproved=true, redistributionApprovalRef를 sources.json에 기록하세요."
+  }
+  $publishedBranch=(& git -C $repoRoot ls-remote --heads origin refs/heads/guardian-filter-data 2>$null | Out-String).Trim()
+  if($LASTEXITCODE -ne 0 -or -not $publishedBranch){throw '공개 guardian-filter-data 브랜치가 없습니다. Update-And-Publish-GuardianFilters.ps1을 먼저 실행하세요.'}
+  & (Join-Path $PSScriptRoot 'Verify-GuardianPublishedFilters.ps1') -Sources @($filterConfig.sources) -ManifestBaseUrl $manifestBaseUrl -PublicKeyPath $filterPublicPath
+} else {
+  $manifestBaseUrl='https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
+  Write-Host 'Signing-only mode: filter source approvals and public filter branch are not asserted.'
 }
-$publishedBranch=(& git -C $repoRoot ls-remote --heads origin refs/heads/guardian-filter-data 2>$null | Out-String).Trim()
-if($LASTEXITCODE -ne 0 -or -not $publishedBranch){throw '공개 guardian-filter-data 브랜치가 없습니다. Update-And-Publish-GuardianFilters.ps1을 먼저 실행하세요.'}
-& (Join-Path $PSScriptRoot 'Verify-GuardianPublishedFilters.ps1') -Sources @($filterConfig.sources) -ManifestBaseUrl $manifestBaseUrl -PublicKeyPath $filterPublicPath
 New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
 $currentIdentity=[Security.Principal.WindowsIdentity]::GetCurrent().Name
 & icacls.exe $secretDir /inheritance:r /grant:r ($currentIdentity + ':(OI)(CI)F') '*S-1-5-18:(OI)(CI)F' | Out-Null
@@ -102,16 +104,29 @@ Set-GitHubVariable 'GUARDIAN_MANIFEST_BASE_URL' $manifestUrl
 Set-GitHubVariable 'GUARDIAN_MANIFEST_PUBLIC_KEY' $filterPublic
 Set-GitHubVariable 'GUARDIAN_LICENSE_PUBLIC_KEY' $licensePublic
 Set-GitHubVariable 'GUARDIAN_LICENSE_API_BASE_URL' $licenseApiUrl
-$approvalSources = @($filterConfig.sources | ForEach-Object {
-  [ordered]@{
-    id = [string]$_.id
-    licenseId = [string]$_.licenseId
-    redistributionApproved = ($_.redistributionApproved -eq $true)
-    redistributionApprovalRef = [string]$_.redistributionApprovalRef
-  }
-})
-$approvalPolicyJson = ConvertTo-Json -InputObject ([ordered]@{ sources = $approvalSources }) -Depth 5 -Compress
-Set-GitHubVariable 'GUARDIAN_FILTER_APPROVALS_JSON' $approvalPolicyJson
+if($SigningOnly){
+  # Explicitly reset the policy to deny all configured example sources so a stale approval variable cannot unlock release.
+  $exampleSourcesPath=Join-Path $repoRoot 'server\filter-distribution\sources.example.json'
+  if(-not(Test-Path -LiteralPath $exampleSourcesPath -PathType Leaf)){throw '필터 승인 기본 정책 파일이 없습니다.'}
+  $exampleConfig=Get-Content -Raw -LiteralPath $exampleSourcesPath | ConvertFrom-Json
+  $approvalSources = @($exampleConfig.sources | ForEach-Object {
+    [ordered]@{ id=[string]$_.id; licenseId=[string]$_.licenseId; redistributionApproved=$false; redistributionApprovalRef='' }
+  })
+  $approvalPolicyJson = ConvertTo-Json -InputObject ([ordered]@{ sources = $approvalSources }) -Depth 5 -Compress
+  Set-GitHubVariable 'GUARDIAN_FILTER_APPROVALS_JSON' $approvalPolicyJson
+  Write-Host '필터 재배포 승인 정책을 모두 거부(false)로 설정했습니다. 권리 검토 전 정식 Release는 차단됩니다.'
+} else {
+  $approvalSources = @($filterConfig.sources | ForEach-Object {
+    [ordered]@{
+      id = [string]$_.id
+      licenseId = [string]$_.licenseId
+      redistributionApproved = ($_.redistributionApproved -eq $true)
+      redistributionApprovalRef = [string]$_.redistributionApprovalRef
+    }
+  })
+  $approvalPolicyJson = ConvertTo-Json -InputObject ([ordered]@{ sources = $approvalSources }) -Depth 5 -Compress
+  Set-GitHubVariable 'GUARDIAN_FILTER_APPROVALS_JSON' $approvalPolicyJson
+}
 Set-GitHubVariable 'GUARDIAN_VERSION_NAME' $VersionName
 Set-GitHubVariable 'GUARDIAN_VERSION_CODE' ([string]$VersionCode)
 Write-Host 'Guardian Android production signing 설정을 GitHub에 등록했습니다.'
