@@ -317,16 +317,13 @@ for node in root.iter("node"):
 }
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
-# The app-exclusion picker is part of Settings. Open that tab directly rather
-# than looking for a Protection-tab shortcut that is not present in this UI.
-# The Settings destination can be missed when the preceding Premium screen
-# leaves a nested scroll container at a non-zero offset. Retry the tab action
-# and verify the selected navigation state before searching its long content.
-# The Premium-screen check intentionally cancels the first-run disclosure.
-# Accept it before navigating to Settings: while the AlertDialog is open,
-# the underlying bottom navigation is not present in the accessibility tree.
+# The disclosure is created while Settings is rendered, not on the Premium
+# screen. Navigate to Settings first, then explicitly accept the modal before
+# inspecting the selected tab or scrolling the underlying settings content.
+tap_content_description "설정"
+sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
 if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -347,10 +344,11 @@ for node in root.iter("node"):
     exit 1
   fi
   read -r consent_x consent_y <<<"$consent_bounds"
+  echo "Accepting the installed-app inventory disclosure at ($consent_x,$consent_y)."
   adb_cmd shell input tap "$consent_x" "$consent_y"
   sleep 2
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
   if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
     echo "Installed-app inventory disclosure did not close after accepting consent."
     echo "$app_inventory_xml"
@@ -360,10 +358,8 @@ fi
 
 settings_tab_selected=0
 for attempt in $(seq 1 5); do
-  tap_content_description "설정"
-  sleep 1
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if any(node.attrib.get("content-desc")=="설정"
@@ -375,7 +371,14 @@ raise SystemExit(1)' <<<"$settings_tab_xml"; then
     settings_tab_selected=1
     break
   fi
+  if grep -q '동의하고 계속' <<<"$settings_tab_xml"; then
+    echo "Inventory disclosure reappeared after acceptance; refusing to tap behind the modal."
+    echo "$settings_tab_xml"
+    exit 1
+  fi
   echo "Settings tab selection not reflected yet; retrying ($attempt/5)."
+  tap_content_description "설정"
+  sleep 1
 done
 if [[ "$settings_tab_selected" -ne 1 ]]; then
   echo "Could not navigate to the Settings tab before app-inventory verification."
