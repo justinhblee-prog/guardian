@@ -118,4 +118,4 @@ sleep 8
 adb_cmd shell dumpsys activity activities | tee /tmp/guardian-activities.txt
 grep -F 'com.guardian.adblock' /tmp/guardian-activities.txt
 adb_cmd logcat -d -t 5000 | tee /tmp/guardian-logcat.txt
-! grep -E 'FATAL EXCEPTION|Process: com\.guardian\.adblock.*has died' /tmp/guardian-logcat.txt
+python3 scripts/verify_guardian_crash_log.py /tmp/guardian-logcat.txt
