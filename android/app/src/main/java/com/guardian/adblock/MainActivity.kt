@@ -1116,7 +1116,8 @@ class MainActivity : Activity() {
                 setOnClickListener {
                     try {
                         LicenseApiClient.saveBaseUrl(this@MainActivity, serverUrlInput.text.toString())
-                        serverFeedback.text = "저장 완료 · 다음 라이선스 요청부터 새 노트북 서버 주소를 사용합니다."
+                        LicenseRefreshScheduler.sync(this@MainActivity)
+                        serverFeedback.text = "저장 완료 · 라이선스 자동 갱신 일정에 새 서버 주소를 반영했습니다."
                     } catch (error: Exception) {
                         serverFeedback.text = error.message ?: "HTTPS 서버 주소를 확인하세요."
                     }
@@ -1129,6 +1130,7 @@ class MainActivity : Activity() {
                 background = shape(panel2, 12)
                 setOnClickListener {
                     LicenseApiClient.resetBaseUrl(this@MainActivity)
+                    LicenseRefreshScheduler.sync(this@MainActivity)
                     serverUrlInput.setText(BuildConfig.LICENSE_API_BASE_URL)
                     serverFeedback.text = "빌드 기본 주소로 되돌렸습니다."
                 }
@@ -1227,7 +1229,7 @@ class MainActivity : Activity() {
             this@MainActivity.licenseKeyInput = licenseKeyInput
             addView(licenseKeyInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
             val licenseFeedback = text(
-                if (BuildConfig.LICENSE_API_BASE_URL.isBlank()) "운영 라이선스 서버 주소가 아직 앱 빌드에 설정되지 않았습니다."
+                if (LicenseApiClient.configuredBaseUrl(this@MainActivity).isBlank()) "운영 라이선스 서버 주소가 아직 설정되지 않았습니다."
                 else "라이선스 키는 서버에서 확인하며 앱에는 원문을 저장하지 않습니다.",
                 10f, muted, false
             ).withTop(8) as TextView

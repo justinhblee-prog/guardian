@@ -18,6 +18,9 @@ internal object LicenseRefreshScheduler {
     const val REFRESH_INTERVAL_HOURS = 12L
     const val RENEWAL_WINDOW_SECONDS = 12L * 60L * 60L
 
+    internal fun isConfigured(apiBaseUrl: String, publicKey: String): Boolean =
+        apiBaseUrl.isNotBlank() && publicKey.isNotBlank()
+
     internal fun shouldRenew(expiresAt: Long, nowEpochSeconds: Long): Boolean =
         expiresAt - nowEpochSeconds <= RENEWAL_WINDOW_SECONDS
 
@@ -25,7 +28,7 @@ internal object LicenseRefreshScheduler {
         statusCode == 408 || statusCode == 429 || statusCode >= 500
 
     fun sync(context: Context) {
-        if (BuildConfig.LICENSE_API_BASE_URL.isBlank() || BuildConfig.LICENSE_PUBLIC_KEY.isBlank()) {
+        if (!isConfigured(LicenseApiClient.configuredBaseUrl(context), BuildConfig.LICENSE_PUBLIC_KEY)) {
             WorkManager.getInstance(context.applicationContext).cancelUniqueWork(UNIQUE_WORK_NAME)
             return
         }
@@ -52,7 +55,7 @@ class LicenseRefreshWorker(
     params: WorkerParameters
 ) : Worker(appContext, params) {
     override fun doWork(): Result {
-        if (BuildConfig.LICENSE_API_BASE_URL.isBlank() || BuildConfig.LICENSE_PUBLIC_KEY.isBlank()) {
+        if (!LicenseRefreshScheduler.isConfigured(LicenseApiClient.configuredBaseUrl(applicationContext), BuildConfig.LICENSE_PUBLIC_KEY)) {
             return Result.success()
         }
         val now = System.currentTimeMillis() / 1000L
