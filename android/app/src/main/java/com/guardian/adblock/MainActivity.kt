@@ -175,6 +175,12 @@ class MainActivity : Activity() {
                 .apply()
         }
         FilterUpdateScheduler.sync(this)
+        // Quietly check the pre-release update feed at most once every six hours.
+        // A newer APK is downloaded and verified automatically; Android still
+        // presents its own installation approval screen.
+        DevAppUpdater.checkForUpdate(this, force = false) { result ->
+            if (result.readyToInstall && !isFinishing && !isDestroyed) showDevUpdatePrompt(result)
+        }
         // Cache recovery and integrity checks can hash multi-megabyte filter
         // files. Never perform them on the main thread during Activity startup.
         thread(name = "guardian-startup-filter-check") {
@@ -1123,12 +1129,56 @@ class MainActivity : Activity() {
         loadUserRulesIntoEditors()
     }
 
+    private fun showDevUpdatePrompt(result: DevUpdateResult) {
+        AlertDialog.Builder(this)
+            .setTitle("Guardian 업데이트 준비 완료")
+            .setMessage(result.message + "\n\n현재 설치된 앱의 서명과 일치하는 파일만 설치할 수 있습니다.")
+            .setNegativeButton("나중에", null)
+            .setPositiveButton("업데이트 설치") { _, _ ->
+                val message = DevAppUpdater.installPrepared(this)
+                android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_LONG).show()
+            }
+            .show()
+            .apply {
+                getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(accent)
+                getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(muted)
+            }
+    }
+
     private fun buildSettings(body: LinearLayout) {
         body.addView(text("설정", 25f, white, true))
         body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("개발 버전 자동 업데이트", 15f, white, true))
+            addView(text(
+                "앱 실행 시 새 개발 버전을 확인하고 APK를 자동 다운로드합니다. SHA-256, 패키지 정보와 현재 설치된 앱의 서명을 확인한 뒤 Android 설치 화면에서 업데이트를 승인할 수 있습니다.",
+                11f, muted, false
+            ).withTop(6))
+            val updateFeedback = text(
+                "현재 버전: " + BuildConfig.VERSION_NAME + " · 자동 확인 사용",
+                10f, muted, false
+            ).withTop(8) as TextView
+            addView(updateFeedback)
+            addView(Button(this@MainActivity).apply {
+                text = "지금 업데이트 확인"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 12)
+                setOnClickListener {
+                    isEnabled = false
+                    updateFeedback.text = "업데이트 확인 및 APK 검증 중..."
+                    DevAppUpdater.checkForUpdate(this@MainActivity, force = true) { result ->
+                        isEnabled = true
+                        updateFeedback.text = result.message
+                        if (result.readyToInstall) showDevUpdatePrompt(result)
+                    }
+                }
+            }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
+        }.withTop(12))
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("운영 서버 주소 (노트북)", 15f, white, true))
