@@ -641,7 +641,83 @@ class MainActivity : Activity() {
             11f, muted, false
         ).withTop(12) as TextView
         body.addView(diagnosticText!!)
+        body.addView(Button(this).apply {
+            text = "개인정보 제외 진단 정보 복사"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(panel2, 12)
+            setOnClickListener { copySupportDiagnostics(this) }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(14) })
+        body.addView(text("진단 보고서에는 필터 파일/캐시 상태와 앱 환경만 포함됩니다. 최근 방문 도메인, 사용자 규칙, 라이선스 비밀값은 복사하지 않습니다.", 10f, muted, false).withTop(7))
         body.addView(text("이 화면은 DNS 암호화 또는 VPN 우회 트래픽을 집계하지 않습니다.", 11f, muted, false).withTop(14))
+    }
+
+    private fun copySupportDiagnostics(button: Button) {
+        button.isEnabled = false
+        button.text = "진단 정보 준비 중..."
+        thread(name = "guardian-support-diagnostics") {
+            val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            fun cacheBytes(name: String): Long = File(filesDir, name)
+                .takeIf { it.isFile && it.length() > 0L }
+                ?.length() ?: 0L
+            val assetAvailable = try {
+                assets.open("filter_rules.txt").use { it.read() >= 0 }
+            } catch (_: Exception) {
+                false
+            } catch (_: LinkageError) {
+                false
+            }
+            val selectedProfile = try {
+                FilterListManager.selectedProfile(this).key
+            } catch (_: Exception) {
+                "unknown"
+            }
+            val intervalMs = FilterUpdateScheduler.normalizeInterval(
+                prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, FilterUpdateScheduler.DEFAULT_INTERVAL_MS)
+            )
+            val report = ProtectionDiagnostics.supportReport(
+                appVersion = BuildConfig.VERSION_NAME,
+                androidRelease = Build.VERSION.RELEASE ?: "unknown",
+                apiLevel = Build.VERSION.SDK_INT,
+                protectionActive = ProtectionState.isActive(
+                    prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                    GuardianVpnService.isTunnelActive()
+                ),
+                bundledRuleAssetAvailable = assetAvailable,
+                selectedProfile = selectedProfile,
+                baseCacheBytes = cacheBytes("adguard_dns_filter.txt"),
+                securityFilterEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
+                securityCacheBytes = cacheBytes("hagezi_threat_intelligence.txt"),
+                androidAdsFilterEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true),
+                androidAdsCacheBytes = cacheBytes("awavenue_android_ads.txt"),
+                autoUpdateEnabled = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true),
+                updateIntervalHours = intervalMs / 3_600_000L,
+                hasBaseUpdateTimestamp = FilterListManager.lastUpdatedAt(this) > 0L,
+                signedFilterDeliveryConfigured = FilterDistributionSettings.requiresSignedDelivery(
+                    FilterDistributionSettings.configuredBaseUrl(this),
+                    BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
+                ),
+                licenseApiConfigured = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
+                    BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank(),
+                filterUpdateErrorPresent = listOf(
+                    FilterListManager.KEY_LAST_ERROR,
+                    FilterListManager.KEY_SECURITY_LAST_ERROR,
+                    FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
+                ).any { !prefs.getString(it, null).isNullOrBlank() }
+            )
+            runOnUiThread {
+                try {
+                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian diagnostics", report))
+                    android.widget.Toast.makeText(this, "개인정보를 제외한 진단 정보를 복사했습니다.", android.widget.Toast.LENGTH_SHORT).show()
+                } catch (error: Exception) {
+                    android.widget.Toast.makeText(this, "진단 정보 복사 실패: ${error.javaClass.simpleName}", android.widget.Toast.LENGTH_LONG).show()
+                } finally {
+                    button.isEnabled = true
+                    button.text = "개인정보 제외 진단 정보 복사"
+                }
+            }
+        }
     }
 
     private fun upstreamTestDescription(): String {
