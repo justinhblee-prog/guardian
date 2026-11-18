@@ -2101,17 +2101,24 @@ class MainActivity : Activity() {
             .distinctBy { it.first }
             .sortedBy { it.second.lowercase(Locale.ROOT) }
         val search = EditText(this).apply {
-            hint = "앱 이름 또는 패키지명 검색"
+            hint = "앱 이름 또는 패키지명 입력"
             contentDescription = "앱별 보호 제외 검색 입력"
             setHintTextColor(muted)
             setTextColor(white)
             textSize = 14f
+            minHeight = dp(50)
             setSingleLine(true)
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(15), dp(12), dp(15), dp(12))
             background = shape(panel2, 12).apply { setStroke(dp(1), accent) }
+            if (Build.VERSION.SDK_INT >= 29) {
+                textCursorDrawable = GradientDrawable().apply {
+                    setColor(accent)
+                    setSize(dp(2), dp(20))
+                }
+            }
             setOnFocusChangeListener { view, focused ->
                 view.background = shape(panel2, 12).apply {
                     setStroke(dp(2), if (focused) accent else muted)
