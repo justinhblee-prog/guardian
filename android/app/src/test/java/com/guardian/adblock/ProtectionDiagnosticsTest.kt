@@ -152,4 +152,36 @@ class ProtectionDiagnosticsTest {
         )
     }
 
+    @Test fun supportReportIncludesSafeNativeLibraryAndAbiInventory() {
+        val report = ProtectionDiagnostics.supportReport(
+            appVersion = "0.7.14-dev",
+            androidRelease = "17",
+            apiLevel = 35,
+            protectionActive = false,
+            bundledRuleAssetAvailable = true,
+            selectedProfile = "adguard",
+            baseCacheBytes = 1024,
+            securityFilterEnabled = false,
+            securityCacheBytes = 0,
+            androidAdsFilterEnabled = false,
+            androidAdsCacheBytes = 0,
+            autoUpdateEnabled = true,
+            updateIntervalHours = 24,
+            hasBaseUpdateTimestamp = true,
+            signedFilterDeliveryConfigured = false,
+            licenseApiConfigured = false,
+            filterUpdateErrorPresent = false,
+            bundledRuleAssetBytes = 355,
+            nativeLibraryDirectoryReadable = true,
+            nativeLibraryNames = listOf("libguardian.so", "../private.txt", "libguardian.so"),
+            supportedAbis = listOf("arm64-v8a", "armeabi-v7a", "../../private")
+        )
+        assertTrue(report.contains("내장 DNS 규칙 파일: 정상 (355 bytes)"))
+        assertTrue(report.contains("앱 네이티브 라이브러리 디렉터리: 읽기 가능"))
+        assertTrue(report.contains("설치된 네이티브 라이브러리: libguardian.so"))
+        assertTrue(report.contains("기기 ABI: arm64-v8a, armeabi-v7a"))
+        assertTrue(!report.contains("../private"))
+        assertTrue(!report.contains("../../private"))
+    }
+
 }
