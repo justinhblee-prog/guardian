@@ -2054,17 +2054,44 @@ class MainActivity : Activity() {
             .filter { it.first != packageName }
             .distinctBy { it.first }
             .sortedBy { it.second.lowercase(Locale.ROOT) }
+        // Keep the app search control visually explicit: on some Android
+        // themes a bare EditText with a custom dark background looks like an
+        // empty spacer, so users cannot tell where to type.
+        val searchPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(10), dp(12), dp(12))
+            background = GradientDrawable().apply {
+                setColor(panel)
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), accent)
+            }
+        }
+        searchPanel.addView(text("앱 검색", 12f, accent, true))
         val search = EditText(this).apply {
-            hint = "앱 이름 또는 패키지명 검색"
+            hint = "앱 이름 또는 패키지명 입력"
             setHintTextColor(muted)
             setTextColor(white)
-            textSize = 13f
+            textSize = 14f
             setSingleLine(true)
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = dp(48)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            setPadding(dp(13), dp(12), dp(13), dp(12))
-            background = shape(panel2, 12)
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+            setPadding(dp(13), dp(10), dp(13), dp(10))
+            background = GradientDrawable().apply {
+                setColor(panel2)
+                cornerRadius = dp(10).toFloat()
+                setStroke(dp(1), muted)
+            }
+            if (Build.VERSION.SDK_INT >= 29) {
+                textCursorDrawable = GradientDrawable().apply {
+                    setColor(accent)
+                    setSize(dp(2), dp(20))
+                }
+            }
         }
-        body.addView(search, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+        searchPanel.addView(search, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(7) })
+        body.addView(searchPanel, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
         val card = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(8))
