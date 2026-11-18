@@ -95,7 +95,7 @@ flowchart TD
 - PR #131 제3자 필터 라이선스 감사 문서 병합: `d1c50471b106735129eafe604125aad4d430b09b`. GPL-3.0/MPL-2.0 upstream을 운영 배포 승인으로 오해하지 않도록 상용 재배포 전 검토 항목을 명시했습니다.
 - PR #127 사용자 지정 규칙 VPN E2E 검증 성공 및 main 병합: `4a3a351b9e21dfd2abd66a24b3cb16a066f060a8`.
 - PR #127 검증은 사용자 규칙 입력 후 화면 회전, 저장, VPN DNS 차단 및 차단 카운터 증가를 확인했습니다. 완료 artifact `14399892262`의 APK SHA-256은 `339e3b21ca6b93f5cba3a332475c27c1080ac71778960317830cdb37ec448124`입니다.
-- 병합 후 main run [44243684769](https://github.com/justinhblee-prog/guardian/actions/runs/44243684769)은 마지막 확인 시 에뮬레이터 설치/실행 단계였습니다. 해당 run은 PR #128/#129 진단·문서 변경이 아니라 PR #129 merge SHA 기준이므로, 이후 main의 PR #128 병합 결과와 구분합니다.
+- 병합 후 main run [44243684769](https://github.com/justinhblee-prog/guardian/actions/runs/44243684769)은 PR #128 진단 개선과 PR #129 문서 변경을 포함한 `c59faf0` main SHA 기준입니다. 마지막 확인 시 에뮬레이터 설치/실행 단계였습니다.
 - 실기기 `Library file not found` 원인은 미확정이며, 실제 휴대전화의 진단 보고서/로그가 없으므로 실기기 해결 상태는 미완료입니다.
 - 운영 signing key, 실제 License API/DB 배포, signed filter HTTPS 게시, production APK/AAB는 미완료입니다.
 
