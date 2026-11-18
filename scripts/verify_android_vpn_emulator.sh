@@ -183,6 +183,16 @@ fi
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_license_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+# A prior UI flow can leave the first-run installed-app privacy disclosure on
+# top of the settings screen. Do not accept it implicitly during the Premium
+# focus check; dismiss it with the explicit cancel action, then inspect the
+# underlying license field in a fresh hierarchy dump.
+if grep -Fq 'text="설치 앱 목록 접근 안내"' <<<"$premium_license_xml"; then
+  tap_text "취소"
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  premium_license_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+fi
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("class")=="android.widget.EditText"
