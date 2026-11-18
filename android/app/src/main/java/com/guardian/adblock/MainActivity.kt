@@ -2266,8 +2266,28 @@ class MainActivity : Activity() {
                     setPadding(dp(4), dp(5), dp(4), dp(5))
                     setOnCheckedChangeListener { _, checked ->
                         if (checked) excluded.add(pkg) else excluded.remove(pkg)
-                        prefs.edit().putStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, excluded.toSet()).apply()
-                        appFilterFeedback?.text = "설치 앱 ${apps.size}개 · 제외 앱 ${excluded.size}개 저장됨 · 보호 재시작 후 적용"
+                        val saved = prefs.edit()
+                            .putStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, excluded.toSet())
+                            .commit()
+                        if (!saved) {
+                            appFilterFeedback?.text = "제외 설정 저장에 실패했습니다. 저장 공간을 확인해 주세요."
+                            return@setOnCheckedChangeListener
+                        }
+                        val protectionActive = ProtectionState.isActive(
+                            prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                            GuardianVpnService.isTunnelActive()
+                        )
+                        if (protectionActive) {
+                            appFilterFeedback?.text = "제외 설정 저장됨 · VPN 설정을 다시 적용하고 있습니다."
+                            try {
+                                startService(Intent(this@MainActivity, GuardianVpnService::class.java)
+                                    .setAction(GuardianVpnService.ACTION_RECONFIGURE_EXCLUDED_APPS))
+                            } catch (error: Exception) {
+                                appFilterFeedback?.text = "제외 설정은 저장됐지만 VPN 재적용 요청에 실패했습니다: ${error.message ?: error.javaClass.simpleName}"
+                            }
+                        } else {
+                            appFilterFeedback?.text = "제외 설정 저장됨 · 다음 보호 연결 때 적용됩니다."
+                        }
                     }
                 }
                 appList.addView(check)
