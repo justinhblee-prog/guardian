@@ -1,15 +1,28 @@
 # Guardian AdBlock — Android 0.7.14-dev / Windows client
 
-## 최신 Android 검증 상태 — 2026-11-18
+## Android 1.0 출시 게이트 — 2026-11-18
 
-- 현재 main 기준 커밋: `4a3a351b9e21dfd2abd66a24b3cb16a066f060a8` (PR #127 병합).
-- PR #127의 Android CI [run 44241375918](https://github.com/justinhblee-prog/guardian/actions/runs/44241375918) 성공: 사용자 지정 규칙 입력 → 화면 회전 → 저장 → VPN DNS 경로에서 차단 및 차단 카운터 증가를 확인했습니다.
-- PR #127 최종 검증 artifact: `guardian-android-final-verification`, artifact ID `14399892262`. APK SHA-256 `339e3b21ca6b93f5cba3a332475c27c1080ac71778960317830cdb37ec448124`, 버전 `0.7.14-dev` (versionCode 27). 해당 실행은 PR 검증 산출물이며 최신 main 커밋 빌드와 구분합니다.
-- PR #127 병합 커밋: `4a3a351b9e21dfd2abd66a24b3cb16a066f060a8`.
-- 병합 후 main Android workflow [run 44242543546](https://github.com/justinhblee-prog/guardian/actions/runs/44242543546)은 마지막 확인 시 실행 중이었습니다. 완료 전까지 최신 main APK/E2E 결과는 확정하지 않습니다.
-- 기존 실기기 `Library file not found` 오류의 원인은 아직 특정되지 않았습니다. 에뮬레이터 통과를 실기기 해결로 간주하지 않습니다.
-- APK는 개발용 debug 서명본입니다. 운영 keystore/secrets, 실제 HTTPS signed-filter 게시 및 License API 주소/공개키가 준비되지 않아 production APK/AAB는 생성하지 않았습니다.
-- 상세 잔여 항목과 완료 기준: [docs/REMAINING_WORKFLOW_KO.md](docs/REMAINING_WORKFLOW_KO.md).
+- 출시 범위 동결 및 단일 완료 기준: [Issue #141](https://github.com/justinhblee-prog/guardian/issues/141)
+- Track A Android 보호 엔진: [Issue #142](https://github.com/justinhblee-prog/guardian/issues/142)
+- Track B 필터·서명 배포·라이선스: [Issue #143](https://github.com/justinhblee-prog/guardian/issues/143)
+- Track C 정식 빌드·서명·배포 검증: [Issue #144](https://github.com/justinhblee-prog/guardian/issues/144)
+- PR #140의 DoH/DoT 우회 한계 안내 변경은 [main 검증 run 44263635299](https://github.com/justinhblee-prog/guardian/actions/runs/44263635299)에서 전체 30단계 성공했습니다.
+- 현재 main 커밋: `10b2bded2cda6b9ef1cd825a5c16aaa1712dfd55`.
+- 검증 APK: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`, 3,137,042 bytes.
+- APK SHA-256: `01fac9f6e3a3126ccae21abda06516082470466e88c404b431fff09cf49cee45`.
+- APK 및 소스 ZIP은 CI 검증 artifact입니다. APK는 개발용 debug 서명본이며 정식 배포 APK가 아닙니다.
+- 에뮬레이터 업그레이드 및 VPN DNS E2E: 성공. 실기기 수용 테스트는 별도 미완료입니다.
+- 기존 실기기 `Library file not found` 오류의 원인은 아직 특정되지 않았습니다.
+- 운영용 서명키, 실제 License API/DB/Tailscale 운영 연결, 필터 원본 재배포 승인 및 정식 Release APK는 미완료입니다.
+- 잔여 업무와 완료 증거: [docs/REMAINING_WORKFLOW_KO.md](docs/REMAINING_WORKFLOW_KO.md).
+
+## 출시 범위 관리 원칙
+
+1. Issue #141의 필수 항목만 Android 1.0 출시 차단 조건으로 취급합니다.
+2. 추가 UI·통계·고급 차단 기능은 별도 근거가 없는 한 출시 후 백로그에 둡니다.
+3. Android 보호 엔진, 필터·라이선스, 정식 배포·검증은 독립 트랙으로 관리합니다.
+4. 에뮬레이터와 실기기, debug와 production signing, mock과 실제 운영 서버 결과를 서로 대체하지 않습니다.
+5. 운영 개인키·keystore·비밀값은 저장소에 커밋하지 않습니다.
 
 ## 과거 통합 기록 (이후 최신 검증 기록 우선)
 
