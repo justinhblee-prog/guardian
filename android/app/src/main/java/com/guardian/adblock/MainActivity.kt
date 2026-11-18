@@ -429,6 +429,7 @@ class MainActivity : Activity() {
             "protection" -> buildProtection(body)
             "rules" -> buildRules(body)
             "activity" -> buildActivity(body)
+            "premium" -> buildPremium(body)
             else -> buildSettings(body)
         }
         val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
@@ -1228,6 +1229,108 @@ class MainActivity : Activity() {
         loadUserRulesIntoEditors()
     }
 
+    private fun buildPremium(body: LinearLayout) {
+        val entitlement = LicenseEntitlementStore.current(this)
+        val retainedLicense = LicenseEntitlementStore.currentForRefresh(this)
+        val proActive = entitlement != null
+        val apiReady = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
+            BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank()
+
+        body.addView(text("Guardian Premium", 26f, white, true))
+        body.addView(text(
+            "프리미엄 보안 기능과 PRO 라이선스를 한곳에서 관리합니다.",
+            13f, muted, false
+        ).withTop(5))
+
+        body.addView(card(panel, 20).apply {
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            addView(text("GUARDIAN  /  PRO MEMBERSHIP", 10f, accent, true))
+            addView(text(
+                if (proActive) "PRO 프리미엄이 활성화되어 있습니다" else "Guardian PRO로 보안 경험을 확장하세요",
+                19f, white, true
+            ).withTop(12))
+            addView(text(
+                when {
+                    proActive -> "서버 서명과 이 기기의 등록 정보를 확인했습니다."
+                    retainedLicense != null -> "이전에 등록한 라이선스가 만료되었습니다. 상태를 갱신하거나 새 라이선스를 활성화하세요."
+                    else -> "현재 FREE 플랜을 사용 중입니다. 발급받은 PRO 라이선스 코드로 이 기기를 등록할 수 있습니다."
+                },
+                11f, muted, false
+            ).withTop(7))
+            addView(text(
+                when {
+                    proActive -> "PRO ACTIVE"
+                    retainedLicense != null -> "LICENSE EXPIRED"
+                    else -> "FREE PLAN"
+                },
+                11f, if (proActive) accent else if (retainedLicense != null) Color.rgb(238, 176, 82) else muted, true
+            ).withTop(14))
+            if (proActive && entitlement != null) {
+                val expiry = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
+                    .format(Date(entitlement.expiresAt * 1000L))
+                addView(text("라이선스 유효 기간 · $expiry 까지", 11f, muted, false).withTop(6))
+            }
+            addView(Button(this@MainActivity).apply {
+                text = if (proActive || retainedLicense != null) "PRO 라이선스 관리" else "PRO 라이선스 활성화"
+                isAllCaps = false
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(bg)
+                background = shape(accent, 12)
+                setOnClickListener {
+                    showTab("settings", focusLicenseActivation = true)
+                }
+            }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
+        }.withTop(16))
+
+        body.addView(text("멤버십 상태", 18f, white, true).withTop(22))
+        body.addView(infoRow(
+            "현재 이용 플랜",
+            if (proActive) "기기 바인딩 및 서버 서명 검증 완료" else "PRO 라이선스 미활성화",
+            if (proActive) "PRO" else "FREE",
+            if (proActive) accent else muted
+        ))
+        body.addView(infoRow(
+            "라이선스 서버",
+            if (apiReady) "앱에 검증용 공개키와 API 주소가 설정되어 있습니다." else "운영 서버 또는 서명 공개키 설정이 필요합니다.",
+            if (apiReady) "연결 설정됨" else "미설정",
+            if (apiReady) accent else Color.rgb(238, 176, 82)
+        ))
+        body.addView(infoRow(
+            "기기 등록",
+            if (proActive) "이 기기에 발급된 서명 토큰을 확인했습니다." else "활성화 시 이 기기에 연결된 라이선스를 발급합니다.",
+            if (proActive) "확인됨" else "대기",
+            if (proActive) accent else muted
+        ))
+
+        body.addView(text("PRO 기능", 18f, white, true).withTop(24))
+        body.addView(card(panel, 16).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("앱 코드 피싱 보호", 15f, white, true))
+            addView(text(
+                "PRO 전용 기능으로 분류할 수 있도록 메뉴를 마련했습니다. 다만 현재 앱에는 앱 코드·링크를 판별하는 검사 엔진이 연결되어 있지 않아 아직 실제 탐지나 차단은 수행하지 않습니다.",
+                11f, muted, false
+            ).withTop(6))
+            addView(text("검사 엔진 연동 필요", 10f, Color.rgb(238, 176, 82), true).withTop(9))
+        }.withTop(10))
+        body.addView(card(panel, 16).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("서명 기반 PRO 라이선스", 15f, white, true))
+            addView(text(
+                "서버가 발급한 기기 바인딩 토큰을 앱에 고정된 RSA 공개키로 검증합니다. 만료된 라이선스는 PRO 권한을 부여하지 않습니다.",
+                11f, muted, false
+            ).withTop(6))
+            addView(text(
+                if (proActive) "현재 이 기기에서 검증 완료" else "라이선스 활성화 후 검증",
+                10f, if (proActive) accent else muted, true
+            ).withTop(9))
+        }.withTop(8))
+
+        body.addView(text(
+            "참고: 라이선스를 활성화했다고 아직 구현되지 않은 기능이 자동으로 작동하는 것은 아닙니다. 실제 기능 엔진이 연결되고 검증된 뒤 활성 상태로 표시됩니다.",
+            10f, muted, false
+        ).withTop(14))
+    }
+
     private fun buildSettings(body: LinearLayout) {
         body.addView(text("설정", 25f, white, true))
         body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
@@ -1529,6 +1632,7 @@ class MainActivity : Activity() {
             ).withTop(5))
             val licenseKeyInput = EditText(this@MainActivity).apply {
                 hint = "GDN-XXXX-XXXX-..."
+                contentDescription = "PRO 라이선스 활성화 코드 입력"
                 setHintTextColor(muted)
                 setTextColor(white)
                 textSize = 13f
@@ -1849,6 +1953,7 @@ class MainActivity : Activity() {
             Triple("home", "⌂", "홈"),
             Triple("protection", "◈", "보호"),
             Triple("activity", "▤", "활동"),
+            Triple("premium", "✦", "프리미엄"),
             Triple("rules", "≡", "필터"),
             Triple("settings", "⚙", "설정")
         )
