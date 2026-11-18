@@ -127,7 +127,7 @@ jobs:
           keytool -list -v -keystore android/guardian-dev.keystore -storepass android -alias androiddebugkey | grep -F 'ED:AE:EC:C9:E4:A2:7E:64:F0:7D:92:64:3F:B8:51:40:72:50:83:AB:ED:55:3F:91:2A:0D:EE:03:87:FB:D8:2C'
       - name: Assemble previous dev version for upgrade test
         run: |
-          gradle -p android --no-daemon -PguardianVersionCode=30 -PguardianVersionName=0.7.17-dev assembleDebug
+          gradle -p android --no-daemon -PguardianVersionCode=29 -PguardianVersionName=0.7.16-dev assembleDebug
           cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.16-dev.apk
 
       - name: Assemble current debug APK for build verification
@@ -192,7 +192,7 @@ jobs:
           # SHA256SUMS.txt remains available for simple APK-only checks.
           sha256sum "$APK" "$SOURCE_ZIP" > release/SHA256SUMS.txt
           APK_SHA256="$(awk '$2 ~ /app-debug[.]apk$/ {print $1; exit}' release/SHA256SUMS.txt)"
-          SOURCE_SHA256="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7.16-dev[.]zip$/ {print $1; exit}' release/SHA256SUMS.txt)"
+          SOURCE_SHA256="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7.17-dev[.]zip$/ {print $1; exit}' release/SHA256SUMS.txt)"
           SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
           test "${#APK_SHA256}" -eq 64
           test "${#SOURCE_SHA256}" -eq 64
@@ -473,6 +473,6 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --prerelease \
-              --title "Guardian AdBlock 0.7.16-dev (개발 업데이트)" \
+              --title "Guardian AdBlock 0.7.17-dev (개발 업데이트)" \
               --notes "사전 출시 개발 업데이트입니다. 앱 내 업데이트 확인 기능으로 배포됩니다. 설치 전 APK SHA-256 및 기존 개발 서명 인증서를 검증합니다. Android 설치 승인은 사용자에게 요청됩니다."
           fi
