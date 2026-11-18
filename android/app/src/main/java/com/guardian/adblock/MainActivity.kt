@@ -2638,6 +2638,17 @@ class MainActivity : Activity() {
         // process still owns the VPN tunnel before showing protection as active.
         val persistedActive = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)
         val active = ProtectionState.isActive(persistedActive, GuardianVpnService.isTunnelActive())
+        appFilterFeedback?.let { feedback ->
+            val requested = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty()
+            val applied = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_APPLIED, emptySet()).orEmpty()
+            val stale = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_ERROR, emptySet()).orEmpty()
+            feedback.text = when {
+                stale.isNotEmpty() -> "제외 적용 오류: 설치되지 않은 앱 ${stale.size}개 · 적용 ${applied.size}/${requested.size}"
+                active && requested != applied -> "제외 적용 확인 필요 · 적용 ${applied.size}/${requested.size}"
+                active -> "앱별 보호 제외 적용 완료 · ${applied.size}개"
+                else -> "제외 앱 ${requested.size}개 저장됨 · 보호 연결 시 적용"
+            }
+        }
         val recoveryPending = prefs.getBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false) && !active
         val staleSession = persistedActive && !active && !recoveryPending
         val message = when {
