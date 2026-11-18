@@ -95,7 +95,14 @@ object ProtectionDiagnostics {
         bundledRuleAssetBytes: Long = -1L,
         nativeLibraryDirectoryReadable: Boolean = false,
         nativeLibraryNames: List<String> = emptyList(),
-        supportedAbis: List<String> = emptyList()
+        supportedAbis: List<String> = emptyList(),
+        baseCacheReady: Boolean? = null,
+        cachedProfile: String? = null,
+        cachedRuleCount: Int? = null,
+        securityCacheReady: Boolean? = null,
+        securityRuleCount: Int? = null,
+        androidAdsCacheReady: Boolean? = null,
+        androidAdsRuleCount: Int? = null
     ): String {
         fun cacheState(enabled: Boolean, bytes: Long): String = when {
             !enabled -> "사용 안 함"
@@ -125,10 +132,21 @@ object ProtectionDiagnostics {
                 .distinct()
                 .take(8)
             appendLine("기기 ABI: ${safeAbis.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "확인 불가"}")
-            appendLine("선택 필터 프로필: $selectedProfile")
+            fun readiness(value: Boolean?): String = when (value) {
+                true -> "정상"
+                false -> "실패 또는 준비되지 않음"
+                null -> "확인 불가"
+            }
+            fun safeId(value: String?): String = value
+                ?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{1,40}")) }
+                ?: "unknown"
+            appendLine("선택 필터 프로필: ${safeId(selectedProfile)}")
+            appendLine("캐시 프로필: ${safeId(cachedProfile)}")
+            appendLine("기본 필터 프로필 일치: ${if (cachedProfile == null) "확인 불가" else if (cachedProfile == selectedProfile) "일치" else "불일치"}")
             appendLine("기본 필터 캐시: ${cacheState(true, baseCacheBytes)}")
-            appendLine("보안 필터: ${cacheState(securityFilterEnabled, securityCacheBytes)}")
-            appendLine("Android 앱 광고 필터: ${cacheState(androidAdsFilterEnabled, androidAdsCacheBytes)}")
+            appendLine("기본 필터 검증: ${readiness(baseCacheReady)} · 유효 규칙 ${cachedRuleCount?.coerceAtLeast(0) ?: "확인 불가"}개")
+            appendLine("보안 필터: ${cacheState(securityFilterEnabled, securityCacheBytes)} · 검증 ${if (securityFilterEnabled) readiness(securityCacheReady) else "사용 안 함"} · 유효 규칙 ${if (securityFilterEnabled) securityRuleCount?.coerceAtLeast(0) ?: "확인 불가" else "—"}")
+            appendLine("Android 앱 광고 필터: ${cacheState(androidAdsFilterEnabled, androidAdsCacheBytes)} · 검증 ${if (androidAdsFilterEnabled) readiness(androidAdsCacheReady) else "사용 안 함"} · 유효 규칙 ${if (androidAdsFilterEnabled) androidAdsRuleCount?.coerceAtLeast(0) ?: "확인 불가" else "—"}")
             appendLine("자동 업데이트: ${if (autoUpdateEnabled) "켜짐" else "꺼짐"}")
             appendLine("업데이트 주기: ${updateIntervalHours.coerceAtLeast(1)}시간")
             appendLine("기본 필터 업데이트 기록: ${if (hasBaseUpdateTimestamp) "있음" else "없음"}")
