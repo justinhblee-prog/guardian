@@ -2496,19 +2496,36 @@ class MainActivity : Activity() {
         // process still owns the VPN tunnel before showing protection as active.
         val persistedActive = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)
         val active = ProtectionState.isActive(persistedActive, GuardianVpnService.isTunnelActive())
-        val staleSession = persistedActive && !active
-        val message = if (staleSession) {
-            "VPN 서비스가 다시 연결되는 중입니다. 복구되지 않으면 '다시 연결'을 눌러 주세요."
-        } else prefs.getString(GuardianVpnService.KEY_STATUS, null)
+        val recoveryPending = prefs.getBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false) && !active
+        val staleSession = persistedActive && !active && !recoveryPending
+        val message = when {
+            recoveryPending -> "VPN 보호를 자동으로 다시 연결하고 있습니다."
+            staleSession -> "VPN 서비스가 다시 연결되는 중입니다. 자동 복구가 되지 않으면 '다시 연결'을 눌러 주세요."
+            else -> prefs.getString(GuardianVpnService.KEY_STATUS, null)
+        }
         // Not every tab creates the dashboard status views. Update only views
         // that exist so opening Rules/Protection/Settings cannot crash the app.
         if (currentTab == "home" && ::statusTitle.isInitialized) {
-            statusTitle.text = when { active -> "보호가 실행 중입니다"; staleSession -> "보호 복구 대기 중"; else -> "보호가 꺼져 있습니다" }
-            statusDot.text = when { active -> "●  PROTECTION ACTIVE"; staleSession -> "●  RECOVERY PENDING"; else -> "●  PROTECTION OFF" }
-            statusDot.setTextColor(if (active || staleSession) accent else red)
-            startButton?.text = when { active -> "보호 실행 중"; staleSession -> "다시 연결"; else -> "보호 시작" }
-            startButton?.isEnabled = !active
-            startButton?.alpha = if (active) 0.58f else 1f
+            statusTitle.text = when {
+                active -> "보호가 실행 중입니다"
+                recoveryPending -> "보호 자동 복구 중"
+                staleSession -> "보호 복구 대기 중"
+                else -> "보호가 꺼져 있습니다"
+            }
+            statusDot.text = when {
+                active -> "●  PROTECTION ACTIVE"
+                recoveryPending || staleSession -> "●  AUTOMATIC RECOVERY"
+                else -> "●  PROTECTION OFF"
+            }
+            statusDot.setTextColor(if (active || recoveryPending || staleSession) accent else red)
+            startButton?.text = when {
+                active -> "보호 실행 중"
+                recoveryPending -> "보호 복구 중"
+                staleSession -> "다시 연결"
+                else -> "보호 시작"
+            }
+            startButton?.isEnabled = !active && !recoveryPending
+            startButton?.alpha = if (active || recoveryPending) 0.58f else 1f
         }
         if (currentTab == "home" && ::status.isInitialized) {
             status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
@@ -2516,6 +2533,7 @@ class MainActivity : Activity() {
         if (currentTab == "protection") {
             protectionStatusText?.text = when {
                 active -> "보호가 실행 중입니다"
+                recoveryPending -> "보호 자동 복구 중"
                 staleSession -> "보호 복구 대기 중"
                 else -> "보호가 꺼져 있습니다"
             }
@@ -2528,9 +2546,15 @@ class MainActivity : Activity() {
                 privateDnsMode(),
                 message
             )
-            protectionActionButton?.text = when { active -> "보호 중지"; staleSession -> "다시 연결"; else -> "보호 시작" }
-            protectionActionButton?.setTextColor(if (active) white else bg)
-            protectionActionButton?.background = shape(if (active) panel2 else accent, 13)
+            protectionActionButton?.text = when {
+                active -> "보호 중지"
+                recoveryPending -> "보호 복구 중"
+                staleSession -> "다시 연결"
+                else -> "보호 시작"
+            }
+            protectionActionButton?.isEnabled = !recoveryPending
+            protectionActionButton?.setTextColor(if (active || recoveryPending) white else bg)
+            protectionActionButton?.background = shape(if (active || recoveryPending) panel2 else accent, 13)
         }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
         val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
