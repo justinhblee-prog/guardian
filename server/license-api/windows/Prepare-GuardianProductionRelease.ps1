@@ -29,7 +29,13 @@ $tailscaleExecutable=$tailscaleCommand.Source
 if(-not $tailscaleExecutable){$tailscaleExecutable=$tailscaleCommand.Name}
 . (Join-Path $PSScriptRoot 'Get-GuardianTailscaleStatus.ps1')
 $tailStatus=Get-GuardianTailscaleStatus -Executable $tailscaleExecutable
-$dnsName=([string]$tailStatus.Self.DNSName).TrimEnd('.')
+$selfProperty=$tailStatus.PSObject.Properties['Self']
+if($null -eq $selfProperty -or $null -eq $selfProperty.Value){
+ $backendProperty=$tailStatus.PSObject.Properties['BackendState']
+ $backendState=if($null -ne $backendProperty){[string]$backendProperty.Value}else{'unknown'}
+ throw "Tailscale CLI가 정상 응답했지만 현재 노드 정보(Self)가 없습니다. 상태: $backendState. 노트북 Tailscale 로그인을 완료하고 연결 상태를 확인하세요."
+}
+$dnsName=([string]$selfProperty.Value.DNSName).TrimEnd('.')
 if([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',[StringComparison]::OrdinalIgnoreCase)){throw 'Tailscale MagicDNS 이름이 없습니다. 노트북의 Tailscale 로그인과 MagicDNS를 확인하세요.'}
 $licenseApiUrl='https://'+$dnsName
 try{$health=Invoke-WebRequest -Uri ($licenseApiUrl+'/ready') -TimeoutSec 8 -UseBasicParsing;if($health.StatusCode -ne 200){throw 'not ready'}}catch{throw 'Tailscale HTTPS 라이선스 API가 준비되지 않았습니다. Enable-GuardianPrivateAccess.ps1을 먼저 완료하세요.'}
