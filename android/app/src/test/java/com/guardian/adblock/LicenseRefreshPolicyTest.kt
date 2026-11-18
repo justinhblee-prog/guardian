@@ -5,6 +5,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LicenseRefreshPolicyTest {
+    @Test fun runtimeConfiguredServerEnablesRefreshWithoutBuildTimeDefault() {
+        assertTrue(LicenseRefreshScheduler.isConfigured("https://laptop.example.ts.net", "pinned-public-key"))
+        assertFalse(LicenseRefreshScheduler.isConfigured("", "pinned-public-key"))
+        assertFalse(LicenseRefreshScheduler.isConfigured("https://laptop.example.ts.net", ""))
+        assertFalse(LicenseRefreshScheduler.isConfigured("", ""))
+    }
+
     @Test fun doesNotRenewWhenMoreThanTwelveHoursRemain() {
         val now = 1_800_000_000L
         assertFalse(LicenseRefreshScheduler.shouldRenew(now + 12L * 60L * 60L + 1L, now))
