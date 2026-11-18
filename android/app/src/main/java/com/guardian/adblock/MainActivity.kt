@@ -1225,7 +1225,7 @@ class MainActivity : Activity() {
                     try {
                         val launched = DevUpdateManager.install(this@MainActivity, apk)
                         updateStatus.text = if (launched) {
-                            "Android 설치 확인 화면을 열었습니다. 업데이트가 끝나면 앱을 다시 열고 '다시 연결'을 눌러 보호를 재개하세요."
+                            "Android 설치 확인 화면을 열었습니다. 업데이트가 끝나면 Guardian이 이전 보호 설정을 확인해 VPN 보호를 자동으로 다시 연결합니다."
                         } else {
                             "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '지금 개발 업데이트 설치'를 다시 누르세요."
                         }
@@ -1305,7 +1305,7 @@ class MainActivity : Activity() {
                     try {
                         val launched = GuardianStableUpdateManager.install(this@MainActivity, apk)
                         updateStatus.text = if (launched) {
-                            "Android 설치 확인 화면을 열었습니다. 업데이트가 끝나면 앱을 다시 열고 '다시 연결'을 눌러 보호를 재개하세요."
+                            "Android 설치 확인 화면을 열었습니다. 업데이트가 끝나면 Guardian이 이전 보호 설정을 확인해 VPN 보호를 자동으로 다시 연결합니다."
                         } else {
                             "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '지금 정식 업데이트 설치'를 다시 누르세요."
                         }
