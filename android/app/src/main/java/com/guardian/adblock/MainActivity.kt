@@ -2204,7 +2204,6 @@ class MainActivity : Activity() {
         // used only to render this on-device exclusion picker; it is never uploaded.
         val apps = packageManager.getInstalledApplications(0)
             .map { it.packageName to it.loadLabel(packageManager).toString() }
-            .filter { it.first != packageName }
             .distinctBy { it.first }
             .sortedWith(compareBy<Pair<String, String>>(
                 { it.second.lowercase(Locale.ROOT) },
@@ -2264,10 +2263,11 @@ class MainActivity : Activity() {
             }
             visible.forEach { (pkg, label) ->
                 val check = CheckBox(this).apply {
-                    text = "$label\n$pkg"
+                    text = if (pkg == packageName) "$label\n$pkg · Guardian VPN 자체 앱" else "$label\n$pkg"
                     textSize = 12f
                     setTextColor(white)
                     isChecked = pkg in excluded
+                    isEnabled = pkg != packageName
                     setPadding(dp(4), dp(5), dp(4), dp(5))
                     setOnCheckedChangeListener { _, checked ->
                         if (checked) excluded.add(pkg) else excluded.remove(pkg)
