@@ -181,16 +181,12 @@ adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 rotation_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if not any(node.attrib.get("content-desc")=="필터" and node.attrib.get("selected")=="true" for node in root.iter("node")):
-    raise SystemExit("Activity rotation lost the selected filter tab.")' <<<"$rotation_xml"
-tap_first_edit_text
-adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-editor_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if not any("rotation-preserved.example" in node.attrib.get("text","") for node in root.iter("node")):
-    raise SystemExit("Activity rotation lost the unsaved rule editor draft.")' <<<"$editor_xml"
-if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Activity restored after configuration change; tab=rules .*hasRuleDraft=true"; then
+nodes=list(root.iter("node"))
+selected=any(node.attrib.get("content-desc")=="필터" and node.attrib.get("selected")=="true" for node in nodes)
+draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
+if not (selected and draft):
+    raise SystemExit("Activity rotation lost the selected filter tab, restored scroll position, or unsaved rule draft.")' <<<"$rotation_xml"
+if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Activity restored after configuration change; tab=rules scrollY=[1-9][0-9]* hasRuleDraft=true"; then
   echo "Activity did not retain the unsaved rule editor draft across rotation."
   adb_cmd logcat -d -s GuardianUI:I | tail -80
   exit 1
