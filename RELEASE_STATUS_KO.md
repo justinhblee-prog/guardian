@@ -1,11 +1,13 @@
 ## 2026-11-18 최신 통합 상태 — main 기준
 
 ### Android
-- Android 기능 소스 기준 커밋(PR #146 진단 기능 병합): `1e5ec6c4c943e56c36accaac49220eecdbdec98f` (개발 버전 `0.7.14-dev`, versionCode `27`). 이후 main에는 문서 전용 변경 PR #147/#148이 추가 병합됐습니다.
-- Android main CI [run 44271297916](https://github.com/justinhblee-prog/guardian/actions/runs/44271297916): unit tests, lint, Debug APK build, package/version, canonical filter asset, APK checksum, source archive integrity/secret exclusion, Android API 35 emulator upgrade/install/launch 및 VPN DNS E2E 전체 성공.
-- 검증 Debug APK: 3,138,734 bytes, SHA-256 `b6d41d7c6511d34e49b4fc32516b942ba8e066222355b772d4458e0d2fc0394c`. 전체 소스 ZIP: 480,633 bytes, SHA-256 `1aac3d2cdb9ee61184debe415fd697562fca636e0571177edfdaf33115d3aa78`.
-- Artifact: [guardian-android-debug](https://github.com/justinhblee-prog/guardian/actions/runs/44271297916) (workflow artifact ID `14411938955`); 최종 에뮬레이터 결과 보고서 artifact ID `14412872214`.
-- PR #146은 안전한 예외 종류/호출 스택 프레임 요약을 지원 보고서에 추가했으며 main에 병합됐습니다. 개인정보 경로·URL·오류 메시지는 저장 요약에서 제외합니다. CI는 이 변경을 포함한 빌드와 에뮬레이터 VPN DNS E2E를 통과했습니다.
+- 최신 main 커밋: `bb52dbb8ea9b4b881b21b2b2db1d65e3ad765915` (PR #151 artifact 감사 워크플로 개선 포함). Android 앱 버전은 `0.7.14-dev`, versionCode `27`.
+- Android main CI [run 44274922223](https://github.com/justinhblee-prog/guardian/actions/runs/44274922223): unit tests, lint, Debug APK build, filter asset identity, package/version, checksum, source archive integrity/secret exclusion, Android API 35 emulator upgrade/install/launch 및 VPN DNS E2E 전체 성공.
+- 검증 Debug APK: 3,138,734 bytes, SHA-256 `b6d41d7c6511d34e49b4fc32516b942ba8e066222355b772d4458e0d2fc0394c`. 전체 소스 ZIP: 481,877 bytes, SHA-256 `9d0d468735244621a5badadbf51322e970d85f79d95858735242f02d783422e8`.
+- Artifact: [guardian-android-debug](https://github.com/justinhblee-prog/guardian/actions/runs/44274922223) (artifact ID `14415100858`); 최종 에뮬레이터 결과 보고서 artifact ID `14414318118`.
+- PR #146의 안전한 예외 종류/호출 스택 프레임 진단이 포함된 빌드이며, 개인정보 경로·URL·오류 메시지는 진단 요약에서 제외합니다.
+- PR #150은 재배포 승인이 없는 필터 원본이 있으면 production signing 준비가 keystore 생성 및 GitHub secret 기록 전에 중단되도록 fail-closed gate를 추가했습니다. 현재 예시 원본 7종은 모두 재배포 승인 증빙이 없어 정식 필터 배포를 차단합니다.
+- PR #151은 artifact 감사가 특정 버전 파일명에 종속되지 않도록 개선했습니다. 검증 요약의 versionName/versionCode/package를 읽어 일치하는 source ZIP을 찾고, 정확한 manifest 경로의 APK/source SHA-256과 ZIP 무결성을 검사합니다. 실제 CI artifact와 합성 미래 버전으로 로컬 검증했습니다. 병합 후 workflow_run 이벤트 기반 실행은 다음 Android main CI 완료 시 확인합니다.
 - 사용자가 보고한 실기기 `Library file not found` 오류는 아직 실기기 로그로 재현·원인 확인되지 않았습니다. 에뮬레이터 성공을 실기기 해결로 간주하지 않습니다.
 - APK는 Debug 개발 서명본입니다. production keystore/secrets, production signer fingerprint, Release APK/AAB 및 실제 배포 설치 검증은 아직 없습니다.
 - 실기기 VPN/TUN 라우팅·네트워크 전환·실제 광고 제거 수용 테스트는 미실시입니다.
@@ -23,11 +25,9 @@
 - 이전 main CI [run 44101373822](https://github.com/justinhblee-prog/guardian/actions/runs/44101373822)에서 개발용 EXE/installer 빌드, 설치·self-test·DNS 복구·제거 smoke test가 통과했습니다.
 - 개발용 패키지는 unsigned이며, 실제 Windows PC의 어댑터 DNS 변경/복구, 재부팅, 네트워크 전환 및 VPN/보안 제품 공존성은 미검증입니다. Android 우선순위에 따라 최신 Windows 패키징은 후속 단계입니다.
 
-### 공통 운영 준비
-- 서명 필터 배포 서버와 License API/PostgreSQL 구현 및 설정 스크립트는 저장소에 있으나, 운영 도메인·TLS·서명 개인키·공개키·DB가 실제 호스팅되어 end-to-end 검증된 상태는 아닙니다.
-- 운영 keystore·개인키·비밀값을 저장소나 채팅에 추가하지 않았습니다.
-- 운영 설정 스크립트는 사용자 PC의 로컬 키/서비스와 GitHub secrets/variables를 변경할 수 있으므로, 실제 운영 설정 작업은 명시적 실행 권한과 로컬 사전조건 확인 없이 실행하지 않습니다.
-- Windows 상세 안내: [WINDOWS_BUILD_KO.md](WINDOWS_BUILD_KO.md).
+### 다음 출시 판정 기준
+- Android 1.0 필수 조건은 [issue #141](https://github.com/justinhblee-prog/guardian/issues/141), 앱 런타임 트랙은 [#142](https://github.com/justinhblee-prog/guardian/issues/142), 필터/라이선스 트랙은 [#143](https://github.com/justinhblee-prog/guardian/issues/143), 서명/배포 트랙은 [#144](https://github.com/justinhblee-prog/guardian/issues/144)에서 추적합니다.
+- Debug/CI/에뮬레이터 성공만으로 Android 1.0 완료 또는 실기기 보호 정상 동작을 선언하지 않습니다.
 
 # Guardian AdBlock Android — 개발/릴리스 상태
 
