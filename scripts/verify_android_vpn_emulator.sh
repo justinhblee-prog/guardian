@@ -138,7 +138,7 @@ for node in root.iter("node"):
 tap_first_edit_text() {
   local xml bounds
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
@@ -169,7 +169,7 @@ adb_cmd shell settings put system accelerometer_rotation 0
 adb_cmd shell settings put system user_rotation 1
 sleep 3
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-rotation_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+rotation_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
