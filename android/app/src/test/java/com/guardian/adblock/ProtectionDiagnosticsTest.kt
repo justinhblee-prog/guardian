@@ -47,4 +47,64 @@ class ProtectionDiagnosticsTest {
         val detail = ProtectionDiagnostics.statusDetail(false, 0, 0, 0, 0, "off", "VPN 연결 실패: 권한 거부")
         assertTrue(detail.contains("VPN 연결 실패"))
     }
+
+    @Test fun supportReportShowsAssetAndCacheReadinessWithoutSensitiveData() {
+        val report = ProtectionDiagnostics.supportReport(
+            appVersion = "0.7.14-dev",
+            androidRelease = "17",
+            apiLevel = 35,
+            protectionActive = false,
+            bundledRuleAssetAvailable = false,
+            selectedProfile = "adguard",
+            baseCacheBytes = 0,
+            securityFilterEnabled = true,
+            securityCacheBytes = 2048,
+            androidAdsFilterEnabled = false,
+            androidAdsCacheBytes = 0,
+            autoUpdateEnabled = true,
+            updateIntervalHours = 24,
+            hasBaseUpdateTimestamp = false,
+            signedFilterDeliveryConfigured = false,
+            licenseApiConfigured = false,
+            filterUpdateErrorPresent = true
+        )
+
+        assertTrue(report.contains("내장 DNS 규칙 파일: 누락 또는 읽기 실패"))
+        assertTrue(report.contains("기본 필터 캐시: 없음"))
+        assertTrue(report.contains("보안 필터: 있음 (2048 bytes)"))
+        assertTrue(report.contains("Android 앱 광고 필터: 사용 안 함"))
+        assertTrue(report.contains("최근 필터 업데이트 오류 기록: 있음"))
+        assertTrue(report.contains("DNS 요청/방문 도메인"))
+        assertTrue(report.contains("라이선스 키·토큰"))
+        assertTrue(!report.contains("doubleclick.net"))
+        assertTrue(!report.contains("https://"))
+    }
+
+    @Test fun supportReportClampsInvalidUpdateIntervalAndShowsHealthyAsset() {
+        val report = ProtectionDiagnostics.supportReport(
+            appVersion = "1.0.0",
+            androidRelease = "17",
+            apiLevel = 35,
+            protectionActive = true,
+            bundledRuleAssetAvailable = true,
+            selectedProfile = "hagezi_pro",
+            baseCacheBytes = 4096,
+            securityFilterEnabled = false,
+            securityCacheBytes = 0,
+            androidAdsFilterEnabled = true,
+            androidAdsCacheBytes = 8192,
+            autoUpdateEnabled = false,
+            updateIntervalHours = 0,
+            hasBaseUpdateTimestamp = true,
+            signedFilterDeliveryConfigured = true,
+            licenseApiConfigured = true,
+            filterUpdateErrorPresent = false
+        )
+
+        assertTrue(report.contains("내장 DNS 규칙 파일: 정상"))
+        assertTrue(report.contains("기본 필터 캐시: 있음 (4096 bytes)"))
+        assertTrue(report.contains("업데이트 주기: 1시간"))
+        assertTrue(report.contains("서명 필터 배포 설정: 설정됨"))
+        assertTrue(report.contains("라이선스 API 설정: 설정됨"))
+    }
 }
