@@ -96,6 +96,10 @@ curl -f http://127.0.0.1:8788/health
 
 Docker 컨테이너 내부 프로세스는 포트 포워딩을 위해 `0.0.0.0:8788`에 바인딩하지만, Compose의 호스트 포트는 `127.0.0.1:8788`에만 공개됩니다. 따라서 Docker 호스트 외부에서 직접 8788 포트에 접근할 수 없습니다. 컨테이너 밖에서 Node 서버를 직접 실행할 때 기본 HOST는 `127.0.0.1`이며, 외부 공개가 필요하면 신뢰된 reverse proxy 뒤에서만 별도 설정하세요. 인터넷 공개 전 HTTPS reverse proxy/WAF를 구성하고 `filters.example.com` 도메인에 TLS 인증서를 연결해야 합니다. manifest 경로는 `/{sourceId}.manifest`, 콘텐츠 경로는 `/filters/{sourceId}/{sourceVersion}.txt`입니다. reverse proxy가 이 경로와 `X-Guardian-Signature` 헤더를 변경하지 않도록 설정해야 합니다.
 
+## 제3자 필터 라이선스와 재배포 승인
+
+현재 7개 예시 원본의 upstream 프로젝트/라이선스 표기와 별도 주의사항은 [THIRD_PARTY_NOTICES_KO.md](THIRD_PARTY_NOTICES_KO.md)에 정리합니다. 이 목록은 예비 조사이며 재배포 승인서가 아닙니다. 각 원본을 유료 앱에 포함하고 서명 CDN으로 다시 배포할 권리가 실제 배포 버전 및 포함된 제3자 데이터까지 확인되기 전에는 `redistributionApproved=false`를 유지해야 합니다. 권리 검토가 끝난 source만 추적 가능한 법무/승인 참조를 기록하세요.
+
 ## 보안 및 운영
 
 - 서명은 manifest 원문 UTF-8 바이트에 RSA-SHA256을 적용합니다. 서버는 manifest와 detached signature를 함께 읽고 signature를 `X-Guardian-Signature`로 전달합니다.
