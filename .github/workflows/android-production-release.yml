@@ -44,6 +44,17 @@ jobs:
           gradle-version: '8.9'
       - name: Test production filter redistribution approval gate
         run: node --test server/filter-distribution/test/production-approval-gate.test.mjs
+      - name: Verify monotonic production version code policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEVELOPMENT_VERSION_CODE="$(grep -oE 'getOrElse\([0-9]+\)' android/app/build.gradle.kts | tail -n 1 | grep -oE '[0-9]+')"
+          DEFAULT_PRODUCTION_VERSION_CODE="$(grep -oE '\$VersionCode=[0-9]+' server/license-api/windows/Prepare-GuardianProductionRelease.ps1 | grep -oE '[0-9]+')"
+          test -n "$DEVELOPMENT_VERSION_CODE"
+          test -n "$DEFAULT_PRODUCTION_VERSION_CODE"
+          (( DEFAULT_PRODUCTION_VERSION_CODE > DEVELOPMENT_VERSION_CODE ))
+          grep -F 'GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE' .github/workflows/android-production-release.yml
+          grep -F '$VersionCode -lt $minimumProductionVersionCode' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
       - name: Validate Gradle release configuration without production secrets
         run: gradle -p android --no-daemon tasks --all
       - name: Confirm release build is blocked without a private keystore
