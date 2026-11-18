@@ -22,7 +22,13 @@ try {
 
 . (Join-Path $PSScriptRoot 'Get-GuardianTailscaleStatus.ps1')
 $tailStatus = Get-GuardianTailscaleStatus -Executable $tailscale
-$dnsName = ([string]$tailStatus.Self.DNSName).TrimEnd('.')
+$selfProperty = $tailStatus.PSObject.Properties['Self']
+if ($null -eq $selfProperty -or $null -eq $selfProperty.Value) {
+  $backendProperty = $tailStatus.PSObject.Properties['BackendState']
+  $backendState = if ($null -ne $backendProperty) { [string]$backendProperty.Value } else { 'unknown' }
+  throw "Tailscale CLI가 정상 응답했지만 현재 노드 정보(Self)가 없습니다. 상태: $backendState. Tailscale 앱에서 노트북 로그인을 완료하고 연결 상태를 확인한 뒤 다시 실행하세요."
+}
+$dnsName = ([string]$selfProperty.Value.DNSName).TrimEnd('.')
 if ([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net', [StringComparison]::OrdinalIgnoreCase)) {
   throw 'Tailscale MagicDNS 이름을 확인할 수 없습니다. Tailscale 로그인과 MagicDNS/HTTPS 설정을 확인하세요.'
 }
