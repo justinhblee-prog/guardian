@@ -69,6 +69,8 @@ class MainActivity : Activity() {
     private var filterStatusText: TextView? = null
     private var filterUpdateButton: Button? = null
     private var appFilterFeedback: TextView? = null
+    private var appExclusionsSearchInput: EditText? = null
+    private var focusAppExclusionsOnBuild = false
     private var blockRateValue: TextView? = null
     private var blockedCountValue: TextView? = null
     private var queryCountValue: TextView? = null
@@ -363,9 +365,14 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun showTab(tab: String, focusLicenseActivation: Boolean = false) {
+    private fun showTab(
+        tab: String,
+        focusLicenseActivation: Boolean = false,
+        focusAppExclusions: Boolean = false
+    ) {
         currentTab = tab
         focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings"
+        focusAppExclusionsOnBuild = focusAppExclusions && tab == "settings"
         licenseKeyInput = null
         startButton = null
         protectionStatusText = null
@@ -386,6 +393,7 @@ class MainActivity : Activity() {
         filterStatusText = null
         filterUpdateButton = null
         appFilterFeedback = null
+        appExclusionsSearchInput = null
         blockRateValue = null
         blockedCountValue = null
         queryCountValue = null
@@ -450,6 +458,24 @@ class MainActivity : Activity() {
                     }
                 }
                 focusLicenseActivationOnBuild = false
+            }
+        }
+
+        if (focusAppExclusionsOnBuild && tab == "settings") {
+            window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            scroll.post {
+                appExclusionsSearchInput?.let { input ->
+                    val bounds = android.graphics.Rect()
+                    input.getDrawingRect(bounds)
+                    scroll.offsetDescendantRectToMyCoords(input, bounds)
+                    scroll.smoothScrollTo(0, (bounds.top - dp(18)).coerceAtLeast(0))
+                    input.requestFocus()
+                    input.post {
+                        val keyboard = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                        keyboard.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                    }
+                }
+                focusAppExclusionsOnBuild = false
             }
         }
         if (usesNavigationRail) {
@@ -1088,7 +1114,7 @@ class MainActivity : Activity() {
                 isAllCaps = false
                 setTextColor(white)
                 background = shape(panel2, 12)
-                setOnClickListener { showTab("settings") }
+                setOnClickListener { showTab("settings", focusAppExclusions = true) }
             }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(8) })
         }.withTop(18))
 
@@ -2076,22 +2102,38 @@ class MainActivity : Activity() {
             .sortedBy { it.second.lowercase(Locale.ROOT) }
         val search = EditText(this).apply {
             hint = "앱 이름 또는 패키지명 검색"
+            contentDescription = "앱별 보호 제외 검색 입력"
             setHintTextColor(muted)
             setTextColor(white)
-            textSize = 13f
+            textSize = 14f
             setSingleLine(true)
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            setPadding(dp(13), dp(12), dp(13), dp(12))
-            background = shape(panel2, 12)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(15), dp(12), dp(15), dp(12))
+            background = shape(panel2, 12).apply { setStroke(dp(1), accent) }
+            setOnFocusChangeListener { view, focused ->
+                view.background = shape(panel2, 12).apply {
+                    setStroke(dp(2), if (focused) accent else muted)
+                }
+            }
         }
-        body.addView(search, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+        appExclusionsSearchInput = search
         val card = card(panel, 16).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            addView(text("설치된 앱 검색", 13f, white, true))
+            addView(text("앱 이름 또는 패키지명을 입력하면 목록이 즉시 필터링됩니다.", 11f, muted, false).withTop(4))
+            addView(search, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(9) })
+        }
+        val appListCard = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
         val appList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        card.addView(appList)
+        appListCard.addView(appList)
         body.addView(card.withTop(10))
+        body.addView(appListCard.withTop(8))
         appFilterFeedback = text(
             "설치 앱 ${apps.size}개 · 보호 제외 앱 ${excluded.size}개",
             11f, muted, false
