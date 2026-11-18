@@ -538,6 +538,10 @@ matches=[n for n in root.iter("node")
          and n.attrib.get("clickable")=="true"]
 if len(matches)!=1:
     raise SystemExit("Expected exactly one visible Settings app exclusion checkbox, got "+str(len(matches)))' <<<"$exclusion_xml"
+# Hide the IME before tapping the filtered row. UIAutomator can report a row
+# behind the keyboard as visible-to-user even though the tap lands on the IME.
+adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
 tap_checkbox "com.android.settings"
 excluded_applied=0
 for attempt in $(seq 1 30); do
