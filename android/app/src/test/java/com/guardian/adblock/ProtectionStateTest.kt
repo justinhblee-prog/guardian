@@ -26,6 +26,17 @@ class ProtectionStateTest {
         assertFalse(ProtectionState.shouldRestoreAfterServiceRestart(persistedActive = false))
     }
 
+    @Test fun durableUserIntentRestoresServiceAfterLiveTunnelFlagWasCleared() {
+        assertTrue(ProtectionState.shouldRestoreAfterServiceRestart(
+            persistedActive = false,
+            restoreRequested = true
+        ))
+        assertFalse(ProtectionState.shouldRestoreAfterServiceRestart(
+            persistedActive = true,
+            restoreRequested = false
+        ))
+    }
+
     @Test fun explicitStopClearsRestartIntentEvenBeforeTunnelStarts() {
         assertTrue(ProtectionState.shouldPublishStoppedState(explicitStop = true, tunnelWasActive = false))
     }
