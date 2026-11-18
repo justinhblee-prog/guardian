@@ -209,6 +209,8 @@ adb_cmd shell settings put system user_rotation 0
 sleep 2
 # Commit the rule entered before rotation. This verifies that the retained draft
 # can be saved after Activity recreation and reaches the VPN rule engine.
+adb_cmd shell input swipe 540 1500 540 600 450
+sleep 1
 tap_text "규칙 저장 및 적용"
 sleep 1
 adb_cmd shell input keyevent KEYCODE_BACK || true
