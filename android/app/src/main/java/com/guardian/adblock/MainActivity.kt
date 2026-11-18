@@ -117,6 +117,9 @@ class MainActivity : Activity() {
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
         val restoredTab = ActivityScreenState.restoreTab(savedInstanceState?.getString(STATE_CURRENT_TAB))
+        if (savedInstanceState != null) {
+            android.util.Log.i("GuardianUI", "Activity restored after configuration change; tab=$restoredTab")
+        }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
         showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
         if (restoredTab == "rules") {
@@ -1515,6 +1518,8 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
                 setPadding(if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4), if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4))
+                contentDescription = label
+                isSelected = active
                 setOnClickListener { showTab(id) }
                 if (active) background = shape(Color.rgb(31, 54, 76), 14)
             }
