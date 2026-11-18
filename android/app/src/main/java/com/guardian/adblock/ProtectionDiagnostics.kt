@@ -178,6 +178,9 @@ object ProtectionDiagnostics {
             appendLine("라이선스 API 설정: ${if (licenseApiConfigured) "설정됨" else "미설정"}")
             appendLine("최근 필터 업데이트 오류 기록: ${if (filterUpdateErrorPresent) "있음" else "없음"}")
             appendLine("최근 보호 시작 오류: ${startupFailureSummary(lastServiceStatus)}")
+            val safeTrace = lastStartupTrace.orEmpty().split(" | ").take(2).joinToString(" | ")
+                .filter { it.isLetterOrDigit() || it in " ._$<>:-|" }.take(1800)
+            appendLine("최근 오류 호출 스택(메시지/경로 제외): ${safeTrace.ifBlank { "기록 없음" }}")
             appendLine()
             appendLine("개인정보 보호: DNS 요청/방문 도메인, 사용자 지정 차단·허용 규칙, 라이선스 키·토큰, 서버 주소 및 공개키는 이 보고서에 포함하지 않았습니다.")
         }
