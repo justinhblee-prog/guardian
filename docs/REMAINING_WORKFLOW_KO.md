@@ -1,8 +1,8 @@
 # Guardian 잔여 업무 순차 진행 계획
 
-기준 main 커밋: `d95c7f6fb87803577e0a4ea758bbe4dfe2a68968`
-최신 Android CI: [run 44213812389](https://github.com/justinhblee-prog/guardian/actions/runs/44213812389)
-최신 artifact 감사: [run 44062116800](https://github.com/justinhblee-prog/guardian/actions/runs/44062116800)
+기준 main 커밋: `4a3a351b9e21dfd2abd66a24b3cb16a066f060a8` (PR #127 병합)
+최신 main Android CI: [run 44242543546](https://github.com/justinhblee-prog/guardian/actions/runs/44242543546) — 마지막 확인 시 in progress
+최신 완료 E2E 증거: [PR #127 run 44241375918](https://github.com/justinhblee-prog/guardian/actions/runs/44241375918)
 상태 갱신: 2026-11-18
 
 ## 운영 원칙
@@ -86,7 +86,15 @@ flowchart TD
 
 그 외의 단위 테스트 실패, lint 경고/오류, 컴파일 오류, 다운로드 재시도 실패, CI 러너 일시 장애, 에뮬레이터 환경 문제는 로그와 단계 정보를 근거로 분류하고 가능한 수정·재검증을 진행한다. 인프라 장애를 앱 코드 결함으로 잘못 분류하지 않는다.
 
-## 2026-11-17 최신 검증 증거
+## 2026-11-18 최신 Android 검증 증거
+
+- PR #127 사용자 지정 규칙 VPN E2E 검증 성공 및 main 병합: `4a3a351b9e21dfd2abd66a24b3cb16a066f060a8`.
+- PR #127 검증은 사용자 규칙 입력 후 화면 회전, 저장, VPN DNS 차단 및 차단 카운터 증가를 확인했습니다. 완료 artifact `14399892262`의 APK SHA-256은 `339e3b21ca6b93f5cba3a332475c27c1080ac71778960317830cdb37ec448124`입니다.
+- 병합 후 main run `44242543546`은 마지막 확인 시 Android lint 이후 APK 조립 단계 진행 중이었습니다. 완료 및 artifact 감사 전까지 main 검증 완료로 표시하지 않습니다.
+- 실기기 `Library file not found` 원인은 미확정이며, 실제 휴대전화의 진단 보고서/로그가 없으므로 실기기 해결 상태는 미완료입니다.
+- 운영 signing key, 실제 License API/DB 배포, signed filter HTTPS 게시, production APK/AAB는 미완료입니다.
+
+## 2026-11-17 이전 검증 증거
 
 - PR #83 cosmetic scriptlet/procedural selector 안전성 수정 병합: `ea337e5bd36123ca06202f092ea222cf3225ac9c`. Main CI [44066812922](https://github.com/justinhblee-prog/guardian/actions/runs/44066812922) 성공: 단위 테스트, lint, debug APK, 업그레이드 설치, API 35 에뮬레이터 VPN/DNS E2E.
 - PR #84 IPv6 TCP/53 확장 헤더 파싱 병합: `e3eefac72ede85709035cff71caa382ca49d7039`. PR CI [44067049572](https://github.com/justinhblee-prog/guardian/actions/runs/44067049572) 및 main CI [44068019346](https://github.com/justinhblee-prog/guardian/actions/runs/44068019346) 성공. Hop-by-Hop/Destination Options 등 제한된 비조각 IPv6 확장 헤더 체인을 처리하고 Fragment 헤더는 재조립 미지원으로 거부합니다.
