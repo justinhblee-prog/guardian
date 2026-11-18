@@ -42,6 +42,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Test production filter redistribution approval gate
+        run: node --test server/filter-distribution/test/production-approval-gate.test.mjs
       - name: Validate Gradle release configuration without production secrets
         run: gradle -p android --no-daemon tasks --all
       - name: Confirm release build is blocked without a private keystore
@@ -162,6 +164,18 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+      - name: Enforce production filter redistribution approvals
+        shell: bash
+        env:
+          GUARDIAN_FILTER_APPROVALS_JSON: ${{ vars.GUARDIAN_FILTER_APPROVALS_JSON }}
+        run: node server/filter-distribution/scripts/verify-production-approvals.mjs --from-env
+
+      - name: Require the signed public filter origin branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git ls-remote --exit-code --heads origin refs/heads/guardian-filter-data >/dev/null
+          echo "Signed public filter origin branch is present."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

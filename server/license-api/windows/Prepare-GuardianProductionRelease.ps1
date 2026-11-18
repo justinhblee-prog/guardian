@@ -92,6 +92,16 @@ Set-GitHubVariable 'GUARDIAN_MANIFEST_BASE_URL' $manifestUrl
 Set-GitHubVariable 'GUARDIAN_MANIFEST_PUBLIC_KEY' $filterPublic
 Set-GitHubVariable 'GUARDIAN_LICENSE_PUBLIC_KEY' $licensePublic
 Set-GitHubVariable 'GUARDIAN_LICENSE_API_BASE_URL' $licenseApiUrl
+$approvalSources = @($filterConfig.sources | ForEach-Object {
+  [ordered]@{
+    id = [string]$_.id
+    licenseId = [string]$_.licenseId
+    redistributionApproved = ($_.redistributionApproved -eq $true)
+    redistributionApprovalRef = [string]$_.redistributionApprovalRef
+  }
+})
+$approvalPolicyJson = ConvertTo-Json -InputObject ([ordered]@{ sources = $approvalSources }) -Depth 5 -Compress
+Set-GitHubVariable 'GUARDIAN_FILTER_APPROVALS_JSON' $approvalPolicyJson
 Set-GitHubVariable 'GUARDIAN_VERSION_NAME' $VersionName
 Set-GitHubVariable 'GUARDIAN_VERSION_CODE' ([string]$VersionCode)
 Write-Host 'Guardian Android production signing 설정을 GitHub에 등록했습니다.'
