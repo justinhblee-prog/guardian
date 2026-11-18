@@ -67,6 +67,8 @@ jobs:
           grep -q 'android.permission.QUERY_ALL_PACKAGES' android/app/src/main/AndroidManifest.xml
           grep -q 'tools:ignore="QueryAllPackagesPermission"' android/app/src/main/AndroidManifest.xml
           grep -q 'getInstalledApplications(0)' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
+          grep -q '설치 앱 목록 접근 안내' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
+          grep -q '동의하고 계속' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           test -s docs/ANDROID_APP_VISIBILITY_KO.md
           test -s android/app/src/main/res/drawable/ic_launcher_foreground.xml
           test -s android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
