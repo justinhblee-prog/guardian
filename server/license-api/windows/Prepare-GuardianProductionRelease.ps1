@@ -19,26 +19,34 @@ if(-not $developmentVersionMatch.Success){throw 'Android 개발 versionCode 기�
 $minimumProductionVersionCode = [int]$developmentVersionMatch.Groups[1].Value + 1
 if($VersionCode -lt $minimumProductionVersionCode){throw "정식 versionCode는 현재 개발 빌드보다 커야 합니다. 현재 개발 versionCode: $($minimumProductionVersionCode - 1), 최소 정식 versionCode: $minimumProductionVersionCode"}
 foreach($path in @($licensePublicPath,$filterPublicPath)){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw "운영 공개키가 없습니다: $path. Setup-GuardianServer.ps1을 먼저 실행하세요."}}
-foreach($name in @('keytool','gh','tailscale','git')){if(-not(Get-Command $name -ErrorAction SilentlyContinue)){throw "$name 명령을 찾을 수 없습니다."}}
+$requiredCommands = @('keytool','gh','git')
+if(-not $SigningOnly){ $requiredCommands += 'tailscale' }
+foreach($name in $requiredCommands){if(-not(Get-Command $name -ErrorAction SilentlyContinue)){throw "$name 명령을 찾을 수 없습니다."}}
 $remote=(& git -C $repoRoot remote get-url origin 2>$null | Out-String).Trim()
 if($LASTEXITCODE -ne 0 -or $remote -notmatch 'github\.com[:/]justinhblee-prog/guardian(?:\.git)?$'){throw '현재 저장소 origin이 justinhblee-prog/guardian인지 확인할 수 없습니다.'}
 & gh auth status --hostname github.com *> $null
 if($LASTEXITCODE -ne 0){throw 'GitHub CLI 인증이 필요합니다. gh auth login 후 다시 실행하세요.'}
-$tailscaleCommand=Get-Command 'tailscale' -ErrorAction Stop
-$tailscaleExecutable=$tailscaleCommand.Source
-if(-not $tailscaleExecutable){$tailscaleExecutable=$tailscaleCommand.Name}
-. (Join-Path $PSScriptRoot 'Get-GuardianTailscaleStatus.ps1')
-$tailStatus=Get-GuardianTailscaleStatus -Executable $tailscaleExecutable
-$selfProperty=$tailStatus.PSObject.Properties['Self']
-if($null -eq $selfProperty -or $null -eq $selfProperty.Value){
- $backendProperty=$tailStatus.PSObject.Properties['BackendState']
- $backendState=if($null -ne $backendProperty){[string]$backendProperty.Value}else{'unknown'}
- throw "Tailscale CLI가 정상 응답했지만 현재 노드 정보(Self)가 없습니다. 상태: $backendState. 노트북 Tailscale 로그인을 완료하고 연결 상태를 확인하세요."
+$licenseApiUrl = $null
+if(-not $SigningOnly){
+  # Full release configuration requires the real, ready tailnet endpoint.
+  # Signing-only setup must remain independent so key preparation is not
+  # blocked by a Tailscale login or a temporarily offline laptop API.
+  $tailscaleCommand=Get-Command 'tailscale' -ErrorAction Stop
+  $tailscaleExecutable=$tailscaleCommand.Source
+  if(-not $tailscaleExecutable){$tailscaleExecutable=$tailscaleCommand.Name}
+  . (Join-Path $PSScriptRoot 'Get-GuardianTailscaleStatus.ps1')
+  $tailStatus=Get-GuardianTailscaleStatus -Executable $tailscaleExecutable
+  $selfProperty=$tailStatus.PSObject.Properties['Self']
+  if($null -eq $selfProperty -or $null -eq $selfProperty.Value){
+   $backendProperty=$tailStatus.PSObject.Properties['BackendState']
+   $backendState=if($null -ne $backendProperty){[string]$backendProperty.Value}else{'unknown'}
+   throw "Tailscale CLI가 정상 응답했지만 현재 노드 정보(Self)가 없습니다. 상태: $backendState. 노트북 Tailscale 로그인을 완료하고 연결 상태를 확인하세요."
+  }
+  $dnsName=([string]$selfProperty.Value.DNSName).TrimEnd('.')
+  if([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',[StringComparison]::OrdinalIgnoreCase)){throw 'Tailscale MagicDNS 이름이 없습니다. Tailscale 로그인과 MagicDNS를 확인하세요.'}
+  $licenseApiUrl='https://'+$dnsName
+  try{$health=Invoke-WebRequest -Uri ($licenseApiUrl+'/ready') -TimeoutSec 8 -UseBasicParsing;if($health.StatusCode -ne 200){throw 'not ready'}}catch{throw 'Tailscale HTTPS 라이선스 API가 준비되지 않았습니다. Enable-GuardianPrivateApiOnly.ps1을 먼저 완료하세요.'}
 }
-$dnsName=([string]$selfProperty.Value.DNSName).TrimEnd('.')
-if([string]::IsNullOrWhiteSpace($dnsName) -or -not $dnsName.EndsWith('.ts.net',[StringComparison]::OrdinalIgnoreCase)){throw 'Tailscale MagicDNS 이름이 없습니다. 노트북의 Tailscale 로그인과 MagicDNS를 확인하세요.'}
-$licenseApiUrl='https://'+$dnsName
-try{$health=Invoke-WebRequest -Uri ($licenseApiUrl+'/ready') -TimeoutSec 8 -UseBasicParsing;if($health.StatusCode -ne 200){throw 'not ready'}}catch{throw 'Tailscale HTTPS 라이선스 API가 준비되지 않았습니다. Enable-GuardianPrivateAccess.ps1을 먼저 완료하세요.'}
 if(-not $SigningOnly){
   # Full release setup requires reviewed filter rights and a published signed manifest.
   $manifestBaseUrl='https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data'
@@ -111,7 +119,8 @@ Set-GitHubSecret 'GUARDIAN_RELEASE_KEY_PASSWORD' $keyPassword
 Set-GitHubVariable 'GUARDIAN_MANIFEST_BASE_URL' $manifestUrl
 Set-GitHubVariable 'GUARDIAN_MANIFEST_PUBLIC_KEY' $filterPublic
 Set-GitHubVariable 'GUARDIAN_LICENSE_PUBLIC_KEY' $licensePublic
-Set-GitHubVariable 'GUARDIAN_LICENSE_API_BASE_URL' $licenseApiUrl
+if(-not $SigningOnly){ Set-GitHubVariable 'GUARDIAN_LICENSE_API_BASE_URL' $licenseApiUrl }
+else { Write-Host 'Signing-only mode: GUARDIAN_LICENSE_API_BASE_URL is left unchanged until the private Tailscale HTTPS API is ready.' }
 if($SigningOnly){
   # Explicitly reset the policy to deny all configured example sources so a stale approval variable cannot unlock release.
   $exampleSourcesPath=Join-Path $repoRoot 'server\filter-distribution\sources.example.json'

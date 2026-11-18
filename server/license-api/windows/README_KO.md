@@ -84,7 +84,7 @@ Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연�
 
 그 다음 Git for Windows, GitHub CLI(`gh`) 로그인 및 JDK `keytool`이 준비된 PowerShell 7.2에서 아래 signing-only 모드를 실행합니다.
 
-먼저 서명키와 GitHub 운영 Secret/Variable만 준비하려면 다음 모드를 사용합니다. 이 모드는 필터 승인 변수를 모두 `false`로 설정해 기존의 오래된 승인값이 정식 배포를 통과시키지 못하도록 합니다.
+먼저 Tailscale 로그인이나 라이선스 API 연결을 기다리지 않고 운영 APK 서명키와 GitHub 서명 Secret/공개키 Variable을 준비하려면 다음 모드를 사용합니다. 이 모드는 `GUARDIAN_LICENSE_API_BASE_URL`을 변경하지 않으며, 필터 승인 변수를 모두 `false`로 설정해 기존의 오래된 승인값이 정식 배포를 통과시키지 못하도록 합니다. 따라서 이 단계만으로 Release를 실행할 수는 없습니다. 이후 Tailscale HTTPS API가 준비되고 필터 재배포 승인·공개 게시가 완료되면 전체 운영 설정 모드를 실행해야 합니다.
 
 ```powershell
 ./Prepare-GuardianProductionRelease.ps1 -SigningOnly
