@@ -145,7 +145,7 @@ premium_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 text=" ".join(node.attrib.get("text","") for node in root.iter("node"))
-for expected in ("Guardian Premium", "GUARDIAN  /  PRO MEMBERSHIP", "앱 코드 피싱 보호", "검사 엔진 연동 필요"):
+for expected in ("Guardian Premium", "GUARDIAN  /  PRO MEMBERSHIP"):
     if expected not in text:
         raise SystemExit("Premium screen is missing expected content: "+expected)' <<<"$premium_xml"
 if grep -Fq 'text="PRO 라이선스 활성화"' <<<"$premium_xml"; then
@@ -165,7 +165,35 @@ if not any(node.attrib.get("class")=="android.widget.EditText"
     for node in root.iter("node")):
     raise SystemExit("Premium CTA did not focus the PRO license activation input.")' <<<"$premium_license_xml"
 adb_cmd shell input keyevent KEYCODE_BACK || true
-echo "Premium menu, entitlement status, and license activation focus passed."
+
+# The PRO feature cards are below the membership details on a phone-sized
+# viewport. Return to Premium, scroll the actual page, and verify the feature
+# card only after it enters the visible UI hierarchy.
+tap_content_description "프리미엄"
+sleep 1
+premium_features_visible=0
+for attempt in $(seq 1 8); do
+  adb_cmd shell input swipe 540 1500 540 650 450
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  premium_features_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+visible={node.attrib.get("text","") for node in root.iter("node")
+         if node.attrib.get("visible-to-user","true")=="true"}
+if "앱 코드 피싱 보호" in visible and "검사 엔진 연동 필요" in visible:
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$premium_features_xml"; then
+    premium_features_visible=1
+    break
+  fi
+done
+if [[ "$premium_features_visible" -ne 1 ]]; then
+  echo "Premium phishing-protection status card did not become visible after scrolling."
+  echo "$premium_features_xml"
+  exit 1
+fi
+echo "Premium menu, entitlement status, activation-field focus, and feature status passed."
 
 echo "Waiting for all enabled filter lists to be downloaded and cached."
 # This CI scenario explicitly enables the optional security filter before
