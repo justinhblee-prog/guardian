@@ -4,6 +4,7 @@ name: Guardian AdBlock Production Release
     paths:
       - 'android/app/build.gradle.kts'
       - 'server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
+      - 'server/license-api/windows/Enable-GuardianPrivateApiOnly.ps1'
       - 'server/license-api/windows/README_KO.md'
       - '.github/workflows/android-production-release.yml'
   push:
@@ -11,6 +12,7 @@ name: Guardian AdBlock Production Release
     paths:
       - 'android/app/build.gradle.kts'
       - 'server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
+      - 'server/license-api/windows/Enable-GuardianPrivateApiOnly.ps1'
       - 'server/license-api/windows/README_KO.md'
       - '.github/workflows/android-production-release.yml'
   workflow_dispatch:
@@ -68,6 +70,12 @@ jobs:
           grep -F -- 'Remove-Item Env:GUARDIAN_RELEASE_STORE_PASSWORD' "$SCRIPT"
           if grep -F -- '-storepass $storePassword' "$SCRIPT"; then
             echo 'Keystore password must not be passed as a command-line argument.'
+            exit 1
+          fi
+          PRIVATE_API_SCRIPT='server/license-api/windows/Enable-GuardianPrivateApiOnly.ps1'
+          grep -F -- 'serve --bg --https=443 $serveTarget' "$PRIVATE_API_SCRIPT"
+          if grep -F '& $tailscale funnel' "$PRIVATE_API_SCRIPT" || grep -F 'Publish-GuardianFilterToCloud.ps1' "$PRIVATE_API_SCRIPT" || grep -F 'Invoke-GuardianFilterUpdate.ps1' "$PRIVATE_API_SCRIPT"; then
+            echo 'Private API-only bootstrap must not publish public filter data or invoke Funnel.'
             exit 1
           fi
       - name: Validate stable in-app update publishing contract

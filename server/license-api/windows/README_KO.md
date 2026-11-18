@@ -76,7 +76,13 @@ Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연�
 
 ## Android 정식 릴리스 서명 준비
 
-노트북에서 `Setup-GuardianServer.ps1`로 운영 공개키를 생성하고 라이선스 API의 Tailscale HTTPS `/ready`가 정상 응답하도록 구성한 뒤, Git for Windows, GitHub CLI(`gh`) 로그인 및 JDK `keytool`이 준비된 PowerShell 7.2에서 실행합니다.
+먼저 `Setup-GuardianServer.ps1`로 운영 공개키와 로컬 서버를 준비합니다. 필터를 공개 게시하지 않고 라이선스 API만 tailnet에 연결하려면 `Enable-GuardianPrivateApiOnly.ps1`을 실행합니다. 이 스크립트는 `127.0.0.1:8787` License API만 Tailscale Serve로 연결하며 필터 파일 게시, 서명, 예약 업데이트 또는 Funnel 설정은 하지 않습니다.
+
+```powershell
+./Enable-GuardianPrivateApiOnly.ps1
+```
+
+그 다음 Git for Windows, GitHub CLI(`gh`) 로그인 및 JDK `keytool`이 준비된 PowerShell 7.2에서 아래 signing-only 모드를 실행합니다.
 
 먼저 서명키와 GitHub 운영 Secret/Variable만 준비하려면 다음 모드를 사용합니다. 이 모드는 필터 승인 변수를 모두 `false`로 설정해 기존의 오래된 승인값이 정식 배포를 통과시키지 못하도록 합니다.
 
