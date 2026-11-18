@@ -319,12 +319,12 @@ if grep -Eq 'PING guardian-ci-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-b
 fi
 
 echo "Triggering a domain blocked only by the saved user rule."
-before_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_custom_blocked="${before_custom_blocked:-0}"
 adb_cmd shell ping -c 1 -W 5 "rotation-preserved.example" >/tmp/guardian-custom-blocked-dns.txt 2>&1 || true
 sleep 2
 prefs="$(read_prefs)"
-after_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 after_custom_blocked="${after_custom_blocked:-0}"
 if (( after_custom_blocked <= before_custom_blocked )); then
   echo "Saved custom block rule did not increment Guardian's blocked DNS counter."
@@ -332,7 +332,7 @@ if (( after_custom_blocked <= before_custom_blocked )); then
   read_prefs
   exit 1
 fi
-if grep -Eq 'PING rotation-preserved\\.example \\([^)]*\\)' /tmp/guardian-custom-blocked-dns.txt; then
+if grep -Eq 'PING rotation-preserved\.example \([^)]*\)' /tmp/guardian-custom-blocked-dns.txt; then
   echo "Custom-blocked domain unexpectedly resolved to an address."
   cat /tmp/guardian-custom-blocked-dns.txt || true
   read_prefs
