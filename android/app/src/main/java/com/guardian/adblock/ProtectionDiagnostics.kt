@@ -42,7 +42,7 @@ object ProtectionDiagnostics {
             message.startsWith("보호 시작 중 예기치 않은 오류") -> "VPN 시작 중 런타임 예외"
             else -> return "최근 시작 오류 기록 없음"
         }
-        val exceptionType = Regex("\\(([A-Za-z][A-Za-z0-9_]*(?:Exception|Error))(?::|\\))")
+        val exceptionType = Regex("\\(([A-Za-z][A-Za-z0-9_]*(?:Exception|Error)(?: <- [A-Za-z][A-Za-z0-9_]*(?:Exception|Error))*)\\)")
             .find(message)?.groupValues?.getOrNull(1)
         return phase + (exceptionType?.let { " ($it)" } ?: "")
     }
