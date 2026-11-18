@@ -495,3 +495,16 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - PR #77에는 Android manifest/서명/해시 검증 클라이언트, Windows DPAPI 서명·공개 배포 스크립트, Tailscale private access 및 License API 운영 스크립트가 포함됩니다.
 - 실제 Windows 노트북에서 private key 생성/배포, public CDN branch 게시, Tailscale 운영 연결, production keystore 설정은 아직 미수행입니다. Production-release job은 운영 키 부재로 skip되며 APK는 debug 서명본입니다.
 - 실제 스마트폰·태블릿 네트워크 전환/제조사별 수용 테스트는 미수행입니다. main branch 재검증 run 44052664083 및 production configuration run 44052664040 결과는 완료 후 반영합니다.
+
+
+## Android v0.7.15-dev — 개발판 앱 내 자동 업데이트 bootstrap (2026-11-18)
+
+- PR #152 merged; updater implementation commit `d90d710678efbc09b56c0b7e7d981fd76f89d3b4`.
+- Debug-only updater checks the GitHub development prerelease feed at app startup (six-hour throttle), plus a manual Settings action.
+- Download verification: manifest SHA-256 and signer-certificate fingerprint must match the downloaded APK and currently installed development certificate. Android package installer still requires user approval.
+- APK `com.guardian.adblock`, versionCode 28, versionName `0.7.15-dev`, 3,149,375 bytes; SHA-256 `90b0b92a12867c602aa5b305cd60f529ab907c9feb7e0df41d5370820fb0d701`.
+- Development prerelease `guardian-dev-v28` includes `guardian-android-dev.apk` and `guardian-android-dev.json`.
+- Follow-up `0.7.16-dev`, versionCode 29, prerelease `guardian-dev-v29`, was published with the same asset names for an immediate in-app update test.
+- Main CI run [44282676162](https://github.com/justinhblee-prog/guardian/actions/runs/44282676162) completed success: unit tests, lint, APK build/checksum, previous-version upgrade, emulator install/launch, VPN DNS runtime verification and prerelease publication passed.
+- CI/emulator verification only. Real handset download/install has not yet been observed; bootstrap v28 must be installed once over existing v27, without uninstalling Guardian.
+
