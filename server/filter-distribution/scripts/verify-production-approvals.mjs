@@ -55,8 +55,10 @@ export function verifyProductionRedistributionApprovals(config) {
 }
 
 async function main() {
-  const configPath = path.resolve(process.argv[2] || 'server/filter-distribution/sources.example.json');
-  const config = JSON.parse(await readFile(configPath, 'utf8'));
+  const input = process.argv[2] || 'server/filter-distribution/sources.example.json';
+  const config = input === '--from-env'
+    ? JSON.parse(process.env.GUARDIAN_FILTER_APPROVALS_JSON || 'null')
+    : JSON.parse(await readFile(path.resolve(input), 'utf8'));
   const result = verifyProductionRedistributionApprovals(config);
   process.stdout.write(
     'Production redistribution approval verified for ' +
