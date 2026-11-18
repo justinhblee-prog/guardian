@@ -239,22 +239,6 @@ jobs:
           EOF
           python3 -m json.tool release/guardian-android-dev.json >/dev/null
 
-      - name: Publish development APK update release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh release create "guardian-dev-v28" \
-            "android/app/build/outputs/apk/debug/app-debug.apk#Guardian AdBlock 0.7.15-dev APK" \
-            "release/guardian-android-dev.json" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --prerelease \
-            --title "Guardian AdBlock 0.7.15-dev (개발 업데이트)" \
-            --notes "사전 출시 개발 업데이트입니다. Android 앱 내 업데이트 확인 기능으로 배포됩니다. 설치 전 APK SHA-256 및 기존 개발 서명 인증서를 검증합니다. Android 설치 승인은 사용자에게 요청됩니다."
-
       - name: Upload verified Android debug and source package
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: actions/upload-artifact@v4
@@ -468,3 +452,20 @@ jobs:
         run: |
           echo "Android emulator VPN/DNS runtime verification failed. APK build artifacts and the failure report were preserved."
           exit 1
+
+      - name: Publish development APK update release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "guardian-dev-v28" \
+            "android/app/build/outputs/apk/debug/app-debug.apk#Guardian AdBlock 0.7.15-dev APK" \
+            "release/guardian-android-dev.json" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Guardian AdBlock 0.7.15-dev (개발 업데이트)" \
+            --notes "사전 출시 개발 업데이트입니다. Android 앱 내 업데이트 확인 기능으로 배포됩니다. 설치 전 APK SHA-256 및 기존 개발 서명 인증서를 검증합니다. Android 설치 승인은 사용자에게 요청됩니다."
+
