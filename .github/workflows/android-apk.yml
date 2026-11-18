@@ -231,7 +231,7 @@ jobs:
           {
             "packageName": "com.guardian.adblock",
             "versionName": "0.7.17-dev",
-            "versionCode": 29,
+            "versionCode": 30,
             "sha256": "$SHA256",
             "signerSha256": "$SIGNER_SHA256",
             "channel": "development"
@@ -429,7 +429,7 @@ jobs:
           - 커밋: ${GITHUB_SHA}
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - 버전: 0.7.17-dev (29)
+          - 버전: 0.7.17-dev (30)
           - APK 생성 상태: ${APK_STATUS}
           - APK SHA-256: ${APK_SHA256}
           - 테스트 및 빌드 단계의 실제 결과는 위 GitHub Actions 단계 결과를 기준으로 확인합니다.
