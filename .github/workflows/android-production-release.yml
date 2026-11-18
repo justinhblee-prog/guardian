@@ -64,8 +64,14 @@ jobs:
         run: |
           set -euo pipefail
           SCRIPT='server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
-          grep -F 'keytool -list -keystore $keystorePath -storepass:env GUARDIAN_RELEASE_STORE_PASSWORD' "$SCRIPT"
-          if grep -E 'keytool -list .* -storepass[[:space:]]+\\        shell: bash
+          grep -F -- '-storepass:env GUARDIAN_RELEASE_STORE_PASSWORD' "$SCRIPT"
+          grep -F -- 'Remove-Item Env:GUARDIAN_RELEASE_STORE_PASSWORD' "$SCRIPT"
+          if grep -F -- '-storepass $storePassword' "$SCRIPT"; then
+            echo 'Keystore password must not be passed as a command-line argument.'
+            exit 1
+          fi
+      - name: Validate stable in-app update publishing contract
+        shell: bash
         run: |
           set -euo pipefail
           grep -F 'guardian-android.apk' .github/workflows/android-production-release.yml
