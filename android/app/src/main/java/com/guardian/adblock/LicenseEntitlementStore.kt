@@ -76,7 +76,11 @@ internal object LicenseEntitlementStore {
         nowEpochSeconds: Long
     ): LicenseEntitlementVerifier.Entitlement? {
         val publicKey = BuildConfig.LICENSE_PUBLIC_KEY
-        if (publicKey.isBlank()) return null
+        if (!isLicensePublicKeyConfigurationValid(publicKey)) {
+            // A broken app configuration is not evidence that the stored token is corrupt.
+            // Preserve it so repairing the pinned key does not strand the server device slot.
+            return null
+        }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val encodedPayload = prefs.getString(KEY_PAYLOAD, null) ?: return null
         val signature = prefs.getString(KEY_SIGNATURE, null) ?: return null
