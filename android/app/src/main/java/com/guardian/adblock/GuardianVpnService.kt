@@ -38,6 +38,7 @@ class GuardianVpnService : VpnService() {
         const val KEY_USER_ALLOW = "user_allow_domains"
         const val KEY_ACTIVE = "protection_active"
         const val KEY_STATUS = "protection_status"
+        const val KEY_STARTUP_TRACE = "protection_startup_trace"
         const val KEY_DNS_QUERIES = "dns_queries"
         const val KEY_DNS_BLOCKED = "dns_blocked"
         const val KEY_DNS_FORWARDED = "dns_forwarded"
@@ -159,6 +160,7 @@ class GuardianVpnService : VpnService() {
         error: Throwable
     ) {
         android.util.Log.e("GuardianProtection", "Unexpected VPN startup failure", error)
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
         // A stale worker must not overwrite an explicit stop or a newer start request.
         if (!startCancellation.isCurrent(requestGeneration) || running.get()) return
         tunnelActive = false
@@ -182,6 +184,7 @@ class GuardianVpnService : VpnService() {
             createNotificationChannel()
             startForeground(41, buildNotification())
         } catch (e: Exception) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(e)).apply()
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             publishState(false, "포그라운드 서비스 시작 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${e.message ?: "권한 또는 Android 정책을 확인하세요."}")
             stopSelf(startId)
@@ -191,6 +194,7 @@ class GuardianVpnService : VpnService() {
             // Parsing a large downloaded filter list must not block the service main thread.
             loadConfiguredRules()
         } catch (e: Exception) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(e)).apply()
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             publishState(false, "필터 규칙 로드 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${e.message ?: "원인 정보 없음"}")
             stopSelf(startId)
@@ -259,6 +263,9 @@ class GuardianVpnService : VpnService() {
         if (descriptor == null) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             val detail = establishError?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
+            establishError?.let { error ->
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
+            }
             publishState(false, "VPN 연결 생성 실패$detail. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요.")
             stopSelf(startId)
             return

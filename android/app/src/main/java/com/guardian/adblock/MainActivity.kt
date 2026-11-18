@@ -796,6 +796,7 @@ class MainActivity : Activity() {
                     FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
                 ).any { !prefs.getString(it, null).isNullOrBlank() },
                 lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null),
+                lastStartupTrace = prefs.getString(GuardianVpnService.KEY_STARTUP_TRACE, null),
                 bundledRuleAssetBytes = assetBytes,
                 nativeLibraryDirectoryReadable = nativeLibraryDirectoryReadable,
                 nativeLibraryNames = nativeLibraryFiles,
@@ -2146,9 +2147,11 @@ class MainActivity : Activity() {
                 ready to message
             } catch (error: Exception) {
                 android.util.Log.e("GuardianProtection", "Readiness check failed after ${android.os.SystemClock.elapsedRealtime() - startedAt}ms", error)
+                prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
                 false to "필터 캐시 검증 오류 (${ProtectionDiagnostics.exceptionTypeChain(error)}): ${error.message ?: error.javaClass.simpleName}"
             } catch (error: LinkageError) {
                 android.util.Log.e("GuardianProtection", "Filter component could not be loaded during readiness check", error)
+                prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
                 false to "필터 구성요소 로드 오류 (${ProtectionDiagnostics.exceptionTypeChain(error)}): ${error.message ?: error.javaClass.simpleName}"
             }
             runOnUiThread {

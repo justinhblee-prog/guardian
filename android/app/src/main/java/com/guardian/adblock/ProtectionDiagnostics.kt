@@ -26,6 +26,26 @@ object ProtectionDiagnostics {
     }
 
     /**
+     * Captures bounded stack-frame identity without exception messages, paths, URLs or arguments.
+     */
+    fun exceptionTraceSummary(error: Throwable, maxFrames: Int = 8): String {
+        val frames = mutableListOf<String>()
+        val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Throwable, Boolean>())
+        var current: Throwable? = error
+        val limit = maxFrames.coerceIn(1, 16)
+        while (current != null && seen.add(current) && frames.size < limit) {
+            for (frame in current.stackTrace) {
+                if (frames.size >= limit) break
+                val owner = frame.className.takeIf { it.matches(Regex("[A-Za-z0-9_$.]{1,180}")) } ?: continue
+                val method = frame.methodName.takeIf { it.matches(Regex("[A-Za-z0-9_$<>]{1,100}")) } ?: continue
+                frames.add("$owner.$method:${frame.lineNumber.coerceAtLeast(-1)}")
+            }
+            current = current.cause
+        }
+        return "${exceptionTypeChain(error)} | ${frames.joinToString(" <- ").ifBlank { "stack unavailable" }}"
+    }
+
+    /**
      * Converts persisted service status into a safe, actionable startup phase.
      * Raw exception messages may contain local paths or endpoints, so only the
      * known phase and exception class are included in support reports.
@@ -95,6 +115,7 @@ object ProtectionDiagnostics {
         licenseApiConfigured: Boolean,
         filterUpdateErrorPresent: Boolean,
         lastServiceStatus: String? = null,
+        lastStartupTrace: String? = null,
         bundledRuleAssetBytes: Long = -1L,
         nativeLibraryDirectoryReadable: Boolean = false,
         nativeLibraryNames: List<String> = emptyList(),
@@ -157,6 +178,9 @@ object ProtectionDiagnostics {
             appendLine("라이선스 API 설정: ${if (licenseApiConfigured) "설정됨" else "미설정"}")
             appendLine("최근 필터 업데이트 오류 기록: ${if (filterUpdateErrorPresent) "있음" else "없음"}")
             appendLine("최근 보호 시작 오류: ${startupFailureSummary(lastServiceStatus)}")
+            val safeTrace = lastStartupTrace.orEmpty().split(" | ").take(2).joinToString(" | ")
+                .filter { it.isLetterOrDigit() || it in " ._$<>:-|" }.take(1800)
+            appendLine("최근 오류 호출 스택(메시지/경로 제외): ${safeTrace.ifBlank { "기록 없음" }}")
             appendLine()
             appendLine("개인정보 보호: DNS 요청/방문 도메인, 사용자 지정 차단·허용 규칙, 라이선스 키·토큰, 서버 주소 및 공개키는 이 보고서에 포함하지 않았습니다.")
         }
