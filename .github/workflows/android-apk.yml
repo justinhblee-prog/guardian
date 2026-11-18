@@ -464,10 +464,10 @@ jobs:
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           MANIFEST="release/guardian-android-dev.json"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#Guardian AdBlock 0.7.15-dev APK" "$MANIFEST" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload "$TAG" "$APK#guardian-android-dev.apk" "$MANIFEST" --repo "$GITHUB_REPOSITORY" --clobber
           else
             gh release create "$TAG" \
-              "$APK#Guardian AdBlock 0.7.15-dev APK" \
+              "$APK#guardian-android-dev.apk" \
               "$MANIFEST" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
