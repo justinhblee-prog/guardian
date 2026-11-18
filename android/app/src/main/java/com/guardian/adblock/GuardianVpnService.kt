@@ -278,7 +278,7 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun packetLoop(descriptor: ParcelFileDescriptor) {
-        var loopFailure: Exception? = null
+        var loopFailure: Throwable? = null
         try {
             val input = FileInputStream(descriptor.fileDescriptor)
             val output = FileOutputStream(descriptor.fileDescriptor)
@@ -338,9 +338,15 @@ class GuardianVpnService : VpnService() {
                     if (!running.get()) break
                     loopFailure = e
                     break
+                } catch (e: LinkageError) {
+                    if (!running.get()) break
+                    loopFailure = e
+                    break
                 }
             }
         } catch (e: Exception) {
+            if (running.get()) loopFailure = e
+        } catch (e: LinkageError) {
             if (running.get()) loopFailure = e
         } finally {
             // A dead packet loop must never leave the UI claiming protection is active.
