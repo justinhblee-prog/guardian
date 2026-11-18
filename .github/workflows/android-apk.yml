@@ -81,6 +81,15 @@ jobs:
           abort 'Production validation must be limited to PR and push events.' unless validation_if.is_a?(String) && validation_if.include?('github.event_name') && validation_if.include?('pull_request') && validation_if.include?('push')
           abort 'Production signing must remain manual-only.' unless release_if.is_a?(String) && release_if.include?('workflow_dispatch')
           abort 'Main push validation must be branch-scoped.' unless triggers.dig('push', 'branches') == ['main']
+          release_setup = File.read('server/license-api/windows/Prepare-GuardianProductionRelease.ps1')
+          approval_guard = release_setup.index('$unapprovedSources =')
+          first_keystore_or_secret_write = [
+            release_setup.index('keytool -genkeypair'),
+            release_setup.index("Set-GitHubSecret 'GUARDIAN_RELEASE_KEYSTORE_BASE64'")
+          ].compact.min
+          abort 'Production release setup must fail closed on missing redistribution approval before keystore/secrets writes.' unless
+            approval_guard && first_keystore_or_secret_write && approval_guard < first_keystore_or_secret_write &&
+            release_setup.include?('redistributionApproved') && release_setup.include?('redistributionApprovalRef')
           RUBY
 
       - name: Set up JDK 17
