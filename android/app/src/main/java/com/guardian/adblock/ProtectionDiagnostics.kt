@@ -24,4 +24,53 @@ object ProtectionDiagnostics {
             }
         }
     }
+
+    /**
+     * Creates a support report from non-sensitive runtime metadata only.
+     * DNS history, custom rules, license credentials, URLs and public keys are intentionally excluded.
+     */
+    fun supportReport(
+        appVersion: String,
+        androidRelease: String,
+        apiLevel: Int,
+        protectionActive: Boolean,
+        bundledRuleAssetAvailable: Boolean,
+        selectedProfile: String,
+        baseCacheBytes: Long,
+        securityFilterEnabled: Boolean,
+        securityCacheBytes: Long,
+        androidAdsFilterEnabled: Boolean,
+        androidAdsCacheBytes: Long,
+        autoUpdateEnabled: Boolean,
+        updateIntervalHours: Long,
+        hasBaseUpdateTimestamp: Boolean,
+        signedFilterDeliveryConfigured: Boolean,
+        licenseApiConfigured: Boolean,
+        filterUpdateErrorPresent: Boolean
+    ): String {
+        fun cacheState(enabled: Boolean, bytes: Long): String = when {
+            !enabled -> "사용 안 함"
+            bytes > 0L -> "있음 (${bytes} bytes)"
+            else -> "없음"
+        }
+        return buildString {
+            appendLine("Guardian AdBlock 진단 정보")
+            appendLine("앱 버전: $appVersion")
+            appendLine("Android: $androidRelease (API $apiLevel)")
+            appendLine("VPN 보호 상태: ${if (protectionActive) "활성" else "비활성"}")
+            appendLine("내장 DNS 규칙 파일: ${if (bundledRuleAssetAvailable) "정상" else "누락 또는 읽기 실패"}")
+            appendLine("선택 필터 프로필: $selectedProfile")
+            appendLine("기본 필터 캐시: ${cacheState(true, baseCacheBytes)}")
+            appendLine("보안 필터: ${cacheState(securityFilterEnabled, securityCacheBytes)}")
+            appendLine("Android 앱 광고 필터: ${cacheState(androidAdsFilterEnabled, androidAdsCacheBytes)}")
+            appendLine("자동 업데이트: ${if (autoUpdateEnabled) "켜짐" else "꺼짐"}")
+            appendLine("업데이트 주기: ${updateIntervalHours.coerceAtLeast(1)}시간")
+            appendLine("기본 필터 업데이트 기록: ${if (hasBaseUpdateTimestamp) "있음" else "없음"}")
+            appendLine("서명 필터 배포 설정: ${if (signedFilterDeliveryConfigured) "설정됨" else "미설정"}")
+            appendLine("라이선스 API 설정: ${if (licenseApiConfigured) "설정됨" else "미설정"}")
+            appendLine("최근 필터 업데이트 오류 기록: ${if (filterUpdateErrorPresent) "있음" else "없음"}")
+            appendLine()
+            appendLine("개인정보 보호: DNS 요청/방문 도메인, 사용자 지정 차단·허용 규칙, 라이선스 키·토큰, 서버 주소 및 공개키는 이 보고서에 포함하지 않았습니다.")
+        }
+    }
 }
