@@ -2211,8 +2211,11 @@ class MainActivity : Activity() {
                     val saved = prefs.edit()
                         .putBoolean(KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED, true)
                         .commit()
-                    if (saved) {
-                        showTab("protection")
+                    if (saved && prefs.getBoolean(KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED, false)) {
+                        // Keep the user in Settings and render the inventory immediately.
+                        // Returning to Protection discarded the user's current task and
+                        // forced a second navigation through the consent-gated screen.
+                        showTab("settings", focusAppExclusions = true)
                     } else {
                         android.widget.Toast.makeText(
                             this,
