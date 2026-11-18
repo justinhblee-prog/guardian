@@ -166,7 +166,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Enforce production filter redistribution approvals
         shell: bash
-        run: node server/filter-distribution/scripts/verify-production-approvals.mjs server/filter-distribution/sources.example.json
+        env:
+          GUARDIAN_FILTER_APPROVALS_JSON: ${{ vars.GUARDIAN_FILTER_APPROVALS_JSON }}
+        run: node server/filter-distribution/scripts/verify-production-approvals.mjs --from-env
 
       - name: Require the signed public filter origin branch
         shell: bash
