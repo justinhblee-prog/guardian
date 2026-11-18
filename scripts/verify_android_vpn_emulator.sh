@@ -34,6 +34,32 @@ foreground="$(adb_cmd shell dumpsys activity activities | grep -E 'mResumedActiv
 echo "Guardian foreground activity: ${foreground:-not reported}"
 grep -q "$PACKAGE" <<<"$foreground"
 
+tap_content_description() {
+  local wanted="$1"
+  local xml bounds
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("content-desc","") == sys.argv[1]
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("clickable") == "true"
+        and node.attrib.get("enabled") == "true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' "$wanted" <<<"$xml")"
+  if [[ -z "$bounds" ]]; then
+    echo "Could not locate visible control by content description: $wanted"
+    echo "$xml"
+    return 1
+  fi
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 read_prefs() {
   adb_cmd shell run-as "$PACKAGE" cat "$PREFS" 2>/dev/null | tr -d '\r' || true
 }
@@ -166,32 +192,6 @@ for node in root.iter("node"):
             break' "$wanted" <<<"$xml")"
   if [[ -z "$bounds" ]]; then
     echo "Could not locate visible clickable UI control: $wanted"
-    echo "$xml"
-    return 1
-  fi
-  read -r x y <<<"$bounds"
-  adb_cmd shell input tap "$x" "$y"
-}
-
-tap_content_description() {
-  local wanted="$1"
-  local xml bounds
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-for node in root.iter("node"):
-    if (node.attrib.get("content-desc","") == sys.argv[1]
-        and node.attrib.get("visible-to-user", "true") == "true"
-        and node.attrib.get("clickable") == "true"
-        and node.attrib.get("enabled") == "true"):
-        parts=node.attrib.get("bounds","").strip("[]").split("][")
-        if len(parts)==2:
-            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
-            print((x1+x2)//2,(y1+y2)//2)
-            break' "$wanted" <<<"$xml")"
-  if [[ -z "$bounds" ]]; then
-    echo "Could not locate visible control by content description: $wanted"
     echo "$xml"
     return 1
   fi
