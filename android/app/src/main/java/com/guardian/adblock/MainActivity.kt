@@ -117,18 +117,22 @@ class MainActivity : Activity() {
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
         val restoredTab = ActivityScreenState.restoreTab(savedInstanceState?.getString(STATE_CURRENT_TAB))
+        val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
+        val retainedRuleDraft = lastNonConfigurationInstance as? RuleEditorDraft
         if (savedInstanceState != null) {
-            android.util.Log.i("GuardianUI", "Activity restored after configuration change; tab=$restoredTab")
+            android.util.Log.i(
+                "GuardianUI",
+                "Activity restored after configuration change; tab=$restoredTab scrollY=$restoredScrollY hasRuleDraft=${retainedRuleDraft != null}"
+            )
         }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
         showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
         if (restoredTab == "rules") {
-            (lastNonConfigurationInstance as? RuleEditorDraft)?.let { draft ->
+            retainedRuleDraft?.let { draft ->
                 blockRulesInput.setText(draft.blockRules)
                 allowRulesInput.setText(draft.allowRules)
             }
         }
-        val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
         if (restoredScrollY > 0 && !restoreLicenseFocus) {
             contentScrollView?.post { contentScrollView?.scrollTo(0, restoredScrollY) }
         }
@@ -179,9 +183,11 @@ class MainActivity : Activity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        val savedScrollY = contentScrollView?.scrollY ?: 0
+        android.util.Log.i("GuardianUI", "Saving Activity state; tab=$currentTab scrollY=$savedScrollY")
         outState.putString(STATE_CURRENT_TAB, currentTab)
         outState.putBoolean(STATE_FOCUS_LICENSE_ACTIVATION, focusLicenseActivationOnBuild)
-        outState.putInt(STATE_SCROLL_Y, contentScrollView?.scrollY ?: 0)
+        outState.putInt(STATE_SCROLL_Y, savedScrollY)
         super.onSaveInstanceState(outState)
     }
 
@@ -189,7 +195,9 @@ class MainActivity : Activity() {
 
     override fun onRetainNonConfigurationInstance(): Any? {
         if (currentTab != "rules" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
-        return RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
+        val draft = RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
+        android.util.Log.i("GuardianUI", "Retaining rule editor draft; blockChars=${draft.blockRules.length} allowChars=${draft.allowRules.length}")
+        return draft
     }
 
     @Deprecated("Deprecated in Java")
