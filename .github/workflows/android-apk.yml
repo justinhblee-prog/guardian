@@ -96,6 +96,15 @@ jobs:
             keystore_validation && first_secret_write && keystore_validation < first_secret_write
           RUBY
 
+      - name: Verify development updater release asset contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'private const val APK_ASSET = "guardian-android-dev.apk"' android/app/src/main/java/com/guardian/adblock/DevUpdateManager.kt
+          grep -F 'APK_ASSET="release/guardian-android-dev.apk"' .github/workflows/android-apk.yml
+          grep -F 'cp "$APK" "$APK_ASSET"' .github/workflows/android-apk.yml
+          grep -F 'gh release upload "$TAG" "$APK_ASSET" "$MANIFEST"' .github/workflows/android-apk.yml
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
