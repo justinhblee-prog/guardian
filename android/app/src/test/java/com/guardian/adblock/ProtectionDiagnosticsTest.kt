@@ -80,6 +80,48 @@ class ProtectionDiagnosticsTest {
         assertTrue(!report.contains("https://"))
     }
 
+
+    @Test fun supportReportDistinguishesPresentButInvalidCachesAndProfileMismatch() {
+        val report = ProtectionDiagnostics.supportReport(
+            appVersion = "0.7.14-dev",
+            androidRelease = "17",
+            apiLevel = 35,
+            protectionActive = false,
+            bundledRuleAssetAvailable = true,
+            selectedProfile = "hagezi_pro",
+            baseCacheBytes = 4096,
+            securityFilterEnabled = true,
+            securityCacheBytes = 2048,
+            androidAdsFilterEnabled = true,
+            androidAdsCacheBytes = 1024,
+            autoUpdateEnabled = true,
+            updateIntervalHours = 24,
+            hasBaseUpdateTimestamp = true,
+            signedFilterDeliveryConfigured = false,
+            licenseApiConfigured = false,
+            filterUpdateErrorPresent = false,
+            baseCacheReady = false,
+            cachedProfile = "adguard",
+            cachedRuleCount = 1200,
+            securityCacheReady = true,
+            securityRuleCount = 4500,
+            androidAdsCacheReady = false,
+            androidAdsRuleCount = 25
+        )
+
+        assertTrue(report.contains("기본 필터 프로필 일치: 불일치"))
+        assertTrue(report.contains("기본 필터 검증: 실패 또는 준비되지 않음 · 유효 규칙 1200개"))
+        assertTrue("보안 필터 진단 누락: $report", report.contains("보안 필터: 있음 (2048 bytes)"))
+        assertTrue("보안 필터 검증 상태 누락: $report", report.contains("검증 정상"))
+        println("CACHE_DIAGNOSTICS_TEST_REPORT_BEGIN\n$report\nCACHE_DIAGNOSTICS_TEST_REPORT_END")
+        assertTrue("보안 필터 규칙 수 누락: $report", report.contains("유효 규칙 4500개"))
+        assertTrue("Android 광고 필터 진단 누락: $report", report.contains("Android 앱 광고 필터: 있음 (1024 bytes)"))
+        assertTrue("Android 광고 필터 검증 상태 누락: $report", report.contains("검증 실패 또는 준비되지 않음"))
+        assertTrue("Android 광고 필터 규칙 수 누락: $report", report.contains("유효 규칙 25개"))
+        assertTrue(!report.contains("/data/"))
+        assertTrue(!report.contains("https://"))
+    }
+
     @Test fun supportReportClampsInvalidUpdateIntervalAndShowsHealthyAsset() {
         val report = ProtectionDiagnostics.supportReport(
             appVersion = "1.0.0",

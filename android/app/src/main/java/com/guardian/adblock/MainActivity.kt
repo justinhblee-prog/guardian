@@ -753,6 +753,16 @@ class MainActivity : Activity() {
             } catch (_: Exception) {
                 "unknown"
             }
+            val cachedProfile = try {
+                FilterListManager.cachedProfile(this).key
+            } catch (_: Exception) {
+                null
+            }
+            val baseCacheReady = runCatching { FilterListManager.hasCachedList(this) }.getOrNull()
+            val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+            val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+            val securityCacheReady = runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrNull()
+            val androidAdsCacheReady = runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrNull()
             val intervalMs = FilterUpdateScheduler.normalizeInterval(
                 prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, FilterUpdateScheduler.DEFAULT_INTERVAL_MS)
             )
@@ -767,9 +777,9 @@ class MainActivity : Activity() {
                 bundledRuleAssetAvailable = assetAvailable,
                 selectedProfile = selectedProfile,
                 baseCacheBytes = cacheBytes("adguard_dns_filter.txt"),
-                securityFilterEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
+                securityFilterEnabled = securityEnabled,
                 securityCacheBytes = cacheBytes("hagezi_threat_intelligence.txt"),
-                androidAdsFilterEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true),
+                androidAdsFilterEnabled = androidAdsEnabled,
                 androidAdsCacheBytes = cacheBytes("awavenue_android_ads.txt"),
                 autoUpdateEnabled = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true),
                 updateIntervalHours = intervalMs / 3_600_000L,
@@ -789,7 +799,14 @@ class MainActivity : Activity() {
                 bundledRuleAssetBytes = assetBytes,
                 nativeLibraryDirectoryReadable = nativeLibraryDirectoryReadable,
                 nativeLibraryNames = nativeLibraryFiles,
-                supportedAbis = Build.SUPPORTED_ABIS.toList()
+                supportedAbis = Build.SUPPORTED_ABIS.toList(),
+                baseCacheReady = baseCacheReady,
+                cachedProfile = cachedProfile,
+                cachedRuleCount = FilterListManager.cachedBlockCount(this),
+                securityCacheReady = securityCacheReady,
+                securityRuleCount = FilterListManager.cachedSecurityBlockCount(this),
+                androidAdsCacheReady = androidAdsCacheReady,
+                androidAdsRuleCount = FilterListManager.cachedAndroidAdsBlockCount(this)
             )
             runOnUiThread {
                 try {
