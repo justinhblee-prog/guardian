@@ -30,7 +30,7 @@ function Get-GuardianTailscaleStatus {
       $ch = $stdout[$i]
       if ($inString) {
         if ($escaped) { $escaped = $false; continue }
-        if ($ch -eq '\\') { $escaped = $true; continue }
+        if ($ch -eq '\') { $escaped = $true; continue }
         if ($ch -eq '"') { $inString = $false }
         continue
       }
