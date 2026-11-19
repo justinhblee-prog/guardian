@@ -123,6 +123,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.statusBarColor = bg
         window.navigationBarColor = bg
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         window.decorView.systemUiVisibility = 0
         val restoredTab = ActivityScreenState.restoreTab(savedInstanceState?.getString(STATE_CURRENT_TAB))
         val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
@@ -417,6 +418,11 @@ class MainActivity : Activity() {
             "rules" -> buildRules(body)
             "activity" -> buildActivity(body)
             "premium" -> buildPremium(body)
+            "app-exclusions" -> {
+                body.addView(text("앱별 보호 제외", 25f, white, true))
+                body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
+                buildAppExclusions(body)
+            }
             else -> buildSettings(body)
         }
         val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
@@ -1127,7 +1133,7 @@ class MainActivity : Activity() {
                 isAllCaps = false
                 setTextColor(white)
                 background = shape(panel2, 12)
-                setOnClickListener { showTab("settings", focusAppExclusions = true) }
+                setOnClickListener { showTab("app-exclusions") }
             }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(8) })
         }.withTop(18))
 
@@ -1974,9 +1980,6 @@ class MainActivity : Activity() {
         // Keep the device-wide compatibility option ahead of the large installed-app
         // inventory so it remains discoverable without scrolling through every app.
         buildCompatibilityPauseSection(body)
-        body.addView(text("앱별 보호 제외", 18f, white, true).withTop(24))
-        body.addView(text("선택한 앱은 Guardian VPN 필터링에서 제외됩니다. 보호 중 변경하면 VPN에 자동 적용되고, 보호가 꺼져 있으면 다음 연결 때 적용됩니다.", 12f, muted, false).withTop(5))
-        buildAppExclusions(body)
         body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
     }
 
@@ -2005,7 +2008,7 @@ class MainActivity : Activity() {
             Triple("settings", "⚙", "설정")
         )
         items.forEach { (id, icon, label) ->
-            val active = selected == id
+            val active = selected == id || (id == "settings" && selected == "app-exclusions")
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
@@ -2677,23 +2680,9 @@ class MainActivity : Activity() {
         // used only to render this on-device exclusion picker; it is never uploaded.
         // Include disabled preinstalled packages (some OEM builds ship companion
         // apps such as Android Auto disabled until the user enables them).
-        val apps = packageManager.getInstalledApplications(
-            android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
-        )
-            .filter { it.packageName != packageName }
-            .map { info ->
-                info.packageName to try {
-                    info.loadLabel(packageManager).toString()
-                } catch (error: Exception) {
-                    android.util.Log.w("GuardianApps", "Could not load app label for ${info.packageName}", error)
-                    info.packageName
-                }
-            }
-            .distinctBy { it.first }
-            .sortedWith(compareBy<Pair<String, String>>(
-                { it.second.lowercase(Locale.ROOT) },
-                { it.first.lowercase(Locale.ROOT) }
-            ))
+        var apps: List<Pair<String, String>> = emptyList()
+        var inventoryReady = false
+        var renderGeneration = 0
         val search = EditText(this).apply {
             hint = "앱 이름 또는 패키지명 입력"
             contentDescription = "앱별 보호 제외 검색 입력"
