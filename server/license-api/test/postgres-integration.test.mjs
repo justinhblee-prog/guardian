@@ -216,6 +216,28 @@ if (!databaseUrl) {
   });
 
   test('customers can submit and privately track support tickets while admins reply securely', async () => {
+    const longEmail = await post('/v1/support/tickets', {
+      category: 'question',
+      subject: '이메일 길이 검증',
+      message: '이 문의 내용은 길이 제한 테스트입니다.',
+      email: 'a'.repeat(255) + '@example.test'
+    });
+    assert.equal(longEmail.status, 400);
+
+    const invalidCategory = await post('/v1/support/tickets', {
+      category: 'unknown',
+      subject: '유형 검증',
+      message: '이 문의 내용은 유형 검증 테스트입니다.'
+    });
+    assert.equal(invalidCategory.status, 400);
+
+    const nulText = await post('/v1/support/tickets', {
+      category: 'question',
+      subject: '문자 검증',
+      message: '저장할 수 없는 문자: \u0000'
+    });
+    assert.equal(nulText.status, 400);
+
     const submitted = await post('/v1/support/tickets', {
       category: 'suggestion',
       subject: '광고 차단 규칙 제안',
@@ -245,6 +267,12 @@ if (!databaseUrl) {
     const item = tickets.find(ticket => ticket.ticket_ref === receipt.ticketRef);
     assert.ok(item);
     assert.equal(Object.hasOwn(item, 'access_token_hash'), false);
+
+    const invalidStatus = await post(`/v1/admin/support/tickets/${item.id}/reply`, {
+      reply: '상태 검증 테스트 답변',
+      status: 'waiting'
+    }, adminHeaders);
+    assert.equal(invalidStatus.status, 400);
 
     const reply = await post(`/v1/admin/support/tickets/${item.id}/reply`, {
       reply: '제보 감사합니다. 필터 규칙을 확인하고 다음 업데이트에 반영하겠습니다.',
