@@ -70,13 +70,21 @@ Issue #141만을 최종 완료 기준으로 사용합니다.
 
 ## 5. PR #205 — 고객지원센터 및 라이선스 운영
 
-- PR: [#205](https://github.com/justinhblee-prog/guardian/pull/205), Draft, branch `feature/support-center-license-plans`.
-- 구현 범위: Android FAQ/문의 접수/비밀 코드 조회, 서버 support ticket API, 관리자 문의함, 라이선스 기간 상품 코드 검증, migration 003 및 Windows migration runner.
-- PR head: `9f70290ae90cab8f305a5dabb019d5ba98f29b8b`.
-- 현재 main 대비 58 commits ahead / 5 behind, GitHub mergeable=false로 확인했습니다. 이 상태로 병합하지 않습니다.
-- PR 설명은 License API 53/53 테스트, PowerShell 스크립트 파싱, Android Debug/에뮬레이터 검증을 기록합니다. 다만 고객지원 UI acceptance 실패 후 수정이 포함된 head의 후속 Actions 완료는 별도 확인이 필요합니다.
-- migration 003은 PR에 추가되어 있지만 운영 노트북 DB에 적용 완료로 간주하지 않습니다. 실제 적용 전 백업·마이그레이션·검증 절차가 필요합니다.
-- 다음 처리: main과 변경사항을 파일/API/schema 단위로 재조정하고, migration 004 및 PEM 수정과 충돌을 해결한 통합 브랜치에서 테스트를 재실행합니다. 단순히 PR의 base를 바꾸거나 mergeable 상태를 강제하지 않습니다.
+- 원본 PR: [#205](https://github.com/justinhblee-prog/guardian/pull/205), branch `feature/support-center-license-plans`.
+- 원본 PR branch는 main과 커밋 이력이 갈라졌고, 현재도 그대로 merge하지 않습니다.
+- 원본 PR의 고객지원 UI/API/문의함/마이그레이션/상품 프리셋을 현재 main에 선별 이식한 통합 브랜치: `feature/android-support-center-mainline`.
+- 통합 브랜치는 main의 최신 커밋 `acc1f5afca47074cbe3b96501b1444e505f3a7df`에서 시작했고, main을 뒤로 두지 않는 fast-forward 가능한 변경으로 구성합니다.
+- 통합 브랜치의 주요 구현:
+  - Android Settings 고객지원 센터, FAQ, 문의/의견/오류/결제/라이선스 접수, 비밀 조회 코드 기반 답변 조회
+  - License API 문의 접수/lookup/admin inbox/reply endpoints 및 서버 rate limit
+  - 관리자 웹 문의함, 안전한 textContent 렌더링
+  - 7/30/90/365일 및 custom 상품 선택, UI 및 API 양쪽 기간 검증, 발급 감사 이벤트 planCode 기록
+  - migration `003_support_tickets.sql`, 기존 DB backup/002/003 적용/테이블 검사/API 재빌드/readiness 확인 PowerShell 스크립트
+  - Android emulator 고객지원 UI 확인 스크립트, server HTTP/PostgreSQL/admin UI 테스트
+- 문서: `docs/LICENSE_AND_CUSTOMER_SUPPORT_KO.md`와 이 인수인계서.
+- 통합 브랜치의 새 조합은 아직 CI/에뮬레이터/실제 DB에서 다시 실행하지 않았습니다. 원본 PR 설명에 적힌 53/53 API tests 및 Android emulator 기록은 원본 브랜치 결과이며, 통합 브랜치의 검증 증거로 재사용하지 않습니다.
+- 운영 DB migration은 아직 실행했다고 간주하지 않습니다. 실행 전 백업과 현재 API/DB 상태를 확인해야 합니다.
+- 결제 webhook, 이메일 알림, Lifetime, 중복 체험판 방지 등은 구현 범위 밖이며, 사용자-facing Q&A와 수동 지원 흐름이 온라인에서 확인되기 전에는 상용 운영 완료로 선언하지 않습니다.
 
 ## 6. Android 출시 이후 Windows 작업
 
