@@ -1029,11 +1029,14 @@ class MainActivity : Activity() {
                 setTextColor(if (active) white else bg)
                 background = shape(if (active) panel2 else accent, 13)
                 setOnClickListener {
+                    val compatibilityPaused = prefs.getBoolean(
+                        AppForegroundPauseSettings.KEY_PAUSED, false
+                    )
                     val isActive = ProtectionState.isActive(
                         prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
                         GuardianVpnService.isTunnelActive()
                     )
-                    if (isActive) {
+                    if (isActive || compatibilityPaused) {
                         startService(Intent(this@MainActivity, GuardianVpnService::class.java)
                             .setAction(GuardianVpnService.ACTION_STOP))
                     } else {
@@ -3066,7 +3069,7 @@ class MainActivity : Activity() {
             )
             startButton?.text = when {
                 active -> "보호 실행 중"
-                compatibilityPaused -> "호환 앱 실행 중"
+                compatibilityPaused -> "보호 완전 중지"
                 recoveryPending -> "보호 복구 중"
                 staleSession -> "다시 연결"
                 else -> "보호 시작"
@@ -3101,7 +3104,7 @@ class MainActivity : Activity() {
                 staleSession -> "다시 연결"
                 else -> "보호 시작"
             }
-            protectionActionButton?.isEnabled = !recoveryPending && !compatibilityPaused
+            protectionActionButton?.isEnabled = !recoveryPending
             protectionActionButton?.setTextColor(if (active || recoveryPending || compatibilityPaused) white else bg)
             protectionActionButton?.background = shape(if (active || recoveryPending || compatibilityPaused) panel2 else accent, 13)
         }
