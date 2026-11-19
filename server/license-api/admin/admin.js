@@ -327,7 +327,7 @@ $("connect").addEventListener("click", async () => {
 });
 
 $("planPreset").addEventListener("change", () => {
-  if ($("planPreset").value !== "custom") $("days").value = $("planPreset").value;
+  if ($("planPreset").value !== "custom") $("days").value = ({ annual_365d: 365, monthly_30d: 30, quarterly_90d: 90, short_7d: 7 })[$("planPreset").value];
 });
 
 $("issue").addEventListener("click", async () => {
@@ -337,7 +337,7 @@ $("issue").addEventListener("click", async () => {
   }
   let input;
   try {
-    input = validateIssueInput($("days").value, $("devices").value);
+    input = validateIssueInput($("days").value, $("devices").value, $("planPreset").value);
   } catch (error) {
     statusText(error.message, "error");
     return;
