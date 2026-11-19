@@ -102,6 +102,7 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 - `GET /v1/admin/support/tickets`: 관리자 인증 후 최근 문의 최대 300건 조회
 - `POST /v1/admin/support/tickets/{uuid}/reply`: 관리자 답변 및 처리 상태 저장
 - 조회 코드는 256비트 난수이며 원문을 DB에 저장하지 않고 SHA-256 해시만 저장합니다. 고객 문의와 선택 이메일은 답변 처리를 위해 서버 DB에 저장됩니다. 진단 정보는 고객이 별도로 선택·동의하지 않는 한 자동 첨부하지 않습니다.
+- 이메일 자동 발송은 아직 구현되지 않았습니다. 입력 이메일은 관리자 문의함에 표시되는 참고 연락처이며, 고객은 접수 번호와 조회 코드로 앱에서 답변을 직접 조회합니다.
 - 공개 접수, 조회 및 관리자 경로는 서버 IP 기준 rate limit을 적용합니다. 관리자 답변 경로는 ticket ID별로 제한을 우회할 수 없도록 하나의 공유 bucket으로 묶습니다.
 
 ## 기존 운영 DB의 고객지원 migration
