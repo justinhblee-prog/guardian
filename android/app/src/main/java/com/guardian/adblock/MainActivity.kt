@@ -575,15 +575,39 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, dp(24), 0, dp(18))
         }
-        listOf("▣", "◉", "!", "▤", "♨", "◉").forEachIndexed { index, glyph ->
-            val tint = if (index < 4) homeGreen else muted
-            val item = TextView(this).apply {
-                text = glyph
-                textSize = 25f
+        listOf(
+            Triple("protection", "▣", "보호"),
+            Triple("app-exclusions", "◉", "앱 제외"),
+            Triple("rules", "!", "차단"),
+            Triple("activity", "▤", "활동"),
+            Triple("premium", "✦", "프리미엄"),
+            Triple("settings", "⚙", "설정")
+        ).forEach { (destination, glyph, label) ->
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setTextColor(tint)
+                isClickable = true
+                isFocusable = true
+                contentDescription = "$label 화면 열기"
+                background = shape(homePanel, 10)
+                setOnClickListener { showTab(destination) }
             }
-            featureRow.addView(item, LinearLayout.LayoutParams(0, dp(42), 1f))
+            item.addView(TextView(this).apply {
+                text = glyph
+                textSize = 22f
+                gravity = Gravity.CENTER
+                setTextColor(homeGreen)
+            })
+            item.addView(TextView(this).apply {
+                text = label
+                textSize = 9f
+                gravity = Gravity.CENTER
+                setTextColor(white)
+            })
+            featureRow.addView(item, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
+                marginStart = dp(2)
+                marginEnd = dp(2)
+            })
         }
         hero.addView(featureRow)
 
@@ -2002,13 +2026,14 @@ class MainActivity : Activity() {
         val items = listOf(
             Triple("home", "⌂", "홈"),
             Triple("protection", "◈", "보호"),
+            Triple("app-exclusions", "◉", "앱 제외"),
             Triple("activity", "▤", "활동"),
             Triple("premium", "✦", "프리미엄"),
             Triple("rules", "≡", "필터"),
             Triple("settings", "⚙", "설정")
         )
         items.forEach { (id, icon, label) ->
-            val active = selected == id || (id == "settings" && selected == "app-exclusions")
+            val active = selected == id
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
