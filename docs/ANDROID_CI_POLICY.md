@@ -3,6 +3,7 @@
 ## Required behavior
 
 - Every pull request revision must receive the Android verification workflow.
+- Development branch pushes (`fix/**`, `feature/**`, and `release/**`) also run the same verification so a missed PR webhook cannot leave a commit without a check.
 - Pull request validation must not use path filters. The workflow definition on the base branch controls pull-request event filtering; editing filters only in a pull request cannot repair that pull request's missing check.
 - A running verification must not be cancelled merely because a newer commit is pushed. Keep active checks alive and let the newest revision receive its own result.
 - PR runs are grouped by pull request number; branch push runs are grouped by ref.
