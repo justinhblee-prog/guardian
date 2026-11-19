@@ -4,7 +4,8 @@ import {
 
 let adminToken = "";
 let licenseItems = [];
-let eventItems = [];\nlet customerItems = [];
+let eventItems = [];
+let customerItems = [];
 let loading = false;
 const $ = id => document.getElementById(id);
 
@@ -296,10 +297,12 @@ async function load() {
       api("/v1/admin/events")
     ]);
     licenseItems = licenses.licenses || [];
-    eventItems = audit.events || [];\n    customerItems = customers.customers || [];
+    eventItems = audit.events || [];
+    customerItems = customers.customers || [];
     renderSummary();
     renderLicenses();
-    renderEvents();\n    renderCustomers();
+    renderEvents();
+    renderCustomers();
     $("dashboard").hidden = false;
     $("authPanel").hidden = true;
     setStatus("관리자 인증 성공", "ok");
