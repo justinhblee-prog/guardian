@@ -114,7 +114,7 @@ jobs:
               exit 1
             fi
           else
-            test "$STABLE_UPDATER_BRANCHES" -eq 2
+            test "$STABLE_UPDATER_BRANCHES" -eq 1
           fi
           grep -F 'BuildConfig.BUILD_TYPE == "direct"' android/app/src/test/java/com/guardian/adblock/DistributionBuildTypePolicyTest.kt
       - name: Validate stable in-app update publishing contract
