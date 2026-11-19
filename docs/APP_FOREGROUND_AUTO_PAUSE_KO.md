@@ -30,10 +30,11 @@ Samsung Wallet 호환성 설정에서는 Wallet의 화면 앱 패키지 `com.sam
 
 ## Android 권한 및 배포
 
-- `android.permission.PACKAGE_USAGE_STATS`는 일반 런타임 권한이 아닙니다. 사용자가 Android 설정의 **사용 정보 접근** 화면에서 직접 허용해야 합니다.
+- `android.permission.PACKAGE_USAGE_STATS`는 일반 런타임 권한이 아닙니다. 개발 빌드와 직접 설치용 `direct` APK에만 선언되며, 사용자가 Android 설정의 **사용 정보 접근** 화면에서 직접 허용해야 합니다.
 - Guardian은 `UsageStatsManager.queryEvents()`의 Activity 전환 이벤트만 사용해 선택 패키지의 현재 포그라운드 상태를 추적합니다.
-- Google Play 배포 시 사용 정보 접근은 민감한 접근 권한이므로, 핵심 기능 적합성·명확한 고지·스토어 선언 및 심사를 별도로 통과해야 합니다. Play 등록을 배제하지는 않지만 승인도 보장하지 않습니다.
-- 직접 APK 배포와 Play 배포 모두에서 사용자가 기능을 켜지 않으면 사용 정보 접근을 사용하지 않습니다.
+- Google Play용 `release` APK/AAB는 `PACKAGE_USAGE_STATS`와 `REQUEST_INSTALL_PACKAGES`를 포함하지 않으며 자동 일시중지 UI도 비활성화합니다. Play 배포는 스토어가 관리하는 업데이트 경로를 사용합니다.
+- 직접 APK용 `direct` 빌드는 두 권한을 포함합니다. 이 빌드에서 자동 일시중지는 사용자가 앱을 선택하고 사용 정보 접근을 허용한 뒤 명시적으로 켜야 합니다.
+- 향후 Play 버전에도 자동 일시중지를 넣으려면 Google Play의 사용 정보 접근 제한에 대한 별도 정책 검토·승인이 선행되어야 합니다. 현재 빌드는 Play 등록 가능성을 열어 두되 해당 권한을 제외합니다.
 
 ## 검증 기준
 

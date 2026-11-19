@@ -201,6 +201,14 @@ class GuardianVpnService : VpnService() {
 
     private fun startWalletMonitorIfConfigured(generation: Long): String? {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        // Usage Access is excluded from Google Play builds. If a direct-install
+        // setting was carried over, let ACTION_START restore a previously paused VPN.
+        if (!BuildConfig.GUARDIAN_COMPATIBILITY_AUTO_PAUSE_ENABLED) {
+            if (prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)) {
+                prefs.edit().putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false).apply()
+            }
+            return null
+        }
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
             !prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
         ) return null

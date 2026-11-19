@@ -2223,6 +2223,18 @@ class MainActivity : Activity() {
     }
 
     private fun buildCompatibilityPauseSection(body: LinearLayout) {
+        if (!BuildConfig.GUARDIAN_COMPATIBILITY_AUTO_PAUSE_ENABLED) {
+            body.addView(card(panel, 16).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(14), dp(14), dp(14), dp(14))
+                addView(text("앱 실행 중 VPN 자동 일시중지", 15f, white, true))
+                addView(text(
+                    "이 호환성 기능은 사용 정보 접근 권한이 포함된 직접 설치 APK에서 제공됩니다. Google Play 버전에는 해당 권한과 이 기능이 포함되지 않습니다.",
+                    11f, muted, false
+                ).withTop(6))
+            }.withTop(12))
+            return
+        }
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val selected = prefs.getStringSet(AppForegroundPauseSettings.KEY_PACKAGES, emptySet()).orEmpty()
         val enabled = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)

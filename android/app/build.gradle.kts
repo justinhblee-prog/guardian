@@ -114,7 +114,7 @@ val validateGuardianReleaseServices by tasks.registering {
         validateGuardianRsaPublicKey(guardianLicensePublicKey, "GUARDIAN_LICENSE_PUBLIC_KEY")
     }
 }
-tasks.matching { it.name in setOf("assembleRelease", "bundleRelease", "packageRelease") }
+tasks.matching { it.name in setOf("assembleRelease", "bundleRelease", "packageRelease", "assembleDirect", "packageDirect") }
     .configureEach {
         dependsOn(validateGuardianReleaseSigning)
         dependsOn(validateGuardianReleaseServices)
@@ -136,6 +136,8 @@ android {
         targetSdk = 35
         versionCode = guardianVersionCode
         versionName = guardianVersionName
+        buildConfigField("boolean", "GUARDIAN_STABLE_UPDATER_ENABLED", "false")
+        buildConfigField("boolean", "GUARDIAN_COMPATIBILITY_AUTO_PAUSE_ENABLED", "true")
         buildConfigField("String", "FILTER_MANIFEST_BASE_URL", guardianBuildConfigString(guardianManifestBaseUrl))
         buildConfigField("String", "FILTER_MANIFEST_PUBLIC_KEY", guardianBuildConfigString(guardianManifestPublicKey))
         buildConfigField("String", "LICENSE_PUBLIC_KEY", guardianBuildConfigString(guardianLicensePublicKey))
@@ -160,13 +162,32 @@ android {
         }
     }
     buildTypes {
+        getByName("debug") {
+            buildConfigField("boolean", "GUARDIAN_COMPATIBILITY_AUTO_PAUSE_ENABLED", "true")
+        }
         getByName("release") {
             isMinifyEnabled = false
+            buildConfigField("boolean", "GUARDIAN_STABLE_UPDATER_ENABLED", "false")
+            buildConfigField("boolean", "GUARDIAN_COMPATIBILITY_AUTO_PAUSE_ENABLED", "false")
             signingConfig = if (guardianReleaseSigningConfigured) {
                 signingConfigs.getByName("guardianRelease")
             } else {
                 null
             }
+        }
+        create("direct") {
+            // Sideloaded distribution uses the same production signer and stable
+            // GitHub updater, while the Play Store release variant remains store-managed.
+            initWith(getByName("release"))
+            isMinifyEnabled = false
+            buildConfigField("boolean", "GUARDIAN_STABLE_UPDATER_ENABLED", "true")
+            buildConfigField("boolean", "GUARDIAN_COMPATIBILITY_AUTO_PAUSE_ENABLED", "true")
+            signingConfig = if (guardianReleaseSigningConfigured) {
+                signingConfigs.getByName("guardianRelease")
+            } else {
+                null
+            }
+            matchingFallbacks += listOf("release")
         }
     }
     sourceSets.getByName("main").assets.srcDir("../../shared")
