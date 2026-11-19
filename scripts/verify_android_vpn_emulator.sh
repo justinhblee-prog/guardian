@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# Verify the installed-app inventory and live per-app VPN exclusion routing.
 set -euo pipefail
 
 PACKAGE="com.guardian.adblock"
@@ -43,7 +45,7 @@ tap_checkbox() {
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
     if (node.attrib.get("class") == "android.widget.CheckBox"
-        and sys.argv[1] in node.attrib.get("text","")
+        and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip() == sys.argv[1]
         and node.attrib.get("visible-to-user", "true") == "true"
         and node.attrib.get("clickable") == "true"
         and node.attrib.get("enabled") == "true"):
@@ -183,6 +185,16 @@ fi
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_license_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+# A prior UI flow can leave the first-run installed-app privacy disclosure on
+# top of the settings screen. Do not accept it implicitly during the Premium
+# focus check; dismiss it with the explicit cancel action, then inspect the
+# underlying license field in a fresh hierarchy dump.
+if grep -Fq 'text="설치 앱 목록 접근 안내"' <<<"$premium_license_xml"; then
+  tap_text "취소"
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  premium_license_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+fi
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("class")=="android.widget.EditText"
@@ -307,41 +319,120 @@ for node in root.iter("node"):
 }
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
-tap_content_description "보호"
+# The disclosure is created while Settings is rendered, not on the Premium
+# screen. Navigate to Settings first, then explicitly accept the modal before
+# inspecting the selected tab or scrolling the underlying settings content.
+tap_content_description "설정"
 sleep 1
-# The app-specific management button is near the bottom of the Protection tab.
-# Scroll until it is actually visible before asking UIAutomator to tap it.
-app_management_visible=0
-for attempt in $(seq 1 12); do
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
+  consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("resource-id")=="android:id/button1"
+        and node.attrib.get("text")=="동의하고 계속"
+        and node.attrib.get("class")=="android.widget.Button"
+        and node.attrib.get("clickable")=="true"
+        and node.attrib.get("enabled")=="true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' <<<"$app_inventory_xml")"
+  if [[ -z "$consent_bounds" ]]; then
+    echo "Installed-app inventory disclosure is visible but its positive button could not be located."
+    echo "$app_inventory_xml"
+    exit 1
+  fi
+  read -r consent_x consent_y <<<"$consent_bounds"
+  echo "Accepting the installed-app inventory disclosure at ($consent_x,$consent_y)."
+  adb_cmd shell input tap "$consent_x" "$consent_y"
+  sleep 2
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_management_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  # ScrollView dumps may include off-screen descendants. Only stop when the
-  # control is truly visible, enabled and clickable, matching tap_text below.
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
+    echo "Installed-app inventory disclosure did not close after accepting consent."
+    echo "$app_inventory_xml"
+    exit 1
+  fi
+fi
+
+settings_tab_selected=0
+for attempt in $(seq 1 5); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if any("앱별 보호 제외 관리" in node.attrib.get("text","")
-       and node.attrib.get("class")=="android.widget.Button"
+if any(node.attrib.get("content-desc")=="설정"
+       and node.attrib.get("selected")=="true"
        and node.attrib.get("visible-to-user","true")=="true"
-       and node.attrib.get("clickable")=="true"
-       and node.attrib.get("enabled")=="true"
        for node in root.iter("node")):
     raise SystemExit(0)
-raise SystemExit(1)' <<<"$app_management_xml"; then
-    app_management_visible=1
+raise SystemExit(1)' <<<"$settings_tab_xml"; then
+    settings_tab_selected=1
+    break
+  fi
+  if grep -q '동의하고 계속' <<<"$settings_tab_xml"; then
+    echo "Inventory disclosure reappeared after acceptance; refusing to tap behind the modal."
+    echo "$settings_tab_xml"
+    exit 1
+  fi
+  echo "Settings tab selection not reflected yet; retrying ($attempt/5)."
+  tap_content_description "설정"
+  sleep 1
+done
+if [[ "$settings_tab_selected" -ne 1 ]]; then
+  echo "Could not navigate to the Settings tab before app-inventory verification."
+  echo "$settings_tab_xml"
+  exit 1
+fi
+sleep 1
+# Settings is a long page; scroll until the app inventory search input is visible.
+app_search_visible=0
+for attempt in $(seq 1 16); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("class")=="android.widget.EditText"
+       and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
+       and node.attrib.get("visible-to-user","true")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$app_inventory_xml"; then
+    app_search_visible=1
     break
   fi
   adb_cmd shell input swipe 540 1500 540 600 450
   sleep 1
 done
-if [[ "$app_management_visible" -ne 1 ]]; then
-  echo "App-specific protection management button did not appear while scrolling the Protection tab."
-  echo "$app_management_xml"
+if [[ "$app_search_visible" -ne 1 ]]; then
+  echo "App-exclusion search field did not appear while scrolling the Settings tab."
+  echo "$app_inventory_xml"
   exit 1
 fi
-tap_text "앱별 보호 제외 관리"
 sleep 2
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-app_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+installed_package_count="$(adb_cmd shell pm list packages --user 0 | tr -d '\r' | grep -c '^package:')"
+expected_exclusion_app_count="$installed_package_count"
+visible_exclusion_app_count="$(python3 -c 'import re,sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    match=re.search(r"전체 설치 앱 ([0-9]+)개", node.attrib.get("text",""))
+    if match:
+        print(match.group(1))
+        break
+else:
+    raise SystemExit("Full installed-app count is missing from the exclusion UI.")' <<<"$app_inventory_xml")"
+if [[ "$visible_exclusion_app_count" -ne "$expected_exclusion_app_count" ]]; then
+  echo "App exclusion inventory is incomplete: UI=$visible_exclusion_app_count, PackageManager=$expected_exclusion_app_count (all installed packages minus Guardian)."
+  echo "$app_inventory_xml"
+  exit 1
+fi
+echo "Full installed-app inventory passed: $visible_exclusion_app_count apps are available for exclusion."
+app_search_xml="$app_inventory_xml"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 search=any(node.attrib.get("class")=="android.widget.EditText"
@@ -364,7 +455,7 @@ search=any(node.attrib.get("class")=="android.widget.EditText"
     and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
     and node.attrib.get("visible-to-user","true")=="true"
     for node in nodes)
-result=any("com.android.settings" in node.attrib.get("text","")
+result=any(node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
     and node.attrib.get("class")=="android.widget.CheckBox"
     and node.attrib.get("visible-to-user","true")=="true"
     and node.attrib.get("clickable")=="true"
@@ -531,8 +622,9 @@ adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 exclusion_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
+# Each app row renders a two-line label; match the final package-ID line exactly.
 matches=[n for n in root.iter("node")
-         if "com.android.settings" in n.attrib.get("text","")
+         if n.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
          and n.attrib.get("class")=="android.widget.CheckBox"
          and n.attrib.get("visible-to-user","true")=="true"
          and n.attrib.get("clickable")=="true"]
