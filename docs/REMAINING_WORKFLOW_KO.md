@@ -1,96 +1,72 @@
-# Guardian Android 1.0 — 출시 기준 및 실행 계획
+# Guardian Android 1.0 — 잔여 작업 및 실행 기준
 
-기준 main 커밋: `10b2bded2cda6b9ef1cd825a5c16aaa1712dfd55`
-최신 main 검증: [GitHub Actions #44263635299](https://github.com/justinhblee-prog/guardian/actions/runs/44263635299) — 30/30 단계 성공
-APK: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`, 3,137,042 bytes
-APK SHA-256: `01fac9f6e3a3126ccae21abda06516082470466e88c404b431fff09cf49cee45`
-소스 ZIP: 488,972 bytes, SHA-256 `2b55d60065f1a6c84c5ac3a89677b45b8f3b3eb1ef19d2c158e977c067549678`
-갱신일: 2026-11-20
+> 갱신: 2026-11-20 (KST)  
+> 단일 출시 판정: [Issue #141](https://github.com/justinhblee-prog/guardian/issues/141)  
+> 세부 트랙: [#142 Android 보호 엔진](https://github.com/justinhblee-prog/guardian/issues/142) · [#143 필터/라이선스 계약](https://github.com/justinhblee-prog/guardian/issues/143) · [#144 Production 배포](https://github.com/justinhblee-prog/guardian/issues/144)
 
-## 1. 단일 출시 게이트
+## 1. 범위 고정
 
-Android 1.0의 유일한 완료 체크리스트는 [Issue #141](https://github.com/justinhblee-prog/guardian/issues/141)입니다. 이 목록에 없는 신규 개선은 원칙적으로 출시 후 백로그에 둡니다. 보안 취약점, 데이터 손상, VPN/네트워크 복구 실패 등 출시를 직접 막는 결함만 예외적으로 현재 범위에 추가합니다.
+Android 1.0은 Issue #141의 필수 항목만 완료 기준으로 사용합니다. 추가 대시보드, 광범위한 UI 꾸미기, 출시 후 확장 기능을 출시 조건에 계속 추가하지 않습니다. 보안 결함, 데이터 손상, VPN/DNS 보호 및 복구 실패만 예외적으로 필수 범위에 포함합니다.
 
-## 2. 세 개의 독립 트랙
+작업 트랙은 서로 독립적으로 병렬 진행합니다.
 
-| 트랙 | 범위 | 추적 |
+| 트랙 | 담당 및 경계 | 완료 증거 |
 |---|---|---|
-| A — Android 보호 엔진 | VPN 시작/중지, DNS 차단, 사용자 규칙, 필터 readiness, 오류 진단, 실기기 수용 | [Issue #142](https://github.com/justinhblee-prog/guardian/issues/142) |
-| B — 필터·라이선스 | 서명 manifest, SHA-256, 업데이트/캐시, 오프라인 fallback, entitlement 및 기기 lifecycle, 재배포 승인 | [Issue #143](https://github.com/justinhblee-prog/guardian/issues/143) |
-| C — 배포·검증 | CI, production signing, APK/AAB, signer fingerprint, checksum, 설치/업그레이드, 문서 | [Issue #144](https://github.com/justinhblee-prog/guardian/issues/144) |
+| A. Android 앱/보호 엔진 | 저장소에서 가능한 코드 분석·수정·단위 테스트·lint·에뮬레이터 테스트 | commit, CI 결과, 에뮬레이터 증거 |
+| B. 필터 배포/앱 라이선스 계약 | 앱 코드의 검증·갱신 계약은 개발 트랙에서 처리. 운영키·고객 발급 정책·실제 노트북 DB 운영은 사용자와 별도 병행 | 서명/해시/캐시 테스트, 실제 API 연동 증거 |
+| C. Production 배포 | release workflow, 버전/서명 검증, 산출물 및 설치 문서 준비 | 운영키 서명 APK/AAB, signer fingerprint, SHA-256, 설치/업그레이드 검증 |
+| D. 외부 실기기 수용 | 실제 Android/Samsung 기기 및 사용자의 재현 로그가 필요한 부분 | 실제 기기 버전·오류 로그·VPN/DNS·복구 결과 |
 
-### 병렬 실행 규칙
+## 2. 현재 확인된 증거와 제한
 
-- 서로 다른 파일과 API 계약을 다루는 작업은 별도 브랜치에서 병렬 진행합니다.
-- 같은 파일, 데이터 모델, API 계약을 변경하는 작업은 충돌 방지를 위해 순차 처리합니다.
-- 각 트랙은 PR 단위로 검증하고, 통합 후 main 브랜치 CI를 다시 실행합니다.
-- 한 트랙의 비차단 항목 때문에 다른 트랙의 독립 작업을 중단하지 않습니다.
-- 진행 중인 작업만 진행 중으로 표시합니다. 단순 계획이나 대기 항목을 실행 중으로 표현하지 않습니다.
+### Android 보호 엔진
+- Main Android workflow는 unit tests, lint, debug APK build, 에뮬레이터 설치/업그레이드 및 VPN/DNS E2E를 수행하도록 구성되어 있습니다.
+- PR #205의 테스트 기록에는 앱 제외, DNS 허용/차단, 앱 업데이트 후 VPN 복구, 선택 앱 실행 중 자동 일시중지/재개 및 Home 보호 시작/중지가 포함되어 있습니다.
+- PR #205에서 고객지원 UI acceptance가 Settings의 이전 스크롤 위치 때문에 실패한 이력이 있고, head에는 Settings 상단 복귀를 추가한 수정 커밋 `d8b1d0f1f676555163f802a33650eb2be796cdc4`가 포함되어 있습니다. 이 수정 이후 최신 PR head의 CI 성공은 별도 확인되지 않았습니다.
+- Samsung 실기기의 `Library file not found` 원인은 미확정입니다. 기존 APK 조사에서는 앱 자체 JNI/native library 누락이 확인되지 않았으나, 실제 단말의 privacy-filtered GuardianProtection stack summary가 있어야 호출자를 특정할 수 있습니다.
+- 에뮬레이터 테스트 성공을 Samsung 실기기 수용 완료로 취급하지 않습니다.
 
-## 3. Android 1.0 필수 완료 기준
+### 필터 배포
+- `server/filter-distribution/sources.example.json`의 7개 예시 원본은 모두 `redistributionApproved=false`, 승인 참조 빈 값입니다.
+- 원본별 재배포 권리 근거를 확인하기 전에는 승인값을 바꾸거나 상용 필터 데이터를 게시하지 않습니다.
+- 필터 배포 브랜치 `guardian-filter-data`는 2026-11-20 저장소 branch 검색에서 확인되지 않았습니다.
 
-- [ ] 실제 Android 기기에서 VPN 보호 시작/중지 및 서비스 재시작 복구
-- [ ] 허용 DNS 실제 응답, 차단 DNS 거부, 카운터 일관성
+### License API — 서버 측 검증 완료, 운영 협업은 별도
+2026-11-20 사용자가 노트북에서 수행한 결과:
+- Docker API 및 PostgreSQL 컨테이너 healthy.
+- 로컬 및 Tailscale HTTPS `/ready` HTTP 200, DB 및 signer ready.
+- QA 발급 → 기기 활성화 및 signed entitlement → active 조회 → refresh → 기기 해제 → Free 상태 확인 → QA 라이선스 회수 흐름 통과.
+- 이 증거는 서버/DB lifecycle 계약 검증입니다. Android 실기기 연결, 결제 webhook, 삼성 실결제 또는 상용 판매는 검증하지 않습니다.
+- 이후 운영키 발급/백업, 고객 상품 정책, 관리자 발급 절차, 결제 연동은 Android 코드 작업과 분리해 사용자와 노트북에서 진행합니다. 이미 통과한 서버 lifecycle 테스트를 반복하지 않습니다.
+
+### Production 배포
+- Android Gradle 설정은 운영 keystore와 서비스 endpoint/public key 설정이 없으면 Release APK/AAB 조립을 거부하도록 되어 있습니다.
+- Production release workflow의 ephemeral signer는 설정 검증용이며 사용자 소유 Production 서명키가 아닙니다.
+- 실제 운영 keystore/secrets가 제공되지 않았으므로 Production APK/AAB, signer fingerprint 및 production checksum은 아직 없습니다.
+- Debug APK와 임시 서명 검증 APK를 정식 배포 산출물로 취급하지 않습니다.
+
+## 3. Android 1.0 필수 완료 체크
+
+- [ ] 실제 기기에서 VPN 보호 시작/중지 및 서비스/앱 재시작 복구
+- [ ] 실제 기기에서 허용 DNS 응답, 차단 DNS 차단, 카운터 일관성
 - [ ] 사용자 규칙 저장·화면 회전·앱 재시작 후 보존 및 VPN 적용
-- [ ] 필터 다운로드, 서명/해시 검증, 캐시, 오프라인 fallback 및 업데이트 실패 복구
-- [ ] 승인된 필터 원본만 production 배포
-- [ ] 실제 라이선스 API 연결, entitlement 확인, 기기 등록·갱신·정지
-- [ ] 운영용 서명키로 Release APK 생성
-- [ ] signer fingerprint, package ID, version, APK SHA-256 검증
-- [ ] 설치·업그레이드·핵심 회귀 테스트 및 사용자 문서 완료
+- [ ] 필터 다운로드, 서명/해시 검증, 캐시 및 업데이트 실패 시 마지막 정상 캐시 유지
+- [ ] 승인된 원본만 Production 필터 배포
+- [ ] 앱에서 실제 License API HTTPS 연결, signed entitlement 검증, 기기 등록/갱신/정지
+- [ ] 사용자 소유 운영키로 Production Release APK 생성
+- [ ] APK package ID, version, signer fingerprint 및 SHA-256 검증
+- [ ] 신규 설치/업그레이드 및 핵심 회귀 테스트
+- [ ] 한국어 설치·복구·제한사항 문서 최신화
 
-에뮬레이터 성공은 실기기 수용 테스트를 대체하지 않습니다. Debug APK는 production Release로 간주하지 않습니다.
+## 4. 병렬 진행 규칙
 
-## 4. 현재 확인된 결과
+1. 저장소 접근으로 해결 가능한 코드/문서/CI 작업은 별도 승인 대기 없이 수행합니다.
+2. 동일 파일/API 계약 변경은 충돌 방지를 위해 순차 처리하고, 독립 파일 작업은 병렬 처리합니다.
+3. 라이선스 고객 운영·운영키 생성은 사용자와 별도 세션/노트북에서 진행하며 Android 코드 트랙을 막지 않습니다.
+4. 사용자 기기 로그, 권리자 재배포 승인, 운영 서명키처럼 외부에서만 얻을 수 있는 증거는 외부 blocker로 유지합니다.
+5. GitHub Actions billing, runner, usage 설정 변경이나 유료 리소스 사용은 하지 않습니다.
+6. 성공 판정에는 commit/CI/실제 산출물/기기/서버 증거를 연결합니다. 확인하지 못한 결과를 완료로 표시하지 않습니다.
 
-- PR #140의 DoH/DoT 우회 한계 안내 변경은 main run #44263635299에서 단위 테스트, Lint, APK 빌드, 소스 패키징, 에뮬레이터 업그레이드 및 VPN DNS E2E를 포함한 30개 단계가 모두 성공했습니다.
-- 검증 APK와 소스 ZIP의 파일 존재·크기·SHA-256을 다운로드 후 독립적으로 다시 확인했습니다.
-- APK 내부에 `lib/*.so` 네이티브 라이브러리는 없습니다. 따라서 현재 검증 APK만으로는 과거의 `Library file not found`가 네이티브 라이브러리 누락 때문이라고 볼 근거가 없습니다.
-- 기존 실기기 `Library file not found`의 실제 원인은 미확정입니다.
-- 에뮬레이터 VPN DNS E2E는 성공했으나, 실기기 VPN, 광고 표시 제거율, 네트워크 전환 및 장시간 안정성은 미검증입니다.
+## 5. Windows 순서
 
-## 5. 외부 의존 blocker
-
-| 항목 | 상태 | 완료 증거 |
-|---|---|---|
-| 실기기 오류 원인 | 기기 로그 없음, 미확정 | 실제 기기의 개인정보 제외 지원 보고서 및 오류 재현 로그 |
-| 필터 재배포 승인 | 예시 원본 승인 미완료 | 원본별 재배포 허용 근거와 승인 참조 |
-| 운영 Release 서명 | production keystore/secrets 미설정 | 안전한 외부 비밀 저장소의 운영 키와 signer fingerprint |
-| License API/DB/Tailscale 서버 | 노트북 운영 환경 및 tailnet HTTPS 연결 검증 완료; Android 앱의 실기기 연동은 별도 미검증 | `/ready` HTTP 200, DB/signer ready, 실제 발급·서명 활성화·상태 조회·갱신·비활성화·회수 통합 테스트 |
-
-이 항목들은 코드 수정만으로 완료 처리할 수 없습니다. 사용자의 PC, 실제 기기, 운영 키 또는 권리자 승인에 의존하는 부분은 외부 blocker로 명확히 유지합니다.
-
-## 6. 출시 후 백로그
-
-다음은 Android 1.0 출시 차단 조건으로 자동 승격하지 않습니다.
-
-- 고급 통계/대시보드 및 추가 UI 장식
-- 추가 차단 카테고리 및 편의 규칙
-- 앱 내부 광고 요소 제거와 모든 자체 DoH/DoT 구현을 포괄하는 광범위한 차단
-- Windows/PC 및 태블릿 클라이언트 확장
-- 필수 회귀 테스트를 깨뜨리지 않는 추가 성능 튜닝
-
-## 7. 안전·비용 제한
-
-- 운영 개인키, keystore, 관리자 토큰, 환경 파일 및 사용자 데이터는 저장소에 커밋하지 않습니다.
-- GitHub Actions billing, runner settings, usage limit을 변경하지 않습니다.
-- 유료 리소스나 외부 API 비용이 필요한 작업은 실행하지 않습니다.
-- CI 인프라 문제와 앱 코드 실패를 구분합니다.
-- 완료 표시는 커밋, CI, 산출물, 체크섬, 기기 또는 서버 검증 증거가 있을 때만 허용합니다.
-
-
-## 8. License API 실운영 통합 검증 — 2026-11-20
-
-- Windows 노트북에서 Docker Compose로 License API 및 PostgreSQL을 실행했습니다. DB와 API 컨테이너가 healthy 상태이며 API 로그에서 8787 포트 수신을 확인했습니다.
-- 노트북 로컬 및 Tailscale HTTPS 주소의 `/ready`가 모두 HTTP 200을 반환했고, 응답에서 database와 signer가 ready임을 확인했습니다. Tailscale 주소는 tailnet 내부 접근 경로이며 공개 인터넷 서비스로 간주하지 않습니다.
-- 실제 서버 DB 및 기존 운영 서명키를 사용하는 QA 통합 흐름에서 다음 항목이 모두 통과했습니다.
-  - QA 라이선스 발급
-  - 기기 활성화 및 서명 entitlement 발급
-  - 활성 상태 조회
-  - entitlement 갱신
-  - 기기 비활성화
-  - 비활성화 후 Free 상태 확인
-  - QA 라이선스 회수
-- 따라서 License API 서버의 발급·서명·기기 lifecycle 계약과 서버/DB 연결은 검증 완료입니다. 이 결과만으로 Android 앱의 실기기 연결, 결제 웹훅, 삼성 실결제 또는 상용 판매 준비가 검증된 것은 아닙니다.
-- 기존 DB 백업과 RSA 운영 서명키는 유지했습니다. 키 교체·회전, DB 초기화, GitHub Actions 비용/runner 설정 변경은 수행하지 않았습니다.
-- 관리자 조회 결과 기존 고객/라이선스 목록은 QA 수행 전 비어 있었습니다. QA 수행 후 레코드 및 감사 이벤트의 잔존 상태는 별도 조회 결과가 확보되기 전까지 단정하지 않습니다.
+Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 패키지를 진행합니다. Android 출시 차단과 무관한 Windows 작업을 Android 범위에 끌어오지 않습니다.
