@@ -67,7 +67,7 @@ wait_for_network() {
 wait_for_network
 adb_cmd logcat -c
 
-PREVIOUS_APK="${GUARDIAN_PREVIOUS_APK:-$PREVIOUS_APK}"
+PREVIOUS_APK="${GUARDIAN_PREVIOUS_APK:-/tmp/guardian-0.7.18-dev.apk}"
 PREVIOUS_VERSION_CODE="${GUARDIAN_PREVIOUS_VERSION_CODE:-31}"
 PREVIOUS_VERSION_NAME="${GUARDIAN_PREVIOUS_VERSION_NAME:-0.7.18-dev}"
 CURRENT_VERSION_CODE="${GUARDIAN_CURRENT_VERSION_CODE:-32}"
@@ -77,7 +77,7 @@ python3 scripts/verify_apk_metadata.py "$PREVIOUS_APK" "$PREVIOUS_VERSION_CODE" 
 previous_installed=0
 for attempt in 1 2 3; do
   if adb_cmd shell service check package 2>/dev/null | grep -q 'found' &&
-     adb_cmd install -r -t $PREVIOUS_APK; then
+     adb_cmd install -r -t "$PREVIOUS_APK"; then
     previous_installed=1
     break
   fi
