@@ -272,11 +272,26 @@ function renderSupportTickets() {
     const empty = document.createElement("div"); empty.className = "empty";
     empty.textContent = "접수된 고객 문의가 없습니다."; root.append(empty); return;
   }
+  const categoryLabels = {
+    question: "질문 / Q&A",
+    bug: "오류 신고",
+    suggestion: "기능 제안",
+    billing: "결제 문의",
+    license: "라이선스 문의"
+  };
+  const statusLabels = {
+    open: "미처리",
+    in_progress: "처리 중",
+    answered: "답변 완료",
+    closed: "종료"
+  };
   for (const item of supportItems) {
     const card = document.createElement("article"); card.className = "license-card";
     const title = document.createElement("strong"); title.textContent = "[" + item.ticket_ref + "] " + item.subject;
     const meta = document.createElement("p"); meta.className = "muted";
-    meta.textContent = item.category + " · " + item.status + " · " + dateLabel(item.created_at) + " · " + (item.email || "회신 이메일 미제공");
+    meta.textContent = (categoryLabels[item.category] || "기타") + " · " +
+      (statusLabels[item.status] || "상태 확인 필요") + " · " + dateLabel(item.created_at) +
+      " · " + (item.email || "회신 이메일 미제공");
     const message = document.createElement("p"); message.textContent = item.message; message.style.whiteSpace = "pre-wrap";
     card.append(title, meta, message);
     if (item.admin_reply) { const old = document.createElement('p'); old.className = 'notice'; old.textContent = '기존 답변: ' + item.admin_reply; old.style.whiteSpace = 'pre-wrap'; card.append(old); }
