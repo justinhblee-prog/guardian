@@ -352,6 +352,37 @@ class MainActivity : Activity() {
         }
     }
 
+    /**
+     * Give Settings an immediate visual response before constructing its many controls.
+     * The previous synchronous render built the entire long settings form on the tap
+     * callback, so slower devices could appear to ignore the button.
+     */
+    private fun navigateToTab(tab: String) {
+        if (tab != "settings") {
+            showTab(tab)
+            return
+        }
+        currentTab = tab
+        val loadingRoot = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(bg)
+            addView(TextView(this@MainActivity).apply {
+                text = "설정을 여는 중…"
+                textSize = 15f
+                gravity = Gravity.CENTER
+                setTextColor(white)
+                setPadding(dp(24), dp(16), dp(24), dp(16))
+            })
+        }
+        setContentView(loadingRoot)
+        loadingRoot.post {
+            if (!isFinishing && currentTab == "settings") {
+                showTab("settings")
+            }
+        }
+    }
+
     private fun showTab(
         tab: String,
         focusLicenseActivation: Boolean = false,
@@ -598,7 +629,7 @@ class MainActivity : Activity() {
                 isFocusable = true
                 contentDescription = "$label 화면 열기"
                 background = shape(homePanel, 10)
-                setOnClickListener { showTab(destination) }
+                setOnClickListener { navigateToTab(destination) }
             }
             item.addView(TextView(this).apply {
                 text = glyph
@@ -2048,7 +2079,7 @@ class MainActivity : Activity() {
                 setPadding(if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4), if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4))
                 contentDescription = label
                 isSelected = active
-                setOnClickListener { showTab(id) }
+                setOnClickListener { navigateToTab(id) }
                 if (active) background = shape(Color.rgb(31, 54, 76), 14)
             }
             item.addView(text(icon, if (asRail) 24f else 21f, if (active) accent else muted, true).apply { gravity = Gravity.CENTER })
