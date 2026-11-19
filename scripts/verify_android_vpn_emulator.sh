@@ -751,7 +751,7 @@ for attempt in $(seq 1 10); do
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 raise SystemExit(0 if any(node.attrib.get("class")=="android.widget.CheckBox"
-       and node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com.android.settings"
+       and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
        and node.attrib.get("clickable")=="true"
        and node.attrib.get("enabled")=="true"
        for node in root.iter("node")) else 1)' <<<"$app_inventory_xml"; then
