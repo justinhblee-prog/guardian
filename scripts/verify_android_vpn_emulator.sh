@@ -319,10 +319,11 @@ for node in root.iter("node"):
 }
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
-# The disclosure is created while Settings is rendered, not on the Premium
-# screen. Navigate to Settings first, then explicitly accept the modal before
-# inspecting the selected tab or scrolling the underlying settings content.
-tap_content_description "설정"
+# App exclusions now have a dedicated screen reached from Protection.
+# The disclosure is shown when that screen is first opened, not from Settings.
+tap_content_description "보호"
+sleep 1
+tap_content_description "앱별 보호 제외 관리"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -422,7 +423,7 @@ raise SystemExit(1)' <<<"$app_inventory_xml"; then
   sleep 1
 done
 if [[ "$app_search_visible" -ne 1 ]]; then
-  echo "App-exclusion search field did not appear while scrolling the Settings tab."
+  echo "App-exclusion search field did not appear on the dedicated app-exclusions screen."
   echo "$app_inventory_xml"
   exit 1
 fi
@@ -468,6 +469,22 @@ search=any(node.attrib.get("class")=="android.widget.EditText"
 if not search:
     raise SystemExit("App-exclusion search input is not visible after opening its management screen.")' <<<"$app_search_xml"
 tap_content_description "앱별 보호 제외 검색 입력"
+adb_cmd shell input text 'wallet'
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-keyboard.xml >/dev/null 2>&1
+keyboard_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-keyboard.xml | tr -d '\\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("class")=="android.widget.EditText"
+       and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
+       and node.attrib.get("visible-to-user","true")=="true"
+       and node.attrib.get("enabled")=="true"
+       for node in root.iter("node")):
+    raise SystemExit("App-exclusion search field became hidden when the keyboard opened.")' <<<"$keyboard_search_xml"
+adb_cmd shell input keyevent KEYCODE_CTRL_A || true
+adb_cmd shell input text 'com.android.settings'
+sleep 1
+adb_cmd shell input keyevent KEYCODE_BACK || true
 adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
 adb_cmd shell input keyevent KEYCODE_DEL
 adb_cmd shell input text 'com.android.settings'
