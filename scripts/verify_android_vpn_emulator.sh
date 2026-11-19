@@ -348,11 +348,25 @@ for node in root.iter("node"):
   read -r consent_x consent_y <<<"$consent_bounds"
   echo "Accepting the installed-app inventory disclosure at ($consent_x,$consent_y)."
   adb_cmd shell input tap "$consent_x" "$consent_y"
-  sleep 2
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
-    echo "Installed-app inventory disclosure did not close after accepting consent."
+  # The installed-app inventory is loaded asynchronously; wait for the search
+  # control instead of assuming the entire transition completes in two seconds.
+  consent_transitioned=0
+  for attempt in $(seq 1 20); do
+    adb_cmd shell rm -f /sdcard/guardian-window.xml
+    dump_result="$(adb_cmd shell uiautomator dump /sdcard/guardian-window.xml 2>&1 || true)"
+    app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+    if grep -q 'content-desc="앱별 보호 제외 검색 입력"' <<<"$app_inventory_xml"; then
+      consent_transitioned=1
+      break
+    fi
+    if (( attempt % 5 == 0 )); then
+      echo "Waiting for installed-app inventory after consent ($attempt/20)."
+    fi
+    sleep 1
+  done
+  if [[ "$consent_transitioned" -ne 1 ]]; then
+    echo "Installed-app inventory did not render after accepting consent."
+    echo "Latest UIAutomator result: $dump_result"
     echo "$app_inventory_xml"
     exit 1
   fi
@@ -413,8 +427,6 @@ if [[ "$app_search_visible" -ne 1 ]]; then
   exit 1
 fi
 
-# The inventory is loaded asynchronously so the Settings screen remains
-# responsive while PackageManager enumerates system and disabled packages.
 inventory_ready=0
 for attempt in $(seq 1 30); do
   adb_cmd shell rm -f /sdcard/guardian-window.xml
