@@ -2573,7 +2573,7 @@ class MainActivity : Activity() {
                 }.onFailure { error ->
                     android.util.Log.e("GuardianApps", "Could not load compatibility app inventory", error)
                     appList.removeAllViews()
-                    appList.addView(text("설치 앱 목록을 불러오지 못했습니다. 다시 시도해 주세요.", 12f, red, false).apply {
+                    appList.addView(this@MainActivity.text("설치 앱 목록을 불러오지 못했습니다. 다시 시도해 주세요.", 12f, red, false).apply {
                         setPadding(dp(8), dp(12), dp(8), dp(12))
                     })
                 }
