@@ -498,7 +498,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/support/tickets') return json(res, 200, await listSupportTickets(req));
-    const publicTicketMatch = /^\\/v1\\/support\\/tickets\\/([^/]+)$/.exec(url.pathname);
+    const publicTicketMatch = /^\/v1\/support\/tickets\/([^/]+)$/.exec(url.pathname);
     if (req.method === 'GET' && publicTicketMatch) return json(res, 200, await getSupportTicket(publicTicketMatch[1], url.searchParams.get('accessToken')));
     if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
     const activationListMatch = /^\/v1\/admin\/licenses\/([^/]+)\/activations$/.exec(url.pathname);
@@ -509,7 +509,7 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     let result;
     if (url.pathname === '/v1/support/tickets') result = await createSupportTicket(body);
-    else if (/^\\/v1\\/admin\\/support\\/tickets\\/[^/]+\\/reply$/.test(url.pathname)) {
+    else if (/^\/v1\/admin\/support\/tickets\/[^/]+\/reply$/.test(url.pathname)) {
       const id = url.pathname.split('/')[5];
       result = await replySupportTicket(id, body, req);
     }
