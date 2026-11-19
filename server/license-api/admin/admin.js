@@ -368,6 +368,13 @@ $("connect").addEventListener("click", async () => {
   }
 });
 
+$("planPreset").addEventListener("change", () => {
+  const selected = $("planPreset").value;
+  const days = { short_7d: 7, monthly_30d: 30, quarterly_90d: 90, annual_365d: 365 };
+  if (selected !== "custom") $("days").value = days[selected];
+  $("days").readOnly = selected !== "custom";
+});
+
 $("issue").addEventListener("click", async () => {
   if (!adminToken || loading) {
     statusText("먼저 관리자 인증을 진행하세요.", "error");
@@ -375,7 +382,7 @@ $("issue").addEventListener("click", async () => {
   }
   let input;
   try {
-    input = validateIssueInput($("days").value, $("devices").value);
+    input = validateIssueInput($("days").value, $("devices").value, $("planPreset").value);
   } catch (error) {
     statusText(error.message, "error");
     return;
