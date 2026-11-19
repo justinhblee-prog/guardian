@@ -185,6 +185,14 @@ class MainActivity : Activity() {
                 .putBoolean("security_filter_default_enabled_v1", true)
                 .apply()
         }
+        // Disable scheduled filter refresh for existing installations as well as
+        // fresh installs. Users can explicitly opt in from Protection settings.
+        if (!filterPrefs.getBoolean("filter_auto_update_default_off_v1", false)) {
+            filterPrefs.edit()
+                .putBoolean(FilterListManager.KEY_AUTO_UPDATE, false)
+                .putBoolean("filter_auto_update_default_off_v1", true)
+                .apply()
+        }
         FilterUpdateScheduler.sync(this)
         // Update discovery is user-initiated from Settings. Do not run a
         // background development/stable update check or show an install prompt
@@ -193,7 +201,7 @@ class MainActivity : Activity() {
         // files. Never perform them on the main thread during Activity startup.
         thread(name = "guardian-startup-filter-check") {
             try {
-                val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
+                val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false)
                 val lastUpdate = FilterListManager.lastUpdatedAt(this)
                 val updateInterval = filterPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
                 val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
@@ -965,7 +973,7 @@ class MainActivity : Activity() {
                 securityCacheBytes = cacheBytes("hagezi_threat_intelligence.txt"),
                 androidAdsFilterEnabled = androidAdsEnabled,
                 androidAdsCacheBytes = cacheBytes("awavenue_android_ads.txt"),
-                autoUpdateEnabled = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true),
+                autoUpdateEnabled = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false),
                 updateIntervalHours = intervalMs / 3_600_000L,
                 hasBaseUpdateTimestamp = FilterListManager.lastUpdatedAt(this) > 0L,
                 signedFilterDeliveryConfigured = FilterDistributionSettings.requiresSignedDelivery(
