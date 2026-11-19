@@ -509,6 +509,7 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     let result;
     if (url.pathname === '/v1/support/tickets') result = await createSupportTicket(body);
+    else if (url.pathname === '/v1/support/tickets/lookup') result = await getSupportTicket(body.ticketRef, body.accessToken);
     else if (/^\/v1\/admin\/support\/tickets\/[^/]+\/reply$/.test(url.pathname)) {
       const id = url.pathname.split('/')[5];
       result = await replySupportTicket(id, body, req);
