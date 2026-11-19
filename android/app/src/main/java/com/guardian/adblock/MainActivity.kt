@@ -214,8 +214,18 @@ class MainActivity : Activity() {
                 val androidAdsEnabled = filterPrefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
                 val androidAdsStale = androidAdsEnabled && (!FilterListManager.hasCachedAndroidAdsList(this) ||
                     System.currentTimeMillis() - FilterListManager.lastAndroidAdsUpdatedAt(this) >= updateInterval)
-                val needsUpdate = autoUpdate && (!FilterListManager.hasCachedList(this) ||
-                    System.currentTimeMillis() - lastUpdate >= updateInterval || securityStale || androidAdsStale || profileChanged)
+                // Periodic refresh is opt-in, but a first-run installation must
+                // still fetch each enabled source once so protection can become ready.
+                // Missing initial caches are setup, not an automatic update check.
+                val initialMainMissing = !FilterListManager.hasCachedList(this)
+                val initialSecurityMissing = securityEnabled && !FilterListManager.hasCachedSecurityList(this)
+                val initialAndroidAdsMissing = androidAdsEnabled && !FilterListManager.hasCachedAndroidAdsList(this)
+                val scheduledRefreshDue = autoUpdate && (
+                    System.currentTimeMillis() - lastUpdate >= updateInterval ||
+                        securityStale || androidAdsStale || profileChanged
+                    )
+                val needsUpdate = initialMainMissing || initialSecurityMissing ||
+                    initialAndroidAdsMissing || scheduledRefreshDue
                 if (needsUpdate) runOnUiThread {
                     if (!isFinishing && !isDestroyed) startFilterUpdate()
                 }
