@@ -243,6 +243,14 @@ if (!databaseUrl) {
     });
     assert.equal(invalidCategory.status, 400);
 
+    const nulEmail = await post('/v1/support/tickets', {
+      category: 'question',
+      subject: '이메일 문자 검증',
+      message: '이 문의 내용은 이메일 문자 검증 테스트입니다.',
+      email: 'bad\\u0000@example.test'
+    });
+    assert.equal(nulEmail.status, 400);
+
     const nulText = await post('/v1/support/tickets', {
       category: 'question',
       subject: '문자 검증',
