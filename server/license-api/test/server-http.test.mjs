@@ -121,7 +121,7 @@ test('customer support submission is rate-limited before database access', async
 });
 
 test('customer support ticket lookup is independently rate-limited', async () => {
-  const request = () => fetch(`${baseUrl}/v1/support/tickets/GDN-ABCDEF123456?accessToken=${'a'.repeat(43)}`);
+  const request = () => fetch(`${baseUrl}/v1/support/tickets/lookup`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ticketRef: 'GDN-ABCDEF123456', accessToken: 'a'.repeat(43) }) });
   assert.equal((await request()).status, 503); // Database is intentionally absent.
   assert.equal((await request()).status, 503);
   const limited = await request();
