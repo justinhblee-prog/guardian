@@ -438,7 +438,7 @@ async function revokeLicense(id, req) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
-    if (RATE_LIMITED_PATHS.has(url.pathname) || /^\/v1\/admin\/(?:licenses|support\/tickets)(?:\/|$)/.test(url.pathname) || /^\/v1\/support\/tickets\/[^/]+$/.test(url.pathname)) {
+    if (RATE_LIMITED_PATHS.has(url.pathname) || /^\/v1\/admin\/(?:licenses|support\/tickets)(?:\/|$)/.test(url.pathname)) {
       // Use the socket peer address; do not trust caller-supplied X-Forwarded-For.
       const peer = req.socket.remoteAddress || 'unknown';
       const rateLimitPath = url.pathname.startsWith('/v1/admin/licenses/') ? '/v1/admin/licenses/*' : url.pathname;
@@ -498,8 +498,6 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/support/tickets') return json(res, 200, await listSupportTickets(req));
-    const publicTicketMatch = /^\/v1\/support\/tickets\/([^/]+)$/.exec(url.pathname);
-    if (req.method === 'GET' && publicTicketMatch) return json(res, 200, await getSupportTicket(publicTicketMatch[1], url.searchParams.get('accessToken')));
     if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
     const activationListMatch = /^\/v1\/admin\/licenses\/([^/]+)\/activations$/.exec(url.pathname);
     if (req.method === 'GET' && activationListMatch) {
