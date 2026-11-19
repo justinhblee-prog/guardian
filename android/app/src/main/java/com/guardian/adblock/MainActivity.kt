@@ -2748,7 +2748,7 @@ class MainActivity : Activity() {
                 }
             }
         }
-        val inventorySummary = text("설치 앱 목록을 불러오는 중…", 11f, muted, false).withTop(4)
+        val inventorySummary = text("설치 앱 목록을 불러오는 중…", 11f, muted, false).withTop(4) as TextView
         val card = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
@@ -2907,7 +2907,7 @@ class MainActivity : Activity() {
                 }.onFailure { error ->
                     android.util.Log.e("GuardianApps", "Could not load app exclusion inventory", error)
                     appList.removeAllViews()
-                    appList.addView(text("설치 앱 목록을 불러오지 못했습니다. 다시 시도해 주세요.", 12f, red, false).apply {
+                    appList.addView(this@MainActivity.text("설치 앱 목록을 불러오지 못했습니다. 다시 시도해 주세요.", 12f, red, false).apply {
                         setPadding(dp(8), dp(12), dp(8), dp(12))
                     })
                     appFilterFeedback?.text = "앱 목록을 불러오지 못했습니다 · ${error.message ?: error.javaClass.simpleName}"
