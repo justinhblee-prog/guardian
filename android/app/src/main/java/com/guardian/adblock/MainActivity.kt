@@ -2661,7 +2661,7 @@ class MainActivity : Activity() {
                         // Keep the user in Settings and render the inventory immediately.
                         // Returning to Protection discarded the user's current task and
                         // forced a second navigation through the consent-gated screen.
-                        showTab("settings", focusAppExclusions = true)
+                        showTab("app-exclusions")
                     } else {
                         android.widget.Toast.makeText(
                             this,
@@ -2709,6 +2709,20 @@ class MainActivity : Activity() {
             }
         }
         appExclusionsSearchInput = search
+        search.setOnFocusChangeListener { view, focused ->
+            view.background = shape(panel2, 12).apply {
+                setStroke(dp(if (focused) 2 else 1), if (focused) accent else muted)
+            }
+            if (focused) {
+                window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                contentScrollView?.post {
+                    val bounds = android.graphics.Rect()
+                    search.getDrawingRect(bounds)
+                    contentScrollView?.offsetDescendantRectToMyCoords(search, bounds)
+                    contentScrollView?.smoothScrollTo(0, (bounds.top - dp(18)).coerceAtLeast(0))
+                }
+            }
+        }
         val card = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
@@ -2784,28 +2798,46 @@ class MainActivity : Activity() {
         }
         fun renderApps(rawQuery: String) {
             appList.removeAllViews()
+            if (!inventoryReady) {
+                appList.addView(text("설치 앱 목록을 불러오는 중…", 12f, muted, false).apply {
+                    setPadding(dp(8), dp(12), dp(8), dp(12))
+                })
+                return
+            }
             val query = rawQuery.trim().lowercase(Locale.ROOT)
             val visible = apps.filter { (pkg, label) ->
                 query.isEmpty() || label.lowercase(Locale.ROOT).contains(query) || pkg.lowercase(Locale.ROOT).contains(query)
             }
-            visible.forEach { (pkg, label) ->
-                appList.addView(CheckBox(this).apply {
-                    text = "$label\n$pkg"
-                    textSize = 12f
-                    setTextColor(white)
-                    isChecked = pkg in excluded
-                    isEnabled = pkg != packageName
-                    setPadding(dp(4), dp(5), dp(4), dp(5))
-                    setOnCheckedChangeListener { _, checked ->
-                        if (checked) excluded.add(pkg) else excluded.remove(pkg)
-                        updateSaveState()
-                    }
-                })
+            val generation = ++renderGeneration
+            var nextIndex = 0
+            fun appendBatch() {
+                if (generation != renderGeneration) return
+                val batchEnd = minOf(nextIndex + 40, visible.size)
+                for (index in nextIndex until batchEnd) {
+                    val (pkg, label) = visible[index]
+                    appList.addView(CheckBox(this).apply {
+                        text = "$label\\n$pkg"
+                        contentDescription = "앱별 보호 제외 앱 $pkg"
+                        textSize = 12f
+                        setTextColor(white)
+                        isChecked = pkg in excluded
+                        isEnabled = pkg != packageName
+                        setPadding(dp(4), dp(5), dp(4), dp(5))
+                        setOnCheckedChangeListener { _, checked ->
+                            if (checked) excluded.add(pkg) else excluded.remove(pkg)
+                            updateSaveState()
+                        }
+                    })
+                }
+                nextIndex = batchEnd
+                if (nextIndex < visible.size) appList.post { appendBatch() }
             }
             if (visible.isEmpty()) {
                 appList.addView(text("검색 결과가 없습니다.", 12f, muted, false).apply {
                     setPadding(dp(8), dp(12), dp(8), dp(12))
                 })
+            } else {
+                appList.post { appendBatch() }
             }
             updateSaveState()
             if (excluded == savedExclusions) {
@@ -2818,6 +2850,43 @@ class MainActivity : Activity() {
             override fun afterTextChanged(s: android.text.Editable?) = Unit
         })
         renderApps("")
+        thread(name = "guardian-app-exclusion-inventory") {
+            val result = runCatching {
+                packageManager.getInstalledApplications(
+                    android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+                ).asSequence()
+                    .filter { it.packageName != packageName }
+                    .map { info ->
+                        info.packageName to try {
+                            info.loadLabel(packageManager).toString()
+                        } catch (error: Exception) {
+                            android.util.Log.w("GuardianApps", "Could not load app label for ${info.packageName}", error)
+                            info.packageName
+                        }
+                    }
+                    .distinctBy { it.first }
+                    .sortedWith(compareBy<Pair<String, String>>(
+                        { it.second.lowercase(Locale.ROOT) },
+                        { it.first.lowercase(Locale.ROOT) }
+                    ))
+                    .toList()
+            }
+            runOnUiThread {
+                result.onSuccess { loaded ->
+                    apps = loaded
+                    inventoryReady = true
+                    appFilterFeedback?.contentDescription = "앱별 보호 제외 앱 목록 준비 완료"
+                    renderApps(search.text?.toString().orEmpty())
+                }.onFailure { error ->
+                    android.util.Log.e("GuardianApps", "Could not load app exclusion inventory", error)
+                    appList.removeAllViews()
+                    appList.addView(text("설치 앱 목록을 불러오지 못했습니다. 다시 시도해 주세요.", 12f, red, false).apply {
+                        setPadding(dp(8), dp(12), dp(8), dp(12))
+                    })
+                    appFilterFeedback?.text = "앱 목록을 불러오지 못했습니다 · ${error.message ?: error.javaClass.simpleName}"
+                }
+            }
+        }
     }
 
     private fun filterStatusDescription(): String {
