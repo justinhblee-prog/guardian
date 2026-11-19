@@ -609,7 +609,7 @@ echo "App-exclusion search visibility, package filtering, and Android Auto looku
 echo "Verifying the simplified home dashboard and all seven bottom-navigation destinations."
 adb_cmd shell rm -f /sdcard/guardian-home-navigation.xml
 adb_cmd shell uiautomator dump /sdcard/guardian-home-navigation.xml >/dev/null 2>&1
-home_navigation_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-navigation.xml | tr -d '\\r')"
+home_navigation_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-navigation.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
@@ -636,7 +636,7 @@ for navigation_label in "보호" "앱별 제외" "차단 기록" "프리미엄" 
   sleep 1
   adb_cmd shell rm -f /sdcard/guardian-home-navigation.xml
   adb_cmd shell uiautomator dump /sdcard/guardian-home-navigation.xml >/dev/null 2>&1
-  navigation_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-navigation.xml | tr -d '\\r')"
+  navigation_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-navigation.xml | tr -d '\r')"
   if ! python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("content-desc")==sys.argv[1]
