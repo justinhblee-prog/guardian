@@ -29,6 +29,7 @@ class ProtectionRestoreReceiver : BroadcastReceiver() {
         prefs.edit()
             .putBoolean(GuardianVpnService.KEY_ACTIVE, false)
             .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, true)
+            .putLong("protection_recovery_requested_at", System.currentTimeMillis())
             .putString(GuardianVpnService.KEY_STATUS, "VPN 보호를 자동으로 다시 연결하고 있습니다.")
             .commit()
         context.sendBroadcast(Intent(GuardianVpnService.ACTION_STATUS_CHANGED).setPackage(context.packageName))
@@ -47,6 +48,7 @@ class ProtectionRestoreReceiver : BroadcastReceiver() {
             prefs.edit()
                 .putBoolean(GuardianVpnService.KEY_ACTIVE, false)
                 .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
+                .remove("protection_recovery_requested_at")
                 .putString(
                     GuardianVpnService.KEY_STATUS,
                     "기기 재시작 또는 앱 업데이트 후 VPN 자동 복구를 시작하지 못했습니다. Guardian을 열면 자동 복구를 다시 시도합니다."
