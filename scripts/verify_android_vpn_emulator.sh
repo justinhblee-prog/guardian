@@ -472,7 +472,7 @@ tap_content_description "앱별 보호 제외 검색 입력"
 adb_cmd shell input text 'com.android.settings'
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-keyboard.xml >/dev/null 2>&1
-keyboard_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-keyboard.xml | tr -d '\\r')"
+keyboard_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-keyboard.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("class")=="android.widget.EditText"
@@ -1007,7 +1007,7 @@ fi
 # Verify the Usage Access control is a real enabled action when access is
 # missing; cancel its confirmation dialog so the test does not leave Guardian.
 adb_cmd shell uiautomator dump /sdcard/guardian-usage-access.xml >/dev/null 2>&1
-usage_access_xml="$(adb_cmd exec-out cat /sdcard/guardian-usage-access.xml | tr -d '\\r')"
+usage_access_xml="$(adb_cmd exec-out cat /sdcard/guardian-usage-access.xml | tr -d '\r')"
 usage_access_enabled="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
@@ -1017,7 +1017,7 @@ if [[ "$usage_access_enabled" == "true" ]]; then
   tap_content_description "사용 정보 접근 권한 설정"
   sleep 1
   adb_cmd shell uiautomator dump /sdcard/guardian-usage-dialog.xml >/dev/null 2>&1
-  usage_dialog_xml="$(adb_cmd exec-out cat /sdcard/guardian-usage-dialog.xml | tr -d '\\r')"
+  usage_dialog_xml="$(adb_cmd exec-out cat /sdcard/guardian-usage-dialog.xml | tr -d '\r')"
   if ! grep -q '설정 열기' <<<"$usage_dialog_xml"; then
     echo "Usage Access button did not open its confirmation dialog."
     echo "$usage_dialog_xml"
