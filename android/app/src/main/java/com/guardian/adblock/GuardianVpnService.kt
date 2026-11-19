@@ -578,7 +578,10 @@ class GuardianVpnService : VpnService() {
                     return@forEach
                 }
                 try {
-                    packageManager.getApplicationInfo(excludedPackage, 0)
+                    packageManager.getApplicationInfo(
+                        excludedPackage,
+                        android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+                    )
                 } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
                     staleExclusions.add(excludedPackage)
                     return@forEach
