@@ -659,6 +659,7 @@ class MainActivity : Activity() {
 
     private fun buildHome(body: LinearLayout) {
         val homeBg = Color.rgb(29, 29, 29)
+        val homePanel = Color.rgb(57, 57, 57)
         val homeGreen = Color.rgb(105, 179, 132)
         val homeOrange = Color.rgb(244, 116, 74)
         val wideDashboard = ResponsiveLayoutPolicy.usesTwoColumnDashboard(resources.configuration.screenWidthDp)
