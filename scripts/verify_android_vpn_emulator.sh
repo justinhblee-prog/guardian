@@ -745,6 +745,119 @@ echo "Blocked lookup:"
 cat /tmp/guardian-blocked-dns.txt || true
 read_prefs
 
+echo "Verifying opt-in foreground-app VPN auto-pause and automatic resume."
+# Grant the special app-op as the emulator equivalent of the user's Usage Access
+# approval. The UI flow still selects the target app and explicitly enables the feature.
+adb_cmd shell appops set "$PACKAGE" GET_USAGE_STATS allow
+adb_cmd shell am start -a android.settings.SETTINGS >/dev/null
+sleep 2
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+sleep 2
+tap_text "설정"
+sleep 1
+auto_pause_picker_visible=0
+for attempt in $(seq 1 12); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  auto_pause_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
+       and node.attrib.get("class")=="android.widget.Button"
+       and node.attrib.get("visible-to-user","true")=="true"
+       and node.attrib.get("clickable")=="true"
+       and node.attrib.get("enabled")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$auto_pause_settings_xml"; then
+    auto_pause_picker_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 540 1500 540 600 450
+  sleep 1
+done
+if [[ "$auto_pause_picker_visible" -ne 1 ]]; then
+  echo "Foreground-app auto-pause controls were not visible in Settings."
+  echo "$auto_pause_settings_xml"
+  exit 1
+fi
+tap_content_description "VPN 자동 일시중지 앱 선택"
+sleep 1
+tap_content_description "VPN 자동 일시중지 앱 검색 입력"
+adb_cmd shell input text 'com.android.settings'
+sleep 1
+adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
+tap_checkbox "com.android.settings"
+tap_text "저장"
+sleep 1
+tap_content_description "선택 앱 실행 중 VPN 자동 일시중지"
+sleep 1
+tap_text "활성화"
+sleep 1
+prefs="$(read_prefs)"
+if ! grep -q 'name="app_foreground_auto_pause_enabled"[^>]*value="true"' <<<"$prefs" ||
+   ! grep -A2 -B1 'name="app_foreground_auto_pause_packages"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+  echo "Foreground-app auto-pause settings were not persisted."
+  read_prefs
+  exit 1
+fi
+
+echo "Launching the selected app. Guardian must close the VPN tunnel."
+adb_cmd shell am start -a android.settings.SETTINGS >/dev/null
+auto_pause_observed=0
+for attempt in $(seq 1 40); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="app_foreground_auto_pause_active"[^>]*value="true"' <<<"$prefs" &&
+     grep -q 'name="protection_active"[^>]*value="false"' <<<"$prefs"; then
+    auto_pause_observed=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$auto_pause_observed" -ne 1 ]]; then
+  echo "Selected foreground app did not pause the whole VPN tunnel."
+  read_prefs
+  adb_cmd logcat -d -t 5000 | grep -E 'GuardianProtection|foreground|UsageStats|FATAL EXCEPTION' | tail -220 || true
+  adb_cmd shell dumpsys vpn || true
+  exit 1
+fi
+echo "Foreground-app auto-pause engaged: Settings is active and Guardian protection is paused."
+
+echo "Returning to Guardian. VPN protection must automatically reconnect."
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+auto_resume_observed=0
+for attempt in $(seq 1 60); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
+     grep -q 'name="app_foreground_auto_pause_active"[^>]*value="false"' <<<"$prefs"; then
+    auto_resume_observed=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$auto_resume_observed" -ne 1 ]]; then
+  echo "Guardian did not automatically restore the VPN after the selected app closed."
+  read_prefs
+  adb_cmd logcat -d -t 7000 | grep -E 'GuardianProtection|foreground|UsageStats|FATAL EXCEPTION' | tail -260 || true
+  adb_cmd shell dumpsys vpn || true
+  adb_cmd shell dumpsys connectivity | tail -180 || true
+  exit 1
+fi
+before_auto_resume_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_auto_resume_dns="${before_auto_resume_dns:-0}"
+adb_cmd shell ping -c 1 -W 5 example.com >/tmp/guardian-after-compatibility-resume-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_auto_resume_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+after_auto_resume_dns="${after_auto_resume_dns:-0}"
+if (( after_auto_resume_dns <= before_auto_resume_dns )); then
+  echo "DNS processing did not resume after foreground-app compatibility pause."
+  read_prefs
+  cat /tmp/guardian-after-compatibility-resume-dns.txt || true
+  exit 1
+fi
+echo "Foreground-app auto-pause/resume passed: VPN tunnel and DNS processing recovered automatically."
+
 echo "Verifying automatic VPN protection recovery after an in-place app update."
 before_update_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_update_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
