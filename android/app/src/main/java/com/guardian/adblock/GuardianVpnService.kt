@@ -626,7 +626,15 @@ class GuardianVpnService : VpnService() {
             tun = descriptor
             running.set(true)
             tunnelActive = true
-            publishState(true, "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다.")
+            val filterNotice = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getString(KEY_DNS_DIAGNOSTIC, null)
+                ?.takeIf { it.isNotBlank() && it != "모든 선택 필터가 준비되었습니다." }
+            val activeMessage = if (filterNotice == null) {
+                "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다."
+            } else {
+                "DNS 보호가 실행 중입니다. $filterNotice"
+            }
+            publishState(true, activeMessage)
             packetWorker = thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
         }
         if (!committed) {
@@ -875,11 +883,12 @@ class GuardianVpnService : VpnService() {
         ) {
             return
         }
-        prefs.edit()
+        val update = prefs.edit()
             .putBoolean(KEY_ACTIVE, active)
             .putBoolean(KEY_RECOVERY_PENDING, false)
             .putString(KEY_STATUS, message)
-            .apply()
+        if (active) update.remove(KEY_STARTUP_TRACE)
+        update.apply()
         sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
     }
 
