@@ -202,6 +202,7 @@ class MainActivity : Activity() {
         // Cache recovery and integrity checks can hash multi-megabyte filter
         // files. Never perform them on the main thread during Activity startup.
         thread(name = "guardian-startup-filter-check") {
+            android.util.Log.i("Guardian", "Startup filter readiness check started")
             try {
                 val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false)
                 val lastUpdate = FilterListManager.lastUpdatedAt(this)
@@ -226,6 +227,11 @@ class MainActivity : Activity() {
                     )
                 val needsUpdate = initialMainMissing || initialSecurityMissing ||
                     initialAndroidAdsMissing || scheduledRefreshDue
+                android.util.Log.i(
+                    "Guardian",
+                    "Startup filter readiness: mainMissing=$initialMainMissing securityMissing=$initialSecurityMissing " +
+                        "androidAdsMissing=$initialAndroidAdsMissing autoUpdate=$autoUpdate scheduledDue=$scheduledRefreshDue"
+                )
                 if (needsUpdate) runOnUiThread {
                     if (!isFinishing && !isDestroyed) startFilterUpdate()
                 }
@@ -3052,6 +3058,7 @@ class MainActivity : Activity() {
         thread(name = "guardian-filter-update") {
             val hadPreviousMainCache = try { FilterListManager.hasCachedList(this) } catch (_: Exception) { false }
             try {
+                android.util.Log.i("Guardian", "Base filter update request entered")
                 val result = FilterListManager.update(this)
                 android.util.Log.i("Guardian", "Base filter downloaded: ${result.blocked} rules, ${result.bytes} bytes")
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
