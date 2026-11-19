@@ -347,6 +347,7 @@ class GuardianVpnService : VpnService() {
         if (!compatibilityResumeInProgress.compareAndSet(false, true)) return
 
         thread(name = "guardian-compatibility-vpn-resume") {
+            var retryResume = false
             try {
                 val oldWorker = packetWorker
                 try {
@@ -357,6 +358,7 @@ class GuardianVpnService : VpnService() {
                 }
                 if (oldWorker?.isAlive == true) {
                     android.util.Log.w("GuardianProtection", "DNS worker is still exiting; compatibility resume will retry")
+                    retryResume = true
                     return@thread
                 }
                 val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
@@ -371,6 +373,12 @@ class GuardianVpnService : VpnService() {
                 startProtection(generation, lastStartId)
             } finally {
                 compatibilityResumeInProgress.set(false)
+                if (retryResume) {
+                    android.os.Handler(mainLooper).postDelayed(
+                        { resumeProtectionAfterCompatibility() },
+                        1_000L
+                    )
+                }
             }
         }
     }
