@@ -68,6 +68,8 @@ class MainActivity : Activity() {
     private var upstreamTestButton: Button? = null
     private var filterStatusText: TextView? = null
     private var filterUpdateButton: Button? = null
+    private var homeFilterUpdateButton: Button? = null
+    private var homeFilterStatusText: TextView? = null
     private var appFilterFeedback: TextView? = null
     private var appExclusionsAppliedStatus: TextView? = null
     private var appExclusionsSearchInput: EditText? = null
@@ -477,6 +479,8 @@ class MainActivity : Activity() {
         rulesFeedback = null
         filterStatusText = null
         filterUpdateButton = null
+        homeFilterUpdateButton = null
+        homeFilterStatusText = null
         appFilterFeedback = null
         appExclusionsSearchInput = null
         appExclusionsAppliedStatus = null
@@ -763,6 +767,20 @@ class MainActivity : Activity() {
             setPadding(dp(15), dp(14), dp(15), dp(14))
             addView(text("DNS 필터 엔진", 14f, white, true))
             addView(text("광고·추적 도메인 필터와 사용자 차단·허용 규칙을 관리합니다.", 11f, muted, false).withTop(7))
+            homeFilterStatusText = text(filterStatusDescription(), 10f, muted, false).withTop(8) as TextView
+            addView(homeFilterStatusText!!)
+            homeFilterUpdateButton = Button(this@MainActivity).apply {
+                text = if (filterUpdateRunning.get()) "필터 다운로드 및 검증 중…" else "필터 목록 업데이트"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 12)
+                isEnabled = !filterUpdateRunning.get()
+                contentDescription = "필터 목록 업데이트"
+                setOnClickListener { startFilterUpdate() }
+            }
+            addView(homeFilterUpdateButton!!, LinearLayout.LayoutParams(-1, dp(42)).apply {
+                topMargin = dp(10)
+            })
         }.withTop(10))
         if (wideDashboard) {
             columns.addView(left, LinearLayout.LayoutParams(0, -2, 1f))
@@ -2511,6 +2529,7 @@ class MainActivity : Activity() {
                 for (index in nextIndex until batchEnd) {
                     val (pkg, label) = visible[index]
                     appList.addView(CheckBox(this).apply {
+                        applyAppSelectionTint(this)
                         text = "$label\n$pkg"
                         contentDescription = "자동 일시중지 앱 $pkg"
                         textSize = 12f
@@ -2870,6 +2889,7 @@ class MainActivity : Activity() {
                 for (index in nextIndex until batchEnd) {
                     val (pkg, label) = visible[index]
                     appList.addView(CheckBox(this).apply {
+                        applyAppSelectionTint(this)
                         text = "$label\n$pkg"
                         contentDescription = "앱별 보호 제외 앱 $pkg"
                         textSize = 12f
@@ -2977,6 +2997,7 @@ class MainActivity : Activity() {
 
     private fun setFilterUpdateStatus(message: String) {
         filterStatusText?.text = message
+        homeFilterStatusText?.text = message
         protectionFeedback?.text = message
     }
 
@@ -2987,6 +3008,8 @@ class MainActivity : Activity() {
         }
         filterUpdateButton?.isEnabled = false
         filterUpdateButton?.text = "필터 다운로드 및 검증 중…"
+        homeFilterUpdateButton?.isEnabled = false
+        homeFilterUpdateButton?.text = "필터 다운로드 및 검증 중…"
         // Freeze optional-filter choices while their enabled/cache snapshot is
         // being processed. Otherwise a user could enable a list mid-update,
         // after the snapshot, leaving protection configured with no cache.
@@ -3106,6 +3129,8 @@ class MainActivity : Activity() {
                     setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage}${androidAdsMessage} · ${result.bytes / 1024}KB$signedStatus")
                     filterUpdateButton?.text = "필터 목록 업데이트"
                     filterUpdateButton?.isEnabled = true
+                    homeFilterUpdateButton?.text = "필터 목록 업데이트"
+                    homeFilterUpdateButton?.isEnabled = true
                     securityFilterSwitch?.isEnabled = true
                     androidAdsFilterSwitch?.isEnabled = true
                     securityFilterCheckBox?.isEnabled = true
@@ -3149,6 +3174,8 @@ class MainActivity : Activity() {
                     setFilterUpdateStatus("업데이트 실패: ${e.message ?: e.javaClass.simpleName} · $cacheMessage")
                     filterUpdateButton?.text = "다시 시도"
                     filterUpdateButton?.isEnabled = true
+                    homeFilterUpdateButton?.text = "다시 시도"
+                    homeFilterUpdateButton?.isEnabled = true
                     securityFilterSwitch?.isEnabled = true
                     androidAdsFilterSwitch?.isEnabled = true
                     securityFilterCheckBox?.isEnabled = true
@@ -3471,6 +3498,14 @@ class MainActivity : Activity() {
         toggle.buttonTintList = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
             intArrayOf(accent, muted)
+        )
+    }
+
+    private fun applyAppSelectionTint(toggle: CompoundButton) {
+        // Unchecked selection boxes must remain clearly visible on dark cards.
+        toggle.buttonTintList = ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+            intArrayOf(accent, Color.WHITE)
         )
     }
 
