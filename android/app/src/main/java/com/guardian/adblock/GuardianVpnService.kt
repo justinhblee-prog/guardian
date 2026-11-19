@@ -793,46 +793,68 @@ class GuardianVpnService : VpnService() {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val selectedProfile = FilterListManager.selectedProfile(this)
         val cachedProfile = FilterListManager.cachedProfile(this)
-        // Security filtering is temporarily enabled for all users; the PRO entitlement gate can be restored later.
-        val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-        val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-        require(FilterListManager.isProfileCacheCurrent(
-            FilterListManager.hasCachedList(this),
-            selectedProfile.key,
-            cachedProfile.key,
-            securityEnabled,
-            FilterListManager.hasCachedSecurityList(this),
-            androidAdsEnabled,
-            FilterListManager.hasCachedAndroidAdsList(this)
-        )) {
-            "선택한 필터 프로필, 보안 목록 또는 Android 앱 광고 목록이 검증·준비되지 않았습니다. 앱에서 필터를 업데이트한 후 다시 시작해 주세요."
-        }
-        // Load each source only when requested. The old path retained every raw
-        // feed, parsed each feed for validation, composed a second 1M+ line list,
-        // then parsed that combined list again. That multiplied peak heap use.
+        // A missing downloaded feed must not prevent the VPN from starting with
+        // the small, bundled baseline rules. Only add downloaded sources after
+        // their profile/count/cache checks pass; the UI can then prompt an update.
         val sources = mutableListOf<() -> FilterRuleParser.Parsed>()
         val minimumRuleCounts = mutableListOf<Int>()
+        val unavailable = mutableListOf<String>()
         sources.add {
             assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
         }
         minimumRuleCounts.add(1)
-        sources.add { FilterListManager.parseCachedList(this, "adguard_dns_filter.txt") }
-        minimumRuleCounts.add(selectedProfile.minimumRules)
+
+        val mainCacheReady = runCatching {
+            FilterListManager.isCacheValid(
+                FilterListManager.hasCachedFile(this),
+                FilterListManager.cachedBlockCount(this),
+                selectedProfile.minimumRules
+            ) && selectedProfile.key == cachedProfile.key
+        }.getOrDefault(false)
+        if (mainCacheReady) {
+            sources.add { FilterListManager.parseCachedList(this, "adguard_dns_filter.txt") }
+            minimumRuleCounts.add(selectedProfile.minimumRules)
+        } else {
+            unavailable.add("광고·추적")
+        }
+
+        val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
         if (securityEnabled) {
-            sources.add { FilterListManager.parseCachedList(this, "hagezi_threat_intelligence.txt") }
-            minimumRuleCounts.add(FilterListManager.MIN_SECURITY_BLOCKS)
+            val ready = runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrDefault(false)
+            if (ready) {
+                sources.add { FilterListManager.parseCachedList(this, "hagezi_threat_intelligence.txt") }
+                minimumRuleCounts.add(FilterListManager.MIN_SECURITY_BLOCKS)
+            } else unavailable.add("보안")
         }
+
+        val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
         if (androidAdsEnabled) {
-            sources.add { FilterListManager.parseCachedList(this, "awavenue_android_ads.txt") }
-            minimumRuleCounts.add(FilterListManager.MIN_ANDROID_ADS_BLOCKS)
+            val ready = runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrDefault(false)
+            if (ready) {
+                sources.add { FilterListManager.parseCachedList(this, "awavenue_android_ads.txt") }
+                minimumRuleCounts.add(FilterListManager.MIN_ANDROID_ADS_BLOCKS)
+            } else unavailable.add("Android 앱 광고")
         }
+
         val userBlock = prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
             .map { it.trim() }.filter { it.isNotEmpty() }.toList()
         val userAllow = prefs.getString(KEY_USER_ALLOW, "").orEmpty().lineSequence()
             .map { it.trim() }.filter { it.isNotEmpty() }.toList()
-        android.util.Log.i("Guardian", "VPN rules load started; sources=${sources.size}, security=$securityEnabled, androidAds=$androidAdsEnabled")
+        android.util.Log.i(
+            "Guardian",
+            "VPN rules load started; sources=${sources.size}, missing=${unavailable.joinToString()}, security=$securityEnabled, androidAds=$androidAdsEnabled"
+        )
         DomainFilter.loadParsedRuleSources(sources, minimumRuleCounts, userBlock, userAllow)
-        android.util.Log.i("Guardian", "VPN rules load completed; blocked=${DomainFilter.blockedRuleCount()}, allowed=${DomainFilter.allowedRuleCount()}, freeHeap=${Runtime.getRuntime().freeMemory()}")
+        val blockedCount = DomainFilter.blockedRuleCount()
+        android.util.Log.i(
+            "Guardian",
+            "VPN rules load completed; blocked=$blockedCount, allowed=${DomainFilter.allowedRuleCount()}, freeHeap=${Runtime.getRuntime().freeMemory()}"
+        )
+        prefs.edit().putString(
+            KEY_DNS_DIAGNOSTIC,
+            if (unavailable.isEmpty()) "모든 선택 필터가 준비되었습니다."
+            else "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: ${unavailable.joinToString()}"
+        ).apply()
     }
 
     private fun reloadUserRules() {
