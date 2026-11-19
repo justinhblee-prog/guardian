@@ -1004,6 +1004,34 @@ if [[ "$auto_pause_picker_visible" -ne 1 ]]; then
   echo "$auto_pause_settings_xml"
   exit 1
 fi
+# Verify the Usage Access control is a real enabled action when access is
+# missing; cancel its confirmation dialog so the test does not leave Guardian.
+adb_cmd shell uiautomator dump /sdcard/guardian-usage-access.xml >/dev/null 2>&1
+usage_access_xml="$(adb_cmd exec-out cat /sdcard/guardian-usage-access.xml | tr -d '\\r')"
+usage_access_enabled="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if node.attrib.get("content-desc")=="사용 정보 접근 권한 설정":
+        print(node.attrib.get("enabled","false")); break' <<<"$usage_access_xml")"
+if [[ "$usage_access_enabled" == "true" ]]; then
+  tap_content_description "사용 정보 접근 권한 설정"
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-usage-dialog.xml >/dev/null 2>&1
+  usage_dialog_xml="$(adb_cmd exec-out cat /sdcard/guardian-usage-dialog.xml | tr -d '\\r')"
+  if ! grep -q '설정 열기' <<<"$usage_dialog_xml"; then
+    echo "Usage Access button did not open its confirmation dialog."
+    echo "$usage_dialog_xml"
+    exit 1
+  fi
+  tap_text "취소"
+else
+  if ! grep -q '사용 정보 접근 권한 허용됨' <<<"$usage_access_xml"; then
+    echo "Usage Access control is disabled without showing that permission is already granted."
+    echo "$usage_access_xml"
+    exit 1
+  fi
+fi
+
 tap_content_description "VPN 자동 일시중지 앱 선택"
 sleep 1
 tap_content_description "VPN 자동 일시중지 앱 검색 입력"
