@@ -122,6 +122,19 @@ class CosmeticFilterEngineTest {
         assertTrue(selectors.contains("iframe[src*='googlesyndication.com']"))
     }
 
+    @Test fun builtInAdSlotRulesRemainActiveWhenCachedFeedIsMerged() {
+        val builtIn = CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES)
+        val downloaded = CosmeticFilterEngine.parse(listOf("news.example##.site-sponsored"))
+        val combined = CosmeticFilterEngine.merge(listOf(builtIn, downloaded))
+        val selectors = CosmeticFilterEngine.selectorsForHost(combined, "news.example")
+
+        assertTrue(selectors.contains(".advertisement"))
+        assertTrue(selectors.contains("#advertisement"))
+        assertTrue(selectors.contains("[id*='advertisement']"))
+        assertTrue(selectors.contains(".ad-box"))
+        assertTrue(selectors.contains(".site-sponsored"))
+    }
+
     @Test fun parsesCachedFeedIncrementallyFromReader() {
         val rules = StringReader(
             "! generated filter\n##.generic-ad\nnews.example##.sponsored\n||ads.example^\n"
