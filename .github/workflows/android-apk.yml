@@ -5,7 +5,7 @@ on:
   push:
     # Verify development branches as well as main; their commit checks also
     # surface on the associated PR, even if a PR webhook is missed.
-    branches: [main, 'fix/**', 'feature/**', 'release/**']
+    branches: [main]
     paths:
       - 'android/**'
       - 'shared/**'
@@ -35,6 +35,10 @@ permissions:
 
 jobs:
   build-apk:
+    # Pull requests provide the authoritative validation for feature branches.
+    # Avoid running the same expensive emulator suite twice on every PR commit.
+    # Keep main pushes and explicit workflow_dispatch builds fully enabled.
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     name: Test and assemble debug APK
     # Pin the stable Ubuntu 24.04 image: ubuntu-latest moved to 26.04,
     # whose Android Emulator runtime is missing libpulse.so.0.
@@ -67,7 +71,8 @@ jobs:
           grep -q 'AppForegroundPauseSettings.KEY_PAUSED' android/app/src/main/java/com/guardian/adblock/GuardianVpnService.kt
           test -s docs/APP_FOREGROUND_AUTO_PAUSE_KO.md
           grep -q '기기 전체' docs/APP_FOREGROUND_AUTO_PAUSE_KO.md
-          grep -q 'getInstalledApplications(0)' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
+          grep -q 'getInstalledApplications(' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
+          grep -q 'MATCH_DISABLED_COMPONENTS' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           grep -q '설치 앱 목록 접근 안내' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           grep -q '동의하고 계속' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           grep -q 'com.samsung.android.spayfw' docs/ANDROID_APP_VISIBILITY_KO.md
@@ -268,14 +273,16 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Install Android emulator host runtime libraries
-        timeout-minutes: 5
+      - name: Ensure Android emulator host runtime libraries
+        timeout-minutes: 2
         shell: bash
         run: |
           set -euo pipefail
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
-          sudo apt-get --no-install-recommends -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y libpulse0
+          if ! ldconfig -p | grep -q 'libpulse.so.0'; then
+            export DEBIAN_FRONTEND=noninteractive
+            sudo apt-get --no-install-recommends -o Acquire::Retries=1 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 install -y libpulse0
+          fi
+          ldconfig -p | grep 'libpulse.so.0'
 
       - name: Enable KVM access for Android emulator
         shell: bash

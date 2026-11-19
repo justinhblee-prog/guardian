@@ -123,6 +123,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.statusBarColor = bg
         window.navigationBarColor = bg
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         window.decorView.systemUiVisibility = 0
         val restoredTab = ActivityScreenState.restoreTab(savedInstanceState?.getString(STATE_CURRENT_TAB))
         val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
@@ -417,6 +418,11 @@ class MainActivity : Activity() {
             "rules" -> buildRules(body)
             "activity" -> buildActivity(body)
             "premium" -> buildPremium(body)
+            "app-exclusions" -> {
+                body.addView(text("앱별 보호 제외", 25f, white, true))
+                body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
+                buildAppExclusions(body)
+            }
             else -> buildSettings(body)
         }
         val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
@@ -569,15 +575,39 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, dp(24), 0, dp(18))
         }
-        listOf("▣", "◉", "!", "▤", "♨", "◉").forEachIndexed { index, glyph ->
-            val tint = if (index < 4) homeGreen else muted
-            val item = TextView(this).apply {
-                text = glyph
-                textSize = 25f
+        listOf(
+            Triple("protection", "▣", "보호"),
+            Triple("app-exclusions", "◉", "앱 제외"),
+            Triple("rules", "!", "차단"),
+            Triple("activity", "▤", "활동"),
+            Triple("premium", "✦", "프리미엄"),
+            Triple("settings", "⚙", "설정")
+        ).forEach { (destination, glyph, label) ->
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setTextColor(tint)
+                isClickable = true
+                isFocusable = true
+                contentDescription = "$label 화면 열기"
+                background = shape(homePanel, 10)
+                setOnClickListener { showTab(destination) }
             }
-            featureRow.addView(item, LinearLayout.LayoutParams(0, dp(42), 1f))
+            item.addView(TextView(this).apply {
+                text = glyph
+                textSize = 22f
+                gravity = Gravity.CENTER
+                setTextColor(homeGreen)
+            })
+            item.addView(TextView(this).apply {
+                text = label
+                textSize = 9f
+                gravity = Gravity.CENTER
+                setTextColor(white)
+            })
+            featureRow.addView(item, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
+                marginStart = dp(2)
+                marginEnd = dp(2)
+            })
         }
         hero.addView(featureRow)
 
@@ -1127,7 +1157,7 @@ class MainActivity : Activity() {
                 isAllCaps = false
                 setTextColor(white)
                 background = shape(panel2, 12)
-                setOnClickListener { showTab("settings", focusAppExclusions = true) }
+                setOnClickListener { showTab("app-exclusions") }
             }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(8) })
         }.withTop(18))
 
@@ -1974,9 +2004,6 @@ class MainActivity : Activity() {
         // Keep the device-wide compatibility option ahead of the large installed-app
         // inventory so it remains discoverable without scrolling through every app.
         buildCompatibilityPauseSection(body)
-        body.addView(text("앱별 보호 제외", 18f, white, true).withTop(24))
-        body.addView(text("선택한 앱은 Guardian VPN 필터링에서 제외됩니다. 보호 중 변경하면 VPN에 자동 적용되고, 보호가 꺼져 있으면 다음 연결 때 적용됩니다.", 12f, muted, false).withTop(5))
-        buildAppExclusions(body)
         body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
     }
 
@@ -1999,6 +2026,7 @@ class MainActivity : Activity() {
         val items = listOf(
             Triple("home", "⌂", "홈"),
             Triple("protection", "◈", "보호"),
+            Triple("app-exclusions", "◉", "앱 제외"),
             Triple("activity", "▤", "활동"),
             Triple("premium", "✦", "프리미엄"),
             Triple("rules", "≡", "필터"),
@@ -2419,21 +2447,9 @@ class MainActivity : Activity() {
         val selected = prefs.getStringSet(
             AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
         ).orEmpty().toMutableSet()
-        val apps = packageManager.getInstalledApplications(0)
-            .filter { it.packageName != packageName }
-            .map { info ->
-                info.packageName to try {
-                    info.loadLabel(packageManager).toString()
-                } catch (_: Exception) {
-                    info.packageName
-                }
-            }
-            .distinctBy { it.first }
-            .sortedWith(compareBy<Pair<String, String>>(
-                { it.second.lowercase(Locale.ROOT) },
-                { it.first.lowercase(Locale.ROOT) }
-            ))
-
+        var apps: List<Pair<String, String>> = emptyList()
+        var inventoryReady = false
+        var renderGeneration = 0
         val search = EditText(this).apply {
             hint = "앱 이름 또는 패키지명 검색"
             contentDescription = "VPN 자동 일시중지 앱 검색 입력"
@@ -2460,35 +2476,51 @@ class MainActivity : Activity() {
                 topMargin = dp(8)
             })
         }
-
+        lateinit var dialog: AlertDialog
         fun renderApps(queryText: String) {
             appList.removeAllViews()
+            if (!inventoryReady) {
+                appList.addView(text("설치 앱 목록을 불러오는 중…", 12f, muted, false).apply {
+                    setPadding(dp(8), dp(12), dp(8), dp(12))
+                })
+                return
+            }
             val query = queryText.trim().lowercase(Locale.ROOT)
             val visible = apps.filter { (pkg, label) ->
                 query.isEmpty() ||
                     pkg.lowercase(Locale.ROOT).contains(query) ||
                     label.lowercase(Locale.ROOT).contains(query)
             }
-            visible.forEach { (pkg, label) ->
-                appList.addView(CheckBox(this).apply {
-                    text = "$label\n$pkg"
-                    contentDescription = "자동 일시중지 앱 $pkg"
-                    textSize = 12f
-                    setTextColor(white)
-                    isChecked = pkg in selected
-                    setPadding(dp(4), dp(6), dp(4), dp(6))
-                    setOnCheckedChangeListener { _, checked ->
-                        if (checked) selected.add(pkg) else selected.remove(pkg)
-                    }
-                })
+            val generation = ++renderGeneration
+            var nextIndex = 0
+            fun appendBatch() {
+                if (generation != renderGeneration || !dialog.isShowing) return
+                val batchEnd = minOf(nextIndex + 40, visible.size)
+                for (index in nextIndex until batchEnd) {
+                    val (pkg, label) = visible[index]
+                    appList.addView(CheckBox(this).apply {
+                        text = "$label\n$pkg"
+                        contentDescription = "자동 일시중지 앱 $pkg"
+                        textSize = 12f
+                        setTextColor(white)
+                        isChecked = pkg in selected
+                        setPadding(dp(4), dp(6), dp(4), dp(6))
+                        setOnCheckedChangeListener { _, checked ->
+                            if (checked) selected.add(pkg) else selected.remove(pkg)
+                        }
+                    })
+                }
+                nextIndex = batchEnd
+                if (nextIndex < visible.size) appList.post { appendBatch() }
             }
             if (visible.isEmpty()) {
                 appList.addView(text("검색 결과가 없습니다.", 12f, muted, false).apply {
                     setPadding(dp(8), dp(12), dp(8), dp(12))
                 })
+            } else {
+                appList.post { appendBatch() }
             }
         }
-
         search.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -2496,43 +2528,83 @@ class MainActivity : Activity() {
             }
             override fun afterTextChanged(s: android.text.Editable?) = Unit
         })
-        renderApps("")
-
-        val dialog = AlertDialog.Builder(this)
+        dialog = AlertDialog.Builder(this)
             .setTitle("VPN 자동 일시중지 앱 선택")
             .setView(container)
             .setNegativeButton("취소", null)
             .setPositiveButton("저장", null)
             .create()
         dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val editor = prefs.edit()
-                    .putStringSet(AppForegroundPauseSettings.KEY_PACKAGES, selected.toSet())
-                if (selected.isEmpty()) {
-                    editor.putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
+                isEnabled = false
+                setOnClickListener {
+                    if (!inventoryReady) return@setOnClickListener
+                    val editor = prefs.edit()
+                        .putStringSet(AppForegroundPauseSettings.KEY_PACKAGES, selected.toSet())
+                    if (selected.isEmpty()) {
+                        editor.putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                    }
+                    val saved = editor.commit()
+                    if (!saved) {
+                        android.widget.Toast.makeText(
+                            this@MainActivity,
+                            "일시중지 앱 목록을 저장하지 못했습니다.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        return@setOnClickListener
+                    }
+                    compatibilityPauseSwitch?.let { control ->
+                        syncingCompatibilitySwitch = true
+                        control.isChecked = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                        syncingCompatibilitySwitch = false
+                    }
+                    updateCompatibilityPauseStatus()
+                    notifyCompatibilitySettingsChanged()
+                    dialog.dismiss()
                 }
-                val saved = editor.commit()
-                if (!saved) {
-                    android.widget.Toast.makeText(
-                        this,
-                        "일시중지 앱 목록을 저장하지 못했습니다.",
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
-                    return@setOnClickListener
-                }
-                compatibilityPauseSwitch?.let { control ->
-                    syncingCompatibilitySwitch = true
-                    control.isChecked = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
-                    syncingCompatibilitySwitch = false
-                }
-                updateCompatibilityPauseStatus()
-                notifyCompatibilitySettingsChanged()
-                dialog.dismiss()
             }
         }
         dialog.show()
+        renderApps(search.text?.toString().orEmpty())
+        thread(name = "guardian-compatibility-app-inventory") {
+            val result = runCatching {
+                packageManager.getInstalledApplications(
+                    android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+                )
+                    .asSequence()
+                    .filter { it.packageName != packageName }
+                    .map { info ->
+                        info.packageName to try {
+                            info.loadLabel(packageManager).toString()
+                        } catch (error: Exception) {
+                            android.util.Log.w("GuardianApps", "Could not load compatibility app label for ${info.packageName}", error)
+                            info.packageName
+                        }
+                    }
+                    .distinctBy { it.first }
+                    .sortedWith(compareBy<Pair<String, String>>(
+                        { it.second.lowercase(Locale.ROOT) },
+                        { it.first.lowercase(Locale.ROOT) }
+                    ))
+                    .toList()
+            }
+            runOnUiThread {
+                if (!dialog.isShowing) return@runOnUiThread
+                result.onSuccess { loaded ->
+                    apps = loaded
+                    inventoryReady = true
+                    renderApps(search.text?.toString().orEmpty())
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                }.onFailure { error ->
+                    android.util.Log.e("GuardianApps", "Could not load compatibility app inventory", error)
+                    appList.removeAllViews()
+                    appList.addView(this@MainActivity.text("설치 앱 목록을 불러오지 못했습니다. 다시 시도해 주세요.", 12f, red, false).apply {
+                        setPadding(dp(8), dp(12), dp(8), dp(12))
+                    })
+                }
+            }
+        }
     }
-
     private fun notifyCompatibilitySettingsChanged() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         if (prefs.getBoolean(GuardianVpnService.KEY_RESTORE_REQUESTED, false)) {
@@ -2614,7 +2686,7 @@ class MainActivity : Activity() {
                         // Keep the user in Settings and render the inventory immediately.
                         // Returning to Protection discarded the user's current task and
                         // forced a second navigation through the consent-gated screen.
-                        showTab("settings", focusAppExclusions = true)
+                        showTab("app-exclusions")
                     } else {
                         android.widget.Toast.makeText(
                             this,
@@ -2633,23 +2705,9 @@ class MainActivity : Activity() {
         // used only to render this on-device exclusion picker; it is never uploaded.
         // Include disabled preinstalled packages (some OEM builds ship companion
         // apps such as Android Auto disabled until the user enables them).
-        val apps = packageManager.getInstalledApplications(
-            android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
-        )
-            .filter { it.packageName != packageName }
-            .map { info ->
-                info.packageName to try {
-                    info.loadLabel(packageManager).toString()
-                } catch (error: Exception) {
-                    android.util.Log.w("GuardianApps", "Could not load app label for ${info.packageName}", error)
-                    info.packageName
-                }
-            }
-            .distinctBy { it.first }
-            .sortedWith(compareBy<Pair<String, String>>(
-                { it.second.lowercase(Locale.ROOT) },
-                { it.first.lowercase(Locale.ROOT) }
-            ))
+        var apps: List<Pair<String, String>> = emptyList()
+        var inventoryReady = false
+        var renderGeneration = 0
         val search = EditText(this).apply {
             hint = "앱 이름 또는 패키지명 입력"
             contentDescription = "앱별 보호 제외 검색 입력"
@@ -2676,11 +2734,26 @@ class MainActivity : Activity() {
             }
         }
         appExclusionsSearchInput = search
+        search.setOnFocusChangeListener { view, focused ->
+            view.background = shape(panel2, 12).apply {
+                setStroke(dp(if (focused) 2 else 1), if (focused) accent else muted)
+            }
+            if (focused) {
+                window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                contentScrollView?.post {
+                    val bounds = android.graphics.Rect()
+                    search.getDrawingRect(bounds)
+                    contentScrollView?.offsetDescendantRectToMyCoords(search, bounds)
+                    contentScrollView?.smoothScrollTo(0, (bounds.top - dp(18)).coerceAtLeast(0))
+                }
+            }
+        }
+        val inventorySummary = text("설치 앱 목록을 불러오는 중…", 11f, muted, false).withTop(4) as TextView
         val card = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
             addView(text("설치된 앱 검색", 13f, white, true))
-            addView(text("전체 설치 앱 ${apps.size}개 · 앱 이름 또는 패키지명으로 검색하세요.", 11f, muted, false).withTop(4))
+            addView(inventorySummary)
             addView(text(
                 "제외한 앱의 네트워크는 Android 시스템으로 우회됩니다. Guardian VPN 연결 자체는 계속 유지되므로, 기기 전체의 VPN 상태를 확인하는 앱은 경고를 표시할 수 있습니다.",
                 10f, muted, false
@@ -2751,28 +2824,46 @@ class MainActivity : Activity() {
         }
         fun renderApps(rawQuery: String) {
             appList.removeAllViews()
+            if (!inventoryReady) {
+                appList.addView(text("설치 앱 목록을 불러오는 중…", 12f, muted, false).apply {
+                    setPadding(dp(8), dp(12), dp(8), dp(12))
+                })
+                return
+            }
             val query = rawQuery.trim().lowercase(Locale.ROOT)
             val visible = apps.filter { (pkg, label) ->
                 query.isEmpty() || label.lowercase(Locale.ROOT).contains(query) || pkg.lowercase(Locale.ROOT).contains(query)
             }
-            visible.forEach { (pkg, label) ->
-                appList.addView(CheckBox(this).apply {
-                    text = "$label\n$pkg"
-                    textSize = 12f
-                    setTextColor(white)
-                    isChecked = pkg in excluded
-                    isEnabled = pkg != packageName
-                    setPadding(dp(4), dp(5), dp(4), dp(5))
-                    setOnCheckedChangeListener { _, checked ->
-                        if (checked) excluded.add(pkg) else excluded.remove(pkg)
-                        updateSaveState()
-                    }
-                })
+            val generation = ++renderGeneration
+            var nextIndex = 0
+            fun appendBatch() {
+                if (generation != renderGeneration) return
+                val batchEnd = minOf(nextIndex + 40, visible.size)
+                for (index in nextIndex until batchEnd) {
+                    val (pkg, label) = visible[index]
+                    appList.addView(CheckBox(this).apply {
+                        text = "$label\n$pkg"
+                        contentDescription = "앱별 보호 제외 앱 $pkg"
+                        textSize = 12f
+                        setTextColor(white)
+                        isChecked = pkg in excluded
+                        isEnabled = pkg != packageName
+                        setPadding(dp(4), dp(5), dp(4), dp(5))
+                        setOnCheckedChangeListener { _, checked ->
+                            if (checked) excluded.add(pkg) else excluded.remove(pkg)
+                            updateSaveState()
+                        }
+                    })
+                }
+                nextIndex = batchEnd
+                if (nextIndex < visible.size) appList.post { appendBatch() }
             }
             if (visible.isEmpty()) {
                 appList.addView(text("검색 결과가 없습니다.", 12f, muted, false).apply {
                     setPadding(dp(8), dp(12), dp(8), dp(12))
                 })
+            } else {
+                appList.post { appendBatch() }
             }
             updateSaveState()
             if (excluded == savedExclusions) {
@@ -2785,6 +2876,44 @@ class MainActivity : Activity() {
             override fun afterTextChanged(s: android.text.Editable?) = Unit
         })
         renderApps("")
+        thread(name = "guardian-app-exclusion-inventory") {
+            val result = runCatching {
+                packageManager.getInstalledApplications(
+                    android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+                ).asSequence()
+                    .filter { it.packageName != packageName }
+                    .map { info ->
+                        info.packageName to try {
+                            info.loadLabel(packageManager).toString()
+                        } catch (error: Exception) {
+                            android.util.Log.w("GuardianApps", "Could not load app label for ${info.packageName}", error)
+                            info.packageName
+                        }
+                    }
+                    .distinctBy { it.first }
+                    .sortedWith(compareBy<Pair<String, String>>(
+                        { it.second.lowercase(Locale.ROOT) },
+                        { it.first.lowercase(Locale.ROOT) }
+                    ))
+                    .toList()
+            }
+            runOnUiThread {
+                result.onSuccess { loaded ->
+                    apps = loaded
+                    inventoryReady = true
+                    inventorySummary.setText("전체 설치 앱 ${loaded.size}개 · 앱 이름 또는 패키지명으로 검색하세요.")
+                    appFilterFeedback?.contentDescription = "앱별 보호 제외 앱 목록 준비 완료"
+                    renderApps(search.text?.toString().orEmpty())
+                }.onFailure { error ->
+                    android.util.Log.e("GuardianApps", "Could not load app exclusion inventory", error)
+                    appList.removeAllViews()
+                    appList.addView(this@MainActivity.text("설치 앱 목록을 불러오지 못했습니다. 다시 시도해 주세요.", 12f, red, false).apply {
+                        setPadding(dp(8), dp(12), dp(8), dp(12))
+                    })
+                    appFilterFeedback?.text = "앱 목록을 불러오지 못했습니다 · ${error.message ?: error.javaClass.simpleName}"
+                }
+            }
+        }
     }
 
     private fun filterStatusDescription(): String {
