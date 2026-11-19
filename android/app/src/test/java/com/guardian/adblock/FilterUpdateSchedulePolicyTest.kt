@@ -6,6 +6,58 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FilterUpdateSchedulePolicyTest {
+    @Test fun firstRunFilterSetupRunsEvenWhenAutomaticUpdatesAreDisabled() {
+        assertTrue(
+            FilterStartupPolicy.shouldRefresh(
+                mainCacheMissing = true,
+                securityCacheMissing = true,
+                securityEnabled = true,
+                androidAdsCacheMissing = true,
+                androidAdsEnabled = true,
+                scheduledRefreshDue = false
+            )
+        )
+    }
+
+    @Test fun missingEnabledOptionalFilterIsFetchedWithoutRecurringUpdates() {
+        assertTrue(
+            FilterStartupPolicy.shouldRefresh(
+                mainCacheMissing = false,
+                securityCacheMissing = true,
+                securityEnabled = true,
+                androidAdsCacheMissing = false,
+                androidAdsEnabled = true,
+                scheduledRefreshDue = false
+            )
+        )
+    }
+
+    @Test fun disabledOptionalFilterDoesNotBlockReadyStartup() {
+        assertFalse(
+            FilterStartupPolicy.shouldRefresh(
+                mainCacheMissing = false,
+                securityCacheMissing = true,
+                securityEnabled = false,
+                androidAdsCacheMissing = true,
+                androidAdsEnabled = false,
+                scheduledRefreshDue = false
+            )
+        )
+    }
+
+    @Test fun scheduledRefreshStillRequiresItsExplicitDueSignal() {
+        assertTrue(
+            FilterStartupPolicy.shouldRefresh(
+                mainCacheMissing = false,
+                securityCacheMissing = false,
+                securityEnabled = true,
+                androidAdsCacheMissing = false,
+                androidAdsEnabled = true,
+                scheduledRefreshDue = true
+            )
+        )
+    }
+
     @Test fun disablesOptionalFilterOnlyWhenItsFirstDownloadFailsWithoutCache() {
         assertTrue(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hadValidCache = false))
         assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hadValidCache = true))
