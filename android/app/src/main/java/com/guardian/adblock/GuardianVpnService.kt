@@ -483,6 +483,9 @@ class GuardianVpnService : VpnService() {
     }
     private fun startProtectionInternal(requestGeneration: Long, startId: Int) {
         tunnelActive = false
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+            .remove(KEY_FILTER_READINESS)
+            .apply()
         try {
             createNotificationChannel()
             startForeground(41, buildNotification())
