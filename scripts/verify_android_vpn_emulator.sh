@@ -323,7 +323,7 @@ echo "Verifying the app-exclusion search field is automatically revealed and fil
 # The disclosure is shown when that screen is first opened, not from Settings.
 tap_content_description "보호"
 sleep 1
-tap_content_description "앱별 보호 제외 관리"
+tap_text "앱별 보호 제외 관리"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
