@@ -678,7 +678,7 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             background = shape(homeOrange, 28)
             minHeight = dp(62)
-            setOnClickListener { requestProtection() }
+            setOnClickListener { onHomeProtectionButtonTapped() }
         }
         startButton = power
         hero.addView(power, LinearLayout.LayoutParams(dp(150), dp(62)).apply { gravity = Gravity.CENTER })
@@ -3176,6 +3176,28 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun onHomeProtectionButtonTapped() {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val active = ProtectionState.isActive(
+            prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+            GuardianVpnService.isTunnelActive()
+        )
+        val compatibilityPaused = prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+        if (active || compatibilityPaused) {
+            try {
+                startService(
+                    Intent(this, GuardianVpnService::class.java)
+                        .setAction(GuardianVpnService.ACTION_STOP)
+                )
+            } catch (error: Exception) {
+                android.util.Log.e("GuardianProtection", "Could not stop protection from the home toggle", error)
+                status.text = "보호 중지 요청 실패: ${error.message ?: error.javaClass.simpleName}"
+            }
+            return
+        }
+        requestProtection()
+    }
+
     private fun requestProtection() {
         android.util.Log.i("GuardianProtection", "Protection button tapped; readiness check starting")
         if (!protectionCheckRunning.compareAndSet(false, true)) {
@@ -3348,14 +3370,20 @@ class MainActivity : Activity() {
                 }
             )
             startButton?.text = when {
-                active -> "보호 실행 중"
+                active -> "보호 중지"
                 compatibilityPaused -> "보호 완전 중지"
                 recoveryPending -> "보호 복구 중"
                 staleSession -> "다시 연결"
                 else -> "보호 시작"
             }
-            startButton?.isEnabled = !active && !recoveryPending && !compatibilityPaused
-            startButton?.alpha = if (active || recoveryPending || compatibilityPaused) 0.58f else 1f
+            // The main protection control is a real toggle: while the tunnel is
+            // active it remains tappable and stops protection instead of looking
+            // disabled. Only suppress taps while an automatic recovery is running.
+            startButton?.isEnabled = !recoveryPending
+            startButton?.background = shape(
+                if (active || compatibilityPaused) homePanel else homeOrange, 28
+            )
+            startButton?.alpha = if (recoveryPending) 0.58f else 1f
         }
         if (currentTab == "home" && ::status.isInitialized) {
             status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
