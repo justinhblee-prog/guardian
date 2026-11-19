@@ -1004,7 +1004,8 @@ class MainActivity : Activity() {
                 securityCacheReady = securityCacheReady,
                 securityRuleCount = FilterListManager.cachedSecurityBlockCount(this),
                 androidAdsCacheReady = androidAdsCacheReady,
-                androidAdsRuleCount = FilterListManager.cachedAndroidAdsBlockCount(this)
+                androidAdsRuleCount = FilterListManager.cachedAndroidAdsBlockCount(this),
+                filterReadiness = prefs.getString(GuardianVpnService.KEY_FILTER_READINESS, null)
             )
             runOnUiThread {
                 try {
