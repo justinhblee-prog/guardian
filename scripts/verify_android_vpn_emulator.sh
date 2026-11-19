@@ -795,10 +795,11 @@ sleep 2
 tap_text "설정"
 sleep 1
 auto_pause_picker_visible=0
-# Earlier checks leave Settings scrolled inside the long installed-app inventory.
-# The compatibility section is intentionally above that inventory; scroll back
-# toward the top until its actual visible, clickable control is found.
-for attempt in $(seq 1 40); do
+# The Settings tab opens at its top after the app is relaunched. Scroll down
+# through account/DNS settings until the compatibility card appears. The card is
+# deliberately placed before the large installed-app inventory, so this search
+# does not depend on the number of installed packages or an old scroll offset.
+for attempt in $(seq 1 24); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   auto_pause_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
@@ -812,11 +813,12 @@ if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
     raise SystemExit(0)
 raise SystemExit(1)' <<<"$auto_pause_settings_xml"; then
     auto_pause_picker_visible=1
+    echo "Foreground-app compatibility controls found after $attempt Settings scroll checks."
     break
   fi
-  # Swipe down to reveal settings content above the saved scroll position.
-  adb_cmd shell input swipe 540 600 540 1500 350
-  sleep 0.4
+  # Swipe up to reveal settings content below the current viewport.
+  adb_cmd shell input swipe 540 1500 540 600 450
+  sleep 0.5
 done
 if [[ "$auto_pause_picker_visible" -ne 1 ]]; then
   echo "Foreground-app auto-pause controls were not visible in Settings."
