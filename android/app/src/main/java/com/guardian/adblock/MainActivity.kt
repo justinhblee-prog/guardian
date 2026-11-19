@@ -2648,6 +2648,7 @@ class MainActivity : Activity() {
         body.addView(appFilterFeedback!!)
         val saveButton = android.widget.Button(this).apply {
             text = "변경사항 저장"
+            contentDescription = "앱별 보호 제외 변경사항 저장"
             isAllCaps = false
             textSize = 14f
             setTextColor(Color.WHITE)
