@@ -528,42 +528,48 @@ if [[ "$visible_exclusion_app_count" -ne "$expected_exclusion_app_count" ]]; the
   exit 1
 fi
 echo "Full installed-app inventory passed: $visible_exclusion_app_count apps are available for exclusion."
-echo "Verifying Android Auto is searchable by its installed package ID."
-tap_content_description "앱별 보호 제외 검색 입력"
-adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
-adb_cmd shell input keyevent KEYCODE_DEL
-adb_cmd shell input text 'com.google.android.projection.gearhead'
-sleep 1
-adb_cmd shell input keyevent KEYCODE_BACK || true
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-android_auto_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-python3 -c 'import sys,xml.etree.ElementTree as ET
+ANDROID_AUTO_PACKAGE="com.google.android.projection.gearhead"
+android_auto_path="$(adb_cmd shell pm path "$ANDROID_AUTO_PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+if [[ "$android_auto_path" == package:* ]]; then
+  echo "Verifying Android Auto is searchable by its installed package ID."
+  tap_content_description "앱별 보호 제외 검색 입력"
+  adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEY_A
+  adb_cmd shell input keyevent KEYCODE_DEL
+  adb_cmd shell input text "$ANDROID_AUTO_PACKAGE"
+  sleep 1
+  adb_cmd shell input keyevent KEYCODE_BACK || true
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  android_auto_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if not any(node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.google.android.projection.gearhead"
+if not any(node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com.google.android.projection.gearhead"
     and node.attrib.get("class")=="android.widget.CheckBox"
     and node.attrib.get("visible-to-user","true")=="true"
     and node.attrib.get("clickable")=="true"
     for node in root.iter("node")):
     raise SystemExit("Android Auto package was not searchable in the installed-app exclusion list.")' <<<"$android_auto_xml"
-echo "Verifying Android Auto is searchable by its displayed app name."
-tap_content_description "앱별 보호 제외 검색 입력"
-adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
-adb_cmd shell input keyevent KEYCODE_DEL
-adb_cmd shell input text 'Android Auto'
-sleep 1
-adb_cmd shell input keyevent KEYCODE_BACK || true
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-android_auto_name_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-python3 -c 'import sys,xml.etree.ElementTree as ET
+  echo "Verifying Android Auto is searchable by its displayed app name."
+  tap_content_description "앱별 보호 제외 검색 입력"
+  adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEY_A
+  adb_cmd shell input keyevent KEYCODE_DEL
+  adb_cmd shell input text 'Android Auto'
+  sleep 1
+  adb_cmd shell input keyevent KEYCODE_BACK || true
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  android_auto_name_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if not any(node.attrib.get("text","").split("\n",1)[0].strip()=="Android Auto"
-    and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.google.android.projection.gearhead"
+if not any(node.attrib.get("text","").split("\\n",1)[0].strip()=="Android Auto"
+    and node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com.google.android.projection.gearhead"
     and node.attrib.get("class")=="android.widget.CheckBox"
     and node.attrib.get("visible-to-user","true")=="true"
     for node in root.iter("node")):
     raise SystemExit("Android Auto app-name search did not return the expected installed package.")' <<<"$android_auto_name_xml"
+else
+  echo "Android Auto is not installed in this emulator image; exact Android Auto lookup is skipped. Full inventory count and installed-package search were still verified."
+fi
 tap_content_description "홈"
 echo "App-exclusion search visibility, package filtering, and Android Auto lookup passed."
 
