@@ -81,6 +81,19 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 ## 고객 디렉터리 DB 마이그레이션
 기존 데이터베이스에는 `migrations/004_customers.sql`을 한 번 적용해야 합니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
 
+## 라이선스 상품 및 기간 검증
+관리자 발급 화면은 다음 고정 상품과 직접 입력(custom)을 제공합니다.
+
+| 상품 코드 | 유효 기간 |
+|---|---:|
+| short_7d | 7일 |
+| monthly_30d | 30일 |
+| quarterly_90d | 90일 |
+| annual_365d | 365일 |
+| custom | 1~36500일 직접 입력 |
+
+고정 상품을 선택하면 기간 입력을 잠그고, API도 `planCode`와 `validDays` 조합을 다시 검사합니다. 기간이 다르거나 알 수 없는 상품 코드(예: Lifetime)는 HTTP 400으로 거부합니다. 발급 감사 이벤트에는 선택 상품 코드가 저장됩니다. 상품별 가격, 결제 웹훅, 자동 갱신 및 단기권 중복 발급 방지는 아직 결제 시스템과 별도이며, 이 API의 수동 발급만으로 결제 완료를 뜻하지 않습니다. Lifetime은 무기한 entitlement와 갱신·정지 모델을 구현하기 전까지 발급할 수 없습니다.
+
 ## 고객지원 센터와 문의함
 - `POST /v1/support/tickets`: 질문, 오류 신고, 기능 제안, 결제/라이선스 문의 접수
 - `POST /v1/support/tickets/lookup`: 접수 번호와 1회 표시되는 조회 코드를 사용해 본인 문의 및 답변 확인
