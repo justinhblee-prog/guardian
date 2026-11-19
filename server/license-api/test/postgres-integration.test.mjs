@@ -213,6 +213,10 @@ if (!databaseUrl) {
       planCode: 'lifetime', validDays: 36500, maxDevices: 2
     }, adminHeaders);
     assert.equal(unknown.status, 400);
+    const invalidType = await post('/v1/admin/licenses', {
+      planCode: 7, validDays: 30, maxDevices: 2
+    }, adminHeaders);
+    assert.equal(invalidType.status, 400);
   });
 
   test('customers can submit and privately track support tickets while admins reply securely', async () => {
