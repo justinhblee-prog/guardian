@@ -732,18 +732,41 @@ adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
 adb_cmd shell input keyevent KEYCODE_DEL
 adb_cmd shell input text 'com.android.settings'
 sleep 1
-adb_cmd shell input keyevent KEYCODE_BACK || true
-sleep 1
+# Assert the EditText actually received the query before hiding the IME;
+# a successful shell input command alone does not prove the UI accepted it.
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if not any(node.attrib.get("class")=="android.widget.CheckBox"
-       and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
-       and node.attrib.get("visible-to-user","true")=="true"
-       and node.attrib.get("clickable")=="true"
+if not any(node.attrib.get("class")=="android.widget.EditText"
+       and node.attrib.get("text","").strip()=="com.android.settings"
        for node in root.iter("node")):
-    raise SystemExit("Settings package was not visible after filtering the dedicated app-exclusions list.")' <<<"$app_inventory_xml"
+    raise SystemExit("App-exclusion search field did not retain the entered package query.")' <<<"$app_inventory_xml"
+# The filtered app rows are rendered in batches; allow the requested package to
+# appear instead of relying on a fixed one-second render delay.
+settings_visible=0
+for attempt in $(seq 1 10); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+raise SystemExit(0 if any(node.attrib.get("class")=="android.widget.CheckBox"
+       and node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com.android.settings"
+       and node.attrib.get("clickable")=="true"
+       and node.attrib.get("enabled")=="true"
+       for node in root.iter("node")) else 1)' <<<"$app_inventory_xml"; then
+    settings_visible=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$settings_visible" -ne 1 ]]; then
+  echo "Settings package was not visible after filtering the dedicated app-exclusions list."
+  echo "$app_inventory_xml"
+  exit 1
+fi
+adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
 tap_checkbox "com.android.settings"
 # A checkbox edits only the draft. The persisted VPN exclusion must not change
 # until the user explicitly presses the save action.
