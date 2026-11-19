@@ -2479,6 +2479,7 @@ class MainActivity : Activity() {
         ).orEmpty().toMutableSet()
         var apps: List<Pair<String, String>> = emptyList()
         var inventoryReady = false
+        var inventoryMessage = "설치 앱 목록을 불러오는 중…"
         var renderGeneration = 0
         val search = EditText(this).apply {
             hint = "앱 이름 또는 패키지명 검색"
@@ -2498,11 +2499,21 @@ class MainActivity : Activity() {
             isFillViewport = true
             addView(appList, ViewGroup.LayoutParams(-1, -2))
         }
+        val retryButton = Button(this).apply {
+            text = "앱 목록 다시 불러오기"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 10)
+            isEnabled = false
+        }
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(4), dp(4), dp(4), dp(4))
             addView(search, LinearLayout.LayoutParams(-1, dp(52)))
-            addView(scroll, LinearLayout.LayoutParams(-1, dp(390)).apply {
+            addView(scroll, LinearLayout.LayoutParams(-1, dp(350)).apply {
+                topMargin = dp(8)
+            })
+            addView(retryButton, LinearLayout.LayoutParams(-1, dp(42)).apply {
                 topMargin = dp(8)
             })
         }
@@ -2511,6 +2522,12 @@ class MainActivity : Activity() {
             appList.removeAllViews()
             if (!inventoryReady) {
                 appList.addView(text("설치 앱 목록을 불러오는 중…", 12f, muted, false).apply {
+                    setPadding(dp(8), dp(12), dp(8), dp(12))
+                })
+                return
+            }
+            if (apps.isEmpty()) {
+                appList.addView(text(inventoryMessage, 12f, red, false).apply {
                     setPadding(dp(8), dp(12), dp(8), dp(12))
                 })
                 return
@@ -2595,46 +2612,41 @@ class MainActivity : Activity() {
                 }
             }
         }
-        dialog.show()
-        renderApps(search.text?.toString().orEmpty())
-        thread(name = "guardian-compatibility-app-inventory") {
-            val result = runCatching {
-                packageManager.getInstalledApplications(
-                    android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
-                )
-                    .asSequence()
-                    .filter { it.packageName != packageName }
-                    .map { info ->
-                        info.packageName to try {
-                            info.loadLabel(packageManager).toString()
-                        } catch (error: Exception) {
-                            android.util.Log.w("GuardianApps", "Could not load compatibility app label for ${info.packageName}", error)
-                            info.packageName
-                        }
-                    }
-                    .distinctBy { it.first }
-                    .sortedWith(compareBy<Pair<String, String>>(
-                        { it.second.lowercase(Locale.ROOT) },
-                        { it.first.lowercase(Locale.ROOT) }
-                    ))
-                    .toList()
-            }
-            runOnUiThread {
-                if (!dialog.isShowing) return@runOnUiThread
-                result.onSuccess { loaded ->
-                    apps = loaded
+        fun loadInventory() {
+            inventoryReady = false
+            inventoryMessage = "설치 앱 목록을 불러오는 중…"
+            retryButton.isEnabled = false
+            retryButton.text = "앱 목록 조회 중…"
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+            renderApps(search.text?.toString().orEmpty())
+            thread(name = "guardian-compatibility-app-inventory") {
+                val result = runCatching { InstalledAppInventory.load(this@MainActivity) }
+                runOnUiThread {
+                    if (!dialog.isShowing) return@runOnUiThread
                     inventoryReady = true
+                    result.onSuccess { snapshot ->
+                        apps = snapshot.apps
+                        inventoryMessage = snapshot.statusMessage()
+                        android.util.Log.i(
+                            "GuardianApps",
+                            "Compatibility picker loaded ${apps.size} apps; queryAllPackages=${snapshot.queryAllPackagesGranted}, launcherFallback=${snapshot.launcherFallbackCount}"
+                        )
+                    }.onFailure { error ->
+                        apps = emptyList()
+                        inventoryMessage = "설치 앱 조회 실패: ${error.message ?: error.javaClass.simpleName}"
+                        android.util.Log.e("GuardianApps", "Could not load compatibility app inventory", error)
+                    }
+                    retryButton.text = if (apps.isEmpty()) "다시 조회" else "목록 새로고침"
+                    retryButton.isEnabled = true
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = apps.isNotEmpty()
                     renderApps(search.text?.toString().orEmpty())
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
-                }.onFailure { error ->
-                    android.util.Log.e("GuardianApps", "Could not load compatibility app inventory", error)
-                    appList.removeAllViews()
-                    appList.addView(this@MainActivity.text("설치 앱 목록을 불러오지 못했습니다. 다시 시도해 주세요.", 12f, red, false).apply {
-                        setPadding(dp(8), dp(12), dp(8), dp(12))
-                    })
                 }
             }
         }
+        retryButton.setOnClickListener { loadInventory() }
+        dialog.show()
+        renderApps(search.text?.toString().orEmpty())
+        loadInventory()
     }
     private fun notifyCompatibilitySettingsChanged() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
