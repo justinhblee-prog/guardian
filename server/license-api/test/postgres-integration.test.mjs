@@ -247,7 +247,7 @@ if (!databaseUrl) {
       category: 'question',
       subject: '이메일 문자 검증',
       message: '이 문의 내용은 이메일 문자 검증 테스트입니다.',
-      email: 'bad\\u0000@example.test'
+      email: 'bad\u0000@example.test'
     });
     assert.equal(nulEmail.status, 400);
 
