@@ -664,7 +664,7 @@ class MainActivity : Activity() {
         val homeOrange = Color.rgb(244, 116, 74)
         val wideDashboard = ResponsiveLayoutPolicy.usesTwoColumnDashboard(resources.configuration.screenWidthDp)
 
-        body.addView(text("보호 대시보드", 24f, white, true))
+        body.addView(text("보호 현황", 24f, white, true))
         body.addView(text("기기의 DNS 연결과 차단 활동을 한눈에 확인합니다.", 12f, muted, false).withTop(4))
 
         val hero = card(homeBg, 22).apply {
@@ -678,47 +678,6 @@ class MainActivity : Activity() {
         brandRow.addView(text("◆  GUARDIAN", 17f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
         brandRow.addView(text("AD BLOCK", 10f, homeGreen, true))
         hero.addView(brandRow)
-
-        val featureRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(0, dp(24), 0, dp(18))
-        }
-        listOf(
-            Triple("protection", "▣", "보호"),
-            Triple("app-exclusions", "◉", "앱 제외"),
-            Triple("rules", "!", "차단"),
-            Triple("activity", "▤", "활동"),
-            Triple("premium", "✦", "프리미엄"),
-            Triple("settings", "⚙", "설정")
-        ).forEach { (destination, glyph, label) ->
-            val item = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                isClickable = true
-                isFocusable = true
-                contentDescription = "$label 화면 열기"
-                background = shape(homePanel, 10)
-                setOnClickListener { navigateToTab(destination) }
-            }
-            item.addView(TextView(this).apply {
-                text = glyph
-                textSize = 22f
-                gravity = Gravity.CENTER
-                setTextColor(homeGreen)
-            })
-            item.addView(TextView(this).apply {
-                text = label
-                textSize = 9f
-                gravity = Gravity.CENTER
-                setTextColor(white)
-            })
-            featureRow.addView(item, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
-                marginStart = dp(2)
-                marginEnd = dp(2)
-            })
-        }
-        hero.addView(featureRow)
 
         statusDot = text("●  PROTECTION OFF", 10f, homeOrange, true).apply {
             gravity = Gravity.CENTER
@@ -744,17 +703,6 @@ class MainActivity : Activity() {
         }
         startButton = power
         hero.addView(power, LinearLayout.LayoutParams(dp(150), dp(62)).apply { gravity = Gravity.CENTER })
-        val stop = Button(this).apply {
-            text = "보호 중지"
-            isAllCaps = false
-            textSize = 13f
-            setTextColor(white)
-            background = shape(homePanel, 14)
-            setOnClickListener {
-                startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_STOP))
-            }
-        }
-        hero.addView(stop, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(14) })
         body.addView(hero.withTop(18))
 
         val metrics = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -779,11 +727,11 @@ class MainActivity : Activity() {
         body.addView(card(homePanel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
-            addView(text("앱 및 필터 업데이트", 15f, white, true))
+            addView(text("앱 업데이트", 15f, white, true))
             addView(text("설치된 앱 버전  $versionName", 12f, homeGreen, true).withTop(9))
-            addView(text("앱 업데이트는 설정에서 직접 확인합니다. 필터 목록 업데이트와 앱 업데이트 상태를 구분해 표시합니다.", 11f, muted, false).withTop(6))
+            addView(text("새 앱 버전 확인과 설치는 설정의 업데이트 관리에서 진행합니다.", 11f, muted, false).withTop(6))
             addView(Button(this@MainActivity).apply {
-                text = "업데이트 관리"
+                text = "업데이트 관리 열기"
                 isAllCaps = false
                 setTextColor(white)
                 background = shape(homeBg, 12)
@@ -799,13 +747,13 @@ class MainActivity : Activity() {
         left.addView(card(homePanel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(15), dp(14), dp(15), dp(14))
-            addView(text("실시간 DNS 통계", 14f, white, true))
+            addView(text("실시간 차단 현황", 14f, white, true))
             statsText = text("질의 0 · 차단 0 · 전달 0 · 실패 0", 12f, homeGreen, true).withTop(9) as TextView
             addView(statsText)
             recentText = text("아직 기록된 DNS 활동이 없습니다.", 11f, muted, false).withTop(8) as TextView
             addView(recentText)
             addView(Button(this@MainActivity).apply {
-                text = "상세 활동 보기"
+                text = "차단 기록 보기"
                 isAllCaps = false
                 setTextColor(white)
                 background = shape(homeBg, 12)
@@ -830,10 +778,10 @@ class MainActivity : Activity() {
         left.addView(card(homePanel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(15), dp(14), dp(15), dp(14))
-            addView(text("필터 및 차단 옵션", 14f, white, true))
+            addView(text("필터 관리", 14f, white, true))
             addView(text("광고·추적 도메인 필터와 사용자 차단·허용 규칙을 관리합니다.", 11f, muted, false).withTop(7))
             addView(Button(this@MainActivity).apply {
-                text = "필터 설정 열기"
+                text = "필터 관리 열기"
                 isAllCaps = false
                 setTextColor(white)
                 background = shape(homeBg, 12)
@@ -857,7 +805,7 @@ class MainActivity : Activity() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val summary = card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("실시간 DNS 통계", 14f, white, true))
+            addView(text("실시간 차단 현황", 14f, white, true))
             statsText = text(
                 "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)}",
                 12f, accent, true
@@ -1554,8 +1502,8 @@ class MainActivity : Activity() {
                     11f, muted, false
                 ).withTop(5))
                 addView(updateStatus)
-                addView(Button(this@MainActivity).apply {
-                    text = "수동으로 업데이트 확인"
+                val checkUpdateButton = Button(this@MainActivity).apply {
+                    text = "업데이트 확인"
                     isAllCaps = false
                     setTextColor(bg)
                     background = shape(accent, 12)
@@ -1571,7 +1519,7 @@ class MainActivity : Activity() {
                                     runOnUiThread {
                                         updateStatus.text = "현재 설치된 버전이 최신 개발 버전입니다."
                                         setUpdateInstallButtonReady(installUpdateButton, false)
-                                        isEnabled = true
+                                        checkUpdateButton.isEnabled = true
                                     }
                                 } else {
                                     runOnUiThread {
@@ -1580,22 +1528,23 @@ class MainActivity : Activity() {
                                     val apk = DevUpdateManager.download(this@MainActivity, update)
                                     runOnUiThread {
                                         downloadedUpdate = apk
+                                        checkUpdateButton.isEnabled = false
                                         setUpdateInstallButtonReady(installUpdateButton, true)
-                                        updateStatus.text = "다운로드 및 SHA-256/서명 지문 확인 완료: ${update.versionName}. 원하실 때 설치 버튼을 누르세요."
+                                        updateStatus.text = "다운로드 및 SHA-256/서명 지문 확인 완료: ${update.versionName}. 설치할 수 있습니다."
                                     }
                                 }
                             } catch (error: Exception) {
                                 runOnUiThread {
                                     downloadedUpdate = null
                                     setUpdateInstallButtonReady(installUpdateButton, false)
+                                    checkUpdateButton.isEnabled = true
                                     updateStatus.text = error.message ?: "업데이트 확인 또는 다운로드에 실패했습니다."
                                 }
-                            } finally {
-                                runOnUiThread { isEnabled = true }
                             }
                         }
                     }
-                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+                }
+                addView(checkUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
                 addView(installUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
             }.withTop(12))
         } else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED) {
@@ -1634,8 +1583,8 @@ class MainActivity : Activity() {
                     11f, muted, false
                 ).withTop(5))
                 addView(updateStatus)
-                addView(Button(this@MainActivity).apply {
-                    text = "수동으로 정식 업데이트 확인"
+                val checkUpdateButton = Button(this@MainActivity).apply {
+                    text = "업데이트 확인"
                     isAllCaps = false
                     setTextColor(bg)
                     background = shape(accent, 12)
@@ -1651,7 +1600,7 @@ class MainActivity : Activity() {
                                     runOnUiThread {
                                         updateStatus.text = "현재 설치된 정식 버전이 최신입니다."
                                         setUpdateInstallButtonReady(installUpdateButton, false)
-                                        isEnabled = true
+                                        checkUpdateButton.isEnabled = true
                                     }
                                 } else {
                                     runOnUiThread {
@@ -1660,22 +1609,23 @@ class MainActivity : Activity() {
                                     val apk = GuardianStableUpdateManager.download(this@MainActivity, update)
                                     runOnUiThread {
                                         downloadedUpdate = apk
+                                        checkUpdateButton.isEnabled = false
                                         setUpdateInstallButtonReady(installUpdateButton, true)
-                                        updateStatus.text = "다운로드 및 SHA-256/패키지/서명 검증 완료: ${update.versionName}. 강조된 '지금 정식 업데이트 설치' 버튼을 누르세요."
+                                        updateStatus.text = "다운로드 및 SHA-256/패키지/서명 검증 완료: ${update.versionName}. 설치할 수 있습니다."
                                     }
                                 }
                             } catch (error: Exception) {
                                 runOnUiThread {
                                     downloadedUpdate = null
                                     setUpdateInstallButtonReady(installUpdateButton, false)
+                                    checkUpdateButton.isEnabled = true
                                     updateStatus.text = error.message ?: "정식 업데이트 확인 또는 다운로드에 실패했습니다."
                                 }
-                            } finally {
-                                runOnUiThread { isEnabled = true }
                             }
                         }
                     }
-                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+                }
+                addView(checkUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
                 addView(installUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
             }.withTop(12))
         }
@@ -2135,10 +2085,10 @@ class MainActivity : Activity() {
         val items = listOf(
             Triple("home", "⌂", "홈"),
             Triple("protection", "◈", "보호"),
-            Triple("app-exclusions", "◉", "앱 제외"),
-            Triple("activity", "▤", "활동"),
-            Triple("premium", "✦", "프리미엄"),
-            Triple("rules", "≡", "필터"),
+            Triple("app-exclusions", "◉", "앱별 제외"),
+            Triple("activity", "▤", "차단 기록"),
+            Triple("premium", "✦", "프리미엄 기능"),
+            Triple("rules", "≡", "필터 관리"),
             Triple("settings", "⚙", "설정")
         )
         items.forEach { (id, icon, label) ->
