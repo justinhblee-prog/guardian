@@ -2238,8 +2238,9 @@ class MainActivity : Activity() {
             )
         }
 
-        compatibilityStatusText = text("", 11f, muted, false).withTop(9) as TextView
-        section.addView(compatibilityStatusText)
+        val statusText = text("", 11f, muted, false).withTop(9) as TextView
+        compatibilityStatusText = statusText
+        section.addView(statusText)
 
         val accessButton = Button(this).apply {
             text = if (usageAccess) "사용 정보 접근 권한 허용됨" else "사용 정보 접근 권한 허용"
@@ -2253,18 +2254,19 @@ class MainActivity : Activity() {
             topMargin = dp(9)
         })
 
-        compatibilityAppsButton = Button(this).apply {
+        val appsButton = Button(this).apply {
             text = "일시중지 앱 선택 (${selected.size}개)"
             setTextColor(white)
             background = shape(panel2, 10)
             contentDescription = "VPN 자동 일시중지 앱 선택"
             setOnClickListener { showCompatibilityPauseAppsDialog() }
         }
-        section.addView(compatibilityAppsButton, LinearLayout.LayoutParams(-1, dp(46)).apply {
+        compatibilityAppsButton = appsButton
+        section.addView(appsButton, LinearLayout.LayoutParams(-1, dp(46)).apply {
             topMargin = dp(8)
         })
 
-        compatibilityPauseSwitch = Switch(this).apply {
+        val pauseSwitch = Switch(this).apply {
             text = "선택 앱 실행 중 VPN 전체 일시중지"
             contentDescription = "선택 앱 실행 중 VPN 자동 일시중지"
             setTextColor(white)
@@ -2330,7 +2332,8 @@ class MainActivity : Activity() {
                     .show()
             }
         }
-        section.addView(compatibilityPauseSwitch, LinearLayout.LayoutParams(-1, dp(48)).apply {
+        compatibilityPauseSwitch = pauseSwitch
+        section.addView(pauseSwitch, LinearLayout.LayoutParams(-1, dp(48)).apply {
             topMargin = dp(8)
         })
 
