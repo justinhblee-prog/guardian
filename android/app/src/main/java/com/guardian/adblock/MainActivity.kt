@@ -1158,20 +1158,10 @@ class MainActivity : Activity() {
             addView(text("현재 필터 프로필", 11f, muted, true))
             addView(text(profile.label, 15f, white, true).withTop(6))
             addView(text(filterStatusDescription(), 11f, muted, false).withTop(6))
-            addView(Button(this@MainActivity).apply {
-                text = "필터 및 사용자 규칙 관리"
-                isAllCaps = false
-                setTextColor(white)
-                background = shape(panel2, 12)
-                setOnClickListener { showTab("rules") }
-            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(12) })
-            addView(Button(this@MainActivity).apply {
-                text = "앱별 보호 제외 관리"
-                isAllCaps = false
-                setTextColor(white)
-                background = shape(panel2, 12)
-                setOnClickListener { showTab("app-exclusions") }
-            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(8) })
+            addView(text(
+                "필터 규칙과 앱별 보호 제외는 하단 메뉴에서 각각 관리합니다.",
+                11f, muted, false
+            ).withTop(12))
         }.withTop(18))
 
         body.addView(text("현재 보호 범위", 18f, white, true).withTop(24))
