@@ -183,85 +183,9 @@ class MainActivity : Activity() {
                 .apply()
         }
         FilterUpdateScheduler.sync(this)
-        if (BuildConfig.DEBUG) {
-            // Development channel: check prereleases every six hours.
-            thread(name = "guardian-dev-update-startup") {
-                try {
-                    val updatePrefs = getSharedPreferences("guardian_dev_updates", MODE_PRIVATE)
-                    val now = System.currentTimeMillis()
-                    val lastCheck = updatePrefs.getLong("last_check_at", 0L)
-                    if (now - lastCheck >= 6L * 60L * 60L * 1000L) {
-                        updatePrefs.edit().putLong("last_check_at", now).apply()
-                        val available = DevUpdateManager.checkForUpdate()
-                        if (available != null) {
-                            val apk = DevUpdateManager.download(this, available)
-                            runOnUiThread {
-                                if (!isFinishing && !isDestroyed) {
-                                    AlertDialog.Builder(this)
-                                        .setTitle("Guardian 개발 업데이트")
-                                        .setMessage("${available.versionName} 버전을 다운로드하고 검증했습니다. 지금 설치하시겠습니까?")
-                                        .setNegativeButton("나중에", null)
-                                        .setPositiveButton("업데이트 설치") { _, _ ->
-                                            try {
-                                                val launched = DevUpdateManager.install(this, apk)
-                                                if (!launched) {
-                                                    AlertDialog.Builder(this)
-                                                        .setMessage("설정에서 Guardian의 알 수 없는 앱 설치를 허용한 다음 업데이트 설치를 진행해 주세요.")
-                                                        .setPositiveButton("확인", null).show()
-                                                }
-                                            } catch (error: Exception) {
-                                                android.util.Log.e("GuardianUpdate", "Could not launch development package installer", error)
-                                            }
-                                        }.show()
-                                }
-                            }
-                        }
-                    }
-                } catch (error: Exception) {
-                    android.util.Log.w("GuardianUpdate", "Automatic development update check failed", error)
-                }
-            }
-        } else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED) {
-            // Direct-install stable channel only. Google Play builds are updated by Play itself.
-            // Store the throttle timestamp only after the release feed responds successfully.
-            // Android always displays its own install-consent screen; no silent install is attempted.
-            thread(name = "guardian-stable-update-startup") {
-                try {
-                    val updatePrefs = getSharedPreferences("guardian_stable_updates", MODE_PRIVATE)
-                    val now = System.currentTimeMillis()
-                    val lastCheck = updatePrefs.getLong("last_check_at", 0L)
-                    if (now - lastCheck >= 24L * 60L * 60L * 1000L) {
-                        val available = GuardianStableUpdateManager.checkForUpdate()
-                        updatePrefs.edit().putLong("last_check_at", now).apply()
-                        if (available != null) {
-                            val apk = GuardianStableUpdateManager.download(this, available)
-                            runOnUiThread {
-                                if (!isFinishing && !isDestroyed) {
-                                    AlertDialog.Builder(this)
-                                        .setTitle("Guardian 정식 업데이트")
-                                        .setMessage("${available.versionName} 정식 버전을 다운로드하고 무결성·패키지·서명 검증을 마쳤습니다. Android 설치 화면을 여시겠습니까?")
-                                        .setNegativeButton("나중에", null)
-                                        .setPositiveButton("업데이트 설치") { _, _ ->
-                                            try {
-                                                val launched = GuardianStableUpdateManager.install(this, apk)
-                                                if (!launched) {
-                                                    AlertDialog.Builder(this)
-                                                        .setMessage("설정에서 Guardian의 알 수 없는 앱 설치를 허용한 다음 설정 화면에서 업데이트 설치를 다시 눌러주세요.")
-                                                        .setPositiveButton("확인", null).show()
-                                                }
-                                            } catch (error: Exception) {
-                                                android.util.Log.e("GuardianUpdate", "Could not launch stable package installer", error)
-                                            }
-                                        }.show()
-                                }
-                            }
-                        }
-                    }
-                } catch (error: Exception) {
-                    android.util.Log.w("GuardianUpdate", "Automatic stable update check failed", error)
-                }
-            }
-        }
+        // Update discovery is user-initiated from Settings. Do not run a
+        // background development/stable update check or show an install prompt
+        // automatically on every app launch.
         // Cache recovery and integrity checks can hash multi-megabyte filter
         // files. Never perform them on the main thread during Activity startup.
         thread(name = "guardian-startup-filter-check") {
@@ -351,6 +275,49 @@ class MainActivity : Activity() {
                 showTab("settings")
                 refreshStatus()
             }
+        }
+        restoreProtectionAfterUpdateIfNeeded()
+    }
+
+    /**
+     * MY_PACKAGE_REPLACED is the primary restore signal. This UI-resume fallback
+     * covers devices that defer or reject the receiver's foreground-service start.
+     * It never overrides an explicit user stop or a deliberate compatibility pause.
+     */
+    private fun restoreProtectionAfterUpdateIfNeeded() {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean(GuardianVpnService.KEY_RESTORE_REQUESTED, false) ||
+            prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false) ||
+            prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+        ) return
+
+        val now = System.currentTimeMillis()
+        val pending = prefs.getBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
+        val pendingAt = prefs.getLong("protection_recovery_requested_at", 0L)
+        if (pending && now - pendingAt < 30_000L) return
+
+        val lastAttempt = prefs.getLong("protection_ui_restore_retry_at", 0L)
+        if (now - lastAttempt < 15_000L) return
+        prefs.edit()
+            .putLong("protection_ui_restore_retry_at", now)
+            .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, true)
+            .putLong("protection_recovery_requested_at", now)
+            .putString(GuardianVpnService.KEY_STATUS, "업데이트 후 VPN 보호를 자동으로 다시 연결하고 있습니다.")
+            .commit()
+        try {
+            val service = Intent(this, GuardianVpnService::class.java)
+                .setAction(GuardianVpnService.ACTION_START)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(service)
+            } else {
+                startService(service)
+            }
+        } catch (error: Exception) {
+            android.util.Log.e("GuardianProtection", "UI fallback could not restart protection after update", error)
+            prefs.edit()
+                .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
+                .putString(GuardianVpnService.KEY_STATUS, "업데이트 후 VPN 자동 복구 요청에 실패했습니다. 다시 시도합니다.")
+                .commit()
         }
     }
 
@@ -1360,7 +1327,7 @@ class MainActivity : Activity() {
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         if (BuildConfig.DEBUG) {
             val updateStatus = text(
-                "현재 개발 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 앱 실행 시 새 버전을 확인합니다.",
+                "자동 업데이트 확인: 꺼짐 · 현재 개발 버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 11f, muted, false
             ).withTop(8) as TextView
             var downloadedUpdate: File? = null
@@ -1388,14 +1355,14 @@ class MainActivity : Activity() {
             }
             body.addView(card(panel, 14).apply {
                 setPadding(dp(15), dp(15), dp(15), dp(15))
-                addView(text("개발 버전 자동 업데이트", 15f, white, true))
+                addView(text("개발 버전 업데이트 (수동)", 15f, white, true))
                 addView(text(
-                    "GitHub 개발 배포 채널에서 새 APK를 확인하고 자동 다운로드합니다. SHA-256과 현재 설치본의 서명 인증서를 확인한 뒤 Android 설치 승인 화면을 엽니다.",
+                    "자동 확인 및 다운로드는 실행하지 않습니다. 아래 버튼을 직접 누른 경우에만 새 APK를 확인하고 다운로드합니다. SHA-256과 서명을 검증한 뒤 설치를 진행합니다.",
                     11f, muted, false
                 ).withTop(5))
                 addView(updateStatus)
                 addView(Button(this@MainActivity).apply {
-                    text = "지금 업데이트 확인"
+                    text = "수동으로 업데이트 확인"
                     isAllCaps = false
                     setTextColor(bg)
                     background = shape(accent, 12)
@@ -1421,7 +1388,7 @@ class MainActivity : Activity() {
                                     runOnUiThread {
                                         downloadedUpdate = apk
                                         setUpdateInstallButtonReady(installUpdateButton, true)
-                                        updateStatus.text = "다운로드 및 SHA-256/서명 지문 확인 완료: ${update.versionName}. 강조된 '지금 개발 업데이트 설치' 버튼을 누르세요."
+                                        updateStatus.text = "다운로드 및 SHA-256/서명 지문 확인 완료: ${update.versionName}. 원하실 때 설치 버튼을 누르세요."
                                     }
                                 }
                             } catch (error: Exception) {
