@@ -8,6 +8,15 @@ import android.os.Process
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
+internal object AppForegroundPauseSettings {
+    const val ACTION_SETTINGS_CHANGED = "com.guardian.adblock.COMPATIBILITY_SETTINGS_CHANGED"
+    const val KEY_ENABLED = "app_foreground_auto_pause_enabled"
+    const val KEY_PACKAGES = "app_foreground_auto_pause_packages"
+    const val KEY_PAUSED = "app_foreground_auto_pause_active"
+    const val KEY_PAUSED_PACKAGE = "app_foreground_auto_pause_package"
+    const val KEY_ERROR = "app_foreground_auto_pause_error"
+}
+
 /**
  * Tracks only whether one of the user-selected packages currently has a resumed activity.
  * Events are processed in memory and are never persisted or uploaded.
@@ -126,8 +135,10 @@ internal class ForegroundAppMonitor(
                 val nextTarget = tracker.activeTarget(targets)
                 if (nextTarget != activeTarget) {
                     activeTarget = nextTarget
-                    onForegroundTargetChanged(nextTarget)
                 }
+                // Poll callbacks are intentional: if a prior packet worker needed
+                // extra time to exit, the service can retry the automatic VPN resume.
+                onForegroundTargetChanged(nextTarget)
 
                 try {
                     Thread.sleep(pollIntervalMs)
