@@ -1125,7 +1125,7 @@ class MainActivity : Activity() {
         body.addView(protectionSwitchCard(
             "자동 필터 업데이트",
             "네트워크 연결 시 설정한 주기에 따라 광고·추적 필터를 갱신합니다.",
-            prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
+            prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false)
         ) { checked ->
             prefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).apply()
             FilterUpdateScheduler.sync(this)
@@ -2155,7 +2155,7 @@ class MainActivity : Activity() {
             text = "앱 실행 시 자동으로 최신 필터 확인"
             textSize = 12f
             setTextColor(white)
-            isChecked = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
+            isChecked = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false)
             setOnCheckedChangeListener { _, checked ->
                 prefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).apply()
                 FilterUpdateScheduler.sync(this@MainActivity)
