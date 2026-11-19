@@ -2497,6 +2497,7 @@ class MainActivity : Activity() {
             background = shape(panel2, 10)
         }
         val appList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val inventorySummary = text("설치 앱 목록을 불러오는 중…", 11f, muted, false)
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             addView(appList, ViewGroup.LayoutParams(-1, -2))
@@ -2512,7 +2513,8 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(4), dp(4), dp(4), dp(4))
             addView(search, LinearLayout.LayoutParams(-1, dp(52)))
-            addView(scroll, LinearLayout.LayoutParams(-1, dp(350)).apply {
+            addView(inventorySummary, LinearLayout.LayoutParams(-1, dp(36)))
+            addView(scroll, LinearLayout.LayoutParams(-1, dp(314)).apply {
                 topMargin = dp(8)
             })
             addView(retryButton, LinearLayout.LayoutParams(-1, dp(42)).apply {
@@ -2617,6 +2619,7 @@ class MainActivity : Activity() {
         fun loadInventory() {
             inventoryReady = false
             inventoryMessage = "설치 앱 목록을 불러오는 중…"
+            inventorySummary.text = inventoryMessage
             retryButton.isEnabled = false
             retryButton.text = "앱 목록 조회 중…"
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
@@ -2629,6 +2632,7 @@ class MainActivity : Activity() {
                     result.onSuccess { snapshot ->
                         apps = snapshot.apps
                         inventoryMessage = snapshot.statusMessage()
+                        inventorySummary.text = inventoryMessage
                         android.util.Log.i(
                             "GuardianApps",
                             "Compatibility picker loaded ${apps.size} apps; queryAllPackages=${snapshot.queryAllPackagesGranted}, launcherFallback=${snapshot.launcherFallbackCount}"
@@ -2636,6 +2640,7 @@ class MainActivity : Activity() {
                     }.onFailure { error ->
                         apps = emptyList()
                         inventoryMessage = "설치 앱 조회 실패: ${error.message ?: error.javaClass.simpleName}"
+                        inventorySummary.text = inventoryMessage
                         android.util.Log.e("GuardianApps", "Could not load compatibility app inventory", error)
                     }
                     retryButton.text = if (apps.isEmpty()) "다시 조회" else "목록 새로고침"
