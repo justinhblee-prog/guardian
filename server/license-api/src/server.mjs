@@ -473,9 +473,10 @@ const server = http.createServer(async (req, res) => {
              to_regclass('public.licenses') AS licenses,
              to_regclass('public.activations') AS activations,
              to_regclass('public.license_events') AS license_events,
-             to_regclass('public.api_rate_limit_buckets') AS api_rate_limit_buckets`
+             to_regclass('public.api_rate_limit_buckets') AS api_rate_limit_buckets,
+             to_regclass('public.support_tickets') AS support_tickets`
         );
-        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets'];
+        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets'];
         if (requiredTables.some(table => !schema.rows[0]?.[table])) {
           throw new Error('license_database_schema_not_initialized');
         }
