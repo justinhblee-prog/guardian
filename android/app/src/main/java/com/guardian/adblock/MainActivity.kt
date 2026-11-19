@@ -2154,7 +2154,11 @@ class MainActivity : Activity() {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
         }
         val message = field("문의 또는 의견을 자세히 입력하세요 (10~5,000자)", true)
-        form.addView(text("문의 유형", 11f, muted, true))
+        form.addView(text(
+            "라이선스 키, 비밀번호, 관리자 토큰 또는 결제 카드 정보를 문의 내용에 입력하지 마세요.",
+            10f, muted, false
+        ))
+        form.addView(text("문의 유형", 11f, muted, true).withTop(7))
         form.addView(category, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(5) })
         form.addView(subject, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(9) })
         form.addView(email, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
