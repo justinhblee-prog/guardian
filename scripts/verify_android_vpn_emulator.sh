@@ -945,7 +945,7 @@ if ! grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
 fi
 # Simulate an installation from a pre-restore-intent build. The new app must
 # migrate using the legacy active flag if the durable preference did not exist.
-legacy_prefs="$(read_prefs | sed 's|<boolean name="protection_restore_requested" value="true" />||g; s|<boolean name="protection_restore_requested" value="false" />||g')"
+legacy_prefs="$(read_prefs | sed 's|<boolean name="protection_restore_requested" value="true" />||g; s|<boolean name="protection_restore_requested" value="false" />||g; s|<boolean name="filter_auto_update" value="true" />|<boolean name="filter_auto_update" value="false" />|g')"
 printf '%s' "$legacy_prefs" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
 if grep -q 'name="protection_restore_requested"' <<<"$(read_prefs)"; then
   echo "Legacy upgrade fixture unexpectedly retained the new restore-intent preference."
@@ -977,6 +977,13 @@ if [[ "$restore_requested" -ne 1 || "$restore_receiver_seen" -ne 1 ]]; then
   read_prefs
   adb_cmd logcat -d -t 6000 | grep -E 'GuardianProtection|GuardianVpn|MY_PACKAGE_REPLACED|FATAL EXCEPTION' | tail -250 || true
   adb_cmd shell dumpsys vpn || true
+  exit 1
+fi
+
+prefs="$(read_prefs)"
+if ! grep -q 'name="filter_auto_update"[^>]*value="false"' <<<"$prefs"; then
+  echo "The upgrade changed the user's explicit automatic filter-update OFF preference."
+  read_prefs
   exit 1
 fi
 
