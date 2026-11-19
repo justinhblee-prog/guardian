@@ -15,6 +15,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.VpnService
+import android.provider.Settings
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
@@ -70,6 +71,11 @@ class MainActivity : Activity() {
     private var filterUpdateButton: Button? = null
     private var appFilterFeedback: TextView? = null
     private var appExclusionsSearchInput: EditText? = null
+    private var compatibilityStatusText: TextView? = null
+    private var compatibilityAppsButton: Button? = null
+    private var compatibilityPauseSwitch: Switch? = null
+    private var usageAccessSettingsOpened = false
+    private var syncingCompatibilitySwitch = false
     private var focusAppExclusionsOnBuild = false
     private var blockRateValue: TextView? = null
     private var blockedCountValue: TextView? = null
@@ -337,6 +343,17 @@ class MainActivity : Activity() {
         upstreamTestText?.text = upstreamTestDescription()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (usageAccessSettingsOpened) {
+            usageAccessSettingsOpened = false
+            if (currentTab == "settings") {
+                showTab("settings")
+                refreshStatus()
+            }
+        }
+    }
+
     override fun onStop() {
         if (receiverRegistered) {
             unregisterReceiver(stateReceiver)
@@ -394,6 +411,9 @@ class MainActivity : Activity() {
         filterUpdateButton = null
         appFilterFeedback = null
         appExclusionsSearchInput = null
+        compatibilityStatusText = null
+        compatibilityAppsButton = null
+        compatibilityPauseSwitch = null
         blockRateValue = null
         blockedCountValue = null
         queryCountValue = null
@@ -1009,11 +1029,14 @@ class MainActivity : Activity() {
                 setTextColor(if (active) white else bg)
                 background = shape(if (active) panel2 else accent, 13)
                 setOnClickListener {
+                    val compatibilityPaused = prefs.getBoolean(
+                        AppForegroundPauseSettings.KEY_PAUSED, false
+                    )
                     val isActive = ProtectionState.isActive(
                         prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
                         GuardianVpnService.isTunnelActive()
                     )
-                    if (isActive) {
+                    if (isActive || compatibilityPaused) {
                         startService(Intent(this@MainActivity, GuardianVpnService::class.java)
                             .setAction(GuardianVpnService.ACTION_STOP))
                     } else {
@@ -1930,6 +1953,7 @@ class MainActivity : Activity() {
         body.addView(text("앱별 보호 제외", 18f, white, true).withTop(24))
         body.addView(text("선택한 앱은 Guardian VPN 필터링에서 제외됩니다. 보호 중 변경하면 VPN에 자동 적용되고, 보호가 꺼져 있으면 다음 연결 때 적용됩니다.", 12f, muted, false).withTop(5))
         buildAppExclusions(body)
+        buildCompatibilityPauseSection(body)
         body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
     }
 
@@ -2194,6 +2218,331 @@ class MainActivity : Activity() {
             10f, muted, false
         ).withTop(4))
         return wrapper
+    }
+
+    private fun buildCompatibilityPauseSection(body: LinearLayout) {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val selected = prefs.getStringSet(AppForegroundPauseSettings.KEY_PACKAGES, emptySet()).orEmpty()
+        val enabled = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+        val usageAccess = ForegroundAppMonitor.hasUsageAccess(this)
+
+        val section = card(panel, 16).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            addView(text("앱 실행 중 VPN 자동 일시중지", 15f, white, true))
+            addView(
+                text(
+                    "선택한 앱이 화면에 표시되는 동안 Guardian VPN 연결을 기기 전체에서 일시 중지하고, 앱을 닫으면 자동으로 다시 연결합니다. 일시중지 중에는 다른 앱도 DNS 보호를 받지 못합니다.",
+                    11f, muted, false
+                ).withTop(6)
+            )
+        }
+
+        val statusText = text("", 11f, muted, false).withTop(9) as TextView
+        compatibilityStatusText = statusText
+        section.addView(statusText)
+
+        val accessButton = Button(this).apply {
+            text = if (usageAccess) "사용 정보 접근 권한 허용됨" else "사용 정보 접근 권한 허용"
+            setTextColor(if (usageAccess) muted else white)
+            background = shape(panel2, 10)
+            isEnabled = !usageAccess
+            contentDescription = "사용 정보 접근 권한 설정"
+            setOnClickListener { requestUsageAccessForCompatibilityPause() }
+        }
+        section.addView(accessButton, LinearLayout.LayoutParams(-1, dp(46)).apply {
+            topMargin = dp(9)
+        })
+
+        val appsButton = Button(this).apply {
+            text = "일시중지 앱 선택 (${selected.size}개)"
+            setTextColor(white)
+            background = shape(panel2, 10)
+            contentDescription = "VPN 자동 일시중지 앱 선택"
+            setOnClickListener { showCompatibilityPauseAppsDialog() }
+        }
+        compatibilityAppsButton = appsButton
+        section.addView(appsButton, LinearLayout.LayoutParams(-1, dp(46)).apply {
+            topMargin = dp(8)
+        })
+
+        val pauseSwitch = Switch(this).apply {
+            text = "선택 앱 실행 중 VPN 전체 일시중지"
+            contentDescription = "선택 앱 실행 중 VPN 자동 일시중지"
+            setTextColor(white)
+            textSize = 13f
+            isChecked = enabled
+            setOnCheckedChangeListener { _, checked ->
+                if (syncingCompatibilitySwitch) return@setOnCheckedChangeListener
+                if (!checked) {
+                    prefs.edit()
+                        .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                        .remove(AppForegroundPauseSettings.KEY_ERROR)
+                        .commit()
+                    notifyCompatibilitySettingsChanged()
+                    updateCompatibilityPauseStatus()
+                    return@setOnCheckedChangeListener
+                }
+
+                syncingCompatibilitySwitch = true
+                isChecked = false
+                syncingCompatibilitySwitch = false
+
+                if (!ForegroundAppMonitor.hasUsageAccess(this@MainActivity)) {
+                    requestUsageAccessForCompatibilityPause()
+                    return@setOnCheckedChangeListener
+                }
+                val currentSelected = prefs.getStringSet(
+                    AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
+                ).orEmpty()
+                if (currentSelected.isEmpty()) {
+                    android.widget.Toast.makeText(
+                        this@MainActivity,
+                        "먼저 VPN을 일시중지할 앱을 선택해 주세요.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    return@setOnCheckedChangeListener
+                }
+
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("기기 전체 VPN 일시중지")
+                    .setMessage(
+                        "선택한 앱이 화면에 표시되는 동안 Guardian VPN 연결을 완전히 중지합니다. 이 시간에는 기기 전체가 DNS 보호를 받지 못합니다. 선택 앱을 닫으면 자동으로 다시 연결됩니다. 사용 중인 앱 이름은 현재 실행 앱 확인에만 기기 안에서 사용하며 사용 이력을 저장하거나 서버로 전송하지 않습니다."
+                    )
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("활성화") { _, _ ->
+                        val saved = prefs.edit()
+                            .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, true)
+                            .remove(AppForegroundPauseSettings.KEY_ERROR)
+                            .commit()
+                        if (!saved) {
+                            android.widget.Toast.makeText(
+                                this@MainActivity,
+                                "호환성 설정을 저장하지 못했습니다.",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            syncingCompatibilitySwitch = true
+                            compatibilityPauseSwitch?.isChecked = true
+                            syncingCompatibilitySwitch = false
+                            notifyCompatibilitySettingsChanged()
+                        }
+                        updateCompatibilityPauseStatus()
+                    }
+                    .show()
+            }
+        }
+        compatibilityPauseSwitch = pauseSwitch
+        section.addView(pauseSwitch, LinearLayout.LayoutParams(-1, dp(48)).apply {
+            topMargin = dp(8)
+        })
+
+        body.addView(section.withTop(12))
+        updateCompatibilityPauseStatus()
+    }
+
+    private fun requestUsageAccessForCompatibilityPause() {
+        AlertDialog.Builder(this)
+            .setTitle("사용 정보 접근 권한")
+            .setMessage(
+                "Guardian은 선택한 앱이 현재 화면에 표시되는지만 확인해 VPN을 일시중지하거나 다시 연결합니다. 앱 사용 기록을 저장하거나 서버로 전송하지 않습니다. Android 설정에서 Guardian의 사용 정보 접근을 허용해야 합니다."
+            )
+            .setNegativeButton("취소", null)
+            .setPositiveButton("설정 열기") { _, _ ->
+                usageAccessSettingsOpened = true
+                try {
+                    startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                } catch (error: Exception) {
+                    usageAccessSettingsOpened = false
+                    android.widget.Toast.makeText(
+                        this,
+                        "사용 정보 접근 설정을 열지 못했습니다: ${error.message ?: error.javaClass.simpleName}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            .show()
+    }
+
+    private fun showCompatibilityPauseAppsDialog() {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val selected = prefs.getStringSet(
+            AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
+        ).orEmpty().toMutableSet()
+        val apps = packageManager.getInstalledApplications(0)
+            .filter { it.packageName != packageName }
+            .map { info ->
+                info.packageName to try {
+                    info.loadLabel(packageManager).toString()
+                } catch (_: Exception) {
+                    info.packageName
+                }
+            }
+            .distinctBy { it.first }
+            .sortedWith(compareBy<Pair<String, String>>(
+                { it.second.lowercase(Locale.ROOT) },
+                { it.first.lowercase(Locale.ROOT) }
+            ))
+
+        val search = EditText(this).apply {
+            hint = "앱 이름 또는 패키지명 검색"
+            contentDescription = "VPN 자동 일시중지 앱 검색 입력"
+            setHintTextColor(muted)
+            setTextColor(white)
+            textSize = 14f
+            minHeight = dp(48)
+            setSingleLine(true)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            background = shape(panel2, 10)
+        }
+        val appList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(appList, ViewGroup.LayoutParams(-1, -2))
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            addView(search, LinearLayout.LayoutParams(-1, dp(52)))
+            addView(scroll, LinearLayout.LayoutParams(-1, dp(390)).apply {
+                topMargin = dp(8)
+            })
+        }
+
+        fun renderApps(queryText: String) {
+            appList.removeAllViews()
+            val query = queryText.trim().lowercase(Locale.ROOT)
+            val visible = apps.filter { (pkg, label) ->
+                query.isEmpty() ||
+                    pkg.lowercase(Locale.ROOT).contains(query) ||
+                    label.lowercase(Locale.ROOT).contains(query)
+            }
+            visible.forEach { (pkg, label) ->
+                appList.addView(CheckBox(this).apply {
+                    text = "$label\n$pkg"
+                    contentDescription = "자동 일시중지 앱 $pkg"
+                    textSize = 12f
+                    setTextColor(white)
+                    isChecked = pkg in selected
+                    setPadding(dp(4), dp(6), dp(4), dp(6))
+                    setOnCheckedChangeListener { _, checked ->
+                        if (checked) selected.add(pkg) else selected.remove(pkg)
+                    }
+                })
+            }
+            if (visible.isEmpty()) {
+                appList.addView(text("검색 결과가 없습니다.", 12f, muted, false).apply {
+                    setPadding(dp(8), dp(12), dp(8), dp(12))
+                })
+            }
+        }
+
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                renderApps(s?.toString().orEmpty())
+            }
+            override fun afterTextChanged(s: android.text.Editable?) = Unit
+        })
+        renderApps("")
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("VPN 자동 일시중지 앱 선택")
+            .setView(container)
+            .setNegativeButton("취소", null)
+            .setPositiveButton("저장", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val editor = prefs.edit()
+                    .putStringSet(AppForegroundPauseSettings.KEY_PACKAGES, selected.toSet())
+                if (selected.isEmpty()) {
+                    editor.putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                }
+                val saved = editor.commit()
+                if (!saved) {
+                    android.widget.Toast.makeText(
+                        this,
+                        "일시중지 앱 목록을 저장하지 못했습니다.",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                    return@setOnClickListener
+                }
+                compatibilityPauseSwitch?.let { control ->
+                    syncingCompatibilitySwitch = true
+                    control.isChecked = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                    syncingCompatibilitySwitch = false
+                }
+                updateCompatibilityPauseStatus()
+                notifyCompatibilitySettingsChanged()
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun notifyCompatibilitySettingsChanged() {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        if (prefs.getBoolean(GuardianVpnService.KEY_RESTORE_REQUESTED, false)) {
+            try {
+                startService(
+                    Intent(this, GuardianVpnService::class.java)
+                        .setAction(AppForegroundPauseSettings.ACTION_SETTINGS_CHANGED)
+                )
+            } catch (error: Exception) {
+                compatibilityStatusText?.text =
+                    "자동 재연결 설정을 서비스에 전달하지 못했습니다: ${error.message ?: error.javaClass.simpleName}"
+            }
+        }
+    }
+
+    private fun updateCompatibilityPauseStatus() {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val selected = prefs.getStringSet(
+            AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
+        ).orEmpty()
+        var enabled = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+        val paused = prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+        val pausedPackage = prefs.getString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, null)
+        val usageAccess = ForegroundAppMonitor.hasUsageAccess(this)
+        var error = prefs.getString(AppForegroundPauseSettings.KEY_ERROR, null)
+        if (usageAccess && error != null) {
+            prefs.edit().remove(AppForegroundPauseSettings.KEY_ERROR).apply()
+            error = null
+        }
+        if (selected.isEmpty() && enabled) {
+            prefs.edit().putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false).apply()
+            enabled = false
+        }
+        if (!usageAccess && enabled) {
+            prefs.edit().putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false).apply()
+            enabled = false
+        }
+        compatibilityPauseSwitch?.let { control ->
+            if (control.isChecked != enabled) {
+                syncingCompatibilitySwitch = true
+                control.isChecked = enabled
+                syncingCompatibilitySwitch = false
+            }
+        }
+        val pausedLabel = pausedPackage?.let { packageId ->
+            try {
+                packageManager.getApplicationInfo(packageId, 0).loadLabel(packageManager).toString()
+            } catch (_: Exception) {
+                packageId
+            }
+        }
+        compatibilityStatusText?.text = when {
+            paused -> "${pausedLabel ?: "선택 앱"} 실행 중 · 기기 전체 VPN 보호가 일시 중지되었습니다."
+            error != null -> error
+            !usageAccess -> "사용 정보 접근 권한을 허용해야 선택 앱의 실행 상태를 감지할 수 있습니다."
+            selected.isEmpty() -> "일시중지할 앱을 선택하면 Wallet 등 호환성 문제가 있는 앱에서 자동 전환할 수 있습니다."
+            enabled -> "자동 일시중지 활성화 · 선택 앱 종료 후 VPN 자동 재연결"
+            else -> "선택 앱 ${selected.size}개 저장됨 · 자동 일시중지 꺼짐"
+        }
+        compatibilityAppsButton?.text = "일시중지 앱 선택 (${selected.size}개)"
     }
 
     private fun buildAppExclusions(body: LinearLayout) {
@@ -2689,7 +3038,17 @@ class MainActivity : Activity() {
         }
         val recoveryPending = prefs.getBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false) && !active
         val staleSession = persistedActive && !active && !recoveryPending
+        val compatibilityPaused = prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+        val compatibilityPackage = prefs.getString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, null)
+        val compatibilityLabel = compatibilityPackage?.let { packageId ->
+            try {
+                packageManager.getApplicationInfo(packageId, 0).loadLabel(packageManager).toString()
+            } catch (_: Exception) {
+                packageId
+            }
+        }
         val message = when {
+            compatibilityPaused -> "${compatibilityLabel ?: "선택 앱"} 실행 중 · 기기 전체 DNS 보호가 일시 중지되었습니다. 앱을 닫으면 자동으로 다시 연결됩니다."
             recoveryPending -> "VPN 보호를 자동으로 다시 연결하고 있습니다."
             staleSession -> "VPN 서비스가 다시 연결되는 중입니다. 자동 복구가 되지 않으면 '다시 연결'을 눌러 주세요."
             else -> prefs.getString(GuardianVpnService.KEY_STATUS, null)
@@ -2699,24 +3058,33 @@ class MainActivity : Activity() {
         if (currentTab == "home" && ::statusTitle.isInitialized) {
             statusTitle.text = when {
                 active -> "보호가 실행 중입니다"
+                compatibilityPaused -> "호환 앱 실행 중 · 보호 일시 중지"
                 recoveryPending -> "보호 자동 복구 중"
                 staleSession -> "보호 복구 대기 중"
                 else -> "보호가 꺼져 있습니다"
             }
             statusDot.text = when {
                 active -> "●  PROTECTION ACTIVE"
+                compatibilityPaused -> "●  COMPATIBILITY PAUSED"
                 recoveryPending || staleSession -> "●  AUTOMATIC RECOVERY"
                 else -> "●  PROTECTION OFF"
             }
-            statusDot.setTextColor(if (active || recoveryPending || staleSession) accent else red)
+            statusDot.setTextColor(
+                when {
+                    active || recoveryPending || staleSession -> accent
+                    compatibilityPaused -> Color.rgb(255, 190, 80)
+                    else -> red
+                }
+            )
             startButton?.text = when {
                 active -> "보호 실행 중"
+                compatibilityPaused -> "보호 완전 중지"
                 recoveryPending -> "보호 복구 중"
                 staleSession -> "다시 연결"
                 else -> "보호 시작"
             }
-            startButton?.isEnabled = !active && !recoveryPending
-            startButton?.alpha = if (active || recoveryPending) 0.58f else 1f
+            startButton?.isEnabled = !active && !recoveryPending && !compatibilityPaused
+            startButton?.alpha = if (active || recoveryPending || compatibilityPaused) 0.58f else 1f
         }
         if (currentTab == "home" && ::status.isInitialized) {
             status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
@@ -2724,6 +3092,7 @@ class MainActivity : Activity() {
         if (currentTab == "protection") {
             protectionStatusText?.text = when {
                 active -> "보호가 실행 중입니다"
+                compatibilityPaused -> "호환 앱 실행 중 · 보호 일시 중지"
                 recoveryPending -> "보호 자동 복구 중"
                 staleSession -> "보호 복구 대기 중"
                 else -> "보호가 꺼져 있습니다"
@@ -2739,13 +3108,14 @@ class MainActivity : Activity() {
             )
             protectionActionButton?.text = when {
                 active -> "보호 중지"
+                compatibilityPaused -> "호환 앱 실행 중"
                 recoveryPending -> "보호 복구 중"
                 staleSession -> "다시 연결"
                 else -> "보호 시작"
             }
             protectionActionButton?.isEnabled = !recoveryPending
-            protectionActionButton?.setTextColor(if (active || recoveryPending) white else bg)
-            protectionActionButton?.background = shape(if (active || recoveryPending) panel2 else accent, 13)
+            protectionActionButton?.setTextColor(if (active || recoveryPending || compatibilityPaused) white else bg)
+            protectionActionButton?.background = shape(if (active || recoveryPending || compatibilityPaused) panel2 else accent, 13)
         }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
         val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
@@ -2763,6 +3133,7 @@ class MainActivity : Activity() {
         activityChart?.update(adCount, trackerCount, otherCount, prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))
         recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
         diagnosticText?.text = "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}"
+        updateCompatibilityPauseStatus()
     }
 
     private fun loadUserRulesIntoEditors() {

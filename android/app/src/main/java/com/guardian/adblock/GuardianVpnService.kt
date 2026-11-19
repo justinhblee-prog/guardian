@@ -100,12 +100,21 @@ class GuardianVpnService : VpnService() {
     private val pendingStart = AtomicReference<PendingStart?>(null)
     private val startCancellation = VpnStartCancellationGate()
     private val lastStatsBroadcastAt = AtomicLong(0L)
+    @Volatile private var lastStartId = 0
+    @Volatile private var foregroundAppMonitor: ForegroundAppMonitor? = null
+    private val compatibilityResumeInProgress = AtomicBoolean(false)
+    private val compatibilityMonitorGeneration = AtomicLong(0L)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         when (intent?.action) {
+            AppForegroundPauseSettings.ACTION_SETTINGS_CHANGED -> {
+                handleCompatibilitySettingsChanged(startId)
+            }
             ACTION_STOP -> {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                     .putBoolean(KEY_RESTORE_REQUESTED, false).commit()
+                stopForegroundAppMonitor()
                 stopProtection(explicitStop = true)
             }
             ACTION_START -> {
@@ -113,8 +122,17 @@ class GuardianVpnService : VpnService() {
                 // process death cannot lose the user's explicit request to keep protection on.
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                     .putBoolean(KEY_RESTORE_REQUESTED, true).commit()
-                val generation = startCancellation.onStartRequested()
-                thread(name = "guardian-vpn-start") { startProtection(generation, startId) }
+                ensureForegroundServiceNotification()
+                val foregroundTarget = startForegroundAppMonitor()
+                if (foregroundTarget != null) {
+                    pauseProtectionForCompatibility(foregroundTarget)
+                } else if (getSharedPreferences(PREFS, MODE_PRIVATE)
+                        .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
+                    resumeProtectionAfterCompatibility()
+                } else {
+                    val generation = startCancellation.onStartRequested()
+                    thread(name = "guardian-vpn-start") { startProtection(generation, startId) }
+                }
             }
             ACTION_RELOAD_RULES -> thread(name = "guardian-vpn-rule-reload") { reloadUserRules() }
             ACTION_RECONFIGURE_EXCLUDED_APPS -> thread(name = "guardian-vpn-exclusion-reconfigure") {
@@ -134,8 +152,16 @@ class GuardianVpnService : VpnService() {
                     restoreRequested = restoreRequested
                 )
                 if (shouldRestore) {
-                    val generation = startCancellation.onStartRequested()
-                    thread(name = "guardian-vpn-restore") { startProtection(generation, startId) }
+                    ensureForegroundServiceNotification()
+                    val foregroundTarget = startForegroundAppMonitor()
+                    if (foregroundTarget != null) {
+                        pauseProtectionForCompatibility(foregroundTarget)
+                    } else if (prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
+                        resumeProtectionAfterCompatibility()
+                    } else {
+                        val generation = startCancellation.onStartRequested()
+                        thread(name = "guardian-vpn-restore") { startProtection(generation, startId) }
+                    }
                 } else {
                     stopSelf(startId)
                 }
@@ -144,6 +170,209 @@ class GuardianVpnService : VpnService() {
         // If Android reclaims the process, recreate the service and TUN when
         // the last persisted state says the user had protection enabled.
         return START_STICKY
+    }
+
+    private fun ensureForegroundServiceNotification() {
+        createNotificationChannel()
+        startForeground(41, buildNotification())
+    }
+
+    private fun handleCompatibilitySettingsChanged(startId: Int) {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) {
+            stopForegroundAppMonitor()
+            stopSelf(startId)
+            return
+        }
+        ensureForegroundServiceNotification()
+        val foregroundTarget = startForegroundAppMonitor()
+        if (foregroundTarget != null) {
+            pauseProtectionForCompatibility(foregroundTarget)
+        } else if (prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
+            resumeProtectionAfterCompatibility()
+        }
+    }
+
+    private fun startForegroundAppMonitor(): String? {
+        stopForegroundAppMonitor()
+        val generation = compatibilityMonitorGeneration.get()
+        return startWalletMonitorIfConfigured(generation)
+    }
+
+    private fun startWalletMonitorIfConfigured(generation: Long): String? {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+            !prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+        ) return null
+
+        val selectedPackages = prefs.getStringSet(
+            AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
+        ).orEmpty()
+        val installedPackages = packageManager.getInstalledApplications(0)
+            .mapTo(mutableSetOf()) { it.packageName }
+        val availableTargets = selectedPackages.filterTo(mutableSetOf()) {
+            it in installedPackages
+        }
+        if (availableTargets != selectedPackages) {
+            prefs.edit().putStringSet(
+                AppForegroundPauseSettings.KEY_PACKAGES, availableTargets
+            ).apply()
+        }
+        if (availableTargets.isEmpty()) {
+            prefs.edit()
+                .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                .putString(AppForegroundPauseSettings.KEY_ERROR, "설치된 자동 일시중지 대상 앱이 없어 기능을 껐습니다.")
+                .apply()
+            return null
+        }
+
+        if (!ForegroundAppMonitor.hasUsageAccess(this)) {
+            prefs.edit()
+                .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                .putString(
+                    AppForegroundPauseSettings.KEY_ERROR,
+                    "사용 정보 접근 권한이 해제되어 자동 일시중지를 껐습니다."
+                )
+                .apply()
+            sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
+            return null
+        }
+
+        val monitor = ForegroundAppMonitor(
+            context = this,
+            targetPackages = availableTargets,
+            onForegroundTargetChanged = { packageName ->
+                if (compatibilityMonitorGeneration.get() == generation) {
+                    if (packageName != null) {
+                        pauseProtectionForCompatibility(packageName)
+                    } else {
+                        resumeProtectionAfterCompatibility()
+                    }
+                }
+            },
+            onPermissionRevoked = {
+                if (compatibilityMonitorGeneration.get() == generation) {
+                    val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+                    currentPrefs.edit()
+                        .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                        .putString(
+                            AppForegroundPauseSettings.KEY_ERROR,
+                            "사용 정보 접근 권한이 해제되어 자동 일시중지를 껐습니다."
+                        )
+                        .apply()
+                    sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
+                    resumeProtectionAfterCompatibility()
+                }
+            }
+        )
+        foregroundAppMonitor = monitor
+        return monitor.start()
+    }
+
+    private fun stopForegroundAppMonitor() {
+        compatibilityMonitorGeneration.incrementAndGet()
+        val monitor = foregroundAppMonitor
+        foregroundAppMonitor = null
+        monitor?.stop()
+    }
+
+    @Synchronized
+    private fun pauseProtectionForCompatibility(packageName: String) {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) return
+        if (prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
+            prefs.edit().putString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, packageName).apply()
+            return
+        }
+
+        startCancellation.cancel()
+        pendingStart.set(null)
+        running.set(false)
+        tunnelActive = false
+        val oldTun = tun
+        tun = null
+        try {
+            oldTun?.close()
+        } catch (error: Exception) {
+            android.util.Log.w("GuardianProtection", "Could not close TUN for app compatibility pause", error)
+        }
+        try {
+            packetWorker?.join(5_000L)
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            android.util.Log.w("GuardianProtection", "Interrupted while waiting for DNS worker to pause", error)
+        }
+
+        if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) return
+        val stillSelected = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false) &&
+            packageName in prefs.getStringSet(
+                AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
+            ).orEmpty()
+        if (!stillSelected) {
+            prefs.edit()
+                .putBoolean(KEY_ACTIVE, false)
+                .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, true)
+                .putString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, packageName)
+                .commit()
+            resumeProtectionAfterCompatibility()
+            return
+        }
+
+        val appLabel = try {
+            packageManager.getApplicationInfo(packageName, 0).loadLabel(packageManager).toString()
+        } catch (_: Exception) {
+            packageName
+        }
+        prefs.edit()
+            .putBoolean(KEY_ACTIVE, false)
+            .putBoolean(KEY_RECOVERY_PENDING, false)
+            .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, true)
+            .putString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, packageName)
+            .putString(KEY_STATUS, "$appLabel 실행 중 · 기기 전체 VPN 보호가 일시 중지되었습니다. 앱을 닫으면 자동으로 다시 연결됩니다.")
+            .commit()
+        try {
+            createNotificationChannel()
+            startForeground(41, buildNotification())
+        } catch (error: Exception) {
+            android.util.Log.e("GuardianProtection", "Could not update compatibility pause notification", error)
+        }
+        sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
+    }
+
+    private fun resumeProtectionAfterCompatibility() {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+            !prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+        ) return
+        if (!compatibilityResumeInProgress.compareAndSet(false, true)) return
+
+        thread(name = "guardian-compatibility-vpn-resume") {
+            try {
+                val oldWorker = packetWorker
+                try {
+                    oldWorker?.join(5_000L)
+                } catch (error: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return@thread
+                }
+                if (oldWorker?.isAlive == true) {
+                    android.util.Log.w("GuardianProtection", "DNS worker is still exiting; compatibility resume will retry")
+                    return@thread
+                }
+                val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+                if (!currentPrefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+                    !currentPrefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+                ) return@thread
+                currentPrefs.edit()
+                    .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+                    .remove(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE)
+                    .commit()
+                val generation = startCancellation.onStartRequested()
+                startProtection(generation, lastStartId)
+            } finally {
+                compatibilityResumeInProgress.set(false)
+            }
+        }
     }
 
     /**
@@ -155,6 +384,10 @@ class GuardianVpnService : VpnService() {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) {
             publishState(false, "앱별 보호 제외 설정을 저장했습니다. 보호를 다시 시작하면 적용됩니다.")
+            return
+        }
+        if (prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
+            publishState(false, "선택 앱 실행 중 VPN이 일시 중지되어 있습니다. 앱을 닫으면 저장된 제외 설정과 함께 자동 재연결됩니다.")
             return
         }
         startCancellation.cancel()
@@ -262,8 +495,12 @@ class GuardianVpnService : VpnService() {
             return
         }
         if (!startCancellation.isCurrent(requestGeneration)) {
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            stopSelf(startId)
+            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+            if (!compatibilityPaused) {
+                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+                stopSelf(startId)
+            }
             return
         }
 
@@ -273,6 +510,15 @@ class GuardianVpnService : VpnService() {
         // than activating a tunnel that makes every website appear offline.
         val preflightQuery = DnsUpstreamProbe.query()
         val preflightResponse = forwardDns(preflightQuery, requireSuccessfulResolution = true)
+        if (!startCancellation.isCurrent(requestGeneration)) {
+            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+            if (!compatibilityPaused) {
+                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+                stopSelf(startId)
+            }
+            return
+        }
         if (!DnsUpstreamProbe.isSuccessfulResolution(preflightQuery, preflightResponse)) {
             val detail = lastUpstreamFailure ?: "업스트림 DNS 응답 검증 실패"
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
@@ -358,8 +604,12 @@ class GuardianVpnService : VpnService() {
         }
         if (!committed) {
             try { descriptor.close() } catch (_: Exception) { }
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            stopSelf(startId)
+            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+            if (!compatibilityPaused) {
+                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+                stopSelf(startId)
+            }
         }
     }
 
@@ -570,7 +820,13 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun publishState(active: Boolean, message: String) {
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (active && (!running.get() ||
+                prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false))
+        ) {
+            return
+        }
+        prefs.edit()
             .putBoolean(KEY_ACTIVE, active)
             .putBoolean(KEY_RECOVERY_PENDING, false)
             .putString(KEY_STATUS, message)
@@ -818,15 +1074,23 @@ class GuardianVpnService : VpnService() {
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
+            .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL)
-                .setContentTitle("Guardian 보호 실행 중")
-                .setContentText("광고 · 추적 DNS 필터링이 백그라운드에서 실행 중입니다.")
+                .setContentTitle(if (compatibilityPaused) "Guardian 보호 일시 중지" else "Guardian 보호 실행 중")
+                .setContentText(
+                    if (compatibilityPaused) {
+                        "선택한 앱 사용 중 · 앱을 닫으면 VPN 보호가 자동으로 다시 연결됩니다."
+                    } else {
+                        "광고 · 추적 DNS 필터링이 백그라운드에서 실행 중입니다."
+                    }
+                )
                 .setSmallIcon(R.drawable.ic_stat_guardian)
                 .setContentIntent(open)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setTicker("Guardian DNS 보호 실행 중")
+                .setTicker(if (compatibilityPaused) "Guardian VPN 일시 중지" else "Guardian DNS 보호 실행 중")
                 .setOnlyAlertOnce(true)
                 .setOngoing(true)
                 .build()
@@ -834,21 +1098,25 @@ class GuardianVpnService : VpnService() {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
                 .setContentTitle("Guardian AdBlock")
-                .setContentText("DNS 필터링 실행 중")
+                .setContentText(if (compatibilityPaused) "선택 앱 사용 중 · 종료 후 자동 재연결" else "DNS 필터링 실행 중")
                 .setSmallIcon(android.R.drawable.ic_lock_lock)
                 .setOngoing(true)
                 .build()
         }
     }
 
+    @Synchronized
     private fun stopProtection(
         explicitStop: Boolean = false,
         preserveRestoreIntent: Boolean = false
     ) {
+        stopForegroundAppMonitor()
         if (explicitStop) {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                 .putBoolean(KEY_RESTORE_REQUESTED, false)
                 .putBoolean(KEY_RECOVERY_PENDING, false)
+                .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+                .remove(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE)
                 .commit()
         }
         pendingStart.set(null)

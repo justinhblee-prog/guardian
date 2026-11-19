@@ -32,6 +32,14 @@ Guardian은 서명된 APK 직접 배포를 기본 경로로 준비하되, Google
 - 두 패키지를 모두 제외해도 Wallet 경고가 남는다면 실제 기기 로그로 원인을 구분해야 합니다. 앱 자체의 기기 전체 VPN 상태 확인일 가능성도 있지만, 이를 아직 확정하지 않습니다.
 - 패키지 참고: [Samsung Galaxy Store — Samsung Wallet](https://galaxystore.samsung.com/detail/com.samsung.android.spay), [Samsung Knox — Samsung PaymentFramework package list](https://docs.samsungknox.com/CCMode/SC-02K_P.pdf)
 
+## 앱 자체가 VPN 활성 상태를 차단하는 경우
+
+앱별 보호 제외는 해당 패키지의 네트워크 트래픽을 VPN에서 우회시키지만, Android의 VPN 연결 자체를 기기 전체에서 종료하지는 않습니다. 일부 금융·결제 앱은 이 VPN 활성 상태 자체를 감지할 수 있습니다.
+
+이런 앱은 **앱 실행 중 VPN 자동 일시중지** 기능에 별도로 등록해야 합니다. 이 기능은 사용자가 허용한 사용 정보 접근으로 선택 앱의 포그라운드 전환만 감지하고, 해당 앱이 열려 있는 동안 전체 VPN 터널을 닫았다가 앱이 닫히면 다시 연결합니다. 이 시간에는 다른 앱도 DNS 보호를 받지 못합니다.
+
+상세 동작·권한·개인정보·검증 기준은 [앱 실행 중 VPN 자동 일시중지](APP_FOREGROUND_AUTO_PAUSE_KO.md)를 참고합니다.
+
 ## 배포 경로별 고려사항
 
 ### 직접 APK 배포
