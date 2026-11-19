@@ -602,34 +602,60 @@ fi
 tap_content_description "홈"
 echo "App-exclusion search visibility, package filtering, and Android Auto lookup passed."
 
-# Verify all six home shortcuts are real navigation actions, not decorative icons.
-echo "Verifying all six home dashboard shortcuts navigate to their own screens."
-for shortcut in "보호|보호" "앱 제외|앱 제외" "차단|필터" "활동|활동" "프리미엄|프리미엄" "설정|설정"; do
-  IFS='|' read -r shortcut_label navigation_label <<<"$shortcut"
-  tap_content_description "${shortcut_label} 화면 열기"
+# The dashboard has one central protection toggle and the persistent bottom
+# navigation is the single route to feature screens. Assert that duplicate
+# shortcut tiles and the second home stop button are absent, then exercise every
+# bottom-navigation destination.
+echo "Verifying the simplified home dashboard and all seven bottom-navigation destinations."
+adb_cmd shell rm -f /sdcard/guardian-home-navigation.xml
+adb_cmd shell uiautomator dump /sdcard/guardian-home-navigation.xml >/dev/null 2>&1
+home_navigation_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-navigation.xml | tr -d '\\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+if any("화면 열기" in node.attrib.get("content-desc","") for node in nodes):
+    raise SystemExit("Redundant home shortcut tile remains beside bottom navigation.")
+if sum(1 for node in nodes if node.attrib.get("class")=="android.widget.Button"
+       and node.attrib.get("text")=="보호 시작") != 1:
+    raise SystemExit("Home must expose exactly one central protection-start toggle.")
+if any(node.attrib.get("class")=="android.widget.Button"
+       and node.attrib.get("text")=="보호 중지" for node in nodes):
+    raise SystemExit("A duplicate home protection-stop button is still present.")
+expected={"홈","보호","앱별 제외","차단 기록","프리미엄","차단 규칙","설정"}
+actual={node.attrib.get("content-desc") for node in nodes
+        if node.attrib.get("class")=="android.widget.LinearLayout"
+        and node.attrib.get("clickable")=="true"}
+if not expected.issubset(actual):
+    raise SystemExit("Bottom navigation is missing destinations: "+repr(sorted(expected-actual)))
+if not any(node.attrib.get("content-desc")=="홈" and node.attrib.get("selected")=="true"
+           for node in nodes):
+    raise SystemExit("Home is not the selected bottom-navigation destination.")' <<<"$home_navigation_xml"
+
+for navigation_label in "보호" "앱별 제외" "차단 기록" "프리미엄" "차단 규칙" "설정"; do
+  tap_content_description "$navigation_label"
   sleep 1
-  adb_cmd shell rm -f /sdcard/guardian-home-shortcut.xml
-  adb_cmd shell uiautomator dump /sdcard/guardian-home-shortcut.xml >/dev/null 2>&1
-  shortcut_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-shortcut.xml | tr -d '\r')"
+  adb_cmd shell rm -f /sdcard/guardian-home-navigation.xml
+  adb_cmd shell uiautomator dump /sdcard/guardian-home-navigation.xml >/dev/null 2>&1
+  navigation_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-navigation.xml | tr -d '\\r')"
   if ! python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("content-desc")==sys.argv[1]
        and node.attrib.get("class")=="android.widget.LinearLayout"
        and node.attrib.get("selected")=="true"
        for node in root.iter("node")):
-    raise SystemExit("Home shortcut did not navigate to the expected selected destination: "+sys.argv[1])' "$navigation_label" <<<"$shortcut_xml"; then
-    echo "Home shortcut navigation failed: $shortcut_label -> $navigation_label"
-    echo "$shortcut_xml"
+    raise SystemExit("Bottom navigation did not select destination: "+sys.argv[1])' "$navigation_label" <<<"$navigation_xml"; then
+    echo "Bottom-navigation route failed: $navigation_label"
+    echo "$navigation_xml"
     exit 1
   fi
-  tap_content_description "홈"
 done
-echo "All six home dashboard shortcuts navigated successfully."
+tap_content_description "홈"
+echo "Single home protection toggle and all seven bottom-navigation destinations passed."
 
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
 echo "Verifying filter-screen and unsaved rule state survive device rotation."
-tap_text "필터"
+tap_content_description "차단 규칙"
 tap_first_edit_text
 adb_cmd shell input text 'rotation-preserved.example'
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
@@ -646,7 +672,7 @@ rotation_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
-selected=any(node.attrib.get("content-desc")=="필터" and node.attrib.get("selected")=="true" for node in nodes)
+selected=any(node.attrib.get("content-desc")=="차단 규칙" and node.attrib.get("selected")=="true" for node in nodes)
 draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
 if not (selected and draft):
     raise SystemExit("Activity rotation lost the selected filter tab, restored scroll position, or unsaved rule draft.")' <<<"$rotation_xml"
