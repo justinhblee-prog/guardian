@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { createPrivateKey, randomUUID } from 'node:crypto';
+import { createHash, createPrivateKey, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { createPostgresRateLimiter, createRateLimiter } from './rate-limit.mjs';
@@ -25,7 +25,7 @@ const rateLimitOptions = {
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events'
+  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/support/tickets'
 ]);
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
@@ -294,6 +294,76 @@ async function deactivate(body) {
     client.release();
   }
 }
+
+function supportTokenHash(token) {
+  return createHash('sha256').update(token, 'utf8').digest('hex');
+}
+function validateSupportText(value, label, min, max) {
+  if (typeof value !== 'string') throw Object.assign(new Error(`${label}을(를) 입력하세요.`), { status: 400 });
+  const normalized = value.trim();
+  if (normalized.length < min || normalized.length > max) {
+    throw Object.assign(new Error(`${label}은(는) ${min}~${max}자여야 합니다.`), { status: 400 });
+  }
+  return normalized;
+}
+async function createSupportTicket(body) {
+  requireEnv();
+  const category = ['question','bug','suggestion','billing','license'].includes(body.category) ? body.category : 'question';
+  const subject = validateSupportText(body.subject, '제목', 3, 120);
+  const message = validateSupportText(body.message, '문의 내용', 10, 5000);
+  const email = typeof body.email === 'string' ? body.email.trim().slice(0, 254) : '';
+  if (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    throw Object.assign(new Error('이메일 주소 형식을 확인하세요.'), { status: 400 });
+  }
+  const ticketRef = `GDN-${randomBytes(6).toString('hex').toUpperCase()}`;
+  const accessToken = randomBytes(32).toString('base64url');
+  await pool.query(
+    `INSERT INTO support_tickets(ticket_ref,access_token_hash,email,category,subject,message)
+     VALUES($1,$2,$3,$4,$5,$6)`,
+    [ticketRef, supportTokenHash(accessToken), email, category, subject, message]
+  );
+  return { ticketRef, accessToken, status: 'open', message: '문의가 접수되었습니다. 접수 번호와 조회용 비밀 코드를 안전하게 보관하세요.' };
+}
+async function getSupportTicket(ticketRef, token) {
+  requireEnv();
+  if (typeof ticketRef !== 'string' || !/^GDN-[A-F0-9]{12}$/.test(ticketRef) ||
+      typeof token !== 'string' || token.length < 32 || token.length > 100) {
+    throw Object.assign(new Error('문의 조회 정보가 올바르지 않습니다.'), { status: 400 });
+  }
+  const result = await pool.query(
+    `SELECT ticket_ref,category,subject,message,status,admin_reply,created_at,updated_at,replied_at
+     FROM support_tickets WHERE ticket_ref=$1 AND access_token_hash=$2`,
+    [ticketRef, supportTokenHash(token)]
+  );
+  if (!result.rowCount) throw Object.assign(new Error('문의를 찾을 수 없거나 조회 코드가 올바르지 않습니다.'), { status: 404 });
+  return { ticket: result.rows[0] };
+}
+async function listSupportTickets(req) {
+  requireEnv();
+  requireAdmin(req);
+  const result = await pool.query(
+    `SELECT id,ticket_ref,email,category,subject,message,status,admin_reply,created_at,updated_at,replied_at
+     FROM support_tickets ORDER BY CASE status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'answered' THEN 2 ELSE 3 END,
+     created_at DESC LIMIT 300`
+  );
+  return { tickets: result.rows };
+}
+async function replySupportTicket(id, body, req) {
+  requireEnv();
+  requireAdmin(req);
+  if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    throw Object.assign(new Error('문의 ID 형식이 올바르지 않습니다.'), { status: 400 });
+  }
+  const reply = validateSupportText(body.reply, '답변', 2, 5000);
+  const status = ['answered','in_progress','closed'].includes(body.status) ? body.status : 'answered';
+  const result = await pool.query(
+    `UPDATE support_tickets SET admin_reply=$2,status=$3,updated_at=now(),replied_at=now()
+     WHERE id=$1 RETURNING ticket_ref,status,updated_at,replied_at`,
+    [id, reply, status]
+  );
+  if (!result.rowCount) throw Object.assign(new Error('문의를 찾을 수 없습니다.'), { status: 404 });
+  return { ticket: result.rows[0] };
+}
 async function createLicense(body) {
   requireEnv();
   requireAdmin(body.req);
@@ -426,6 +496,9 @@ const server = http.createServer(async (req, res) => {
       return res.end(html);
     }
     if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
+    if (req.method === 'GET' && url.pathname === '/v1/admin/support/tickets') return json(res, 200, await listSupportTickets(req));
+    const publicTicketMatch = /^\\/v1\\/support\\/tickets\\/([^/]+)$/.exec(url.pathname);
+    if (req.method === 'GET' && publicTicketMatch) return json(res, 200, await getSupportTicket(publicTicketMatch[1], url.searchParams.get('accessToken')));
     if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
     const activationListMatch = /^\/v1\/admin\/licenses\/([^/]+)\/activations$/.exec(url.pathname);
     if (req.method === 'GET' && activationListMatch) {
@@ -434,7 +507,12 @@ const server = http.createServer(async (req, res) => {
     if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
     const body = await readBody(req);
     let result;
-    if (url.pathname === '/v1/licenses/activate') result = await activate(body);
+    if (url.pathname === '/v1/support/tickets') result = await createSupportTicket(body);
+    else if (/^\\/v1\\/admin\\/support\\/tickets\\/[^/]+\\/reply$/.test(url.pathname)) {
+      const id = url.pathname.split('/')[5];
+      result = await replySupportTicket(id, body, req);
+    }
+    else if (url.pathname === '/v1/licenses/activate') result = await activate(body);
     else if (url.pathname === '/v1/licenses/refresh') result = await refresh(body);
     else if (url.pathname === '/v1/licenses/deactivate') result = await deactivate(body);
     else if (url.pathname === '/v1/licenses/status') {
