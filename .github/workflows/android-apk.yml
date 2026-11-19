@@ -73,6 +73,7 @@ jobs:
           grep -q 'com.samsung.android.spayfw' docs/ANDROID_APP_VISIBILITY_KO.md
           grep -q '앱별 제외는 앱의 네트워크 경로를 우회시키는 기능' docs/ANDROID_APP_VISIBILITY_KO.md
           grep -q '기기 전체의 VPN 상태를 확인하는 앱은 경고를 표시할 수 있습니다' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
+          grep -q '앱별 보호 제외 및 선택 앱 자동 VPN 일시중지 기능' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           test -s docs/ANDROID_APP_VISIBILITY_KO.md
           test -s android/app/src/main/res/drawable/ic_launcher_foreground.xml
           test -s android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
