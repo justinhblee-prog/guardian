@@ -726,8 +726,24 @@ fi
 echo "Verifying live per-app VPN exclusion changes through the dedicated app-exclusions tab."
 tap_content_description "앱 제외"
 sleep 1
+tap_content_description "앱별 보호 제외 검색 입력"
+sleep 1
+adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
+adb_cmd shell input keyevent KEYCODE_DEL
+adb_cmd shell input text 'com.android.settings'
+sleep 1
+adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("class")=="android.widget.CheckBox"
+       and node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com.android.settings"
+       and node.attrib.get("visible-to-user","true")=="true"
+       and node.attrib.get("clickable")=="true"
+       for node in root.iter("node")):
+    raise SystemExit("Settings package was not visible after filtering the dedicated app-exclusions list.")' <<<"$app_inventory_xml"
 tap_checkbox "com.android.settings"
 # A checkbox edits only the draft. The persisted VPN exclusion must not change
 # until the user explicitly presses the save action.
