@@ -1,4 +1,4 @@
-# Guardian AdBlock Android — 모바일 설치 및 소스 패키지 안내 (0.7.21-dev)
+# Guardian AdBlock Android — 모바일 설치 및 소스 패키지 안내 (0.7.22-dev)
 
 이 문서는 Android 스마트폰·태블릿용 개발 APK와 동일 커밋의 전체 소스 ZIP을 받는 방법을 설명합니다. 이 버전은 개발용 debug 서명본이며 production 릴리스가 아닙니다.
 

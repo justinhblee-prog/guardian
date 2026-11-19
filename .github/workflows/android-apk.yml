@@ -142,7 +142,10 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.21-dev.apk
 
       - name: Assemble current debug APK for build verification
-        run: gradle -p android --no-daemon -PguardianVersionCode=35 -PguardianVersionName=0.7.22-dev assembleDebug
+        shell: bash
+        run: |
+          # Build with Gradle fallback defaults exactly as the documented Windows local build does.
+          gradle -p android --no-daemon assembleDebug
 
       - name: Verify bundled DNS filter library inside APK
         shell: bash
