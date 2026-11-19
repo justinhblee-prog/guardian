@@ -692,7 +692,13 @@ if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.andro
   read_prefs
   exit 1
 fi
-tap_text "변경사항 저장"
+tap_content_description "앱별 보호 제외 변경사항 저장"
+prefs="$(read_prefs)"
+if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+  echo "Explicit Save control was tapped but the selected package was not persisted."
+  read_prefs
+  exit 1
+fi
 excluded_applied=0
 for attempt in $(seq 1 30); do
   prefs="$(read_prefs)"
@@ -717,7 +723,13 @@ if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.and
   read_prefs
   exit 1
 fi
-tap_text "변경사항 저장"
+tap_content_description "앱별 보호 제외 변경사항 저장"
+prefs="$(read_prefs)"
+if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+  echo "Explicit Save control was tapped but the removed package remained persisted."
+  read_prefs
+  exit 1
+fi
 restored_included=0
 for attempt in $(seq 1 30); do
   prefs="$(read_prefs)"
