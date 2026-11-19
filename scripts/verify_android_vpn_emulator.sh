@@ -1017,8 +1017,22 @@ adb_cmd shell am start -a android.settings.SETTINGS >/dev/null
 sleep 2
 adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
 sleep 2
-tap_text "설정"
+# The bottom-navigation label is a non-clickable child of the tab item.
+# Target the clickable parent via its accessibility content description, then
+# assert that the Settings page actually opened before scrolling its content.
+tap_content_description "설정"
 sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-settings-tab.xml >/dev/null 2>&1
+settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-tab.xml | tr -d '\\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+texts={node.attrib.get("text","") for node in nodes}
+selected_settings=any(node.attrib.get("content-desc")=="설정"
+                      and node.attrib.get("selected")=="true"
+                      for node in nodes)
+if "Guardian 앱 정보와 보호 정책" not in texts or not selected_settings:
+    raise SystemExit("Guardian Settings tab did not open after tapping its clickable navigation parent.")' <<<"$settings_tab_xml"
 auto_pause_picker_visible=0
 # The Settings tab opens at its top after the app is relaunched. Scroll down
 # through account/DNS settings until the compatibility card appears. The card is
