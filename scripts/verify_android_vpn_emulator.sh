@@ -739,7 +739,7 @@ app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("class")=="android.widget.CheckBox"
-       and node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com.android.settings"
+       and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
        and node.attrib.get("visible-to-user","true")=="true"
        and node.attrib.get("clickable")=="true"
        for node in root.iter("node")):
