@@ -54,9 +54,25 @@ internal object InstalledAppInventory {
             val installed = packageManager.getInstalledApplications(PackageManager.MATCH_DISABLED_COMPONENTS)
             installedQuerySucceeded = true
             installed.forEach(::addApplication)
+            android.util.Log.i("GuardianApps", "getInstalledApplications returned ${installed.size} entries")
         } catch (error: Exception) {
             installedQueryError = "${error.javaClass.simpleName}: ${error.message ?: "알 수 없는 오류"}"
             android.util.Log.e("GuardianApps", "Installed-app inventory query failed", error)
+        }
+
+        // Try PackageInfo as a second PackageManager enumeration path. Some OEM
+        // PackageManager implementations behave differently for these two APIs.
+        if (apps.isEmpty()) {
+            try {
+                val installedPackages = packageManager.getInstalledPackages(PackageManager.MATCH_DISABLED_COMPONENTS)
+                installedPackages.forEach { addApplication(it.applicationInfo) }
+                android.util.Log.i("GuardianApps", "getInstalledPackages fallback returned ${installedPackages.size} entries")
+            } catch (error: Exception) {
+                android.util.Log.e("GuardianApps", "Installed-package fallback query failed", error)
+                if (installedQueryError == null) {
+                    installedQueryError = "${error.javaClass.simpleName}: ${error.message ?: "패키지 목록 조회 실패"}"
+                }
+            }
         }
 
         // Merge launcher-visible apps as an OEM/package-visibility fallback.
