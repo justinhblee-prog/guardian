@@ -28,7 +28,7 @@
 ## 현재 추가된 서버 기능
 
 - `POST /v1/support/tickets`: 고객 문의 접수. 접수 번호와 256비트 조회 토큰을 1회 반환하며 DB에는 조회 토큰의 SHA-256 해시만 저장합니다.
-- `GET /v1/support/tickets/{ticketRef}?accessToken=...`: 접수 번호와 조회 토큰으로 본인 문의 및 답변 조회.
+- `POST /v1/support/tickets/lookup`: 접수 번호와 조회 토큰을 요청 본문으로 전달해 본인 문의 및 답변 조회. 조회 비밀 코드를 URL이나 서버 접근 로그에 남기지 않습니다.
 - `GET /v1/admin/support/tickets`: 관리자 인증이 필요한 문의함.
 - `POST /v1/admin/support/tickets/{id}/reply`: 관리자 답변 및 상태 변경.
 - 고객 접수, 문의 조회, 관리자 문의 작업은 기존 요청 제한기를 통과합니다.
