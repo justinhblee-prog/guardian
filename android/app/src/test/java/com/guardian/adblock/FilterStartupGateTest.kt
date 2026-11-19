@@ -54,6 +54,26 @@ class FilterStartupGateTest {
     }
 
     @Test
+    fun rejectsInvalidOptionalFilterMinimumBeforeOpeningTheCache() {
+        var loadCalled = false
+        var unavailableCalled = false
+        try {
+            FilterStartupGate.loadOptionalRules(
+                minimumRules = 0,
+                load = {
+                    loadCalled = true
+                    FilterRuleParser.parse("block=ads.example")
+                },
+                onUnavailable = { unavailableCalled = true }
+            )
+            throw AssertionError("non-positive optional filter threshold must be rejected")
+        } catch (_: IllegalArgumentException) {
+            assertFalse(loadCalled)
+            assertFalse(unavailableCalled)
+        }
+    }
+
+    @Test
     fun doesNotSwallowFatalErrorsFromOptionalFeedLoading() {
         var unavailableCalled = false
         try {
