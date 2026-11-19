@@ -217,6 +217,14 @@ if (!databaseUrl) {
       planCode: 7, validDays: 30, maxDevices: 2
     }, adminHeaders);
     assert.equal(invalidType.status, 400);
+    const stringDays = await post('/v1/admin/licenses', {
+      planCode: 'custom', validDays: '30', maxDevices: 2
+    }, adminHeaders);
+    assert.equal(stringDays.status, 400);
+    const stringDevices = await post('/v1/admin/licenses', {
+      planCode: 'custom', validDays: 30, maxDevices: '2'
+    }, adminHeaders);
+    assert.equal(stringDevices.status, 400);
   });
 
   test('customers can submit and privately track support tickets while admins reply securely', async () => {
