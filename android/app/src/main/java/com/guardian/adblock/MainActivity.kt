@@ -543,151 +543,173 @@ class MainActivity : Activity() {
     }
 
     private fun buildHome(body: LinearLayout) {
-        body.addView(text("보호 대시보드", 25f, white, true))
-        body.addView(text("기기의 DNS 연결을 실시간으로 보호합니다.", 13f, muted, false).withTop(5))
+        val homeBg = Color.rgb(29, 29, 29)
+        val homePanel = Color.rgb(57, 57, 57)
+        val homeGreen = Color.rgb(105, 179, 132)
+        val homeOrange = Color.rgb(244, 116, 74)
         val wideDashboard = ResponsiveLayoutPolicy.usesTwoColumnDashboard(resources.configuration.screenWidthDp)
-        val primaryColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val secondaryColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val hero = card(panel, 22).apply {
+
+        body.addView(text("보호 대시보드", 24f, white, true))
+        body.addView(text("기기의 DNS 연결과 차단 활동을 한눈에 확인합니다.", 12f, muted, false).withTop(4))
+
+        val hero = card(homeBg, 22).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(22), dp(20), dp(20))
+            setPadding(dp(18), dp(20), dp(18), dp(20))
         }
-        hero.addView(text("GUARDIAN SHIELD", 10f, muted, true))
-        val shield = TextView(this).apply {
-            text = "⬡"
-            textSize = 54f
-            gravity = Gravity.CENTER
-            setTextColor(accent)
-            setPadding(0, dp(10), 0, dp(2))
+        val brandRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        hero.addView(shield, LinearLayout.LayoutParams(-1, dp(88)))
-        statusDot = text("●  PROTECTION OFF", 10f, red, true).apply {
+        brandRow.addView(text("◆  GUARDIAN", 17f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
+        brandRow.addView(text("AD BLOCK", 10f, homeGreen, true))
+        hero.addView(brandRow)
+
+        val featureRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(10), dp(5), dp(10), dp(5))
+            setPadding(0, dp(24), 0, dp(18))
+        }
+        listOf("▣", "◉", "!", "▤", "♨", "◉").forEachIndexed { index, glyph ->
+            val tint = if (index < 4) homeGreen else muted
+            val item = TextView(this).apply {
+                text = glyph
+                textSize = 25f
+                gravity = Gravity.CENTER
+                setTextColor(tint)
+            }
+            featureRow.addView(item, LinearLayout.LayoutParams(0, dp(42), 1f))
+        }
+        hero.addView(featureRow)
+
+        statusDot = text("●  PROTECTION OFF", 10f, homeOrange, true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(5), dp(10), dp(8))
         }
         hero.addView(statusDot)
-        statusTitle = text("보호 상태 확인 중", 21f, white, true).apply { gravity = Gravity.CENTER }
+        statusTitle = text("보호 상태 확인 중", 23f, white, true).apply { gravity = Gravity.CENTER }
         hero.addView(statusTitle)
-        status = text("", 12f, muted, false).apply {
+        status = text("", 13f, muted, false).apply {
             gravity = Gravity.CENTER
-            setPadding(dp(4), dp(8), dp(4), dp(16))
+            setPadding(dp(6), dp(8), dp(6), dp(18))
         }
         hero.addView(status)
-        val start = Button(this).apply {
+
+        val power = Button(this).apply {
             text = "보호 시작"
             isAllCaps = false
-            textSize = 15f
-            setTextColor(bg)
-            background = shape(accent, 14)
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            background = shape(homeOrange, 28)
+            minHeight = dp(62)
             setOnClickListener { requestProtection() }
         }
-        startButton = start
-        hero.addView(start, LinearLayout.LayoutParams(-1, dp(52)))
+        startButton = power
+        hero.addView(power, LinearLayout.LayoutParams(dp(150), dp(62)).apply { gravity = Gravity.CENTER })
         val stop = Button(this).apply {
             text = "보호 중지"
             isAllCaps = false
             textSize = 13f
             setTextColor(white)
-            background = shape(panel2, 14)
-            setOnClickListener { startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_STOP)) }
-        }
-        hero.addView(stop, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(9) })
-        val selfTestButton = Button(this).apply {
-            text = "DNS 규칙 엔진 테스트"
-            isAllCaps = false
-            setTextColor(white)
-            background = shape(panel2, 13)
-            setOnClickListener { runDnsSelfTest() }
-        }
-        hero.addView(selfTestButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(9) })
-        selfTestText = text("로컬 규칙 엔진과 NXDOMAIN 생성만 검사합니다. 실제 DNS 네트워크 경로와 앱 내부 광고 차단은 검증하지 않습니다.", 11f, muted, false).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, dp(8), 0, 0)
-        }
-        hero.addView(selfTestText!!)
-        hero.addView(Button(this).apply {
-            text = "Guardian 브라우저 · 빈 광고 영역 숨김"
-            isAllCaps = false
-            setTextColor(white)
-            background = shape(panel2, 13)
+            background = shape(homePanel, 14)
             setOnClickListener {
-                startActivity(Intent(this@MainActivity, GuardianBrowserActivity::class.java))
+                startService(Intent(this@MainActivity, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_STOP))
             }
-        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(9) })
-        primaryColumn.addView(hero)
+        }
+        hero.addView(stop, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(14) })
+        body.addView(hero.withTop(18))
 
-        val metricRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        blockRateValue = text("0%", 22f, white, true)
-        blockedCountValue = text("0", 22f, white, true)
+        val metrics = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        blockRateValue = text("0%", 22f, homeGreen, true)
+        blockedCountValue = text("0", 22f, homeOrange, true)
         queryCountValue = text("0", 22f, white, true)
-        metricRow.addView(metricCard("차단률", blockRateValue!!, accent), LinearLayout.LayoutParams(0, dp(88), 1f))
-        metricRow.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
-        metricRow.addView(metricCard("차단된 질의", blockedCountValue!!, Color.rgb(255, 112, 125)), LinearLayout.LayoutParams(0, dp(88), 1f))
-        metricRow.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
-        metricRow.addView(metricCard("전체 DNS", queryCountValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(88), 1f))
-        primaryColumn.addView(metricRow.withTop(12))
+        metrics.addView(metricCard("차단률", blockRateValue!!, homeGreen), LinearLayout.LayoutParams(0, dp(104), 1f))
+        metrics.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+        metrics.addView(metricCard("차단된 질의", blockedCountValue!!, homeOrange), LinearLayout.LayoutParams(0, dp(104), 1f))
+        metrics.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+        metrics.addView(metricCard("전체 DNS", queryCountValue!!, white), LinearLayout.LayoutParams(0, dp(104), 1f))
+        body.addView(metrics.withTop(16))
 
-        primaryColumn.addView(card(panel, 18).apply {
+        val versionName = try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0)).versionName
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0).versionName
+            }
+        } catch (_: Exception) { "확인 불가" }
+        body.addView(card(homePanel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
-            addView(text("광고 차단 필터", 14f, white, true))
-            addView(text(
-                "필터 캐시 무결성은 보호 시작 시 백그라운드에서 확인합니다. 업데이트 중에도 다른 메뉴를 사용할 수 있습니다.",
-                11f, muted, false
-            ).withTop(8))
+            addView(text("앱 및 필터 업데이트", 15f, white, true))
+            addView(text("설치된 앱 버전  $versionName", 12f, homeGreen, true).withTop(9))
+            addView(text("앱 업데이트는 설정에서 직접 확인합니다. 필터 목록 업데이트와 앱 업데이트 상태를 구분해 표시합니다.", 11f, muted, false).withTop(6))
             addView(Button(this@MainActivity).apply {
-                text = "필터 및 차단 옵션 관리"
+                text = "업데이트 관리"
                 isAllCaps = false
                 setTextColor(white)
-                background = shape(panel2, 12)
-                setOnClickListener { showTab("rules") }
-            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(10) })
-        }.withTop(12))
+                background = shape(homeBg, 12)
+                setOnClickListener { showTab("settings") }
+            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(12) })
+        }.withTop(14))
 
-        primaryColumn.addView(text("보호 구성", 18f, white, true).withTop(24))
-        val grid = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        grid.addView(infoCard("01", "DNS 필터링", "광고 · 추적 도메인", accent), LinearLayout.LayoutParams(0, dp(112), 1f))
-        grid.addView(space(10), LinearLayout.LayoutParams(dp(10), 1))
-        grid.addView(infoCard("02", "사용자 규칙", "차단 · 허용 목록", Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(112), 1f))
-        primaryColumn.addView(grid.withTop(12))
-        secondaryColumn.addView(card(panel, 16).apply {
+        val columns = LinearLayout(this).apply {
+            orientation = if (wideDashboard) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+            gravity = Gravity.TOP
+        }
+        val left = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        left.addView(card(homePanel, 16).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(15), dp(16), dp(15))
+            setPadding(dp(15), dp(14), dp(15), dp(14))
             addView(text("실시간 DNS 통계", 14f, white, true))
-            val stats = text("질의 0 · 차단 0 · 전달 0 · 실패 0", 12f, accent, true).withTop(9) as TextView
-            statsText = stats
-            addView(stats)
-            val recent = text("아직 기록된 DNS 활동이 없습니다.", 11f, muted, false).withTop(8) as TextView
-            recentText = recent
-            addView(recent)
-        }.withTop(12))
-        secondaryColumn.addView(card(panel, 16).apply {
+            statsText = text("질의 0 · 차단 0 · 전달 0 · 실패 0", 12f, homeGreen, true).withTop(9) as TextView
+            addView(statsText)
+            recentText = text("아직 기록된 DNS 활동이 없습니다.", 11f, muted, false).withTop(8) as TextView
+            addView(recentText)
+            addView(Button(this@MainActivity).apply {
+                text = "상세 활동 보기"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(homeBg, 12)
+                setOnClickListener { showTab("activity") }
+            }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(10) })
+        })
+        val right = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        right.addView(card(homePanel, 16).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(15), dp(16), dp(15))
-            addView(text("현재 보호 범위", 14f, white, true))
-            addView(text("IPv4 / IPv6 · UDP/53 + TCP/53 DNS", 12f, muted, false).withTop(7))
-            addView(text("DNS 이외 트래픽과 앱이 직접 사용하는 암호화 DNS(DoH/DoT)는 필터링하지 않습니다.", 11f, muted, false).withTop(5))
-        }.withTop(12))
+            setPadding(dp(15), dp(14), dp(15), dp(14))
+            addView(text("보호 범위", 14f, white, true))
+            addView(text("IPv4 / IPv6 · UDP/53 + TCP/53 DNS", 12f, muted, false).withTop(8))
+            addView(text("DNS 이외 트래픽과 앱이 직접 사용하는 암호화 DNS(DoH/DoT)는 현재 필터링하지 않습니다.", 11f, muted, false).withTop(6))
+        })
         val privateDns = privateDnsCompatibilityStatus()
-        secondaryColumn.addView(card(panel, 14).apply {
+        right.addView(card(homePanel, 14).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(12), dp(14), dp(12))
             addView(text("ANDROID 비공개 DNS", 10f, muted, true))
             addView(text(privateDns.first, 11f, privateDns.second, false).withTop(6))
         }.withTop(10))
+        left.addView(card(homePanel, 16).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(14), dp(15), dp(14))
+            addView(text("필터 및 차단 옵션", 14f, white, true))
+            addView(text("광고·추적 도메인 필터와 사용자 차단·허용 규칙을 관리합니다.", 11f, muted, false).withTop(7))
+            addView(Button(this@MainActivity).apply {
+                text = "필터 설정 열기"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(homeBg, 12)
+                setOnClickListener { showTab("rules") }
+            }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(10) })
+        }.withTop(10))
         if (wideDashboard) {
-            val columns = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.TOP
-            }
-            columns.addView(primaryColumn, LinearLayout.LayoutParams(0, -2, 1f))
-            columns.addView(space(14), LinearLayout.LayoutParams(dp(14), 1))
-            columns.addView(secondaryColumn, LinearLayout.LayoutParams(0, -2, 1f))
-            body.addView(columns.withTop(22))
+            columns.addView(left, LinearLayout.LayoutParams(0, -2, 1f))
+            columns.addView(space(12), LinearLayout.LayoutParams(dp(12), 1))
+            columns.addView(right, LinearLayout.LayoutParams(0, -2, 1f))
         } else {
-            body.addView(primaryColumn.withTop(22))
-            body.addView(secondaryColumn)
+            columns.addView(left, LinearLayout.LayoutParams(-1, -2))
+            columns.addView(right, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
         }
+        body.addView(columns.withTop(14))
     }
 
     private fun buildActivity(body: LinearLayout) {
