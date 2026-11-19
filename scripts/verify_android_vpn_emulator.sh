@@ -328,11 +328,11 @@ python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 duplicate=[node.attrib.get("text","") for node in root.iter("node")
     if node.attrib.get("class")=="android.widget.Button"
-    and node.attrib.get("text","").strip() in {"보호 시작","보호 중지","보호 완전 중지"}
+    and node.attrib.get("text","").strip() in {"보호 시작","보호 중지","보호 완전 중지","필터 및 사용자 규칙 관리","앱별 보호 제외 관리"}
     and node.attrib.get("visible-to-user","true")=="true"
     and node.attrib.get("clickable")=="true"]
 if duplicate:
-    raise SystemExit("Protection diagnostics screen still exposes duplicate start/stop controls: "+repr(duplicate))' <<<"$protection_controls_xml"
+    raise SystemExit("Protection screen still exposes duplicate navigation or start/stop controls: "+repr(duplicate))' <<<"$protection_controls_xml"
 tap_content_description "앱 제외"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
