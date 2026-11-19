@@ -276,6 +276,37 @@ jobs:
       # The emulator is launched with -no-audio below. Do not install host
       # audio libraries here: apt mirrors are unreliable on hosted runners and
       # audio is not part of Guardian's VPN/network verification.
+      - name: Install Android emulator audio runtime dependency
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          # qemu-system-x86_64 links libpulse.so.0 even when the emulator is
+          # launched with -no-audio. Install the small runtime package before
+          # starting the headless VPN emulator; retry transient Ubuntu mirror
+          # failures rather than treating them as a Guardian source failure.
+          if ! ldconfig -p | grep -q 'libpulse.so.0'; then
+            export DEBIAN_FRONTEND=noninteractive
+            installed=0
+            for attempt in 1 2 3; do
+              echo "libpulse0 install attempt ${attempt}/3"
+              if sudo apt-get --no-install-recommends \
+                -o Acquire::Retries=3 \
+                -o Acquire::http::Timeout=30 \
+                -o Acquire::https::Timeout=30 \
+                install -y libpulse0; then
+                installed=1
+                break
+              fi
+              sleep 8
+            done
+            if [ "$installed" -ne 1 ]; then
+              echo "Could not install required qemu runtime library libpulse0."
+              exit 1
+            fi
+          fi
+          ldconfig -p | grep 'libpulse.so.0'
+
       - name: Enable KVM access for Android emulator
         shell: bash
         run: |
