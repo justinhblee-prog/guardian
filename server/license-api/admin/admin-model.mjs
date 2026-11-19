@@ -46,11 +46,11 @@ export function validateIssueInput(validDays, maxDevices, planCode = "custom") {
     throw new RangeError("최대 기기는 1~20대의 정수여야 합니다.");
   }
   const planDurations = { monthly_30d: 30, quarterly_90d: 90, annual_365d: 365, short_7d: 7 };
-  if (planCode !== "custom" && planDurations[planCode] !== days) {
-    throw new RangeError("선택한 라이선스 상품과 유효 기간이 일치하지 않습니다.");
-  }
   if (planCode !== "custom" && !Object.hasOwn(planDurations, planCode)) {
     throw new RangeError("라이선스 상품 유형이 올바르지 않습니다.");
+  }
+  if (planCode !== "custom" && planDurations[planCode] !== days) {
+    throw new RangeError("선택한 라이선스 상품과 유효 기간이 일치하지 않습니다.");
   }
   return { validDays: days, maxDevices: devices, planCode };
 }
