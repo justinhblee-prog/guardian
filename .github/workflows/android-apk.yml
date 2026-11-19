@@ -150,8 +150,19 @@ jobs:
 
       - name: Assemble current debug APK for build verification
         shell: bash
+        env:
+          # Public verification keys and HTTPS service origins are safe to embed in the APK.
+          # Never pass the license signing private key or Android release keystore here.
+          GUARDIAN_LICENSE_API_BASE_URL: ${{ vars.GUARDIAN_LICENSE_API_BASE_URL }}
+          GUARDIAN_LICENSE_PUBLIC_KEY: ${{ vars.GUARDIAN_LICENSE_PUBLIC_KEY }}
+          GUARDIAN_MANIFEST_BASE_URL: ${{ vars.GUARDIAN_MANIFEST_BASE_URL }}
+          GUARDIAN_MANIFEST_PUBLIC_KEY: ${{ vars.GUARDIAN_MANIFEST_PUBLIC_KEY }}
         run: |
-          # Build with Gradle fallback defaults exactly as the documented Windows local build does.
+          set -euo pipefail
+          echo "License API URL configured: $([[ -n "$GUARDIAN_LICENSE_API_BASE_URL" ]] && echo yes || echo no)"
+          echo "License public key configured: $([[ -n "$GUARDIAN_LICENSE_PUBLIC_KEY" ]] && echo yes || echo no)"
+          echo "Signed filter URL configured: $([[ -n "$GUARDIAN_MANIFEST_BASE_URL" ]] && echo yes || echo no)"
+          echo "Signed filter public key configured: $([[ -n "$GUARDIAN_MANIFEST_PUBLIC_KEY" ]] && echo yes || echo no)"
           gradle -p android --no-daemon assembleDebug
 
       - name: Verify bundled DNS filter library inside APK
