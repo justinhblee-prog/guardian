@@ -52,6 +52,7 @@ class GuardianVpnService : VpnService() {
         const val KEY_DNS_TRACKER_BLOCKED = "dns_tracker_blocked"
         const val KEY_DNS_OTHER_BLOCKED = "dns_other_blocked"
         const val KEY_DNS_DIAGNOSTIC = "dns_diagnostic"
+        const val KEY_FILTER_READINESS = "filter_readiness_diagnostic"
         const val KEY_DNS_RECENT = "dns_recent"
         private const val CHANNEL = "guardian_protection"
         private const val VIRTUAL_DNS = "10.13.37.2"
@@ -627,7 +628,7 @@ class GuardianVpnService : VpnService() {
             running.set(true)
             tunnelActive = true
             val filterNotice = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getString(KEY_DNS_DIAGNOSTIC, null)
+                .getString(KEY_FILTER_READINESS, null)
                 ?.takeIf { it.isNotBlank() && it != "모든 선택 필터가 준비되었습니다." }
             val activeMessage = if (filterNotice == null) {
                 "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다."
@@ -896,7 +897,7 @@ class GuardianVpnService : VpnService() {
                 "missingOptional=${unavailable.joinToString()}, freeHeap=${Runtime.getRuntime().freeMemory()}"
         )
         prefs.edit().putString(
-            KEY_DNS_DIAGNOSTIC,
+            KEY_FILTER_READINESS,
             if (unavailable.isEmpty()) "모든 선택 필터가 준비되었습니다."
             else "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: ${unavailable.joinToString()}"
         ).apply()
