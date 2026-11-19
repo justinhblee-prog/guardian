@@ -2727,7 +2727,8 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
             addView(text("설치된 앱 검색", 13f, white, true))
-            addView(text("전체 설치 앱 ${apps.size}개 · 앱 이름 또는 패키지명으로 검색하세요.", 11f, muted, false).withTop(4))
+            val inventorySummary = text("설치 앱 목록을 불러오는 중…", 11f, muted, false).withTop(4)
+            addView(inventorySummary)
             addView(text(
                 "제외한 앱의 네트워크는 Android 시스템으로 우회됩니다. Guardian VPN 연결 자체는 계속 유지되므로, 기기 전체의 VPN 상태를 확인하는 앱은 경고를 표시할 수 있습니다.",
                 10f, muted, false
@@ -2875,6 +2876,7 @@ class MainActivity : Activity() {
                 result.onSuccess { loaded ->
                     apps = loaded
                     inventoryReady = true
+                    inventorySummary.text = "전체 설치 앱 ${loaded.size}개 · 앱 이름 또는 패키지명으로 검색하세요."
                     appFilterFeedback?.contentDescription = "앱별 보호 제외 앱 목록 준비 완료"
                     renderApps(search.text?.toString().orEmpty())
                 }.onFailure { error ->
