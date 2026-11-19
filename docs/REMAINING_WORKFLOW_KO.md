@@ -54,6 +54,7 @@ Android 1.0은 Issue #141의 필수 항목만 완료 기준으로 사용합니�
 - 관리자 웹 화면에 고객 문의함과 안전한 text rendering을 추가했습니다.
 - 라이선스 발급 화면에 7/30/90/365일 및 custom 기간 상품을 추가하고, 서버도 상품 코드/기간을 재검증합니다. Lifetime은 지원하지 않습니다.
 - migration 003 및 기존 DB backup + 002/003 migration + API 재빌드 + /ready 확인 PowerShell runner를 추가했습니다.
+- VPN 보호 엔진은 내장 baseline 규칙으로 시작하고, 선택 다운로드 필터의 일반 캐시/파싱 오류만 해당 필터를 건너뛰며 진단에 표시하도록 보완했습니다. JVM 치명 오류와 잘못된 threshold 설정은 숨기지 않도록 테스트도 추가했습니다.
 - 테스트 소스와 Android emulator UI assertion은 통합 브랜치에 반영했지만, **통합 브랜치의 CI/unit test/lint/emulator 재실행은 아직 수행하지 않았습니다.** 원본 PR #205의 이전 성공 이력을 이 브랜치 성공 증거로 옮기지 않습니다.
 - 사용자 노트북의 기존 운영 DB migration, 실제 문의 접수, 노트북/모바일 관리자 화면 및 Android 실기기 동작은 미검증입니다.
 - 새 소스의 개발 빌드 버전은 0.7.30-dev / versionCode 43으로 설정되어 있습니다. 새 APK는 아직 생성·검증되지 않았습니다. 이전 0.7.29-dev (42) APK/checksum은 과거 산출물입니다.
