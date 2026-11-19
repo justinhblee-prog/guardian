@@ -2456,14 +2456,12 @@ class MainActivity : Activity() {
             .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val saved = prefs.edit()
+                val editor = prefs.edit()
                     .putStringSet(AppForegroundPauseSettings.KEY_PACKAGES, selected.toSet())
-                    .apply {
-                        if (selected.isEmpty()) {
-                            putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
-                        }
-                    }
-                    .commit()
+                if (selected.isEmpty()) {
+                    editor.putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                }
+                val saved = editor.commit()
                 if (!saved) {
                     android.widget.Toast.makeText(
                         this,
@@ -2515,6 +2513,10 @@ class MainActivity : Activity() {
             error = null
         }
         if (selected.isEmpty() && enabled) {
+            prefs.edit().putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false).apply()
+            enabled = false
+        }
+        if (!usageAccess && enabled) {
             prefs.edit().putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false).apply()
             enabled = false
         }
