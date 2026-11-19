@@ -1023,7 +1023,7 @@ sleep 2
 tap_content_description "설정"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-settings-tab.xml >/dev/null 2>&1
-settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-tab.xml | tr -d '\\r')"
+settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-tab.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
