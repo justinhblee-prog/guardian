@@ -8,6 +8,25 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
+/**
+ * First-run cache population is mandatory even when recurring updates are disabled.
+ * The opt-in flag controls only scheduled refreshes, never the initial protection setup.
+ */
+internal object FilterStartupPolicy {
+    fun shouldRefresh(
+        mainCacheMissing: Boolean,
+        securityCacheMissing: Boolean,
+        securityEnabled: Boolean,
+        androidAdsCacheMissing: Boolean,
+        androidAdsEnabled: Boolean,
+        scheduledRefreshDue: Boolean
+    ): Boolean =
+        mainCacheMissing ||
+            (securityEnabled && securityCacheMissing) ||
+            (androidAdsEnabled && androidAdsCacheMissing) ||
+            scheduledRefreshDue
+}
+
 /** Keeps one persistent periodic refresh request aligned with the user's settings. */
 object FilterUpdateScheduler {
     const val UNIQUE_WORK_NAME = "guardian_periodic_filter_update"
