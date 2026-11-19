@@ -322,7 +322,7 @@ async function createSupportTicket(body) {
   const subject = validateSupportText(body.subject, '제목', 3, 120);
   const message = validateSupportText(body.message, '문의 내용', 10, 5000);
   const email = typeof body.email === 'string' ? body.email.trim() : '';
-  if (email.length > 254 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+  if (email.length > 254 || email.includes('\u0000') || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
     throw Object.assign(new Error('이메일 주소 형식 또는 길이를 확인하세요.'), { status: 400 });
   }
 
