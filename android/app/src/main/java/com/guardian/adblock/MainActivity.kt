@@ -52,7 +52,6 @@ class MainActivity : Activity() {
     private var startButton: Button? = null
     private var protectionStatusText: TextView? = null
     private var protectionStatusDetail: TextView? = null
-    private var protectionActionButton: Button? = null
     private var protectionFeedback: TextView? = null
     private var securityFilterSwitch: Switch? = null
     private var androidAdsFilterSwitch: Switch? = null
@@ -464,7 +463,6 @@ class MainActivity : Activity() {
         startButton = null
         protectionStatusText = null
         protectionStatusDetail = null
-        protectionActionButton = null
         protectionFeedback = null
         securityFilterSwitch = null
         androidAdsFilterSwitch = null
@@ -522,7 +520,7 @@ class MainActivity : Activity() {
             "activity" -> buildActivity(body)
             "premium" -> buildPremium(body)
             "app-exclusions" -> {
-                body.addView(text("앱별 제외", 25f, white, true))
+                body.addView(text("앱 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
                 buildAppExclusions(body)
             }
@@ -729,14 +727,7 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(15), dp(16), dp(15))
             addView(text("앱 및 필터 업데이트", 15f, white, true))
             addView(text("설치된 앱 버전  $versionName", 12f, homeGreen, true).withTop(9))
-            addView(text("앱 업데이트는 설정에서 직접 확인합니다. 필터 목록 업데이트와 앱 업데이트 상태를 구분해 표시합니다.", 11f, muted, false).withTop(6))
-            addView(Button(this@MainActivity).apply {
-                text = "업데이트 관리"
-                isAllCaps = false
-                setTextColor(white)
-                background = shape(homeBg, 12)
-                setOnClickListener { navigateToTab("settings") }
-            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(12) })
+            addView(text("앱 업데이트와 필터 목록 관리는 하단의 설정 메뉴에서 확인합니다.", 11f, muted, false).withTop(6))
         }.withTop(14))
 
         val columns = LinearLayout(this).apply {
@@ -752,13 +743,6 @@ class MainActivity : Activity() {
             addView(statsText)
             recentText = text("아직 기록된 DNS 활동이 없습니다.", 11f, muted, false).withTop(8) as TextView
             addView(recentText)
-            addView(Button(this@MainActivity).apply {
-                text = "상세 활동 보기"
-                isAllCaps = false
-                setTextColor(white)
-                background = shape(homeBg, 12)
-                setOnClickListener { showTab("activity") }
-            }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(10) })
         })
         val right = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         right.addView(card(homePanel, 16).apply {
@@ -780,13 +764,6 @@ class MainActivity : Activity() {
             setPadding(dp(15), dp(14), dp(15), dp(14))
             addView(text("필터 및 차단 옵션", 14f, white, true))
             addView(text("광고·추적 도메인 필터와 사용자 차단·허용 규칙을 관리합니다.", 11f, muted, false).withTop(7))
-            addView(Button(this@MainActivity).apply {
-                text = "필터 설정 열기"
-                isAllCaps = false
-                setTextColor(white)
-                background = shape(homeBg, 12)
-                setOnClickListener { showTab("rules") }
-            }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(10) })
         }.withTop(10))
         if (wideDashboard) {
             columns.addView(left, LinearLayout.LayoutParams(0, -2, 1f))
@@ -800,7 +777,7 @@ class MainActivity : Activity() {
     }
 
     private fun buildActivity(body: LinearLayout) {
-        body.addView(text("차단 기록 및 통계", 25f, white, true))
+        body.addView(text("활동 및 통계", 25f, white, true))
         body.addView(text("VPN DNS 엔진이 실제 처리한 요청만 기록합니다.", 13f, muted, false).withTop(5))
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val summary = card(panel, 16).apply {
@@ -1098,31 +1075,10 @@ class MainActivity : Activity() {
             addView(protectionStatusDetail!!)
             val privateDns = privateDnsCompatibilityStatus()
             addView(text(privateDns.first, 11f, privateDns.second, false).withTop(10))
-            protectionActionButton = Button(this@MainActivity).apply {
-                text = if (active) "보호 중지" else "보호 시작"
-                isAllCaps = false
-                textSize = 14f
-                setTextColor(if (active) white else bg)
-                background = shape(if (active) panel2 else accent, 13)
-                setOnClickListener {
-                    val compatibilityPaused = prefs.getBoolean(
-                        AppForegroundPauseSettings.KEY_PAUSED, false
-                    )
-                    val isActive = ProtectionState.isActive(
-                        prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
-                        GuardianVpnService.isTunnelActive()
-                    )
-                    if (isActive || compatibilityPaused) {
-                        startService(Intent(this@MainActivity, GuardianVpnService::class.java)
-                            .setAction(GuardianVpnService.ACTION_STOP))
-                    } else {
-                        requestProtection()
-                    }
-                }
-            }
-            addView(protectionActionButton!!, LinearLayout.LayoutParams(-1, dp(48)).apply {
-                topMargin = dp(14)
-            })
+            addView(text(
+                "보호 시작과 중지는 홈 화면의 단일 제어 버튼에서 실행합니다.",
+                11f, muted, false
+            ).withTop(14))
         }
         body.addView(control.withTop(18))
 
@@ -1285,7 +1241,7 @@ class MainActivity : Activity() {
     }
 
     private fun buildRules(body: LinearLayout) {
-        body.addView(text("차단 규칙 및 필터", 25f, white, true))
+        body.addView(text("필터 규칙", 25f, white, true))
         body.addView(text("활성 필터 목록과 나만의 차단·허용 규칙을 관리합니다.", 13f, muted, false).withTop(5))
         val officialFilterCard = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
@@ -2092,11 +2048,11 @@ class MainActivity : Activity() {
         }
         val items = listOf(
             Triple("home", "⌂", "홈"),
-            Triple("protection", "◈", "보호"),
-            Triple("app-exclusions", "◉", "앱별 제외"),
-            Triple("activity", "▤", "차단 기록"),
+            Triple("protection", "◈", "보호 상태"),
+            Triple("app-exclusions", "◉", "앱 제외"),
+            Triple("activity", "▤", "활동"),
             Triple("premium", "✦", "프리미엄"),
-            Triple("rules", "≡", "차단 규칙"),
+            Triple("rules", "≡", "필터 규칙"),
             Triple("settings", "⚙", "설정")
         )
         items.forEach { (id, icon, label) ->
@@ -3247,7 +3203,6 @@ class MainActivity : Activity() {
             protectionFeedback?.text = "필터 상태를 확인하고 있습니다. 잠시만 기다려 주세요."
             return
         }
-        protectionActionButton?.isEnabled = false
         startButton?.isEnabled = false
         protectionFeedback?.text = "필터 캐시와 검증 상태를 확인하고 있습니다."
         thread(name = "guardian-protection-readiness") {
@@ -3292,7 +3247,6 @@ class MainActivity : Activity() {
             }
             runOnUiThread {
                 protectionCheckRunning.set(false)
-                protectionActionButton?.isEnabled = true
                 startButton?.isEnabled = true
                 if (!readiness.first) {
                     android.util.Log.e("GuardianProtection", "Filter cache not ready: ${readiness.second}")
@@ -3447,16 +3401,6 @@ class MainActivity : Activity() {
                 privateDnsMode(),
                 message
             )
-            protectionActionButton?.text = when {
-                active -> "보호 중지"
-                compatibilityPaused -> "호환 앱 실행 중"
-                recoveryPending -> "보호 복구 중"
-                staleSession -> "다시 연결"
-                else -> "보호 시작"
-            }
-            protectionActionButton?.isEnabled = !recoveryPending
-            protectionActionButton?.setTextColor(if (active || recoveryPending || compatibilityPaused) white else bg)
-            protectionActionButton?.background = shape(if (active || recoveryPending || compatibilityPaused) panel2 else accent, 13)
         }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
         val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
