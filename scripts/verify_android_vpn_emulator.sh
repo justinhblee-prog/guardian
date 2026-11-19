@@ -320,7 +320,7 @@ for node in root.iter("node"):
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
 # Protection diagnostics and app exclusions are separate destinations in bottom navigation.
-tap_content_description "보호 상태"
+tap_content_description "보호 설정"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-protection-controls.xml >/dev/null 2>&1
 protection_controls_xml="$(adb_cmd exec-out cat /sdcard/guardian-protection-controls.xml | tr -d '\r')"
@@ -596,7 +596,7 @@ echo "App-exclusion search, package filtering, Android Auto lookup, and single H
 
 # Verify the single persistent bottom navigation and each destination.
 echo "Verifying the persistent bottom navigation destinations."
-for navigation_label in "보호 상태" "앱 제외" "활동" "프리미엄" "필터 규칙" "설정"; do
+for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "프리미엄" "필터 규칙" "설정"; do
   tap_content_description "$navigation_label"
   sleep 1
   adb_cmd shell rm -f /sdcard/guardian-navigation.xml
