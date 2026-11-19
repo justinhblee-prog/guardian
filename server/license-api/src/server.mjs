@@ -302,7 +302,7 @@ async function createLicense(body) {
     const name = typeof body.customer.name === 'string' ? body.customer.name.trim() : '';
     const email = typeof body.customer.email === 'string' ? body.customer.email.trim().toLowerCase() : '';
     const orderRef = typeof body.customer.orderRef === 'string' ? body.customer.orderRef.trim() : '';
-    if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email) || email.length > 254 ||
+    if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 ||
         orderRef.length > 120 || /[\r\n\0]/.test(name + email + orderRef)) {
       throw Object.assign(new Error('고객명, 올바른 이메일, 주문번호를 확인하세요.'), { status: 400 });
     }
