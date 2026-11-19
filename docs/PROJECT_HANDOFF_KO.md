@@ -288,5 +288,5 @@ Android 1.0 종료 후 다음 트랙으로 진행한다.
 - 해당 UI 검사에서 Settings ScrollView를 먼저 상단으로 되돌린 뒤 고객지원 카드를 검색하도록 스크립트를 수정했다. 수정 커밋 `d8b1d0f1f676555163f802a33650eb2be796cdc4`. 이 새 커밋에 대한 Actions 재실행은 아직 확인되지 않았다.
 - PR #205는 main과 53 commits ahead / 3 commits behind로 분기(diverged)됐고 현재 mergeable=false다. PR 전체를 자동 병합하지 않는다. main의 고객 디렉터리 migration 004 및 서명키 수정 PR #207과 충돌/의존성을 정리한 뒤 안전하게 동기화해야 한다.
 - 필터 CDN의 `guardian-filter-data` 브랜치는 아직 원격에 없다. `sources.example.json`의 7개 공급원은 모두 `redistributionApproved=false`, 승인 참조 공란이다. 실제 재배포 권리 검토 및 추적 가능한 승인 참조 없이 값을 true로 바꾸거나 상용 필터를 게시하지 않는다. 게시 스크립트는 DPAPI 개인키와 Android 공개키 일치 검증 후에만 원격 브랜치를 생성·게시한다.
-- Release workflow의 PR 검증은 임시 키로 Direct APK/Play AAB 빌드 경로와 메타데이터를 확인하는 용도다. 운영 production job은 사용자 운영 signing secrets가 없으면 skip된다. 임시 서명 산출물은 정식 배포본이 아니다.
+- Release workflow의 PR/push 검증은 임시 키로 Direct APK/Play AAB 빌드 경로와 메타데이터를 확인하는 용도다. `production-release` job은 `workflow_dispatch`에서만 실행되므로 PR/push 검증에서의 skip은 이벤트 조건에 따른 것이며, 그 결과만으로 운영 signing secrets의 존재 여부를 판단하지 않는다. 실제 수동 production run과 운영키 서명 산출물 검증은 별도로 필요하다. 임시 서명 산출물은 정식 배포본이 아니다.
 - Android 업데이트 UI의 수동 확인/설치 분리와 필터 목록 업데이트 버튼은 main 코드에서 확인됐다. 업데이트 다운로드/설치의 최종 운영 검증은 정식 서명 배포 산출물 및 실기기에서 별도로 수행한다.
