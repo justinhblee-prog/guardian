@@ -390,14 +390,15 @@ async function createLicense(body) {
     }
     customer = { name, email, orderRef: orderRef || null };
   }
-  const maxDevices = Number.isInteger(body.maxDevices) ? body.maxDevices : 1;
-  const days = Number.isInteger(body.validDays) ? body.validDays : 365;
+  const maxDevices = body.maxDevices === undefined ? 1 : body.maxDevices;
+  const days = body.validDays === undefined ? 365 : body.validDays;
   const planDurations = { short_7d: 7, monthly_30d: 30, quarterly_90d: 90, annual_365d: 365 };
   const planCode = body.planCode === undefined ? 'custom' : body.planCode;
   const expectedDays = typeof planCode === 'string' ? planDurations[planCode] : undefined;
-  if (typeof planCode !== 'string' || !['custom', ...Object.keys(planDurations)].includes(planCode) ||
-      (expectedDays !== undefined && days !== expectedDays) ||
-      maxDevices < 1 || maxDevices > 20 || days < 1 || days > 36500) {
+  if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 20 ||
+      !Number.isInteger(days) || days < 1 || days > 36500 ||
+      typeof planCode !== 'string' || !['custom', ...Object.keys(planDurations)].includes(planCode) ||
+      (expectedDays !== undefined && days !== expectedDays)) {
     throw Object.assign(new Error('상품 유형, 기기 수 또는 유효 기간 설정을 확인하세요.'), { status: 400 });
   }
   const key = newLicenseKey();
