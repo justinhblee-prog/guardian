@@ -2757,11 +2757,6 @@ class MainActivity : Activity() {
                     setSize(dp(2), dp(20))
                 }
             }
-            setOnFocusChangeListener { view, focused ->
-                view.background = shape(panel2, 12).apply {
-                    setStroke(dp(2), if (focused) accent else muted)
-                }
-            }
         }
         appExclusionsSearchInput = search
         search.setOnFocusChangeListener { view, focused ->
