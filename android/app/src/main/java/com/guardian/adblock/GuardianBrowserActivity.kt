@@ -220,7 +220,7 @@ class GuardianBrowserActivity : Activity() {
                 'ad placeholder', 'ads by google'
               ]);
               var normalizeAdLabel = function(value) {
-                return (value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                return (value || '').replace(/\s+/g, ' ').trim().toLowerCase();
               };
               var scanAdLabels = function() {
                 if (!document.body) return;
