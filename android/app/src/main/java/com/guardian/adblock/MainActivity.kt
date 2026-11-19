@@ -3381,7 +3381,7 @@ class MainActivity : Activity() {
             // disabled. Only suppress taps while an automatic recovery is running.
             startButton?.isEnabled = !recoveryPending
             startButton?.background = shape(
-                if (active || compatibilityPaused) homePanel else homeOrange, 28
+                if (active || compatibilityPaused) panel2 else accent, 28
             )
             startButton?.alpha = if (recoveryPending) 0.58f else 1f
         }
