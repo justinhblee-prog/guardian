@@ -319,8 +319,7 @@ for node in root.iter("node"):
 }
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
-# App exclusions now have a dedicated screen reached from Protection.
-# The disclosure is shown when that screen is first opened, not from Settings.
+# Protection diagnostics and app exclusions are separate destinations in bottom navigation.
 tap_content_description "보호 상태"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-protection-controls.xml >/dev/null 2>&1
@@ -334,36 +333,7 @@ duplicate=[node.attrib.get("text","") for node in root.iter("node")
     and node.attrib.get("clickable")=="true"]
 if duplicate:
     raise SystemExit("Protection diagnostics screen still exposes duplicate start/stop controls: "+repr(duplicate))' <<<"$protection_controls_xml"
-# The Protection screen is vertically scrollable; the management action is
-# below the filter controls and is not present in the accessibility tree until
-# it is brought into view. Scroll deliberately before tapping the visible text.
-app_management_visible=0
-for attempt in $(seq 1 8); do
-  adb_cmd shell rm -f /sdcard/guardian-window.xml
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if any(node.attrib.get("class")=="android.widget.Button"
-       and "앱별 보호 제외 관리" in node.attrib.get("text","")
-       and node.attrib.get("visible-to-user","true")=="true"
-       and node.attrib.get("clickable")=="true"
-       and node.attrib.get("enabled")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' <<<"$app_inventory_xml"; then
-    app_management_visible=1
-    break
-  fi
-  adb_cmd shell input swipe 540 1500 540 650 450
-  sleep 1
-done
-if [[ "$app_management_visible" -ne 1 ]]; then
-  echo "App-exclusion management action did not become visible after scrolling the Protection screen."
-  echo "$app_inventory_xml"
-  exit 1
-fi
-tap_text "앱별 보호 제외 관리"
+tap_content_description "앱 제외"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -753,68 +723,11 @@ if [[ "$active" -ne 1 ]]; then
   exit 1
 fi
 
-echo "Verifying live per-app VPN exclusion changes through the app UI."
-tap_content_description "보호"
-sleep 1
-app_management_visible=0
-for attempt in $(seq 1 12); do
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_management_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if any("앱별 보호 제외 관리" in node.attrib.get("text","")
-       and node.attrib.get("class")=="android.widget.Button"
-       and node.attrib.get("visible-to-user","true")=="true"
-       and node.attrib.get("clickable")=="true"
-       and node.attrib.get("enabled")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' <<<"$app_management_xml"; then
-    app_management_visible=1
-    break
-  fi
-  adb_cmd shell input swipe 540 1500 540 600 450
-  sleep 1
-done
-if [[ "$app_management_visible" -ne 1 ]]; then
-  echo "App exclusion management button was not visible while VPN was active."
-  echo "$app_management_xml"
-  exit 1
-fi
-tap_text "앱별 보호 제외 관리"
+echo "Verifying live per-app VPN exclusion changes through the dedicated app-exclusions tab."
+tap_content_description "앱 제외"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-post_vpn_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if not any(node.attrib.get("class")=="android.widget.EditText"
-    and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
-    and node.attrib.get("visible-to-user","true")=="true"
-    for node in root.iter("node")):
-    raise SystemExit("App-exclusion search input is not visible while VPN is active.")' <<<"$post_vpn_search_xml"
-tap_content_description "앱별 보호 제외 검색 입력"
-sleep 1
-adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
-adb_cmd shell input keyevent KEYCODE_DEL
-sleep 0.3
-adb_cmd shell input text 'com.android.settings'
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-exclusion_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-# Each app row renders a two-line label; match the final package-ID line exactly.
-matches=[n for n in root.iter("node")
-         if n.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
-         and n.attrib.get("class")=="android.widget.CheckBox"
-         and n.attrib.get("visible-to-user","true")=="true"
-         and n.attrib.get("clickable")=="true"]
-if len(matches)!=1:
-    raise SystemExit("Expected exactly one visible Settings app exclusion checkbox, got "+str(len(matches)))' <<<"$exclusion_xml"
-# Hide the IME before tapping the filtered row. UIAutomator can report a row
-# behind the keyboard as visible-to-user even though the tap lands on the IME.
-adb_cmd shell input keyevent KEYCODE_BACK || true
-sleep 1
+app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 tap_checkbox "com.android.settings"
 # A checkbox edits only the draft. The persisted VPN exclusion must not change
 # until the user explicitly presses the save action.
