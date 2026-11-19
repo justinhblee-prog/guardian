@@ -176,7 +176,7 @@ class GuardianVpnService : VpnService() {
             stopSelf(startId)
             return
         }
-        val foregroundTarget = startWalletMonitorIfConfigured()
+        val foregroundTarget = startForegroundAppMonitor()
         if (foregroundTarget != null) {
             pauseProtectionForCompatibility(foregroundTarget)
         } else if (prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
@@ -1030,7 +1030,7 @@ class GuardianVpnService : VpnService() {
                 .setContentIntent(open)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setTicker("Guardian DNS 보호 실행 중")
+                .setTicker(if (compatibilityPaused) "Guardian VPN 일시 중지" else "Guardian DNS 보호 실행 중")
                 .setOnlyAlertOnce(true)
                 .setOngoing(true)
                 .build()
@@ -1038,7 +1038,7 @@ class GuardianVpnService : VpnService() {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
                 .setContentTitle("Guardian AdBlock")
-                .setContentText("DNS 필터링 실행 중")
+                .setContentText(if (compatibilityPaused) "선택 앱 사용 중 · 종료 후 자동 재연결" else "DNS 필터링 실행 중")
                 .setSmallIcon(android.R.drawable.ic_lock_lock)
                 .setOngoing(true)
                 .build()
