@@ -70,6 +70,7 @@ class MainActivity : Activity() {
     private var filterStatusText: TextView? = null
     private var filterUpdateButton: Button? = null
     private var appFilterFeedback: TextView? = null
+    private var appExclusionsAppliedStatus: TextView? = null
     private var appExclusionsSearchInput: EditText? = null
     private var compatibilityStatusText: TextView? = null
     private var compatibilityAppsButton: Button? = null
@@ -99,6 +100,7 @@ class MainActivity : Activity() {
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             refreshStatus()
+            refreshAppExclusionsAppliedStatus()
             when (intent?.action) {
                 FilterUpdateWorker.ACTION_FILTERS_CHANGED -> {
                     syncFilterOptionControls()
@@ -420,6 +422,7 @@ class MainActivity : Activity() {
         filterUpdateButton = null
         appFilterFeedback = null
         appExclusionsSearchInput = null
+        appExclusionsAppliedStatus = null
         compatibilityStatusText = null
         compatibilityAppsButton = null
         compatibilityPauseSwitch = null
@@ -2714,6 +2717,24 @@ class MainActivity : Activity() {
         compatibilityAppsButton?.text = "일시중지 앱 선택 (${selected.size}개)"
     }
 
+    private fun refreshAppExclusionsAppliedStatus() {
+        val target = appExclusionsAppliedStatus ?: return
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val requested = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty()
+        val applied = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_APPLIED, emptySet()).orEmpty()
+        val rejected = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_ERROR, emptySet()).orEmpty()
+        val active = ProtectionState.isActive(
+            prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+            GuardianVpnService.isTunnelActive()
+        )
+        target.text = when {
+            !active -> "VPN 미연결 · 저장된 제외 ${requested.size}개 · 다음 보호 연결 때 적용"
+            rejected.isNotEmpty() -> "VPN 연결됨 · 제외 적용 ${applied.size}/${requested.size}개 · 적용 실패 ${rejected.size}개"
+            else -> "VPN 연결됨 · 앱별 보호 제외 ${applied.size}/${requested.size}개 적용"
+        }
+        target.setTextColor(if (active && rejected.isNotEmpty()) red else muted)
+    }
+
     private fun buildAppExclusions(body: LinearLayout) {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED, false)) {
@@ -2820,6 +2841,9 @@ class MainActivity : Activity() {
             11f, muted, false
         ).withTop(8) as TextView
         body.addView(appFilterFeedback!!)
+        appExclusionsAppliedStatus = text("", 11f, muted, false).withTop(5) as TextView
+        body.addView(appExclusionsAppliedStatus!!)
+        refreshAppExclusionsAppliedStatus()
         val saveButton = android.widget.Button(this).apply {
             text = "변경사항 저장"
             contentDescription = "앱별 보호 제외 변경사항 저장"
