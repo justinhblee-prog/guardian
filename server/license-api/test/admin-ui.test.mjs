@@ -88,7 +88,7 @@ test("customer support inbox is authenticated and renders ticket content safely"
   const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
   assert.match(html, /id="supportTickets"/);
   assert.match(js, /api\("\/v1\/admin\/support\/tickets"\)/);
-  assert.match(js, /api\("\/v1\/admin\/support\/tickets\//);
+  assert.match(js, /api\(["']\/v1\/admin\/support\/tickets\//);
   assert.match(js, /supportItems = support\.tickets \|\| \[\]/);
   assert.match(js, /message\.textContent = item\.message/);
   assert.match(js, /old\.textContent = '기존 답변: ' \+ item\.admin_reply/);
