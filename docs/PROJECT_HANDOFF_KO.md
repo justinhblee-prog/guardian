@@ -233,10 +233,16 @@ Android 1.0 종료 후 다음 트랙으로 진행한다.
 
 ### 10.2 License API 및 Production Release 검증
 - License API run [44569842160](https://github.com/justinhblee-prog/guardian/actions/runs/44569842160), run #373: PostgreSQL 통합 테스트 job 성공.
-- Production Release run [44569842126](https://github.com/justinhblee-prog/guardian/actions/runs/44569842126), run #490: release configuration validation 진행 중이었고 `production-release` job은 운영 secrets 미설정으로 skip. secrets 없이 수행하는 ephemeral APK/AAB build 단계 진행 중이었다.
+- Production Release run [44569842126](https://github.com/justinhblee-prog/guardian/actions/runs/44569842126), run #490: release configuration validation job 성공. secrets 없이 수행하는 ephemeral direct APK/AAB 빌드 및 소스 archive 검증 완료. `production-release` job은 운영 secrets 미설정으로 skip되었다. 실제 production 서명본이 아니며 artifact는 생성되지 않았다.
 - 이전 run [44568623171](https://github.com/justinhblee-prog/guardian/actions/runs/44568623171), run #489: 설정 검증 및 secrets 없는 ephemeral direct APK/Play AAB 빌드와 소스 archive 검증까지 성공. production-release job은 skip. 이는 production 서명 릴리스가 아니다.
 
 ### 10.3 최신 상태 및 차단
 - 인수인계 문서 반영 커밋 `20d97921fa9f67b56e483acfe96cdf942fd466f3`에 대한 새 Android run #1543은 마지막 확인 시 job 생성 전 pending 상태였다.
 - PR #205는 Draft, main 대비 69 commits ahead / 1 behind 상태였다. 자동 병합이나 rebase는 수행하지 않았다.
 - 다음 순서: run #1542 emulator 단계 완료/실패 로그 확인 → run #1543 최신 HEAD 검증 완료 및 최신 artifact 확보 → PR 변경을 main과 안전하게 동기화 → 앱 제외/자동 일시중지/필터 업데이트/자동 재연결 및 고객지원 UI를 실기기 수용시험 → 운영키/Secrets와 production APK/AAB 확보.
+
+
+### 10.4 후속 확인 — 2026-11-20
+- Production Release run #490 ([44569842126](https://github.com/justinhblee-prog/guardian/actions/runs/44569842126))의 `validate-release-configuration` job이 성공 완료했다. Production signing/release job은 secrets가 없어 skip되었다. workflow artifact는 제공되지 않았다.
+- Android run #1542는 APK artifact 업로드 후 API 35 emulator install/launch 단계에서 계속 실행 중이었다. 마지막 polling에서도 해당 단계가 진행 중이었고 실패/성공 결론은 아직 없었다.
+- APK artifact ZIP과 APK 파일의 SHA-256은 로컬 계산값과 workflow summary가 일치했다. 이 APK는 개발용 0.7.29-dev이며 1.0 정식본이 아니다.
