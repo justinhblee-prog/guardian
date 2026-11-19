@@ -134,6 +134,11 @@ button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
         </section>
 
         <section class="panel">
+          <div class="panel-head"><div><h2>고객 목록</h2><p class="muted">등록 고객 최대 200명 · 관리자 인증 후 조회</p></div></div>
+          <div class="toolbar" style="grid-template-columns:minmax(0,1fr) auto"><input id="customerSearch" type="search" maxlength="100" placeholder="고객명 또는 이메일 검색" aria-label="고객 검색"><button class="secondary" id="refreshCustomers">고객 새로고침</button></div>
+          <div class="license-list" id="customers"><div class="empty">관리자 인증이 필요합니다.</div></div>
+        </section>
+        <section class="panel">
           <div class="panel-head"><div><h2>보안 감사 기록</h2><p class="muted">최근 100건 · 발급, 활성화, 기기 해제, 정지</p></div></div>
           <div class="event-list" id="events"><div class="empty">관리자 인증이 필요합니다.</div></div>
         </section>
