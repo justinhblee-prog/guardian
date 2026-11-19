@@ -630,8 +630,12 @@ class MainActivity : Activity() {
         body.addView(metrics.withTop(16))
 
         val versionName = try {
-            if (Build.VERSION.SDK_INT >= 33) packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0)).versionName
-            else @Suppress("DEPRECATION") packageManager.getPackageInfo(packageName, 0).versionName
+            if (Build.VERSION.SDK_INT >= 33) {
+                packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0)).versionName
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0).versionName
+            }
         } catch (_: Exception) { "확인 불가" }
         body.addView(card(homePanel, 16).apply {
             orientation = LinearLayout.VERTICAL
