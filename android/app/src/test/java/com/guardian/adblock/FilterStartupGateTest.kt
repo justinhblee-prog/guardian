@@ -49,6 +49,21 @@ class FilterStartupGateTest {
     }
 
     @Test
+    fun doesNotSwallowFatalErrorsFromOptionalFeedLoading() {
+        var unavailableCalled = false
+        try {
+            FilterStartupGate.loadOptionalRules(
+                minimumRules = 1,
+                load = { throw AssertionError("fatal runtime failure") },
+                onUnavailable = { unavailableCalled = true }
+            )
+            throw AssertionError("fatal error should propagate")
+        } catch (_: AssertionError) {
+            assertFalse(unavailableCalled)
+        }
+    }
+
+    @Test
     fun skipsOptionalFeedWhenParsedRuleCountIsBelowMinimum() {
         var unavailableCalled = false
         val result = FilterStartupGate.loadOptionalRules(
