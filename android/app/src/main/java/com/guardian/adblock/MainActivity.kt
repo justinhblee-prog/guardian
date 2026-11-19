@@ -2394,7 +2394,7 @@ class MainActivity : Activity() {
         val appList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val scroll = ScrollView(this).apply {
             isFillViewport = true
-            addView(appList, ScrollView.LayoutParams(-1, -2))
+            addView(appList, ViewGroup.LayoutParams(-1, -2))
         }
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
