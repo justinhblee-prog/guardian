@@ -790,6 +790,8 @@ sleep 1
 tap_checkbox "com.android.settings"
 tap_text "저장"
 sleep 1
+adb_cmd shell input swipe 540 1450 540 1000 350
+sleep 1
 tap_content_description "선택 앱 실행 중 VPN 자동 일시중지"
 sleep 1
 tap_text "활성화"
