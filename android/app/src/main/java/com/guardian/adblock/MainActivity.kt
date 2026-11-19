@@ -3146,7 +3146,7 @@ class MainActivity : Activity() {
                     val cacheMessage = if (hadPreviousMainCache) {
                         "이전 정상 필터를 계속 사용합니다."
                     } else {
-                        "정상 필터가 없어 보호를 시작할 수 없습니다."
+                        "앱 내 기본 DNS 규칙으로 보호를 시작할 수 있지만, 추가 광고·추적 필터는 다운로드 후 적용됩니다."
                     }
                     setFilterUpdateStatus("업데이트 실패: ${e.message ?: e.javaClass.simpleName} · $cacheMessage")
                     filterUpdateButton?.text = "다시 시도"
