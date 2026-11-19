@@ -46,7 +46,7 @@ class ForegroundAppMonitorTest {
 
     @Test
     fun unrelatedForegroundPackageDoesNotPauseVpn() {
-        val tracker = ForegroundAppTracker(setOf("com.samsung.android.spay", "com.android.settings"))
+        val tracker = ForegroundAppTracker(setOf("com.samsung.android.spay"))
         tracker.accept("com.android.settings", UsageEvents.Event.ACTIVITY_RESUMED)
 
         assertNull(tracker.activeTarget())
@@ -87,14 +87,12 @@ class ForegroundAppMonitorTest {
 
     @Test
     fun resetClearsAllResumedActivities() {
-        val tracker = ForegroundAppTracker(setOf("com.samsung.android.spay"))
+        val tracker = ForegroundAppTracker(setOf("com.samsung.android.spay", "com.android.settings"))
         tracker.accept("com.samsung.android.spay", UsageEvents.Event.ACTIVITY_RESUMED)
         tracker.accept("com.android.settings", UsageEvents.Event.ACTIVITY_RESUMED)
 
         tracker.reset()
 
-        assertNull(
-            tracker.activeTarget(setOf("com.samsung.android.spay", "com.android.settings"))
-        )
+        assertNull(tracker.activeTarget())
     }
 }
