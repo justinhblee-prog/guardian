@@ -417,7 +417,17 @@ adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 package_listing="$(adb_cmd shell pm list packages --user 0 | tr -d '\r')"
 installed_package_count="$(grep -c '^package:' <<<"$package_listing")"
-guardian_package_count="$(grep -c '^package:com.guardian.adblockapp_search_xml="$app_inventory_xml"
+guardian_package_count="$(grep -c '^package:com.guardian.adblock$' <<<"$package_listing" || true)"
+if [[ "$guardian_package_count" -ne 1 ]]; then
+  echo "PackageManager inventory did not contain exactly one Guardian package: $guardian_package_count"
+  echo "$package_listing"
+  exit 1
+fi
+# The app intentionally hides itself from its own VPN-exclusion inventory.
+# Compare like-for-like: all user-0 packages except Guardian itself.
+expected_exclusion_app_count="$((installed_package_count - guardian_package_count))"
+echo "PackageManager installed apps: $installed_package_count; expected exclusion entries (excluding Guardian): $expected_exclusion_app_count"
+app_search_xml="$app_inventory_xml"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 search=any(node.attrib.get("class")=="android.widget.EditText"
