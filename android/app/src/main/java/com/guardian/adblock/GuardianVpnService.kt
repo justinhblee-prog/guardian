@@ -284,6 +284,7 @@ class GuardianVpnService : VpnService() {
         }
         prefs.edit()
             .putBoolean(KEY_ACTIVE, false)
+            .putBoolean(KEY_RECOVERY_PENDING, false)
             .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, true)
             .putString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, packageName)
             .putString(KEY_STATUS, "$appLabel 실행 중 · 기기 전체 VPN 보호가 일시 중지되었습니다. 앱을 닫으면 자동으로 다시 연결됩니다.")
@@ -342,6 +343,10 @@ class GuardianVpnService : VpnService() {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) {
             publishState(false, "앱별 보호 제외 설정을 저장했습니다. 보호를 다시 시작하면 적용됩니다.")
+            return
+        }
+        if (prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
+            publishState(false, "선택 앱 실행 중 VPN이 일시 중지되어 있습니다. 앱을 닫으면 저장된 제외 설정과 함께 자동 재연결됩니다.")
             return
         }
         startCancellation.cancel()
