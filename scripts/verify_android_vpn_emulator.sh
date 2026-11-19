@@ -421,11 +421,12 @@ for attempt in $(seq 1 30); do
   app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import re,sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if any(node.attrib.get("class")=="android.widget.TextView"
-       and re.search(r"전체 설치 앱 [0-9]+개", node.attrib.get("text",""))
-       and node.attrib.get("visible-to-user","true")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
+for node in root.iter("node"):
+    if node.attrib.get("class") != "android.widget.TextView" or node.attrib.get("visible-to-user","true") != "true":
+        continue
+    match=re.search(r"(?:전체 )?설치 앱 ([0-9]+)개(?: 조회 완료)?", node.attrib.get("text",""))
+    if match and int(match.group(1)) > 0:
+        raise SystemExit(0)
 raise SystemExit(1)' <<<"$app_inventory_xml"; then
     inventory_ready=1
     break
