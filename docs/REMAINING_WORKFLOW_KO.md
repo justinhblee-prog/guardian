@@ -48,7 +48,7 @@ Android 1.0은 Issue #141의 필수 항목만 완료 기준으로 사용합니�
 ## 고객지원/라이선스 상품 통합 브랜치 상태
 
 - 통합 브랜치: feature/android-support-center-mainline
-- 현재 main 기준 32 commits ahead / 0 behind이며, main을 뒤로 두지 않는 선별 이식 브랜치입니다.
+- 현재 main 기준 36 commits ahead / 0 behind이며, main을 뒤로 두지 않는 선별 이식 브랜치입니다.
 - Android Settings에 FAQ, 문의 제출, 조회 코드 기반 답변 확인 UI를 추가했습니다.
 - License API에 ticket create/lookup/admin list/reply와 rate limit을 연결했고 조회 코드는 원문 대신 SHA-256 해시만 DB에 저장합니다.
 - 관리자 웹 화면에 고객 문의함과 안전한 text rendering을 추가했습니다.
