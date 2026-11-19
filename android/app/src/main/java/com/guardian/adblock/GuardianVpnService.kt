@@ -826,18 +826,14 @@ class GuardianVpnService : VpnService() {
             // memory. If a cache disappears or becomes unreadable between readiness
             // check and parse, skip only that optional source rather than aborting VPN.
             sources.add {
-                runCatching {
-                    FilterListManager.parseCachedList(this, cacheName).also { parsed ->
-                        val actualRules = parsed.blocked.size + parsed.importantBlocked.size
-                        check(actualRules >= minimumRules) {
-                            "선택한 필터의 실제 규칙 수가 최소 기준보다 적습니다: $actualRules"
-                        }
+                FilterStartupGate.loadOptionalRules(
+                    minimumRules = minimumRules,
+                    load = { FilterListManager.parseCachedList(this, cacheName) },
+                    onUnavailable = { error ->
+                        unavailable.add(label)
+                        android.util.Log.w("Guardian", "Optional filter cache skipped: $label", error)
                     }
-                }.getOrElse { error ->
-                    unavailable.add(label)
-                    android.util.Log.w("Guardian", "Optional filter cache skipped: $label", error)
-                    FilterRuleParser.parse(emptyList<String>())
-                }
+                )
             }
             // Zero is intentional: this source is optional at runtime. The
             // baseline source above retains its mandatory one-rule validation.
