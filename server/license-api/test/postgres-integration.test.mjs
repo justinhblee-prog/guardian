@@ -123,6 +123,12 @@ if (!databaseUrl) {
     assert.equal(response.status, 401);
   });
 
+  test('customer directory never discloses customer PII without admin authentication', async () => {
+    const response = await fetch(`${baseUrl}/v1/admin/customers`);
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: '관리자 인증에 실패했습니다.' });
+  });
+
   test('admin routes require the Bearer authorization scheme', async () => {
     const bare = await post('/v1/admin/licenses/not-a-uuid/revoke', {}, {
       authorization: process.env.GUARDIAN_ADMIN_TOKEN
