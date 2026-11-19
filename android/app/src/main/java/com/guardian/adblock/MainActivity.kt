@@ -19,6 +19,7 @@ import android.provider.Settings
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import android.text.InputFilter
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -2149,11 +2150,16 @@ class MainActivity : Activity() {
                 inputType = InputType.TYPE_CLASS_TEXT
             }
         }
-        val subject = field("제목 (3~120자)")
+        val subject = field("제목 (3~120자)").apply {
+            filters = arrayOf(InputFilter.LengthFilter(120))
+        }
         val email = field("회신 참고 이메일 (선택 · 알림 메일 미발송)").apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            filters = arrayOf(InputFilter.LengthFilter(254))
         }
-        val message = field("문의 또는 의견을 자세히 입력하세요 (10~5,000자)", true)
+        val message = field("문의 또는 의견을 자세히 입력하세요 (10~5,000자)", true).apply {
+            filters = arrayOf(InputFilter.LengthFilter(5000))
+        }
         form.addView(text(
             "라이선스 키, 비밀번호, 관리자 토큰 또는 결제 카드 정보를 문의 내용에 입력하지 마세요.",
             10f, muted, false
@@ -2228,9 +2234,12 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(10), dp(12), dp(10))
             background = shape(panel2, 10)
         }
-        val ticketRef = input("접수 번호 (GDN-...)")
+        val ticketRef = input("접수 번호 (GDN-...)").apply {
+            filters = arrayOf(InputFilter.LengthFilter(16))
+        }
         val accessToken = input("접수 시 발급된 조회 코드").apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            filters = arrayOf(InputFilter.LengthFilter(100))
             selectAllOnFocus = true
         }
         form.addView(ticketRef)
