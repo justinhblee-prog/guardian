@@ -135,8 +135,8 @@ class CosmeticFilterEngineTest {
         assertTrue(selectors.contains("[class*='ad-placement']"))
         assertTrue(selectors.contains("[class*='adbox']"))
         assertTrue(selectors.contains("[aria-label*='advertisement' i]"))
-        assertTrue(selectors.contains("div:has(> iframe[src*='doubleclick.net'])"))
-        assertTrue(selectors.contains("div:has(> ins.adsbygoogle)"))
+        assertTrue(selectors.contains("div:has(iframe[src*='doubleclick.net'])"))
+        assertTrue(selectors.contains("div:has(ins.adsbygoogle)"))
         assertTrue(selectors.contains(".site-sponsored"))
     }
 
