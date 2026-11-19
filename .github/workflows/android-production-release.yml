@@ -109,8 +109,8 @@ jobs:
           STABLE_UPDATER_BRANCHES="$(grep -Fc 'else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED)' android/app/src/main/java/com/guardian/adblock/MainActivity.kt)"
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             test "$STABLE_UPDATER_BRANCHES" -eq 1
-            if grep -F 'FilterUpdateScheduler.sync' android/app/src/main/java/com/guardian/adblock/MainActivity.kt; then
-              echo 'Development update discovery must not run automatically from the activity startup path.'
+            if grep -F 'guardian-dev-update-startup' android/app/src/main/java/com/guardian/adblock/MainActivity.kt; then
+              echo 'Automatic development APK update discovery must not run from the activity startup path.'
               exit 1
             fi
           else
