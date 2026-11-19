@@ -1,0 +1,29 @@
+/* Cosmetic filtering complements request blocking by collapsing common empty ad slots. */
+:where(
+  .adsbygoogle,
+  .ad-slot,
+  .ad-unit,
+  .ad-wrapper,
+  .ad-banner,
+  .ad-box,
+  .advertisement,
+  .advertisement-box,
+  .ad-placeholder,
+  [id*="ad-placeholder" i],
+  [class*="ad-placeholder" i],
+  [id*="ad-placement" i],
+  [class*="ad-placement" i],
+  [id*="ad-slot" i],
+  [class*="ad-slot" i],
+  [id*="ad-unit" i],
+  [class*="ad-unit" i],
+  [id*="ad-banner" i],
+  [class*="ad-banner" i],
+  [aria-label*="advertisement" i],
+  [title*="advertisement" i],
+  iframe[src*="doubleclick.net"],
+  iframe[src*="googlesyndication.com"],
+  iframe[src*="adservice.google"]
+) {
+  display: none !important;
+}
