@@ -2901,7 +2901,7 @@ class MainActivity : Activity() {
                 result.onSuccess { loaded ->
                     apps = loaded
                     inventoryReady = true
-                    inventorySummary.text = "전체 설치 앱 ${loaded.size}개 · 앱 이름 또는 패키지명으로 검색하세요."
+                    inventorySummary.setText("전체 설치 앱 ${loaded.size}개 · 앱 이름 또는 패키지명으로 검색하세요.")
                     appFilterFeedback?.contentDescription = "앱별 보호 제외 앱 목록 준비 완료"
                     renderApps(search.text?.toString().orEmpty())
                 }.onFailure { error ->
