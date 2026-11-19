@@ -3011,7 +3011,17 @@ class MainActivity : Activity() {
         }
         val recoveryPending = prefs.getBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false) && !active
         val staleSession = persistedActive && !active && !recoveryPending
+        val compatibilityPaused = prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+        val compatibilityPackage = prefs.getString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, null)
+        val compatibilityLabel = compatibilityPackage?.let { packageId ->
+            try {
+                packageManager.getApplicationInfo(packageId, 0).loadLabel(packageManager).toString()
+            } catch (_: Exception) {
+                packageId
+            }
+        }
         val message = when {
+            compatibilityPaused -> "${compatibilityLabel ?: "선택 앱"} 실행 중 · 기기 전체 DNS 보호가 일시 중지되었습니다. 앱을 닫으면 자동으로 다시 연결됩니다."
             recoveryPending -> "VPN 보호를 자동으로 다시 연결하고 있습니다."
             staleSession -> "VPN 서비스가 다시 연결되는 중입니다. 자동 복구가 되지 않으면 '다시 연결'을 눌러 주세요."
             else -> prefs.getString(GuardianVpnService.KEY_STATUS, null)
@@ -3021,24 +3031,33 @@ class MainActivity : Activity() {
         if (currentTab == "home" && ::statusTitle.isInitialized) {
             statusTitle.text = when {
                 active -> "보호가 실행 중입니다"
+                compatibilityPaused -> "호환 앱 실행 중 · 보호 일시 중지"
                 recoveryPending -> "보호 자동 복구 중"
                 staleSession -> "보호 복구 대기 중"
                 else -> "보호가 꺼져 있습니다"
             }
             statusDot.text = when {
                 active -> "●  PROTECTION ACTIVE"
+                compatibilityPaused -> "●  COMPATIBILITY PAUSED"
                 recoveryPending || staleSession -> "●  AUTOMATIC RECOVERY"
                 else -> "●  PROTECTION OFF"
             }
-            statusDot.setTextColor(if (active || recoveryPending || staleSession) accent else red)
+            statusDot.setTextColor(
+                when {
+                    active || recoveryPending || staleSession -> accent
+                    compatibilityPaused -> Color.rgb(255, 190, 80)
+                    else -> red
+                }
+            )
             startButton?.text = when {
                 active -> "보호 실행 중"
+                compatibilityPaused -> "호환 앱 실행 중"
                 recoveryPending -> "보호 복구 중"
                 staleSession -> "다시 연결"
                 else -> "보호 시작"
             }
-            startButton?.isEnabled = !active && !recoveryPending
-            startButton?.alpha = if (active || recoveryPending) 0.58f else 1f
+            startButton?.isEnabled = !active && !recoveryPending && !compatibilityPaused
+            startButton?.alpha = if (active || recoveryPending || compatibilityPaused) 0.58f else 1f
         }
         if (currentTab == "home" && ::status.isInitialized) {
             status.text = message ?: if (active) "DNS 보호 서비스가 실행 중입니다." else "보호 시작을 눌러 VPN 권한을 승인하세요."
@@ -3046,6 +3065,7 @@ class MainActivity : Activity() {
         if (currentTab == "protection") {
             protectionStatusText?.text = when {
                 active -> "보호가 실행 중입니다"
+                compatibilityPaused -> "호환 앱 실행 중 · 보호 일시 중지"
                 recoveryPending -> "보호 자동 복구 중"
                 staleSession -> "보호 복구 대기 중"
                 else -> "보호가 꺼져 있습니다"
@@ -3061,13 +3081,14 @@ class MainActivity : Activity() {
             )
             protectionActionButton?.text = when {
                 active -> "보호 중지"
+                compatibilityPaused -> "호환 앱 실행 중"
                 recoveryPending -> "보호 복구 중"
                 staleSession -> "다시 연결"
                 else -> "보호 시작"
             }
-            protectionActionButton?.isEnabled = !recoveryPending
-            protectionActionButton?.setTextColor(if (active || recoveryPending) white else bg)
-            protectionActionButton?.background = shape(if (active || recoveryPending) panel2 else accent, 13)
+            protectionActionButton?.isEnabled = !recoveryPending && !compatibilityPaused
+            protectionActionButton?.setTextColor(if (active || recoveryPending || compatibilityPaused) white else bg)
+            protectionActionButton?.background = shape(if (active || recoveryPending || compatibilityPaused) panel2 else accent, 13)
         }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
         val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
@@ -3085,6 +3106,7 @@ class MainActivity : Activity() {
         activityChart?.update(adCount, trackerCount, otherCount, prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))
         recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
         diagnosticText?.text = "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}"
+        updateCompatibilityPauseStatus()
     }
 
     private fun loadUserRulesIntoEditors() {
