@@ -280,3 +280,13 @@ Android 1.0 종료 후 다음 트랙으로 진행한다.
 - PostgreSQL 통합 테스트에 기존 DB 상태에서 migration 002/003을 각각 두 번 적용하고 테이블 생성/재실행 안전성을 확인하는 회귀 테스트를 추가했다.
 - License API run #388 ([44573745676](https://github.com/justinhblee-prog/guardian/actions/runs/44573745676)) 성공: **53 tests, 53 passed, 0 failed**. PowerShell 운영 스크립트 21개 파싱도 통과했다.
 - 이 테스트는 GitHub Actions의 임시 PostgreSQL에서 수행했다. 사용자 노트북의 실제 운영 DB에 migration을 적용한 것은 아니며, 실제 적용은 백업 파일이 생성되는 PowerShell 스크립트로 별도 수행해야 한다.
+### 10.9 병렬 출시 차단 항목 재점검 — 2026-11-20
+- License API의 `/ready`가 503인 원인은 DB 누락이 아니라 `GUARDIAN_LICENSE_PRIVATE_KEY`의 PEM 줄바꿈 정규화 오류로 특정됐다. 컨테이너 환경변수에는 literal `\\n`이 들어 있고, 이를 실제 줄바꿈으로 변환한 Node.js `createPrivateKey()` 검증은 RSA 3072-bit로 성공했다. 기존 API 코드는 실제 줄바꿈만 no-op 치환해 literal `\\n`을 처리하지 못했다.
+- 수정 PR #207: https://github.com/justinhblee-prog/guardian/pull/207, head `4b175545ce729ee8dc059e894c3923e35dd6c0ba`. License API CI는 성공했고 Android APK emulator workflow는 아직 실행 중이다. PR 병합 및 노트북 API 재배포, `/ready` HTTP 200은 아직 미확인이다. 운영키 재발급이나 DB 초기화는 하지 않는다.
+- 고객 DB migration 004와 `customers` 테이블은 사용자 노트북 DB에서 확인됐다. 다만 고객지원 migration 003은 PR #205에만 존재하며 운영 DB 적용 전이다.
+- PR #205 Android run #1578 (`44573951849`)은 debug APK 빌드 이후 에뮬레이터의 VPN/DNS 주요 검사(앱별 제외, 허용 DNS, 내장/사용자 차단 규칙, 앱 업데이트 후 VPN 복구)를 통과했다. 마지막 고객지원 UI 수용검사에서 Settings 화면의 이전 스크롤 위치 때문에 상단 고객지원 카드 검색에 실패했다. 실제 고객지원 API 실패나 VPN 엔진 실패로 판정하지 않는다.
+- 해당 UI 검사에서 Settings ScrollView를 먼저 상단으로 되돌린 뒤 고객지원 카드를 검색하도록 스크립트를 수정했다. 수정 커밋 `d8b1d0f1f676555163f802a33650eb2be796cdc4`. 이 새 커밋에 대한 Actions 재실행은 아직 확인되지 않았다.
+- PR #205는 main과 53 commits ahead / 3 commits behind로 분기(diverged)됐고 현재 mergeable=false다. PR 전체를 자동 병합하지 않는다. main의 고객 디렉터리 migration 004 및 서명키 수정 PR #207과 충돌/의존성을 정리한 뒤 안전하게 동기화해야 한다.
+- 필터 CDN의 `guardian-filter-data` 브랜치는 아직 원격에 없다. `sources.example.json`의 7개 공급원은 모두 `redistributionApproved=false`, 승인 참조 공란이다. 실제 재배포 권리 검토 및 추적 가능한 승인 참조 없이 값을 true로 바꾸거나 상용 필터를 게시하지 않는다. 게시 스크립트는 DPAPI 개인키와 Android 공개키 일치 검증 후에만 원격 브랜치를 생성·게시한다.
+- Release workflow의 PR 검증은 임시 키로 Direct APK/Play AAB 빌드 경로와 메타데이터를 확인하는 용도다. 운영 production job은 사용자 운영 signing secrets가 없으면 skip된다. 임시 서명 산출물은 정식 배포본이 아니다.
+- Android 업데이트 UI의 수동 확인/설치 분리와 필터 목록 업데이트 버튼은 main 코드에서 확인됐다. 업데이트 다운로드/설치의 최종 운영 검증은 정식 서명 배포 산출물 및 실기기에서 별도로 수행한다.
