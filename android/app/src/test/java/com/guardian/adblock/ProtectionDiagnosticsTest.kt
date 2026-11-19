@@ -75,6 +75,24 @@ class ProtectionDiagnosticsTest {
         assertTrue(!summary.contains("https://secret.invalid"))
     }
 
+    @Test fun filterReadinessSummaryUsesOnlyKnownFilterLabels() {
+        val ready = ProtectionDiagnostics.filterReadinessSummary("모든 선택 필터가 준비되었습니다.")
+        assertTrue(ready.contains("모든 선택 필터 준비됨"))
+
+        val partial = ProtectionDiagnostics.filterReadinessSummary(
+            "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: 광고·추적, 보안, Android 앱 광고"
+        )
+        assertTrue(partial.contains("광고·추적"))
+        assertTrue(partial.contains("보안"))
+        assertTrue(partial.contains("Android 앱 광고"))
+
+        val unsafe = ProtectionDiagnostics.filterReadinessSummary(
+            "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: secret.example.com"
+        )
+        assertTrue(unsafe == "확인 불가")
+        assertTrue(!unsafe.contains("secret.example.com"))
+    }
+
     @Test fun supportReportShowsAssetAndCacheReadinessWithoutSensitiveData() {
         val report = ProtectionDiagnostics.supportReport(
             appVersion = "0.7.14-dev",
