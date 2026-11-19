@@ -1,0 +1,37 @@
+name: Guardian Chrome Extension
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'chrome-extension/**'
+      - 'scripts/test_chrome_extension_cosmetic.mjs'
+      - '.github/workflows/chrome-extension.yml'
+  pull_request:
+    paths:
+      - 'chrome-extension/**'
+      - 'scripts/test_chrome_extension_cosmetic.mjs'
+      - '.github/workflows/chrome-extension.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate extension manifest
+        run: node -e "JSON.parse(require('node:fs').readFileSync('chrome-extension/manifest.json', 'utf8'))"
+      - name: Check JavaScript syntax
+        run: |
+          node --check chrome-extension/service-worker.js
+          node --check chrome-extension/popup.js
+          node --check chrome-extension/cosmetic.js
+      - name: Test cosmetic ad-slot filtering
+        run: node scripts/test_chrome_extension_cosmetic.mjs
