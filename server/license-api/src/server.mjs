@@ -164,7 +164,7 @@ async function deactivateActivation(licenseId, activationId, req) {
 function requireSigner() {
   if (!PRIVATE_KEY) throw Object.assign(new Error('라이선스 서명 키가 서버에 구성되지 않았습니다.'), { status: 503 });
   try {
-    const key = createPrivateKey(PRIVATE_KEY.replace(/\\n/g, '\n'));
+    const key = createPrivateKey(PRIVATE_KEY.replace(/\n/g, '\n'));
     if (key.asymmetricKeyType !== 'rsa' || (key.asymmetricKeyDetails?.modulusLength || 0) < 2048) {
       throw new Error('weak_or_non_rsa_key');
     }
@@ -302,8 +302,8 @@ async function createLicense(body) {
     const name = typeof body.customer.name === 'string' ? body.customer.name.trim() : '';
     const email = typeof body.customer.email === 'string' ? body.customer.email.trim().toLowerCase() : '';
     const orderRef = typeof body.customer.orderRef === 'string' ? body.customer.orderRef.trim() : '';
-    if (!name || name.length > 120 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 254 ||
-        orderRef.length > 120 || /[\\r\\n\\0]/.test(name + email + orderRef)) {
+    if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email) || email.length > 254 ||
+        orderRef.length > 120 || /[\r\n\0]/.test(name + email + orderRef)) {
       throw Object.assign(new Error('고객명, 올바른 이메일, 주문번호를 확인하세요.'), { status: 400 });
     }
     customer = { name, email, orderRef: orderRef || null };
@@ -477,7 +477,8 @@ const server = http.createServer(async (req, res) => {
       return res.end(html);
     }
     if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
-    if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));\n    if (req.method === 'GET' && url.pathname === '/v1/admin/customers') return json(res, 200, await listCustomers(req, url.searchParams.get('q') || ''));
+    if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
+    if (req.method === 'GET' && url.pathname === '/v1/admin/customers') return json(res, 200, await listCustomers(req, url.searchParams.get('q') || ''));
     const activationListMatch = /^\/v1\/admin\/licenses\/([^/]+)\/activations$/.exec(url.pathname);
     if (req.method === 'GET' && activationListMatch) {
       return json(res, 200, await listActivations(activationListMatch[1], req));
