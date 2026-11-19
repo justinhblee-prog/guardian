@@ -1217,3 +1217,25 @@ if (( after_auto_resume_dns <= before_auto_resume_dns )); then
   exit 1
 fi
 echo "Foreground-app auto-pause/resume passed: VPN tunnel and DNS processing recovered automatically."
+
+echo "Verifying the home protection control can stop an active VPN tunnel."
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+tap_content_description "홈"
+sleep 1
+tap_text "보호 중지"
+protection_stopped=0
+for attempt in $(seq 1 30); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="false"' <<<"$prefs"; then
+    protection_stopped=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$protection_stopped" -ne 1 ]]; then
+  echo "The home protection toggle did not stop the active VPN service."
+  read_prefs
+  adb_cmd logcat -d -t 3000 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION' | tail -160 || true
+  exit 1
+fi
+echo "Home protection start/stop toggle passed."
