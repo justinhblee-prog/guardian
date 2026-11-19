@@ -217,3 +217,26 @@ Android 1.0 종료 후 다음 트랙으로 진행한다.
 ---
 
 **완료 판정 원칙:** “코드가 있다”는 구현, “CI가 통과했다”는 자동화 검증, “에뮬레이터에서 동작했다”는 에뮬레이터 검증, “실제 폰/PC에서 동작했다”는 실기기 검증, “실제 운영 키·서버·결제·배포가 동작했다”는 운영 검증이다. 서로 대체하지 않는다.
+
+
+## 10. 작업 이력 — 2026-11-20 업데이트
+
+### 10.1 Android CI / APK 증거
+- Android workflow run [44568623163](https://github.com/justinhblee-prog/guardian/actions/runs/44568623163), run #1542, PR branch `feature/support-center-license-plans`.
+- Job `Test and assemble debug APK`: 단위 테스트, lintDebug, 개발 서명 인증서 확인, 이전 버전 업그레이드용 APK 빌드, 현재 debug APK 빌드 및 APK 메타데이터 검사 단계가 통과한 뒤 Android API 35 에뮬레이터 설치/실행 검증 단계에 진입했다. 마지막 확인 시 에뮬레이터 설치·실행 단계가 진행 중이었으므로 런타임 통과로 표시하지 않는다.
+- Artifact `guardian-android-debug`, artifact ID `14553407194`, 크기 3,648,351 bytes. ZIP SHA-256: `dedd0bab96d7be7c2863ab9ade523903ea57655d56ad0b4d4b06f9920866fa57`.
+- ZIP 내부 APK: `android/app/build/outputs/apk/debug/app-debug.apk`, 크기 3,203,979 bytes. APK SHA-256: `00d6b867d81ac3791f5b8b759349360084899b3be17ee295623287d8836e61fe`.
+- APK 자체 SHA-256은 ZIP 내부 `SHA256SUMS.txt` 및 workflow summary와 일치했다. 패키지 `com.guardian.adblock`, versionCode 42, versionName `0.7.29-dev`.
+- Source archive SHA-256: `e8c7eef4a9419e34e3c3a2809514ad909aa3b77b5f094dfa76797d8e5391ab6c`.
+- 이 산출물은 개발용 debug APK이며 Android 1.0 production 서명본이 아니다. workflow summary에 기록된 소스 commit은 `070a8635340f0bf5d937e912e8a16cb1c45d4eb8`; GitHub artifact run metadata의 head SHA는 `e63a9d5ab0fb1faf3e867ad9eee068a9cbb26049`. 두 식별자가 다르므로 provenance를 최종 릴리스 전에 추가 확인한다.
+- APK ZIP 및 내부 APK의 파일 존재·크기·SHA-256을 다운로드 후 직접 확인했다. 이 환경에는 Android `apksigner`/emulator 도구가 없어 별도 로컬 서명검증 및 설치는 수행하지 않았다.
+
+### 10.2 License API 및 Production Release 검증
+- License API run [44569842160](https://github.com/justinhblee-prog/guardian/actions/runs/44569842160), run #373: PostgreSQL 통합 테스트 job 성공.
+- Production Release run [44569842126](https://github.com/justinhblee-prog/guardian/actions/runs/44569842126), run #490: release configuration validation 진행 중이었고 `production-release` job은 운영 secrets 미설정으로 skip. secrets 없이 수행하는 ephemeral APK/AAB build 단계 진행 중이었다.
+- 이전 run [44568623171](https://github.com/justinhblee-prog/guardian/actions/runs/44568623171), run #489: 설정 검증 및 secrets 없는 ephemeral direct APK/Play AAB 빌드와 소스 archive 검증까지 성공. production-release job은 skip. 이는 production 서명 릴리스가 아니다.
+
+### 10.3 최신 상태 및 차단
+- 인수인계 문서 반영 커밋 `20d97921fa9f67b56e483acfe96cdf942fd466f3`에 대한 새 Android run #1543은 마지막 확인 시 job 생성 전 pending 상태였다.
+- PR #205는 Draft, main 대비 69 commits ahead / 1 behind 상태였다. 자동 병합이나 rebase는 수행하지 않았다.
+- 다음 순서: run #1542 emulator 단계 완료/실패 로그 확인 → run #1543 최신 HEAD 검증 완료 및 최신 artifact 확보 → PR 변경을 main과 안전하게 동기화 → 앱 제외/자동 일시중지/필터 업데이트/자동 재연결 및 고객지원 UI를 실기기 수용시험 → 운영키/Secrets와 production APK/AAB 확보.
