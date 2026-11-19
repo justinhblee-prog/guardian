@@ -82,6 +82,7 @@ internal class ForegroundAppMonitor(
         val usageStats = appContext.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
         if (usageStats == null) {
             running.set(false)
+            onPermissionRevoked()
             return null
         }
 
@@ -95,6 +96,7 @@ internal class ForegroundAppMonitor(
             return null
         } catch (_: Exception) {
             running.set(false)
+            onPermissionRevoked()
             return null
         }
 
@@ -143,7 +145,7 @@ internal class ForegroundAppMonitor(
                 }
 
                 cursor = end
-                val nextTarget = tracker.activeTarget(targets)
+                val nextTarget = tracker.activeTarget()
                 if (nextTarget != activeTarget) {
                     activeTarget = nextTarget
                 }
