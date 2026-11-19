@@ -35,6 +35,10 @@ permissions:
 
 jobs:
   build-apk:
+    # Pull requests provide the authoritative validation for feature branches.
+    # Avoid running the same expensive emulator suite twice on every PR commit.
+    # Keep main pushes and explicit workflow_dispatch builds fully enabled.
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main'
     name: Test and assemble debug APK
     # Pin the stable Ubuntu 24.04 image: ubuntu-latest moved to 26.04,
     # whose Android Emulator runtime is missing libpulse.so.0.
