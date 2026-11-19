@@ -72,4 +72,31 @@ class ForegroundAppMonitorTest {
 
         assertNull(tracker.activeTarget(setOf("com.samsung.android.spay")))
     }
+
+    @Test
+    fun legacyForegroundAndBackgroundEventsAreHandled() {
+        val tracker = ForegroundAppTracker()
+        tracker.accept("com.samsung.android.spay", UsageEvents.Event.MOVE_TO_FOREGROUND)
+
+        assertEquals(
+            "com.samsung.android.spay",
+            tracker.activeTarget(setOf("com.samsung.android.spay"))
+        )
+
+        tracker.accept("com.samsung.android.spay", UsageEvents.Event.MOVE_TO_BACKGROUND)
+        assertNull(tracker.activeTarget(setOf("com.samsung.android.spay")))
+    }
+
+    @Test
+    fun resetClearsAllResumedActivities() {
+        val tracker = ForegroundAppTracker()
+        tracker.accept("com.samsung.android.spay", UsageEvents.Event.ACTIVITY_RESUMED)
+        tracker.accept("com.android.settings", UsageEvents.Event.ACTIVITY_RESUMED)
+
+        tracker.reset()
+
+        assertNull(
+            tracker.activeTarget(setOf("com.samsung.android.spay", "com.android.settings"))
+        )
+    }
 }
