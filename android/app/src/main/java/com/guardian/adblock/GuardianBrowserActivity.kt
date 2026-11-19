@@ -169,7 +169,13 @@ class GuardianBrowserActivity : Activity() {
     private fun loadCosmeticRules() {
         thread(name = "guardian-browser-cosmetic-rules") {
             val loaded = runCatching {
-                FilterListManager.cachedCosmeticRules(applicationContext)
+                val cached = FilterListManager.cachedCosmeticRules(applicationContext)
+                // Keep the built-in ad-slot selectors active even when a downloaded
+                // cosmetic list exists. Previously the cached feed replaced these
+                // defaults, leaving common empty "Advertisement" boxes visible.
+                CosmeticFilterEngine.merge(
+                    listOf(CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES), cached)
+                )
             }.getOrElse {
                 CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES)
             }
