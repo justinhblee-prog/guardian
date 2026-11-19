@@ -2604,12 +2604,25 @@ class MainActivity : Activity() {
                 .show()
             return
         }
-        val excluded = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty().toMutableSet()
+        val savedExclusions = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty().toMutableSet()
+        val excluded = savedExclusions.toMutableSet()
         // QUERY_ALL_PACKAGES is required here because this control must list every
         // installed app, including non-launcher and system apps. The inventory is
         // used only to render this on-device exclusion picker; it is never uploaded.
-        val apps = packageManager.getInstalledApplications(0)
-            .map { it.packageName to it.loadLabel(packageManager).toString() }
+        // Include disabled preinstalled packages (some OEM builds ship companion
+        // apps such as Android Auto disabled until the user enables them).
+        val apps = packageManager.getInstalledApplications(
+            android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+        )
+            .filter { it.packageName != packageName }
+            .map { info ->
+                info.packageName to try {
+                    info.loadLabel(packageManager).toString()
+                } catch (error: Exception) {
+                    android.util.Log.w("GuardianApps", "Could not load app label for ${info.packageName}", error)
+                    info.packageName
+                }
+            }
             .distinctBy { it.first }
             .sortedWith(compareBy<Pair<String, String>>(
                 { it.second.lowercase(Locale.ROOT) },
@@ -2665,6 +2678,55 @@ class MainActivity : Activity() {
             11f, muted, false
         ).withTop(8) as TextView
         body.addView(appFilterFeedback!!)
+        val saveButton = android.widget.Button(this).apply {
+            text = "변경사항 저장"
+            contentDescription = "앱별 보호 제외 변경사항 저장"
+            isAllCaps = false
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            minHeight = dp(50)
+            background = shape(accent, 12)
+            isEnabled = false
+            setOnClickListener {
+                val snapshot = excluded.toSet()
+                val saved = prefs.edit()
+                    .putStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, snapshot)
+                    .commit()
+                if (!saved || prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty() != snapshot) {
+                    appFilterFeedback?.text = "제외 설정 저장에 실패했습니다. 기존 설정은 유지됩니다."
+                    isEnabled = true
+                    return@setOnClickListener
+                }
+                savedExclusions.clear()
+                savedExclusions.addAll(snapshot)
+                isEnabled = false
+                text = "저장 완료"
+                val protectionActive = ProtectionState.isActive(
+                    prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                    GuardianVpnService.isTunnelActive()
+                )
+                if (protectionActive) {
+                    appFilterFeedback?.text = "제외 설정 저장 완료 · VPN에 새 제외 목록을 적용하고 있습니다."
+                    try {
+                        startService(Intent(this@MainActivity, GuardianVpnService::class.java)
+                            .setAction(GuardianVpnService.ACTION_RECONFIGURE_EXCLUDED_APPS))
+                    } catch (error: Exception) {
+                        appFilterFeedback?.text = "설정은 저장됐지만 VPN 재적용 요청에 실패했습니다: ${error.message ?: error.javaClass.simpleName}"
+                    }
+                } else {
+                    appFilterFeedback?.text = "제외 설정 저장 완료 · 다음 보호 연결 때 적용됩니다."
+                }
+            }
+        }
+        body.addView(saveButton, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(10) })
+        fun updateSaveState() {
+            val dirty = excluded != savedExclusions
+            saveButton.isEnabled = dirty
+            saveButton.text = if (dirty) "변경사항 저장 (${excluded.size}개 제외 선택)" else "변경사항 저장"
+            if (dirty) {
+                appFilterFeedback?.text = "저장되지 않은 변경사항 · 제외 앱 ${excluded.size}개"
+            }
+        }
         fun renderApps(rawQuery: String) {
             appList.removeAllViews()
             val query = rawQuery.trim().lowercase(Locale.ROOT)
@@ -2672,8 +2734,8 @@ class MainActivity : Activity() {
                 query.isEmpty() || label.lowercase(Locale.ROOT).contains(query) || pkg.lowercase(Locale.ROOT).contains(query)
             }
             visible.forEach { (pkg, label) ->
-                val check = CheckBox(this).apply {
-                    text = if (pkg == packageName) "$label\n$pkg · Guardian VPN 자체 앱" else "$label\n$pkg"
+                appList.addView(CheckBox(this).apply {
+                    text = "$label\n$pkg"
                     textSize = 12f
                     setTextColor(white)
                     isChecked = pkg in excluded
@@ -2681,40 +2743,23 @@ class MainActivity : Activity() {
                     setPadding(dp(4), dp(5), dp(4), dp(5))
                     setOnCheckedChangeListener { _, checked ->
                         if (checked) excluded.add(pkg) else excluded.remove(pkg)
-                        val saved = prefs.edit()
-                            .putStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, excluded.toSet())
-                            .commit()
-                        if (!saved) {
-                            appFilterFeedback?.text = "제외 설정 저장에 실패했습니다. 저장 공간을 확인해 주세요."
-                            return@setOnCheckedChangeListener
-                        }
-                        val protectionActive = ProtectionState.isActive(
-                            prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
-                            GuardianVpnService.isTunnelActive()
-                        )
-                        if (protectionActive) {
-                            appFilterFeedback?.text = "제외 설정 저장됨 · VPN 설정을 다시 적용하고 있습니다."
-                            try {
-                                startService(Intent(this@MainActivity, GuardianVpnService::class.java)
-                                    .setAction(GuardianVpnService.ACTION_RECONFIGURE_EXCLUDED_APPS))
-                            } catch (error: Exception) {
-                                appFilterFeedback?.text = "제외 설정은 저장됐지만 VPN 재적용 요청에 실패했습니다: ${error.message ?: error.javaClass.simpleName}"
-                            }
-                        } else {
-                            appFilterFeedback?.text = "제외 설정 저장됨 · 다음 보호 연결 때 적용됩니다."
-                        }
+                        updateSaveState()
                     }
-                }
-                appList.addView(check)
+                })
             }
             if (visible.isEmpty()) {
-                appList.addView(text("검색 결과가 없습니다.", 12f, muted, false).apply { setPadding(dp(8), dp(12), dp(8), dp(12)) })
+                appList.addView(text("검색 결과가 없습니다.", 12f, muted, false).apply {
+                    setPadding(dp(8), dp(12), dp(8), dp(12))
+                })
             }
-            appFilterFeedback?.text = "검색 결과 ${visible.size}개 / 전체 ${apps.size}개 · 제외 앱 ${excluded.size}개"
+            updateSaveState()
+            if (excluded == savedExclusions) {
+                appFilterFeedback?.text = "검색 결과 ${visible.size}개 / 전체 ${apps.size}개 · 저장된 제외 앱 ${excluded.size}개"
+            }
         }
         search.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = renderApps(s?.toString().orEmpty())
+            override fun onTextChanged(s: CharSequence?, before: Int, count: Int, after: Int) = renderApps(s?.toString().orEmpty())
             override fun afterTextChanged(s: android.text.Editable?) = Unit
         })
         renderApps("")
@@ -3058,7 +3103,7 @@ class MainActivity : Activity() {
             val applied = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_APPLIED, emptySet()).orEmpty()
             val stale = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_ERROR, emptySet()).orEmpty()
             feedback.text = when {
-                stale.isNotEmpty() -> "제외 적용 오류: 설치되지 않은 앱 ${stale.size}개 · 적용 ${applied.size}/${requested.size}"
+                stale.isNotEmpty() -> "제외 적용 실패 또는 미설치 앱 ${stale.size}개 · 적용 ${applied.size}/${requested.size}"
                 active && requested != applied -> "제외 적용 확인 필요 · 적용 ${applied.size}/${requested.size}"
                 active -> "앱별 보호 제외 적용 완료 · ${applied.size}개"
                 else -> "제외 앱 ${requested.size}개 저장됨 · 보호 연결 시 적용"

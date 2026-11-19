@@ -415,8 +415,18 @@ fi
 sleep 2
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-installed_package_count="$(adb_cmd shell pm list packages --user 0 | tr -d '\r' | grep -c '^package:')"
-expected_exclusion_app_count="$installed_package_count"
+package_listing="$(adb_cmd shell pm list packages --user 0 | tr -d '\r')"
+installed_package_count="$(grep -c '^package:' <<<"$package_listing")"
+guardian_package_count="$(grep -c '^package:com.guardian.adblock$' <<<"$package_listing" || true)"
+if [[ "$guardian_package_count" -ne 1 ]]; then
+  echo "PackageManager inventory did not contain exactly one Guardian package: $guardian_package_count"
+  echo "$package_listing"
+  exit 1
+fi
+# The app intentionally hides itself from its own VPN-exclusion inventory.
+# Compare like-for-like: all user-0 packages except Guardian itself.
+expected_exclusion_app_count="$((installed_package_count - guardian_package_count))"
+echo "PackageManager installed apps: $installed_package_count; expected exclusion entries (excluding Guardian): $expected_exclusion_app_count"
 app_search_xml="$app_inventory_xml"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -674,6 +684,21 @@ if len(matches)!=1:
 adb_cmd shell input keyevent KEYCODE_BACK || true
 sleep 1
 tap_checkbox "com.android.settings"
+# A checkbox edits only the draft. The persisted VPN exclusion must not change
+# until the user explicitly presses the save action.
+prefs="$(read_prefs)"
+if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+  echo "App exclusion draft was persisted before the explicit Save button was pressed."
+  read_prefs
+  exit 1
+fi
+tap_content_description "앱별 보호 제외 변경사항 저장"
+prefs="$(read_prefs)"
+if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+  echo "Explicit Save control was tapped but the selected package was not persisted."
+  read_prefs
+  exit 1
+fi
 excluded_applied=0
 for attempt in $(seq 1 30); do
   prefs="$(read_prefs)"
@@ -690,8 +715,21 @@ if [[ "$excluded_applied" -ne 1 ]]; then
   adb_cmd logcat -d -t 3000 | grep -E 'GuardianProtection|GuardianVpn|exclusion|FATAL EXCEPTION' | tail -160 || true
   exit 1
 fi
-echo "Live exclusion enable passed: Android accepted com.android.settings in the rebuilt VPN configuration."
+echo "Live exclusion enable passed: explicit Save persisted the draft and Android accepted the VPN exclusion."
 tap_checkbox "com.android.settings"
+prefs="$(read_prefs)"
+if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+  echo "Removing an app changed persisted exclusions before the explicit Save button was pressed."
+  read_prefs
+  exit 1
+fi
+tap_content_description "앱별 보호 제외 변경사항 저장"
+prefs="$(read_prefs)"
+if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+  echo "Explicit Save control was tapped but the removed package remained persisted."
+  read_prefs
+  exit 1
+fi
 restored_included=0
 for attempt in $(seq 1 30); do
   prefs="$(read_prefs)"
@@ -1000,5 +1038,3 @@ if (( after_auto_resume_dns <= before_auto_resume_dns )); then
   exit 1
 fi
 echo "Foreground-app auto-pause/resume passed: VPN tunnel and DNS processing recovered automatically."
-
-
