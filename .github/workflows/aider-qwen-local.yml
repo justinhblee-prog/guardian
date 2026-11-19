@@ -17,7 +17,7 @@ concurrency:
 jobs:
   verify-local-qwen:
     name: Verify Aider to local Ollama Qwen
-    runs-on: [self-hosted, windows]
+    runs-on: [self-hosted]
     timeout-minutes: 12
     steps:
       - name: Checkout repository
