@@ -1087,7 +1087,17 @@ if len(fields)<3:
 if not any("문의 및 의견 보내기" in n.attrib.get("text","") for n in nodes):
     raise SystemExit("Support submission dialog title is missing.")' <<<"$support_form_xml"
 tap_text "취소"
-echo "Customer support center FAQ and inquiry form UI passed."
+tap_text "내 문의 답변 확인"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-lookup.xml >/dev/null 2>&1
+support_lookup_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-lookup.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+fields=[n for n in root.iter("node") if n.attrib.get("class")=="android.widget.EditText"]
+if len(fields)<2:
+    raise SystemExit("Support ticket lookup must expose ticket reference and private access-code fields.")' <<<"$support_lookup_xml"
+tap_text "취소"
+echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
 
 auto_pause_picker_visible=0
 # The Settings tab opens at its top after the app is relaunched. Scroll down
