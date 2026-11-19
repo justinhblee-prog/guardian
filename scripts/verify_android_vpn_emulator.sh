@@ -412,7 +412,26 @@ if [[ "$app_search_visible" -ne 1 ]]; then
   echo "$app_inventory_xml"
   exit 1
 fi
-sleep 2
+
+# The inventory is loaded asynchronously so the Settings screen remains
+# responsive while PackageManager enumerates system and disabled packages.
+inventory_ready=0
+for attempt in $(seq 1 30); do
+  adb_cmd shell rm -f /sdcard/guardian-window.xml
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if grep -q 'content-desc="앱별 보호 제외 앱 목록 준비 완료"' <<<"$app_inventory_xml"; then
+    inventory_ready=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$inventory_ready" -ne 1 ]]; then
+  echo "App-exclusion inventory did not finish loading within 30 seconds."
+  echo "$app_inventory_xml"
+  exit 1
+fi
+sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 package_listing="$(adb_cmd shell pm list packages --user 0 | tr -d '\r')"
