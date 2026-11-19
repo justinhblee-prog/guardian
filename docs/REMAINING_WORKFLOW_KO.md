@@ -1,11 +1,10 @@
 # Guardian Android 1.0 — 출시 기준 및 실행 계획
 
-기준 main 커밋: `10b2bded2cda6b9ef1cd825a5c16aaa1712dfd55`
-최신 main 검증: [GitHub Actions #44263635299](https://github.com/justinhblee-prog/guardian/actions/runs/44263635299) — 30/30 단계 성공
-APK: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`, 3,137,042 bytes
-APK SHA-256: `01fac9f6e3a3126ccae21abda06516082470466e88c404b431fff09cf49cee45`
-소스 ZIP: 488,972 bytes, SHA-256 `2b55d60065f1a6c84c5ac3a89677b45b8f3b3eb1ef19d2c158e977c067549678`
-갱신일: 2026-11-18
+기준 main 커밋: `6e95058b7286d76a8fea92a169e3fb75fbab5e80` (2026-11-20 KST)
+현재 Android 개발 버전: `com.guardian.adblock`, versionName `0.7.29-dev`, versionCode `42`
+정식 Android 1.0.0: versionName `1.0.0`, versionCode `43` 정책 검증 완료; production-signed APK/AAB는 아직 최종 확보·검증 전
+최신 License API 수정 PR #207: API CI 성공; Android emulator job 실행 중
+갱신일: 2026-11-20
 
 ## 1. 단일 출시 게이트
 
@@ -77,3 +76,34 @@ Android 1.0의 유일한 완료 체크리스트는 [Issue #141](https://github.c
 - 유료 리소스나 외부 API 비용이 필요한 작업은 실행하지 않습니다.
 - CI 인프라 문제와 앱 코드 실패를 구분합니다.
 - 완료 표시는 커밋, CI, 산출물, 체크섬, 기기 또는 서버 검증 증거가 있을 때만 허용합니다.
+## 8. 최신 병렬 작업 상태 — 2026-11-20
+
+이 절은 과거 검증 기록을 대체하지 않고, 현재 출시 판정을 위해 최신 상태를 구분한다. Android 1.0의 유일한 범위 게이트는 Issue #141이며 새 개선 항목을 무제한으로 추가하지 않는다.
+
+### Track A — Android 보호 엔진
+- 이전 main/PR 검증에서 Android API 35 emulator의 앱별 VPN 제외 저장·실제 재구성, 허용 DNS 응답, built-in 및 사용자 차단 규칙, 앱 업데이트 후 VPN 자동 복구, foreground 자동 일시중지/재연결, 홈 보호 시작·중지가 통과한 기록이 있다(예: run #1542). 이는 해당 커밋의 에뮬레이터 증거이며 현재 실기기 검증을 대체하지 않는다.
+- PR #205의 최신 고객지원 UI 포함 E2E run `44573951849`에서는 앱별 제외 및 DNS 허용/차단과 앱 업데이트 후 VPN 복구가 통과했다. 고객지원 UI 검사에서 Settings 스크롤 위치가 유지된 상태로 상단 고객지원 카드를 찾지 못해 workflow가 중단됐으며, 이 때문에 해당 실행의 후속 auto-pause 검사는 수행되지 않았다.
+- 고객지원 UI 검사 전에 Settings ScrollView를 상단으로 되돌리도록 스크립트를 수정했다. commit `d8b1d0f1f676555163f802a33650eb2be796cdc4`. 해당 수정 commit에 대한 새 Actions 검증은 아직 확인되지 않았다.
+- Samsung 실기기에서 `Library file not found`, VPN 시작/중지, 앱별 제외, 네트워크 전환 및 장시간 복구를 재현·확인한 증거는 아직 없다.
+
+### Track B — 필터·라이선스·고객지원
+- 고객 디렉터리 migration 004와 `customers`, `licenses.customer_id`, `licenses.order_ref`는 사용자 노트북 PostgreSQL에서 확인됐다.
+- 사용자 노트북 License API `/ready`는 현재 503이다. 원인은 literal `\\n` PEM 줄바꿈을 실제 개행으로 바꾸지 못한 API 코드로 확인됐다. 컨테이너에서 정규화 후 개인키 파싱은 RSA 3072-bit로 성공했다.
+- PR #207 (`https://github.com/justinhblee-prog/guardian/pull/207`)에서 PEM newline normalization 한 줄을 수정했다. 해당 head의 License API workflow는 성공했고 Android APK/emulator workflow는 마지막 확인 시 실행 중이었다. PR merge, API 재빌드 및 실제 `/ready` 200은 아직 미확인이다.
+- 고객지원 API/화면과 migration 003은 Draft PR #205에만 포함돼 있다. 운영 DB에 migration 003을 적용하지 않았으며, PR 변경분을 main과 안전하게 동기화하고 테스트한 뒤 적용한다.
+- 필터 원격 브랜치 `guardian-filter-data`는 아직 존재하지 않는다. `sources.example.json`의 7개 공급원은 모두 `redistributionApproved=false`이며 승인 참조가 비어 있다. 재배포 권리 검토 및 추적 가능한 승인 증빙 전에는 승인 플래그를 변경하거나 필터를 게시하지 않는다.
+
+### Track C — 1.0 배포·서명
+- Release workflow의 PR/push 검증에서 임시 키를 사용한 Direct APK 및 Play AAB 빌드·메타데이터·서명 경로 검증이 통과한 기록이 있다. 이는 운영 서명 산출물이 아니다.
+- 실제 1.0.0 versionCode 정책은 개발 versionCode 42보다 큰 43으로 설정된다.
+- 정식 Release 완료 증거는 운영 keystore로 서명된 APK/AAB, 인증서 SHA-256 지문, package/version, 다운로드 후 재계산한 APK SHA-256, 설치·업그레이드 검증이다. 현재 대화/CI 증거만으로 이 전체 묶음이 완료됐다고 표시하지 않는다.
+
+### 병렬 PR 통합 규칙
+- PR #205는 main 대비 53 commits ahead / 3 commits behind로 diverged 상태이며 현재 mergeable=false다. 그대로 병합하지 않는다. PR #206에서 main에 추가된 customer migration 004와 PR #207의 PEM 수정이 PR #205의 server/schema/admin 변경과 충돌하지 않도록 재동기화 후 전체 테스트를 다시 실행한다.
+- PR #207은 License API 수정만을 위한 별도 PR로 유지한다. API CI 성공만으로 운영 서버 배포 완료로 표시하지 않는다.
+- 필터 재배포 승인은 코드/CI로 대신할 수 없는 법적 외부 의존성이다. 미승인 상태에서는 출시용 필터 배포를 fail-closed로 유지한다.
+
+### 1.0 완료 판정
+- Issue #141의 필수 조건 전부에 대해 구현, 자동화, emulator, 실기기, 운영환경 증거를 각각 연결한다.
+- 실기기/운영키/권리자 승인처럼 외부 환경이 필요한 항목은 코드 작업을 반복하지 말고 외부 blocker로 유지한다.
+- Android 1.0이 실제로 서명·설치·보호 동작까지 확인된 뒤에만 Windows 제품화 트랙으로 이동한다.
