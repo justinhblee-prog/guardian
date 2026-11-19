@@ -1037,6 +1037,22 @@ if "Guardian 앱 정보와 보호 정책" not in texts or not selected_settings:
 
 # Verify the customer-facing support center is reachable and its FAQ/form UI
 # renders. Do not submit a real ticket from the emulator fixture.
+# The preceding VPN auto-pause acceptance test may leave Settings scrolled well below
+# the support card. Reset the Settings ScrollView to its top before searching for
+# the support entry; otherwise a downward-only search can never find a card above
+# the retained scroll position.
+for attempt in $(seq 1 20); do
+  adb_cmd shell input swipe 540 500 540 1550 250
+  sleep 0.15
+done
+adb_cmd shell uiautomator dump /sdcard/guardian-support-top.xml >/dev/null 2>&1
+support_top_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-top.xml | tr -d '\r')"
+if ! grep -Fq "Guardian 앱 정보와 보호 정책" <<<"$support_top_xml"; then
+  echo "Could not confirm Settings returned to its top before support-center verification."
+  echo "$support_top_xml"
+  exit 1
+fi
+
 support_center_visible=0
 for attempt in $(seq 1 16); do
   adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
