@@ -2576,8 +2576,21 @@ class MainActivity : Activity() {
         // QUERY_ALL_PACKAGES is required here because this control must list every
         // installed app, including non-launcher and system apps. The inventory is
         // used only to render this on-device exclusion picker; it is never uploaded.
-        val apps = packageManager.getInstalledApplications(0)
-            .map { it.packageName to it.loadLabel(packageManager).toString() }
+        // Include disabled preinstalled packages (some OEM builds ship companion
+        // apps such as Android Auto disabled until the user enables them). Full
+        // package visibility is declared in the manifest for this on-device picker.
+        val apps = packageManager.getInstalledApplications(
+            android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
+        )
+            .filter { it.packageName != packageName }
+            .map { info ->
+                info.packageName to try {
+                    info.loadLabel(packageManager).toString()
+                } catch (error: Exception) {
+                    android.util.Log.w("GuardianApps", "Could not load app label for ${info.packageName}", error)
+                    info.packageName
+                }
+            }
             .distinctBy { it.first }
             .sortedWith(compareBy<Pair<String, String>>(
                 { it.second.lowercase(Locale.ROOT) },
@@ -3026,7 +3039,7 @@ class MainActivity : Activity() {
             val applied = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_APPLIED, emptySet()).orEmpty()
             val stale = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_ERROR, emptySet()).orEmpty()
             feedback.text = when {
-                stale.isNotEmpty() -> "제외 적용 오류: 설치되지 않은 앱 ${stale.size}개 · 적용 ${applied.size}/${requested.size}"
+                stale.isNotEmpty() -> "제외 적용 실패 또는 미설치 앱 ${stale.size}개 · 적용 ${applied.size}/${requested.size}"
                 active && requested != applied -> "제외 적용 확인 필요 · 적용 ${applied.size}/${requested.size}"
                 active -> "앱별 보호 제외 적용 완료 · ${applied.size}개"
                 else -> "제외 앱 ${requested.size}개 저장됨 · 보호 연결 시 적용"
