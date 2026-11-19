@@ -69,8 +69,8 @@ jobs:
           DEVELOPMENT_VERSION_CODE="$(grep -oE 'getOrElse\([0-9]+\)' android/app/build.gradle.kts | tail -n 1 | grep -oE '[0-9]+')"
           DEFAULT_PRODUCTION_VERSION_CODE="$(grep -oE '\$VersionCode=[0-9]+' server/license-api/windows/Prepare-GuardianProductionRelease.ps1 | grep -oE '[0-9]+')"
           test -n "$DEVELOPMENT_VERSION_CODE"
-          test -n "$DEFAULT_PRODUCTION_VERSION_CODE"
-          (( DEFAULT_PRODUCTION_VERSION_CODE > DEVELOPMENT_VERSION_CODE ))
+          test "$DEFAULT_PRODUCTION_VERSION_CODE" = "0"
+          grep -F 'if($VersionCode -eq 0){$VersionCode=$minimumProductionVersionCode}' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
           grep -F 'GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE' .github/workflows/android-production-release.yml
           grep -F '$VersionCode -lt $minimumProductionVersionCode' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
       - name: Guard production signing secrets from process arguments
