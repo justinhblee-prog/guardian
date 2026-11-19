@@ -1049,7 +1049,7 @@ class MainActivity : Activity() {
             prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
             GuardianVpnService.isTunnelActive()
         )
-        body.addView(text("보호 관리", 25f, white, true))
+        body.addView(text("보호 상태", 25f, white, true))
         body.addView(text("실시간 DNS 보호와 주요 차단 기능을 한곳에서 관리합니다.", 13f, muted, false).withTop(5))
 
         val control = card(panel, 20).apply {
