@@ -169,7 +169,6 @@ class MainActivity : Activity() {
             }
         }
         requestNotificationPermissionIfNeeded()
-        LicenseRefreshScheduler.sync(this)
         val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         // One-time migration: turn on the Android app-ad SDK list for existing
         // installations too, not just fresh installs whose preference is absent.
@@ -195,7 +194,6 @@ class MainActivity : Activity() {
                 .putBoolean("filter_auto_update_default_off_v1", true)
                 .apply()
         }
-        FilterUpdateScheduler.sync(this)
         // Update discovery is user-initiated from Settings. Do not run a
         // background development/stable update check or show an install prompt
         // automatically on every app launch.
@@ -238,6 +236,16 @@ class MainActivity : Activity() {
             } catch (error: Exception) {
                 android.util.Log.e("Guardian", "Startup filter readiness check failed", error)
             }
+        }
+        // WorkManager initialization/cancellation is not part of first-run filter
+        // readiness. Run scheduler reconciliation away from the UI thread so a
+        // slow WorkManager database cannot delay Settings/navigation or the
+        // initial filter download request.
+        thread(name = "guardian-background-scheduler-sync") {
+            runCatching { LicenseRefreshScheduler.sync(applicationContext) }
+                .onFailure { android.util.Log.e("Guardian", "License refresh scheduling failed", it) }
+            runCatching { FilterUpdateScheduler.sync(applicationContext) }
+                .onFailure { android.util.Log.e("Guardian", "Filter refresh scheduling failed", it) }
         }
     }
 
