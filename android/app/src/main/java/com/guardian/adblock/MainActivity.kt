@@ -3203,7 +3203,6 @@ class MainActivity : Activity() {
             protectionFeedback?.text = "필터 상태를 확인하고 있습니다. 잠시만 기다려 주세요."
             return
         }
-        protectionActionButton?.isEnabled = false
         startButton?.isEnabled = false
         protectionFeedback?.text = "필터 캐시와 검증 상태를 확인하고 있습니다."
         thread(name = "guardian-protection-readiness") {
@@ -3248,7 +3247,6 @@ class MainActivity : Activity() {
             }
             runOnUiThread {
                 protectionCheckRunning.set(false)
-                protectionActionButton?.isEnabled = true
                 startButton?.isEnabled = true
                 if (!readiness.first) {
                     android.util.Log.e("GuardianProtection", "Filter cache not ready: ${readiness.second}")
