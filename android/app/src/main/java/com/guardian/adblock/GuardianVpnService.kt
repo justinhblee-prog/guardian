@@ -801,9 +801,9 @@ class GuardianVpnService : VpnService() {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val selectedProfile = FilterListManager.selectedProfile(this)
         val cachedProfile = FilterListManager.cachedProfile(this)
-        // A missing downloaded feed must not prevent the VPN from starting with
-        // the small, bundled baseline rules. Only add downloaded sources after
-        // their profile/count/cache checks pass; the UI can then prompt an update.
+        // The bundled rules are the minimum safe startup set. Downloaded feeds are
+        // optional enhancements: missing, stale or unreadable caches must not prevent
+        // the VPN tunnel from starting with the bundled baseline.
         val sources = mutableListOf<() -> FilterRuleParser.Parsed>()
         val minimumRuleCounts = mutableListOf<Int>()
         val unavailable = mutableListOf<String>()
@@ -812,6 +812,38 @@ class GuardianVpnService : VpnService() {
         }
         minimumRuleCounts.add(1)
 
+        fun addOptionalCache(
+            label: String,
+            cacheName: String,
+            minimumRules: Int,
+            cacheReady: Boolean
+        ) {
+            if (!cacheReady) {
+                unavailable.add(label)
+                return
+            }
+            // Keep parsing lazy to avoid holding multiple large community feeds in
+            // memory. If a cache disappears or becomes unreadable between readiness
+            // check and parse, skip only that optional source rather than aborting VPN.
+            sources.add {
+                runCatching {
+                    FilterListManager.parseCachedList(this, cacheName).also { parsed ->
+                        val actualRules = parsed.blocked.size + parsed.importantBlocked.size
+                        check(actualRules >= minimumRules) {
+                            "선택한 필터의 실제 규칙 수가 최소 기준보다 적습니다: $actualRules"
+                        }
+                    }
+                }.getOrElse { error ->
+                    unavailable.add(label)
+                    android.util.Log.w("Guardian", "Optional filter cache skipped: $label", error)
+                    FilterRuleParser.parse(emptyList<String>())
+                }
+            }
+            // Zero is intentional: this source is optional at runtime. The
+            // baseline source above retains its mandatory one-rule validation.
+            minimumRuleCounts.add(0)
+        }
+
         val mainCacheReady = runCatching {
             FilterListManager.isCacheValid(
                 FilterListManager.hasCachedFile(this),
@@ -819,29 +851,37 @@ class GuardianVpnService : VpnService() {
                 selectedProfile.minimumRules
             ) && selectedProfile.key == cachedProfile.key
         }.getOrDefault(false)
-        if (mainCacheReady) {
-            sources.add { FilterListManager.parseCachedList(this, "adguard_dns_filter.txt") }
-            minimumRuleCounts.add(selectedProfile.minimumRules)
-        } else {
-            unavailable.add("광고·추적")
-        }
+        addOptionalCache(
+            "광고·추적",
+            "adguard_dns_filter.txt",
+            selectedProfile.minimumRules,
+            mainCacheReady
+        )
 
         val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
         if (securityEnabled) {
-            val ready = runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrDefault(false)
-            if (ready) {
-                sources.add { FilterListManager.parseCachedList(this, "hagezi_threat_intelligence.txt") }
-                minimumRuleCounts.add(FilterListManager.MIN_SECURITY_BLOCKS)
-            } else unavailable.add("보안")
+            val securityReady = runCatching {
+                FilterListManager.hasCachedSecurityList(this)
+            }.getOrDefault(false)
+            addOptionalCache(
+                "보안",
+                "hagezi_threat_intelligence.txt",
+                FilterListManager.MIN_SECURITY_BLOCKS,
+                securityReady
+            )
         }
 
         val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
         if (androidAdsEnabled) {
-            val ready = runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrDefault(false)
-            if (ready) {
-                sources.add { FilterListManager.parseCachedList(this, "awavenue_android_ads.txt") }
-                minimumRuleCounts.add(FilterListManager.MIN_ANDROID_ADS_BLOCKS)
-            } else unavailable.add("Android 앱 광고")
+            val androidAdsReady = runCatching {
+                FilterListManager.hasCachedAndroidAdsList(this)
+            }.getOrDefault(false)
+            addOptionalCache(
+                "Android 앱 광고",
+                "awavenue_android_ads.txt",
+                FilterListManager.MIN_ANDROID_ADS_BLOCKS,
+                androidAdsReady
+            )
         }
 
         val userBlock = prefs.getString(KEY_USER_BLOCK, "").orEmpty().lineSequence()
@@ -850,13 +890,14 @@ class GuardianVpnService : VpnService() {
             .map { it.trim() }.filter { it.isNotEmpty() }.toList()
         android.util.Log.i(
             "Guardian",
-            "VPN rules load started; sources=${sources.size}, missing=${unavailable.joinToString()}, security=$securityEnabled, androidAds=$androidAdsEnabled"
+            "VPN rules load started; sources=${sources.size}, security=$securityEnabled, androidAds=$androidAdsEnabled"
         )
         DomainFilter.loadParsedRuleSources(sources, minimumRuleCounts, userBlock, userAllow)
         val blockedCount = DomainFilter.blockedRuleCount()
         android.util.Log.i(
             "Guardian",
-            "VPN rules load completed; blocked=$blockedCount, allowed=${DomainFilter.allowedRuleCount()}, freeHeap=${Runtime.getRuntime().freeMemory()}"
+            "VPN rules load completed; blocked=$blockedCount, allowed=${DomainFilter.allowedRuleCount()}, " +
+                "missingOptional=${unavailable.joinToString()}, freeHeap=${Runtime.getRuntime().freeMemory()}"
         )
         prefs.edit().putString(
             KEY_DNS_DIAGNOSTIC,
