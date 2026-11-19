@@ -25,7 +25,7 @@ const rateLimitOptions = {
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events'
+  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers'
 ]);
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
@@ -297,6 +297,17 @@ async function deactivate(body) {
 async function createLicense(body) {
   requireEnv();
   requireAdmin(body.req);
+  let customer = null;
+  if (body.customer !== undefined && body.customer !== null) {
+    const name = typeof body.customer.name === 'string' ? body.customer.name.trim() : '';
+    const email = typeof body.customer.email === 'string' ? body.customer.email.trim().toLowerCase() : '';
+    const orderRef = typeof body.customer.orderRef === 'string' ? body.customer.orderRef.trim() : '';
+    if (!name || name.length > 120 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 254 ||
+        orderRef.length > 120 || /[\\r\\n\\0]/.test(name + email + orderRef)) {
+      throw Object.assign(new Error('고객명, 올바른 이메일, 주문번호를 확인하세요.'), { status: 400 });
+    }
+    customer = { name, email, orderRef: orderRef || null };
+  }
   const maxDevices = Number.isInteger(body.maxDevices) ? body.maxDevices : 1;
   const days = Number.isInteger(body.validDays) ? body.validDays : 365;
   if (maxDevices < 1 || maxDevices > 20 || days < 1 || days > 36500) {
@@ -309,14 +320,25 @@ async function createLicense(body) {
     await client.query('BEGIN');
     const product = await client.query("SELECT id FROM products WHERE code='guardian-android-pro' AND active=true");
     if (!product.rowCount) throw new Error('활성 제품을 찾을 수 없습니다.');
+    let customerId = null;
+    if (customer) {
+      const saved = await client.query(
+        `INSERT INTO customers(name,email)
+         VALUES($1,$2)
+         ON CONFLICT (email) DO UPDATE SET name=EXCLUDED.name,updated_at=now()
+         RETURNING id`,
+        [customer.name, customer.email]
+      );
+      customerId = saved.rows[0].id;
+    }
     const ref = randomUUID();
     const inserted = await client.query(
-      `INSERT INTO licenses(license_ref,product_id,key_salt,key_hash,key_lookup,expires_at,max_devices)
-       VALUES($1,$2,$3,$4,$5,now()+($6::int * interval '1 day'),$7)
+      `INSERT INTO licenses(license_ref,product_id,customer_id,order_ref,key_salt,key_hash,key_lookup,expires_at,max_devices)
+       VALUES($1,$2,$3,$4,$5,$6,$7,now()+($8::int * interval '1 day'),$9)
        RETURNING id,license_ref,status,expires_at,max_devices,created_at`,
-      [ref, product.rows[0].id, hashed.saltHex, hashed.hashHex, hashed.keyLookup, days, maxDevices]
+      [ref, product.rows[0].id, customerId, customer?.orderRef || null, hashed.saltHex, hashed.hashHex, hashed.keyLookup, days, maxDevices]
     );
-    await recordEvent(client, inserted.rows[0].id, 'issued', 'admin', { maxDevices, days });
+    await recordEvent(client, inserted.rows[0].id, 'issued', 'admin', { maxDevices, days, customerLinked: Boolean(customerId) });
     await client.query('COMMIT');
     return { license: inserted.rows[0], licenseKey: key };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
@@ -332,6 +354,22 @@ async function listLicenses(req) {
      GROUP BY l.id ORDER BY l.created_at DESC LIMIT 200`
   );
   return { licenses: result.rows };
+}
+async function listCustomers(req, search = '') {
+  requireEnv();
+  requireAdmin(req);
+  const q = String(search).trim().slice(0, 100).replace(/[\\%_]/g, '\\async function listAuditEvents(req) {');
+  const result = await pool.query(
+    `SELECT c.id,c.name,c.email,c.created_at,c.updated_at,
+       count(DISTINCT l.id)::int AS license_count,
+       count(DISTINCT l.id) FILTER (WHERE l.status='active' AND l.expires_at>now())::int AS active_licenses,
+       max(l.created_at) AS last_license_issued
+     FROM customers c LEFT JOIN licenses l ON l.customer_id=c.id
+     WHERE ($1='' OR c.name ILIKE '%' || $1 || '%' ESCAPE '\\\\' OR c.email ILIKE '%' || $1 || '%' ESCAPE '\\\\')
+     GROUP BY c.id ORDER BY c.created_at DESC LIMIT 200`,
+    [q]
+  );
+  return { customers: result.rows };
 }
 async function listAuditEvents(req) {
   requireEnv();
@@ -426,7 +464,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(html);
     }
     if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
-    if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
+    if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));\n    if (req.method === 'GET' && url.pathname === '/v1/admin/customers') return json(res, 200, await listCustomers(req, url.searchParams.get('q') || ''));
     const activationListMatch = /^\/v1\/admin\/licenses\/([^/]+)\/activations$/.exec(url.pathname);
     if (req.method === 'GET' && activationListMatch) {
       return json(res, 200, await listActivations(activationListMatch[1], req));
