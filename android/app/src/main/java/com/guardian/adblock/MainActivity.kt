@@ -3330,10 +3330,12 @@ class MainActivity : Activity() {
                 protectionFeedback?.text = message
             }
         } catch (error: Exception) {
+            pendingFilterStartNotice = null
             reportProtectionStartRequestFailure(error)
         } catch (error: LinkageError) {
             // Class/native runtime loading failures are Errors, not Exceptions.
             // Keep the safe caller trace so handset-only loader failures are diagnosable.
+            pendingFilterStartNotice = null
             reportProtectionStartRequestFailure(error)
         }
     }
