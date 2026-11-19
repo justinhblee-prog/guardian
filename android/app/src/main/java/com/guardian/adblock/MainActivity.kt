@@ -3239,7 +3239,6 @@ class MainActivity : Activity() {
                 protectionCheckRunning.set(false)
                 startButton?.isEnabled = true
                 if (!readiness.first) {
-                    pendingProtectionStartAfterFilterUpdate = false
                     pendingFilterStartNotice = null
                     protectionFeedback?.text = readiness.second
                     setFilterUpdateStatus(readiness.second ?: "기본 필터를 확인할 수 없습니다.")
