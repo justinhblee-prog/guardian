@@ -321,8 +321,9 @@ async function createSupportTicket(body) {
   const category = body.category;
   const subject = validateSupportText(body.subject, '제목', 3, 120);
   const message = validateSupportText(body.message, '문의 내용', 10, 5000);
-  const email = typeof body.email === 'string' ? body.email.trim() : '';
-  if (email.length > 254 || email.includes('\u0000') || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+  const email = body.email === undefined ? '' : body.email;
+  if (typeof email !== 'string' || email.length > 254 ||
+      email.includes('\u0000') || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))) {
     throw Object.assign(new Error('이메일 주소 형식 또는 길이를 확인하세요.'), { status: 400 });
   }
 
@@ -331,7 +332,7 @@ async function createSupportTicket(body) {
   await pool.query(
     `INSERT INTO support_tickets(ticket_ref,access_token_hash,email,category,subject,message)
      VALUES($1,$2,$3,$4,$5,$6)`,
-    [ticketRef, supportTokenHash(accessToken), email, category, subject, message]
+    [ticketRef, supportTokenHash(accessToken), email.trim(), category, subject, message]
   );
   return { ticketRef, accessToken, status: 'open', message: '문의가 접수되었습니다. 접수 번호와 조회용 비밀 코드를 안전하게 보관하세요.' };
 }
