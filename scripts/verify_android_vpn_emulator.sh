@@ -1034,6 +1034,61 @@ selected_settings=any(node.attrib.get("content-desc")=="설정"
                       for node in nodes)
 if "Guardian 앱 정보와 보호 정책" not in texts or not selected_settings:
     raise SystemExit("Guardian Settings tab did not open after tapping its clickable navigation parent.")' <<<"$settings_tab_xml"
+
+# Verify the customer-facing support center is reachable and its FAQ/form UI
+# renders. Do not submit a real ticket from the emulator fixture.
+support_center_visible=0
+for attempt in $(seq 1 16); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
+  support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
+  if grep -Fq '자주 묻는 질문 (Q&A)' <<<"$support_settings_xml"; then
+    support_center_visible=1
+    echo "Customer support center found after $attempt Settings scroll checks."
+    break
+  fi
+  adb_cmd shell input swipe 540 1500 540 600 450
+  sleep 0.5
+done
+if [[ "$support_center_visible" -ne 1 ]]; then
+  echo "Customer support center entry was not visible in Settings."
+  echo "$support_settings_xml"
+  exit 1
+fi
+
+tap_text "자주 묻는 질문 (Q&A)"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-faq.xml >/dev/null 2>&1
+support_faq_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq.xml | tr -d '\r')"
+grep -Fq '광고 차단이 되지 않아요' <<<"$support_faq_xml" || {
+  echo "Customer support FAQ list did not open."
+  echo "$support_faq_xml"
+  exit 1
+}
+tap_text "광고 차단이 되지 않아요"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
+support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
+grep -Fq 'DNS 기반 광고·추적 도메인' <<<"$support_faq_answer_xml" || {
+  echo "Customer support FAQ answer did not render."
+  echo "$support_faq_answer_xml"
+  exit 1
+}
+tap_text "확인"
+tap_text "문의 및 의견 보내기"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-form.xml >/dev/null 2>&1
+support_form_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-form.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+fields=[n for n in nodes if n.attrib.get("class")=="android.widget.EditText"]
+if len(fields)<3:
+    raise SystemExit("Support submission form must expose subject, optional email, and message fields.")
+if not any("문의 및 의견 보내기" in n.attrib.get("text","") for n in nodes):
+    raise SystemExit("Support submission dialog title is missing.")' <<<"$support_form_xml"
+tap_text "취소"
+echo "Customer support center FAQ and inquiry form UI passed."
+
 auto_pause_picker_visible=0
 # The Settings tab opens at its top after the app is relaunched. Scroll down
 # through account/DNS settings until the compatibility card appears. The card is
