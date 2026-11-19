@@ -684,6 +684,15 @@ if len(matches)!=1:
 adb_cmd shell input keyevent KEYCODE_BACK || true
 sleep 1
 tap_checkbox "com.android.settings"
+# A checkbox edits only the draft. The persisted VPN exclusion must not change
+# until the user explicitly presses the save action.
+prefs="$(read_prefs)"
+if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+  echo "App exclusion draft was persisted before the explicit Save button was pressed."
+  read_prefs
+  exit 1
+fi
+tap_text "변경사항 저장"
 excluded_applied=0
 for attempt in $(seq 1 30); do
   prefs="$(read_prefs)"
@@ -700,8 +709,15 @@ if [[ "$excluded_applied" -ne 1 ]]; then
   adb_cmd logcat -d -t 3000 | grep -E 'GuardianProtection|GuardianVpn|exclusion|FATAL EXCEPTION' | tail -160 || true
   exit 1
 fi
-echo "Live exclusion enable passed: Android accepted com.android.settings in the rebuilt VPN configuration."
+echo "Live exclusion enable passed: explicit Save persisted the draft and Android accepted the VPN exclusion."
 tap_checkbox "com.android.settings"
+prefs="$(read_prefs)"
+if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+  echo "Removing an app changed persisted exclusions before the explicit Save button was pressed."
+  read_prefs
+  exit 1
+fi
+tap_text "변경사항 저장"
 restored_included=0
 for attempt in $(seq 1 30); do
   prefs="$(read_prefs)"
