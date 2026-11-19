@@ -106,7 +106,11 @@ jobs:
             exit 1
           fi
           grep -F 'GUARDIAN_STABLE_UPDATER_ENABLED' android/app/build.gradle.kts
-          test "$(grep -Fc 'else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED)' android/app/src/main/java/com/guardian/adblock/MainActivity.kt)" -eq 2
+          test "$(grep -Fc 'else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED)' android/app/src/main/java/com/guardian/adblock/MainActivity.kt)" -eq 1
+          if grep -F 'FilterUpdateScheduler.sync' android/app/src/main/java/com/guardian/adblock/MainActivity.kt; then
+            echo 'Development update discovery must not run automatically from the activity startup path.'
+            exit 1
+          fi
           grep -F 'BuildConfig.BUILD_TYPE == "direct"' android/app/src/test/java/com/guardian/adblock/DistributionBuildTypePolicyTest.kt
       - name: Validate stable in-app update publishing contract
         shell: bash
