@@ -55,6 +55,15 @@ class LicenseApiClientTest {
     }
 
     @Test
+    fun statusEndpointRequiresExplicitActiveStatusToRetainProEntitlement() {
+        assertTrue(isActiveLicenseStatus("active"))
+        assertTrue(isActiveLicenseStatus("ACTIVE"))
+        assertFalse(isActiveLicenseStatus("free"))
+        assertFalse(isActiveLicenseStatus("inactive"))
+        assertFalse(isActiveLicenseStatus(""))
+    }
+
+    @Test
     fun entitlementMutationsAndStatusShareOneSynchronizationLock() {
         val client = LicenseApiClient::class.java
         val activate = client.getDeclaredMethod(
