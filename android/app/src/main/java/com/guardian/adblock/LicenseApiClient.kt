@@ -40,6 +40,10 @@ internal fun isLicensePublicKeyConfigurationValid(encoded: String): Boolean =
         false
     }
 
+/** The status endpoint returns HTTP 200 with status=free for revoked devices. */
+internal fun isActiveLicenseStatus(status: String): Boolean =
+    status.equals("active", ignoreCase = true)
+
 /** Parse only an HTTPS origin; API paths are appended from fixed internal constants. */
 internal fun parseLicenseApiBaseUrl(value: String): URL {
     val base = value.trim()
@@ -168,7 +172,7 @@ internal object LicenseApiClient {
     fun status(context: Context): JSONObject {
         val current = LicenseEntitlementStore.current(context)
             ?: return JSONObject().put("status", "free")
-        return try {
+        val response = try {
             post(context,
                 "/v1/licenses/status",
                 JSONObject()
@@ -176,13 +180,18 @@ internal object LicenseApiClient {
                     .put("licenseRef", current.licenseRef)
             )
         } catch (error: LicenseApiException) {
-            // Status and refresh are both authoritative server checks. A revoked
-            // license or released device slot must not retain local Pro access.
             if (error.invalidatesEntitlement) {
                 LicenseEntitlementStore.clear(context)
             }
             throw error
         }
+        // The API intentionally returns HTTP 200 + status=free when the
+        // device activation was revoked or deactivated; treat that as loss
+        // of entitlement, not as a successful Pro status check.
+        if (!isActiveLicenseStatus(response.optString("status"))) {
+            LicenseEntitlementStore.clear(context)
+        }
+        return response
     }
 
     private fun persistToken(
