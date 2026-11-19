@@ -96,6 +96,27 @@ object ProtectionDiagnostics {
      * Creates a support report from non-sensitive runtime metadata only.
      * DNS history, custom rules, license credentials, URLs and public keys are intentionally excluded.
      */
+    /**
+     * Restricts the persisted filter readiness note to known status labels so a
+     * support report never copies arbitrary server text, domains or user rules.
+     */
+    fun filterReadinessSummary(value: String?): String {
+        if (value == "모든 선택 필터가 준비되었습니다.") return "모든 선택 필터 준비됨"
+        val prefix = "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: "
+        if (value?.startsWith(prefix) == true) {
+            val allowed = setOf("광고·추적", "보안", "Android 앱 광고")
+            val sources = value.removePrefix(prefix)
+                .split(',')
+                .map { it.trim() }
+                .filter { it in allowed }
+                .distinct()
+            if (sources.isNotEmpty()) {
+                return "기본 규칙으로 시작 · 추가 필터 준비 필요: ${sources.joinToString(", ")}"
+            }
+        }
+        return "확인 불가"
+    }
+
     fun supportReport(
         appVersion: String,
         androidRelease: String,
@@ -126,7 +147,8 @@ object ProtectionDiagnostics {
         securityCacheReady: Boolean? = null,
         securityRuleCount: Int? = null,
         androidAdsCacheReady: Boolean? = null,
-        androidAdsRuleCount: Int? = null
+        androidAdsRuleCount: Int? = null,
+        filterReadiness: String? = null
     ): String {
         fun cacheState(enabled: Boolean, bytes: Long): String = when {
             !enabled -> "사용 안 함"
@@ -177,6 +199,7 @@ object ProtectionDiagnostics {
             appendLine("서명 필터 배포 설정: ${if (signedFilterDeliveryConfigured) "설정됨" else "미설정"}")
             appendLine("라이선스 API 설정: ${if (licenseApiConfigured) "설정됨" else "미설정"}")
             appendLine("최근 필터 업데이트 오류 기록: ${if (filterUpdateErrorPresent) "있음" else "없음"}")
+            appendLine("필터 시작 준비 상태: ${filterReadinessSummary(filterReadiness)}")
             appendLine("최근 보호 시작 오류: ${startupFailureSummary(lastServiceStatus)}")
             val safeTrace = lastStartupTrace.orEmpty().split(" | ").take(2).joinToString(" | ")
                 .filter { it.isLetterOrDigit() || it in " ._$<>:-|" }.take(1800)
