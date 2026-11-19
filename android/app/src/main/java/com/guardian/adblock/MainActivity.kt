@@ -86,6 +86,8 @@ class MainActivity : Activity() {
     private var activityChart: ActivityStatsChart? = null
     private var receiverRegistered = false
     private var currentTab = "home"
+    // Reused across tab rebuilds to keep navigation taps responsive.
+    private var companyLogoBitmap: android.graphics.Bitmap? = null
     private var contentScrollView: ScrollView? = null
     private var focusLicenseActivationOnBuild = false
     private var licenseKeyInput: EditText? = null
@@ -510,24 +512,30 @@ class MainActivity : Activity() {
         val companyMark = ImageView(this).apply {
             contentDescription = "주식회사 유진컨설팅 로고"
             scaleType = ImageView.ScaleType.FIT_CENTER
-            val encoded = assets.open("eugene_consulting_logo.b64").bufferedReader().use { it.readText() }
-            val bytes = Base64.decode(encoded, Base64.DEFAULT)
-            val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            // Recolor only the Korean wordmark. Keep the symbol and English subtitle untouched.
-            val adjusted = source.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
-            for (y in 0 until adjusted.height.coerceAtMost(90)) {
-                for (x in 125 until adjusted.width) {
-                    val pixel = adjusted.getPixel(x, y)
-                    val alpha = android.graphics.Color.alpha(pixel)
-                    val red = android.graphics.Color.red(pixel)
-                    val green = android.graphics.Color.green(pixel)
-                    val blue = android.graphics.Color.blue(pixel)
-                    if (alpha > 0 && red < 90 && green < 90 && blue < 180) {
-                        adjusted.setPixel(x, y, android.graphics.Color.argb(alpha, 255, 255, 255))
+            // The header is rebuilt on every tab change. Decode and recolor the
+            // company wordmark only once per Activity instead of doing a full
+            // bitmap pixel pass on every Settings/navigation tap.
+            val cachedLogo = companyLogoBitmap ?: run {
+                val encoded = assets.open("eugene_consulting_logo.b64").bufferedReader().use { it.readText() }
+                val bytes = Base64.decode(encoded, Base64.DEFAULT)
+                val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                // Recolor only the Korean wordmark. Keep the symbol and English subtitle untouched.
+                val adjusted = source.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
+                for (y in 0 until adjusted.height.coerceAtMost(90)) {
+                    for (x in 125 until adjusted.width) {
+                        val pixel = adjusted.getPixel(x, y)
+                        val alpha = android.graphics.Color.alpha(pixel)
+                        val red = android.graphics.Color.red(pixel)
+                        val green = android.graphics.Color.green(pixel)
+                        val blue = android.graphics.Color.blue(pixel)
+                        if (alpha > 0 && red < 90 && green < 90 && blue < 180) {
+                            adjusted.setPixel(x, y, android.graphics.Color.argb(alpha, 255, 255, 255))
+                        }
                     }
                 }
-            }
-            setImageBitmap(adjusted)
+                adjusted
+            }.also { companyLogoBitmap = it }
+            setImageBitmap(cachedLogo)
         }
         val guardianMark = ImageView(this).apply {
             contentDescription = "GUARDIAN 보호 로고"
