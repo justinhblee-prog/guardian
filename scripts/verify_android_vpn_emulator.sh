@@ -784,6 +784,102 @@ echo "Blocked lookup:"
 cat /tmp/guardian-blocked-dns.txt || true
 read_prefs
 
+echo "Verifying automatic VPN protection recovery after an in-place app update."
+before_update_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_update_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_update_queries="${before_update_queries:-0}"
+before_update_blocked="${before_update_blocked:-0}"
+if ! grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
+  echo "Refusing to test app replacement because the previous APK does not have active VPN protection."
+  read_prefs
+  exit 1
+fi
+# Simulate an installation from a pre-restore-intent build. The new app must
+# migrate using the legacy active flag if the durable preference did not exist.
+legacy_prefs="$(read_prefs | sed 's|<boolean name="protection_restore_requested" value="true" />||g; s|<boolean name="protection_restore_requested" value="false" />||g')"
+printf '%s' "$legacy_prefs" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
+if grep -q 'name="protection_restore_requested"' <<<"$(read_prefs)"; then
+  echo "Legacy upgrade fixture unexpectedly retained the new restore-intent preference."
+  read_prefs
+  exit 1
+fi
+adb_cmd logcat -c
+adb_cmd install -r -t android/app/build/outputs/apk/debug/app-debug.apk
+adb_cmd shell pm path "$PACKAGE" | grep -F 'package:'
+restore_requested=0
+restore_receiver_seen=0
+for attempt in $(seq 1 60); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_restore_requested"[^>]*value="true"' <<<"$prefs"; then
+    restore_requested=1
+  fi
+  if adb_poll logcat -d -t 6000 -s GuardianProtection:I 2>/dev/null |
+      grep -Fq 'Requested VPN restore after system event: android.intent.action.MY_PACKAGE_REPLACED'; then
+    restore_receiver_seen=1
+  fi
+  if [[ "$restore_requested" -eq 1 && "$restore_receiver_seen" -eq 1 ]]; then
+    break
+  fi
+  sleep 2
+done
+if [[ "$restore_requested" -ne 1 || "$restore_receiver_seen" -ne 1 ]]; then
+  echo "Package replacement did not request automatic VPN restoration."
+  echo "restore_requested=$restore_requested receiver_seen=$restore_receiver_seen"
+  read_prefs
+  adb_cmd logcat -d -t 6000 | grep -E 'GuardianProtection|GuardianVpn|MY_PACKAGE_REPLACED|FATAL EXCEPTION' | tail -250 || true
+  adb_cmd shell dumpsys vpn || true
+  exit 1
+fi
+
+echo "New version requested VPN restoration automatically. Verifying the restored tunnel blocks DNS."
+after_update_dns=0
+for attempt in $(seq 1 45); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
+    adb_cmd shell ping -c 1 -W 5 "guardian-after-update-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-after-update-blocked-dns.txt 2>&1 || true
+    sleep 2
+    prefs="$(read_prefs)"
+    current_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+    current_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+    current_queries="${current_queries:-0}"
+    current_blocked="${current_blocked:-0}"
+    if (( current_queries > before_update_queries && current_blocked > before_update_blocked )); then
+      after_update_dns=1
+      break
+    fi
+  fi
+  sleep 2
+done
+if [[ "$after_update_dns" -ne 1 ]]; then
+  echo "VPN did not automatically restore DNS protection after package replacement."
+  read_prefs
+  cat /tmp/guardian-after-update-blocked-dns.txt 2>/dev/null || true
+  adb_cmd logcat -d -t 8000 | grep -E 'GuardianProtection|GuardianVpn|MY_PACKAGE_REPLACED|FATAL EXCEPTION' | tail -300 || true
+  adb_cmd shell dumpsys vpn || true
+  adb_cmd shell dumpsys connectivity | tail -160 || true
+  exit 1
+fi
+if grep -Eq 'PING guardian-after-update-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-after-update-blocked-dns.txt; then
+  echo "Post-update blocked domain unexpectedly resolved to an address."
+  cat /tmp/guardian-after-update-blocked-dns.txt || true
+  exit 1
+fi
+
+echo "Automatic package-update recovery passed: receiver relaunched VPN, DNS queries resumed, and the test ad domain was blocked."
+
+# The pre-update fixture is intentionally 0.7.19-dev and cannot contain this feature.
+# Run the compatibility UI/behavior check only after installing and verifying
+# the current 0.7.20-dev APK above.
+echo "Reopening the upgraded Guardian app for the foreground compatibility test."
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+sleep 2
+current_version="$(adb_cmd shell dumpsys package "$PACKAGE" | sed -n 's/.*versionName=//p' | head -1 | tr -d '\r')"
+expected_version="${GUARDIAN_CURRENT_VERSION_NAME:-0.7.20-dev}"
+if [[ "$current_version" != "$expected_version" ]]; then
+  echo "Foreground-app compatibility test requires $expected_version but installed Guardian is $current_version."
+  adb_cmd shell dumpsys package "$PACKAGE" | grep -E 'versionCode|versionName' || true
+  exit 1
+fi
 echo "Verifying opt-in foreground-app VPN auto-pause and automatic resume."
 # Grant the special app-op as the emulator equivalent of the user's Usage Access
 # approval. The UI flow still selects the target app and explicitly enables the feature.
@@ -905,85 +1001,4 @@ if (( after_auto_resume_dns <= before_auto_resume_dns )); then
 fi
 echo "Foreground-app auto-pause/resume passed: VPN tunnel and DNS processing recovered automatically."
 
-echo "Verifying automatic VPN protection recovery after an in-place app update."
-before_update_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-before_update_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-before_update_queries="${before_update_queries:-0}"
-before_update_blocked="${before_update_blocked:-0}"
-if ! grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
-  echo "Refusing to test app replacement because the previous APK does not have active VPN protection."
-  read_prefs
-  exit 1
-fi
-# Simulate an installation from a pre-restore-intent build. The new app must
-# migrate using the legacy active flag if the durable preference did not exist.
-legacy_prefs="$(read_prefs | sed 's|<boolean name="protection_restore_requested" value="true" />||g; s|<boolean name="protection_restore_requested" value="false" />||g')"
-printf '%s' "$legacy_prefs" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
-if grep -q 'name="protection_restore_requested"' <<<"$(read_prefs)"; then
-  echo "Legacy upgrade fixture unexpectedly retained the new restore-intent preference."
-  read_prefs
-  exit 1
-fi
-adb_cmd logcat -c
-adb_cmd install -r -t android/app/build/outputs/apk/debug/app-debug.apk
-adb_cmd shell pm path "$PACKAGE" | grep -F 'package:'
-restore_requested=0
-restore_receiver_seen=0
-for attempt in $(seq 1 60); do
-  prefs="$(read_prefs)"
-  if grep -q 'name="protection_restore_requested"[^>]*value="true"' <<<"$prefs"; then
-    restore_requested=1
-  fi
-  if adb_poll logcat -d -t 6000 -s GuardianProtection:I 2>/dev/null |
-      grep -Fq 'Requested VPN restore after system event: android.intent.action.MY_PACKAGE_REPLACED'; then
-    restore_receiver_seen=1
-  fi
-  if [[ "$restore_requested" -eq 1 && "$restore_receiver_seen" -eq 1 ]]; then
-    break
-  fi
-  sleep 2
-done
-if [[ "$restore_requested" -ne 1 || "$restore_receiver_seen" -ne 1 ]]; then
-  echo "Package replacement did not request automatic VPN restoration."
-  echo "restore_requested=$restore_requested receiver_seen=$restore_receiver_seen"
-  read_prefs
-  adb_cmd logcat -d -t 6000 | grep -E 'GuardianProtection|GuardianVpn|MY_PACKAGE_REPLACED|FATAL EXCEPTION' | tail -250 || true
-  adb_cmd shell dumpsys vpn || true
-  exit 1
-fi
 
-echo "New version requested VPN restoration automatically. Verifying the restored tunnel blocks DNS."
-after_update_dns=0
-for attempt in $(seq 1 45); do
-  prefs="$(read_prefs)"
-  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs"; then
-    adb_cmd shell ping -c 1 -W 5 "guardian-after-update-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-after-update-blocked-dns.txt 2>&1 || true
-    sleep 2
-    prefs="$(read_prefs)"
-    current_queries="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-    current_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-    current_queries="${current_queries:-0}"
-    current_blocked="${current_blocked:-0}"
-    if (( current_queries > before_update_queries && current_blocked > before_update_blocked )); then
-      after_update_dns=1
-      break
-    fi
-  fi
-  sleep 2
-done
-if [[ "$after_update_dns" -ne 1 ]]; then
-  echo "VPN did not automatically restore DNS protection after package replacement."
-  read_prefs
-  cat /tmp/guardian-after-update-blocked-dns.txt 2>/dev/null || true
-  adb_cmd logcat -d -t 8000 | grep -E 'GuardianProtection|GuardianVpn|MY_PACKAGE_REPLACED|FATAL EXCEPTION' | tail -300 || true
-  adb_cmd shell dumpsys vpn || true
-  adb_cmd shell dumpsys connectivity | tail -160 || true
-  exit 1
-fi
-if grep -Eq 'PING guardian-after-update-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-after-update-blocked-dns.txt; then
-  echo "Post-update blocked domain unexpectedly resolved to an address."
-  cat /tmp/guardian-after-update-blocked-dns.txt || true
-  exit 1
-fi
-
-echo "Automatic package-update recovery passed: receiver relaunched VPN, DNS queries resumed, and the test ad domain was blocked."
