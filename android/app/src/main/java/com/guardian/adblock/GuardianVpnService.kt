@@ -150,7 +150,7 @@ class GuardianVpnService : VpnService() {
                     restoreRequested = restoreRequested
                 )
                 if (shouldRestore) {
-                    val foregroundTarget = startWalletMonitorIfConfigured()
+                    val foregroundTarget = startForegroundAppMonitor()
                     if (foregroundTarget != null) {
                         pauseProtectionForCompatibility(foregroundTarget)
                     } else if (prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
@@ -286,7 +286,7 @@ class GuardianVpnService : VpnService() {
         } catch (error: Exception) {
             android.util.Log.e("GuardianProtection", "Could not update compatibility pause notification", error)
         }
-        sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName = this.packageName))
+        sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
     }
 
     private fun resumeProtectionAfterCompatibility() {
@@ -456,6 +456,15 @@ class GuardianVpnService : VpnService() {
         // than activating a tunnel that makes every website appear offline.
         val preflightQuery = DnsUpstreamProbe.query()
         val preflightResponse = forwardDns(preflightQuery, requireSuccessfulResolution = true)
+        if (!startCancellation.isCurrent(requestGeneration)) {
+            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+            if (!compatibilityPaused) {
+                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+                stopSelf(startId)
+            }
+            return
+        }
         if (!DnsUpstreamProbe.isSuccessfulResolution(preflightQuery, preflightResponse)) {
             val detail = lastUpstreamFailure ?: "업스트림 DNS 응답 검증 실패"
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
@@ -541,8 +550,12 @@ class GuardianVpnService : VpnService() {
         }
         if (!committed) {
             try { descriptor.close() } catch (_: Exception) { }
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            stopSelf(startId)
+            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+            if (!compatibilityPaused) {
+                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+                stopSelf(startId)
+            }
         }
     }
 
