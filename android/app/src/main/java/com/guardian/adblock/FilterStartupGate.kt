@@ -19,8 +19,8 @@ internal object FilterStartupGate {
         load: () -> FilterRuleParser.Parsed,
         onUnavailable: (Throwable) -> Unit
     ): FilterRuleParser.Parsed {
+        require(minimumRules > 0) { "Optional filter minimum must be positive." }
         return try {
-            require(minimumRules > 0) { "Optional filter minimum must be positive." }
             load().also { parsed ->
                 val actualRules = parsed.blocked.size + parsed.importantBlocked.size
                 check(actualRules >= minimumRules) {
