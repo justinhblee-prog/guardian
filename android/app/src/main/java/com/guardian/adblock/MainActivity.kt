@@ -725,9 +725,8 @@ class MainActivity : Activity() {
         body.addView(card(homePanel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(15), dp(16), dp(15))
-            addView(text("앱 및 필터 업데이트", 15f, white, true))
+            addView(text("설치 버전", 15f, white, true))
             addView(text("설치된 앱 버전  $versionName", 12f, homeGreen, true).withTop(9))
-            addView(text("앱 업데이트와 필터 목록 관리는 하단의 설정 메뉴에서 확인합니다.", 11f, muted, false).withTop(6))
         }.withTop(14))
 
         val columns = LinearLayout(this).apply {
@@ -762,7 +761,7 @@ class MainActivity : Activity() {
         left.addView(card(homePanel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(15), dp(14), dp(15), dp(14))
-            addView(text("필터 및 차단 옵션", 14f, white, true))
+            addView(text("DNS 필터 엔진", 14f, white, true))
             addView(text("광고·추적 도메인 필터와 사용자 차단·허용 규칙을 관리합니다.", 11f, muted, false).withTop(7))
         }.withTop(10))
         if (wideDashboard) {
@@ -1049,7 +1048,7 @@ class MainActivity : Activity() {
             prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
             GuardianVpnService.isTunnelActive()
         )
-        body.addView(text("보호 상태", 25f, white, true))
+        body.addView(text("보호 설정", 25f, white, true))
         body.addView(text("실시간 DNS 보호와 주요 차단 기능을 한곳에서 관리합니다.", 13f, muted, false).withTop(5))
 
         val control = card(panel, 20).apply {
@@ -2038,9 +2037,9 @@ class MainActivity : Activity() {
         }
         val items = listOf(
             Triple("home", "⌂", "홈"),
-            Triple("protection", "◈", "보호 상태"),
+            Triple("protection", "◈", "보호 설정"),
             Triple("app-exclusions", "◉", "앱 제외"),
-            Triple("activity", "▤", "활동"),
+            Triple("activity", "▤", "DNS 활동"),
             Triple("premium", "✦", "프리미엄"),
             Triple("rules", "≡", "필터 규칙"),
             Triple("settings", "⚙", "설정")
