@@ -121,6 +121,7 @@ class GuardianVpnService : VpnService() {
                 // process death cannot lose the user's explicit request to keep protection on.
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                     .putBoolean(KEY_RESTORE_REQUESTED, true).commit()
+                ensureForegroundServiceNotification()
                 val foregroundTarget = startForegroundAppMonitor()
                 if (foregroundTarget != null) {
                     pauseProtectionForCompatibility(foregroundTarget)
@@ -150,6 +151,7 @@ class GuardianVpnService : VpnService() {
                     restoreRequested = restoreRequested
                 )
                 if (shouldRestore) {
+                    ensureForegroundServiceNotification()
                     val foregroundTarget = startForegroundAppMonitor()
                     if (foregroundTarget != null) {
                         pauseProtectionForCompatibility(foregroundTarget)
@@ -169,6 +171,11 @@ class GuardianVpnService : VpnService() {
         return START_STICKY
     }
 
+    private fun ensureForegroundServiceNotification() {
+        createNotificationChannel()
+        startForeground(41, buildNotification())
+    }
+
     private fun handleCompatibilitySettingsChanged(startId: Int) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) {
@@ -176,6 +183,7 @@ class GuardianVpnService : VpnService() {
             stopSelf(startId)
             return
         }
+        ensureForegroundServiceNotification()
         val foregroundTarget = startForegroundAppMonitor()
         if (foregroundTarget != null) {
             pauseProtectionForCompatibility(foregroundTarget)
