@@ -1538,18 +1538,18 @@ class MainActivity : Activity() {
             }.withTop(12))
         } else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED) {
             val updateStatus = text(
-                "현재 정식 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 앱 실행 시 하루 한 번 새 정식 버전을 확인합니다.",
+                "현재 정식 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 자동 업데이트 확인 꺼짐",
                 11f, muted, false
             ).withTop(8) as TextView
             var downloadedUpdate: File? = null
             val installUpdateButton = Button(this).apply {
-                text = "지금 정식 업데이트 설치"
+                text = "정식 업데이트 설치"
                 isAllCaps = false
                 typeface = Typeface.DEFAULT_BOLD
                 setUpdateInstallButtonReady(this, false)
                 setOnClickListener {
                     val apk = downloadedUpdate ?: run {
-                        updateStatus.text = "먼저 '지금 정식 업데이트 확인'을 눌러 APK 다운로드를 완료하세요."
+                        updateStatus.text = "먼저 '수동으로 정식 업데이트 확인'을 눌러 APK 다운로드를 완료하세요."
                         return@setOnClickListener
                     }
                     try {
@@ -1566,14 +1566,14 @@ class MainActivity : Activity() {
             }
             body.addView(card(panel, 14).apply {
                 setPadding(dp(15), dp(15), dp(15), dp(15))
-                addView(text("정식 버전 자동 업데이트", 15f, white, true))
+                addView(text("정식 버전 업데이트 (수동)", 15f, white, true))
                 addView(text(
-                    "Guardian 공식 정식 Release에서 업데이트를 확인하고 APK를 자동 다운로드합니다. SHA-256, 패키지 ID, 버전 및 설치된 운영 서명 인증서를 검증한 후 Android의 설치 확인 화면을 엽니다.",
+                    "자동 확인 및 다운로드는 실행하지 않습니다. 아래 버튼을 직접 누른 경우에만 Guardian 공식 정식 Release를 확인하고 APK를 다운로드합니다. SHA-256, 패키지 ID, 버전 및 설치된 운영 서명 인증서를 검증한 후 Android의 설치 확인 화면을 엽니다.",
                     11f, muted, false
                 ).withTop(5))
                 addView(updateStatus)
                 addView(Button(this@MainActivity).apply {
-                    text = "지금 정식 업데이트 확인"
+                    text = "수동으로 정식 업데이트 확인"
                     isAllCaps = false
                     setTextColor(bg)
                     background = shape(accent, 12)
