@@ -326,6 +326,10 @@ $("connect").addEventListener("click", async () => {
   }
 });
 
+$("planPreset").addEventListener("change", () => {
+  if ($("planPreset").value !== "custom") $("days").value = $("planPreset").value;
+});
+
 $("issue").addEventListener("click", async () => {
   if (!adminToken || loading) {
     statusText("먼저 관리자 인증을 진행하세요.", "error");
