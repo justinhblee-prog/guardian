@@ -446,7 +446,11 @@ const server = http.createServer(async (req, res) => {
     if (RATE_LIMITED_PATHS.has(url.pathname) || /^\/v1\/admin\/(?:licenses|support\/tickets)(?:\/|$)/.test(url.pathname)) {
       // Use the socket peer address; do not trust caller-supplied X-Forwarded-For.
       const peer = req.socket.remoteAddress || 'unknown';
-      const rateLimitPath = url.pathname.startsWith('/v1/admin/licenses/') ? '/v1/admin/licenses/*' : url.pathname;
+      const rateLimitPath = url.pathname.startsWith('/v1/admin/licenses/')
+        ? '/v1/admin/licenses/*'
+        : /^\\/v1\\/admin\\/support\\/tickets\\/[^/]+\\/reply$/.test(url.pathname)
+          ? '/v1/admin/support/tickets/*/reply'
+          : url.pathname;
       // Shared PostgreSQL buckets keep limits consistent across API replicas.
       // The process-local limiter remains available only for isolated DB-less tests.
       let decision;
