@@ -60,7 +60,16 @@ object CosmeticFilterEngine {
         "##[aria-label='advertisement']",
         "##iframe[src*='doubleclick.net']",
         "##iframe[src*='googlesyndication.com']",
-        "##iframe[src*='adservice.google']"
+        "##iframe[src*='adservice.google']",
+        "##iframe[id^='google_ads_iframe']",
+        "##div[id^='google_ads_iframe']",
+        "##[id^='aswift_']",
+        "##.google-auto-placed",
+        "##[data-google-query-id]",
+        "##[data-ad-status='unfilled']",
+        "##amp-ad",
+        "##ins.adsbygoogle",
+        "##[aria-label='Ads']"
     )
 
     /** Retain bundled ad-slot coverage when an optional downloaded cosmetic feed is present. */
