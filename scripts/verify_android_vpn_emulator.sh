@@ -348,11 +348,25 @@ for node in root.iter("node"):
   read -r consent_x consent_y <<<"$consent_bounds"
   echo "Accepting the installed-app inventory disclosure at ($consent_x,$consent_y)."
   adb_cmd shell input tap "$consent_x" "$consent_y"
-  sleep 2
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
-    echo "Installed-app inventory disclosure did not close after accepting consent."
+  # The installed-app inventory is loaded asynchronously; wait for the search
+  # control instead of assuming the entire transition completes in two seconds.
+  consent_transitioned=0
+  for attempt in $(seq 1 20); do
+    adb_cmd shell rm -f /sdcard/guardian-window.xml
+    dump_result="$(adb_cmd shell uiautomator dump /sdcard/guardian-window.xml 2>&1 || true)"
+    app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+    if grep -q 'content-desc="앱별 보호 제외 검색 입력"' <<<"$app_inventory_xml"; then
+      consent_transitioned=1
+      break
+    fi
+    if (( attempt % 5 == 0 )); then
+      echo "Waiting for installed-app inventory after consent ($attempt/20)."
+    fi
+    sleep 1
+  done
+  if [[ "$consent_transitioned" -ne 1 ]]; then
+    echo "Installed-app inventory did not render after accepting consent."
+    echo "Latest UIAutomator result: $dump_result"
     echo "$app_inventory_xml"
     exit 1
   fi
@@ -412,7 +426,24 @@ if [[ "$app_search_visible" -ne 1 ]]; then
   echo "$app_inventory_xml"
   exit 1
 fi
-sleep 2
+
+inventory_ready=0
+for attempt in $(seq 1 30); do
+  adb_cmd shell rm -f /sdcard/guardian-window.xml
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if grep -q 'content-desc="앱별 보호 제외 앱 목록 준비 완료"' <<<"$app_inventory_xml"; then
+    inventory_ready=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$inventory_ready" -ne 1 ]]; then
+  echo "App-exclusion inventory did not finish loading within 30 seconds."
+  echo "$app_inventory_xml"
+  exit 1
+fi
+sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 package_listing="$(adb_cmd shell pm list packages --user 0 | tr -d '\r')"
@@ -965,7 +996,30 @@ tap_content_description "VPN 자동 일시중지 앱 검색 입력"
 adb_cmd shell input text 'com.android.settings'
 sleep 1
 adb_cmd shell input keyevent KEYCODE_BACK || true
-sleep 1
+compatibility_row_ready=0
+for attempt in $(seq 1 20); do
+  adb_cmd shell rm -f /sdcard/guardian-window.xml
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  auto_pause_picker_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("class")=="android.widget.CheckBox"
+       and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
+       and node.attrib.get("visible-to-user","true")=="true"
+       and node.attrib.get("clickable")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$auto_pause_picker_xml"; then
+    compatibility_row_ready=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$compatibility_row_ready" -ne 1 ]]; then
+  echo "Compatibility app picker did not finish loading the searched package."
+  echo "$auto_pause_picker_xml"
+  exit 1
+fi
 tap_checkbox "com.android.settings"
 tap_text "저장"
 sleep 1
