@@ -94,8 +94,9 @@ button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
     <div class="content-grid">
       <div class="stack">
         <section class="panel">
-          <div class="panel-head"><div><h2>새 라이선스 발급</h2><p class="muted">발급 키는 생성 직후 한 번만 표시됩니다.</p></div></div>
+          <div class="panel-head"><div><h2>새 라이선스 발급</h2><p class="muted">노트북과 모바일에서 동일하게 발급할 수 있습니다. 발급 키는 생성 직후 한 번만 표시됩니다. Lifetime은 무기한 만료 모델이 적용되기 전까지 발급하지 않습니다.</p></div></div>
           <div class="issue-grid">
+            <div class="field full"><label for="planPreset">라이선스 기간 프리셋</label><select id="planPreset"><option value="365">Pro 연간 · 365일</option><option value="30">Pro 월간/30일 선불</option><option value="90">Pro 90일 선불</option><option value="7">Pro 체험판 · 7일</option><option value="custom">직접 입력</option></select></div>
             <div class="field"><label for="days">유효 기간 (일)</label><input id="days" type="number" min="1" max="36500" step="1" value="365"></div>
             <div class="field"><label for="devices">최대 기기 수</label><input id="devices" type="number" min="1" max="20" step="1" value="1"></div>
           </div>
