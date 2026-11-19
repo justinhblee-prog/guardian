@@ -1,5 +1,6 @@
 package com.guardian.adblock
 
+import android.annotation.SuppressLint
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
@@ -74,6 +75,7 @@ internal class ForegroundAppMonitor(
     @Volatile
     private var monitorThread: Thread? = null
 
+    @SuppressLint("MissingPermission")
     fun start(): String? {
         if (targets.isEmpty() || !hasUsageAccess(appContext)) return null
         if (!running.compareAndSet(false, true)) return activeTarget
@@ -176,6 +178,7 @@ internal class ForegroundAppMonitor(
         private const val INITIAL_LOOKBACK_MS = 24L * 60L * 60L * 1000L
         private const val MONITOR_STOP_JOIN_MS = 1_000L
 
+        @Suppress("DEPRECATION")
         fun hasUsageAccess(context: Context): Boolean {
             val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
                 ?: return false
