@@ -37,6 +37,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import kotlin.concurrent.thread
 import java.util.concurrent.atomic.AtomicBoolean
 import java.text.SimpleDateFormat
@@ -1009,9 +1010,9 @@ class MainActivity : Activity() {
                 try {
                     val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian diagnostics", report))
-                    android.widget.android.widget.Toast.makeText(this, "개인정보를 제외한 진단 정보를 복사했습니다.", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(this, "개인정보를 제외한 진단 정보를 복사했습니다.", android.widget.Toast.LENGTH_SHORT).show()
                 } catch (error: Exception) {
-                    android.widget.android.widget.Toast.makeText(this, "진단 정보 복사 실패: ${error.javaClass.simpleName}", android.widget.Toast.LENGTH_LONG).show()
+                    android.widget.Toast.makeText(this, "진단 정보 복사 실패: ${error.javaClass.simpleName}", android.widget.Toast.LENGTH_LONG).show()
                 } finally {
                     button.isEnabled = true
                     button.text = "개인정보 제외 진단 정보 복사"
@@ -2597,7 +2598,7 @@ class MainActivity : Activity() {
                     AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
                 ).orEmpty()
                 if (currentSelected.isEmpty()) {
-                    android.widget.android.widget.Toast.makeText(
+                    android.widget.Toast.makeText(
                         this@MainActivity,
                         "먼저 VPN을 일시중지할 앱을 선택해 주세요.",
                         android.widget.Toast.LENGTH_LONG
@@ -2617,7 +2618,7 @@ class MainActivity : Activity() {
                             .remove(AppForegroundPauseSettings.KEY_ERROR)
                             .commit()
                         if (!saved) {
-                            android.widget.android.widget.Toast.makeText(
+                            android.widget.Toast.makeText(
                                 this@MainActivity,
                                 "호환성 설정을 저장하지 못했습니다.",
                                 android.widget.Toast.LENGTH_LONG
@@ -2655,7 +2656,7 @@ class MainActivity : Activity() {
                     startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 } catch (error: Exception) {
                     usageAccessSettingsOpened = false
-                    android.widget.android.widget.Toast.makeText(
+                    android.widget.Toast.makeText(
                         this,
                         "사용 정보 접근 설정을 열지 못했습니다: ${error.message ?: error.javaClass.simpleName}",
                         android.widget.Toast.LENGTH_LONG
@@ -2684,7 +2685,7 @@ class MainActivity : Activity() {
                         showTab("settings")
                         showCompatibilityPauseAppsDialog()
                     } else {
-                        android.widget.android.widget.Toast.makeText(
+                        android.widget.Toast.makeText(
                             this,
                             "동의 상태를 저장하지 못했습니다. 저장 공간을 확인해 주세요.",
                             android.widget.Toast.LENGTH_LONG
@@ -2816,7 +2817,7 @@ class MainActivity : Activity() {
                     }
                     val saved = editor.commit()
                     if (!saved) {
-                        android.widget.android.widget.Toast.makeText(
+                        android.widget.Toast.makeText(
                             this@MainActivity,
                             "일시중지 앱 목록을 저장하지 못했습니다.",
                             android.widget.Toast.LENGTH_LONG
@@ -2974,7 +2975,7 @@ class MainActivity : Activity() {
                         // forced a second navigation through the consent-gated screen.
                         showTab("app-exclusions")
                     } else {
-                        android.widget.android.widget.Toast.makeText(
+                        android.widget.Toast.makeText(
                             this,
                             "동의 상태를 저장하지 못했습니다. 저장 공간을 확인해 주세요.",
                             android.widget.Toast.LENGTH_LONG
