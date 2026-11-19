@@ -2723,11 +2723,11 @@ class MainActivity : Activity() {
                 }
             }
         }
+        val inventorySummary = text("설치 앱 목록을 불러오는 중…", 11f, muted, false).withTop(4)
         val card = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
             addView(text("설치된 앱 검색", 13f, white, true))
-            val inventorySummary = text("설치 앱 목록을 불러오는 중…", 11f, muted, false).withTop(4)
             addView(inventorySummary)
             addView(text(
                 "제외한 앱의 네트워크는 Android 시스템으로 우회됩니다. Guardian VPN 연결 자체는 계속 유지되므로, 기기 전체의 VPN 상태를 확인하는 앱은 경고를 표시할 수 있습니다.",
