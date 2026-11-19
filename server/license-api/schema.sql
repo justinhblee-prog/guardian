@@ -14,10 +14,21 @@ INSERT INTO products(code, name, entitlement)
 VALUES ('guardian-android-pro', 'Guardian Android Pro', 'pro')
 ON CONFLICT (code) DO NOTHING;
 
+CREATE TABLE IF NOT EXISTS customers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name varchar(120) NOT NULL,
+  email varchar(254) NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS customers_email_lower_uq ON customers (lower(email));
+
 CREATE TABLE IF NOT EXISTS licenses (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   license_ref text NOT NULL UNIQUE,
   product_id uuid NOT NULL REFERENCES products(id),
+  customer_id uuid REFERENCES customers(id) ON DELETE SET NULL,
+  order_ref varchar(120),
   key_salt text NOT NULL,
   key_hash text NOT NULL,
   key_lookup text NOT NULL UNIQUE,
