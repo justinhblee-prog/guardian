@@ -1,4 +1,4 @@
-# Guardian AdBlock Android — 모바일 설치 및 소스 패키지 안내 (0.7.14-dev)
+# Guardian AdBlock Android — 모바일 설치 및 소스 패키지 안내 (0.7.20-dev)
 
 이 문서는 Android 스마트폰·태블릿용 개발 APK와 동일 커밋의 전체 소스 ZIP을 받는 방법을 설명합니다. 이 버전은 개발용 debug 서명본이며 production 릴리스가 아닙니다.
 
@@ -10,7 +10,7 @@
 4. 압축을 풀면 다음 항목이 포함됩니다.
    - android/app/build/outputs/apk/debug/app-debug.apk: 설치용 Android APK
    - android/app/build/outputs/apk/debug/SHA256SUMS.txt: APK 전용 SHA-256
-   - release/Guardian-AdBlock-Source-v0.7.14-dev.zip: APK를 만든 동일 커밋의 전체 소스
+   - release/Guardian-AdBlock-Source-v0.7.20-dev.zip: APK를 만든 동일 커밋의 전체 소스
    - release/SHA256SUMS.txt: APK와 전체 소스 ZIP의 SHA-256
    - release/VERIFICATION_SUMMARY_KO.md: 빌드 및 소스 패키지 검증 요약
 
@@ -22,7 +22,7 @@
 
 ~~~powershell
 Get-FileHash .\android\app\build\outputs\apk\debug\app-debug.apk -Algorithm SHA256
-Get-FileHash .\release\Guardian-AdBlock-Source-v0.7.14-dev.zip -Algorithm SHA256
+Get-FileHash .\release\Guardian-AdBlock-Source-v0.7.20-dev.zip -Algorithm SHA256
 ~~~
 
 각 결과가 release\SHA256SUMS.txt의 APK 및 Source ZIP 항목과 일치해야 합니다. APK 자체의 android\app\build\outputs\apk\debug\SHA256SUMS.txt와도 APK 해시가 일치해야 합니다. 파일 누락, 해시 불일치 또는 Actions 실패가 있으면 해당 패키지를 설치/배포하지 마십시오.

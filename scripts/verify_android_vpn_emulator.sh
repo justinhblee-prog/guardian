@@ -417,21 +417,6 @@ adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
 installed_package_count="$(adb_cmd shell pm list packages --user 0 | tr -d '\r' | grep -c '^package:')"
 expected_exclusion_app_count="$installed_package_count"
-visible_exclusion_app_count="$(python3 -c 'import re,sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-for node in root.iter("node"):
-    match=re.search(r"전체 설치 앱 ([0-9]+)개", node.attrib.get("text",""))
-    if match:
-        print(match.group(1))
-        break
-else:
-    raise SystemExit("Full installed-app count is missing from the exclusion UI.")' <<<"$app_inventory_xml")"
-if [[ "$visible_exclusion_app_count" -ne "$expected_exclusion_app_count" ]]; then
-  echo "App exclusion inventory is incomplete: UI=$visible_exclusion_app_count, PackageManager=$expected_exclusion_app_count (all installed packages minus Guardian)."
-  echo "$app_inventory_xml"
-  exit 1
-fi
-echo "Full installed-app inventory passed: $visible_exclusion_app_count apps are available for exclusion."
 app_search_xml="$app_inventory_xml"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -445,6 +430,10 @@ tap_content_description "앱별 보호 제외 검색 입력"
 adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
 adb_cmd shell input keyevent KEYCODE_DEL
 adb_cmd shell input text 'com.android.settings'
+sleep 1
+# Hide the IME before inspecting the filtered row and the inventory-count
+# feedback. The header count may be scrolled just above the viewport.
+adb_cmd shell input keyevent KEYCODE_BACK || true
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_filtered_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -464,9 +453,59 @@ if not search:
     raise SystemExit("App-exclusion search field disappeared after entering text.")
 if not result:
     raise SystemExit("Typing an installed package name did not filter the app list.")' <<<"$app_filtered_xml"
+visible_exclusion_app_count="$(python3 -c 'import re,sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    match=re.search(r"전체 ([0-9]+)개", node.attrib.get("text",""))
+    if match:
+        print(match.group(1))
+        break
+else:
+    raise SystemExit("Inventory count feedback is missing from the filtered exclusion UI.")' <<<"$app_filtered_xml")"
+if [[ "$visible_exclusion_app_count" -ne "$expected_exclusion_app_count" ]]; then
+  echo "App exclusion inventory is incomplete: UI=$visible_exclusion_app_count, PackageManager=$expected_exclusion_app_count (all installed packages minus Guardian)."
+  echo "$app_filtered_xml"
+  exit 1
+fi
+echo "Full installed-app inventory passed: $visible_exclusion_app_count apps are available for exclusion."
+echo "Verifying Android Auto is searchable by its installed package ID."
+tap_content_description "앱별 보호 제외 검색 입력"
+adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
+adb_cmd shell input keyevent KEYCODE_DEL
+adb_cmd shell input text 'com.google.android.projection.gearhead'
+sleep 1
 adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+android_auto_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.google.android.projection.gearhead"
+    and node.attrib.get("class")=="android.widget.CheckBox"
+    and node.attrib.get("visible-to-user","true")=="true"
+    and node.attrib.get("clickable")=="true"
+    for node in root.iter("node")):
+    raise SystemExit("Android Auto package was not searchable in the installed-app exclusion list.")' <<<"$android_auto_xml"
+echo "Verifying Android Auto is searchable by its displayed app name."
+tap_content_description "앱별 보호 제외 검색 입력"
+adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
+adb_cmd shell input keyevent KEYCODE_DEL
+adb_cmd shell input text 'Android Auto'
+sleep 1
+adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+android_auto_name_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("text","").split("\n",1)[0].strip()=="Android Auto"
+    and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.google.android.projection.gearhead"
+    and node.attrib.get("class")=="android.widget.CheckBox"
+    and node.attrib.get("visible-to-user","true")=="true"
+    for node in root.iter("node")):
+    raise SystemExit("Android Auto app-name search did not return the expected installed package.")' <<<"$android_auto_name_xml"
 tap_content_description "홈"
-echo "App-exclusion search visibility, focus, and filtering passed."
+echo "App-exclusion search visibility, package filtering, and Android Auto lookup passed."
 
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
