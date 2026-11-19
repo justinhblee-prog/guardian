@@ -47,7 +47,7 @@ if (!databaseUrl) {
   };
 
   before(async () => {
-    await pool.query('TRUNCATE api_rate_limit_buckets, license_events, activations, licenses RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
@@ -130,6 +130,60 @@ if (!databaseUrl) {
     assert.equal(bare.status, 401);
     const malformed = await post('/v1/admin/licenses/not-a-uuid/revoke', {}, adminHeaders);
     assert.equal(malformed.status, 400);
+  });
+
+  test('customers can submit and privately track support tickets while admins reply securely', async () => {
+    const submitted = await post('/v1/support/tickets', {
+      category: 'suggestion',
+      subject: '광고 차단 규칙 제안',
+      message: '특정 앱에서 광고 도메인이 계속 노출됩니다. 확인 부탁드립니다.',
+      email: 'customer@example.com'
+    });
+    assert.equal(submitted.status, 200);
+    const receipt = await submitted.json();
+    assert.match(receipt.ticketRef, /^GDN-[A-F0-9]{12}$/);
+    assert.equal(typeof receipt.accessToken, 'string');
+    assert.ok(receipt.accessToken.length >= 40);
+
+    const stored = await pool.query(
+      'SELECT id,access_token_hash,status FROM support_tickets WHERE ticket_ref=$1',
+      [receipt.ticketRef]
+    );
+    assert.equal(stored.rowCount, 1);
+    assert.equal(stored.rows[0].status, 'open');
+    assert.notEqual(stored.rows[0].access_token_hash, receipt.accessToken);
+    assert.equal(stored.rows[0].access_token_hash.length, 64);
+
+    const unauthorized = await fetch(`${baseUrl}/v1/admin/support/tickets`);
+    assert.equal(unauthorized.status, 401);
+    const inbox = await fetch(`${baseUrl}/v1/admin/support/tickets`, { headers: adminHeaders });
+    assert.equal(inbox.status, 200);
+    const tickets = (await inbox.json()).tickets;
+    const item = tickets.find(ticket => ticket.ticket_ref === receipt.ticketRef);
+    assert.ok(item);
+    assert.equal(Object.hasOwn(item, 'access_token_hash'), false);
+
+    const reply = await post(`/v1/admin/support/tickets/${item.id}/reply`, {
+      reply: '제보 감사합니다. 필터 규칙을 확인하고 다음 업데이트에 반영하겠습니다.',
+      status: 'answered'
+    }, adminHeaders);
+    assert.equal(reply.status, 200);
+    assert.equal((await reply.json()).ticket.status, 'answered');
+
+    const lookup = await post('/v1/support/tickets/lookup', {
+      ticketRef: receipt.ticketRef,
+      accessToken: receipt.accessToken
+    });
+    assert.equal(lookup.status, 200);
+    const ticket = (await lookup.json()).ticket;
+    assert.equal(ticket.status, 'answered');
+    assert.match(ticket.admin_reply, /제보 감사합니다/);
+
+    const wrongToken = await post('/v1/support/tickets/lookup', {
+      ticketRef: receipt.ticketRef,
+      accessToken: 'x'.repeat(43)
+    });
+    assert.equal(wrongToken.status, 404);
   });
 
   test('activation issues a valid signed entitlement and is idempotent per device', async () => {
