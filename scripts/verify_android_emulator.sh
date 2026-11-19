@@ -106,7 +106,11 @@ adb_cmd shell pm grant com.guardian.adblock android.permission.POST_NOTIFICATION
 # Enable the optional threat-intelligence feed before first launch. Keep remote
 # shell quoting explicit: adb shell joins arguments into one command string.
 adb_cmd shell run-as com.guardian.adblock mkdir -p shared_prefs
-printf '%s' '<map><boolean name="security_filter_enabled" value="true" /></map>' |
+# The previous APK (0.7.23-dev) only starts its first filter download when
+# the opt-in auto-update flag is true. This is a test-only legacy fixture; the
+# current APK independently verifies the default-off migration and preserves
+# the user's explicit false choice on upgrade.
+printf '%s' '<map><boolean name="security_filter_enabled" value="true" /><boolean name="filter_auto_update" value="true" /><boolean name="filter_auto_update_default_off_v1" value="true" /></map>' |
   adb_cmd shell run-as com.guardian.adblock tee shared_prefs/guardian_settings.xml >/dev/null
 
 adb_cmd shell am start -n com.guardian.adblock/.MainActivity
