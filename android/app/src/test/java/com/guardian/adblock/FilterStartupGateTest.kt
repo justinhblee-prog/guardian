@@ -23,6 +23,11 @@ class FilterStartupGateTest {
     }
 
     @Test
+    fun largeRuleCountsCannotOverflowTheBaselineGate() {
+        assertTrue(FilterStartupGate.hasUsableBundledBaseline(Int.MAX_VALUE, Int.MAX_VALUE))
+    }
+
+    @Test
     fun keepsParsedOptionalFeedWhenItMeetsMinimumRuleCount() {
         var unavailableCalled = false
         val result = FilterStartupGate.loadOptionalRules(
