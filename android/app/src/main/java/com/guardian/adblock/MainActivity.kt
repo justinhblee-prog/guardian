@@ -246,8 +246,14 @@ class MainActivity : Activity() {
                     System.currentTimeMillis() - lastUpdate >= updateInterval ||
                         securityStale || androidAdsStale || profileChanged
                     )
-                val needsUpdate = initialMainMissing || initialSecurityMissing ||
-                    initialAndroidAdsMissing || scheduledRefreshDue
+                val needsUpdate = FilterStartupPolicy.shouldRefresh(
+                    mainCacheMissing = initialMainMissing,
+                    securityCacheMissing = initialSecurityMissing,
+                    securityEnabled = securityEnabled,
+                    androidAdsCacheMissing = initialAndroidAdsMissing,
+                    androidAdsEnabled = androidAdsEnabled,
+                    scheduledRefreshDue = scheduledRefreshDue
+                )
                 android.util.Log.i(
                     "Guardian",
                     "Startup filter readiness: mainMissing=$initialMainMissing securityMissing=$initialSecurityMissing " +
