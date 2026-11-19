@@ -271,3 +271,12 @@ Android 1.0 종료 후 다음 트랙으로 진행한다.
 - Production Release run #497 ([44572012719](https://github.com/justinhblee-prog/guardian/actions/runs/44572012719)) validation 성공. Run #500 ([44572324066](https://github.com/justinhblee-prog/guardian/actions/runs/44572324066))에서는 secrets 없는 임시 APK/AAB build/서명 검증 진행 중이었다. 이 테스트는 versionName `1.0.0`, versionCode `43` 및 Direct/Play 배포 variant를 확인하며 운영 개인키를 사용하지 않는다. production-release job은 운영 secrets 미설정으로 skip.
 - 새 고객지원 UI emulator 테스트를 추가했다: FAQ 목록/답변, 문의 접수 폼, 비밀 조회 코드 입력 화면을 확인하되 실제 티켓은 생성하지 않는다. 최신 Android run #1553은 pending/queue 상태이며 실행 결과를 기다린다.
 - PR #205는 base `main`, Draft 유지, mergeable 상태. 사용자 소유 운영키/Secrets, migration 003의 실제 운영 DB 적용, Samsung Wallet 실제 결제 및 실기기 지원센터 검증은 아직 남아 있다.
+
+
+### 10.8 기존 운영 DB 마이그레이션 자동화 — 2026-11-20
+- 기존 PostgreSQL DB는 `schema.sql`을 다시 실행하지 않으면 support table이 생성되지 않는 점을 확인했다. 기존 DB용 안전한 실행 경로가 없어 `server/license-api/windows/Apply-GuardianLicenseMigrations.ps1`을 추가했다.
+- 이 스크립트는 DB 준비 확인 → 마이그레이션 전 보호 경로 백업 → migration 002/003 순서 적용 → 두 필수 테이블 확인 → API 컨테이너 재빌드 → `/ready` 확인을 수행한다.
+- `server/license-api/README_KO.md`에 기존 DB 적용 절차를 추가했다.
+- PostgreSQL 통합 테스트에 기존 DB 상태에서 migration 002/003을 각각 두 번 적용하고 테이블 생성/재실행 안전성을 확인하는 회귀 테스트를 추가했다.
+- License API run #388 ([44573745676](https://github.com/justinhblee-prog/guardian/actions/runs/44573745676)) 성공: **53 tests, 53 passed, 0 failed**. PowerShell 운영 스크립트 21개 파싱도 통과했다.
+- 이 테스트는 GitHub Actions의 임시 PostgreSQL에서 수행했다. 사용자 노트북의 실제 운영 DB에 migration을 적용한 것은 아니며, 실제 적용은 백업 파일이 생성되는 PowerShell 스크립트로 별도 수행해야 한다.
