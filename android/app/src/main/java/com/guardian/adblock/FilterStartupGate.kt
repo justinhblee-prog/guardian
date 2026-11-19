@@ -18,16 +18,18 @@ internal object FilterStartupGate {
         minimumRules: Int,
         load: () -> FilterRuleParser.Parsed,
         onUnavailable: (Throwable) -> Unit
-    ): FilterRuleParser.Parsed = runCatching {
-        require(minimumRules > 0) { "Optional filter minimum must be positive." }
-        load().also { parsed ->
-            val actualRules = parsed.blocked.size + parsed.importantBlocked.size
-            check(actualRules >= minimumRules) {
-                "Optional filter has too few valid block rules: $actualRules"
+    ): FilterRuleParser.Parsed {
+        return try {
+            require(minimumRules > 0) { "Optional filter minimum must be positive." }
+            load().also { parsed ->
+                val actualRules = parsed.blocked.size + parsed.importantBlocked.size
+                check(actualRules >= minimumRules) {
+                    "Optional filter has too few valid block rules: $actualRules"
+                }
             }
+        } catch (error: Exception) {
+            onUnavailable(error)
+            FilterRuleParser.parse(emptyList<String>())
         }
-    }.getOrElse { error ->
-        onUnavailable(error)
-        FilterRuleParser.parse(emptyList<String>())
     }
 }
