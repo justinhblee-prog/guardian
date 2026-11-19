@@ -132,6 +132,28 @@ if (!databaseUrl) {
     assert.equal(malformed.status, 400);
   });
 
+  test('admin license issuance enforces plan duration and records the selected plan', async () => {
+    const valid = await post('/v1/admin/licenses', {
+      planCode: 'monthly_30d', validDays: 30, maxDevices: 2
+    }, adminHeaders);
+    assert.equal(valid.status, 200);
+    const issued = await valid.json();
+    assert.match(issued.licenseKey, /^GDN-(?:[A-F0-9]{8}-){5}[A-F0-9]{8}$/);
+    const event = await pool.query(
+      `SELECT metadata FROM license_events WHERE license_id=$1 AND event_type='issued'`,
+      [issued.license.id]
+    );
+    assert.equal(event.rowCount, 1);
+    assert.equal(event.rows[0].metadata.planCode, 'monthly_30d');
+    assert.equal(event.rows[0].metadata.days, 30);
+
+    const mismatch = await post('/v1/admin/licenses', {
+      planCode: 'monthly_30d', validDays: 31, maxDevices: 2
+    }, adminHeaders);
+    assert.equal(mismatch.status, 400);
+    assert.match((await mismatch.json()).error, /기간 설정/);
+  });
+
   test('customers can submit and privately track support tickets while admins reply securely', async () => {
     const submitted = await post('/v1/support/tickets', {
       category: 'suggestion',
