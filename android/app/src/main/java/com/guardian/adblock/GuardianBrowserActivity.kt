@@ -221,11 +221,11 @@ class GuardianBrowserActivity : Activity() {
               var scanAdLabels = function() {
                 document.querySelectorAll('body *').forEach(function(node) {
                   if (node.dataset && node.dataset.guardianAdLabelHidden === '1') return;
-                  var label = (node.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                  var label = (node.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
                   if (!labels.has(label)) return;
                   var candidate = node;
                   for (var depth = 0; depth < 4 && candidate; depth++, candidate = candidate.parentElement) {
-                    var candidateText = (candidate.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                    var candidateText = (candidate.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
                     if (!labels.has(candidateText)) continue;
                     var rect = candidate.getBoundingClientRect();
                     if (rect.width >= 200 && rect.height >= 60 && rect.height <= 500) {
