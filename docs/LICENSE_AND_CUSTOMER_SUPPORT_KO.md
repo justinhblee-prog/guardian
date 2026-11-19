@@ -24,7 +24,7 @@ Lifetime은 만료일 없는 entitlement와 refresh/정지/오프라인 검증�
 
 ## 2. 노트북/모바일 관리자 라이선스 발급 절차
 
-관리자 페이지는 License API의 /admin 경로입니다. 노트북에서는 로컬 또는 Tailscale HTTPS 접속 주소 뒤에 /admin을 붙여 열고, 외부 네트워크에서는 승인된 사설 Tailscale 경로만 사용합니다. 모바일 브라우저도 같은 반응형 페이지를 사용할 수 있습니다.
+관리자 페이지는 License API의 /admin 경로입니다. 노트북에서는 http://127.0.0.1:8787/admin 으로 열 수 있고, 모바일 브라우저에서는 노트북의 승인된 Tailscale HTTPS 주소 뒤에 /admin을 붙여 접속합니다. 외부 네트워크에서는 공개 Funnel이 아닌 사설 Tailscale 경로만 사용합니다. 같은 반응형 페이지를 노트북과 모바일에서 사용할 수 있습니다.
 
 1. 노트북에서 기존 License API와 PostgreSQL 서비스를 시작하고 /ready가 정상인지 확인합니다.
 2. 노트북 또는 모바일 브라우저에서 관리자 /admin 화면을 열고 서버의 관리자 Bearer 토큰으로 인증합니다. 이 토큰은 고객에게 공유하지 않습니다.
