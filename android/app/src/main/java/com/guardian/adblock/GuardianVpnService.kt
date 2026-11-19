@@ -30,6 +30,7 @@ class GuardianVpnService : VpnService() {
         const val ACTION_START = "com.guardian.adblock.START"
         const val ACTION_STOP = "com.guardian.adblock.STOP"
         const val ACTION_RELOAD_RULES = "com.guardian.adblock.RELOAD_RULES"
+        const val ACTION_RECONFIGURE_EXCLUDED_APPS = "com.guardian.adblock.RECONFIGURE_EXCLUDED_APPS"
         const val ACTION_STATUS_CHANGED = "com.guardian.adblock.STATUS_CHANGED"
         const val ACTION_TEST_UPSTREAM = "com.guardian.adblock.TEST_UPSTREAM"
         const val ACTION_UPSTREAM_TEST_RESULT = "com.guardian.adblock.UPSTREAM_TEST_RESULT"
@@ -66,6 +67,8 @@ class GuardianVpnService : VpnService() {
         const val DEFAULT_UPSTREAM_TRANSPORT = "udp"
         const val DEFAULT_UPSTREAM_TLS_HOST = "cloudflare-dns.com"
         const val KEY_EXCLUDED_APPS = "excluded_apps"
+        const val KEY_EXCLUDED_APPS_APPLIED = "excluded_apps_applied"
+        const val KEY_EXCLUDED_APPS_ERROR = "excluded_apps_error"
         const val KEY_DIRECT_DNS_CAPTURE = "direct_dns_capture"
         const val DEFAULT_DIRECT_DNS_CAPTURE = false
         const val DEFAULT_UPSTREAM_DNS = "1.1.1.1"
@@ -90,6 +93,7 @@ class GuardianVpnService : VpnService() {
 
     @Volatile private var lastUpstreamFailure: String? = null
     private var tun: ParcelFileDescriptor? = null
+    @Volatile private var packetWorker: Thread? = null
     private val running = AtomicBoolean(false)
     private val starting = AtomicBoolean(false)
     private data class PendingStart(val generation: Long, val startId: Int)
@@ -113,6 +117,9 @@ class GuardianVpnService : VpnService() {
                 thread(name = "guardian-vpn-start") { startProtection(generation, startId) }
             }
             ACTION_RELOAD_RULES -> thread(name = "guardian-vpn-rule-reload") { reloadUserRules() }
+            ACTION_RECONFIGURE_EXCLUDED_APPS -> thread(name = "guardian-vpn-exclusion-reconfigure") {
+                reconfigureExcludedApplications(startId)
+            }
             ACTION_TEST_UPSTREAM -> thread(name = "guardian-upstream-test") {
                 runUpstreamConnectivityTest(startId)
             }
@@ -137,6 +144,43 @@ class GuardianVpnService : VpnService() {
         // If Android reclaims the process, recreate the service and TUN when
         // the last persisted state says the user had protection enabled.
         return START_STICKY
+    }
+
+    /**
+     * Per-app VPN exclusions are part of the Builder configuration and cannot be
+     * changed on an established TUN. Rebuild the tunnel so a saved selection is
+     * actually reflected by Android's VPN routing policy.
+     */
+    private fun reconfigureExcludedApplications(startId: Int) {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) {
+            publishState(false, "앱별 보호 제외 설정을 저장했습니다. 보호를 다시 시작하면 적용됩니다.")
+            return
+        }
+        startCancellation.cancel()
+        pendingStart.set(null)
+        running.set(false)
+        tunnelActive = false
+        val oldTun = tun
+        tun = null
+        try { oldTun?.close() } catch (error: Exception) {
+            android.util.Log.w("GuardianProtection", "Could not close old TUN before exclusion refresh", error)
+        }
+        // Wait for the previous blocking packet reader to exit before allowing a
+        // new worker to set running=true; otherwise its finally block could stop
+        // the newly-created tunnel after observing the shared flag.
+        try { packetWorker?.join(5000L) } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            publishState(false, "앱별 보호 제외 재적용이 중단되었습니다. 다시 시도해 주세요.")
+            return
+        }
+        if (packetWorker?.isAlive == true) {
+            publishState(false, "이전 VPN 패킷 처리가 종료되지 않아 제외 설정을 재적용하지 못했습니다. 보호 상태를 확인해 주세요.")
+            return
+        }
+        prefs.edit().putBoolean(KEY_ACTIVE, false).commit()
+        val generation = startCancellation.onStartRequested()
+        startProtection(generation, startId)
     }
 
     private fun startProtection(requestGeneration: Long, startId: Int) {
@@ -268,11 +312,29 @@ class GuardianVpnService : VpnService() {
                 } else selectedResolver in KNOWN_PUBLIC_DNS_IPV4
                 if (!resolverAlreadyRouted) builder.addRoute(selectedResolver, selectedResolverPrefix)
             }
-            prefs.getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty()
-                .forEach { packageName ->
-                    try { builder.addDisallowedApplication(packageName) } catch (_: Exception) { }
+            val requestedExclusions = prefs.getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty()
+            val appliedExclusions = linkedSetOf<String>()
+            val staleExclusions = linkedSetOf<String>()
+            requestedExclusions.sorted().forEach { excludedPackage ->
+                try {
+                    packageManager.getApplicationInfo(excludedPackage, 0)
+                } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+                    staleExclusions.add(excludedPackage)
+                    return@forEach
                 }
-            builder.setBlocking(true).establish()
+                // Do not swallow SecurityException or other platform failures: the
+                // UI must never report a package as excluded when Android rejected it.
+                builder.addDisallowedApplication(excludedPackage)
+                appliedExclusions.add(excludedPackage)
+            }
+            val established = builder.setBlocking(true).establish()
+            if (established != null) {
+                prefs.edit()
+                    .putStringSet(KEY_EXCLUDED_APPS_APPLIED, appliedExclusions)
+                    .putStringSet(KEY_EXCLUDED_APPS_ERROR, staleExclusions)
+                    .commit()
+            }
+            established
         } catch (e: Exception) {
             establishError = e
             null
@@ -292,7 +354,7 @@ class GuardianVpnService : VpnService() {
             running.set(true)
             tunnelActive = true
             publishState(true, "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다.")
-            thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
+            packetWorker = thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
         }
         if (!committed) {
             try { descriptor.close() } catch (_: Exception) { }
