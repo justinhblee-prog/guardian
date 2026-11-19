@@ -899,7 +899,7 @@ class MainActivity : Activity() {
         body.addView(Button(this).apply {
             text = "개인정보 제외 진단 정보 복사"
             isAllCaps = false
-            setTextColor(bg)
+            setTextColor(Color.WHITE)
             background = shape(panel2, 12)
             setOnClickListener { copySupportDiagnostics(this) }
         }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(14) })
@@ -2806,6 +2806,14 @@ class MainActivity : Activity() {
             }
         }
         val inventorySummary = text("설치 앱 목록을 불러오는 중…", 11f, muted, false).withTop(4) as TextView
+        val inventoryRetryButton = Button(this).apply {
+            text = "앱 목록 다시 불러오기"
+            contentDescription = "설치 앱 목록 다시 불러오기"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 10)
+            isEnabled = false
+        }
         val card = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
@@ -2816,6 +2824,7 @@ class MainActivity : Activity() {
                 10f, muted, false
             ).withTop(5))
             addView(search, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(9) })
+            addView(inventoryRetryButton, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(7) })
         }
         val appListCard = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
@@ -2943,34 +2952,42 @@ class MainActivity : Activity() {
             override fun onTextChanged(s: CharSequence?, before: Int, count: Int, after: Int) = renderApps(s?.toString().orEmpty())
             override fun afterTextChanged(s: android.text.Editable?) = Unit
         })
-        renderApps("")
-        thread(name = "guardian-app-exclusion-inventory") {
-            val result = runCatching { InstalledAppInventory.load(this@MainActivity) }
-            runOnUiThread {
-                inventoryReady = true
-                result.onSuccess { snapshot ->
-                    apps = snapshot.apps
-                    inventoryMessage = snapshot.statusMessage()
-                    inventorySummary.text = if (apps.isEmpty()) {
-                        inventoryMessage
-                    } else {
-                        "${inventoryMessage} · 앱 이름 또는 패키지명으로 검색하세요."
+        fun loadAppExclusionInventory() {
+            inventoryReady = false
+            inventoryMessage = "설치 앱 목록을 불러오는 중…"
+            inventorySummary.text = inventoryMessage
+            inventoryRetryButton.text = "앱 목록 조회 중…"
+            inventoryRetryButton.isEnabled = false
+            renderApps(search.text?.toString().orEmpty())
+            thread(name = "guardian-app-exclusion-inventory") {
+                val result = runCatching { InstalledAppInventory.load(this@MainActivity) }
+                runOnUiThread {
+                    inventoryReady = true
+                    result.onSuccess { snapshot ->
+                        apps = snapshot.apps
+                        inventoryMessage = snapshot.statusMessage()
+                        inventorySummary.text = if (apps.isEmpty()) inventoryMessage else
+                            "${inventoryMessage} · 앱 이름 또는 패키지명으로 검색하세요."
+                        appFilterFeedback?.contentDescription = "앱별 보호 제외 앱 목록 준비 완료"
+                        android.util.Log.i(
+                            "GuardianApps",
+                            "Exclusion picker loaded ${apps.size} apps; queryAllPackages=${snapshot.queryAllPackagesGranted}, launcherFallback=${snapshot.launcherFallbackCount}"
+                        )
+                    }.onFailure { error ->
+                        apps = emptyList()
+                        inventoryMessage = "설치 앱 조회 실패: ${error.message ?: error.javaClass.simpleName}"
+                        inventorySummary.text = inventoryMessage
+                        android.util.Log.e("GuardianApps", "Could not load app exclusion inventory", error)
                     }
-                    appFilterFeedback?.contentDescription = "앱별 보호 제외 앱 목록 준비 완료"
-                    android.util.Log.i(
-                        "GuardianApps",
-                        "Exclusion picker loaded ${apps.size} apps; queryAllPackages=${snapshot.queryAllPackagesGranted}, launcherFallback=${snapshot.launcherFallbackCount}"
-                    )
-                    renderApps(search.text?.toString().orEmpty())
-                }.onFailure { error ->
-                    apps = emptyList()
-                    inventoryMessage = "설치 앱 조회 실패: ${error.message ?: error.javaClass.simpleName}"
-                    inventorySummary.text = inventoryMessage
-                    android.util.Log.e("GuardianApps", "Could not load app exclusion inventory", error)
+                    inventoryRetryButton.text = if (apps.isEmpty()) "다시 조회" else "목록 새로고침"
+                    inventoryRetryButton.isEnabled = true
                     renderApps(search.text?.toString().orEmpty())
                 }
             }
         }
+        inventoryRetryButton.setOnClickListener { loadAppExclusionInventory() }
+        renderApps("")
+        loadAppExclusionInventory()
     }
 
     private fun filterStatusDescription(): String {
