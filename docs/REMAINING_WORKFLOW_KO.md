@@ -89,7 +89,7 @@ Android 1.0의 유일한 완료 체크리스트는 [Issue #141](https://github.c
 ### Track B — 필터·라이선스·고객지원
 - 고객 디렉터리 migration 004와 `customers`, `licenses.customer_id`, `licenses.order_ref`는 사용자 노트북 PostgreSQL에서 확인됐다.
 - 사용자 노트북 License API `/ready`는 현재 503이다. 원인은 literal `\\n` PEM 줄바꿈을 실제 개행으로 바꾸지 못한 API 코드로 확인됐다. 컨테이너에서 정규화 후 개인키 파싱은 RSA 3072-bit로 성공했다.
-- PR #207 (`https://github.com/justinhblee-prog/guardian/pull/207`)에서 PEM newline normalization 한 줄을 수정했다. 해당 head의 License API workflow는 성공했고 Android APK/emulator workflow는 마지막 확인 시 실행 중이었다. PR merge, API 재빌드 및 실제 `/ready` 200은 아직 미확인이다.
+- PR #207 (`https://github.com/justinhblee-prog/guardian/pull/207`)은 2026-11-20 main에 squash merge 됐다(merge commit `04cb58a9adbbb96e7afb1d9491fd453635a15e8d`). PR head의 License API workflow는 성공했다. main merge commit workflow와 노트북 API 재빌드, 실제 `/ready` 200은 별도 확인이 필요하다.
 - 고객지원 API/화면과 migration 003은 Draft PR #205에만 포함돼 있다. 운영 DB에 migration 003을 적용하지 않았으며, PR 변경분을 main과 안전하게 동기화하고 테스트한 뒤 적용한다.
 - 필터 원격 브랜치 `guardian-filter-data`는 아직 존재하지 않는다. `sources.example.json`의 7개 공급원은 모두 `redistributionApproved=false`이며 승인 참조가 비어 있다. 재배포 권리 검토 및 추적 가능한 승인 증빙 전에는 승인 플래그를 변경하거나 필터를 게시하지 않는다.
 
