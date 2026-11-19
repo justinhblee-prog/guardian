@@ -208,6 +208,47 @@ class GuardianBrowserActivity : Activity() {
               style.id = 'guardian-cosmetic-style';
               style.textContent = $encoded;
               (document.head || document.documentElement).appendChild(style);
+
+              // Some sites render an empty ad slot whose only visible content is
+              // the literal "Advertisement" label, without an ad-related class or
+              // id. CSS filter lists cannot reliably identify that placeholder.
+              // Hide only a compact ancestor whose complete text is an ad label;
+              // do not remove larger page sections or sponsored editorial content.
+              var labels = new Set([
+                'advertisement', 'advertisement space',
+                'sponsored advertisement', 'your ad here'
+              ]);
+              var scanAdLabels = function() {
+                document.querySelectorAll('body *').forEach(function(node) {
+                  if (node.dataset && node.dataset.guardianAdLabelHidden === '1') return;
+                  var label = (node.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                  if (!labels.has(label)) return;
+                  var candidate = node;
+                  for (var depth = 0; depth < 4 && candidate; depth++, candidate = candidate.parentElement) {
+                    var candidateText = (candidate.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+                    if (!labels.has(candidateText)) continue;
+                    var rect = candidate.getBoundingClientRect();
+                    if (rect.width >= 200 && rect.height >= 60 && rect.height <= 500) {
+                      candidate.dataset.guardianAdLabelHidden = '1';
+                      candidate.style.setProperty('display', 'none', 'important');
+                      break;
+                    }
+                  }
+                });
+              };
+              if (window.__guardianAdLabelObserver) window.__guardianAdLabelObserver.disconnect();
+              scanAdLabels();
+              window.__guardianAdLabelObserver = new MutationObserver(function() {
+                if (window.__guardianAdLabelScanQueued) return;
+                window.__guardianAdLabelScanQueued = true;
+                requestAnimationFrame(function() {
+                  window.__guardianAdLabelScanQueued = false;
+                  scanAdLabels();
+                });
+              });
+              window.__guardianAdLabelObserver.observe(document.documentElement, {
+                childList: true, subtree: true, characterData: true
+              });
             })();
         """.trimIndent()
         webView.evaluateJavascript(script, null)
