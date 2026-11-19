@@ -570,16 +570,32 @@ class GuardianVpnService : VpnService() {
             val appliedExclusions = linkedSetOf<String>()
             val staleExclusions = linkedSetOf<String>()
             requestedExclusions.sorted().forEach { excludedPackage ->
+                // Android does not permit a VPN to exclude its own package. Treat
+                // legacy/corrupt saved entries as unapplied instead of failing the
+                // entire VPN tunnel for one invalid exclusion.
+                if (excludedPackage == packageName) {
+                    staleExclusions.add(excludedPackage)
+                    return@forEach
+                }
                 try {
                     packageManager.getApplicationInfo(excludedPackage, 0)
                 } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
                     staleExclusions.add(excludedPackage)
                     return@forEach
                 }
-                // Do not swallow SecurityException or other platform failures: the
-                // UI must never report a package as excluded when Android rejected it.
-                builder.addDisallowedApplication(excludedPackage)
-                appliedExclusions.add(excludedPackage)
+                try {
+                    builder.addDisallowedApplication(excludedPackage)
+                    appliedExclusions.add(excludedPackage)
+                } catch (error: Exception) {
+                    // A single OEM/package-policy rejection must not prevent the
+                    // remaining valid exclusions and DNS protection from starting.
+                    staleExclusions.add(excludedPackage)
+                    android.util.Log.w(
+                        "GuardianProtection",
+                        "Android rejected VPN exclusion for $excludedPackage",
+                        error
+                    )
+                }
             }
             val established = builder.setBlocking(true).establish()
             if (established != null) {
