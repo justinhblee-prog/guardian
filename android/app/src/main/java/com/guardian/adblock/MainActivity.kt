@@ -1260,10 +1260,12 @@ class MainActivity : Activity() {
             addView(buildFilterProfileSelector().withTop(10))
             addView(buildFilterOptions().withTop(12))
             filterUpdateButton = Button(this@MainActivity).apply {
-                text = "필터 목록 업데이트"
+                text = if (filterUpdateRunning.get()) "필터 다운로드 및 검증 중…" else "필터 목록 업데이트"
                 isAllCaps = false
                 setTextColor(bg)
                 background = shape(accent, 12)
+                isEnabled = !filterUpdateRunning.get()
+                contentDescription = "필터 목록 업데이트"
                 setOnClickListener { startFilterUpdate() }
             }
             addView(filterUpdateButton!!, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
