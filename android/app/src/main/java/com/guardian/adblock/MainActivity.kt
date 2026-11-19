@@ -97,6 +97,7 @@ class MainActivity : Activity() {
     private val startupFilterCheckStarted = AtomicBoolean(false)
     private val protectionCheckRunning = AtomicBoolean(false)
     @Volatile private var pendingProtectionStartAfterFilterUpdate = false
+    @Volatile private var pendingFilterStartNotice: String? = null
     private var syncingFilterOptions = false
 
     private val stateReceiver = object : BroadcastReceiver() {
@@ -401,6 +402,7 @@ class MainActivity : Activity() {
         if (requestCode == REQUEST_VPN) {
             if (resultCode == RESULT_OK) startProtection()
             else {
+                pendingFilterStartNotice = null
                 val message = "Android VPN 연결 요청이 승인되지 않아 DNS 보호를 시작하지 않았습니다."
                 if (currentTab == "home" && ::statusTitle.isInitialized && ::status.isInitialized) {
                     statusTitle.text = "VPN 권한이 필요합니다"
@@ -3241,66 +3243,68 @@ class MainActivity : Activity() {
     }
 
     private fun requestProtection() {
-        android.util.Log.i("GuardianProtection", "Protection button tapped; readiness check starting")
+        android.util.Log.i("GuardianProtection", "Protection button tapped; bundled-rule readiness check starting")
         if (!protectionCheckRunning.compareAndSet(false, true)) {
             android.util.Log.w("GuardianProtection", "Readiness check already running; duplicate tap ignored")
-            protectionFeedback?.text = "필터 상태를 확인하고 있습니다. 잠시만 기다려 주세요."
+            protectionFeedback?.text = "기본 보호 규칙 상태를 확인하고 있습니다. 잠시만 기다려 주세요."
             return
         }
         startButton?.isEnabled = false
-        protectionFeedback?.text = "필터 캐시와 검증 상태를 확인하고 있습니다."
+        protectionFeedback?.text = "앱에 포함된 기본 DNS 규칙을 확인하고 있습니다."
         thread(name = "guardian-protection-readiness") {
             val startedAt = android.os.SystemClock.elapsedRealtime()
             val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
             val readiness = try {
-                android.util.Log.i("GuardianProtection", "Checking base filter cache")
-                val hasCachedList = FilterListManager.hasCachedList(this)
-                android.util.Log.i("GuardianProtection", "Base filter cache check complete: $hasCachedList")
-                val selectedProfile = FilterListManager.selectedProfile(this)
-                val cachedProfile = FilterListManager.cachedProfile(this)
-                val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                android.util.Log.i("GuardianProtection", "Checking security filter cache; enabled=$securityEnabled")
-                val hasSecurityCache = FilterListManager.hasCachedSecurityList(this)
-                android.util.Log.i("GuardianProtection", "Security filter cache check complete: $hasSecurityCache")
-                val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-                android.util.Log.i("GuardianProtection", "Checking Android ads filter cache; enabled=$androidAdsEnabled")
-                val hasAndroidAdsCache = FilterListManager.hasCachedAndroidAdsList(this)
-                android.util.Log.i("GuardianProtection", "Android ads filter cache check complete: $hasAndroidAdsCache")
-                val ready = FilterListManager.isProfileCacheCurrent(
-                    hasCachedList, selectedProfile.key, cachedProfile.key,
-                    securityEnabled, hasSecurityCache, androidAdsEnabled, hasAndroidAdsCache
+                // The bundled rules are sufficient to bring up the DNS VPN safely.
+                // Downloaded lists are optional enhancements and must never be a hard
+                // prerequisite for creating the tunnel on a first install/offline device.
+                val bundled = assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
+                val baselineReady = FilterStartupGate.hasUsableBundledBaseline(
+                    bundled.blocked.size,
+                    bundled.importantBlocked.size
                 )
-                val message = when {
-                    ready -> null
-                    !hasCachedList -> "공식 광고 차단 목록을 아직 내려받지 못했습니다. 인터넷 연결 후 필터를 준비해야 정상적인 광고 차단이 가능합니다."
-                    selectedProfile.key != cachedProfile.key -> "선택한 ${selectedProfile.label} 목록이 아직 적용되지 않았습니다. 이전 프로필로 보호를 시작하지 않도록 다운로드 완료 후 다시 시작해 주세요."
-                    securityEnabled && !hasSecurityCache -> "악성코드·피싱 보호 목록을 내려받은 후 다시 시작해 주세요."
-                    androidAdsEnabled && !hasAndroidAdsCache -> "Android 앱 광고 SDK 필터를 내려받은 후 다시 시작해 주세요."
-                    else -> "선택한 필터 구성을 아직 준비하지 못했습니다. 필터 업데이트를 완료한 후 다시 시작해 주세요."
+                val unavailable = mutableListOf<String>()
+                val mainReady = runCatching { FilterListManager.hasCachedList(this) }.getOrDefault(false)
+                val selected = FilterListManager.selectedProfile(this)
+                val cached = FilterListManager.cachedProfile(this)
+                when {
+                    !mainReady -> unavailable.add("광고·추적")
+                    selected.key != cached.key -> unavailable.add("선택한 ${selected.label}")
                 }
-                android.util.Log.i("GuardianProtection", "Readiness check complete: ready=$ready elapsedMs=${android.os.SystemClock.elapsedRealtime() - startedAt}")
-                ready to message
+                if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false) &&
+                    !runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrDefault(false)
+                ) unavailable.add("악성코드·피싱")
+                if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true) &&
+                    !runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrDefault(false)
+                ) unavailable.add("Android 앱 광고")
+                val notice = if (unavailable.isEmpty()) null else
+                    "기본 DNS 규칙으로 먼저 연결합니다. 추가 필터는 아직 준비되지 않았습니다: ${unavailable.joinToString()}."
+                android.util.Log.i(
+                    "GuardianProtection",
+                    "Bundled-rule readiness: ready=$baselineReady optionalFiltersMissing=${unavailable.joinToString()} elapsedMs=${android.os.SystemClock.elapsedRealtime() - startedAt}"
+                )
+                baselineReady to if (baselineReady) notice else "앱 내 기본 DNS 규칙이 비어 있어 보호를 시작할 수 없습니다."
             } catch (error: Exception) {
-                android.util.Log.e("GuardianProtection", "Readiness check failed after ${android.os.SystemClock.elapsedRealtime() - startedAt}ms", error)
+                android.util.Log.e("GuardianProtection", "Bundled filter asset could not be loaded", error)
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
-                false to "필터 캐시 검증 오류 (${ProtectionDiagnostics.exceptionTypeChain(error)}): ${error.message ?: error.javaClass.simpleName}"
+                false to "앱 내 기본 필터 라이브러리를 읽지 못했습니다. 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
             } catch (error: LinkageError) {
-                android.util.Log.e("GuardianProtection", "Filter component could not be loaded during readiness check", error)
+                android.util.Log.e("GuardianProtection", "Bundled filter component could not be loaded", error)
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
-                false to "필터 구성요소 로드 오류 (${ProtectionDiagnostics.exceptionTypeChain(error)}): ${error.message ?: error.javaClass.simpleName}"
+                false to "필터 구성요소를 불러오지 못했습니다. 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
             }
             runOnUiThread {
                 protectionCheckRunning.set(false)
                 startButton?.isEnabled = true
                 if (!readiness.first) {
-                    android.util.Log.e("GuardianProtection", "Filter cache not ready: ${readiness.second}")
-                    pendingProtectionStartAfterFilterUpdate = true
-                    val alreadyUpdating = filterUpdateRunning.get()
-                    if (!alreadyUpdating) showTab("rules")
-                    setFilterUpdateStatus(readiness.second ?: "필터 목록을 준비해야 합니다.")
-                    if (!alreadyUpdating) startFilterUpdate()
+                    pendingProtectionStartAfterFilterUpdate = false
+                    pendingFilterStartNotice = null
+                    protectionFeedback?.text = readiness.second
+                    setFilterUpdateStatus(readiness.second ?: "기본 필터를 확인할 수 없습니다.")
                     return@runOnUiThread
                 }
+                pendingFilterStartNotice = readiness.second
+                readiness.second?.let(::setFilterUpdateStatus)
                 val consent = VpnService.prepare(this)
                 android.util.Log.i("GuardianProtection", "VPN consent check complete; consentRequired=${consent != null}")
                 if (consent != null) startActivityForResult(consent, REQUEST_VPN) else startProtection()
@@ -3315,7 +3319,9 @@ class MainActivity : Activity() {
             // failure can happen while evaluating GuardianVpnService::class.java.
             val service = Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_START)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service) else startService(service)
-            val message = "보호 시작 요청을 전달했습니다. VPN 연결을 확인하고 있습니다."
+            val baseMessage = "보호 시작 요청을 전달했습니다. VPN 연결을 확인하고 있습니다."
+            val notice = pendingFilterStartNotice.also { pendingFilterStartNotice = null }
+            val message = listOfNotNull(baseMessage, notice).joinToString(" ")
             if (currentTab == "home" && ::status.isInitialized && ::statusTitle.isInitialized) {
                 status.text = message
                 statusTitle.text = "연결 확인 중"
