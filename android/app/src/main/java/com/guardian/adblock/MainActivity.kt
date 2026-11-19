@@ -2499,11 +2499,26 @@ class MainActivity : Activity() {
         val selected = prefs.getStringSet(
             AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
         ).orEmpty()
-        val enabled = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+        var enabled = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
         val paused = prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
         val pausedPackage = prefs.getString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, null)
         val usageAccess = ForegroundAppMonitor.hasUsageAccess(this)
-        val error = prefs.getString(AppForegroundPauseSettings.KEY_ERROR, null)
+        var error = prefs.getString(AppForegroundPauseSettings.KEY_ERROR, null)
+        if (usageAccess && error != null) {
+            prefs.edit().remove(AppForegroundPauseSettings.KEY_ERROR).apply()
+            error = null
+        }
+        if (selected.isEmpty() && enabled) {
+            prefs.edit().putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false).apply()
+            enabled = false
+        }
+        compatibilityPauseSwitch?.let { control ->
+            if (control.isChecked != enabled) {
+                syncingCompatibilitySwitch = true
+                control.isChecked = enabled
+                syncingCompatibilitySwitch = false
+            }
+        }
         val pausedLabel = pausedPackage?.let { packageId ->
             try {
                 packageManager.getApplicationInfo(packageId, 0).loadLabel(packageManager).toString()
