@@ -448,7 +448,7 @@ const server = http.createServer(async (req, res) => {
       const peer = req.socket.remoteAddress || 'unknown';
       const rateLimitPath = url.pathname.startsWith('/v1/admin/licenses/')
         ? '/v1/admin/licenses/*'
-        : /^\\/v1\\/admin\\/support\\/tickets\\/[^/]+\\/reply$/.test(url.pathname)
+        : /^\/v1\/admin\/support\/tickets\/[^/]+\/reply$/.test(url.pathname)
           ? '/v1/admin/support/tickets/*/reply'
           : url.pathname;
       // Shared PostgreSQL buckets keep limits consistent across API replicas.
