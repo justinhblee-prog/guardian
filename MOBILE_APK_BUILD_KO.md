@@ -64,3 +64,13 @@ Get-FileHash .\release\Guardian-AdBlock-Source-v0.7.20-dev.zip -Algorithm SHA256
 - DNS-over-TCP(53)는 지원하지만 IPv6 extension header와 IP fragmentation/reassembly는 지원하지 않습니다.
 - DNS 필터링 자체는 웹페이지 요소를 숨기지 않습니다. Guardian Browser는 지원되는 CSS 코스메틱 규칙을 자체 WebView 안에서만 적용합니다. 외부 브라우저/다른 앱의 화면 요소, scriptlet/procedural 규칙, HTTPS 내부 트래픽 및 앱 자체 UI 광고 제거는 지원하지 않으며 first-party 광고 차단을 보장하지 않습니다.
 - 정식 production APK/AAB는 운영 keystore, 보호된 CI secrets, 운영 공개키·API 주소 및 서버 배포 설정이 완료된 후 별도로 생성해야 합니다.
+
+## 정식 배포 채널 선택
+
+정식 출시 시에는 목적에 맞는 별도 산출물을 사용합니다.
+
+- **직접 설치 APK:** Guardian 공식 GitHub Release의 `guardian-android.apk`입니다. Android에서 알 수 없는 앱 설치를 허용하면 앱 내부에서 서명과 SHA-256을 확인한 업데이트를 제안할 수 있으며, 설치 자체는 Android 확인 화면에서 사용자가 승인합니다.
+- **Google Play AAB:** `bundleRelease`에서 생성한 `app-release.aab`입니다. 이 변형은 `REQUEST_INSTALL_PACKAGES`와 GitHub 자체 업데이트 기능을 포함하지 않으며 Play Store가 업데이트를 관리합니다. 직접 설치 APK를 Play Console에 제출하지 않습니다.
+- **앱 전체 조회 권한:** 앱별 보호 제외를 위해 `QUERY_ALL_PACKAGES`를 사용합니다. Play 등록 시 권한 선언과 심사가 필요하며 승인 여부는 보장되지 않습니다.
+
+정식 production 서명 APK/AAB는 운영 keystore와 운영 서버 설정이 준비되고 릴리스 검증이 통과한 경우에만 배포합니다.
