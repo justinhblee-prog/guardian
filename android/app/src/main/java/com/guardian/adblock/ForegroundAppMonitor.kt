@@ -93,6 +93,9 @@ internal class ForegroundAppMonitor(
             running.set(false)
             onPermissionRevoked()
             return null
+        } catch (_: Exception) {
+            running.set(false)
+            return null
         }
 
         if (initialEvents == null) {
@@ -130,6 +133,13 @@ internal class ForegroundAppMonitor(
                     running.set(false)
                     onPermissionRevoked()
                     break
+                } catch (error: Exception) {
+                    android.util.Log.w(
+                        "GuardianProtection",
+                        "Foreground usage event query failed; restoring VPN as the safe default",
+                        error
+                    )
+                    tracker.reset()
                 }
 
                 cursor = end
