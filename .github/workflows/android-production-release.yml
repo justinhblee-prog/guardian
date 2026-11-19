@@ -3,6 +3,12 @@ name: Guardian AdBlock Production Release
   pull_request:
     paths:
       - 'android/app/build.gradle.kts'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - 'android/app/src/direct/AndroidManifest.xml'
+      - 'android/app/src/main/java/com/guardian/adblock/MainActivity.kt'
+      - 'android/app/src/test/java/com/guardian/adblock/DistributionBuildTypePolicyTest.kt'
+      - 'README_ANDROID_KO.md'
+      - 'MOBILE_APK_BUILD_KO.md'
       - 'server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
       - 'server/license-api/windows/Enable-GuardianPrivateApiOnly.ps1'
       - 'server/license-api/windows/README_KO.md'
@@ -11,6 +17,12 @@ name: Guardian AdBlock Production Release
     branches: [main]
     paths:
       - 'android/app/build.gradle.kts'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - 'android/app/src/direct/AndroidManifest.xml'
+      - 'android/app/src/main/java/com/guardian/adblock/MainActivity.kt'
+      - 'android/app/src/test/java/com/guardian/adblock/DistributionBuildTypePolicyTest.kt'
+      - 'README_ANDROID_KO.md'
+      - 'MOBILE_APK_BUILD_KO.md'
       - 'server/license-api/windows/Prepare-GuardianProductionRelease.ps1'
       - 'server/license-api/windows/Enable-GuardianPrivateApiOnly.ps1'
       - 'server/license-api/windows/README_KO.md'
@@ -78,6 +90,24 @@ jobs:
             echo 'Private API-only bootstrap must not publish public filter data or invoke Funnel.'
             exit 1
           fi
+      - name: Validate direct and Google Play distribution variants
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_MANIFEST='android/app/src/main/AndroidManifest.xml'
+          DIRECT_MANIFEST='android/app/src/direct/AndroidManifest.xml'
+          grep -F 'android.permission.REQUEST_INSTALL_PACKAGES' "$DIRECT_MANIFEST"
+          if grep -F 'android.permission.REQUEST_INSTALL_PACKAGES' "$MAIN_MANIFEST"; then
+            echo 'REQUEST_INSTALL_PACKAGES must not leak into the Google Play release manifest.'
+            exit 1
+          fi
+          if [ -f android/app/src/release/AndroidManifest.xml ] && grep -F 'android.permission.REQUEST_INSTALL_PACKAGES' android/app/src/release/AndroidManifest.xml; then
+            echo 'Google Play release source set must not declare REQUEST_INSTALL_PACKAGES.'
+            exit 1
+          fi
+          grep -F 'GUARDIAN_STABLE_UPDATER_ENABLED' android/app/build.gradle.kts
+          test "$(grep -Fc 'else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED)' android/app/src/main/java/com/guardian/adblock/MainActivity.kt)" -eq 2
+          grep -F 'BuildConfig.BUILD_TYPE == "direct"' android/app/src/test/java/com/guardian/adblock/DistributionBuildTypePolicyTest.kt
       - name: Validate stable in-app update publishing contract
         shell: bash
         run: |
@@ -103,21 +133,30 @@ jobs:
             exit 1
           fi
           grep -F "Release APK/AAB requires" /tmp/guardian-release-without-key.log
+          set +e
+          gradle -p android --no-daemon assembleDirect > /tmp/guardian-direct-without-key.log 2>&1
+          direct_status=$?
+          set -e
+          if [ "$direct_status" -eq 0 ]; then
+            echo "Direct-install APK unexpectedly succeeded without a production keystore."
+            exit 1
+          fi
+          grep -F "Release APK/AAB requires" /tmp/guardian-direct-without-key.log
 
 
-      - name: Build and verify an ephemeral signed release APK (no production secrets)
+      - name: Build and verify ephemeral direct APK and Play AAB (no production secrets)
         shell: bash
         run: |
           set -euo pipefail
           umask 077
           TEMP_DIR="$(mktemp -d)"
-          trap 'rm -rf "$TEMP_DIR" android/app/build/outputs/apk/release' EXIT
+          trap 'rm -rf "$TEMP_DIR" android/app/build/outputs/apk/direct android/app/build/outputs/apk/release android/app/build/outputs/bundle/release' EXIT
           STORE_PASSWORD="guardian-validation-only"
           KEY_ALIAS="guardian-validation"
           KEY_PASSWORD="guardian-validation-only"
 
-          # Generate throwaway RSA keys and a throwaway Android keystore. These
-          # values validate the Release build path only and are never uploaded.
+          # Generate throwaway keys and a temporary Android keystore. These
+          # validate both distribution variants and are never uploaded.
           openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
             -out "$TEMP_DIR/filter-private.pem"
           openssl pkey -in "$TEMP_DIR/filter-private.pem" -pubout -outform DER \
@@ -132,7 +171,7 @@ jobs:
           keytool -genkeypair -v -keystore "$TEMP_DIR/guardian-validation.jks" \
             -storetype JKS -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" \
             -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
-            -dname "CN=Guardian CI Release Validation, OU=Temporary, O=Guardian, C=US"
+            -dname "CN=Guardian CI Distribution Validation, OU=Temporary, O=Guardian, C=US"
 
           gradle -p android --no-daemon \
             -PguardianReleaseStoreFile="$TEMP_DIR/guardian-validation.jks" \
@@ -145,23 +184,51 @@ jobs:
             -PguardianLicensePublicKey="$LICENSE_PUBLIC_KEY" \
             -PguardianVersionName="0.0.0-validation" \
             -PguardianVersionCode=1 \
-            clean assembleRelease
+            clean testDirectUnitTest testReleaseUnitTest lintDirect lintRelease assembleDirect assembleRelease bundleRelease
 
-          APK="android/app/build/outputs/apk/release/app-release.apk"
-          test -s "$APK"
-          unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
-          unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
-          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='1' versionName='0.0.0-validation'"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" \
-            | tee "$TEMP_DIR/apk-signature.txt"
+          DIRECT_APK="android/app/build/outputs/apk/direct/app-direct.apk"
+          PLAY_APK="android/app/build/outputs/apk/release/app-release.apk"
+          PLAY_AAB="android/app/build/outputs/bundle/release/app-release.aab"
+          test -s "$DIRECT_APK"
+          test -s "$PLAY_APK"
+          test -s "$PLAY_AAB"
+
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$DIRECT_APK" \
+            | grep -F "android.permission.REQUEST_INSTALL_PACKAGES"
+          if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$PLAY_APK" \
+              | grep -F "android.permission.REQUEST_INSTALL_PACKAGES"; then
+            echo "Google Play APK validation output unexpectedly contains REQUEST_INSTALL_PACKAGES."
+            exit 1
+          fi
+
+          DIRECT_BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$DIRECT_APK")"
+          PLAY_BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$PLAY_APK")"
+          echo "$DIRECT_BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='1' versionName='0.0.0-validation'"
+          echo "$PLAY_BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='1' versionName='0.0.0-validation'"
+
+          for APK in "$DIRECT_APK" "$PLAY_APK"; do
+            unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
+            unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          done
+          unzip -Z1 "$PLAY_AAB" | grep -Fx 'base/assets/filter_rules.txt'
+          unzip -p "$PLAY_AAB" base/assets/filter_rules.txt | cmp - shared/filter_rules.txt
+
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$DIRECT_APK" \
+            | tee "$TEMP_DIR/direct-signature.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$PLAY_APK" \
+            | tee "$TEMP_DIR/play-apk-signature.txt"
+          jarsigner -verify -verbose -certs "$PLAY_AAB" > "$TEMP_DIR/play-aab-signature.txt"
           EXPECTED_CERT="$(keytool -list -v -keystore "$TEMP_DIR/guardian-validation.jks" \
             -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
-          APK_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' "$TEMP_DIR/apk-signature.txt" \
-            | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          DIRECT_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' "$TEMP_DIR/direct-signature.txt" | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          PLAY_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' "$TEMP_DIR/play-apk-signature.txt" | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          AAB_CERT="$(keytool -printcert -jarfile "$PLAY_AAB" | awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
           test -n "$EXPECTED_CERT"
-          test "$APK_CERT" = "$EXPECTED_CERT"
-          echo "Ephemeral Release APK built, contains canonical DNS rules, and verifies against its temporary signer."
+          test "$DIRECT_CERT" = "$EXPECTED_CERT"
+          test "$PLAY_CERT" = "$EXPECTED_CERT"
+          test "$AAB_CERT" = "$EXPECTED_CERT"
+          echo "Direct APK contains installer permission; Play APK/AAB omit it and use store-managed updates."
+          echo "Both APKs and the Play AAB contain canonical DNS rules and match the temporary signing certificate."
           echo "No production keystore, public key, URL, or release artifact was used or uploaded."
 
       - name: Verify production source archive and checksum without secrets
@@ -278,56 +345,80 @@ jobs:
           keytool -list -keystore android/app/guardian-release.jks -storepass "$GUARDIAN_RELEASE_STORE_PASSWORD" -alias "$GUARDIAN_RELEASE_KEY_ALIAS" >/dev/null
 
       - name: Run tests, lint and signed release builds
-        run: gradle -p android --no-daemon clean testDebugUnitTest lintRelease assembleRelease bundleRelease
+        run: gradle -p android --no-daemon clean testDebugUnitTest testDirectUnitTest testReleaseUnitTest lintDirect lintRelease assembleDirect assembleRelease bundleRelease
 
       - name: Verify bundled DNS filter library in APK and AAB
         shell: bash
         run: |
           set -euo pipefail
-          APK='android/app/build/outputs/apk/release/app-release.apk'
-          AAB='android/app/build/outputs/bundle/release/app-release.aab'
-          test -s "$APK"
-          test -s "$AAB"
-          unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
-          unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
-          unzip -Z1 "$AAB" | grep -Fx 'base/assets/filter_rules.txt'
-          unzip -p "$AAB" base/assets/filter_rules.txt | cmp - shared/filter_rules.txt
-          echo "Release APK and AAB contain the canonical shared DNS filter library."
+          DIRECT_APK='android/app/build/outputs/apk/direct/app-direct.apk'
+          PLAY_APK='android/app/build/outputs/apk/release/app-release.apk'
+          PLAY_AAB='android/app/build/outputs/bundle/release/app-release.aab'
+          test -s "$DIRECT_APK"
+          test -s "$PLAY_APK"
+          test -s "$PLAY_AAB"
+          for APK in "$DIRECT_APK" "$PLAY_APK"; do
+            unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
+            unzip -p "$APK" assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          done
+          unzip -Z1 "$PLAY_AAB" | grep -Fx 'base/assets/filter_rules.txt'
+          unzip -p "$PLAY_AAB" base/assets/filter_rules.txt | cmp - shared/filter_rules.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$DIRECT_APK" | grep -F 'android.permission.REQUEST_INSTALL_PACKAGES'
+          if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$PLAY_APK" | grep -F 'android.permission.REQUEST_INSTALL_PACKAGES'; then
+            echo "Play distribution APK must not contain REQUEST_INSTALL_PACKAGES."
+            exit 1
+          fi
+          echo "Direct APK has installer permission; Play APK/AAB variant is store-managed and omits it."
 
       - name: Verify package identity and production signature
         shell: bash
         run: |
-          APK='android/app/build/outputs/apk/release/app-release.apk'
-          test -s "$APK"
-          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='${GUARDIAN_VERSION_CODE}' versionName='${GUARDIAN_VERSION_NAME}'"
+          DIRECT_APK='android/app/build/outputs/apk/direct/app-direct.apk'
+          PLAY_APK='android/app/build/outputs/apk/release/app-release.apk'
+          test -s "$DIRECT_APK"
+          test -s "$PLAY_APK"
+          DIRECT_BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$DIRECT_APK")"
+          PLAY_BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$PLAY_APK")"
+          EXPECTED_PACKAGE="package: name='com.guardian.adblock' versionCode='${GUARDIAN_VERSION_CODE}' versionName='${GUARDIAN_VERSION_NAME}'"
+          echo "$DIRECT_BADGING" | grep -F "$EXPECTED_PACKAGE"
+          echo "$PLAY_BADGING" | grep -F "$EXPECTED_PACKAGE"
           mkdir -p release
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee release/signature-verification.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$DIRECT_APK" | tee release/signature-verification.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$PLAY_APK" | tee release/play-apk-signature-verification.txt
 
       - name: Verify AAB signature and match APK/AAB signer certificate
         shell: bash
         run: |
           set -euo pipefail
-          APK='android/app/build/outputs/apk/release/app-release.apk'
+          DIRECT_APK='android/app/build/outputs/apk/direct/app-direct.apk'
+          PLAY_APK='android/app/build/outputs/apk/release/app-release.apk'
           AAB='android/app/build/outputs/bundle/release/app-release.aab'
+          test -s "$DIRECT_APK"
+          test -s "$PLAY_APK"
           test -s "$AAB"
           jarsigner -verify -verbose -certs "$AAB" > release/aab-signature-verification.txt
           EXPECTED_CERT="$(keytool -list -v -keystore android/app/guardian-release.jks -storepass "$GUARDIAN_RELEASE_STORE_PASSWORD" -alias "$GUARDIAN_RELEASE_KEY_ALIAS" | awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
-          APK_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' release/signature-verification.txt | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          DIRECT_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' release/signature-verification.txt | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          PLAY_CERT="$(sed -n 's/.*certificate SHA-256 digest: //p' release/play-apk-signature-verification.txt | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')"
           AAB_CERT="$(keytool -printcert -jarfile "$AAB" | awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
           test -n "$EXPECTED_CERT"
-          test -n "$APK_CERT"
+          test -n "$DIRECT_CERT"
+          test -n "$PLAY_CERT"
           test -n "$AAB_CERT"
-          test "$APK_CERT" = "$EXPECTED_CERT"
+          test "$DIRECT_CERT" = "$EXPECTED_CERT"
+          test "$PLAY_CERT" = "$EXPECTED_CERT"
           test "$AAB_CERT" = "$EXPECTED_CERT"
-          printf 'APK and AAB signer certificate SHA-256: %s\\n' "$EXPECTED_CERT" | tee release/signer-certificate.txt
+          printf 'Direct APK, Play APK validation build and Play AAB signer certificate SHA-256: %s\\n' "$EXPECTED_CERT" | tee release/signer-certificate.txt
 
       - name: Create release verification package
         shell: bash
         run: |
           mkdir -p release
-          APK='android/app/build/outputs/apk/release/app-release.apk'
+          DIRECT_APK='android/app/build/outputs/apk/direct/app-direct.apk'
+          PLAY_APK='android/app/build/outputs/apk/release/app-release.apk'
           AAB='android/app/build/outputs/bundle/release/app-release.aab'
+          test -s "$DIRECT_APK"
+          test -s "$PLAY_APK"
           test -s "$AAB"
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
           # Guardian AdBlock ${GUARDIAN_VERSION_NAME} — Production release build
@@ -338,8 +429,10 @@ jobs:
           - versionName: ${GUARDIAN_VERSION_NAME}
           - Android unit tests: passed
           - Android lintRelease: passed
-          - Signed release APK: created and apksigner verified
-          - Release AAB: created
+          - Direct-install APK: created and apksigner verified (stable updater enabled; REQUEST_INSTALL_PACKAGES present)
+          - Google Play APK validation build: created and verified without REQUEST_INSTALL_PACKAGES
+          - Google Play AAB: created without self-updater permission; Play manages app updates
+          - QUERY_ALL_PACKAGES: retained for core app-exclusion security functionality; Play declaration/review remains required
           - Manifest distribution URL configured: ${GUARDIAN_MANIFEST_BASE_URL:+yes}
           - License API URL configured: ${GUARDIAN_LICENSE_API_BASE_URL:+yes}
           - Physical-device VPN/DNS and real-world ad filtering acceptance: not performed by this workflow
@@ -362,9 +455,9 @@ jobs:
             echo "Development keystore must not be included in production source archive."
             exit 1
           fi
-          cp "$APK" release/guardian-android.apk
-          node scripts/create-guardian-update-manifest.mjs "$APK" release/signature-verification.txt "$GUARDIAN_VERSION_NAME" "$GUARDIAN_VERSION_CODE" release/guardian-android.json
-          sha256sum "$APK" "$AAB" "$SOURCE_ZIP" release/guardian-android.apk release/guardian-android.json | tee release/SHA256SUMS.txt
+          cp "$DIRECT_APK" release/guardian-android.apk
+          node scripts/create-guardian-update-manifest.mjs "$DIRECT_APK" release/signature-verification.txt "$GUARDIAN_VERSION_NAME" "$GUARDIAN_VERSION_CODE" release/guardian-android.json
+          sha256sum "$DIRECT_APK" "$PLAY_APK" "$AAB" "$SOURCE_ZIP" release/guardian-android.apk release/guardian-android.json | tee release/SHA256SUMS.txt
           SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
           SOURCE_SHA256="$(sha256sum "$SOURCE_ZIP" | awk '{print $1}')"
           cat >> release/VERIFICATION_SUMMARY_KO.md <<EOF
@@ -375,18 +468,20 @@ jobs:
           - Development keystore excluded from source ZIP: yes
           EOF
           rm -f android/app/guardian-release.jks
-          ls -lh "$APK" "$AAB" release/guardian-android.apk release/guardian-android.json release/SHA256SUMS.txt release/VERIFICATION_SUMMARY_KO.md release/signature-verification.txt release/aab-signature-verification.txt release/signer-certificate.txt "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip"
+          ls -lh "$DIRECT_APK" "$PLAY_APK" "$AAB" release/guardian-android.apk release/guardian-android.json release/SHA256SUMS.txt release/VERIFICATION_SUMMARY_KO.md release/signature-verification.txt release/play-apk-signature-verification.txt release/aab-signature-verification.txt release/signer-certificate.txt "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip"
 
       - name: Upload signed APK, AAB and source package
         uses: actions/upload-artifact@v4
         with:
           name: Guardian-AdBlock-Production-Release-v${{ env.GUARDIAN_VERSION_NAME }}
           path: |
+            android/app/build/outputs/apk/direct/app-direct.apk
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
             release/SHA256SUMS.txt
             release/VERIFICATION_SUMMARY_KO.md
             release/signature-verification.txt
+            release/play-apk-signature-verification.txt
             release/aab-signature-verification.txt
             release/signer-certificate.txt
             release/Guardian-AdBlock-Source-v${{ env.GUARDIAN_VERSION_NAME }}.zip
@@ -407,15 +502,16 @@ jobs:
             exit 1
           fi
           gh release create "$TAG" \
-            "android/app/build/outputs/apk/release/app-release.apk#Guardian Android APK" \
-            "release/guardian-android.apk#Guardian stable update APK" \
+            "android/app/build/outputs/apk/direct/app-direct.apk#Guardian direct-install APK" \
+            "release/guardian-android.apk#Guardian direct-install stable update APK" \
             "release/guardian-android.json#Guardian stable update manifest" \
-            "android/app/build/outputs/bundle/release/app-release.aab#Guardian Android AAB" \
+            "android/app/build/outputs/bundle/release/app-release.aab#Guardian Google Play AAB" \
             "release/Guardian-AdBlock-Source-v${GUARDIAN_VERSION_NAME}.zip#Guardian source ZIP" \
             "release/SHA256SUMS.txt#SHA-256 checksums" \
             "release/VERIFICATION_SUMMARY_KO.md#Release verification report" \
-            "release/signature-verification.txt#APK signature verification" \
-            "release/aab-signature-verification.txt#AAB signature verification" \
+            "release/signature-verification.txt#Direct APK signature verification" \
+            "release/play-apk-signature-verification.txt#Google Play APK validation signature" \
+            "release/aab-signature-verification.txt#Google Play AAB signature verification" \
             "release/signer-certificate.txt#Signer certificate fingerprint" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \

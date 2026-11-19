@@ -215,8 +215,8 @@ class MainActivity : Activity() {
                     android.util.Log.w("GuardianUpdate", "Automatic development update check failed", error)
                 }
             }
-        } else {
-            // Stable channel: check published production releases once per day.
+        } else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED) {
+            // Direct-install stable channel only. Google Play builds are updated by Play itself.
             // Store the throttle timestamp only after the release feed responds successfully.
             // Android always displays its own install-consent screen; no silent install is attempted.
             thread(name = "guardian-stable-update-startup") {
@@ -1415,7 +1415,7 @@ class MainActivity : Activity() {
                 }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
                 addView(installUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
             }.withTop(12))
-        } else {
+        } else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED) {
             val updateStatus = text(
                 "현재 정식 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 앱 실행 시 하루 한 번 새 정식 버전을 확인합니다.",
                 11f, muted, false

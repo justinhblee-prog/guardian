@@ -88,7 +88,13 @@ APK 출력:
 
 ## Production release signing
 
-Debug APK 검증에는 별도 키가 필요하지 않습니다. Release APK/AAB는 개인 운영 keystore가 반드시 필요하며, 키가 설정되지 않은 상태에서는 `assembleRelease` / `bundleRelease`가 의도적으로 실패합니다.
+Debug APK 검증에는 별도 키가 필요하지 않습니다. 정식 배포는 두 산출물로 분리합니다.
+
+- **직접 설치용 APK:** `assembleDirect`로 빌드하며 `REQUEST_INSTALL_PACKAGES`를 포함합니다. 사용자가 다운로드 후 Android 설치 확인 화면에서 직접 승인하고, 정식 GitHub Release 앱 내 업데이트 기능을 사용할 수 있습니다.
+- **Google Play용 AAB:** `bundleRelease`로 빌드하며 `REQUEST_INSTALL_PACKAGES`와 GitHub 자체 업데이트 기능을 포함하지 않습니다. Play Store가 업데이트를 관리합니다. Play 정책은 이 권한을 앱 자체 업데이트 용도로 허용하지 않습니다.
+- 두 배포 변형은 동일한 보호 엔진을 사용하되, 직접 설치용만 GitHub stable updater를 표시합니다. 개발 `debug` APK의 개발 업데이트 기능은 별도입니다.
+
+두 정식 변형은 개인 운영 keystore가 반드시 필요하며, 키가 설정되지 않은 상태에서는 `assembleDirect`, `assembleRelease` 및 `bundleRelease`가 의도적으로 실패합니다.
 
 1. 보안된 PC에서 RSA 3072비트 keystore를 생성합니다.
 
@@ -111,18 +117,27 @@ GUARDIAN_RELEASE_KEY_PASSWORD=<key password>
 4. 아래 명령으로 서명된 release APK/AAB를 빌드합니다.
 
 ```bash
-gradle -p android --no-daemon clean testDebugUnitTest assembleRelease bundleRelease
+gradle -p android --no-daemon clean testDebugUnitTest testDirectUnitTest testReleaseUnitTest assembleDirect assembleRelease bundleRelease
 ```
 
 Release 서명 설정과 키 파일 존재 여부는 Gradle task에서 검사합니다. 현재 운영 keystore는 아직 제공/설정되지 않았으므로 production-signed APK/AAB를 만들었다고 간주하지 않습니다.
 
 **개발 빌드에서 첫 정식 빌드로 전환:** Debug APK는 개발용 인증서로 서명되고 Release APK는 별도의 운영 keystore로 서명되므로, Android는 개발 APK 위에 정식 APK를 덮어 설치하도록 허용하지 않습니다. 첫 정식 설치 전 개발판의 사용자 지정 규칙 등 필요한 설정을 별도로 기록하고 개발판을 제거한 뒤 정식 APK를 새로 설치해야 합니다. 앱 제거 시 로컬 앱 데이터는 삭제됩니다. 이후 동일한 운영 keystore로 서명한 정식 버전끼리는 정상 업그레이드할 수 있습니다.
 
+## 직접 설치와 Google Play 배포의 권한 분리
+
+- `android/app/src/main/AndroidManifest.xml`에는 `QUERY_ALL_PACKAGES`가 남아 있습니다. 앱별 보호 제외는 런처 아이콘이 없는 앱·시스템 앱도 검색해야 하는 기기 보안 기능이므로 전체 설치 앱 조회를 사용합니다. 앱 목록은 사용자의 동의 후 기기 내부에서만 사용하며 광고·분석·서버 업로드에 사용하지 않습니다.
+- Google Play는 `QUERY_ALL_PACKAGES`를 민감 권한으로 제한합니다. 보안/백신 앱 등 전체 앱 가시성이 핵심 기능에 필요한 경우 권한 선언 심사를 신청할 수 있으나, Guardian의 승인 여부는 Play 심사 전까지 보장되지 않습니다.
+- `REQUEST_INSTALL_PACKAGES`는 직접 설치용 `direct` 변형 및 개발 `debug` 변형에만 선언합니다. Play 제출용 `release` AAB에는 이 권한이 없고 GitHub 자체 업데이트 UI/실행 경로도 노출하지 않습니다.
+- 직접 배포용 stable APK는 GitHub 정식 Release에서 내려받은 APK의 SHA-256·패키지·버전·서명 지문을 검증한 뒤 Android 사용자 승인 설치 화면을 엽니다. Play 버전은 Play Store 업데이트를 사용합니다.
+- Play Console 정책은 `REQUEST_INSTALL_PACKAGES`를 앱 자체 업데이트에 사용하는 것을 허용하지 않습니다. 직접 설치 APK를 Play에 업로드하지 않고, Play 제출에는 `bundleRelease`로 만든 권한 제거 AAB만 사용합니다.
+- 공식 정책: [QUERY_ALL_PACKAGES](https://support.google.com/googleplay/android-developer/answer/10158779), [REQUEST_INSTALL_PACKAGES](https://support.google.com/googleplay/android-developer/answer/12085295).
+
 ## 정식 버전 앱 내 자동 업데이트
 
-- 정식 Release는 `vX.Y.Z` 태그의 GitHub 정식 배포만 조회합니다. 개발 prerelease와 draft는 안정판 앱 업데이트 대상에서 제외합니다.
+- 직접 설치용 정식 APK만 `vX.Y.Z` 태그의 GitHub 정식 배포를 조회합니다. Play AAB에는 자체 업데이트 UI가 없고 Play Store가 업데이트를 관리합니다. 개발 prerelease와 draft는 안정판 앱 업데이트 대상에서 제외합니다.
 - 정식 배포 워크플로는 운영 서명 APK를 `guardian-android.apk`로 함께 게시하고, 패키지 ID·versionName·versionCode·APK SHA-256·운영 서명 인증서 SHA-256을 담은 `guardian-android.json`을 생성합니다.
-- 정식 앱은 실행 시 하루 한 번 안정판 업데이트를 확인하고, 설정에서 수동 확인도 지원합니다. 새 버전이 있으면 APK를 자동 다운로드한 뒤 SHA-256, 패키지 ID, 버전, APK 인증서 및 설치된 앱의 인증서를 비교합니다.
+- 직접 설치용 정식 앱은 실행 시 하루 한 번 안정판 업데이트를 확인하고, 설정에서 수동 확인도 지원합니다. 새 버전이 있으면 APK를 자동 다운로드한 뒤 SHA-256, 패키지 ID, 버전, APK 인증서 및 설치된 앱의 인증서를 비교합니다.
 - 검증 후 Android 패키지 설치 화면을 열며, **최종 설치는 Android가 표시하는 사용자 승인 절차를 거칩니다.** 일반 Android 앱은 보안상 사용자 동의 없이 자기 자신을 조용히 교체 설치할 수 없습니다.
 - 같은 운영 keystore로 서명된 이후 정식 버전은 사용자 데이터와 설정을 유지하며 앱 내 업그레이드할 수 있습니다.
 - 개발판은 개발 서명 인증서로 서명되므로 첫 정식판으로 전환할 때는 기존 개발판을 제거하고 정식 APK를 새로 설치해야 합니다. 앱 제거 시 로컬 데이터가 삭제되므로 사용자 규칙 등 필요한 데이터는 먼저 별도 보관해야 합니다.

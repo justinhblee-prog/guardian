@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+        Sideloaded direct distribution only. The GitHub stable updater downloads
+        a signed APK and opens Android's user-confirmed package installer.
+        This permission is deliberately absent from the Google Play release variant.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+</manifest>
