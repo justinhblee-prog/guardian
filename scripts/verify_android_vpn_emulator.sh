@@ -599,7 +599,7 @@ for shortcut in "보호|보호" "앱 제외|앱 제외" "차단|필터" "활동|
   sleep 1
   adb_cmd shell rm -f /sdcard/guardian-home-shortcut.xml
   adb_cmd shell uiautomator dump /sdcard/guardian-home-shortcut.xml >/dev/null 2>&1
-  shortcut_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-shortcut.xml | tr -d '\\r')"
+  shortcut_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-shortcut.xml | tr -d '\r')"
   if ! python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("content-desc")==sys.argv[1]
