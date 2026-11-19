@@ -1,4 +1,4 @@
-# Guardian AdBlock Android 0.7.21-dev
+# Guardian AdBlock Android 0.7.22-dev
 
 ## 제품 개요
 
@@ -8,7 +8,7 @@ Guardian은 Android `VpnService`를 사용해 기기 안에서 DNS 질의를 필
 - 최소 Android: API 26
 - compile/target SDK: 35
 - 빌드 JDK: 17
-- 현재 버전: `0.7.21-dev` (versionCode 34)
+- 현재 버전: `0.7.22-dev` (versionCode 35)
 
 ## 현재 구현 기능
 
@@ -112,7 +112,7 @@ GUARDIAN_RELEASE_KEY_ALIAS=guardian-release
 GUARDIAN_RELEASE_KEY_PASSWORD=<key password>
 ```
 
-`GUARDIAN_RELEASE_STORE_FILE`의 상대 경로 기준은 `android/app` 모듈 디렉터리입니다. CI에서는 위 값을 GitHub Actions Secrets에 안전하게 등록한 뒤 release job에 주입해야 합니다. 추가로 Repository Variables에 `GUARDIAN_MANIFEST_BASE_URL`, `GUARDIAN_MANIFEST_PUBLIC_KEY`, `GUARDIAN_LICENSE_PUBLIC_KEY`, `GUARDIAN_LICENSE_API_BASE_URL`을 설정해야 합니다. `GUARDIAN_FILTER_APPROVALS_JSON`은 `Prepare-GuardianProductionRelease.ps1`이 실제 로컬 `sources.json`에서 source ID, licenseId, 명시적 승인 여부 및 승인 참조를 추출해 자동 등록합니다. 이를 수동으로 승인 상태로 바꾸거나 예시 값을 복사하지 마세요. production workflow는 모든 source의 승인 플래그와 추적 가능한 참조를 다시 검사하고, 값이 없거나 승인되지 않은 source가 있으면 Release 빌드/게시 전에 중단합니다. 전용 `guardian-filter-data` 브랜치가 없을 때도 중단합니다. 실제 배포 버전도 `GUARDIAN_VERSION_NAME`(예: `1.0.0`)과 `GUARDIAN_VERSION_CODE`(현재 개발 versionCode보다 큰 양의 정수)로 명시해야 하며, 현재 개발 빌드 `0.7.21-dev` / `34`보다 큰 값인 `35`부터 정식 버전에 사용할 수 있습니다. 준비 스크립트와 CI 모두 개발 versionCode 이하의 정식 버전을 거부합니다. 배포 워크플로는 manifest/라이선스 URL의 HTTPS 여부와 두 공개키의 DER/Base64 형식 및 RSA 2048·3072·4096비트 크기를 확인하고, 설정이 없으면 production release를 중단합니다. APK는 `apksigner`로, AAB는 `jarsigner`/`keytool`로 서명을 각각 검증하고, 두 산출물의 인증서 SHA-256 지문이 제공된 keystore 인증서와 동일한지 확인합니다. APK/AAB SHA-256, 서명 검증 기록, 동적 버전명이 반영된 소스 ZIP 및 한국어 검증 요약을 artifact로 묶습니다. 작업 종료 시 runner 작업공간의 keystore 파일도 제거합니다. 실제 운영 키를 저장소에 커밋하거나 로그에 출력하지 마세요.
+`GUARDIAN_RELEASE_STORE_FILE`의 상대 경로 기준은 `android/app` 모듈 디렉터리입니다. CI에서는 위 값을 GitHub Actions Secrets에 안전하게 등록한 뒤 release job에 주입해야 합니다. 추가로 Repository Variables에 `GUARDIAN_MANIFEST_BASE_URL`, `GUARDIAN_MANIFEST_PUBLIC_KEY`, `GUARDIAN_LICENSE_PUBLIC_KEY`, `GUARDIAN_LICENSE_API_BASE_URL`을 설정해야 합니다. `GUARDIAN_FILTER_APPROVALS_JSON`은 `Prepare-GuardianProductionRelease.ps1`이 실제 로컬 `sources.json`에서 source ID, licenseId, 명시적 승인 여부 및 승인 참조를 추출해 자동 등록합니다. 이를 수동으로 승인 상태로 바꾸거나 예시 값을 복사하지 마세요. production workflow는 모든 source의 승인 플래그와 추적 가능한 참조를 다시 검사하고, 값이 없거나 승인되지 않은 source가 있으면 Release 빌드/게시 전에 중단합니다. 전용 `guardian-filter-data` 브랜치가 없을 때도 중단합니다. 실제 배포 버전도 `GUARDIAN_VERSION_NAME`(예: `1.0.0`)과 `GUARDIAN_VERSION_CODE`(현재 개발 versionCode보다 큰 양의 정수)로 명시해야 하며, 현재 개발 빌드 `0.7.22-dev` / `35`보다 큰 값인 `36`부터 정식 버전에 사용할 수 있습니다. 준비 스크립트와 CI 모두 개발 versionCode 이하의 정식 버전을 거부합니다. 배포 워크플로는 manifest/라이선스 URL의 HTTPS 여부와 두 공개키의 DER/Base64 형식 및 RSA 2048·3072·4096비트 크기를 확인하고, 설정이 없으면 production release를 중단합니다. APK는 `apksigner`로, AAB는 `jarsigner`/`keytool`로 서명을 각각 검증하고, 두 산출물의 인증서 SHA-256 지문이 제공된 keystore 인증서와 동일한지 확인합니다. APK/AAB SHA-256, 서명 검증 기록, 동적 버전명이 반영된 소스 ZIP 및 한국어 검증 요약을 artifact로 묶습니다. 작업 종료 시 runner 작업공간의 keystore 파일도 제거합니다. 실제 운영 키를 저장소에 커밋하거나 로그에 출력하지 마세요.
 
 4. 아래 명령으로 서명된 release APK/AAB를 빌드합니다.
 
