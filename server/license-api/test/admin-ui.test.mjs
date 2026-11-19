@@ -99,6 +99,8 @@ test("customer support inbox is authenticated and renders ticket content safely"
   assert.match(js, /supportItems = support\.tickets \|\| \[\]/);
   assert.match(js, /message\.textContent = item\.message/);
   assert.match(js, /old\.textContent = '기존 답변: ' \+ item\.admin_reply/);
+  assert.match(js, /categoryLabels/);
+  assert.match(js, /statusLabels/);
   assert.doesNotMatch(js, /\.innerHTML\s*=/);
 });
 
