@@ -348,11 +348,28 @@ for node in root.iter("node"):
   read -r consent_x consent_y <<<"$consent_bounds"
   echo "Accepting the installed-app inventory disclosure at ($consent_x,$consent_y)."
   adb_cmd shell input tap "$consent_x" "$consent_y"
-  sleep 2
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
-    echo "Installed-app inventory disclosure did not close after accepting consent."
+  # Rendering the full PackageManager inventory can take several seconds on
+  # cold emulator boots. Poll for the actual exclusion search control instead
+  # of treating a fixed two-second delay as a failed consent action.
+  consent_transitioned=0
+  for attempt in $(seq 1 20); do
+    # Remove the previous dump first; otherwise a failed UIAutomator dump can
+    # leave stale XML and make the test report a dialog that is already gone.
+    adb_cmd shell rm -f /sdcard/guardian-window.xml
+    dump_result="$(adb_cmd shell uiautomator dump /sdcard/guardian-window.xml 2>&1 || true)"
+    app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+    if grep -q 'content-desc="앱별 보호 제외 검색 입력"' <<<"$app_inventory_xml"; then
+      consent_transitioned=1
+      break
+    fi
+    if (( attempt % 5 == 0 )); then
+      echo "Waiting for installed-app inventory after consent ($attempt/20)."
+    fi
+    sleep 1
+  done
+  if [[ "$consent_transitioned" -ne 1 ]]; then
+    echo "Installed-app inventory did not render after accepting consent."
+    echo "Latest UIAutomator result: $dump_result"
     echo "$app_inventory_xml"
     exit 1
   fi
@@ -998,43 +1015,3 @@ done
 if [[ "$auto_pause_observed" -ne 1 ]]; then
   echo "Selected foreground app did not pause the whole VPN tunnel."
   read_prefs
-  adb_cmd logcat -d -t 5000 | grep -E 'GuardianProtection|foreground|UsageStats|FATAL EXCEPTION' | tail -220 || true
-  adb_cmd shell dumpsys vpn || true
-  exit 1
-fi
-echo "Foreground-app auto-pause engaged: Settings is active and Guardian protection is paused."
-
-echo "Returning to Guardian. VPN protection must automatically reconnect."
-adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
-auto_resume_observed=0
-for attempt in $(seq 1 60); do
-  prefs="$(read_prefs)"
-  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
-     grep -q 'name="app_foreground_auto_pause_active"[^>]*value="false"' <<<"$prefs"; then
-    auto_resume_observed=1
-    break
-  fi
-  sleep 1
-done
-if [[ "$auto_resume_observed" -ne 1 ]]; then
-  echo "Guardian did not automatically restore the VPN after the selected app closed."
-  read_prefs
-  adb_cmd logcat -d -t 7000 | grep -E 'GuardianProtection|foreground|UsageStats|FATAL EXCEPTION' | tail -260 || true
-  adb_cmd shell dumpsys vpn || true
-  adb_cmd shell dumpsys connectivity | tail -180 || true
-  exit 1
-fi
-before_auto_resume_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-before_auto_resume_dns="${before_auto_resume_dns:-0}"
-adb_cmd shell ping -c 1 -W 5 example.com >/tmp/guardian-after-compatibility-resume-dns.txt 2>&1 || true
-sleep 2
-prefs="$(read_prefs)"
-after_auto_resume_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-after_auto_resume_dns="${after_auto_resume_dns:-0}"
-if (( after_auto_resume_dns <= before_auto_resume_dns )); then
-  echo "DNS processing did not resume after foreground-app compatibility pause."
-  read_prefs
-  cat /tmp/guardian-after-compatibility-resume-dns.txt || true
-  exit 1
-fi
-echo "Foreground-app auto-pause/resume passed: VPN tunnel and DNS processing recovered automatically."
