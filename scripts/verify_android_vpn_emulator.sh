@@ -323,6 +323,17 @@ echo "Verifying the app-exclusion search field is automatically revealed and fil
 # The disclosure is shown when that screen is first opened, not from Settings.
 tap_content_description "보호 상태"
 sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-protection-controls.xml >/dev/null 2>&1
+protection_controls_xml="$(adb_cmd exec-out cat /sdcard/guardian-protection-controls.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+duplicate=[node.attrib.get("text","") for node in root.iter("node")
+    if node.attrib.get("class")=="android.widget.Button"
+    and node.attrib.get("text","").strip() in {"보호 시작","보호 중지","보호 완전 중지"}
+    and node.attrib.get("visible-to-user","true")=="true"
+    and node.attrib.get("clickable")=="true"]
+if duplicate:
+    raise SystemExit("Protection diagnostics screen still exposes duplicate start/stop controls: "+repr(duplicate))' <<<"$protection_controls_xml"
 # The Protection screen is vertically scrollable; the management action is
 # below the filter controls and is not present in the accessibility tree until
 # it is brought into view. Scroll deliberately before tapping the visible text.
@@ -600,7 +611,18 @@ else
   echo "Android Auto is not installed in this emulator image; exact Android Auto lookup is skipped. Full inventory count and installed-package search were still verified."
 fi
 tap_content_description "홈"
-echo "App-exclusion search visibility, package filtering, and Android Auto lookup passed."
+adb_cmd shell uiautomator dump /sdcard/guardian-home-controls.xml >/dev/null 2>&1
+home_controls_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-controls.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+controls=[node.attrib.get("text","").strip() for node in root.iter("node")
+    if node.attrib.get("class")=="android.widget.Button"
+    and node.attrib.get("text","").strip() in {"보호 시작","보호 중지","보호 완전 중지","다시 연결"}
+    and node.attrib.get("visible-to-user","true")=="true"
+    and node.attrib.get("clickable")=="true"]
+if len(controls)!=1:
+    raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))' <<<"$home_controls_xml"
+echo "App-exclusion search, package filtering, Android Auto lookup, and single Home protection control passed."
 
 # Verify the single persistent bottom navigation and each destination.
 echo "Verifying the persistent bottom navigation destinations."
