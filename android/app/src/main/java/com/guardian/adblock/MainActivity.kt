@@ -1009,9 +1009,9 @@ class MainActivity : Activity() {
                 try {
                     val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian diagnostics", report))
-                    android.widget.Toast.makeText(this, "개인정보를 제외한 진단 정보를 복사했습니다.", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.android.widget.Toast.makeText(this, "개인정보를 제외한 진단 정보를 복사했습니다.", android.widget.Toast.LENGTH_SHORT).show()
                 } catch (error: Exception) {
-                    android.widget.Toast.makeText(this, "진단 정보 복사 실패: ${error.javaClass.simpleName}", android.widget.Toast.LENGTH_LONG).show()
+                    android.widget.android.widget.Toast.makeText(this, "진단 정보 복사 실패: ${error.javaClass.simpleName}", android.widget.Toast.LENGTH_LONG).show()
                 } finally {
                     button.isEnabled = true
                     button.text = "개인정보 제외 진단 정보 복사"
@@ -2158,7 +2158,7 @@ class MainActivity : Activity() {
                 val title = subject.text.toString().trim()
                 val body = message.text.toString().trim()
                 if (title.length !in 3..120 || body.length !in 10..5000) {
-                    Toast.makeText(this, "제목은 3~120자, 내용은 10~5,000자로 입력하세요.", Toast.LENGTH_LONG).show()
+                    android.widget.Toast.makeText(this, "제목은 3~120자, 내용은 10~5,000자로 입력하세요.", Toast.LENGTH_LONG).show()
                     return@setOnClickListener
                 }
                 val submit = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
@@ -2181,14 +2181,14 @@ class MainActivity : Activity() {
                                 .setPositiveButton("접수 정보 복사") { _, _ ->
                                     val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                     clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian 문의 접수 정보", receipt))
-                                    Toast.makeText(this@MainActivity, "접수 정보가 복사되었습니다.", Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(this@MainActivity, "접수 정보가 복사되었습니다.", Toast.LENGTH_SHORT).show()
                                 }
                                 .setNegativeButton("닫기", null)
                                 .show()
                         }.onFailure { error ->
                             submit.isEnabled = true
                             submit.text = "접수"
-                            Toast.makeText(this@MainActivity, error.message ?: "문의 접수에 실패했습니다.", Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(this@MainActivity, error.message ?: "문의 접수에 실패했습니다.", Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -2224,7 +2224,7 @@ class MainActivity : Activity() {
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 if (ticketRef.text.isNullOrBlank() || accessToken.text.isNullOrBlank()) {
-                    Toast.makeText(this, "접수 번호와 조회 코드를 입력하세요.", Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(this, "접수 번호와 조회 코드를 입력하세요.", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
                 val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
@@ -2248,7 +2248,7 @@ class MainActivity : Activity() {
                         }.onFailure { error ->
                             button.isEnabled = true
                             button.text = "조회"
-                            Toast.makeText(this@MainActivity, error.message ?: "문의 조회에 실패했습니다.", Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(this@MainActivity, error.message ?: "문의 조회에 실패했습니다.", Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -2597,7 +2597,7 @@ class MainActivity : Activity() {
                     AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
                 ).orEmpty()
                 if (currentSelected.isEmpty()) {
-                    android.widget.Toast.makeText(
+                    android.widget.android.widget.Toast.makeText(
                         this@MainActivity,
                         "먼저 VPN을 일시중지할 앱을 선택해 주세요.",
                         android.widget.Toast.LENGTH_LONG
@@ -2617,7 +2617,7 @@ class MainActivity : Activity() {
                             .remove(AppForegroundPauseSettings.KEY_ERROR)
                             .commit()
                         if (!saved) {
-                            android.widget.Toast.makeText(
+                            android.widget.android.widget.Toast.makeText(
                                 this@MainActivity,
                                 "호환성 설정을 저장하지 못했습니다.",
                                 android.widget.Toast.LENGTH_LONG
@@ -2655,7 +2655,7 @@ class MainActivity : Activity() {
                     startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 } catch (error: Exception) {
                     usageAccessSettingsOpened = false
-                    android.widget.Toast.makeText(
+                    android.widget.android.widget.Toast.makeText(
                         this,
                         "사용 정보 접근 설정을 열지 못했습니다: ${error.message ?: error.javaClass.simpleName}",
                         android.widget.Toast.LENGTH_LONG
@@ -2684,7 +2684,7 @@ class MainActivity : Activity() {
                         showTab("settings")
                         showCompatibilityPauseAppsDialog()
                     } else {
-                        android.widget.Toast.makeText(
+                        android.widget.android.widget.Toast.makeText(
                             this,
                             "동의 상태를 저장하지 못했습니다. 저장 공간을 확인해 주세요.",
                             android.widget.Toast.LENGTH_LONG
@@ -2816,7 +2816,7 @@ class MainActivity : Activity() {
                     }
                     val saved = editor.commit()
                     if (!saved) {
-                        android.widget.Toast.makeText(
+                        android.widget.android.widget.Toast.makeText(
                             this@MainActivity,
                             "일시중지 앱 목록을 저장하지 못했습니다.",
                             android.widget.Toast.LENGTH_LONG
@@ -2974,7 +2974,7 @@ class MainActivity : Activity() {
                         // forced a second navigation through the consent-gated screen.
                         showTab("app-exclusions")
                     } else {
-                        android.widget.Toast.makeText(
+                        android.widget.android.widget.Toast.makeText(
                             this,
                             "동의 상태를 저장하지 못했습니다. 저장 공간을 확인해 주세요.",
                             android.widget.Toast.LENGTH_LONG
