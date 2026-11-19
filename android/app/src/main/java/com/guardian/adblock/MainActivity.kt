@@ -1327,7 +1327,7 @@ class MainActivity : Activity() {
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         if (BuildConfig.DEBUG) {
             val updateStatus = text(
-                "현재 개발 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 앱 실행 시 새 버전을 확인합니다.",
+                "자동 업데이트 확인: 꺼짐 · 현재 개발 버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 11f, muted, false
             ).withTop(8) as TextView
             var downloadedUpdate: File? = null
@@ -1355,14 +1355,14 @@ class MainActivity : Activity() {
             }
             body.addView(card(panel, 14).apply {
                 setPadding(dp(15), dp(15), dp(15), dp(15))
-                addView(text("개발 버전 자동 업데이트", 15f, white, true))
+                addView(text("개발 버전 업데이트 (수동)", 15f, white, true))
                 addView(text(
-                    "GitHub 개발 배포 채널에서 새 APK를 확인하고 자동 다운로드합니다. SHA-256과 현재 설치본의 서명 인증서를 확인한 뒤 Android 설치 승인 화면을 엽니다.",
+                    "자동 확인 및 다운로드는 실행하지 않습니다. 아래 버튼을 직접 누른 경우에만 새 APK를 확인하고 다운로드합니다. SHA-256과 서명을 검증한 뒤 설치를 진행합니다.",
                     11f, muted, false
                 ).withTop(5))
                 addView(updateStatus)
                 addView(Button(this@MainActivity).apply {
-                    text = "지금 업데이트 확인"
+                    text = "수동으로 업데이트 확인"
                     isAllCaps = false
                     setTextColor(bg)
                     background = shape(accent, 12)
@@ -1388,7 +1388,7 @@ class MainActivity : Activity() {
                                     runOnUiThread {
                                         downloadedUpdate = apk
                                         setUpdateInstallButtonReady(installUpdateButton, true)
-                                        updateStatus.text = "다운로드 및 SHA-256/서명 지문 확인 완료: ${update.versionName}. 강조된 '지금 개발 업데이트 설치' 버튼을 누르세요."
+                                        updateStatus.text = "다운로드 및 SHA-256/서명 지문 확인 완료: ${update.versionName}. 원하실 때 설치 버튼을 누르세요."
                                     }
                                 }
                             } catch (error: Exception) {
