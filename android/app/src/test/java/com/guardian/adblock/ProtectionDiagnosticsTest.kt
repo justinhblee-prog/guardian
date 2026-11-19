@@ -111,9 +111,11 @@ class ProtectionDiagnosticsTest {
             hasBaseUpdateTimestamp = false,
             signedFilterDeliveryConfigured = false,
             licenseApiConfigured = false,
-            filterUpdateErrorPresent = true
+            filterUpdateErrorPresent = true,
+            filterReadiness = "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: 광고·추적, 보안"
         )
 
+        assertTrue(report.contains("필터 시작 준비 상태: 기본 규칙으로 시작 · 추가 필터 준비 필요: 광고·추적, 보안"))
         assertTrue(report.contains("내장 DNS 규칙 파일: 누락 또는 읽기 실패"))
         assertTrue(report.contains("기본 필터 캐시: 없음"))
         assertTrue(report.contains("보안 필터: 있음 (2048 bytes)"))
