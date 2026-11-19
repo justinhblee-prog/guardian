@@ -2471,7 +2471,7 @@ class MainActivity : Activity() {
                 for (index in nextIndex until batchEnd) {
                     val (pkg, label) = visible[index]
                     appList.addView(CheckBox(this).apply {
-                        text = "$label\\n$pkg"
+                        text = "$label\n$pkg"
                         contentDescription = "자동 일시중지 앱 $pkg"
                         textSize = 12f
                         setTextColor(white)
