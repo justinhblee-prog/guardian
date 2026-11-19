@@ -311,9 +311,9 @@ jobs:
         id: android_emulator
         env:
           GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.21-dev.apk
-          GUARDIAN_PREVIOUS_VERSION_CODE: "33"
+          GUARDIAN_PREVIOUS_VERSION_CODE: "34"
           GUARDIAN_PREVIOUS_VERSION_NAME: 0.7.21-dev
-          GUARDIAN_CURRENT_VERSION_CODE: "34"
+          GUARDIAN_CURRENT_VERSION_CODE: "35"
           GUARDIAN_CURRENT_VERSION_NAME: 0.7.22-dev
         # Keep the APK artifact even if emulator infrastructure or VPN E2E fails.
         continue-on-error: true
