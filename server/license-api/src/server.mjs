@@ -385,8 +385,13 @@ async function createLicense(body) {
   }
   const maxDevices = Number.isInteger(body.maxDevices) ? body.maxDevices : 1;
   const days = Number.isInteger(body.validDays) ? body.validDays : 365;
-  if (maxDevices < 1 || maxDevices > 20 || days < 1 || days > 36500) {
-    throw Object.assign(new Error('기기 수 또는 유효 기간 설정이 범위를 벗어났습니다.'), { status: 400 });
+  const planDurations = { short_7d: 7, monthly_30d: 30, quarterly_90d: 90, annual_365d: 365 };
+  const planCode = typeof body.planCode === 'string' ? body.planCode : 'custom';
+  const expectedDays = planDurations[planCode];
+  if (!['custom', ...Object.keys(planDurations)].includes(planCode) ||
+      (expectedDays !== undefined && days !== expectedDays) ||
+      maxDevices < 1 || maxDevices > 20 || days < 1 || days > 36500) {
+    throw Object.assign(new Error('상품 유형, 기기 수 또는 유효 기간 설정을 확인하세요.'), { status: 400 });
   }
   const key = newLicenseKey();
   const hashed = await hashLicenseKey(key, LOOKUP_SECRET);
@@ -413,7 +418,7 @@ async function createLicense(body) {
        RETURNING id,license_ref,status,expires_at,max_devices,created_at`,
       [ref, product.rows[0].id, customerId, customer?.orderRef || null, hashed.saltHex, hashed.hashHex, hashed.keyLookup, days, maxDevices]
     );
-    await recordEvent(client, inserted.rows[0].id, 'issued', 'admin', { maxDevices, days, customerLinked: Boolean(customerId) });
+    await recordEvent(client, inserted.rows[0].id, 'issued', 'admin', { planCode, maxDevices, days, customerLinked: Boolean(customerId) });
     await client.query('COMMIT');
     return { license: inserted.rows[0], licenseKey: key };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
