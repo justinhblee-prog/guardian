@@ -251,6 +251,14 @@ if (!databaseUrl) {
     });
     assert.equal(nulEmail.status, 400);
 
+    const nonStringEmail = await post('/v1/support/tickets', {
+      category: 'question',
+      subject: '이메일 자료형 검증',
+      message: '이 문의 내용은 이메일 자료형 테스트입니다.',
+      email: 123
+    });
+    assert.equal(nonStringEmail.status, 400);
+
     const nulText = await post('/v1/support/tickets', {
       category: 'question',
       subject: '문자 검증',
