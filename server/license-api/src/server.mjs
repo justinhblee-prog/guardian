@@ -359,6 +359,17 @@ async function listCustomers(req, search = '') {
   requireEnv();
   requireAdmin(req);
   const q = String(search).trim().slice(0, 100);
+  const result = await pool.query(
+    `SELECT c.id,c.name,c.email,c.created_at,c.updated_at,
+       count(DISTINCT l.id)::int AS license_count,
+       count(DISTINCT l.id) FILTER (WHERE l.status='active' AND l.expires_at>now())::int AS active_licenses,
+       max(l.created_at) AS last_license_issued
+     FROM customers c LEFT JOIN licenses l ON l.customer_id=c.id
+     WHERE ($1='' OR c.name ILIKE '%' || $1 || '%' OR c.email ILIKE '%' || $1 || '%')
+     GROUP BY c.id ORDER BY c.created_at DESC LIMIT 200`,
+    [q]
+  );
+  return { customers: result.rows };
 }
 async function listAuditEvents(req) {');
   const result = await pool.query(
