@@ -143,8 +143,8 @@ jobs:
           keytool -list -v -keystore android/guardian-dev.keystore -storepass android -alias androiddebugkey | grep -F 'ED:AE:EC:C9:E4:A2:7E:64:F0:7D:92:64:3F:B8:51:40:72:50:83:AB:ED:55:3F:91:2A:0D:EE:03:87:FB:D8:2C'
       - name: Assemble previous dev version for upgrade test
         run: |
-          gradle -p android --no-daemon -PguardianVersionCode=37 -PguardianVersionName=0.7.24-dev assembleDebug
-          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.24-dev.apk
+          gradle -p android --no-daemon -PguardianVersionCode=38 -PguardianVersionName=0.7.25-dev assembleDebug
+          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.25-dev.apk
 
       - name: Assemble current debug APK for build verification
         shell: bash
@@ -313,8 +313,8 @@ jobs:
         id: android_emulator
         env:
           GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.24-dev.apk
-          GUARDIAN_PREVIOUS_VERSION_CODE: "37"
-          GUARDIAN_PREVIOUS_VERSION_NAME: 0.7.24-dev
+          GUARDIAN_PREVIOUS_VERSION_CODE: "38"
+          GUARDIAN_PREVIOUS_VERSION_NAME: 0.7.25-dev
           GUARDIAN_CURRENT_VERSION_CODE: "39"
           GUARDIAN_CURRENT_VERSION_NAME: 0.7.26-dev
         # Keep the APK artifact even if emulator infrastructure or VPN E2E fails.
