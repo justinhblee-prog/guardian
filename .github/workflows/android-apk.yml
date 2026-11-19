@@ -250,7 +250,7 @@ jobs:
           {
             "packageName": "com.guardian.adblock",
             "versionName": "0.7.25-dev",
-            "versionCode": 37,
+            "versionCode": 38,
             "sha256": "$SHA256",
             "signerSha256": "$SIGNER_SHA256",
             "channel": "development"
