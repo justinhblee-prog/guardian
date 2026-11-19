@@ -533,7 +533,7 @@ android_auto_path="$(adb_cmd shell pm path "$ANDROID_AUTO_PACKAGE" 2>/dev/null |
 if [[ "$android_auto_path" == package:* ]]; then
   echo "Verifying Android Auto is searchable by its installed package ID."
   tap_content_description "앱별 보호 제외 검색 입력"
-  adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEY_A
+  adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
   adb_cmd shell input keyevent KEYCODE_DEL
   adb_cmd shell input text "$ANDROID_AUTO_PACKAGE"
   sleep 1
@@ -543,7 +543,7 @@ if [[ "$android_auto_path" == package:* ]]; then
   android_auto_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if not any(node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com.google.android.projection.gearhead"
+if not any(node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.google.android.projection.gearhead"
     and node.attrib.get("class")=="android.widget.CheckBox"
     and node.attrib.get("visible-to-user","true")=="true"
     and node.attrib.get("clickable")=="true"
@@ -551,7 +551,7 @@ if not any(node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com
     raise SystemExit("Android Auto package was not searchable in the installed-app exclusion list.")' <<<"$android_auto_xml"
   echo "Verifying Android Auto is searchable by its displayed app name."
   tap_content_description "앱별 보호 제외 검색 입력"
-  adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEY_A
+  adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
   adb_cmd shell input keyevent KEYCODE_DEL
   adb_cmd shell input text 'Android Auto'
   sleep 1
@@ -561,8 +561,8 @@ if not any(node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com
   android_auto_name_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if not any(node.attrib.get("text","").split("\\n",1)[0].strip()=="Android Auto"
-    and node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com.google.android.projection.gearhead"
+if not any(node.attrib.get("text","").split("\n",1)[0].strip()=="Android Auto"
+    and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.google.android.projection.gearhead"
     and node.attrib.get("class")=="android.widget.CheckBox"
     and node.attrib.get("visible-to-user","true")=="true"
     for node in root.iter("node")):
