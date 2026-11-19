@@ -216,28 +216,37 @@ class GuardianBrowserActivity : Activity() {
               // do not remove larger page sections or sponsored editorial content.
               var labels = new Set([
                 'advertisement', 'advertisement space',
-                'sponsored advertisement', 'your ad here'
+                'sponsored advertisement', 'your ad here',
+                'ad placeholder', 'ads by google'
               ]);
+              var normalizeAdLabel = function(value) {
+                return (value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+              };
               var scanAdLabels = function() {
-                document.querySelectorAll('body *').forEach(function(node) {
-                  if (node.dataset && node.dataset.guardianAdLabelHidden === '1') return;
-                  var label = (node.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-                  if (!labels.has(label)) return;
-                  var candidate = node;
-                  for (var depth = 0; depth < 4 && candidate; depth++, candidate = candidate.parentElement) {
-                    var candidateText = (candidate.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-                    if (!labels.has(candidateText)) continue;
+                if (!document.body) return;
+                var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                var textNode;
+                while ((textNode = walker.nextNode())) {
+                  if (!labels.has(normalizeAdLabel(textNode.nodeValue))) continue;
+                  var candidate = textNode.parentElement;
+                  for (var depth = 0; depth < 6 && candidate; depth++, candidate = candidate.parentElement) {
+                    if (candidate === document.body || candidate.matches('main, article')) continue;
+                    if (candidate.dataset && candidate.dataset.guardianAdLabelHidden === '1') break;
+                    if (!labels.has(normalizeAdLabel(candidate.textContent))) continue;
                     var rect = candidate.getBoundingClientRect();
-                    if (rect.width >= 200 && rect.height >= 60 && rect.height <= 500) {
+                    if (rect.width >= 160 && rect.height >= 35 && rect.height <= 600) {
                       candidate.dataset.guardianAdLabelHidden = '1';
                       candidate.style.setProperty('display', 'none', 'important');
                       break;
                     }
                   }
-                });
+                }
               };
               if (window.__guardianAdLabelObserver) window.__guardianAdLabelObserver.disconnect();
+              // Run after layout as well as immediately; some ad placeholders have
+              // zero geometry during onPageFinished and become measurable next frame.
               scanAdLabels();
+              requestAnimationFrame(function() { requestAnimationFrame(scanAdLabels); });
               window.__guardianAdLabelObserver = new MutationObserver(function() {
                 if (window.__guardianAdLabelScanQueued) return;
                 window.__guardianAdLabelScanQueued = true;

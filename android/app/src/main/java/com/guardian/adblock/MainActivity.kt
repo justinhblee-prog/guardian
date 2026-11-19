@@ -429,20 +429,27 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setBackgroundColor(bg)
+            addView(android.widget.ProgressBar(this@MainActivity).apply {
+                isIndeterminate = true
+                indeterminateTintList = ColorStateList.valueOf(accent)
+            }, LinearLayout.LayoutParams(dp(32), dp(32)))
             addView(TextView(this@MainActivity).apply {
                 text = "설정을 여는 중…"
                 textSize = 15f
                 gravity = Gravity.CENTER
                 setTextColor(white)
-                setPadding(dp(24), dp(16), dp(24), dp(16))
+                setPadding(dp(24), dp(12), dp(24), dp(16))
             })
         }
         setContentView(loadingRoot)
-        loadingRoot.post {
-            if (!isFinishing && currentTab == "settings") {
+        // Let Android draw the immediate loading state before constructing the
+        // large settings hierarchy on the UI thread. A plain post() can run in
+        // the same traversal and make the tap appear to have been ignored.
+        loadingRoot.postDelayed({
+            if (!isFinishing && currentTab == "settings" && loadingRoot.isAttachedToWindow) {
                 showTab("settings")
             }
-        }
+        }, 96L)
     }
 
     private fun showTab(

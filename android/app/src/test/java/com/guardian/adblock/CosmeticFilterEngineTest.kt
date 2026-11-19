@@ -140,6 +140,23 @@ class CosmeticFilterEngineTest {
         assertTrue(selectors.contains(".site-sponsored"))
     }
 
+    @Test fun builtInWebViewRulesCoverGoogleAndUnfilledAdPlaceholders() {
+        val rules = CosmeticFilterEngine.withBuiltInDefaults(
+            CosmeticFilterEngine.parse(listOf("news.example##.site-sponsored"))
+        )
+        val selectors = CosmeticFilterEngine.selectorsForHost(rules, "news.example")
+
+        assertTrue(selectors.contains("iframe[id^='google_ads_iframe']"))
+        assertTrue(selectors.contains("div[id^='google_ads_iframe']"))
+        assertTrue(selectors.contains("[id^='aswift_']"))
+        assertTrue(selectors.contains(".google-auto-placed"))
+        assertTrue(selectors.contains("[data-google-query-id]"))
+        assertTrue(selectors.contains("[data-ad-status='unfilled']"))
+        assertTrue(selectors.contains("amp-ad"))
+        assertTrue(selectors.contains("ins.adsbygoogle"))
+        assertTrue(selectors.contains("[aria-label='Ads']"))
+    }
+
     @Test fun parsesCachedFeedIncrementallyFromReader() {
         val rules = StringReader(
             "! generated filter\n##.generic-ad\nnews.example##.sponsored\n||ads.example^\n"
