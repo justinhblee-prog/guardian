@@ -127,3 +127,22 @@ test('customer support ticket lookup is independently rate-limited', async () =>
   const limited = await request();
   assert.equal(limited.status, 429);
 });
+
+
+test('admin support reply rate limit is shared across ticket IDs', async () => {
+  const ticketIds = [
+    '00000000-0000-4000-8000-000000000001',
+    '00000000-0000-4000-8000-000000000002',
+    '00000000-0000-4000-8000-000000000003'
+  ];
+  const request = id => fetch(`${baseUrl}/v1/admin/support/tickets/${id}/reply`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ reply: '테스트 답변', status: 'answered' })
+  });
+  assert.equal((await request(ticketIds[0])).status, 503);
+  assert.equal((await request(ticketIds[1])).status, 503);
+  const limited = await request(ticketIds[2]);
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get('retry-after')) >= 1);
+});
