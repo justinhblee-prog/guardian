@@ -25,7 +25,7 @@ const rateLimitOptions = {
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/support/tickets', '/v1/admin/support/tickets'
+  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/support/tickets', '/v1/admin/support/tickets', '/v1/support/tickets/lookup'
 ]);
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
