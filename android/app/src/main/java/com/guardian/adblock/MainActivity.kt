@@ -93,6 +93,7 @@ class MainActivity : Activity() {
     private var focusLicenseActivationOnBuild = false
     private var licenseKeyInput: EditText? = null
     private val filterUpdateRunning = AtomicBoolean(false)
+    private val startupFilterCheckStarted = AtomicBoolean(false)
     private val protectionCheckRunning = AtomicBoolean(false)
     @Volatile private var pendingProtectionStartAfterFilterUpdate = false
     private var syncingFilterOptions = false
@@ -197,25 +198,47 @@ class MainActivity : Activity() {
         // Update discovery is user-initiated from Settings. Do not run a
         // background development/stable update check or show an install prompt
         // automatically on every app launch.
-        // Cache recovery and integrity checks can hash multi-megabyte filter
-        // files. Never perform them on the main thread during Activity startup.
+        checkStartupFilterReadiness()
+        // WorkManager initialization/cancellation is not part of first-run filter
+        // readiness. Run scheduler reconciliation away from the UI thread so a
+        // slow WorkManager database cannot delay Settings/navigation or the
+        // initial filter download request.
+        thread(name = "guardian-background-scheduler-sync") {
+            runCatching { LicenseRefreshScheduler.sync(applicationContext) }
+                .onFailure { android.util.Log.e("Guardian", "License refresh scheduling failed", it) }
+            runCatching { FilterUpdateScheduler.sync(applicationContext) }
+                .onFailure { android.util.Log.e("Guardian", "Filter refresh scheduling failed", it) }
+        }
+    }
+
+    /**
+     * A missing first-run filter cache is setup, not an automatic update check.
+     * Run the potentially expensive recovery/hash work on a background thread.
+     */
+    private fun checkStartupFilterReadiness() {
+        if (!startupFilterCheckStarted.compareAndSet(false, true)) return
+        val filterPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         thread(name = "guardian-startup-filter-check") {
             android.util.Log.i("Guardian", "Startup filter readiness check started")
             try {
                 val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false)
                 val lastUpdate = FilterListManager.lastUpdatedAt(this)
-                val updateInterval = filterPrefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, 24L * 60L * 60L * 1000L)
+                val updateInterval = filterPrefs.getLong(
+                    FilterListManager.KEY_UPDATE_INTERVAL_MS,
+                    24L * 60L * 60L * 1000L
+                )
                 val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
                 val profileChanged = FilterListManager.hasCachedFile(this) &&
                     FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
-                val securityStale = securityEnabled && (!FilterListManager.hasCachedSecurityList(this) ||
-                    System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval)
+                val securityStale = securityEnabled && (
+                    !FilterListManager.hasCachedSecurityList(this) ||
+                        System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval
+                    )
                 val androidAdsEnabled = filterPrefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-                val androidAdsStale = androidAdsEnabled && (!FilterListManager.hasCachedAndroidAdsList(this) ||
-                    System.currentTimeMillis() - FilterListManager.lastAndroidAdsUpdatedAt(this) >= updateInterval)
-                // Periodic refresh is opt-in, but a first-run installation must
-                // still fetch each enabled source once so protection can become ready.
-                // Missing initial caches are setup, not an automatic update check.
+                val androidAdsStale = androidAdsEnabled && (
+                    !FilterListManager.hasCachedAndroidAdsList(this) ||
+                        System.currentTimeMillis() - FilterListManager.lastAndroidAdsUpdatedAt(this) >= updateInterval
+                    )
                 val initialMainMissing = !FilterListManager.hasCachedList(this)
                 val initialSecurityMissing = securityEnabled && !FilterListManager.hasCachedSecurityList(this)
                 val initialAndroidAdsMissing = androidAdsEnabled && !FilterListManager.hasCachedAndroidAdsList(this)
@@ -231,21 +254,16 @@ class MainActivity : Activity() {
                         "androidAdsMissing=$initialAndroidAdsMissing autoUpdate=$autoUpdate scheduledDue=$scheduledRefreshDue"
                 )
                 if (needsUpdate) runOnUiThread {
-                    if (!isFinishing && !isDestroyed) startFilterUpdate()
+                    if (!isFinishing && !isDestroyed) {
+                        startFilterUpdate()
+                    } else {
+                        startupFilterCheckStarted.set(false)
+                    }
                 }
             } catch (error: Exception) {
+                startupFilterCheckStarted.set(false)
                 android.util.Log.e("Guardian", "Startup filter readiness check failed", error)
             }
-        }
-        // WorkManager initialization/cancellation is not part of first-run filter
-        // readiness. Run scheduler reconciliation away from the UI thread so a
-        // slow WorkManager database cannot delay Settings/navigation or the
-        // initial filter download request.
-        thread(name = "guardian-background-scheduler-sync") {
-            runCatching { LicenseRefreshScheduler.sync(applicationContext) }
-                .onFailure { android.util.Log.e("Guardian", "License refresh scheduling failed", it) }
-            runCatching { FilterUpdateScheduler.sync(applicationContext) }
-                .onFailure { android.util.Log.e("Guardian", "Filter refresh scheduling failed", it) }
         }
     }
 
@@ -306,6 +324,10 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // Retry the first-run readiness check if Activity startup was interrupted
+        // by a permission/settings transition. The atomic gate prevents duplicate
+        // downloads when the onCreate check is already running.
+        checkStartupFilterReadiness()
         if (usageAccessSettingsOpened) {
             usageAccessSettingsOpened = false
             if (currentTab == "settings") {
