@@ -2146,7 +2146,9 @@ class MainActivity : Activity() {
             }
         }
         val subject = field("제목 (3~120자)")
-        val email = field("답변 받을 이메일 (선택)")
+        val email = field("답변 받을 이메일 (선택)").apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        }
         val message = field("문의 또는 의견을 자세히 입력하세요 (10~5,000자)", true)
         form.addView(text("문의 유형", 11f, muted, true))
         form.addView(category, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(5) })
@@ -2219,7 +2221,10 @@ class MainActivity : Activity() {
             background = shape(panel2, 10)
         }
         val ticketRef = input("접수 번호 (GDN-...)")
-        val accessToken = input("접수 시 발급된 조회 코드")
+        val accessToken = input("접수 시 발급된 조회 코드").apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            selectAllOnFocus = true
+        }
         form.addView(ticketRef)
         form.addView(accessToken, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         val dialog = AlertDialog.Builder(this)
