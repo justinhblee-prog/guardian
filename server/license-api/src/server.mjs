@@ -374,7 +374,7 @@ async function listCustomers(req, search = '') {
   );
   return { customers: result.rows };
 }
-async function listAuditEvents(req) {');
+async function listAuditEvents(req) {
   const result = await pool.query(
     `SELECT c.id,c.name,c.email,c.created_at,c.updated_at,
        count(DISTINCT l.id)::int AS license_count,
