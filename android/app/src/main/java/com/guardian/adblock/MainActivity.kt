@@ -96,7 +96,6 @@ class MainActivity : Activity() {
     private val filterUpdateRunning = AtomicBoolean(false)
     private val startupFilterCheckStarted = AtomicBoolean(false)
     private val protectionCheckRunning = AtomicBoolean(false)
-    @Volatile private var pendingProtectionStartAfterFilterUpdate = false
     @Volatile private var pendingFilterStartNotice: String? = null
     private var syncingFilterOptions = false
 
@@ -3107,42 +3106,9 @@ class MainActivity : Activity() {
                 if (active) {
                     startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
                 }
-                // Resume a queued protection start only when every currently enabled
-                // filter has a verified cache. In particular, a missing first-time
-                // security-list download must not create an automatic download/start loop.
-                val selectedProfile = FilterListManager.selectedProfile(this)
-                val cachedProfile = FilterListManager.cachedProfile(this)
-                val securityEnabledNow = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                val androidAdsEnabledNow = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-                val hasSecurityCacheNow = try {
-                    FilterListManager.hasCachedSecurityList(this)
-                } catch (cacheError: Exception) {
-                    android.util.Log.e("Guardian", "Security cache check failed after update", cacheError)
-                    false
-                }
-                val hasAndroidAdsCacheNow = try {
-                    FilterListManager.hasCachedAndroidAdsList(this)
-                } catch (cacheError: Exception) {
-                    android.util.Log.e("Guardian", "Android ads cache check failed after update", cacheError)
-                    false
-                }
-                val protectionCachesReady = try {
-                    FilterListManager.isProfileCacheCurrent(
-                        FilterListManager.hasCachedList(this),
-                        selectedProfile.key,
-                        cachedProfile.key,
-                        securityEnabledNow,
-                        hasSecurityCacheNow,
-                        androidAdsEnabledNow,
-                        hasAndroidAdsCacheNow
-                    )
-                } catch (cacheError: Exception) {
-                    android.util.Log.e("Guardian", "Post-update protection cache validation failed", cacheError)
-                    false
-                }
                 android.util.Log.i(
                     "Guardian",
-                    "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}, protectionCachesReady=$protectionCachesReady"
+                    "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}"
                 )
                 filterUpdateRunning.set(false)
                 runOnUiThread {
@@ -3170,33 +3136,9 @@ class MainActivity : Activity() {
                     androidAdsFilterSwitch?.isEnabled = true
                     securityFilterCheckBox?.isEnabled = true
                     androidAdsFilterCheckBox?.isEnabled = true
-                    if (pendingProtectionStartAfterFilterUpdate) {
-                        // Snapshot and clear on the UI thread. The readiness callback may set
-                        // this flag while the background update is already finishing.
-                        val protectionStartWasRequested = pendingProtectionStartAfterFilterUpdate
-                        pendingProtectionStartAfterFilterUpdate = false
-                        if (ProtectionState.shouldResumeProtectionAfterFilterFailure(
-                                startWasRequested = protectionStartWasRequested,
-                                cachedFiltersReady = protectionCachesReady
-                            )) {
-                            requestProtection()
-                        } else {
-                            val securityStillMissing = securityEnabledNow && !hasSecurityCacheNow
-                            val androidAdsStillMissing = androidAdsEnabledNow && !hasAndroidAdsCacheNow
-                            val missing = when {
-                                securityStillMissing -> "악성코드·피싱 필터"
-                                androidAdsStillMissing -> "Android 앱 광고 필터"
-                                else -> "선택한 필터 구성"
-                            }
-                            setFilterUpdateStatus(
-                                "기본 광고 필터는 준비됐지만 $missing 캐시를 검증하지 못해 보호 시작을 보류했습니다. 네트워크 연결을 확인한 뒤 해당 필터를 다시 업데이트해 주세요."
-                            )
-                        }
-                    }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("Guardian", "Base filter update failed", e)
-                pendingProtectionStartAfterFilterUpdate = false
                 filterUpdateRunning.set(false)
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
                     .putString(FilterListManager.KEY_LAST_ERROR, e.message ?: e.javaClass.simpleName).apply()
