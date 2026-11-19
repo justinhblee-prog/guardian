@@ -486,6 +486,24 @@ if not any(node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.
     and node.attrib.get("clickable")=="true"
     for node in root.iter("node")):
     raise SystemExit("Android Auto package was not searchable in the installed-app exclusion list.")' <<<"$android_auto_xml"
+echo "Verifying Android Auto is searchable by its displayed app name."
+tap_content_description "앱별 보호 제외 검색 입력"
+adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
+adb_cmd shell input keyevent KEYCODE_DEL
+adb_cmd shell input text 'Android Auto'
+sleep 1
+adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+android_auto_name_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("text","").split("\n",1)[0].strip()=="Android Auto"
+    and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.google.android.projection.gearhead"
+    and node.attrib.get("class")=="android.widget.CheckBox"
+    and node.attrib.get("visible-to-user","true")=="true"
+    for node in root.iter("node")):
+    raise SystemExit("Android Auto app-name search did not return the expected installed package.")' <<<"$android_auto_name_xml"
 tap_content_description "홈"
 echo "App-exclusion search visibility, package filtering, and Android Auto lookup passed."
 
