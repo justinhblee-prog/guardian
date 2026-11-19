@@ -307,6 +307,9 @@ function validateSupportText(value, label, min, max) {
   if (normalized.length < min || normalized.length > max) {
     throw Object.assign(new Error(`${label}은(는) ${min}~${max}자여야 합니다.`), { status: 400 });
   }
+  if (normalized.includes('\u0000')) {
+    throw Object.assign(new Error(`${label}에 허용되지 않는 제어 문자가 있습니다.`), { status: 400 });
+  }
   return normalized;
 }
 async function createSupportTicket(body) {
@@ -316,10 +319,11 @@ async function createSupportTicket(body) {
     : (() => { throw Object.assign(new Error('문의 유형이 올바르지 않습니다.'), { status: 400 }); })();
   const subject = validateSupportText(body.subject, '제목', 3, 120);
   const message = validateSupportText(body.message, '문의 내용', 10, 5000);
-  const email = typeof body.email === 'string' ? body.email.trim().slice(0, 254) : '';
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw Object.assign(new Error('이메일 주소 형식을 확인하세요.'), { status: 400 });
+  const email = typeof body.email === 'string' ? body.email.trim() : '';
+  if (email.length > 254 || (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))) {
+    throw Object.assign(new Error('이메일 주소 형식 또는 길이를 확인하세요.'), { status: 400 });
   }
+
   const ticketRef = `GDN-${randomBytes(6).toString('hex').toUpperCase()}`;
   const accessToken = randomBytes(32).toString('base64url');
   await pool.query(
@@ -360,7 +364,10 @@ async function replySupportTicket(id, body, req) {
     throw Object.assign(new Error('문의 ID 형식이 올바르지 않습니다.'), { status: 400 });
   }
   const reply = validateSupportText(body.reply, '답변', 2, 5000);
-  const status = ['answered','in_progress','closed'].includes(body.status) ? body.status : 'answered';
+  const status = body.status === undefined ? 'answered' : body.status;
+  if (typeof status !== 'string' || !['answered','in_progress','closed'].includes(status)) {
+    throw Object.assign(new Error('문의 처리 상태가 올바르지 않습니다.'), { status: 400 });
+  }
   const result = await pool.query(
     `UPDATE support_tickets SET admin_reply=$2,status=$3,updated_at=now(),replied_at=now()
      WHERE id=$1 RETURNING ticket_ref,status,updated_at,replied_at`,
