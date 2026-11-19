@@ -8,6 +8,8 @@ Guardian은 사용자가 명시적으로 선택한 앱이 화면에 표시되는
 
 Samsung Wallet 관련 알려진 호환성 사례와 유사한 동작은 [AdGuard의 Samsung Pay 호환성 안내](https://adguard.com/kb/adguard-for-android/solving-problems/samsung-pay/)를 참고했습니다.
 
+Samsung Wallet 호환성 설정에서는 Wallet의 화면 앱 패키지 `com.samsung.android.spay`를 선택합니다. 별도 시스템 구성요소인 `com.samsung.android.spayfw`는 PaymentFramework이며, 자동 일시중지 대상은 Wallet 본체로 지정합니다.
+
 ## 사용자 동작
 
 1. 설정에서 **앱 실행 중 VPN 자동 일시중지 앱**을 선택합니다.
