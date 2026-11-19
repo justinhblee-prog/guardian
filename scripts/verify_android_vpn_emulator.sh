@@ -402,39 +402,11 @@ for node in root.iter("node"):
   fi
 fi
 
-settings_tab_selected=0
-for attempt in $(seq 1 5); do
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if any(node.attrib.get("content-desc")=="설정"
-       and node.attrib.get("selected")=="true"
-       and node.attrib.get("visible-to-user","true")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' <<<"$settings_tab_xml"; then
-    settings_tab_selected=1
-    break
-  fi
-  if grep -q '동의하고 계속' <<<"$settings_tab_xml"; then
-    echo "Inventory disclosure reappeared after acceptance; refusing to tap behind the modal."
-    echo "$settings_tab_xml"
-    exit 1
-  fi
-  echo "Settings tab selection not reflected yet; retrying ($attempt/5)."
-  tap_content_description "설정"
-  sleep 1
-done
-if [[ "$settings_tab_selected" -ne 1 ]]; then
-  echo "Could not navigate to the Settings tab before app-inventory verification."
-  echo "$settings_tab_xml"
-  exit 1
-fi
-sleep 1
-# Settings is a long page; scroll until the app inventory search input is visible.
+# App exclusions now live on their own tab. Keep the test on that screen;
+# do not navigate to Settings or search for the moved control there.
 app_search_visible=0
-for attempt in $(seq 1 16); do
+for attempt in $(seq 1 20); do
+  adb_cmd shell rm -f /sdcard/guardian-window.xml
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
@@ -448,7 +420,11 @@ raise SystemExit(1)' <<<"$app_inventory_xml"; then
     app_search_visible=1
     break
   fi
-  adb_cmd shell input swipe 540 1500 540 600 450
+  if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
+    echo "Inventory disclosure reappeared after acceptance; refusing to continue behind the modal."
+    echo "$app_inventory_xml"
+    exit 1
+  fi
   sleep 1
 done
 if [[ "$app_search_visible" -ne 1 ]]; then
