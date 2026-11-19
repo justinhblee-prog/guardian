@@ -35,8 +35,15 @@ test("license sorting supports expiry, device count and newest", () => {
   assert.deepEqual(sortLicenses(licenses, "newest").map(item => item.id), ["b", "c", "a"]);
 });
 
-test("license issue form accepts only bounded integer values", () => {
-  assert.deepEqual(validateIssueInput("365", "2"), { validDays: 365, maxDevices: 2 });
+test("license issue form accepts bounded integer values and fixed product plans", () => {
+  assert.deepEqual(validateIssueInput("365", "2"), { validDays: 365, maxDevices: 2, planCode: "custom" });
+  assert.deepEqual(validateIssueInput("7", "1", "short_7d"), { validDays: 7, maxDevices: 1, planCode: "short_7d" });
+  assert.deepEqual(validateIssueInput("30", "2", "monthly_30d"), { validDays: 30, maxDevices: 2, planCode: "monthly_30d" });
+  assert.deepEqual(validateIssueInput("90", "2", "quarterly_90d"), { validDays: 90, maxDevices: 2, planCode: "quarterly_90d" });
+  assert.deepEqual(validateIssueInput("365", "2", "annual_365d"), { validDays: 365, maxDevices: 2, planCode: "annual_365d" });
+  assert.deepEqual(validateIssueInput("45", "3", "custom"), { validDays: 45, maxDevices: 3, planCode: "custom" });
+  assert.throws(() => validateIssueInput("31", "2", "monthly_30d"), /상품과 유효 기간/);
+  assert.throws(() => validateIssueInput("30", "2", "lifetime"), /상품 유형/);
   for (const [days, devices] of [["0", "1"], ["36501", "1"], ["1.5", "1"], ["365", "0"], ["365", "21"], ["365", "1.5"]]) {
     assert.throws(() => validateIssueInput(days, devices), RangeError);
   }
@@ -45,7 +52,7 @@ test("license issue form accepts only bounded integer values", () => {
 
 test("admin dashboard exposes responsive management controls and visible operation status", async () => {
   const html = await readFile(new URL("../admin/index.html", import.meta.url), "utf8");
-  for (const id of ["status", "dashboard", "statTotal", "statActive", "statExpired", "statRevoked", "issue", "search", "statusFilter", "sortOrder", "refresh", "disconnect", "licenses", "events", "customerName", "customerEmail", "orderRef", "customerSearch", "refreshCustomers", "customers"]) {
+  for (const id of ["status", "dashboard", "statTotal", "statActive", "statExpired", "statRevoked", "issue", "search", "statusFilter", "sortOrder", "refresh", "disconnect", "licenses", "events", "planPreset", "days", "customerName", "customerEmail", "orderRef", "customerSearch", "refreshCustomers", "customers", "supportTickets"]) {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
   assert.ok(html.indexOf('id="status"') < html.indexOf('id="authPanel"'), "operation status must remain visible after authentication");
