@@ -2768,6 +2768,7 @@ class MainActivity : Activity() {
         // apps such as Android Auto disabled until the user enables them).
         var apps: List<Pair<String, String>> = emptyList()
         var inventoryReady = false
+        var inventoryMessage = "설치 앱 목록을 불러오는 중…"
         var renderGeneration = 0
         val search = EditText(this).apply {
             hint = "앱 이름 또는 패키지명 입력"
@@ -2889,6 +2890,13 @@ class MainActivity : Activity() {
                 })
                 return
             }
+            if (apps.isEmpty()) {
+                appList.addView(text(inventoryMessage, 12f, red, false).apply {
+                    setPadding(dp(8), dp(12), dp(8), dp(12))
+                })
+                appFilterFeedback?.text = inventoryMessage
+                return
+            }
             val query = rawQuery.trim().lowercase(Locale.ROOT)
             val visible = apps.filter { (pkg, label) ->
                 query.isEmpty() || label.lowercase(Locale.ROOT).contains(query) || pkg.lowercase(Locale.ROOT).contains(query)
@@ -2937,40 +2945,29 @@ class MainActivity : Activity() {
         })
         renderApps("")
         thread(name = "guardian-app-exclusion-inventory") {
-            val result = runCatching {
-                packageManager.getInstalledApplications(
-                    android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
-                ).asSequence()
-                    .filter { it.packageName != packageName }
-                    .map { info ->
-                        info.packageName to try {
-                            info.loadLabel(packageManager).toString()
-                        } catch (error: Exception) {
-                            android.util.Log.w("GuardianApps", "Could not load app label for ${info.packageName}", error)
-                            info.packageName
-                        }
-                    }
-                    .distinctBy { it.first }
-                    .sortedWith(compareBy<Pair<String, String>>(
-                        { it.second.lowercase(Locale.ROOT) },
-                        { it.first.lowercase(Locale.ROOT) }
-                    ))
-                    .toList()
-            }
+            val result = runCatching { InstalledAppInventory.load(this@MainActivity) }
             runOnUiThread {
-                result.onSuccess { loaded ->
-                    apps = loaded
-                    inventoryReady = true
-                    inventorySummary.setText("전체 설치 앱 ${loaded.size}개 · 앱 이름 또는 패키지명으로 검색하세요.")
+                inventoryReady = true
+                result.onSuccess { snapshot ->
+                    apps = snapshot.apps
+                    inventoryMessage = snapshot.statusMessage()
+                    inventorySummary.text = if (apps.isEmpty()) {
+                        inventoryMessage
+                    } else {
+                        "${inventoryMessage} · 앱 이름 또는 패키지명으로 검색하세요."
+                    }
                     appFilterFeedback?.contentDescription = "앱별 보호 제외 앱 목록 준비 완료"
+                    android.util.Log.i(
+                        "GuardianApps",
+                        "Exclusion picker loaded ${apps.size} apps; queryAllPackages=${snapshot.queryAllPackagesGranted}, launcherFallback=${snapshot.launcherFallbackCount}"
+                    )
                     renderApps(search.text?.toString().orEmpty())
                 }.onFailure { error ->
+                    apps = emptyList()
+                    inventoryMessage = "설치 앱 조회 실패: ${error.message ?: error.javaClass.simpleName}"
+                    inventorySummary.text = inventoryMessage
                     android.util.Log.e("GuardianApps", "Could not load app exclusion inventory", error)
-                    appList.removeAllViews()
-                    appList.addView(this@MainActivity.text("설치 앱 목록을 불러오지 못했습니다. 다시 시도해 주세요.", 12f, red, false).apply {
-                        setPadding(dp(8), dp(12), dp(8), dp(12))
-                    })
-                    appFilterFeedback?.text = "앱 목록을 불러오지 못했습니다 · ${error.message ?: error.javaClass.simpleName}"
+                    renderApps(search.text?.toString().orEmpty())
                 }
             }
         }
