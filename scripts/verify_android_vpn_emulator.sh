@@ -469,7 +469,7 @@ search=any(node.attrib.get("class")=="android.widget.EditText"
 if not search:
     raise SystemExit("App-exclusion search input is not visible after opening its management screen.")' <<<"$app_search_xml"
 tap_content_description "앱별 보호 제외 검색 입력"
-adb_cmd shell input text 'wallet'
+adb_cmd shell input text 'com.android.settings'
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-keyboard.xml >/dev/null 2>&1
 keyboard_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-keyboard.xml | tr -d '\\r')"
@@ -481,9 +481,6 @@ if not any(node.attrib.get("class")=="android.widget.EditText"
        and node.attrib.get("enabled")=="true"
        for node in root.iter("node")):
     raise SystemExit("App-exclusion search field became hidden when the keyboard opened.")' <<<"$keyboard_search_xml"
-adb_cmd shell input keyevent KEYCODE_CTRL_A || true
-adb_cmd shell input text 'com.android.settings'
-sleep 1
 adb_cmd shell input keyevent KEYCODE_BACK || true
 adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
 adb_cmd shell input keyevent KEYCODE_DEL
