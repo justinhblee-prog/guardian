@@ -797,7 +797,13 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun publishState(active: Boolean, message: String) {
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        if (active && (!running.get() ||
+                prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false))
+        ) {
+            return
+        }
+        prefs.edit()
             .putBoolean(KEY_ACTIVE, active)
             .putBoolean(KEY_RECOVERY_PENDING, false)
             .putString(KEY_STATUS, message)
