@@ -24,32 +24,53 @@ internal object AppForegroundPauseSettings {
  */
 internal class ForegroundAppTracker(private val targetPackages: Set<String>) {
     private val resumedActivityCounts = linkedMapOf<String, Int>()
+    private var mostRecentResumedPackage: String? = null
 
     @Suppress("DEPRECATION")
     fun accept(packageName: String?, eventType: Int) {
-        if (packageName.isNullOrBlank() || packageName !in targetPackages) return
+        if (packageName.isNullOrBlank()) return
         when {
             eventType == UsageEvents.Event.MOVE_TO_FOREGROUND -> {
-                resumedActivityCounts[packageName] =
-                    (resumedActivityCounts[packageName] ?: 0) + 1
+                // Track transitions from every package, not just selected pause targets.
+                // A stale/missed PAUSED event for Wallet must not keep the VPN off after
+                // Guardian or another non-target app has actually moved to foreground.
+                mostRecentResumedPackage = packageName
+                if (packageName in targetPackages) {
+                    resumedActivityCounts[packageName] =
+                        (resumedActivityCounts[packageName] ?: 0) + 1
+                }
             }
 
             eventType == UsageEvents.Event.MOVE_TO_BACKGROUND -> {
-                val count = resumedActivityCounts[packageName] ?: return
-                if (count <= 1) {
-                    resumedActivityCounts.remove(packageName)
-                } else {
-                    resumedActivityCounts[packageName] = count - 1
+                if (packageName in targetPackages) {
+                    val count = resumedActivityCounts[packageName] ?: return
+                    if (count <= 1) {
+                        resumedActivityCounts.remove(packageName)
+                    } else {
+                        resumedActivityCounts[packageName] = count - 1
+                    }
+                }
+                // Do not fall back to an older target from the event history. A new
+                // RESUMED event is required before that app can pause protection again.
+                if (mostRecentResumedPackage == packageName &&
+                    (resumedActivityCounts[packageName] ?: 0) == 0
+                ) {
+                    mostRecentResumedPackage = null
                 }
             }
         }
     }
 
-    fun activeTarget(): String? =
-        targetPackages.firstOrNull { (resumedActivityCounts[it] ?: 0) > 0 }
+    fun activeTarget(): String? {
+        val packageName = mostRecentResumedPackage ?: return null
+        return packageName.takeIf {
+            it in targetPackages && (resumedActivityCounts[it] ?: 0) > 0
+        }
+    }
 
     fun reset() {
         resumedActivityCounts.clear()
+        mostRecentResumedPackage = null
     }
 }
 
