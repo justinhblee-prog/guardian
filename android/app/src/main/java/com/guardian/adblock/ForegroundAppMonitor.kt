@@ -25,17 +25,16 @@ internal object AppForegroundPauseSettings {
 internal class ForegroundAppTracker {
     private val resumedActivityCounts = linkedMapOf<String, Int>()
 
+    @Suppress("DEPRECATION")
     fun accept(packageName: String?, eventType: Int) {
         if (packageName.isNullOrBlank()) return
         when {
-            eventType == UsageEvents.Event.ACTIVITY_RESUMED ||
-                eventType == UsageEvents.Event.MOVE_TO_FOREGROUND -> {
+            eventType == UsageEvents.Event.MOVE_TO_FOREGROUND -> {
                 resumedActivityCounts[packageName] =
                     (resumedActivityCounts[packageName] ?: 0) + 1
             }
 
-            eventType == UsageEvents.Event.ACTIVITY_PAUSED ||
-                eventType == UsageEvents.Event.MOVE_TO_BACKGROUND -> {
+            eventType == UsageEvents.Event.MOVE_TO_BACKGROUND -> {
                 val count = resumedActivityCounts[packageName] ?: return
                 if (count <= 1) {
                     resumedActivityCounts.remove(packageName)
