@@ -321,7 +321,7 @@ for node in root.iter("node"):
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
 # App exclusions now have a dedicated screen reached from Protection.
 # The disclosure is shown when that screen is first opened, not from Settings.
-tap_content_description "보호"
+tap_content_description "보호 상태"
 sleep 1
 # The Protection screen is vertically scrollable; the management action is
 # below the filter controls and is not present in the accessibility tree until
@@ -602,34 +602,33 @@ fi
 tap_content_description "홈"
 echo "App-exclusion search visibility, package filtering, and Android Auto lookup passed."
 
-# Verify all six home shortcuts are real navigation actions, not decorative icons.
-echo "Verifying all six home dashboard shortcuts navigate to their own screens."
-for shortcut in "보호|보호" "앱 제외|앱 제외" "차단|필터" "활동|활동" "프리미엄|프리미엄" "설정|설정"; do
-  IFS='|' read -r shortcut_label navigation_label <<<"$shortcut"
-  tap_content_description "${shortcut_label} 화면 열기"
+# Verify the single persistent bottom navigation and each destination.
+echo "Verifying the persistent bottom navigation destinations."
+for navigation_label in "보호 상태" "앱 제외" "활동" "프리미엄" "필터 규칙" "설정"; do
+  tap_content_description "$navigation_label"
   sleep 1
-  adb_cmd shell rm -f /sdcard/guardian-home-shortcut.xml
-  adb_cmd shell uiautomator dump /sdcard/guardian-home-shortcut.xml >/dev/null 2>&1
-  shortcut_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-shortcut.xml | tr -d '\r')"
+  adb_cmd shell rm -f /sdcard/guardian-navigation.xml
+  adb_cmd shell uiautomator dump /sdcard/guardian-navigation.xml >/dev/null 2>&1
+  navigation_xml="$(adb_cmd exec-out cat /sdcard/guardian-navigation.xml | tr -d '\r')"
   if ! python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("content-desc")==sys.argv[1]
        and node.attrib.get("class")=="android.widget.LinearLayout"
        and node.attrib.get("selected")=="true"
        for node in root.iter("node")):
-    raise SystemExit("Home shortcut did not navigate to the expected selected destination: "+sys.argv[1])' "$navigation_label" <<<"$shortcut_xml"; then
-    echo "Home shortcut navigation failed: $shortcut_label -> $navigation_label"
-    echo "$shortcut_xml"
+    raise SystemExit("Bottom navigation did not select the expected destination: "+sys.argv[1])' "$navigation_label" <<<"$navigation_xml"; then
+    echo "Bottom navigation failed: $navigation_label"
+    echo "$navigation_xml"
     exit 1
   fi
-  tap_content_description "홈"
 done
-echo "All six home dashboard shortcuts navigated successfully."
+tap_content_description "홈"
+echo "All six persistent bottom navigation destinations passed."
 
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
 echo "Verifying filter-screen and unsaved rule state survive device rotation."
-tap_text "필터"
+tap_content_description "필터 규칙"
 tap_first_edit_text
 adb_cmd shell input text 'rotation-preserved.example'
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
