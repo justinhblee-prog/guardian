@@ -2171,10 +2171,11 @@ class MainActivity : Activity() {
                 submit.isEnabled = false
                 submit.text = "접수 중…"
                 val selectedCategory = categories[category.selectedItemPosition].second
+                val replyEmail = email.text.toString().trim()
                 thread(name = "guardian-support-submit") {
                     val result = runCatching {
                         LicenseApiClient.submitSupportTicket(
-                            this@MainActivity, selectedCategory, title, body, email.text.toString().trim()
+                            this@MainActivity, selectedCategory, title, body, replyEmail
                         )
                     }
                     runOnUiThread {
@@ -2233,12 +2234,14 @@ class MainActivity : Activity() {
                     android.widget.Toast.makeText(this, "접수 번호와 조회 코드를 입력하세요.", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
+                val lookupRef = ticketRef.text.toString().trim()
+                val lookupToken = accessToken.text.toString().trim()
                 val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 button.isEnabled = false
                 button.text = "조회 중…"
                 thread(name = "guardian-support-lookup") {
                     val result = runCatching {
-                        LicenseApiClient.lookupSupportTicket(this@MainActivity, ticketRef.text.toString(), accessToken.text.toString())
+                        LicenseApiClient.lookupSupportTicket(this@MainActivity, lookupRef, lookupToken)
                     }
                     runOnUiThread {
                         result.onSuccess { response ->
