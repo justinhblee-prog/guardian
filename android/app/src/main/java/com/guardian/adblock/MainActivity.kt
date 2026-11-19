@@ -522,7 +522,7 @@ class MainActivity : Activity() {
             "activity" -> buildActivity(body)
             "premium" -> buildPremium(body)
             "app-exclusions" -> {
-                body.addView(text("앱별 보호 제외", 25f, white, true))
+                body.addView(text("앱별 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
                 buildAppExclusions(body)
             }
@@ -659,7 +659,6 @@ class MainActivity : Activity() {
 
     private fun buildHome(body: LinearLayout) {
         val homeBg = Color.rgb(29, 29, 29)
-        val homePanel = Color.rgb(57, 57, 57)
         val homeGreen = Color.rgb(105, 179, 132)
         val homeOrange = Color.rgb(244, 116, 74)
         val wideDashboard = ResponsiveLayoutPolicy.usesTwoColumnDashboard(resources.configuration.screenWidthDp)
@@ -678,7 +677,6 @@ class MainActivity : Activity() {
         brandRow.addView(text("◆  GUARDIAN", 17f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
         brandRow.addView(text("AD BLOCK", 10f, homeGreen, true))
         hero.addView(brandRow)
-
 
         statusDot = text("●  PROTECTION OFF", 10f, homeOrange, true).apply {
             gravity = Gravity.CENTER
@@ -801,7 +799,7 @@ class MainActivity : Activity() {
     }
 
     private fun buildActivity(body: LinearLayout) {
-        body.addView(text("활동 및 통계", 25f, white, true))
+        body.addView(text("차단 기록 및 통계", 25f, white, true))
         body.addView(text("VPN DNS 엔진이 실제 처리한 요청만 기록합니다.", 13f, muted, false).withTop(5))
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val summary = card(panel, 16).apply {
@@ -868,7 +866,7 @@ class MainActivity : Activity() {
         upstreamTestText = text(upstreamTestDescription(), 11f, muted, false).withTop(8) as TextView
         body.addView(upstreamTestText!!)
         body.addView(Button(this).apply {
-            text = "활동 기록 초기화"
+            text = "차단 기록 초기화"
             isAllCaps = false
             setTextColor(white)
             background = shape(panel2, 12)
@@ -1286,7 +1284,7 @@ class MainActivity : Activity() {
     }
 
     private fun buildRules(body: LinearLayout) {
-        body.addView(text("필터 및 규칙", 25f, white, true))
+        body.addView(text("차단 규칙 및 필터", 25f, white, true))
         body.addView(text("활성 필터 목록과 나만의 차단·허용 규칙을 관리합니다.", 13f, muted, false).withTop(5))
         val officialFilterCard = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
@@ -3400,10 +3398,10 @@ class MainActivity : Activity() {
                 else -> "보호가 꺼져 있습니다"
             }
             statusDot.text = when {
-                active -> "●  PROTECTION ACTIVE"
-                compatibilityPaused -> "●  COMPATIBILITY PAUSED"
-                recoveryPending || staleSession -> "●  AUTOMATIC RECOVERY"
-                else -> "●  PROTECTION OFF"
+                active -> "●  보호 중"
+                compatibilityPaused -> "●  호환 앱으로 일시 중지"
+                recoveryPending || staleSession -> "●  자동 복구 중"
+                else -> "●  보호 꺼짐"
             }
             statusDot.setTextColor(
                 when {
