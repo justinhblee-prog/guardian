@@ -520,7 +520,7 @@ class MainActivity : Activity() {
             "activity" -> buildActivity(body)
             "premium" -> buildPremium(body)
             "app-exclusions" -> {
-                body.addView(text("앱별 제외", 25f, white, true))
+                body.addView(text("앱 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
                 buildAppExclusions(body)
             }
@@ -777,7 +777,7 @@ class MainActivity : Activity() {
     }
 
     private fun buildActivity(body: LinearLayout) {
-        body.addView(text("차단 기록 및 통계", 25f, white, true))
+        body.addView(text("활동 및 통계", 25f, white, true))
         body.addView(text("VPN DNS 엔진이 실제 처리한 요청만 기록합니다.", 13f, muted, false).withTop(5))
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val summary = card(panel, 16).apply {
@@ -1241,7 +1241,7 @@ class MainActivity : Activity() {
     }
 
     private fun buildRules(body: LinearLayout) {
-        body.addView(text("차단 규칙 및 필터", 25f, white, true))
+        body.addView(text("필터 규칙", 25f, white, true))
         body.addView(text("활성 필터 목록과 나만의 차단·허용 규칙을 관리합니다.", 13f, muted, false).withTop(5))
         val officialFilterCard = card(panel, 16).apply {
             orientation = LinearLayout.VERTICAL
