@@ -206,7 +206,23 @@ class GuardianVpnService : VpnService() {
         val selectedPackages = prefs.getStringSet(
             AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
         ).orEmpty()
-        if (selectedPackages.isEmpty()) return null
+        val installedPackages = packageManager.getInstalledApplications(0)
+            .mapTo(mutableSetOf()) { it.packageName }
+        val availableTargets = selectedPackages.filterTo(mutableSetOf()) {
+            it in installedPackages
+        }
+        if (availableTargets != selectedPackages) {
+            prefs.edit().putStringSet(
+                AppForegroundPauseSettings.KEY_PACKAGES, availableTargets
+            ).apply()
+        }
+        if (availableTargets.isEmpty()) {
+            prefs.edit()
+                .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                .putString(AppForegroundPauseSettings.KEY_ERROR, "설치된 자동 일시중지 대상 앱이 없어 기능을 껐습니다.")
+                .apply()
+            return null
+        }
 
         if (!ForegroundAppMonitor.hasUsageAccess(this)) {
             prefs.edit()
@@ -216,12 +232,13 @@ class GuardianVpnService : VpnService() {
                     "사용 정보 접근 권한이 해제되어 자동 일시중지를 껐습니다."
                 )
                 .apply()
+            sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
             return null
         }
 
         val monitor = ForegroundAppMonitor(
             context = this,
-            targetPackages = selectedPackages,
+            targetPackages = availableTargets,
             onForegroundTargetChanged = { packageName ->
                 if (packageName != null) {
                     pauseProtectionForCompatibility(packageName)
@@ -238,6 +255,7 @@ class GuardianVpnService : VpnService() {
                         "사용 정보 접근 권한이 해제되어 자동 일시중지를 껐습니다."
                     )
                     .apply()
+                sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
                 resumeProtectionAfterCompatibility()
             }
         )
