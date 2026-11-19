@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+
+# Verify the installed-app inventory and live per-app VPN exclusion routing.
 set -euo pipefail
 
 PACKAGE="com.guardian.adblock"
