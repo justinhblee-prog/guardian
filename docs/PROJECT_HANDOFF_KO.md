@@ -246,3 +246,10 @@ Android 1.0 종료 후 다음 트랙으로 진행한다.
 - Production Release run #490 ([44569842126](https://github.com/justinhblee-prog/guardian/actions/runs/44569842126))의 `validate-release-configuration` job이 성공 완료했다. Production signing/release job은 secrets가 없어 skip되었다. workflow artifact는 제공되지 않았다.
 - Android run #1542는 APK artifact 업로드 후 API 35 emulator install/launch 단계에서 계속 실행 중이었다. 마지막 polling에서도 해당 단계가 진행 중이었고 실패/성공 결론은 아직 없었다.
 - APK artifact ZIP과 APK 파일의 SHA-256은 로컬 계산값과 workflow summary가 일치했다. 이 APK는 개발용 0.7.29-dev이며 1.0 정식본이 아니다.
+
+
+### 10.5 통합 브랜치 정리 — 2026-11-20
+- PR #204의 대시보드 중복 제어/내비게이션 정리 변경을 Android APK 및 Production Release 설정 검증 성공 후 merge commit `4cf80719bf1ef6474008b1aa7f1a743e7b0441e1`로 `main`에 병합했다. 원 PR: https://github.com/justinhblee-prog/guardian/pull/204
+- 고객지원/라이선스 PR #205의 base를 기존 #204 작업 브랜치에서 `main`으로 변경했다. 현재 PR #205는 Draft 상태로 유지 중이며, 변경 파일 diff에는 고객지원/라이선스 기능과 문서 변경만 남아 있다. 병합 가능 상태 및 최신 CI를 재확인한 뒤 처리한다.
+- PR #205의 License API run #375 성공. Android run #1545는 pending, Production Release run #492는 secrets 없는 임시 APK/AAB 검증 단계 진행 중이었다.
+- 기존 Android run #1542는 API 35 emulator end-to-end 단계가 장시간 실행 중이었다. 종료 결과를 확인하기 전까지 에뮬레이터 검증은 미확정이다.
