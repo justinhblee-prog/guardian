@@ -48,6 +48,10 @@ object CosmeticFilterEngine {
         "##iframe[src*='adservice.google']"
     )
 
+    /** Retain bundled ad-slot coverage when an optional downloaded cosmetic feed is present. */
+    fun withBuiltInDefaults(cached: RuleSet): RuleSet =
+        merge(listOf(parse(DEFAULT_RULES), cached))
+
     data class GenericHideRule(
         val selector: String,
         val excludedDomains: Set<String>
