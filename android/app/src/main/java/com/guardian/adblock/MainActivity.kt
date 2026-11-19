@@ -780,7 +780,7 @@ class MainActivity : Activity() {
                 isAllCaps = false
                 setTextColor(white)
                 background = shape(homeBg, 12)
-                setOnClickListener { showTab("settings") }
+                setOnClickListener { navigateToTab("settings") }
             }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(12) })
         }.withTop(14))
 
