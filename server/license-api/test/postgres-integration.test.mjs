@@ -132,6 +132,40 @@ if (!databaseUrl) {
     assert.equal(malformed.status, 400);
   });
 
+  test('admin customer directory stores and searches validated customer details', async () => {
+    const email = `customer-${randomUUID()}@example.test`;
+    const response = await post('/v1/admin/licenses', {
+      validDays: 30,
+      maxDevices: 2,
+      customer: { name: 'Integration Customer', email, orderRef: 'ORDER-TEST-001' }
+    }, adminHeaders);
+    assert.equal(response.status, 200);
+    const issued = await response.json();
+    assert.match(issued.licenseKey, /^GDN-/);
+    const listed = await fetch(`${baseUrl}/v1/admin/customers?q=${encodeURIComponent(email)}`, { headers: adminHeaders });
+    assert.equal(listed.status, 200);
+    const data = await listed.json();
+    assert.equal(data.customers.length, 1);
+    assert.equal(data.customers[0].name, 'Integration Customer');
+    assert.equal(data.customers[0].email, email);
+    assert.equal(data.customers[0].license_count, 1);
+    assert.equal(data.customers[0].active_licenses, 1);
+    const linked = await pool.query('SELECT customer_id,order_ref FROM licenses WHERE id=$1', [issued.license.id]);
+    assert.ok(linked.rows[0].customer_id);
+    assert.equal(linked.rows[0].order_ref, 'ORDER-TEST-001');
+  });
+
+  test('customer issuance rejects malformed email and overlong fields', async () => {
+    const invalidEmail = await post('/v1/admin/licenses', {
+      validDays: 30, maxDevices: 1, customer: { name: 'Test', email: 'not-an-email' }
+    }, adminHeaders);
+    assert.equal(invalidEmail.status, 400);
+    const invalidName = await post('/v1/admin/licenses', {
+      validDays: 30, maxDevices: 1, customer: { name: 'x'.repeat(121), email: 'valid@example.test' }
+    }, adminHeaders);
+    assert.equal(invalidName.status, 400);
+  });
+
   test('activation issues a valid signed entitlement and is idempotent per device', async () => {
     const created = await issue(1);
     assert.match(created.licenseKey, /^GDN-(?:[A-F0-9]{8}-){5}[A-F0-9]{8}$/);
