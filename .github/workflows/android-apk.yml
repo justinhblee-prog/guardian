@@ -211,7 +211,7 @@ jobs:
           # SHA256SUMS.txt remains available for simple APK-only checks.
           sha256sum "$APK" "$SOURCE_ZIP" > release/SHA256SUMS.txt
           APK_SHA256="$(awk '$2 ~ /app-debug[.]apk$/ {print $1; exit}' release/SHA256SUMS.txt)"
-          SOURCE_SHA256="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]28-dev[.]zip$/ {print $1; exit}' release/SHA256SUMS.txt)"
+          SOURCE_SHA256="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]29-dev[.]zip$/ {print $1; exit}' release/SHA256SUMS.txt)"
           SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
           test "${#APK_SHA256}" -eq 64
           test "${#SOURCE_SHA256}" -eq 64
@@ -483,7 +483,7 @@ jobs:
           - 커밋: ${GITHUB_SHA}
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - 버전: 0.7.29-dev (41)
+          - 버전: 0.7.29-dev (42)
           - APK 생성 상태: ${APK_STATUS}
           - APK SHA-256: ${APK_SHA256}
           - 테스트 및 빌드 단계의 실제 결과는 위 GitHub Actions 단계 결과를 기준으로 확인합니다.
