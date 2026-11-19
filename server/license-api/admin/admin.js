@@ -292,9 +292,10 @@ async function load() {
   if (!adminToken || loading) return;
   setBusy(true);
   try {
-    const [licenses, audit] = await Promise.all([
+    const [licenses, audit, customers] = await Promise.all([
       api("/v1/admin/licenses"),
-      api("/v1/admin/events")
+      api("/v1/admin/events"),
+      api("/v1/admin/customers")
     ]);
     licenseItems = licenses.licenses || [];
     eventItems = audit.events || [];
