@@ -1,13 +1,15 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent>
-        <!-- Explicit visibility for installed integrations that do not expose a launcher activity. -->
-        <package android:name="com.google.android.projection.gearhead" />
-        <package android:name="com.samsung.android.spay" />
-    </queries>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!--
+        Guardian's per-app VPN exclusion control must enumerate installed apps,
+        including apps without launcher activities. This is the security app's
+        user-facing device-protection interoperability feature.
+        Google Play distribution requires an accurate QUERY_ALL_PACKAGES declaration
+        and approval; this lint suppression does not bypass Play policy review.
+    -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
