@@ -493,13 +493,9 @@ if not any(node.attrib.get("class")=="android.widget.EditText"
        and node.attrib.get("enabled")=="true"
        for node in root.iter("node")):
     raise SystemExit("App-exclusion search field became hidden when the keyboard opened.")' <<<"$keyboard_search_xml"
-adb_cmd shell input keyevent KEYCODE_BACK || true
-adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
-adb_cmd shell input keyevent KEYCODE_DEL
-adb_cmd shell input text 'com.android.settings'
-sleep 1
-# Hide the IME before inspecting the filtered row and the inventory-count
-# feedback. The header count may be scrolled just above the viewport.
+# Hide the IME after the first query. Re-entering the same package string
+# through a second series of key events is unnecessary and can leave stale
+# characters in Gboard's composing buffer on slower emulator images.
 adb_cmd shell input keyevent KEYCODE_BACK || true
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
