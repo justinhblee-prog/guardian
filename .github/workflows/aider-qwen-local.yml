@@ -2,7 +2,7 @@ name: Aider Qwen Local Runner Verification
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feature/**', 'fix/**']
     paths:
       - ".github/workflows/aider-qwen-local.yml"
   workflow_dispatch:
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   verify-local-qwen:
     name: Verify Aider to local Ollama Qwen
-    runs-on: [self-hosted]
+    runs-on: [self-hosted, windows]
     timeout-minutes: 12
     steps:
       - name: Checkout repository
