@@ -312,7 +312,7 @@ jobs:
       - name: Install and launch APK on Android emulator
         id: android_emulator
         env:
-          GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.24-dev.apk
+          GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.25-dev.apk
           GUARDIAN_PREVIOUS_VERSION_CODE: "38"
           GUARDIAN_PREVIOUS_VERSION_NAME: 0.7.25-dev
           GUARDIAN_CURRENT_VERSION_CODE: "39"
