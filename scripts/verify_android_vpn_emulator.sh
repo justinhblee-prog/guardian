@@ -323,6 +323,35 @@ echo "Verifying the app-exclusion search field is automatically revealed and fil
 # The disclosure is shown when that screen is first opened, not from Settings.
 tap_content_description "보호"
 sleep 1
+# The Protection screen is vertically scrollable; the management action is
+# below the filter controls and is not present in the accessibility tree until
+# it is brought into view. Scroll deliberately before tapping the visible text.
+app_management_visible=0
+for attempt in $(seq 1 8); do
+  adb_cmd shell rm -f /sdcard/guardian-window.xml
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("class")=="android.widget.Button"
+       and "앱별 보호 제외 관리" in node.attrib.get("text","")
+       and node.attrib.get("visible-to-user","true")=="true"
+       and node.attrib.get("clickable")=="true"
+       and node.attrib.get("enabled")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$app_inventory_xml"; then
+    app_management_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 540 1500 540 650 450
+  sleep 1
+done
+if [[ "$app_management_visible" -ne 1 ]]; then
+  echo "App-exclusion management action did not become visible after scrolling the Protection screen."
+  echo "$app_inventory_xml"
+  exit 1
+fi
 tap_text "앱별 보호 제외 관리"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
