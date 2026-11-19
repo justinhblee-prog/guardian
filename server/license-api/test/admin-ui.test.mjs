@@ -82,3 +82,16 @@ test("customer migration is additive and protects email uniqueness", async () =>
   assert.match(migration, /ADD COLUMN IF NOT EXISTS customer_id/);
   assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM/i);
 });
+
+test("customer support inbox is authenticated and renders ticket content safely", async () => {
+  const html = await readFile(new URL("../admin/index.html", import.meta.url), "utf8");
+  const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
+  assert.match(html, /id="supportTickets"/);
+  assert.match(js, /api\("\/v1\/admin\/support\/tickets"\)/);
+  assert.match(js, /api\("\/v1\/admin\/support\/tickets\//);
+  assert.match(js, /supportItems = support\.tickets \|\| \[\]/);
+  assert.match(js, /message\.textContent = item\.message/);
+  assert.match(js, /old\.textContent = '기존 답변: ' \+ item\.admin_reply/);
+  assert.doesNotMatch(js, /\.innerHTML\s*=/);
+});
+
