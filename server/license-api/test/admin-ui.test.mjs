@@ -45,7 +45,7 @@ test("license issue form accepts only bounded integer values", () => {
 
 test("admin dashboard exposes responsive management controls and visible operation status", async () => {
   const html = await readFile(new URL("../admin/index.html", import.meta.url), "utf8");
-  for (const id of ["status", "dashboard", "statTotal", "statActive", "statExpired", "statRevoked", "issue", "search", "statusFilter", "sortOrder", "refresh", "disconnect", "licenses", "events"]) {
+  for (const id of ["status", "dashboard", "statTotal", "statActive", "statExpired", "statRevoked", "issue", "search", "statusFilter", "sortOrder", "refresh", "disconnect", "licenses", "events", "customerName", "customerEmail", "orderRef", "customerSearch", "refreshCustomers", "customers"]) {
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
   assert.ok(html.indexOf('id="status"') < html.indexOf('id="authPanel"'), "operation status must remain visible after authentication");
@@ -61,4 +61,24 @@ test("admin browser code does not persist credentials or inject API data as HTML
   assert.doesNotMatch(js, /\.innerHTML\s*=/);
   assert.match(js, /authorization:\s*`Bearer/);
   assert.match(js, /textContent/);
+});
+
+test("customer directory is wired to the authenticated API and renders customer data as text", async () => {
+  const html = await readFile(new URL("../admin/index.html", import.meta.url), "utf8");
+  const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
+  assert.match(html, /id="customers"/);
+  assert.match(js, /api\("\/v1\/admin\/customers"\)/);
+  assert.match(js, /customerItems = customers\.customers \|\| \[\]/);
+  assert.match(js, /name\.textContent = item\.name/);
+  assert.match(js, /email\.textContent = item\.email/);
+  assert.match(js, /JSON\.stringify\(\{ \.\.\.input/);
+  assert.doesNotMatch(js, /\.innerHTML\s*=/);
+});
+
+test("customer migration is additive and protects email uniqueness", async () => {
+  const migration = await readFile(new URL("../migrations/004_customers.sql", import.meta.url), "utf8");
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS customers/);
+  assert.match(migration, /CREATE UNIQUE INDEX IF NOT EXISTS customers_email_lower_uq ON customers \(lower\(email\)\)/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS customer_id/);
+  assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM/i);
 });
