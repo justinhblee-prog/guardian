@@ -314,9 +314,11 @@ function validateSupportText(value, label, min, max) {
 }
 async function createSupportTicket(body) {
   requireEnv();
-  const category = typeof body.category === 'string' && ['question','bug','suggestion','billing','license'].includes(body.category)
-    ? body.category
-    : (() => { throw Object.assign(new Error('문의 유형이 올바르지 않습니다.'), { status: 400 }); })();
+  const categories = ['question', 'bug', 'suggestion', 'billing', 'license'];
+  if (typeof body.category !== 'string' || !categories.includes(body.category)) {
+    throw Object.assign(new Error('문의 유형이 올바르지 않습니다.'), { status: 400 });
+  }
+  const category = body.category;
   const subject = validateSupportText(body.subject, '제목', 3, 120);
   const message = validateSupportText(body.message, '문의 내용', 10, 5000);
   const email = typeof body.email === 'string' ? body.email.trim() : '';
