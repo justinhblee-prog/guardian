@@ -343,7 +343,7 @@ jobs:
       - name: Install and launch APK on Android emulator
         id: android_emulator
         env:
-          GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.25-dev.apk
+          GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.27-dev.apk
           GUARDIAN_PREVIOUS_VERSION_CODE: "40"
           GUARDIAN_PREVIOUS_VERSION_NAME: 0.7.27-dev
           GUARDIAN_CURRENT_VERSION_CODE: "41"
@@ -483,7 +483,7 @@ jobs:
           - 커밋: ${GITHUB_SHA}
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - 버전: 0.7.28-dev (40)
+          - 버전: 0.7.28-dev (41)
           - APK 생성 상태: ${APK_STATUS}
           - APK SHA-256: ${APK_SHA256}
           - 테스트 및 빌드 단계의 실제 결과는 위 GitHub Actions 단계 결과를 기준으로 확인합니다.
