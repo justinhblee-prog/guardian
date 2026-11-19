@@ -678,7 +678,7 @@ class MainActivity : Activity() {
         brandRow.addView(text("AD BLOCK", 10f, homeGreen, true))
         hero.addView(brandRow)
 
-        statusDot = text("●  PROTECTION OFF", 10f, homeOrange, true).apply {
+        statusDot = text("●  보호 꺼짐", 10f, homeOrange, true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(10), dp(5), dp(10), dp(8))
         }
@@ -1487,7 +1487,7 @@ class MainActivity : Activity() {
                         updateStatus.text = if (launched) {
                             "Android 설치 확인 화면을 열었습니다. 업데이트가 끝나면 Guardian이 이전 보호 설정을 확인해 VPN 보호를 자동으로 다시 연결합니다."
                         } else {
-                            "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '지금 개발 업데이트 설치'를 다시 누르세요."
+                            "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '업데이트 설치'를 다시 누르세요."
                         }
                     } catch (error: Exception) {
                         updateStatus.text = error.message ?: "설치 화면을 열지 못했습니다."
@@ -1572,7 +1572,7 @@ class MainActivity : Activity() {
                         updateStatus.text = if (launched) {
                             "Android 설치 확인 화면을 열었습니다. 업데이트가 끝나면 Guardian이 이전 보호 설정을 확인해 VPN 보호를 자동으로 다시 연결합니다."
                         } else {
-                            "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '지금 정식 업데이트 설치'를 다시 누르세요."
+                            "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '업데이트 설치'를 다시 누르세요."
                         }
                     } catch (error: Exception) {
                         updateStatus.text = error.message ?: "설치 화면을 열지 못했습니다."
