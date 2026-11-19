@@ -481,7 +481,8 @@ search=any(node.attrib.get("class")=="android.widget.EditText"
 if not search:
     raise SystemExit("App-exclusion search input is not visible after opening its management screen.")' <<<"$app_search_xml"
 tap_content_description "앱별 보호 제외 검색 입력"
-adb_cmd shell input text 'com.android.settings'
+# Wait for the IME and focused EditText to settle before typing; input events
+# sent on the same frame as focus can drop the first characters on slow emulators.
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-keyboard.xml >/dev/null 2>&1
 keyboard_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-keyboard.xml | tr -d '\r')"
@@ -493,9 +494,34 @@ if not any(node.attrib.get("class")=="android.widget.EditText"
        and node.attrib.get("enabled")=="true"
        for node in root.iter("node")):
     raise SystemExit("App-exclusion search field became hidden when the keyboard opened.")' <<<"$keyboard_search_xml"
-# Hide the IME after the first query. Re-entering the same package string
-# through a second series of key events is unnecessary and can leave stale
-# characters in Gboard's composing buffer on slower emulator images.
+search_query_ready=0
+for attempt in $(seq 1 3); do
+  adb_cmd shell input keycombination KEYCODE_CTRL_LEFT KEYCODE_A
+  adb_cmd shell input keyevent KEYCODE_DEL
+  sleep 0.3
+  adb_cmd shell input text 'com.android.settings'
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-keyboard.xml >/dev/null 2>&1
+  keyboard_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-keyboard.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("class")=="android.widget.EditText"
+       and node.attrib.get("content-desc")=="앱별 보호 제외 검색 입력"
+       and node.attrib.get("text","")=="com.android.settings"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$keyboard_search_xml"; then
+    search_query_ready=1
+    break
+  fi
+  echo "Retrying app-exclusion search text entry ($attempt/3); emulator input may have dropped key events."
+done
+if [[ "$search_query_ready" -ne 1 ]]; then
+  echo "The emulator did not enter the complete package query into the app-exclusion search field."
+  echo "$keyboard_search_xml"
+  exit 1
+fi
+# Hide the IME only after the complete query is confirmed in the EditText.
 adb_cmd shell input keyevent KEYCODE_BACK || true
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
