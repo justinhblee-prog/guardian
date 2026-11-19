@@ -3,11 +3,12 @@ name: Guardian AdBlock Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, 'fix/**', 'feature/**', 'release/**']
     paths:
       - 'android/**'
       - 'shared/**'
       - 'README.md'
+      - 'docs/**'
       - 'docs/ANDROID_APP_VISIBILITY_KO.md'
       - 'VERIFY_ANDROID_CORE.sh'
       - 'android/core-checks/**'
