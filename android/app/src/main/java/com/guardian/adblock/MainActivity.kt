@@ -2050,6 +2050,10 @@ class MainActivity : Activity() {
                 "자주 묻는 질문을 확인하고, 기능 제안·오류·결제·라이선스 문의를 접수하거나 답변을 조회할 수 있습니다.",
                 11f, muted, false
             ).withTop(5))
+            addView(text(
+                "문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다. 진단 정보는 별도 동의 없이는 전송하지 않습니다.",
+                11f, muted, false
+            ).withTop(6))
             addView(Button(this@MainActivity).apply {
                 text = "자주 묻는 질문 (Q&A)"
                 isAllCaps = false
