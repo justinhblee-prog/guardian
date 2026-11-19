@@ -438,7 +438,14 @@ for attempt in $(seq 1 30); do
   adb_cmd shell rm -f /sdcard/guardian-window.xml
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if grep -q 'content-desc="앱별 보호 제외 앱 목록 준비 완료"' <<<"$app_inventory_xml"; then
+  if python3 -c 'import re,sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("class")=="android.widget.TextView"
+       and re.search(r"전체 설치 앱 [0-9]+개", node.attrib.get("text",""))
+       and node.attrib.get("visible-to-user","true")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$app_inventory_xml"; then
     inventory_ready=1
     break
   fi
