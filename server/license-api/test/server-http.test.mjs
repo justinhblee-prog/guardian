@@ -106,3 +106,24 @@ test('license endpoints return 429 and Retry-After after the configured request 
   assert.ok(Number(limited.headers.get('retry-after')) >= 1);
   assert.equal(limited.headers.get('ratelimit-remaining'), '0');
 });
+
+test('customer support submission is rate-limited before database access', async () => {
+  const request = () => fetch(`${baseUrl}/v1/support/tickets`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ category: 'question', subject: '테스트 문의', message: '테스트 문의 내용입니다.' })
+  });
+  assert.equal((await request()).status, 503); // Database is intentionally absent.
+  assert.equal((await request()).status, 503);
+  const limited = await request();
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get('retry-after')) >= 1);
+});
+
+test('customer support ticket lookup is independently rate-limited', async () => {
+  const request = () => fetch(`${baseUrl}/v1/support/tickets/GDN-ABCDEF123456?accessToken=${'a'.repeat(43)}`);
+  assert.equal((await request()).status, 503); // Database is intentionally absent.
+  assert.equal((await request()).status, 503);
+  const limited = await request();
+  assert.equal(limited.status, 429);
+});
