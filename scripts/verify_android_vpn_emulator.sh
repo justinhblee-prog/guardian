@@ -1041,7 +1041,8 @@ support_center_visible=0
 for attempt in $(seq 1 16); do
   adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
   support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
-  if grep -Fq '자주 묻는 질문 (Q&A)' <<<"$support_settings_xml"; then
+  if grep -Fq '자주 묻는 질문 (Q&A)' <<<"$support_settings_xml" &&
+     grep -Fq '선택 이메일은 답변 처리를 위해 서버로 전송됩니다' <<<"$support_settings_xml"; then
     support_center_visible=1
     echo "Customer support center found after $attempt Settings scroll checks."
     break
