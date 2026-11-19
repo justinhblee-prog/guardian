@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { createHash, createPrivateKey, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createPrivateKey, randomBytes, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { createPostgresRateLimiter, createRateLimiter } from './rate-limit.mjs';
@@ -25,7 +25,7 @@ const rateLimitOptions = {
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/support/tickets'
+  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/support/tickets', '/v1/admin/support/tickets'
 ]);
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
@@ -438,7 +438,7 @@ async function revokeLicense(id, req) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
-    if (RATE_LIMITED_PATHS.has(url.pathname) || /^\/v1\/admin\/licenses(?:\/|$)/.test(url.pathname)) {
+    if (RATE_LIMITED_PATHS.has(url.pathname) || /^\/v1\/admin\/(?:licenses|support\/tickets)(?:\/|$)/.test(url.pathname) || /^\/v1\/support\/tickets\/[^/]+$/.test(url.pathname)) {
       // Use the socket peer address; do not trust caller-supplied X-Forwarded-For.
       const peer = req.socket.remoteAddress || 'unknown';
       const rateLimitPath = url.pathname.startsWith('/v1/admin/licenses/') ? '/v1/admin/licenses/*' : url.pathname;
