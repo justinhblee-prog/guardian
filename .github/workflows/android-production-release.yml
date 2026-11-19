@@ -182,6 +182,11 @@ jobs:
             -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
             -dname "CN=Guardian CI Distribution Validation, OU=Temporary, O=Guardian, C=US"
 
+          DEVELOPMENT_VERSION_CODE="$(grep -oE 'getOrElse\([0-9]+\)' android/app/build.gradle.kts | tail -n 1 | grep -oE '[0-9]+')"
+          test -n "$DEVELOPMENT_VERSION_CODE"
+          RELEASE_VERSION_CODE="$((DEVELOPMENT_VERSION_CODE + 1))"
+          echo "Validating the actual Guardian 1.0.0 release metadata: versionCode=$RELEASE_VERSION_CODE (development=$DEVELOPMENT_VERSION_CODE)."
+
           gradle -p android --no-daemon \
             -PguardianReleaseStoreFile="$TEMP_DIR/guardian-validation.jks" \
             -PguardianReleaseStorePassword="$STORE_PASSWORD" \
@@ -191,8 +196,8 @@ jobs:
             -PguardianManifestPublicKey="$FILTER_PUBLIC_KEY" \
             -PguardianLicenseApiBaseUrl="https://license.validation.invalid" \
             -PguardianLicensePublicKey="$LICENSE_PUBLIC_KEY" \
-            -PguardianVersionName="0.0.0-validation" \
-            -PguardianVersionCode=1 \
+            -PguardianVersionName="1.0.0" \
+            -PguardianVersionCode="$RELEASE_VERSION_CODE" \
             clean testDirectUnitTest testReleaseUnitTest lintDirect lintRelease assembleDirect assembleRelease bundleRelease
 
           DIRECT_APK="android/app/build/outputs/apk/direct/app-direct.apk"
@@ -212,8 +217,8 @@ jobs:
 
           DIRECT_BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$DIRECT_APK")"
           PLAY_BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$PLAY_APK")"
-          echo "$DIRECT_BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='1' versionName='0.0.0-validation'"
-          echo "$PLAY_BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='1' versionName='0.0.0-validation'"
+          echo "$DIRECT_BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='$RELEASE_VERSION_CODE' versionName='1.0.0'"
+          echo "$PLAY_BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='$RELEASE_VERSION_CODE' versionName='1.0.0'"
 
           for APK in "$DIRECT_APK" "$PLAY_APK"; do
             unzip -Z1 "$APK" | grep -Fx 'assets/filter_rules.txt'
