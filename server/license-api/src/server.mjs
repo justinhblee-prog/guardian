@@ -325,7 +325,7 @@ async function createLicense(body) {
       const saved = await client.query(
         `INSERT INTO customers(name,email)
          VALUES($1,$2)
-         ON CONFLICT (email) DO UPDATE SET name=EXCLUDED.name,updated_at=now()
+         ON CONFLICT (lower(email)) DO UPDATE SET name=EXCLUDED.name,updated_at=now()
          RETURNING id`,
         [customer.name, customer.email]
       );
