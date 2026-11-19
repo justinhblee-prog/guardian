@@ -273,20 +273,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Ensure Android emulator host runtime libraries
-        timeout-minutes: 5
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! ldconfig -p | grep -q 'libpulse.so.0'; then
-            export DEBIAN_FRONTEND=noninteractive
-            # Ubuntu package mirrors can briefly return 503 on hosted runners.
-            # Retry bounded downloads rather than abandoning the emulator test
-            # after the first mirror outage.
-            sudo apt-get --no-install-recommends -o Acquire::Retries=4 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y libpulse0
-          fi
-          ldconfig -p | grep 'libpulse.so.0'
-
+      # The emulator is launched with -no-audio below. Do not install host
+      # audio libraries here: apt mirrors are unreliable on hosted runners and
+      # audio is not part of Guardian's VPN/network verification.
       - name: Enable KVM access for Android emulator
         shell: bash
         run: |
