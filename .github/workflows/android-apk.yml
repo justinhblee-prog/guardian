@@ -5,7 +5,7 @@ on:
   push:
     # Verify development branches as well as main; their commit checks also
     # surface on the associated PR, even if a PR webhook is missed.
-    branches: [main, 'fix/**', 'feature/**', 'release/**']
+    branches: [main]
     paths:
       - 'android/**'
       - 'shared/**'
