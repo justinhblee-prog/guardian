@@ -1223,6 +1223,10 @@ class MainActivity : Activity() {
         val entitlement = LicenseEntitlementStore.current(this)
         val retainedLicense = LicenseEntitlementStore.currentForRefresh(this)
         val proActive = entitlement != null
+        // Development builds expose the complete Premium preview independently
+        // from real signed-license entitlement. Never use this flag to authorize
+        // production features or alter LicenseEntitlementStore.
+        val developmentPreview = BuildConfig.DEBUG
         val apiReady = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
             BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank()
 
@@ -1236,13 +1240,18 @@ class MainActivity : Activity() {
             setPadding(dp(18), dp(18), dp(18), dp(18))
             addView(text("GUARDIAN  /  PRO MEMBERSHIP", 10f, accent, true))
             addView(text(
-                if (proActive) "PRO 프리미엄이 활성화되어 있습니다" else "Guardian PRO로 보안 경험을 확장하세요",
+                when {
+                    proActive -> "PRO 프리미엄 라이선스가 활성화되어 있습니다"
+                    developmentPreview -> "개발 미리보기 · 프리미엄 전체 화면 열림"
+                    else -> "Guardian PRO로 보안 경험을 확장하세요"
+                },
                 19f, white, true
             ).withTop(12))
             addView(text(
                 when {
                     proActive -> "서버 서명과 이 기기의 등록 정보를 확인했습니다."
                     retainedLicense != null -> "이전에 등록한 라이선스가 만료되었습니다. 상태를 갱신하거나 새 라이선스를 활성화하세요."
+                    developmentPreview -> "개발 빌드에서는 라이선스 등록 없이 프리미엄 화면과 기능 구성을 미리 볼 수 있습니다. 실제 라이선스 권한은 별도로 검증됩니다."
                     else -> "현재 FREE 플랜을 사용 중입니다. 발급받은 PRO 라이선스 코드로 이 기기를 등록할 수 있습니다."
                 },
                 11f, muted, false
@@ -1251,6 +1260,7 @@ class MainActivity : Activity() {
                 when {
                     proActive -> "PRO ACTIVE"
                     retainedLicense != null -> "LICENSE EXPIRED"
+                    developmentPreview -> "PRO PREVIEW · 개발 전용"
                     else -> "FREE PLAN"
                 },
                 11f, if (proActive) accent else if (retainedLicense != null) Color.rgb(238, 176, 82) else muted, true
@@ -1292,7 +1302,12 @@ class MainActivity : Activity() {
             if (proActive) accent else muted
         ))
 
-        body.addView(text("PRO 기능", 18f, white, true).withTop(24))
+        body.addView(text("PRO 기능 미리보기", 18f, white, true).withTop(24))
+        body.addView(text(
+            if (developmentPreview) "개발 미리보기 모드 · 라이선스 권한을 부여하지 않으며, 실제 엔진 연결 상태를 각 항목에 표시합니다."
+            else "라이선스 활성화 후 이용할 수 있는 프리미엄 기능입니다.",
+            11f, muted, false
+        ).withTop(5))
         body.addView(card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("앱 코드 피싱 보호", 15f, white, true))
@@ -1315,8 +1330,25 @@ class MainActivity : Activity() {
             ).withTop(9))
         }.withTop(8))
 
+        val previewFeatures = listOf(
+            Triple("고급 광고·추적 차단", "필터 엔진 기반 차단 정책과 사용자 규칙을 확장하는 기능", "필터 엔진 기반 · 적용 범위 검증 필요"),
+            Triple("앱별 세밀한 보호 제어", "앱 단위 보호 제외와 예외 정책을 관리하는 기능", "현재 개발 중 · 기기별 VPN 검증 필요"),
+            Triple("실시간 위협·DNS 활동 분석", "차단 이벤트와 DNS 요청을 분류해 활동 내역으로 제공", "기본 DNS 처리 존재 · 고급 분석 개발 필요"),
+            Triple("보안 프로필 및 자동화", "상황별 보호 정책과 자동 전환을 관리하는 기능", "화면 미리보기 · 자동화 엔진 미구현"),
+            Triple("피싱 링크·앱 코드 검사", "의심 URL과 앱 코드의 위험도를 검사하는 기능", "검사 엔진 미연결 · 실제 탐지 안 함"),
+            Triple("프리미엄 리포트 및 통계", "기간별 차단량과 보호 상태를 요약하는 기능", "리포트 엔진 개발 필요")
+        )
+        previewFeatures.forEach { (name, description, status) ->
+            body.addView(card(panel, 14).apply {
+                setPadding(dp(15), dp(14), dp(15), dp(14))
+                addView(text(name, 14f, white, true))
+                addView(text(description, 11f, muted, false).withTop(5))
+                addView(text(status, 10f, Color.rgb(238, 176, 82), true).withTop(8))
+            }.withTop(8))
+        }
+
         body.addView(text(
-            "참고: 라이선스를 활성화했다고 아직 구현되지 않은 기능이 자동으로 작동하는 것은 아닙니다. 실제 기능 엔진이 연결되고 검증된 뒤 활성 상태로 표시됩니다.",
+            "개발 미리보기는 UI와 기능 구성을 검토하기 위한 모드입니다. 실제 보안 동작은 각 기능의 엔진 구현과 테스트가 끝난 뒤에만 활성 상태로 표시합니다. 정식 배포 빌드에서는 서버 서명 라이선스로 이용 권한을 판정합니다.",
             10f, muted, false
         ).withTop(14))
     }
