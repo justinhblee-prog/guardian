@@ -253,3 +253,11 @@ Android 1.0 종료 후 다음 트랙으로 진행한다.
 - 고객지원/라이선스 PR #205의 base를 기존 #204 작업 브랜치에서 `main`으로 변경했다. 현재 PR #205는 Draft 상태로 유지 중이며, 변경 파일 diff에는 고객지원/라이선스 기능과 문서 변경만 남아 있다. 병합 가능 상태 및 최신 CI를 재확인한 뒤 처리한다.
 - PR #205의 License API run #375 성공. Android run #1545는 pending, Production Release run #492는 secrets 없는 임시 APK/AAB 검증 단계 진행 중이었다.
 - 기존 Android run #1542는 API 35 emulator end-to-end 단계가 장시간 실행 중이었다. 종료 결과를 확인하기 전까지 에뮬레이터 검증은 미확정이다.
+
+
+### 10.6 API 보안 점검 — 2026-11-20
+- 코드 검토 중 관리자 문의 답변 API의 요청 제한 키가 문의 ID별로 달라지는 문제를 발견했다. 공격자가 서로 다른 ticket ID를 바꿔 요청하면 기존 per-path rate limit bucket을 분산할 수 있었다.
+- `server/license-api/src/server.mjs`에서 `/v1/admin/support/tickets/{id}/reply`를 공통 `/v1/admin/support/tickets/*/reply` bucket으로 정규화했다.
+- `server/license-api/test/server-http.test.mjs`에 서로 다른 ticket ID 3개로 요청해 공통 제한이 적용되는지 회귀 테스트를 추가했다.
+- License API run #379 ([44571405364](https://github.com/justinhblee-prog/guardian/actions/runs/44571405364)) 성공: **52 tests, 52 passed, 0 failed**. 신규 회귀 테스트도 통과했다.
+- 이 수정은 API의 요청 제한 우회 경로를 닫은 것이다. 운영 서버 배포 반영은 별도 확인해야 한다.
