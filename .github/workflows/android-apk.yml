@@ -3,13 +3,14 @@ name: Guardian AdBlock Android APK
 on:
   workflow_dispatch:
   push:
+    # Verify development branches as well as main; their commit checks also
+    # surface on the associated PR, even if a PR webhook is missed.
     branches: [main, 'fix/**', 'feature/**', 'release/**']
     paths:
       - 'android/**'
       - 'shared/**'
       - 'README.md'
       - 'docs/**'
-      - 'docs/ANDROID_APP_VISIBILITY_KO.md'
       - 'VERIFY_ANDROID_CORE.sh'
       - 'android/core-checks/**'
       - 'scripts/verify_apk_metadata.py'
@@ -18,14 +19,13 @@ on:
       - 'scripts/verify_guardian_crash_log.py'
       - 'scripts/test_verify_guardian_crash_log.py'
       - '.github/workflows/android-apk.yml'
-  # Run for every PR revision. Path filters previously allowed relevant
-  # revisions to receive no check at all, leaving the PR in an ambiguous state.
+  # PR verification is unconditional: the workflow definition on the base
+  # branch controls PR events, so changing filters only inside a PR cannot fix
+  # a missing check on that same PR.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
-# Never cancel an in-flight verification because a newer commit arrived.
-# Group PR runs by PR number and main runs by ref; the newest pending run can
-# replace an older pending run, but an active test is allowed to finish.
+# Keep PR runs separate and never cancel an in-flight verification.
 concurrency:
   group: guardian-android-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
