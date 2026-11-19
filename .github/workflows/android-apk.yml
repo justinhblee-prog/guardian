@@ -3,11 +3,14 @@ name: Guardian AdBlock Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    # Verify development branches as well as main; their commit checks also
+    # surface on the associated PR, even if a PR webhook is missed.
+    branches: [main, 'fix/**', 'feature/**', 'release/**']
     paths:
       - 'android/**'
       - 'shared/**'
       - 'README.md'
+      - 'docs/**'
       - 'VERIFY_ANDROID_CORE.sh'
       - 'android/core-checks/**'
       - 'scripts/verify_apk_metadata.py'
