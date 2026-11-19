@@ -910,7 +910,15 @@ class GuardianVpnService : VpnService() {
         if (!running.get()) return
         try {
             loadConfiguredRules()
-            publishState(true, "DNS 보호 실행 중 · 사용자 규칙을 적용했습니다.")
+            val filterReadiness = getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getString(KEY_FILTER_READINESS, null)
+            val status = when {
+                filterReadiness.isNullOrBlank() -> "DNS 보호 실행 중 · 사용자 규칙을 적용했습니다."
+                filterReadiness == "모든 선택 필터가 준비되었습니다." ->
+                    "DNS 보호 실행 중 · 사용자 규칙을 적용했고 모든 선택 필터가 준비되었습니다."
+                else -> "DNS 보호 실행 중 · 사용자 규칙을 적용했습니다. $filterReadiness"
+            }
+            publishState(true, status)
         } catch (_: Exception) {
             // Keep the previously loaded in-memory rules if the replacement is invalid.
             publishState(true, "DNS 보호 실행 중 · 새 규칙 적용에 실패해 기존 규칙을 유지합니다.")
