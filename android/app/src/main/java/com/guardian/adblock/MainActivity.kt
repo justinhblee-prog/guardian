@@ -15,6 +15,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.VpnService
+import android.provider.Settings
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
@@ -70,6 +71,11 @@ class MainActivity : Activity() {
     private var filterUpdateButton: Button? = null
     private var appFilterFeedback: TextView? = null
     private var appExclusionsSearchInput: EditText? = null
+    private var compatibilityStatusText: TextView? = null
+    private var compatibilityAppsButton: Button? = null
+    private var compatibilityPauseSwitch: Switch? = null
+    private var usageAccessSettingsOpened = false
+    private var syncingCompatibilitySwitch = false
     private var focusAppExclusionsOnBuild = false
     private var blockRateValue: TextView? = null
     private var blockedCountValue: TextView? = null
@@ -337,6 +343,17 @@ class MainActivity : Activity() {
         upstreamTestText?.text = upstreamTestDescription()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (usageAccessSettingsOpened) {
+            usageAccessSettingsOpened = false
+            if (currentTab == "settings") {
+                showTab("settings")
+                refreshStatus()
+            }
+        }
+    }
+
     override fun onStop() {
         if (receiverRegistered) {
             unregisterReceiver(stateReceiver)
@@ -394,6 +411,9 @@ class MainActivity : Activity() {
         filterUpdateButton = null
         appFilterFeedback = null
         appExclusionsSearchInput = null
+        compatibilityStatusText = null
+        compatibilityAppsButton = null
+        compatibilityPauseSwitch = null
         blockRateValue = null
         blockedCountValue = null
         queryCountValue = null
@@ -1930,6 +1950,7 @@ class MainActivity : Activity() {
         body.addView(text("앱별 보호 제외", 18f, white, true).withTop(24))
         body.addView(text("선택한 앱은 Guardian VPN 필터링에서 제외됩니다. 보호 중 변경하면 VPN에 자동 적용되고, 보호가 꺼져 있으면 다음 연결 때 적용됩니다.", 12f, muted, false).withTop(5))
         buildAppExclusions(body)
+        buildCompatibilityPauseSection(body)
         body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
     }
 
