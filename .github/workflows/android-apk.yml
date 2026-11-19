@@ -71,8 +71,10 @@ jobs:
           grep -q 'AppForegroundPauseSettings.KEY_PAUSED' android/app/src/main/java/com/guardian/adblock/GuardianVpnService.kt
           test -s docs/APP_FOREGROUND_AUTO_PAUSE_KO.md
           grep -q '기기 전체' docs/APP_FOREGROUND_AUTO_PAUSE_KO.md
-          grep -q 'getInstalledApplications(' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
-          grep -q 'MATCH_DISABLED_COMPONENTS' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
+          grep -q 'getInstalledApplications(' android/app/src/main/java/com/guardian/adblock/InstalledAppInventory.kt
+          grep -q 'getInstalledPackages(' android/app/src/main/java/com/guardian/adblock/InstalledAppInventory.kt
+          grep -q 'MATCH_DISABLED_COMPONENTS' android/app/src/main/java/com/guardian/adblock/InstalledAppInventory.kt
+          grep -q 'InstalledAppInventory.load' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           grep -q '설치 앱 목록 접근 안내' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           grep -q '동의하고 계속' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           grep -q 'com.samsung.android.spayfw' docs/ANDROID_APP_VISIBILITY_KO.md
@@ -143,8 +145,8 @@ jobs:
           keytool -list -v -keystore android/guardian-dev.keystore -storepass android -alias androiddebugkey | grep -F 'ED:AE:EC:C9:E4:A2:7E:64:F0:7D:92:64:3F:B8:51:40:72:50:83:AB:ED:55:3F:91:2A:0D:EE:03:87:FB:D8:2C'
       - name: Assemble previous dev version for upgrade test
         run: |
-          gradle -p android --no-daemon -PguardianVersionCode=40 -PguardianVersionName=0.7.27-dev assembleDebug
-          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.27-dev.apk
+          gradle -p android --no-daemon -PguardianVersionCode=41 -PguardianVersionName=0.7.28-dev assembleDebug
+          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.28-dev.apk
 
       - name: Assemble current debug APK for build verification
         shell: bash
@@ -169,7 +171,7 @@ jobs:
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='41' versionName='0.7.28-dev'"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='42' versionName='0.7.29-dev'"
 
       - name: Verify APK exists and calculate checksum
         shell: bash
@@ -185,11 +187,11 @@ jobs:
           set -euo pipefail
           mkdir -p release
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
-          SOURCE_ZIP='release/Guardian-AdBlock-Source-v0.7.28-dev.zip'
+          SOURCE_ZIP='release/Guardian-AdBlock-Source-v0.7.29-dev.zip'
 
           # Archive the exact commit that produced the APK, including app source,
           # tests, shared rules, server tools, scripts, workflows and docs.
-          git archive --format=zip --prefix=Guardian-AdBlock-Source-v0.7.28-dev/ "$GITHUB_SHA" -- . \
+          git archive --format=zip --prefix=Guardian-AdBlock-Source-v0.7.29-dev/ "$GITHUB_SHA" -- . \
             ':(exclude,top)android/guardian-dev.keystore' \
             ':(exclude,glob)**/*.jks' ':(exclude,glob)**/*.keystore' \
             ':(exclude,glob)**/*.p12' ':(exclude,glob)**/*.pfx' \
@@ -199,9 +201,9 @@ jobs:
             ':(exclude,glob)**/dist/**' ':(exclude,glob)**/logs/**' > "$SOURCE_ZIP"
           test -s "$SOURCE_ZIP"
           unzip -t "$SOURCE_ZIP" >/dev/null
-          unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.28-dev/android/app/src/main/AndroidManifest.xml'
-          unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.28-dev/server/license-api/admin/index.html'
-          unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.28-dev/shared/filter_rules.txt'
+          unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.29-dev/android/app/src/main/AndroidManifest.xml'
+          unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.29-dev/server/license-api/admin/index.html'
+          unzip -Z1 "$SOURCE_ZIP" | grep -Fx 'Guardian-AdBlock-Source-v0.7.29-dev/shared/filter_rules.txt'
           if unzip -Z1 "$SOURCE_ZIP" | grep -Eiq '(^|/)([^/]*\.(jks|keystore|p12|pfx|dpapi|pem)|\.env|sources\.json|[^/]*\.bak)$|(^|/)secrets/|(^|/)(dist|logs)/'; then
             echo "Source archive contains a signing key, secret/config file, backup, or generated runtime output."
             exit 1
@@ -211,24 +213,24 @@ jobs:
           # SHA256SUMS.txt remains available for simple APK-only checks.
           sha256sum "$APK" "$SOURCE_ZIP" > release/SHA256SUMS.txt
           APK_SHA256="$(awk '$2 ~ /app-debug[.]apk$/ {print $1; exit}' release/SHA256SUMS.txt)"
-          SOURCE_SHA256="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]28-dev[.]zip$/ {print $1; exit}' release/SHA256SUMS.txt)"
+          SOURCE_SHA256="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]29-dev[.]zip$/ {print $1; exit}' release/SHA256SUMS.txt)"
           SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
           test "${#APK_SHA256}" -eq 64
           test "${#SOURCE_SHA256}" -eq 64
 
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
-          # Guardian AdBlock v0.7.28-dev — 빌드 및 소스 패키지 검증 결과
+          # Guardian AdBlock v0.7.29-dev — 빌드 및 소스 패키지 검증 결과
 
           - 저장소 커밋: ${GITHUB_SHA}
           - GitHub Actions 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - versionCode: 41
-          - versionName: 0.7.28-dev
+          - versionCode: 42
+          - versionName: 0.7.29-dev
           - Android 단위 테스트: 통과
           - Android lintDebug: 통과
           - assembleDebug: 통과
           - APK SHA-256: ${APK_SHA256}
-          - 전체 소스 ZIP: Guardian-AdBlock-Source-v0.7.28-dev.zip
+          - 전체 소스 ZIP: Guardian-AdBlock-Source-v0.7.29-dev.zip
           - 전체 소스 ZIP 크기: ${SOURCE_BYTES} bytes
           - 전체 소스 ZIP SHA-256: ${SOURCE_SHA256}
           - 소스 ZIP 무결성 및 Android manifest/License Admin/shared filter 파일 검사: 통과
@@ -249,8 +251,8 @@ jobs:
           cat > release/guardian-android-dev.json <<EOF
           {
             "packageName": "com.guardian.adblock",
-            "versionName": "0.7.28-dev",
-            "versionCode": 41,
+            "versionName": "0.7.29-dev",
+            "versionCode": 42,
             "sha256": "$SHA256",
             "signerSha256": "$SIGNER_SHA256",
             "channel": "development"
@@ -265,7 +267,7 @@ jobs:
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/debug/SHA256SUMS.txt
-            release/Guardian-AdBlock-Source-v0.7.28-dev.zip
+            release/Guardian-AdBlock-Source-v0.7.29-dev.zip
             release/SHA256SUMS.txt
             release/VERIFICATION_SUMMARY_KO.md
             release/guardian-android-dev.json
@@ -342,11 +344,11 @@ jobs:
       - name: Install and launch APK on Android emulator
         id: android_emulator
         env:
-          GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.27-dev.apk
-          GUARDIAN_PREVIOUS_VERSION_CODE: "40"
-          GUARDIAN_PREVIOUS_VERSION_NAME: 0.7.27-dev
-          GUARDIAN_CURRENT_VERSION_CODE: "41"
-          GUARDIAN_CURRENT_VERSION_NAME: 0.7.28-dev
+          GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.28-dev.apk
+          GUARDIAN_PREVIOUS_VERSION_CODE: "41"
+          GUARDIAN_PREVIOUS_VERSION_NAME: 0.7.28-dev
+          GUARDIAN_CURRENT_VERSION_CODE: "42"
+          GUARDIAN_CURRENT_VERSION_NAME: 0.7.29-dev
         # Keep the APK artifact even if emulator infrastructure or VPN E2E fails.
         continue-on-error: true
         timeout-minutes: 30
@@ -477,12 +479,12 @@ jobs:
             APK_STATUS="빌드 단계 이전 실패 또는 APK 미생성"
           fi
           cat > release/FINAL_VERIFICATION_KO.md <<EOF
-          # Guardian AdBlock v0.7.28-dev — 최종 검증 상태
+          # Guardian AdBlock v0.7.29-dev — 최종 검증 상태
 
           - 커밋: ${GITHUB_SHA}
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - 버전: 0.7.28-dev (41)
+          - 버전: 0.7.29-dev (42)
           - APK 생성 상태: ${APK_STATUS}
           - APK SHA-256: ${APK_SHA256}
           - 테스트 및 빌드 단계의 실제 결과는 위 GitHub Actions 단계 결과를 기준으로 확인합니다.
@@ -513,7 +515,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="guardian-dev-v41"
+          TAG="guardian-dev-v42"
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           MANIFEST="release/guardian-android-dev.json"
           cp "$APK" "release/guardian-android-dev.apk"
@@ -526,6 +528,6 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --prerelease \
-              --title "Guardian AdBlock 0.7.28-dev (개발 업데이트)" \
+              --title "Guardian AdBlock 0.7.29-dev (개발 업데이트)" \
               --notes "사전 출시 개발 업데이트입니다. 앱 내 업데이트 확인 기능으로 배포됩니다. 설치 전 APK SHA-256 및 기존 개발 서명 인증서를 검증합니다. Android 설치 승인은 사용자에게 요청됩니다."
           fi

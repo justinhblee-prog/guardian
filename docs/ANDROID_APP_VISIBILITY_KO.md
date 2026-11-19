@@ -8,10 +8,11 @@ Guardian은 서명된 APK 직접 배포를 기본 경로로 준비하되, Google
 
 ## 구현
 
-- `android.permission.QUERY_ALL_PACKAGES`를 선언해 설치된 앱 전체를 조회합니다.
-- 앱 목록은 `PackageManager.getInstalledApplications(0)`로 조회합니다.
-- Guardian 자체 앱도 전체 목록에 표시하되, VPN 자체 앱이므로 선택할 수 없도록 비활성화합니다. 시스템 앱, 런처가 없는 앱, 기타 설치 앱은 숨기지 않습니다.
-- 앱 이름과 패키지명 모두 검색 대상으로 사용합니다.
+- `android.permission.QUERY_ALL_PACKAGES`를 선언해 Android 11(API 30) 이상에서도 앱 인벤토리를 조회합니다. 이 권한은 런타임 팝업 권한이 아니라 Manifest 선언 및 배포 정책 검토 대상입니다.
+- 앱별 보호 제외와 VPN 자동 일시중지 선택 화면은 공통 `InstalledAppInventory` 조회 모듈을 사용합니다.
+- 1차 조회는 `PackageManager.getInstalledApplications(MATCH_DISABLED_COMPONENTS)`를 사용해 비활성화된 사전 설치 앱도 포함합니다. 결과가 0개이면 `getInstalledPackages(MATCH_DISABLED_COMPONENTS)`로 재조회하고, 런처에서 조회 가능한 앱을 추가 병합합니다.
+- Guardian 자체 앱은 선택 목록에서 제외합니다. 다른 설치 앱은 런처 아이콘 유무와 관계없이 PackageManager 조회 결과를 표시하며, 앱 이름과 패키지명 모두 검색 대상으로 사용합니다.
+- 조회 완료 시 앱 개수를 표시합니다. 조회 실패와 실제 0건은 서로 다른 진단 문구로 표시하고, 두 선택 화면 모두 목록을 다시 불러올 수 있습니다.
 - 선택한 패키지명은 기기 로컬 SharedPreferences에 저장하고, 보호 VPN이 실행 중이면 VPN 구성을 재생성하여 Android의 앱별 제외 설정에 반영합니다.
 - 최초 앱 목록 조회 전에 설치 앱 이름·패키지명을 기기 안에서 읽는 목적과 로컬 전용 사용 범위를 안내하고, 사용자가 동의한 뒤에만 전체 목록을 조회합니다. 동의는 기기에 저장됩니다.
 - 앱 인벤토리 전체를 서버로 전송하거나 광고·분석 목적으로 공유하지 않습니다. 앱 목록은 앱별 제외 및 자동 일시중지 앱 선택 UI와 로컬 VPN 설정에만 사용합니다.
