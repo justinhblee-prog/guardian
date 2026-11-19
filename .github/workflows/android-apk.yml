@@ -71,8 +71,10 @@ jobs:
           grep -q 'AppForegroundPauseSettings.KEY_PAUSED' android/app/src/main/java/com/guardian/adblock/GuardianVpnService.kt
           test -s docs/APP_FOREGROUND_AUTO_PAUSE_KO.md
           grep -q '기기 전체' docs/APP_FOREGROUND_AUTO_PAUSE_KO.md
-          grep -q 'getInstalledApplications(' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
-          grep -q 'MATCH_DISABLED_COMPONENTS' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
+          grep -q 'getInstalledApplications(' android/app/src/main/java/com/guardian/adblock/InstalledAppInventory.kt
+          grep -q 'getInstalledPackages(' android/app/src/main/java/com/guardian/adblock/InstalledAppInventory.kt
+          grep -q 'MATCH_DISABLED_COMPONENTS' android/app/src/main/java/com/guardian/adblock/InstalledAppInventory.kt
+          grep -q 'InstalledAppInventory.load' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           grep -q '설치 앱 목록 접근 안내' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           grep -q '동의하고 계속' android/app/src/main/java/com/guardian/adblock/MainActivity.kt
           grep -q 'com.samsung.android.spayfw' docs/ANDROID_APP_VISIBILITY_KO.md
