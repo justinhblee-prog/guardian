@@ -1220,6 +1220,13 @@ echo "Foreground-app auto-pause/resume passed: VPN tunnel and DNS processing rec
 
 echo "Verifying the home protection control can stop an active VPN tunnel."
 adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+sleep 1
+# The previous compatibility test opens Settings and may leave the custom DNS
+# field focused. Dismiss its IME before tapping the bottom navigation; otherwise
+# the keyboard can cover the Home tab and the stop-control assertion targets
+# the still-visible Settings page instead of the dashboard.
+adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
 tap_content_description "홈"
 sleep 1
 tap_text "보호 중지"
