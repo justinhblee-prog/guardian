@@ -1023,14 +1023,14 @@ fi
 
 echo "Automatic package-update recovery passed: receiver relaunched VPN, DNS queries resumed, and the test ad domain was blocked."
 
-# The pre-update fixture is intentionally 0.7.20-dev and cannot contain this feature.
+# The pre-update fixture is intentionally 0.7.25-dev and cannot contain this feature.
 # Run the compatibility UI/behavior check only after installing and verifying
-# the current 0.7.21-dev APK above.
+# the current 0.7.26-dev APK above.
 echo "Reopening the upgraded Guardian app for the foreground compatibility test."
 adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
 sleep 2
 current_version="$(adb_cmd shell dumpsys package "$PACKAGE" | sed -n 's/.*versionName=//p' | head -1 | tr -d '\r')"
-expected_version="${GUARDIAN_CURRENT_VERSION_NAME:-0.7.21-dev}"
+expected_version="${GUARDIAN_CURRENT_VERSION_NAME:-0.7.26-dev}"
 if [[ "$current_version" != "$expected_version" ]]; then
   echo "Foreground-app compatibility test requires $expected_version but installed Guardian is $current_version."
   adb_cmd shell dumpsys package "$PACKAGE" | grep -E 'versionCode|versionName' || true
