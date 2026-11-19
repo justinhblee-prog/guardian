@@ -8,4 +8,26 @@ package com.guardian.adblock
 internal object FilterStartupGate {
     fun hasUsableBundledBaseline(blockedRules: Int, importantBlockedRules: Int): Boolean =
         blockedRules.coerceAtLeast(0) + importantBlockedRules.coerceAtLeast(0) > 0
+
+    /**
+     * Parses an optional feed without allowing a stale, missing, or malformed cache
+     * to take down the DNS tunnel. A failed feed becomes an empty source and is
+     * surfaced to the caller; mandatory bundled rules are validated separately.
+     */
+    fun loadOptionalRules(
+        minimumRules: Int,
+        load: () -> FilterRuleParser.Parsed,
+        onUnavailable: (Throwable) -> Unit
+    ): FilterRuleParser.Parsed = runCatching {
+        require(minimumRules > 0) { "Optional filter minimum must be positive." }
+        load().also { parsed ->
+            val actualRules = parsed.blocked.size + parsed.importantBlocked.size
+            check(actualRules >= minimumRules) {
+                "Optional filter has too few valid block rules: $actualRules"
+            }
+        }
+    }.getOrElse { error ->
+        onUnavailable(error)
+        FilterRuleParser.parse(emptyList<String>())
+    }
 }
