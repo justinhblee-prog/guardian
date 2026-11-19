@@ -261,3 +261,13 @@ Android 1.0 종료 후 다음 트랙으로 진행한다.
 - `server/license-api/test/server-http.test.mjs`에 서로 다른 ticket ID 3개로 요청해 공통 제한이 적용되는지 회귀 테스트를 추가했다.
 - License API run #379 ([44571405364](https://github.com/justinhblee-prog/guardian/actions/runs/44571405364)) 성공: **52 tests, 52 passed, 0 failed**. 신규 회귀 테스트도 통과했다.
 - 이 수정은 API의 요청 제한 우회 경로를 닫은 것이다. 운영 서버 배포 반영은 별도 확인해야 한다.
+
+
+### 10.7 Android E2E 완료 증거 및 1.0 메타데이터 — 2026-11-20
+- Android run #1542 ([44568623163](https://github.com/justinhblee-prog/guardian/actions/runs/44568623163)) 최종 성공. 에뮬레이터에서 241개 설치 앱 목록, Android Auto 검색, 앱별 제외 저장/실제 VPN 재구성, 허용 DNS 응답, built-in 및 사용자 차단 규칙, 앱 업데이트 후 자동 VPN 복구, 선택 앱 foreground 자동 VPN 일시중지 및 자동 재연결, 홈 보호 시작/중지를 확인했다.
+- run #1542의 개발 APK는 v0.7.29-dev / versionCode 42, APK SHA-256 `00d6b867d81ac3791f5b8b759349360084899b3be17ee295623287d8836e61fe`. 최종 검증 리포트 artifact ID `14553393235`에서 에뮬레이터 업그레이드/VPN DNS E2E success를 확인했다.
+- API hardening 이후 Android run #1550 ([44571405874](https://github.com/justinhblee-prog/guardian/actions/runs/44571405874))에서 단위 테스트, lint, APK 빌드, source archive 검사 및 APK artifact 생성까지 통과. APK hash는 run #1542와 동일하며 source ZIP에는 API hardening 변경이 포함된다. 마지막 확인 시 emulator E2E 단계가 진행 중이었다.
+- Run #1550 APK artifact ID `14553918458`, ZIP SHA-256 `2f6005c53ff05c274fae53ad099eb336f330fcc6826d04cd1199e3651ee3e028`; APK SHA-256 `00d6b867d81ac3791f5b8b759349360084899b3be17ee295623287d8836e61fe`.
+- Production Release run #497 ([44572012719](https://github.com/justinhblee-prog/guardian/actions/runs/44572012719)) validation 성공. Run #500 ([44572324066](https://github.com/justinhblee-prog/guardian/actions/runs/44572324066))에서는 secrets 없는 임시 APK/AAB build/서명 검증 진행 중이었다. 이 테스트는 versionName `1.0.0`, versionCode `43` 및 Direct/Play 배포 variant를 확인하며 운영 개인키를 사용하지 않는다. production-release job은 운영 secrets 미설정으로 skip.
+- 새 고객지원 UI emulator 테스트를 추가했다: FAQ 목록/답변, 문의 접수 폼, 비밀 조회 코드 입력 화면을 확인하되 실제 티켓은 생성하지 않는다. 최신 Android run #1553은 pending/queue 상태이며 실행 결과를 기다린다.
+- PR #205는 base `main`, Draft 유지, mergeable 상태. 사용자 소유 운영키/Secrets, migration 003의 실제 운영 DB 적용, Samsung Wallet 실제 결제 및 실기기 지원센터 검증은 아직 남아 있다.
