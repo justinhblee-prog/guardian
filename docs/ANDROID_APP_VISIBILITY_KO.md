@@ -16,6 +16,14 @@ Guardian은 서명된 APK 직접 배포를 기본 경로로 준비하되, Google
 - 최초 앱 목록 조회 전에 설치 앱 이름·패키지명을 기기 안에서 읽는 목적과 로컬 전용 사용 범위를 안내하고, 사용자가 동의한 뒤에만 전체 목록을 조회합니다. 동의는 기기에 저장됩니다.
 - 앱 인벤토리 전체를 서버로 전송하거나 광고·분석 목적으로 공유하지 않습니다. 앱 목록은 선택 UI 표시와 로컬 VPN 설정에만 사용합니다.
 
+## Android VPN 제외의 플랫폼 동작과 한계
+
+- `VpnService.Builder.addDisallowedApplication()`에 등록된 앱의 네트워크 트래픽은 Guardian VPN을 통과하지 않고 Android 시스템 네트워크를 사용합니다.
+- 앱별 제외는 앱의 네트워크 경로를 우회시키는 기능이지, 기기에서 실행 중인 VPN 서비스 자체를 끄거나 Android의 VPN 연결 상태 표시를 숨기는 기능은 아닙니다.
+- 따라서 일부 금융·보안 앱이 트래픽 경로가 아니라 기기 전체의 VPN 연결 상태를 검사한다면, 해당 앱을 제외 목록에 넣어도 자체 VPN 경고가 남을 수 있습니다. Guardian은 이런 감지를 숨기거나 우회하지 않습니다.
+- Samsung Wallet의 경고가 계속되는 경우에는 실기기에서 제외 적용 상태와 Wallet의 경고를 별도로 확인해야 합니다. 제외 적용 성공과 앱 자체의 VPN 경고 해소는 서로 다른 검증 항목입니다.
+- Android 공식 문서: https://developer.android.com/reference/android/net/VpnService.Builder#addDisallowedApplication(java.lang.String)
+
 ## 배포 경로별 고려사항
 
 ### 직접 APK 배포
