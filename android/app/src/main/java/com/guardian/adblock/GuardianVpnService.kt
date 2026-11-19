@@ -103,6 +103,7 @@ class GuardianVpnService : VpnService() {
     @Volatile private var lastStartId = 0
     @Volatile private var foregroundAppMonitor: ForegroundAppMonitor? = null
     private val compatibilityResumeInProgress = AtomicBoolean(false)
+    private val compatibilityMonitorGeneration = AtomicLong(0L)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lastStartId = startId
@@ -194,10 +195,11 @@ class GuardianVpnService : VpnService() {
 
     private fun startForegroundAppMonitor(): String? {
         stopForegroundAppMonitor()
-        return startWalletMonitorIfConfigured()
+        val generation = compatibilityMonitorGeneration.get()
+        return startWalletMonitorIfConfigured(generation)
     }
 
-    private fun startWalletMonitorIfConfigured(): String? {
+    private fun startWalletMonitorIfConfigured(generation: Long): String? {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
             !prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
@@ -240,23 +242,27 @@ class GuardianVpnService : VpnService() {
             context = this,
             targetPackages = availableTargets,
             onForegroundTargetChanged = { packageName ->
-                if (packageName != null) {
-                    pauseProtectionForCompatibility(packageName)
-                } else {
-                    resumeProtectionAfterCompatibility()
+                if (compatibilityMonitorGeneration.get() == generation) {
+                    if (packageName != null) {
+                        pauseProtectionForCompatibility(packageName)
+                    } else {
+                        resumeProtectionAfterCompatibility()
+                    }
                 }
             },
             onPermissionRevoked = {
-                val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-                currentPrefs.edit()
-                    .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
-                    .putString(
-                        AppForegroundPauseSettings.KEY_ERROR,
-                        "사용 정보 접근 권한이 해제되어 자동 일시중지를 껐습니다."
-                    )
-                    .apply()
-                sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
-                resumeProtectionAfterCompatibility()
+                if (compatibilityMonitorGeneration.get() == generation) {
+                    val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+                    currentPrefs.edit()
+                        .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                        .putString(
+                            AppForegroundPauseSettings.KEY_ERROR,
+                            "사용 정보 접근 권한이 해제되어 자동 일시중지를 껐습니다."
+                        )
+                        .apply()
+                    sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
+                    resumeProtectionAfterCompatibility()
+                }
             }
         )
         foregroundAppMonitor = monitor
@@ -264,11 +270,13 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun stopForegroundAppMonitor() {
+        compatibilityMonitorGeneration.incrementAndGet()
         val monitor = foregroundAppMonitor
         foregroundAppMonitor = null
         monitor?.stop()
     }
 
+    @Synchronized
     private fun pauseProtectionForCompatibility(packageName: String) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) return
