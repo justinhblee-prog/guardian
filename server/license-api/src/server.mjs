@@ -312,7 +312,7 @@ async function createSupportTicket(body) {
   const subject = validateSupportText(body.subject, '제목', 3, 120);
   const message = validateSupportText(body.message, '문의 내용', 10, 5000);
   const email = typeof body.email === 'string' ? body.email.trim().slice(0, 254) : '';
-  if (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw Object.assign(new Error('이메일 주소 형식을 확인하세요.'), { status: 400 });
   }
   const ticketRef = `GDN-${randomBytes(6).toString('hex').toUpperCase()}`;
