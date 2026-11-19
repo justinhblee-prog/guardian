@@ -330,7 +330,7 @@ app_management_visible=0
 for attempt in $(seq 1 8); do
   adb_cmd shell rm -f /sdcard/guardian-window.xml
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\\r')"
+  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if any(node.attrib.get("class")=="android.widget.Button"
