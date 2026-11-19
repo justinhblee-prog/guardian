@@ -3104,6 +3104,10 @@ class MainActivity : Activity() {
                     prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
                     GuardianVpnService.isTunnelActive()
                 )
+                // The previous readiness note describes the old cache snapshot.
+                // Clear it before asking the live service to rebuild rules so support
+                // diagnostics never present stale filter availability as current.
+                prefs.edit().remove(GuardianVpnService.KEY_FILTER_READINESS).apply()
                 if (active) {
                     startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
                 }
