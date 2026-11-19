@@ -303,6 +303,21 @@ class GuardianVpnService : VpnService() {
             android.util.Log.w("GuardianProtection", "Interrupted while waiting for DNS worker to pause", error)
         }
 
+        if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) return
+        val stillSelected = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false) &&
+            packageName in prefs.getStringSet(
+                AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
+            ).orEmpty()
+        if (!stillSelected) {
+            prefs.edit()
+                .putBoolean(KEY_ACTIVE, false)
+                .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, true)
+                .putString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, packageName)
+                .commit()
+            resumeProtectionAfterCompatibility()
+            return
+        }
+
         val appLabel = try {
             packageManager.getApplicationInfo(packageName, 0).loadLabel(packageManager).toString()
         } catch (_: Exception) {
@@ -1090,6 +1105,7 @@ class GuardianVpnService : VpnService() {
         }
     }
 
+    @Synchronized
     private fun stopProtection(
         explicitStop: Boolean = false,
         preserveRestoreIntent: Boolean = false
