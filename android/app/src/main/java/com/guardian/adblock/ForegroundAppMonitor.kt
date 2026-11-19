@@ -29,8 +29,7 @@ internal class ForegroundAppTracker(private val targetPackages: Set<String>) {
     fun accept(packageName: String?, eventType: Int) {
         if (packageName.isNullOrBlank() || packageName !in targetPackages) return
         when {
-            eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
-                eventType == ACTIVITY_RESUMED_EVENT_API_29 -> {
+            eventType == UsageEvents.Event.MOVE_TO_FOREGROUND -> {
                 resumedActivityCounts[packageName] =
                     (resumedActivityCounts[packageName] ?: 0) + 1
             }
@@ -187,9 +186,6 @@ internal class ForegroundAppMonitor(
 
     companion object {
         const val DEFAULT_POLL_INTERVAL_MS = 500L
-        // UsageEvents.Event.ACTIVITY_RESUMED is value 17 on API 29+;
-        // legacy MOVE_TO_FOREGROUND remains value 1 on API 21-28.
-        private const val ACTIVITY_RESUMED_EVENT_API_29 = 17
         private const val INITIAL_LOOKBACK_MS = 24L * 60L * 60L * 1000L
         private const val MONITOR_STOP_JOIN_MS = 1_000L
 
