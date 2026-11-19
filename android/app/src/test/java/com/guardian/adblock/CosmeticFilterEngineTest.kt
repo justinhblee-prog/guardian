@@ -123,9 +123,8 @@ class CosmeticFilterEngineTest {
     }
 
     @Test fun builtInAdSlotRulesRemainActiveWhenCachedFeedIsMerged() {
-        val builtIn = CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES)
         val downloaded = CosmeticFilterEngine.parse(listOf("news.example##.site-sponsored"))
-        val combined = CosmeticFilterEngine.merge(listOf(builtIn, downloaded))
+        val combined = CosmeticFilterEngine.withBuiltInDefaults(downloaded)
         val selectors = CosmeticFilterEngine.selectorsForHost(combined, "news.example")
 
         assertTrue(selectors.contains(".advertisement"))
