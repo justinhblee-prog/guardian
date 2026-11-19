@@ -22,12 +22,12 @@ internal object AppForegroundPauseSettings {
  * Tracks only whether one of the user-selected packages currently has a resumed activity.
  * Events are processed in memory and are never persisted or uploaded.
  */
-internal class ForegroundAppTracker {
+internal class ForegroundAppTracker(private val targetPackages: Set<String>) {
     private val resumedActivityCounts = linkedMapOf<String, Int>()
 
     @Suppress("DEPRECATION")
     fun accept(packageName: String?, eventType: Int) {
-        if (packageName.isNullOrBlank()) return
+        if (packageName.isNullOrBlank() || packageName !in targetPackages) return
         when {
             eventType == UsageEvents.Event.MOVE_TO_FOREGROUND -> {
                 resumedActivityCounts[packageName] =
@@ -45,7 +45,7 @@ internal class ForegroundAppTracker {
         }
     }
 
-    fun activeTarget(targetPackages: Set<String>): String? =
+    fun activeTarget(): String? =
         targetPackages.firstOrNull { (resumedActivityCounts[it] ?: 0) > 0 }
 
     fun reset() {
@@ -85,7 +85,7 @@ internal class ForegroundAppMonitor(
             return null
         }
 
-        val tracker = ForegroundAppTracker()
+        val tracker = ForegroundAppTracker(targets)
         val now = System.currentTimeMillis()
         val initialEvents = try {
             usageStats.queryEvents(now - INITIAL_LOOKBACK_MS, now)
@@ -103,7 +103,7 @@ internal class ForegroundAppMonitor(
         } else {
             consumeEvents(initialEvents, tracker)
         }
-        activeTarget = tracker.activeTarget(targets)
+        activeTarget = tracker.activeTarget()
 
         monitorThread = thread(
             start = true,
