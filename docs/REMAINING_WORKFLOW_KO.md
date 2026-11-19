@@ -45,6 +45,20 @@ Android 1.0은 Issue #141의 필수 항목만 완료 기준으로 사용합니�
 - 실제 운영 keystore/secrets가 제공되지 않았으므로 Production APK/AAB, signer fingerprint 및 production checksum은 아직 없습니다.
 - Debug APK와 임시 서명 검증 APK를 정식 배포 산출물로 취급하지 않습니다.
 
+## 고객지원/라이선스 상품 통합 브랜치 상태
+
+- 통합 브랜치: feature/android-support-center-mainline
+- 현재 main 기준 24 commits ahead / 0 behind이며, main을 뒤로 두지 않는 선별 이식 브랜치입니다.
+- Android Settings에 FAQ, 문의 제출, 조회 코드 기반 답변 확인 UI를 추가했습니다.
+- License API에 ticket create/lookup/admin list/reply와 rate limit을 연결했고 조회 코드는 원문 대신 SHA-256 해시만 DB에 저장합니다.
+- 관리자 웹 화면에 고객 문의함과 안전한 text rendering을 추가했습니다.
+- 라이선스 발급 화면에 7/30/90/365일 및 custom 기간 상품을 추가하고, 서버도 상품 코드/기간을 재검증합니다. Lifetime은 지원하지 않습니다.
+- migration 003 및 기존 DB backup + 002/003 migration + API 재빌드 + /ready 확인 PowerShell runner를 추가했습니다.
+- 테스트 소스와 Android emulator UI assertion은 통합 브랜치에 반영했지만, **통합 브랜치의 CI/unit test/lint/emulator 재실행은 아직 수행하지 않았습니다.** 원본 PR #205의 이전 성공 이력을 이 브랜치 성공 증거로 옮기지 않습니다.
+- 사용자 노트북의 기존 운영 DB migration, 실제 문의 접수, 노트북/모바일 관리자 화면 및 Android 실기기 동작은 미검증입니다.
+- 새 소스의 개발 빌드 버전은 0.7.30-dev / versionCode 43으로 설정되어 있습니다. 새 APK는 아직 생성·검증되지 않았습니다. 이전 0.7.29-dev (42) APK/checksum은 과거 산출물입니다.
+- 개발 versionCode가 43이므로 다음 Production versionCode 최소값은 44입니다. 과거 CI에서 확인된 임시 서명 1.0.0 / code 43 정보는 현재 버전 정책의 정식 릴리스 값으로 재사용할 수 없습니다.
+
 ## 3. Android 1.0 필수 완료 체크
 
 - [ ] 실제 기기에서 VPN 보호 시작/중지 및 서비스/앱 재시작 복구
