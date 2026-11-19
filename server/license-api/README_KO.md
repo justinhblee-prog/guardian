@@ -81,6 +81,23 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 ## 고객 디렉터리 DB 마이그레이션
 기존 데이터베이스에는 `migrations/004_customers.sql`을 한 번 적용해야 합니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
 
+## 고객지원 센터와 문의함
+- `POST /v1/support/tickets`: 질문, 오류 신고, 기능 제안, 결제/라이선스 문의 접수
+- `POST /v1/support/tickets/lookup`: 접수 번호와 1회 표시되는 조회 코드를 사용해 본인 문의 및 답변 확인
+- `GET /v1/admin/support/tickets`: 관리자 인증 후 최근 문의 최대 300건 조회
+- `POST /v1/admin/support/tickets/{uuid}/reply`: 관리자 답변 및 처리 상태 저장
+- 조회 코드는 256비트 난수이며 원문을 DB에 저장하지 않고 SHA-256 해시만 저장합니다. 고객 문의와 선택 이메일은 답변 처리를 위해 서버 DB에 저장됩니다. 진단 정보는 고객이 별도로 선택·동의하지 않는 한 자동 첨부하지 않습니다.
+- 공개 접수, 조회 및 관리자 경로는 서버 IP 기준 rate limit을 적용합니다. 관리자 답변 경로는 ticket ID별로 제한을 우회할 수 없도록 하나의 공유 bucket으로 묶습니다.
+
+## 기존 운영 DB의 고객지원 migration
+기존 노트북 운영 DB에는 migration `003_support_tickets.sql`을 적용해야 합니다. PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더로 이동한 뒤 다음을 실행합니다.
+
+```powershell
+./Apply-GuardianLicenseMigrations.ps1
+```
+
+이 스크립트는 PostgreSQL 준비 상태 확인 → 외부 데이터 경로에 백업 → migration 002 및 003 순차 적용 → 필수 테이블 확인 → API 이미지 재빌드 → `/ready` 확인을 수행합니다. 002/003은 재실행 가능한 SQL로 작성되어 있습니다. 이미 migration 004를 적용한 운영 DB도 기존 데이터와 키를 삭제하거나 초기화하지 않고 002/003을 추가 적용할 수 있습니다. 실행 실패 시 백업 파일을 보존하고 오류를 확인하십시오.
+
 ## 보안 및 출시 전 남은 작업
 - API 인스턴스 간 rate limiting은 PostgreSQL 공유 카운터로 구현했지만, 프록시/WAF의 신뢰 IP 기반 방어와 DDoS 완화는 별도 구성해야 합니다. 관리자 토큰은 Bearer 방식이며 브라우저 메모리에만 보관합니다. 공개 운영 전 MFA 또는 SSO, 관리자별 RBAC, 토큰 교체·폐기 절차, 접근 감사, 비밀값 저장소, WAF 및 침투 테스트를 추가해야 합니다. 관리자 다중 사용자/RBAC, 이메일/구매 복구, Google Play Billing 및 결제 webhook, 자동 환불/차지백 동기화도 공개 전 별도 구현이 필요합니다.
 - status/refresh는 deviceBinding만으로 해당 기기의 활성 라이선스를 조회합니다. 설치 UUID 재설치 시 새 기기 취급되며 관리자 초기화 정책을 따라야 합니다.
