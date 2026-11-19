@@ -41,6 +41,7 @@ Issue #141만을 최종 완료 기준으로 사용합니다.
 
 - PR #205 설명에 기록된 Android 개발 APK: `com.guardian.adblock`, `0.7.29-dev`, versionCode 42, SHA-256 `00d6b867d81ac3791f5b8b759349360084899b3be17ee295623287d8836e61fe`. 개발용 Debug 서명본이며 Production 1.0 APK가 아닙니다.
 - PR #205의 Android API 35 에뮬레이터 테스트 기록에는 앱 제외, 사용자 DNS 규칙, 앱 업데이트 후 VPN 복구, 선택 앱 실행 중 자동 일시중지/종료 후 재개, Home 보호 시작/중지가 포함됩니다.
+- 현재 main의 Android 기본 버전 설정은 `0.7.30-dev` / versionCode `43`으로 상향되어 있습니다. 이전 `0.7.29-dev (42)` APK의 SHA-256은 이력값이며 새 소스 커밋에서 재빌드한 APK로 재사용하지 않습니다. 새 버전 APK는 아직 생성·검증되지 않았습니다.
 - PR #205 고객지원 UI 수용 테스트는 Settings 스크롤 위치 때문에 실패한 이력이 있습니다. 스크롤을 상단으로 초기화하는 수정 커밋 `d8b1d0f1f676555163f802a33650eb2be796cdc4`가 PR head의 조상 커밋임을 확인했습니다. 이 수정이 포함된 최신 head의 후속 Actions 성공은 아직 확인되지 않았습니다.
 - 실제 Samsung 기기 VPN/DNS, `Library file not found`, 네트워크 전환 및 장시간 복구는 별도 미검증입니다.
 
@@ -63,7 +64,7 @@ Issue #141만을 최종 완료 기준으로 사용합니다.
 
 ### 4.4 Production 서명 / 결제
 
-- 1.0.0, versionCode 43 기준의 Production 빌드 설정 및 임시 서명 검증 경로가 CI에서 확인된 이력이 있습니다.
+- 이전에는 1.0.0, versionCode 43 기준의 Production 임시 서명 검증이 CI에서 확인됐지만, 개발 versionCode가 43으로 올라와 이 값은 더 이상 유효한 다음 정식 versionCode가 아닙니다. 현재 준비 스크립트/워크플로는 개발 코드보다 큰 최소값 44를 산정하도록 되어 있으나 새 기준의 CI 재검증은 아직 하지 않았습니다.
 - 사용자 소유 운영 keystore/secrets가 없으므로 Production 서명 APK/AAB는 아직 확인되지 않았습니다.
 - 상품 코드 및 관리자 수동 발급은 결제 연동이 아닙니다. 서명된 결제 webhook, 중복 이벤트 방지, 환불/취소/갱신 동기화와 체험판 중복 발급 방지는 상용 판매 전 별도 구현·검증이 필요합니다.
 - Lifetime은 진정한 무기한 entitlement와 폐기/갱신/오프라인 검증이 구현되기 전에는 발급하지 않습니다.
