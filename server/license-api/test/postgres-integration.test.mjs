@@ -123,6 +123,12 @@ if (!databaseUrl) {
     assert.equal(response.status, 401);
   });
 
+  test('customer directory never discloses customer PII without admin authentication', async () => {
+    const response = await fetch(`${baseUrl}/v1/admin/customers`);
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: '관리자 인증에 실패했습니다.' });
+  });
+
   test('admin routes require the Bearer authorization scheme', async () => {
     const bare = await post('/v1/admin/licenses/not-a-uuid/revoke', {}, {
       authorization: process.env.GUARDIAN_ADMIN_TOKEN
@@ -130,6 +136,40 @@ if (!databaseUrl) {
     assert.equal(bare.status, 401);
     const malformed = await post('/v1/admin/licenses/not-a-uuid/revoke', {}, adminHeaders);
     assert.equal(malformed.status, 400);
+  });
+
+  test('admin customer directory stores and searches validated customer details', async () => {
+    const email = `customer-${randomUUID()}@example.test`;
+    const response = await post('/v1/admin/licenses', {
+      validDays: 30,
+      maxDevices: 2,
+      customer: { name: 'Integration Customer', email, orderRef: 'ORDER-TEST-001' }
+    }, adminHeaders);
+    assert.equal(response.status, 200);
+    const issued = await response.json();
+    assert.match(issued.licenseKey, /^GDN-/);
+    const listed = await fetch(`${baseUrl}/v1/admin/customers?q=${encodeURIComponent(email)}`, { headers: adminHeaders });
+    assert.equal(listed.status, 200);
+    const data = await listed.json();
+    assert.equal(data.customers.length, 1);
+    assert.equal(data.customers[0].name, 'Integration Customer');
+    assert.equal(data.customers[0].email, email);
+    assert.equal(data.customers[0].license_count, 1);
+    assert.equal(data.customers[0].active_licenses, 1);
+    const linked = await pool.query('SELECT customer_id,order_ref FROM licenses WHERE id=$1', [issued.license.id]);
+    assert.ok(linked.rows[0].customer_id);
+    assert.equal(linked.rows[0].order_ref, 'ORDER-TEST-001');
+  });
+
+  test('customer issuance rejects malformed email and overlong fields', async () => {
+    const invalidEmail = await post('/v1/admin/licenses', {
+      validDays: 30, maxDevices: 1, customer: { name: 'Test', email: 'not-an-email' }
+    }, adminHeaders);
+    assert.equal(invalidEmail.status, 400);
+    const invalidName = await post('/v1/admin/licenses', {
+      validDays: 30, maxDevices: 1, customer: { name: 'x'.repeat(121), email: 'valid@example.test' }
+    }, adminHeaders);
+    assert.equal(invalidName.status, 400);
   });
 
   test('activation issues a valid signed entitlement and is idempotent per device', async () => {

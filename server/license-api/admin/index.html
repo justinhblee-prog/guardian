@@ -96,6 +96,9 @@ button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
         <section class="panel">
           <div class="panel-head"><div><h2>새 라이선스 발급</h2><p class="muted">발급 키는 생성 직후 한 번만 표시됩니다.</p></div></div>
           <div class="issue-grid">
+            <div class="field full"><label for="customerName">고객명</label><input id="customerName" maxlength="120" autocomplete="name" placeholder="고객 이름"></div>
+            <div class="field"><label for="customerEmail">고객 이메일</label><input id="customerEmail" type="email" maxlength="254" autocomplete="email" placeholder="customer@example.com"></div>
+            <div class="field"><label for="orderRef">주문번호 (선택)</label><input id="orderRef" maxlength="120" placeholder="결제 주문번호"></div>
             <div class="field"><label for="days">유효 기간 (일)</label><input id="days" type="number" min="1" max="36500" step="1" value="365"></div>
             <div class="field"><label for="devices">최대 기기 수</label><input id="devices" type="number" min="1" max="20" step="1" value="1"></div>
           </div>
@@ -130,6 +133,11 @@ button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
           <div class="license-list" id="licenses" aria-live="polite"><div class="empty">관리자 인증이 필요합니다.</div></div>
         </section>
 
+        <section class="panel">
+          <div class="panel-head"><div><h2>고객 목록</h2><p class="muted">등록 고객 최대 200명 · 관리자 인증 후 조회</p></div></div>
+          <div class="toolbar" style="grid-template-columns:minmax(0,1fr) auto"><input id="customerSearch" type="search" maxlength="100" placeholder="고객명 또는 이메일 검색" aria-label="고객 검색"><button class="secondary" id="refreshCustomers">고객 새로고침</button></div>
+          <div class="license-list" id="customers"><div class="empty">관리자 인증이 필요합니다.</div></div>
+        </section>
         <section class="panel">
           <div class="panel-head"><div><h2>보안 감사 기록</h2><p class="muted">최근 100건 · 발급, 활성화, 기기 해제, 정지</p></div></div>
           <div class="event-list" id="events"><div class="empty">관리자 인증이 필요합니다.</div></div>

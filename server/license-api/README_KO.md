@@ -3,7 +3,7 @@
 Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 모바일 관리자 웹 화면입니다.
 
 ## 포함 기능
-- 관리자 인증이 필요한 Pro 라이선스 발급, 최근 200건 조회, 최근 100건 감사 기록 조회, 정지/활성 기기 해제
+- 관리자 인증이 필요한 Pro 라이선스 발급, 최근 200건 조회, 고객명·이메일 기반 고객 디렉터리(최대 200명), 최근 100건 감사 기록 조회, 정지/활성 기기 해제
 - 라이선스 키는 화면에 발급 순간 한 번만 노출합니다. DB에는 임의 salt 기반 scrypt 해시와 서버 HMAC 조회 인덱스만 저장합니다.
 - 기기별 활성화 수 제한, 동일 기기 재활성화, 만료/정지 라이선스 거부
 - 앱 검증기와 호환되는 정확한 UTF-8 key=value payload 및 RSA-SHA256 PKCS#1 v1.5 서명 토큰
@@ -70,14 +70,19 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 - `POST /v1/admin/licenses/{uuid}/revoke`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>` 및 UUID 형식의 라이선스 ID 필요
 - `GET /v1/admin/licenses/{uuid}/activations`: 라이선스의 최근 활성화 기록 최대 50건 조회. 기기 식별자는 해시 마지막 8자리만 반환
 - `POST /v1/admin/licenses/{uuid}/activations/{activationUuid}/deactivate`: 지정한 기기 등록만 해제하고 감사 이벤트 기록. 다른 기기와 라이선스 상태는 유지
-- `/admin`: 라이선스 발급·정지, 기기별 최근 확인 정보 조회 및 개별 기기 해제
+- `/admin`: 라이선스 발급·정지, 기기별 최근 확인 정보 조회 및 개별 기기 해제. 고객명·이메일·선택 주문번호를 발급 시 연결하고 고객별 라이선스 수 및 사용 가능 건수를 조회합니다. 고객 목록은 관리자 인증이 필요합니다.
+- `GET /v1/admin/customers?q=<검색어>`: 관리자 인증 후 고객명/이메일 검색, 고객별 전체 라이선스 수·사용 가능 라이선스 수·최근 발급일 조회(최대 200명)
+- 기존 고객 정보가 없는 과거 라이선스는 자동으로 고객을 추정하지 않습니다. 마이그레이션 004 이후 신규 발급부터 고객 연결이 저장됩니다.
 - `GET /health`: 프로세스 생존 상태
 - `GET /ready`: DB 연결, 관리자 토큰, HMAC 비밀값 및 RSA 2048비트 이상 서명키 준비 상태 확인. Docker health check에서 사용
 
 활성화/갱신 성공 시 `payload`, `signature`, `expiresIn`을 반환합니다. 서버는 `Bearer` 인증 스킴을 엄격히 요구하며, `expiresIn`은 서명된 `expiresAt - issuedAt`과 일치합니다. Android 앱에는 개인키가 아닌 동일 RSA 키쌍의 X.509 공개키를 `GUARDIAN_LICENSE_PUBLIC_KEY` 빌드 환경 변수로 주입해야 합니다. 앱은 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증합니다.
 
+## 고객 디렉터리 DB 마이그레이션
+기존 데이터베이스에는 `migrations/004_customers.sql`을 한 번 적용해야 합니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
+
 ## 보안 및 출시 전 남은 작업
-- API 인스턴스 간 rate limiting은 PostgreSQL 공유 카운터로 구현했지만, 프록시/WAF의 신뢰 IP 기반 방어와 DDoS 완화는 별도 구성해야 합니다. 관리자 다중 사용자/RBAC, 이메일/구매 복구, Google Play Billing 및 결제 webhook, 자동 환불/차지백 동기화도 공개 전 별도 구현이 필요합니다.
+- API 인스턴스 간 rate limiting은 PostgreSQL 공유 카운터로 구현했지만, 프록시/WAF의 신뢰 IP 기반 방어와 DDoS 완화는 별도 구성해야 합니다. 관리자 토큰은 Bearer 방식이며 브라우저 메모리에만 보관합니다. 공개 운영 전 MFA 또는 SSO, 관리자별 RBAC, 토큰 교체·폐기 절차, 접근 감사, 비밀값 저장소, WAF 및 침투 테스트를 추가해야 합니다. 관리자 다중 사용자/RBAC, 이메일/구매 복구, Google Play Billing 및 결제 webhook, 자동 환불/차지백 동기화도 공개 전 별도 구현이 필요합니다.
 - status/refresh는 deviceBinding만으로 해당 기기의 활성 라이선스를 조회합니다. 설치 UUID 재설치 시 새 기기 취급되며 관리자 초기화 정책을 따라야 합니다.
 - 기기 비활성화/라이선스 정지는 서버의 활성화 슬롯과 이후 refresh를 즉시 차단하지만, 이미 발급된 오프라인 서명 토큰을 원격에서 소급 폐기할 수는 없습니다. 기존 토큰은 서명된 expiresAt까지(최대 24시간) 검증될 수 있으므로 즉시 원격 차단이 필요한 제품 정책에는 더 짧은 토큰 TTL 또는 온라인 재검증이 필요합니다.
 - DB 스키마는 신규 설치용 초기 스키마입니다. 기존 DB에 적용할 경우 별도 migration 검토가 필요합니다.

@@ -5,6 +5,7 @@ import {
 let adminToken = "";
 let licenseItems = [];
 let eventItems = [];
+let customerItems = [];
 let loading = false;
 const $ = id => document.getElementById(id);
 
@@ -186,6 +187,43 @@ function renderLicenses() {
   }
 }
 
+function renderCustomers() {
+  const root = $("customers");
+  root.replaceChildren();
+  const needle = $("customerSearch").value.trim().toLowerCase();
+  const items = customerItems.filter(item => !needle || item.name.toLowerCase().includes(needle) || item.email.toLowerCase().includes(needle));
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = customerItems.length ? "검색 결과가 없습니다." : "등록된 고객이 없습니다. 고객 정보를 입력해 라이선스를 발급하면 여기에 표시됩니다.";
+    root.append(empty);
+    return;
+  }
+  for (const item of items) {
+    const card = document.createElement("article");
+    card.className = "license-card";
+    const top = document.createElement("div");
+    top.className = "license-top";
+    const name = document.createElement("strong");
+    name.textContent = item.name;
+    const count = document.createElement("span");
+    count.className = "pill active";
+    count.textContent = `라이선스 ${Number(item.license_count) || 0}건`;
+    top.append(name, count);
+    const meta = document.createElement("div");
+    meta.className = "license-meta";
+    const email = document.createElement("span");
+    email.textContent = item.email;
+    const active = document.createElement("span");
+    active.textContent = `사용 가능 ${Number(item.active_licenses) || 0}건`;
+    const last = document.createElement("span");
+    last.textContent = `최근 발급: ${item.last_license_issued ? dateLabel(item.last_license_issued) : "-"}`;
+    meta.append(email, active, last);
+    card.append(top, meta);
+    root.append(card);
+  }
+}
+
 function renderEvents() {
   const root = $("events");
   root.replaceChildren();
@@ -254,15 +292,18 @@ async function load() {
   if (!adminToken || loading) return;
   setBusy(true);
   try {
-    const [licenses, audit] = await Promise.all([
+    const [licenses, audit, customers] = await Promise.all([
       api("/v1/admin/licenses"),
-      api("/v1/admin/events")
+      api("/v1/admin/events"),
+      api("/v1/admin/customers")
     ]);
     licenseItems = licenses.licenses || [];
     eventItems = audit.events || [];
+    customerItems = customers.customers || [];
     renderSummary();
     renderLicenses();
     renderEvents();
+    renderCustomers();
     $("dashboard").hidden = false;
     $("authPanel").hidden = true;
     setStatus("관리자 인증 성공", "ok");
@@ -306,7 +347,17 @@ $("issue").addEventListener("click", async () => {
   setBusy(true);
   let data;
   try {
-    data = await api("/v1/admin/licenses", { method: "POST", body: JSON.stringify(input) });
+    const name = $("customerName").value.trim();
+    const email = $("customerEmail").value.trim();
+    const orderRef = $("orderRef").value.trim();
+    if ((name || email || orderRef) && (!name || !email)) {
+      statusText("고객명과 이메일을 함께 입력하세요.", "error");
+      return;
+    }
+    data = await api("/v1/admin/licenses", {
+      method: "POST",
+      body: JSON.stringify({ ...input, ...(name && email ? { customer: { name, email, orderRef } } : {}) })
+    });
   } catch (error) {
     statusText(error.message, "error");
     return;
@@ -351,5 +402,14 @@ $("disconnect").addEventListener("click", () => {
   setStatus("관리자 연결이 종료되었습니다.");
 });
 $("search").addEventListener("input", renderLicenses);
+$("customerSearch").addEventListener("input", renderCustomers);
+$("refreshCustomers").addEventListener("click", async () => {
+  try {
+    const data = await api("/v1/admin/customers");
+    customerItems = data.customers || [];
+    renderCustomers();
+    statusText("고객 목록을 새로고침했습니다.", "ok");
+  } catch (error) { statusText(error.message, "error"); }
+});
 $("statusFilter").addEventListener("change", renderLicenses);
 $("sortOrder").addEventListener("change", renderLicenses);
