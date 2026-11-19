@@ -2055,6 +2055,10 @@ class MainActivity : Activity() {
                 "문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다. 진단 정보는 별도 동의 없이는 전송하지 않습니다.",
                 11f, muted, false
             ).withTop(6))
+            addView(text(
+                "답변 알림 이메일은 발송되지 않습니다. 접수 번호와 조회 코드로 앱에서 답변을 확인해 주세요.",
+                11f, muted, false
+            ).withTop(5))
             addView(Button(this@MainActivity).apply {
                 text = "자주 묻는 질문 (Q&A)"
                 isAllCaps = false
@@ -2146,7 +2150,7 @@ class MainActivity : Activity() {
             }
         }
         val subject = field("제목 (3~120자)")
-        val email = field("답변 받을 이메일 (선택)").apply {
+        val email = field("회신 참고 이메일 (선택 · 알림 메일 미발송)").apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
         }
         val message = field("문의 또는 의견을 자세히 입력하세요 (10~5,000자)", true)
