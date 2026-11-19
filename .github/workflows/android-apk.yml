@@ -259,7 +259,7 @@ jobs:
           python3 -m json.tool release/guardian-android-dev.json >/dev/null
 
       - name: Upload verified Android debug and source package
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: guardian-android-debug
@@ -269,7 +269,6 @@ jobs:
             release/Guardian-AdBlock-Source-v0.7.22-dev.zip
             release/SHA256SUMS.txt
             release/VERIFICATION_SUMMARY_KO.md
-            release/guardian-android-dev.json
           if-no-files-found: error
           retention-days: 14
 
