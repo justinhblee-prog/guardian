@@ -168,12 +168,21 @@ internal object LicenseApiClient {
     fun status(context: Context): JSONObject {
         val current = LicenseEntitlementStore.current(context)
             ?: return JSONObject().put("status", "free")
-        return post(context,
-            "/v1/licenses/status",
-            JSONObject()
-                .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
-                .put("licenseRef", current.licenseRef)
-        )
+        return try {
+            post(context,
+                "/v1/licenses/status",
+                JSONObject()
+                    .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
+                    .put("licenseRef", current.licenseRef)
+            )
+        } catch (error: LicenseApiException) {
+            // Status and refresh are both authoritative server checks. A revoked
+            // license or released device slot must not retain local Pro access.
+            if (error.invalidatesEntitlement) {
+                LicenseEntitlementStore.clear(context)
+            }
+            throw error
+        }
     }
 
     private fun persistToken(
