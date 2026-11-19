@@ -2269,6 +2269,10 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(12), dp(12), dp(12))
             addView(text("설치된 앱 검색", 13f, white, true))
             addView(text("전체 설치 앱 ${apps.size}개 · 앱 이름 또는 패키지명으로 검색하세요.", 11f, muted, false).withTop(4))
+            addView(text(
+                "제외한 앱의 네트워크는 Android 시스템으로 우회됩니다. Guardian VPN 연결 자체는 계속 유지되므로, 기기 전체의 VPN 상태를 확인하는 앱은 경고를 표시할 수 있습니다.",
+                10f, muted, false
+            ).withTop(5))
             addView(search, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(9) })
         }
         val appListCard = card(panel, 16).apply {
