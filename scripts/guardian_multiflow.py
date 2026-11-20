@@ -144,7 +144,7 @@ def safe_relative_path(value: str) -> str:
         raise AutomationError(f"Drive/absolute path is not allowed: {value!r}")
     parts = {part.lower() for part in path.parts}
     suffix = Path(normalized).suffix.lower()
-    if parts & PROTECTED_PARTS or suffix in PROTECTED_SUFFIXES:
+    if parts & PROTECTED_PARTS or any(part.startswith(".env") for part in parts) or suffix in PROTECTED_SUFFIXES:
         raise AutomationError(f"Protected path is not accessible to the agent: {normalized}")
     if normalized in PROTECTED_EXACT or any(normalized.lower().startswith(p.lower()) for p in PROTECTED_PREFIXES):
         raise AutomationError(f"Automation control path is protected: {normalized}")
@@ -197,8 +197,10 @@ def validate_manifest(manifest: Any) -> list[dict[str, Any]]:
     return validated
 
 def validate_unified_patch(patch: str, allowed_files: set[str]) -> set[str]:
-    if not isinstance(patch, str) or not patch.strip():
-        raise AutomationError("Ollama returned an empty diff.")
+    if not isinstance(patch, str):
+        raise AutomationError("Ollama diff is not a string.")
+    if not patch.strip():
+        return set()
     if len(patch.encode("utf-8")) > MAX_PATCH_BYTES:
         raise AutomationError("Proposed diff exceeds the 256 KiB safety limit.")
     if "GIT binary patch" in patch or "Binary files " in patch:
@@ -395,7 +397,6 @@ def check_previous_submission(repo: Path, task_id: str, previous: dict[str, Any]
     if not branch or not commit:
         return False
     try:
-        git(repo, ["fetch", "--no-tags", "origin", "main"], timeout=180)
         ancestor = run_process(["git", "-C", str(repo), "merge-base", "--is-ancestor", str(commit), "origin/main"], repo, 30)
         if ancestor.returncode == 0:
             print(f"[{task_id}] already integrated into origin/main at {commit[:12]}; skipping.")
