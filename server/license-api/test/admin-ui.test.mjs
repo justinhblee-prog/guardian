@@ -36,7 +36,10 @@ test("license sorting supports expiry, device count and newest", () => {
 });
 
 test("license issue form accepts only bounded integer values", () => {
-  assert.deepEqual(validateIssueInput("365", "2"), { validDays: 365, maxDevices: 2 });
+  assert.deepEqual(validateIssueInput("365", "2"), { validDays: 365, maxDevices: 2, planCode: "custom" });
+  assert.deepEqual(validateIssueInput("30", "2", "monthly_30d"), { validDays: 30, maxDevices: 2, planCode: "monthly_30d" });
+  assert.throws(() => validateIssueInput("31", "2", "monthly_30d"), /상품과 유효 기간/);
+  assert.throws(() => validateIssueInput("30", "2", "lifetime"), /상품 유형/);
   for (const [days, devices] of [["0", "1"], ["36501", "1"], ["1.5", "1"], ["365", "0"], ["365", "21"], ["365", "1.5"]]) {
     assert.throws(() => validateIssueInput(days, devices), RangeError);
   }
