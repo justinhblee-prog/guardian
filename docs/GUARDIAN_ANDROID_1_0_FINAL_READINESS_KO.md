@@ -265,3 +265,13 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - Activity가 중지된 동안 Worker가 완료되면 브로드캐스트 수신기가 등록되어 있지 않습니다. `onStart()`에서도 공통 상태 갱신 함수를 호출해 화면 재진입 시 최신 오류·캐시 상태를 복원하도록 수정했습니다.
 - GitHub 원격 파일 재조회로 두 경로의 변경을 확인했습니다. 반영 커밋: `7019446c462967f3b461096c858e4d6c3ade10ad`, `32a7e1fdf9d24abd3705d4661f79d769998d6603`.
 - 현재 브랜치 비교: `main` 대비 242 commits ahead / 0 behind. Android Gradle 컴파일, JUnit, APK, UI 런타임 및 Samsung 실기기 검증은 아직 수행되지 않았습니다.
+
+## 2026-11-20 필터 캐시 읽기/교체 동시성 보완
+
+- 기존 캐시 교체는 FilterCacheStore 내부에서 임시 파일 → 기존 파일 백업 → 새 파일 이동 순서로 실행됩니다. 교체 함수는 동기화되어 있었지만, 호출자가 recover() 반환 후 파일을 여는 사이 다른 스레드가 교체를 시작할 수 있어 짧은 파일 부재 구간과 읽기 실패 가능성이 남아 있었습니다.
+- FilterCacheStore.withLock을 추가해 캐시 복구·존재/유효성 확인·전체 파일 읽기·파싱을 교체와 동일한 객체 잠금 안에서 수행하도록 변경했습니다. 따라서 파일을 실제로 읽는 동안에는 replace()가 기존 파일을 백업 경로로 이동할 수 없습니다.
+- VPN 규칙 재로드에서도 loadConfiguredRules() 전체를 동기화했습니다. WorkManager 주기 갱신, 실패 복구 Worker, 수동 갱신이 연이어 재적용을 요청하더라도 이전 스냅샷을 늦게 읽은 재로드가 최신 규칙 교체 뒤에 도착해 최신 메모리 규칙을 덮어쓰는 순서 경합을 방지합니다.
+- FilterCacheStoreTest.cacheReplacementWaitsUntilReaderFinishesItsSnapshot 회귀 테스트를 추가해 reader가 잠금을 보유한 동안 writer가 완료되지 않고 reader 종료 후 교체가 진행되는지 검증하도록 했습니다.
+- 소스 반영 커밋: b21de112851ffe2718d4ae45648fded952b2e7e4, 380b897d73af62f3a0a6b6260c9fa85044346965, 013e7a9479aa1e401f785b9ffcbf44a9b897c2f7, f2069febb3647f14876869b8b7c62adc688122ff.
+- GitHub 파일 재조회로 잠금 적용 위치, VPN reload 동기화, 회귀 테스트 존재를 확인했습니다. Android Gradle/JUnit 실행, APK, 실기기 검증은 아직 하지 않았으며 GitHub Actions도 실행하지 않았습니다.
+- 최신 비교: main...feature/android-support-center-mainline = 247 commits ahead / 0 behind.
