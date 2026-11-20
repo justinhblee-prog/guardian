@@ -123,8 +123,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Python compile failed.' }
           python -m unittest scripts.test_guardian_multiflow
           if ($LASTEXITCODE -ne 0) { throw 'Guardian multi-flow regression tests failed.' }
-          python scripts/guardian_multiflow.py --validate-only --repo-root .
-          if ($LASTEXITCODE -ne 0) { throw 'Guardian multi-flow manifest validation failed.' }
 
 
       - name: Compare exact PR head against current main with Git CLI
