@@ -32,7 +32,7 @@ Windows 프로젝트 루트에서 실행:
 
 - JDK 17/21, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9를 사전 확인합니다.
 - `clean`, `testDebugUnitTest`, `lintDebug`, `assembleDebug`를 실행합니다.
-- APK 패키지 ID/versionCode/versionName을 `aapt`로 확인하고 SHA-256을 계산합니다.
+- APK 내부 `assets/filter_rules.txt` 포함 여부와 패키지 ID/versionCode/versionName을 `aapt`로 확인하고 SHA-256을 계산합니다.
 - APK, Gradle 버전, 빌드 로그, 검증 요약을 `%LOCALAPPDATA%\Guardian\outputs\Android-Debug-<timestamp>`에 보존합니다.
 - 이 파이프라인은 Debug APK 검증이며 Production 서명이나 Samsung 실기기 검증을 대신하지 않습니다.
 
@@ -59,3 +59,8 @@ APK 위치:
 4. 보호 시작/중지, 차단/허용 도메인, 네트워크 전환, 화면 잠금 후 복귀를 확인합니다.
 
 CI 성공만으로 실기기 동작을 보증하지 않습니다. DoH/DoT, client-side TCP DNS, IPv6 extension header/fragment reassembly는 미지원입니다.
+
+## 2026-11-20 병렬 트랙 D — APK 내 필수 기본 DNS asset 검증 추가
+- Guardian 시작 경로가 `assets.open("filter_rules.txt")`에 의존하므로, 소스 파일 존재만 확인하는 것으로는 최종 APK에 asset이 실제 포함되었는지 보장할 수 없습니다.
+- 루트 `BUILD_ANDROID.ps1`과 노트북 공개키 주입용 `Build-GuardianAndroid-Debug.ps1`에 `aapt list` 검사를 추가해 APK 내부 `assets/filter_rules.txt` 존재를 확인하고, 누락 시 APK 검증을 실패 처리합니다. 노트북 빌드 경로에는 APK 크기와 `com.guardian.adblock` package ID 검사도 추가했습니다.
+- 실제 APK를 만들거나 실행한 것은 아닙니다. Windows PowerShell/Android SDK/Gradle 미접근 상태이며, 스크립트 소스만 원격 재조회했습니다.
