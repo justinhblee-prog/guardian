@@ -82,6 +82,8 @@ Android 1.0은 Issue #141의 필수 항목만 완료 기준으로 사용합니�
 5. GitHub Actions billing, runner, usage 설정 변경이나 유료 리소스 사용은 하지 않습니다.
 6. 성공 판정에는 commit/CI/실제 산출물/기기/서버 증거를 연결합니다. 확인하지 못한 결과를 완료로 표시하지 않습니다.
 
+- [Android 1.0 병렬 실행 워크플로](ANDROID_1_0_PARALLEL_EXECUTION_KO.md)
+
 ## 5. Windows 순서
 
 Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 패키지를 진행합니다. Android 출시 차단과 무관한 Windows 작업을 Android 범위에 끌어오지 않습니다.
