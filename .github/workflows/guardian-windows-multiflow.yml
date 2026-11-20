@@ -1,0 +1,113 @@
+name: Guardian Windows Local Ollama Multi-Flow
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_tasks:
+        description: Maximum number of independent tasks (start with 1; raise to 2 or 3 after verification)
+        required: true
+        type: choice
+        options: ['1', '2', '3']
+        default: '1'
+      task_id:
+        description: Optional exact task ID from .guardian/automation/tasks.json
+        required: false
+        type: string
+  schedule:
+    - cron: '17 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.guardian/automation/tasks.json'
+      - 'scripts/guardian_multiflow.py'
+      - 'scripts/guardian-multiflow.ps1'
+      - '.github/workflows/guardian-windows-multiflow.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: guardian-windows-local-ollama-multiflow
+  cancel-in-progress: false
+
+jobs:
+  run-local-multiflow:
+    name: Run isolated local Ollama tasks on Guardian Windows PC
+    if: github.repository == 'justinhblee-prog/guardian'
+    runs-on: [self-hosted, Windows]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout Guardian main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Verify Windows, Git, Python and GitHub CLI
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:OS -ne 'Windows_NT') { throw 'This job must run on the registered Windows self-hosted runner.' }
+          git --version
+          if ($LASTEXITCODE -ne 0) { throw 'Git CLI is unavailable.' }
+          $python = Get-Command python -ErrorAction SilentlyContinue
+          if (-not $python) { $python = Get-Command py -ErrorAction SilentlyContinue }
+          if (-not $python) { throw 'Python 3.10+ is not visible to the runner account.' }
+          if ($python.Name -eq 'py.exe' -or $python.Name -eq 'py') { & $python.Source -3 --version }
+          else { & $python.Source --version }
+          if ($LASTEXITCODE -ne 0) { throw 'Python version check failed.' }
+          gh auth status --hostname github.com
+          if ($LASTEXITCODE -ne 0) { throw 'The runner GitHub token is not accepted by gh CLI.' }
+
+      - name: Validate manifest and fixed test allowlists
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python scripts/guardian_multiflow.py --validate-only --repo-root .
+          if ($LASTEXITCODE -ne 0) { throw 'Guardian task manifest validation failed.' }
+
+      - name: Verify real local Ollama inference
+        shell: pwsh
+        env:
+          GUARDIAN_OLLAMA_MODEL: qwen2.5-coder:7b
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python scripts/guardian_multiflow.py --smoke-test --repo-root .
+          if ($LASTEXITCODE -ne 0) { throw 'Local Ollama model inference verification failed.' }
+
+      - name: Execute isolated task branches and create Draft PRs
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GUARDIAN_OLLAMA_MODEL: qwen2.5-coder:7b
+          MAX_TASKS_INPUT: ${{ inputs.max_tasks }}
+          TASK_ID_INPUT: ${{ inputs.task_id }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $maxTasks = 1
+          if ($env:EVENT_NAME -eq 'workflow_dispatch' -and $env:MAX_TASKS_INPUT) {
+            $maxTasks = [int]$env:MAX_TASKS_INPUT
+          }
+          if ($maxTasks -lt 1 -or $maxTasks -gt 3) { throw 'max_tasks must be 1, 2 or 3.' }
+          $arguments = @('scripts/guardian_multiflow.py', '--repo-root', '.', '--max-tasks', [string]$maxTasks)
+          if ($env:EVENT_NAME -eq 'workflow_dispatch' -and $env:TASK_ID_INPUT) {
+            $arguments += @('--task-id', $env:TASK_ID_INPUT)
+          }
+          python @arguments
+          if ($LASTEXITCODE -ne 0) { throw "Guardian multi-flow returned exit code $LASTEXITCODE." }
+
+      - name: Record non-secret runner outcome
+        if: always()
+        shell: pwsh
+        run: |
+          $root = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'GuardianAutomation\logs' } else { Join-Path $HOME '.guardian-automation\logs' }
+          if (Test-Path $root) {
+            Get-ChildItem -LiteralPath $root -Filter '*.log' -File |
+              Sort-Object LastWriteTime -Descending |
+              Select-Object -First 10 |
+              ForEach-Object { Write-Host ("Log available on runner: {0}" -f $_.Name) }
+          }
