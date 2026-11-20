@@ -364,15 +364,24 @@ class GuardianVpnService : VpnService() {
                     retryResume = true
                     return@thread
                 }
-                val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-                if (!currentPrefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
-                    !currentPrefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
-                ) return@thread
-                currentPrefs.edit()
-                    .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
-                    .remove(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE)
-                    .commit()
-                val generation = startCancellation.onStartRequested()
+                // Serialize the durable-intent check and generation creation with
+                // stopProtection(), which uses the same service monitor. Otherwise an
+                // explicit STOP between the check and onStartRequested() could be
+                // followed by this stale resume creating a newer, valid generation.
+                val generation = synchronized(this@GuardianVpnService) {
+                    val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+                    if (!currentPrefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+                        !currentPrefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+                    ) {
+                        null
+                    } else {
+                        val cleared = currentPrefs.edit()
+                            .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+                            .remove(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE)
+                            .commit()
+                        if (cleared) startCancellation.onStartRequested() else null
+                    }
+                } ?: return@thread
                 startProtection(generation, lastStartId)
             } finally {
                 compatibilityResumeInProgress.set(false)
@@ -422,8 +431,20 @@ class GuardianVpnService : VpnService() {
             publishState(false, "이전 VPN 패킷 처리가 종료되지 않아 제외 설정을 재적용하지 못했습니다. 보호 상태를 확인해 주세요.")
             return
         }
-        prefs.edit().putBoolean(KEY_ACTIVE, false).commit()
-        val generation = startCancellation.onStartRequested()
+        // The user can press STOP while the old packet worker is being joined.
+        // Pair the final durable-intent check and generation creation with
+        // stopProtection() so an exclusion refresh cannot resurrect protection.
+        val generation = synchronized(this) {
+            val latestPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+            if (!latestPrefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+                latestPrefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+            ) {
+                null
+            } else {
+                latestPrefs.edit().putBoolean(KEY_ACTIVE, false).commit()
+                startCancellation.onStartRequested()
+            }
+        } ?: return
         startProtection(generation, startId)
     }
 
