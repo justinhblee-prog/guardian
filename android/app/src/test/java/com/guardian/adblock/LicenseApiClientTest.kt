@@ -143,4 +143,60 @@ class LicenseApiClientTest {
             URL(origin, "/v1/licenses/status").toString()
         )
     }
+
+    @Test
+    fun failedActivationCleanupReleasesSlotOnlyAfterLocalEntitlementIsCleared() {
+        val events = mutableListOf<String>()
+        val recovered = recoverFailedActivation(
+            licenseRef = "lic_test_0001",
+            clearLocalEntitlement = { events.add("clear-local"); true },
+            releaseServerSlot = { events.add("release-server") },
+            clearPendingRequest = { events.add("clear-pending"); true },
+            onCleanupFailure = { throw AssertionError(it) }
+        )
+        assertTrue(recovered)
+        assertEquals(listOf("clear-local", "release-server", "clear-pending"), events)
+    }
+
+    @Test
+    fun failedLocalCleanupDoesNotReleaseServerSlotOrClearRetryId() {
+        val events = mutableListOf<String>()
+        val recovered = recoverFailedActivation(
+            licenseRef = "lic_test_0001",
+            clearLocalEntitlement = { events.add("clear-local"); false },
+            releaseServerSlot = { events.add("release-server") },
+            clearPendingRequest = { events.add("clear-pending"); true },
+            onCleanupFailure = { events.add("failure") }
+        )
+        assertFalse(recovered)
+        assertEquals(listOf("clear-local", "failure"), events)
+    }
+
+    @Test
+    fun failedServerCompensationPreservesPendingRequestForIdempotentRetry() {
+        val events = mutableListOf<String>()
+        val recovered = recoverFailedActivation(
+            licenseRef = "lic_test_0001",
+            clearLocalEntitlement = { events.add("clear-local"); true },
+            releaseServerSlot = { events.add("release-server"); throw IllegalStateException("offline") },
+            clearPendingRequest = { events.add("clear-pending"); true },
+            onCleanupFailure = { events.add("failure") }
+        )
+        assertFalse(recovered)
+        assertEquals(listOf("clear-local", "release-server", "failure"), events)
+    }
+
+    @Test
+    fun unsafeLicenseReferenceNeverTriggersActivationCompensation() {
+        val events = mutableListOf<String>()
+        val recovered = recoverFailedActivation(
+            licenseRef = "../admin",
+            clearLocalEntitlement = { events.add("clear-local"); true },
+            releaseServerSlot = { events.add("release-server") },
+            clearPendingRequest = { events.add("clear-pending"); true },
+            onCleanupFailure = { events.add("failure") }
+        )
+        assertFalse(recovered)
+        assertTrue(events.isEmpty())
+    }
 }
