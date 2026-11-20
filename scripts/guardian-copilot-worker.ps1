@@ -160,13 +160,21 @@ Safety:
         '--available-tools', 'powershell,view,edit,create,apply_patch,grep,glob',
         '--deny-tool', 'shell(git commit)',
         '--deny-tool', 'shell(git push)',
+        '--deny-tool', 'shell(git reset)',
+        '--deny-tool', 'shell(git clean)',
+        '--deny-tool', 'shell(git worktree remove)',
         '--deny-tool', 'shell(gh pr create)',
         '--deny-tool', 'shell(gh pr merge)',
         '--deny-tool', 'shell(gh issue close)',
         '-p', $prompt
     )
-    $agentOutput = & $copilot.Source @copilotArgs 2>&1
-    $copilotExit = $LASTEXITCODE
+    Push-Location -LiteralPath $worktree
+    try {
+        $agentOutput = & $copilot.Source @copilotArgs 2>&1
+        $copilotExit = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
     $agentOutput | Tee-Object -FilePath $promptLog
     if ($copilotExit -ne 0) {
         Write-WorkerLog "Copilot CLI exited with code $copilotExit. Worktree is retained for diagnosis; no changes were pushed."
