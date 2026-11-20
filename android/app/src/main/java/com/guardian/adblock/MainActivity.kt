@@ -527,6 +527,8 @@ class MainActivity : Activity() {
             "activity" -> buildActivity(body)
             "premium" -> buildPremium(body)
             "settings-general" -> buildGeneralSettings(body)
+            "settings-filtering" -> buildFilteringSettings(body)
+            "settings-support" -> buildSupportSettings(body)
             "app-exclusions" -> {
                 body.addView(text("앱 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
@@ -1473,30 +1475,14 @@ class MainActivity : Activity() {
         body.addView(settingsCategoryRow("일반", "앱 모양과 기본 동작 관리", "smartphone") {
             showTab("settings-general")
         }.withTop(18))
-        body.addView(settingsCategoryRow("필터링", "DNS 서버, 필터 및 사용자 규칙 구성", "filter") {
-            AlertDialog.Builder(this)
-                .setTitle("필터링 설정")
-                .setItems(arrayOf("보호 및 DNS 설정", "사용자 필터 규칙")) { _, which ->
-                    showTab(if (which == 0) "protection" else "rules")
-                }
-                .setNegativeButton("닫기", null)
-                .show()
+        body.addView(settingsCategoryRow("필터링", "DNS 서버, 광고·추적 필터 및 사용자 규칙", "filter") {
+            showTab("settings-filtering")
         })
         body.addView(settingsCategoryRow("라이선스 및 프리미엄", "라이선스 활성화, 갱신, 업그레이드 및 기기 관리", "license") {
             showTab("premium")
         })
-        body.addView(settingsCategoryRow("고객 지원", "문제 신고 또는 피드백 전송", "support") {
-            AlertDialog.Builder(this)
-                .setTitle("고객 지원")
-                .setItems(arrayOf("자주 묻는 질문 (Q&A)", "문의 및 의견 보내기", "내 문의 답변 확인")) { _, which ->
-                    when (which) {
-                        0 -> showSupportFaq()
-                        1 -> showSupportSubmitDialog()
-                        else -> showSupportLookupDialog()
-                    }
-                }
-                .setNegativeButton("닫기", null)
-                .show()
+        body.addView(settingsCategoryRow("고객 지원", "FAQ, 문의 접수 및 답변 확인", "support") {
+            showTab("settings-support")
         })
         body.addView(settingsCategoryRow("정보", "앱 버전, 제3자 고지 및 오픈소스 라이선스", "info") {
             showGuardianInfo()
@@ -1508,6 +1494,40 @@ class MainActivity : Activity() {
                 .setNegativeButton("취소", null)
                 .setPositiveButton("종료") { _, _ -> finish() }
                 .show()
+        })
+    }
+
+    private fun buildFilteringSettings(body: LinearLayout) {
+        body.addView(text("필터링", 25f, white, true))
+        body.addView(text("DNS 보호, 필터 목록과 사용자 규칙을 관리합니다.", 13f, muted, false).withTop(5))
+        body.addView(settingsCategoryRow("‹ 설정", "설정 카테고리로 돌아가기", "filter") {
+            showTab("settings")
+        }.withTop(14))
+        body.addView(settingsCategoryRow("보호 및 DNS 설정", "업스트림 DNS, 보호 상태와 연결 진단", "filter") {
+            showTab("protection")
+        })
+        body.addView(settingsCategoryRow("필터 규칙", "차단·허용 도메인과 필터 목록 관리", "filter") {
+            showTab("rules")
+        })
+        body.addView(settingsCategoryRow("앱별 보호 제외", "선택한 앱을 DNS 보호 대상에서 제외", "smartphone") {
+            showTab("app-exclusions")
+        })
+    }
+
+    private fun buildSupportSettings(body: LinearLayout) {
+        body.addView(text("고객 지원", 25f, white, true))
+        body.addView(text("질문과 문제를 접수하고 답변을 확인합니다.", 13f, muted, false).withTop(5))
+        body.addView(settingsCategoryRow("‹ 설정", "설정 카테고리로 돌아가기", "support") {
+            showTab("settings")
+        }.withTop(14))
+        body.addView(settingsCategoryRow("자주 묻는 질문 (Q&A)", "보호, DNS, 필터 및 라이선스 안내", "support") {
+            showSupportFaq()
+        })
+        body.addView(settingsCategoryRow("문의 및 의견 보내기", "오류 신고, 기능 제안, 결제 및 라이선스 문의", "support") {
+            showSupportSubmitDialog()
+        })
+        body.addView(settingsCategoryRow("내 문의 답변 확인", "접수 번호와 조회 코드로 답변 확인", "support") {
+            showSupportLookupDialog()
         })
     }
 
