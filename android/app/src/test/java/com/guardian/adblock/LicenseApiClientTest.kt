@@ -55,6 +55,15 @@ class LicenseApiClientTest {
     }
 
     @Test
+    fun failedActivationCleanupAcceptsOnlyBoundedOpaqueLicenseReferences() {
+        assertTrue(isSafeLicenseRefForActivationCleanup("lic_test_0001"))
+        assertTrue(isSafeLicenseRefForActivationCleanup("550e8400-e29b-41d4-a716-446655440000"))
+        assertFalse(isSafeLicenseRefForActivationCleanup(""))
+        assertFalse(isSafeLicenseRefForActivationCleanup("../admin"))
+        assertFalse(isSafeLicenseRefForActivationCleanup("x".repeat(129)))
+    }
+
+    @Test
     fun statusEndpointRequiresExplicitActiveStatusToRetainProEntitlement() {
         assertTrue(isActiveLicenseStatus("active"))
         assertTrue(isActiveLicenseStatus("ACTIVE"))
