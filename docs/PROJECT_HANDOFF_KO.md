@@ -20,6 +20,8 @@ Guardian은 Android 및 Windows에서 DNS 기반 광고·추적·악성 도메�
 - Actions runner/billing/usage 설정과 비용 발생 설정은 사용자 승인 없이 변경하지 않습니다.
 - 한 번 확인한 실패 원인을 반복하지 않고, 근본 원인과 재현 가능한 검증을 우선합니다.
 
+- CI 정적 점검에서 Android source ZIP 체크섬 추출 패턴이 이전 버전(0.7.29-dev)을 가리키던 불일치를 발견해 현재 패키지명(0.7.30-dev)으로 수정했습니다. 해당 workflow는 아직 실행하지 않았습니다.
+
 ## 3. Android 1.0 출시 필수 조건
 
 Issue #141만을 최종 완료 기준으로 사용합니다.
