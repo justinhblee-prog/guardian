@@ -44,8 +44,8 @@ $javacCommand = Get-Command javac -ErrorAction SilentlyContinue
 if (-not $javaCommand -or -not $javacCommand) { throw 'JDK 17 이상이 필요합니다. java와 javac가 모두 PATH에 있어야 합니다.' }
 $javaVersionText = (& java -version 2>&1 | Out-String)
 $javaVersionMatch = [regex]::Match($javaVersionText, 'version\s+"(\d+)')
-if ($LASTEXITCODE -ne 0 -or -not $javaVersionMatch.Success -or [int]$javaVersionMatch.Groups[1].Value -lt 17) {
-  throw 'Android 빌드에는 JDK 17 이상이 필요합니다. 현재 java 버전을 확인하세요.'
+if ($LASTEXITCODE -ne 0 -or -not $javaVersionMatch.Success -or @('17', '21') -notcontains $javaVersionMatch.Groups[1].Value) {
+  throw 'Guardian Android 빌드에는 JDK 17 또는 21이 필요합니다. 현재 java 버전을 확인하세요.'
 }
 $sdkPath = if ($env:ANDROID_SDK_ROOT) {
   $env:ANDROID_SDK_ROOT
