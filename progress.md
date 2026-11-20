@@ -215,3 +215,13 @@
 - 보상 해제는 서버의 활성화 응답을 앱이 수신한 뒤 토큰 검증/저장에 실패한 경우에 적용됩니다. 서버가 DB 커밋한 직후 응답이 네트워크에서 유실되거나 응답 JSON을 읽기 전에 연결이 끊긴 경우에는 앱이 licenseRef를 알 수 없어 이 경로로 해제할 수 없습니다.
 - 이 불확실한 결과 구간을 완전히 해결하려면 activation request idempotency/pending-attempt recovery를 API와 앱 저장소에 함께 설계해야 합니다. 현재는 해당 미구현 구간을 완료로 표시하지 않으며, 임의의 'device binding 전체 해제' API를 추가해 다른 활성 등록을 부주의하게 끊는 방식은 채택하지 않았습니다.
 - 소스 정적 검토만 수행했습니다. API/PostgreSQL 및 Android JUnit/실기기 검증은 미실행입니다.
+
+
+## 2026-11-20 활성화 응답 유실 복구 — 멱등성 구현
+- API 활성화 요청에 UUID requestId를 지원하고, 트랜잭션 내 pg_advisory_xact_lock으로 동일 요청의 동시 재전송을 직렬화합니다.
+- 최초 활성화 시 요청 ID, 기기 바인딩, 라이선스 키 HMAC lookup fingerprint, 최초 서명 응답을 activation_requests에 원자적으로 저장합니다. DB 커밋 후 HTTP 응답이 유실되어도 같은 requestId·기기·키로 재시도하면 최초 응답을 재생합니다. 다른 키/기기 조합으로 requestId를 재사용하면 409를 반환합니다.
+- Android는 활성화 요청 ID와 key/device fingerprint를 SharedPreferences에 먼저 commit하고, 서명 토큰 검증 및 저장이 성공할 때까지 같은 ID를 재사용합니다. 성공 시 pending request ID를 제거합니다. 네트워크 오류/응답 유실 시 다음 시도에서 동일 요청을 복구합니다.
+- 기존 클라이언트 호환을 위해 requestId 누락은 허용하되, 해당 호출에는 응답 유실 재시도 보장이 없습니다.
+- 신규 DB schema와 기존 DB용 migration 005를 추가하고 README에 적용/운영 주의사항을 기록했습니다. PostgreSQL 통합 테스트에 동일 응답 replay, 단일 activation/event 보장, ID 오용 409 케이스를 추가했습니다.
+- 아직 미검증: 실제 PostgreSQL migration 적용, Node test suite 실행, Android JUnit/Gradle, 실제 네트워크 응답 차단 재현. migration 005 적용 전 운영 API에 새 Android 클라이언트를 배포하면 activation_requests 테이블 부재로 활성화가 실패하므로 서버 migration 선적용이 필수입니다.
+- activation_requests 보존 레코드의 정리/TTL 정책은 미구현이며 운영 배포 전 확정이 필요합니다.
