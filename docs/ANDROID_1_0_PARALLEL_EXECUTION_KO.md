@@ -111,3 +111,9 @@ C License + support ────┘                                  │        
 - 필터 manifest URL의 HTTPS URI 포트 범위를 명시적으로 검사하도록 수정(포트 생략 또는 1–65535만 허용).
 - 서명이 정상이어도 범위를 벗어난 포트를 가진 URL을 거부하는 회귀 테스트 추가.
 - 원격 소스 재조회로 코드/테스트 반영을 확인했으며, Android JUnit 실행은 미실행.
+
+
+## 2026-11-20 — Redirect hardening
+
+- HTTPS 필터 리디렉션이 fragment 또는 범위를 벗어난 port를 포함하면 요청을 시작하지 않고 거부하도록 보강.
+- 잘못된 포트와 fragment 리디렉션 회귀 테스트 추가. 원격 소스 재조회 확인 완료, Android JUnit 미실행.
