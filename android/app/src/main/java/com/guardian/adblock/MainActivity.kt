@@ -1521,6 +1521,8 @@ class MainActivity : Activity() {
                     }
                 }
                 addView(checkButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+                // Check automatically when Settings is opened; keep manual retry available.
+                checkButton.post { if (checkButton.isEnabled) checkButton.performClick() }
                 // Check automatically whenever the user opens Settings; retain the button for manual retry.
                 checkButton.post { if (checkButton.isEnabled) checkButton.performClick() }
                 addView(installUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
