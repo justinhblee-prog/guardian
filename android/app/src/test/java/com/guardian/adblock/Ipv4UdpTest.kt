@@ -94,6 +94,33 @@ class Ipv4UdpTest {
         assertNull(Ipv4Udp.parseDns(packet, packet.size))
     }
 
+    @Test fun acceptsValidNonzeroIpv4UdpChecksum() {
+        val packet = ByteArray(31)
+        packet[0] = 0x45
+        packet[2] = 0
+        packet[3] = packet.size.toByte()
+        packet[9] = 17
+        packet[12] = 10
+        packet[15] = 1
+        packet[16] = 10
+        packet[19] = 2
+        packet[20] = 0x30
+        packet[21] = 0x39
+        packet[22] = 0
+        packet[23] = 53
+        packet[24] = 0
+        packet[25] = 11
+        packet[28] = 1
+        packet[29] = 2
+        packet[30] = 3
+        sealUdpChecksum(packet, 20, 11)
+        sealHeader(packet, 20)
+
+        val parsed = Ipv4Udp.parseDns(packet, packet.size)
+        assertNotNull(parsed)
+        assertArrayEquals(byteArrayOf(1, 2, 3), parsed!!.payload)
+    }
+
     @Test fun rejectsInvalidNonzeroIpv4UdpChecksum() {
         val packet = ByteArray(28)
         packet[0] = 0x45
@@ -134,6 +161,34 @@ class Ipv4UdpTest {
     }
 
     private fun sealHeader(packet: ByteArray, headerLength: Int) {
+    private fun sealUdpChecksum(packet: ByteArray, offset: Int, length: Int) {
+        packet[offset + 6] = 0
+        packet[offset + 7] = 0
+        var sum = 0L
+        var i = 12
+        while (i < 20) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or
+                (packet[i + 1].toInt() and 0xff)).toLong()
+            i += 2
+        }
+        sum += 17L
+        sum += length.toLong()
+        i = offset
+        val end = offset + length
+        while (i + 1 < end) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or
+                (packet[i + 1].toInt() and 0xff)).toLong()
+            i += 2
+        }
+        if (i < end) sum += ((packet[i].toInt() and 0xff) shl 8).toLong()
+        while ((sum ushr 16) != 0L) sum = (sum and 0xffff) + (sum ushr 16)
+        var checksum = sum.inv().toInt() and 0xffff
+        if (checksum == 0) checksum = 0xffff
+        packet[offset + 6] = (checksum ushr 8).toByte()
+        packet[offset + 7] = checksum.toByte()
+    }
+
+
         packet[10] = 0
         packet[11] = 0
         var sum = 0L
