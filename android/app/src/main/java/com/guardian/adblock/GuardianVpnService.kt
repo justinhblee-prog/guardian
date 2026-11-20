@@ -92,10 +92,14 @@ class GuardianVpnService : VpnService() {
         private val DNS_DIAGNOSTIC_SEQUENCE = DnsDiagnosticSequence()
         private const val DNS_STATS_BROADCAST_INTERVAL_MS = 500L
 
-        internal fun reserveDnsDiagnosticWrite(): Long = DNS_DIAGNOSTIC_SEQUENCE.reserve()
+        internal fun reserveDnsDiagnosticWrite(): Long = synchronized(DNS_STATS_LOCK) {
+            DNS_DIAGNOSTIC_SEQUENCE.reserve()
+        }
         internal fun isDnsDiagnosticWriteCurrent(sequence: Long): Boolean =
             DNS_DIAGNOSTIC_SEQUENCE.isCurrent(sequence)
-        internal fun invalidateDnsDiagnosticWrites(): Long = DNS_DIAGNOSTIC_SEQUENCE.invalidate()
+        internal fun invalidateDnsDiagnosticWrites(): Long = synchronized(DNS_STATS_LOCK) {
+            DNS_DIAGNOSTIC_SEQUENCE.invalidate()
+        }
         @Volatile private var tunnelActive = false
         fun isTunnelActive(): Boolean = tunnelActive
     }
