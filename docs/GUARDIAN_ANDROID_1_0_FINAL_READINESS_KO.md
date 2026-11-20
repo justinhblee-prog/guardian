@@ -478,3 +478,9 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 
 - 문의 조회 코드 검증을 Unicode 문자 판정이 아닌 ASCII base64url 문자 집합으로 제한했습니다(`A-Z`, `a-z`, `0-9`, `-`, `_`). 서버가 발급하는 base64url 토큰과 정확히 맞추고 비ASCII 유사 입력을 요청 전에 거부합니다.
 - 비ASCII 문자를 포함한 회귀 테스트를 추가했으며 독립 Kotlin/JVM 하네스에서 해당 거부 시나리오를 포함한 이메일·접수번호·조회코드 3개 검증을 다시 통과했습니다.
+## 2026-11-20 — 고객 지원 접수 API 경계 검증
+
+- 문의 제목·내용의 trim 후 길이와 NUL 제어 문자 거부, 문의 유형 allowlist(question/bug/suggestion/billing/license)를 공통 정책으로 분리했습니다.
+- 문의 화면에서 사전 검증하고, `LicenseApiClient.submitSupportTicket()`에서도 같은 검증을 강제해 다른 호출 경로가 검증을 우회하지 못하게 했습니다. 전송 문자열도 서버와 동일하게 trim한 값으로 정규화합니다.
+- NUL 문자를 실제로 포함한 테스트 케이스를 수정해 검증이 실질적으로 수행되도록 했습니다.
+- 독립 Kotlin/JVM 하네스에서 제목/내용 길이·NUL, 카테고리 allowlist, 이메일, 접수 번호, 조회 코드 총 5개 검증 그룹을 통과했습니다. Android Gradle/JUnit 및 실제 API/DB는 미실행입니다.
