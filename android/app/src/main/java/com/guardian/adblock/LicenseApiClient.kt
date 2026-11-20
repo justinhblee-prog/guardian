@@ -245,13 +245,21 @@ internal object LicenseApiClient {
         context: Context,
         ticketRef: String,
         accessToken: String
-    ): JSONObject = post(
-        context,
-        "/v1/support/tickets/lookup",
-        JSONObject()
-            .put("ticketRef", ticketRef.trim().uppercase())
-            .put("accessToken", accessToken.trim())
-    )
+    ): JSONObject {
+        val normalizedRef = SupportInputPolicy.normalizeTicketReference(ticketRef)
+            ?: throw IllegalArgumentException("문의 접수 번호 형식이 올바르지 않습니다.")
+        val normalizedToken = accessToken.trim()
+        require(SupportInputPolicy.isValidAccessToken(normalizedToken)) {
+            "문의 조회 코드 형식이 올바르지 않습니다."
+        }
+        return post(
+            context,
+            "/v1/support/tickets/lookup",
+            JSONObject()
+                .put("ticketRef", normalizedRef)
+                .put("accessToken", normalizedToken)
+        )
+    }
 
     private fun pendingActivationRequestId(context: Context, licenseKey: String, deviceBinding: String): String {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
