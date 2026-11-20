@@ -67,6 +67,10 @@ $aaptPath = Join-Path $sdkPath 'build-tools\35.0.0\aapt.exe'
 if (-not (Test-Path -LiteralPath $aaptPath -PathType Leaf)) {
   throw "Android Build Tools aapt.exe를 찾을 수 없습니다: $aaptPath"
 }
+$apksignerPath = Join-Path $sdkPath 'build-tools\35.0.0\apksigner.bat'
+if (-not (Test-Path -LiteralPath $apksignerPath -PathType Leaf)) {
+  throw "Android Build Tools apksigner.bat를 찾을 수 없습니다: $apksignerPath"
+}
 if (-not (Get-Command gradle -ErrorAction SilentlyContinue)) { throw 'Gradle 8.9를 설치하고 PATH에 등록하세요. 이 저장소에는 Gradle Wrapper가 포함되어 있지 않습니다.' }
 if ($InstallToConnectedDevice -and -not (Get-Command adb -ErrorAction SilentlyContinue)) { throw '실기기 설치/화면 캡처에는 Android SDK Platform Tools(adb)가 필요합니다.' }
 $gradleVersion = (& gradle --version 2>&1 | Out-String)
@@ -106,6 +110,106 @@ if (-not $packageMatch.Success -or
     $packageMatch.Groups['version'].Value -ne $expectedVersionName) {
   throw "APK package/version metadata mismatch. Expected com.guardian.adblock $expectedVersionName ($expectedVersionCode); got $packageLine"
 }
+$signatureReport = (& $apksignerPath verify --verbose --print-certs $apkSource 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0) { throw 'APK 서명 검증에 실패했습니다.' }
+$signerMatch = [regex]::Match($signatureReport, '(?im)^Signer #1 certificate SHA-256 digest: (?<fingerprint>[0-9a-f:]{64,95})\s*$hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $apkTarget).Hash.ToLowerInvariant()
+$apkSize = (Get-Item -LiteralPath $apkTarget).Length
+$checksum = $hash + '  Guardian-AdBlock-Debug.apk' + [Environment]::NewLine
+[System.IO.File]::WriteAllText((Join-Path $outputDir 'SHA256SUMS.txt'), $checksum, [System.Text.UTF8Encoding]::new($false))
+$gitCommit = 'unavailable'
+if (Get-Command git -ErrorAction SilentlyContinue) {
+  $candidateCommit = (& git -C $RepoRoot rev-parse HEAD 2>$null | Out-String).Trim()
+  if ($LASTEXITCODE -eq 0 -and $candidateCommit) { $gitCommit = $candidateCommit }
+}
+$buildReport = @(
+  'Guardian Android Debug Build Verification'
+  "Timestamp: $(Get-Date -Format o)"
+  "Git commit: $gitCommit"
+  "Java: $($javaVersionMatch.Groups[1].Value)"
+  'Gradle: 8.9'
+  'Android SDK platform: 35'
+  "Package: $($packageMatch.Groups['name'].Value)"
+  "Version name: $($packageMatch.Groups['version'].Value)"
+  "Version code: $($packageMatch.Groups['code'].Value)"
+  "APK size bytes: $apkSize"
+  "APK SHA-256: $hash"\n  "Signer certificate SHA-256: $signerFingerprint"
+  'Unit tests: Gradle testDebugUnitTest task completed successfully'
+  'Lint: Gradle lintDebug task completed successfully'
+  'APK assembly: Gradle assembleDebug task completed successfully'
+  'Device verification: NOT RUN unless InstallToConnectedDevice was supplied'
+)
+[IO.File]::WriteAllText((Join-Path $outputDir 'build-verification.txt'), ($buildReport -join [Environment]::NewLine) + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+Write-Host "Android debug APK: $apkTarget"
+Write-Host "Build verification: $(Join-Path $outputDir 'build-verification.txt')"
+Write-Host "SHA-256: $hash"\nWrite-Host "Signer certificate SHA-256: $signerFingerprint"
+Write-Host '이 APK는 노트북에서 생성한 서명 공개키를 포함합니다. 앱 설정에서 공개 HTTPS 서버 주소를 입력한 뒤 서명 필터/라이선스 연동을 사용할 수 있습니다.'
+
+if ($InstallToConnectedDevice) {
+  $adb = (Get-Command adb -ErrorAction Stop).Source
+  $deviceLines = @(& $adb devices)
+  if ($LASTEXITCODE -ne 0) { throw 'adb devices 실행에 실패했습니다.' }
+  $connected = @($deviceLines | Select-Object -Skip 1 | Where-Object { $_ -match '^\S+\s+device(?:\s|$)' })
+  if ($connected.Count -ne 1) {
+    throw "실기기 자동 검증은 adb 연결 기기가 정확히 1대일 때만 진행합니다. 현재 연결된 기기 수: $($connected.Count)"
+  }
+  $deviceId = ($connected[0] -split '\s+')[0]
+  $manufacturer = (& $adb -s $deviceId shell getprop ro.product.manufacturer).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($manufacturer)) { throw '연결 기기의 제조사 확인에 실패했습니다.' }
+  $model = (& $adb -s $deviceId shell getprop ro.product.model).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($model)) { throw '연결 기기의 모델 확인에 실패했습니다.' }
+  $androidRelease = (& $adb -s $deviceId shell getprop ro.build.version.release).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($androidRelease)) { throw '연결 기기의 Android 버전 확인에 실패했습니다.' }
+  if ($manufacturer -notmatch 'Samsung') {
+    Write-Warning "연결 기기는 Samsung이 아닙니다: $manufacturer $model. 일반 Android 설치 확인만 수행합니다."
+  }
+  & $adb -s $deviceId install -r $apkTarget
+  if ($LASTEXITCODE -ne 0) { throw '연결 기기에 Guardian debug APK 설치 실패' }
+  & $adb -s $deviceId shell am force-stop com.guardian.adblock
+  if ($LASTEXITCODE -ne 0) { throw '기존 Guardian 프로세스 종료 실패' }
+  $launchOutput = @(& $adb -s $deviceId shell am start -W -n com.guardian.adblock/.MainActivity)
+  if ($LASTEXITCODE -ne 0 -or ($launchOutput -join [Environment]::NewLine) -notmatch 'Status:\s*ok') {
+    throw "Guardian MainActivity 실행 실패: $($launchOutput -join ' ')"
+  }
+  Start-Sleep -Seconds 5
+  $processId = (& $adb -s $deviceId shell pidof com.guardian.adblock).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($processId)) {
+    $processList = @(& $adb -s $deviceId shell ps -A)
+    if ($LASTEXITCODE -ne 0 -or -not ($processList | Where-Object { $_ -match '\bcom\.guardian\.adblock\b' })) {
+      throw 'Guardian 화면 실행 후 앱 프로세스가 유지되지 않습니다. 앱 시작 직후 종료되었을 수 있습니다.'
+    }
+  }
+  $captureDir = Join-Path $outputDir ('DeviceCapture-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+  New-Item -ItemType Directory -Force -Path $captureDir | Out-Null
+  $remoteShot = '/sdcard/guardian-debug-screen.png'
+  $localShot = Join-Path $captureDir 'main-screen.png'
+  try {
+    & $adb -s $deviceId shell screencap -p $remoteShot
+    if ($LASTEXITCODE -ne 0) { throw 'Android 화면 캡처 실패' }
+    & $adb -s $deviceId pull $remoteShot $localShot
+    if ($LASTEXITCODE -ne 0) { throw '화면 캡처 파일을 노트북으로 가져오지 못했습니다.' }
+    $shot = [IO.File]::ReadAllBytes($localShot)
+    if ($shot.Length -lt 8 -or [Convert]::ToHexString($shot[0..7]) -ne '89504E470D0A1A0A') {
+      throw '가져온 화면 캡처가 유효한 PNG 파일이 아닙니다.'
+    }
+  } finally {
+    & $adb -s $deviceId shell rm -f $remoteShot | Out-Null
+  }
+  $deviceReport = @(
+    "Manufacturer: $manufacturer"
+    "Model: $model"
+    "Android: $androidRelease"
+    "APK SHA-256: $hash"
+    "Installed, launched and process alive: PASS"
+    "Main screen capture: main-screen.png"
+    "Note: screenshot capture confirms launch/render availability only; VPN, DNS blocking, license activation and billing still require separate functional checks."
+  ) -join [Environment]::NewLine
+  [IO.File]::WriteAllText((Join-Path $captureDir 'device-verification.txt'), $deviceReport + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+  Write-Host "Device verification report: $(Join-Path $captureDir 'device-verification.txt')"
+  Write-Host "Main screen screenshot: $(Join-Path $captureDir 'main-screen.png')"
+}
+)
+if (-not $signerMatch.Success) { throw 'APK 서명은 검증됐지만 서명 인증서 SHA-256 지문을 확인하지 못했습니다.' }
+$signerFingerprint = $signerMatch.Groups['fingerprint'].Value.ToLowerInvariant()
 Copy-Item -LiteralPath $apkSource -Destination $apkTarget -Force
 $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $apkTarget).Hash.ToLowerInvariant()
 $apkSize = (Get-Item -LiteralPath $apkTarget).Length
