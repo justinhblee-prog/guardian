@@ -92,6 +92,18 @@ class ManifestTimestampStoreTest {
     }
 
     @Test
+    fun restoreRepairsCorruptSourceTimestampWithoutResettingOtherSources() {
+        val (file, store) = newStore()
+        file.writeText("base-adblock=corrupt\\nsecurity=1500\\n")
+
+        store.restore("base-adblock", 2500L)
+
+        val reopened = ManifestTimestampStore(file)
+        assertEquals(2500L, reopened.lastAccepted("base-adblock"))
+        assertEquals(1500L, reopened.lastAccepted("security"))
+    }
+
+    @Test
     fun concurrentStoreInstancesDoNotLoseIndependentSourceUpdates() {
         val (file, _) = newStore()
         val failure = AtomicReference<Throwable?>(null)
