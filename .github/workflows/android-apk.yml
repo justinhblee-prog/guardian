@@ -367,7 +367,9 @@ jobs:
           GUARDIAN_CURRENT_VERSION_NAME: 0.7.34-dev
         # Keep the APK artifact even if emulator infrastructure or VPN E2E fails.
         continue-on-error: true
-        timeout-minutes: 30
+        # Bound a wedged ADB/emulator boot so the job reaches its diagnostic
+        # and final-report steps instead of sitting on a silent runner.
+        timeout-minutes: 20
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -401,7 +403,9 @@ jobs:
           EMULATOR_PID=$!
           echo "Started emulator PID=$EMULATOR_PID, log=$AVD_LOG"
           ready=0
-          for attempt in $(seq 1 600); do
+          # 480 x 2 seconds = 16 minutes maximum boot wait; the step
+          # has a 20-minute hard limit to leave time for diagnostics/reporting.
+          for attempt in $(seq 1 480); do
             if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
               echo "Emulator process exited before ADB registration."
               break
@@ -415,7 +419,7 @@ jobs:
               fi
             fi
             if (( attempt % 15 == 0 )); then
-              echo "Waiting for emulator boot ($attempt/600); ADB state=${state:-missing}"
+              echo "Waiting for emulator boot ($attempt/480); ADB state=${state:-missing}"
               adb devices -l || true
               tail -n 30 "$AVD_LOG" || true
             fi
