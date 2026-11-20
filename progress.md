@@ -123,3 +123,13 @@
 - **반영 커밋**: `facafdc1384af15e85cdc4d83c6af9ec676c94c0` (Windows migration script), `4c71c03e6d3ae4bebea4313e61904457840d9607` (PostgreSQL integration test).
 - **실행 상태**: migration 스크립트와 테스트 소스 변경은 GitHub에 반영했으나, 노트북 Docker/PostgreSQL에서 실제 migration 재실행 및 `/ready`, 고객 API 확인은 이 실행 환경에서 노트북에 접근할 수 없어 미실행입니다. 기존 DB 데이터는 삭제/초기화하지 않았습니다.
 - **Android 검증 상태**: Android Gradle compile/unit/lint, APK 조립, 화면 실행 및 Samsung 실기기 검증은 미실행입니다. Actions는 사용자 비용/runner 제한을 유지하기 위해 실행하지 않았습니다.
+
+
+## 2026-11-20 Android 실기기 설치/화면 캡처 자동화 추가
+
+- Windows `Build-GuardianAndroid-Debug.ps1`에 선택적 `-InstallToConnectedDevice` 옵션을 추가했습니다.
+- 기본 빌드 동작은 기존대로 단위 테스트 → Lint → Debug APK 조립 → SHA-256 생성입니다.
+- 옵션 사용 시 ADB 연결 기기가 정확히 1대인지 확인하고, 제조사/모델/Android 버전을 읽은 뒤 APK 설치, `MainActivity` 실행, 메인 화면 PNG 캡처, 기기 검증 텍스트 보고서를 `%LOCALAPPDATA%\\Guardian\\outputs\\DeviceCapture-*`에 저장합니다. Samsung 외 기기면 제조사 경고를 기록합니다.
+- 캡처는 앱 시작/화면 렌더링 확인이며 VPN·DNS 차단·라이선스·결제 기능 E2E를 대체하지 않는다고 보고서에 명시했습니다.
+- Windows README에 실행 명령을 추가했습니다. 실제 빌드/설치/캡처는 노트북과 USB 연결 기기에 접근할 수 없어 아직 실행되지 않았습니다.
+- GitHub Actions 실행/PR/merge는 수행하지 않았습니다.
