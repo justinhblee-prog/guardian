@@ -145,6 +145,33 @@ class Ipv6UdpTest {
         assertNotNull(Ipv6Udp.parseDns(loopback, loopback.size))
     }
 
+    @Test fun sharedIpv6WalkerRejectsUnsupportedAndMisplacedExtensions() {
+        val unsupported = ByteArray(56)
+        unsupported[0] = 0x60
+        unsupported[4] = 0
+        unsupported[5] = 16
+        unsupported[6] = 139 // HIP: opaque skipping could mis-handle packet semantics
+        unsupported[40] = 17
+        unsupported[41] = 0
+        assertNull(Ipv6ExtensionHeaderParser.transportOffset(
+            unsupported, unsupported.size, expectedNextHeader = 17, minimumTransportBytes = 8
+        ))
+
+        val misplacedHopByHop = ByteArray(64)
+        misplacedHopByHop[0] = 0x60
+        misplacedHopByHop[4] = 0
+        misplacedHopByHop[5] = 24
+        misplacedHopByHop[6] = 60
+        misplacedHopByHop[40] = 0
+        misplacedHopByHop[41] = 0
+        misplacedHopByHop[48] = 17
+        misplacedHopByHop[49] = 0
+        assertNull(Ipv6ExtensionHeaderParser.transportOffset(
+            misplacedHopByHop, misplacedHopByHop.size,
+            expectedNextHeader = 17, minimumTransportBytes = 8
+        ))
+    }
+
     private fun queryPacket(): ByteArray {
         val dns = byteArrayOf(1, 2, 3, 4)
         val packet = ByteArray(40 + 8 + dns.size)
