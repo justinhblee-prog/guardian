@@ -1308,7 +1308,7 @@ class MainActivity : Activity() {
         val apiReady = LicenseApiClient.configuredBaseUrl(this).isNotBlank() &&
             BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank()
 
-        body.addView(text("Guardian Premium", 26f, white, true))
+        body.addView(text("라이선스 및 프리미엄", 26f, white, true))
         body.addView(text(
             "프리미엄 보안 기능과 PRO 라이선스를 한곳에서 관리합니다.",
             13f, muted, false
@@ -1425,9 +1425,94 @@ class MainActivity : Activity() {
         ).withTop(14))
     }
 
+    private fun settingsCategoryRow(
+        title: String,
+        description: String,
+        iconName: String,
+        onClick: () -> Unit
+    ): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4), dp(14), dp(4), dp(14))
+            isClickable = true
+            isFocusable = true
+            val out = android.util.TypedValue()
+            theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)
+            if (out.resourceId != 0) background = ContextCompat.getDrawable(this@MainActivity, out.resourceId)
+            val symbol = when (iconName) {
+                "smartphone" -> "▣"
+                "filter" -> "☷"
+                "license" -> "♙"
+                "support" -> "▤"
+                "info" -> "ⓘ"
+                else -> "⇥"
+            }
+            addView(text(symbol, 25f, accent, true), LinearLayout.LayoutParams(dp(42), dp(42)))
+            val labels = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(text(title, 16f, white, true))
+                addView(text(description, 12f, muted, false).withTop(4))
+            }
+            addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text("›", 28f, muted, false))
+            setOnClickListener { onClick() }
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(row)
+            addView(View(this@MainActivity).apply { setBackgroundColor(Color.rgb(55, 65, 81)) },
+                LinearLayout.LayoutParams(-1, dp(1)))
+        }
+    }
+
     private fun buildSettings(body: LinearLayout) {
         body.addView(text("설정", 25f, white, true))
-        body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
+        body.addView(text("Guardian의 주요 기능과 계정·앱 설정을 관리합니다.", 13f, muted, false).withTop(5))
+        body.addView(settingsCategoryRow("일반", "앱 모양과 기본 동작 관리", "smartphone") {
+            contentScrollView?.smoothScrollTo(0, dp(280))
+        }.withTop(18))
+        body.addView(settingsCategoryRow("필터링", "DNS 서버, 필터 및 사용자 규칙 구성", "filter") {
+            AlertDialog.Builder(this)
+                .setTitle("필터링 설정")
+                .setItems(arrayOf("보호 및 DNS 설정", "사용자 필터 규칙")) { _, which ->
+                    showTab(if (which == 0) "protection" else "rules")
+                }
+                .setNegativeButton("닫기", null)
+                .show()
+        })
+        body.addView(settingsCategoryRow("라이선스 및 프리미엄", "라이선스 활성화, 갱신, 업그레이드 및 기기 관리", "license") {
+            showTab("premium")
+        })
+        body.addView(settingsCategoryRow("고객 지원", "문제 신고 또는 피드백 전송", "support") {
+            AlertDialog.Builder(this)
+                .setTitle("고객 지원")
+                .setItems(arrayOf("자주 묻는 질문 (Q&A)", "문의 및 의견 보내기", "내 문의 답변 확인")) { _, which ->
+                    when (which) {
+                        0 -> showSupportFaq()
+                        1 -> showSupportSubmitDialog()
+                        else -> showSupportLookupDialog()
+                    }
+                }
+                .setNegativeButton("닫기", null)
+                .show()
+        })
+        body.addView(settingsCategoryRow("정보", "앱 정보 및 법적 문서 확인", "info") {
+            AlertDialog.Builder(this)
+                .setTitle("Guardian 정보")
+                .setMessage("Guardian AdBlock\n버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n\n개인정보 보호와 오픈소스 라이선스 정보는 배포 문서에서 확인할 수 있습니다.")
+                .setPositiveButton("확인", null)
+                .show()
+        })
+        body.addView(settingsCategoryRow("종료", "앱 종료 · 보호 VPN은 별도 정책에 따라 유지됩니다", "exit") {
+            AlertDialog.Builder(this)
+                .setTitle("Guardian 종료")
+                .setMessage("앱을 종료하시겠습니까?\n\n종료해도 실행 중인 DNS 보호 VPN은 별도로 중지하지 않는 한 계속 실행됩니다.")
+                .setNegativeButton("취소", null)
+                .setPositiveButton("종료") { _, _ -> finish() }
+                .show()
+        })
+        body.addView(text("앱 및 서버 세부 설정", 17f, white, true).withTop(22))
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         if (BuildConfig.DEBUG) {
             val updateStatus = text(
@@ -2361,11 +2446,9 @@ class MainActivity : Activity() {
         }
         val items = listOf(
             Triple("home", "⌂", "홈"),
-            Triple("protection", "◈", "보호 설정"),
+            Triple("protection", "◈", "보호"),
             Triple("app-exclusions", "◉", "앱 제외"),
-            Triple("activity", "▤", "DNS 활동"),
-            Triple("premium", "✦", "프리미엄"),
-            Triple("rules", "≡", "필터 규칙"),
+            Triple("activity", "▤", "활동"),
             Triple("settings", "⚙", "설정")
         )
         items.forEach { (id, icon, label) ->
