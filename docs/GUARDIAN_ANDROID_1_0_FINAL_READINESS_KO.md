@@ -3,7 +3,7 @@
 - 기준일: 2026-11-20 (KST)
 - 저장소: https://github.com/justinhblee-prog/guardian
 - 작업 브랜치: `feature/android-support-center-mainline`
-- 최종 판정: **출시 미완료 — 검증 및 외부 증거 필요**\n- 최신 브랜치 비교: `main` 대비 120 commits ahead / 0 behind / 31 files changed (2026-11-20 조회).
+- 최종 판정: **출시 미완료 — 검증 및 외부 증거 필요**\n- 최신 브랜치 비교: 최신 브랜치 비교 수치는 GitHub compare를 실시간 재조회해 확인합니다.
 
 ## 목표
 
@@ -103,3 +103,12 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - **하위 화면 뒤로가기**: 일반·필터링·고객 지원·라이선스 하위 화면에서 Android 뒤로가기를 누르면 설정 목록으로 복귀하도록 정리했습니다. 프리미엄 내부 화면은 통합 라이선스 화면으로 돌아갑니다.
 - **검증 현황 재확인**: GitHub Actions의 해당 개발 브랜치 workflow run 조회 결과 0건입니다. Android 빌드·unit test·lint·APK 생성이 수행된 기록이 없으며, Samsung 실기기 접근/실행도 이 세션에서 제공되지 않습니다. 수동 실행 전용 병렬 검증 workflow는 workflow_dispatch만 허용하고, Android APK workflow에는 main push/PR 자동 실행 조건이 있으므로 feature 브랜치 직접 push로 테스트를 유발하지 않았습니다.
 - **노트북 라이선스 운영 준비 구분**: 저장소의 Windows 운영 안내에 따르면 노트북에서 운영 공개키/API/DB/개인키를 유지하고, Android Debug APK는 노트북에서 공개키를 주입해 빌드합니다. 정식 Release signing은 별도 keystore 및 GitHub secret 등록 스크립트가 필요하며, 전체 운영 설정은 실제 Tailscale /ready와 필터 재배포 승인 증빙을 검사합니다. 현재 세션은 노트북 파일시스템·Docker·DPAPI·keytool·gh CLI에 접속할 수 없어 해당 작업 완료 여부를 실측할 수 없습니다. 비밀키를 채팅이나 저장소로 옮기지 않습니다.
+
+
+## 2026-11-20 Windows 라이선스 설치 스크립트 보완
+
+- 기존 DB migration 스크립트가 고객 디렉터리 migration `004_customers.sql`을 누락하던 문제를 수정했습니다.
+- 적용 순서는 002 → 003 → 004이며, 완료 조건은 `api_rate_limit_buckets`, `support_tickets`, `customers` 테이블 및 `licenses.customer_id/order_ref` 컬럼 확인입니다.
+- PostgreSQL integration test에도 004 반복 적용 및 고객 스키마 assertion을 추가했습니다.
+- 변경 소스는 GitHub feature branch에 반영했습니다. 노트북 DB에서의 실제 적용·API 준비 상태·고객 API 검증은 미실행이며, 기존 데이터/키를 건드리지 않았습니다.
+- Android compile/test/lint/APK, emulator 화면 및 Samsung 실기기 검증도 아직 실행 증거가 없습니다. Actions workflow는 실행하지 않았습니다.
