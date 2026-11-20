@@ -18,6 +18,12 @@ internal object ResponsiveLayoutPolicy {
     fun usesTwoColumnDashboard(screenWidthDp: Int): Boolean =
         screenWidthDp >= WIDE_DASHBOARD_BREAKPOINT_DP
 
+    /** Keeps the top-level navigation selection visible while nested settings pages are open. */
+    fun selectedNavigationTab(tab: String): String = when (tab) {
+        "settings-general", "settings-filtering", "settings-support", "settings-license", "premium", "rules" -> "settings"
+        else -> tab
+    }
+
     fun contentAreaWidthDp(screenWidthDp: Int): Int {
         require(screenWidthDp > 0) { "screenWidthDp must be positive" }
         val railWidth = if (usesNavigationRail(screenWidthDp)) NAVIGATION_RAIL_WIDTH_DP else 0
