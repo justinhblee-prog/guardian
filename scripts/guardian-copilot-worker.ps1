@@ -70,38 +70,75 @@ if ($LASTEXITCODE -ne 0) {
     return
 }
 
-$copilot = Get-Command copilot -ErrorAction SilentlyContinue
-if (-not $copilot) {
-    $winget = Get-Command winget -ErrorAction SilentlyContinue
-    if (-not $winget) {
-        Write-WorkerThrottled 'copilotMissingLoggedAt' 'Copilot CLI is missing and WinGet is unavailable. No AI credits were consumed; source/CI work continues independently.'
-        return
+$agentKind = $null
+$aider = Get-Command aider -ErrorAction SilentlyContinue
+$python = Get-Command python -ErrorAction SilentlyContinue
+$py = Get-Command py -ErrorAction SilentlyContinue
+$localModel = 'qwen2.5-coder:7b'
+$env:OLLAMA_API_BASE = 'http://127.0.0.1:11434'
+$ollamaReady = $false
+try {
+    $tags = Invoke-RestMethod -Uri "$($env:OLLAMA_API_BASE)/api/tags" -TimeoutSec 8
+    $installedModel = @($tags.models | Where-Object {
+        $_.name -eq $localModel -or $_.model -eq $localModel
+    })
+    $ollamaReady = $installedModel.Count -gt 0
+} catch {
+    Write-WorkerThrottled 'ollamaUnavailableLoggedAt' 'Local Ollama endpoint is unavailable; checking the Copilot CLI fallback.' 6
+}
+
+if ($ollamaReady) {
+    if ($aider) {
+        & $aider.Source --version *> $null
+        if ($LASTEXITCODE -eq 0) { $agentKind = 'aider-exe' }
     }
-    $lastInstall = $null
-    if ($state['copilotInstallAttemptedAt']) {
-        try { $lastInstall = [DateTimeOffset]::Parse([string]$state['copilotInstallAttemptedAt']) } catch {}
+    if (-not $agentKind -and $python) {
+        & $python.Source -m aider --version *> $null
+        if ($LASTEXITCODE -eq 0) { $agentKind = 'aider-python' }
     }
-    if ($lastInstall -and ([DateTimeOffset]::UtcNow - $lastInstall).TotalHours -lt 6) {
-        return
+    if (-not $agentKind -and $py) {
+        & $py.Source -m aider --version *> $null
+        if ($LASTEXITCODE -eq 0) { $agentKind = 'aider-launcher' }
     }
-    $state['copilotInstallAttemptedAt'] = [DateTimeOffset]::UtcNow.ToString('o')
-    Save-WorkerState
-    Write-WorkerLog 'Installing the official GitHub Copilot CLI for the current Windows user via WinGet; no Copilot session starts during installation.'
-    & winget install --id GitHub.Copilot --exact --silent --accept-source-agreements --accept-package-agreements 2>&1 |
-        Tee-Object -FilePath (Join-Path $LogRoot 'copilot-install.log')
-    if ($LASTEXITCODE -ne 0) {
-        Write-WorkerLog "WinGet Copilot CLI installation failed with exit code $LASTEXITCODE. No AI credit was consumed."
-        return
-    }
-    $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $env:PATH = @($machinePath, $userPath) -join ';'
+}
+if ($agentKind) {
+    Write-WorkerLog "Local coding model ready: Aider + Ollama $localModel. This route uses the local model and does not consume remote AI credits."
+} else {
+    Write-WorkerLog 'Aider/Ollama local model is not ready; checking GitHub Copilot CLI as a fallback.'
     $copilot = Get-Command copilot -ErrorAction SilentlyContinue
     if (-not $copilot) {
-        Write-WorkerLog 'WinGet reported success, but copilot.exe is not visible in this process PATH yet. The next agent cycle will re-check.'
-        return
+        $winget = Get-Command winget -ErrorAction SilentlyContinue
+        if (-not $winget) {
+            Write-WorkerThrottled 'copilotMissingLoggedAt' 'Copilot CLI is missing and WinGet is unavailable. No AI credits were consumed; source/CI work continues independently.'
+            return
+        }
+        $lastInstall = $null
+        if ($state['copilotInstallAttemptedAt']) {
+            try { $lastInstall = [DateTimeOffset]::Parse([string]$state['copilotInstallAttemptedAt']) } catch {}
+        }
+        if ($lastInstall -and ([DateTimeOffset]::UtcNow - $lastInstall).TotalHours -lt 6) {
+            return
+        }
+        $state['copilotInstallAttemptedAt'] = [DateTimeOffset]::UtcNow.ToString('o')
+        Save-WorkerState
+        Write-WorkerLog 'Installing the official GitHub Copilot CLI for the current Windows user via WinGet; no Copilot session starts during installation.'
+        & winget install --id GitHub.Copilot --exact --silent --accept-source-agreements --accept-package-agreements 2>&1 |
+            Tee-Object -FilePath (Join-Path $LogRoot 'copilot-install.log')
+        if ($LASTEXITCODE -ne 0) {
+            Write-WorkerLog "WinGet Copilot CLI installation failed with exit code $LASTEXITCODE. No AI credit was consumed."
+            return
+        }
+        $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        $env:PATH = @($machinePath, $userPath) -join ';'
+        $copilot = Get-Command copilot -ErrorAction SilentlyContinue
+        if (-not $copilot) {
+            Write-WorkerLog 'WinGet reported success, but copilot.exe is not visible in this process PATH yet. The next agent cycle will re-check.'
+            return
+        }
+        Write-WorkerLog 'Copilot CLI is installed and visible. Existing gh authentication will be used as the CLI credential fallback when eligible.'
     }
-    Write-WorkerLog 'Copilot CLI is installed and visible. Existing gh authentication will be used as the CLI credential fallback when eligible.'
+    $agentKind = 'copilot'
 }
 $branchName = 'automation/copilot-guardian-' + (Get-Date -Format 'yyyyMMdd')
 $existingRemote = & git -C $RepoRoot ls-remote --heads origin $branchName 2>$null
