@@ -12,7 +12,7 @@ internal object FilterRedirectPolicy {
         val external = url.toExternalForm()
         // java.net.URL is deliberately permissive (for example, it accepts raw
         // spaces in paths); URI parsing rejects malformed request targets.
-        if (external.any { it.code <= 0x20 || it.code == 0x7f || it == '\\\\' }) return false
+        if (external.any { it.code <= 0x20 || it.code == 0x7f || it.code == 92 }) return false
         val uri = try {
             URI(external)
         } catch (_: Exception) {
