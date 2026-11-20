@@ -1,6 +1,6 @@
 # Guardian 프로젝트 통합 인수인계서
 
-> 기준일: 2026-11-20 (KST)  
+> 기준일: 2026-11-21 (KST)  
 > 저장소: `justinhblee-prog/guardian` / 기본 브랜치 `main`  
 > 단일 Android 출시 게이트: [Issue #141](https://github.com/justinhblee-prog/guardian/issues/141)
 
@@ -39,10 +39,14 @@ Issue #141만을 최종 완료 기준으로 사용합니다.
 
 ### 4.1 Android 앱
 
-- PR #205 설명에 기록된 Android 개발 APK: `com.guardian.adblock`, `0.7.29-dev`, versionCode 42, SHA-256 `00d6b867d81ac3791f5b8b759349360084899b3be17ee295623287d8836e61fe`. 개발용 Debug 서명본이며 Production 1.0 APK가 아닙니다.
-- PR #205의 Android API 35 에뮬레이터 테스트 기록에는 앱 제외, 사용자 DNS 규칙, 앱 업데이트 후 VPN 복구, 선택 앱 실행 중 자동 일시중지/종료 후 재개, Home 보호 시작/중지가 포함됩니다.
-- PR #205 고객지원 UI 수용 테스트는 Settings 스크롤 위치 때문에 실패한 이력이 있습니다. 스크롤을 상단으로 초기화하는 수정 커밋 `d8b1d0f1f676555163f802a33650eb2be796cdc4`가 PR head의 조상 커밋임을 확인했습니다. 이 수정이 포함된 최신 head의 후속 Actions 성공은 아직 확인되지 않았습니다.
-- 실제 Samsung 기기 VPN/DNS, `Library file not found`, 네트워크 전환 및 장시간 복구는 별도 미검증입니다.
+- 최신 확인된 개발 APK: `com.guardian.adblock`, `0.7.34-dev`, versionCode 47, 3,210,279 bytes.
+- APK SHA-256: `9daa4663b90b98e5800fe66dbc50978bebee6a1aa74ce853af8974a6c52c7804`.
+- Source ZIP: `Guardian-AdBlock-Source-v0.7.34-dev.zip`, 674,030 bytes; SHA-256 `c2306943346b534bd1dc95f0a159ba4020964004e9b1a787648d8cb00cec7a67`.
+- Exact-head Android workflow [44766753106](https://github.com/justinhblee-prog/guardian/actions/runs/44766753106) passed unit tests, lint, APK identity/checksum, API 35 emulator upgrade/install, VPN DNS allow/block, custom rules, app exclusions, update recovery, Support Center FAQ/form/private lookup, foreground-app auto-pause/resume and Home protection start/stop.
+- This is a development-signed Debug APK and emulator evidence, not a production-signed release or Samsung physical-device acceptance.
+- The historical handset-only `Library file not found` message remains undiagnosed. The inspected APK includes the bundled `assets/filter_rules.txt`; the app does not bundle app-owned JNI/native libraries. The actual caller must be identified from the handset's safe `GuardianProtection` stack summary and installed app version.
+- The Android Settings-entry update check and cooldown policy are integrated. The v0.7.34 exact-head build and emulator acceptance are verified; stable production update remains gated by production signing and endpoint configuration.
+- The local AI coding worker is implemented in `scripts/guardian-copilot-worker.ps1` and wired into the Git agent, but it is **not yet proven operational**: the Windows self-hosted Aider/Qwen runner has not produced a successful real-inference log and generated draft PR.
 
 ### 4.2 License API / PostgreSQL
 
@@ -50,10 +54,10 @@ Issue #141만을 최종 완료 기준으로 사용합니다.
 
 - Docker API 및 PostgreSQL 컨테이너가 healthy 상태.
 - 로컬 및 Tailscale HTTPS `/ready` 응답 HTTP 200, database와 signer ready.
-- 운영 DB/기존 RSA 서명키를 사용한 QA 흐름에서 라이선스 발급, 기기 활성화 및 서명 entitlement 발급, 활성 상태 조회, entitlement 갱신, 기기 비활성화, Free 상태 확인, QA 라이선스 회수까지 통과.
+- QA 흐름에서 라이선스 발급, 기기 활성화 및 서명 entitlement, active 조회, entitlement 갱신, 기기 비활성화, Free 상태 확인, QA 라이선스 회수까지 7개 항목 모두 통과.
 - 기존 DB 백업과 운영 RSA 키는 유지했습니다. 키 회전, DB 초기화, Actions 비용/runner 설정 변경은 하지 않았습니다.
 
-이는 License API 서버 측 lifecycle 및 DB 연결 검증입니다. Android 앱 실기기 연동, 결제 웹훅, Samsung 실결제 검증은 아닙니다. QA 고객/회수 라이선스/감사 이벤트의 최종 잔존 건수는 별도 조회 결과가 없으므로 단정하지 않습니다.
+서버 측 License API/DB lifecycle 검증은 완료로 기록하며 동일 테스트를 반복하지 않습니다. PR #224는 최신 고객 디렉터리와 Support Center/admin inbox 통합을 main에 반영했고, License API/지원 흐름의 CI PostgreSQL 테스트도 통과한 이력이 있습니다. Android 앱의 실제 운영 endpoint 연결, 결제 webhook, Samsung 실결제 검증은 별도 항목입니다.
 
 ### 4.3 필터 배포
 
@@ -68,15 +72,22 @@ Issue #141만을 최종 완료 기준으로 사용합니다.
 - 상품 코드 및 관리자 수동 발급은 결제 연동이 아닙니다. 서명된 결제 webhook, 중복 이벤트 방지, 환불/취소/갱신 동기화와 체험판 중복 발급 방지는 상용 판매 전 별도 구현·검증이 필요합니다.
 - Lifetime은 진정한 무기한 entitlement와 폐기/갱신/오프라인 검증이 구현되기 전에는 발급하지 않습니다.
 
-## 5. PR #205 — 고객지원센터 및 라이선스 운영
+## 5. 고객지원센터 / 라이선스 운영 통합
 
-- PR: [#205](https://github.com/justinhblee-prog/guardian/pull/205), Draft, branch `feature/support-center-license-plans`.
-- 구현 범위: Android FAQ/문의 접수/비밀 코드 조회, 서버 support ticket API, 관리자 문의함, 라이선스 기간 상품 코드 검증, migration 003 및 Windows migration runner.
-- PR head: `9f70290ae90cab8f305a5dabb019d5ba98f29b8b`.
-- 현재 main 대비 58 commits ahead / 5 behind, GitHub mergeable=false로 확인했습니다. 이 상태로 병합하지 않습니다.
-- PR 설명은 License API 53/53 테스트, PowerShell 스크립트 파싱, Android Debug/에뮬레이터 검증을 기록합니다. 다만 고객지원 UI acceptance 실패 후 수정이 포함된 head의 후속 Actions 완료는 별도 확인이 필요합니다.
-- migration 003은 PR에 추가되어 있지만 운영 노트북 DB에 적용 완료로 간주하지 않습니다. 실제 적용 전 백업·마이그레이션·검증 절차가 필요합니다.
-- 다음 처리: main과 변경사항을 파일/API/schema 단위로 재조정하고, migration 004 및 PEM 수정과 충돌을 해결한 통합 브랜치에서 테스트를 재실행합니다. 단순히 PR의 base를 바꾸거나 mergeable 상태를 강제하지 않습니다.
+- PR #224 `Add parallel Guardian engineering orchestrator`가 2026-11-20 main에 merge commit `1eb4bc55b21cf6352c55923b491502b920630abb`로 반영되었습니다.
+- 현재 고객 디렉터리/라이선스 관리 흐름을 보존한 Support Center, FAQ/문의 접수/비밀 코드 조회, 관리자 문의함, 라이선스 상품 기간 검증, migration 003/004 통합이 main에 포함됩니다.
+- 기존 PR #205는 58개 이상 커밋이 분기되고 mergeable=false였으며, 변경 경로 19개 중 18개가 PR #224에 포함되어 2026-11-21 superseded 상태로 종료했습니다. 유일하게 남은 handoff 문서는 main의 이 문서를 별도로 갱신합니다.
+- 이전 PR #220/#223도 PR #224의 통합 결과로 대체되어 종료했습니다. 이 종료는 병합을 의미하지 않습니다.
+- 노트북 DB에 migration을 다시 적용하거나 기존 DB를 초기화하지 않았습니다. 사용자 제공 결과의 실제 운영 DB 상태를 보존합니다.
+- 관리자 이메일 알림, 결제 webhook, 중복 결제 이벤트 처리, 실결제 및 Lifetime entitlement는 상용 판매 전 별도 검증이 필요합니다.
+
+## 5.1 병렬 개발 자동화 상태
+
+- `.github/workflows/guardian-engineering-orchestrator.yml`은 Android build/unit/lint, backend/API/Compose, repository integrity를 독립 job으로 검증하고 aggregate decision은 fail-closed로 동작합니다.
+- `scripts/guardian-git-agent.ps1`은 PR 유지관리와 CI 로그 수집을 수행하며, `scripts/guardian-copilot-worker.ps1`을 주기 실행에 연결합니다.
+- 코딩 worker는 로컬 Aider/Ollama Qwen을 우선 확인하고, 준비되지 않았을 때 Copilot CLI를 보조 경로로 사용합니다. Copilot의 credit soft limit은 무료 사용 보증이 아닙니다.
+- Windows PC에서 실제 Qwen 추론 성공 로그 또는 Copilot 작업 로그와 생성된 draft PR이 확인되기 전에는 로컬 AI 구현 자동화가 운영 중이라고 판정하지 않습니다.
+- GitHub Actions는 build/test/verification만 수행합니다. GitHub Actions가 스스로 AI 코드를 작성한다고 설명하지 않습니다.
 
 ## 6. Android 출시 이후 Windows 작업
 
