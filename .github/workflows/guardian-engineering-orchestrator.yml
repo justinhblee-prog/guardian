@@ -73,10 +73,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: |
-            server/license-api/package-lock.json
-            server/filter-distribution/package-lock.json
       - name: Discover and run package test suites
         shell: bash
         run: |
