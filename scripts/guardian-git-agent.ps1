@@ -186,6 +186,16 @@ function Invoke-Agent {
         }
     }
     Invoke-Git $Repo @('worktree', 'prune') -AllowFailure | Out-Null
+    $copilotWorker = Join-Path $PSScriptRoot 'guardian-copilot-worker.ps1'
+    if (Test-Path -LiteralPath $copilotWorker) {
+        try {
+            & $copilotWorker -RepoRoot $Repo -LogRoot $LogRoot
+        } catch {
+            Write-Log "Copilot implementation worker failed safely: $($_.Exception.Message)"
+        }
+    } else {
+        Write-Log 'Copilot implementation worker is not present in this checkout; PR maintenance remains active.'
+    }
     Write-Log 'Automation cycle finished. See log for updated, skipped, and blocked PRs.'
 }
 function Invoke-AgentWithLock {
