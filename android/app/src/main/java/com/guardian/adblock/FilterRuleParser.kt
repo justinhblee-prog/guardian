@@ -109,9 +109,42 @@ object FilterRuleParser {
             '^' in hostExpression -> return null
             else -> hostExpression
         }
+        val modifierSeparator = expression.indexOf('        if (host.isEmpty() || host.contains('*') || host.contains('/') || host.contains('|')) return null
+        return normalize(host, requireDomainName = true)
+    }
+
+    private fun addDomain(raw: String, destination: MutableSet<String>): Boolean {
+        val domain = normalize(raw.trim()) ?: return false
+        destination.add(domain)
+        return true
+    }
+
+    private fun normalize(raw: String, requireDomainName: Boolean = false): String? {
+        val domain = raw.trim().trimEnd('.').lowercase(Locale.ROOT)
+        if (domain.length !in 1..253) return null
+        val labels = domain.split('.')
+        if (requireDomainName && labels.size < 2) return null
+        if (!labels.all { label ->
+                label.isNotEmpty() && label.length <= 63 &&
+                    (label.first() in 'a'..'z' || label.first() in '0'..'9') &&
+                    (label.last() in 'a'..'z' || label.last() in '0'..'9') &&
+                    label.all { it in 'a'..'z' || it in '0'..'9' || it == '-' }
+            }) return null
+        return domain
+    }
+}
+)
         val modifiers = modifierTokens(expression)
+        // An explicit modifier suffix must contain unique, non-empty tokens.
+        // Treat malformed forms such as "$", "$,important", and "$important,"
+        // as unsupported instead of broadening them into a whole-domain DNS rule.
+        if (modifierSeparator >= 0 && (
+                modifiers.isEmpty() ||
+                    modifiers.any { it.isBlank() } ||
+                    modifiers.map { it.lowercase(Locale.ROOT) }.distinct().size != modifiers.size
+            )) return null
         val supportedModifiers = setOf("important", "all", "badfilter")
-        if (modifiers.any { it.isNotBlank() && it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
+        if (modifiers.any { it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
         if (host.isEmpty() || host.contains('*') || host.contains('/') || host.contains('|')) return null
         return normalize(host, requireDomainName = true)
     }
