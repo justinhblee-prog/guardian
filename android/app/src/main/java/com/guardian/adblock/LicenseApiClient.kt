@@ -121,7 +121,7 @@ internal object LicenseApiClient {
     fun activate(context: Context, licenseKey: String, appVersion: String): LicenseEntitlementVerifier.Entitlement {
         require(licenseKey.isNotBlank() && licenseKey.length <= 100) { "라이선스 키를 확인하세요." }
         check(LicenseEntitlementStore.currentForRefresh(context) == null) {
-            "이 기기에 활성 PRO 라이선스가 이미 등록되어 있습니다. 기존 라이선스를 먼저 해제한 뒤 새 키를 활성화하세요."
+            "이 기기에 기존 라이선스 등록 정보가 남아 있습니다. 만료된 등록도 포함되므로 기존 라이선스를 먼저 해제한 뒤 새 키를 활성화하세요."
         }
         // Fail locally before the server allocates a device activation slot.
         validateLicensePublicKeyConfiguration(BuildConfig.LICENSE_PUBLIC_KEY)
