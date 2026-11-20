@@ -128,3 +128,21 @@ class ManifestTimestampStoreTest {
         }
     }
 }
+
+
+    @Test
+    fun restoreSalvagesValidSourcesWhenPropertiesContainsMalformedUnicodeEscape() {
+        val (file, store) = newStore()
+        file.writeText("base-adblock=1000\\nsecurity=1500\\nbroken=\\\\uZZZZ\\n")
+
+        try {
+            store.lastAccepted("base-adblock")
+            throw AssertionError("malformed properties must fail closed before repair")
+        } catch (_: IllegalStateException) { }
+
+        store.restore("base-adblock", 2500L)
+
+        val reopened = ManifestTimestampStore(file)
+        assertEquals(2500L, reopened.lastAccepted("base-adblock"))
+        assertEquals(1500L, reopened.lastAccepted("security"))
+    }
