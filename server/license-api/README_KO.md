@@ -59,7 +59,7 @@ openssl pkey -in guardian-license-private.pem -pubout -out guardian-license-publ
 docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup.sql
 ```
 
-`schema.sql`은 빈 데이터 볼륨 최초 생성 시에만 자동 실행됩니다. 기존 DB에는 배포 전에 `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_shared_rate_limit_buckets.sql`로 공유 rate-limit 테이블 migration을 적용해야 합니다. 이후 스키마 변경도 별도 migration으로 적용해야 합니다. 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
+`schema.sql`은 빈 데이터 볼륨 최초 생성 시에만 자동 실행됩니다. 기존 DB에는 배포 전에 migration 002(공유 rate-limit), 003(고객지원 티켓), 004(고객 디렉터리), 005(활성화 요청 멱등성)를 순서대로 적용해야 합니다. Windows 운영 스크립트 `windows/Apply-GuardianLicenseMigrations.ps1`는 백업 후 002~005를 순서대로 적용하고 필수 테이블을 검증합니다. 이후 스키마 변경도 별도 migration으로 적용해야 합니다. 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
 
 ## API
 - `POST /v1/licenses/activate`: `{ "requestId": "<UUID v4>", "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`. 모바일 앱은 요청 ID를 로컬에 먼저 영속화하고, 서명 토큰 저장이 성공할 때까지 재시도에 같은 ID를 사용합니다. 구형 클라이언트는 requestId 생략이 가능하지만 응답 유실 복구 멱등성은 제공되지 않습니다.
@@ -81,7 +81,7 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 활성화/갱신 성공 시 `payload`, `signature`, `expiresIn`을 반환합니다. 서버는 `Bearer` 인증 스킴을 엄격히 요구하며, `expiresIn`은 서명된 `expiresAt - issuedAt`과 일치합니다. Android 앱에는 개인키가 아닌 동일 RSA 키쌍의 X.509 공개키를 `GUARDIAN_LICENSE_PUBLIC_KEY` 빌드 환경 변수로 주입해야 합니다. 앱은 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증합니다.
 
 ## 고객 디렉터리 DB 마이그레이션
-기존 데이터베이스에는 `migrations/004_customers.sql`을 한 번 적용해야 합니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
+기존 데이터베이스에는 `migrations/004_customers.sql` 및 `migrations/005_activation_idempotency.sql`을 각각 한 번 적용해야 합니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
 
 ## 라이선스 상품 및 기간 검증
 관리자 발급 화면은 다음 고정 상품과 직접 입력(custom)을 제공합니다.
