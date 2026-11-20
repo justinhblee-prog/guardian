@@ -46,8 +46,16 @@ class DnsTcpSessionManager(
         val key = Key(tcp.version, tcp.source.joinToString("") { "%02x".format(it) },
             tcp.destination.joinToString("") { "%02x".format(it) }, tcp.sourcePort)
         if (tcp.rst) {
-            sessions.remove(key)
-            return emptyList()
+            val existing = sessions[key] ?: return emptyList()
+            // A matching 4-tuple is not sufficient to trust a reset: stale or
+            // spoofed RST packets must not tear down an active DNS stream.
+            // Accept only an exact next-sequence reset; otherwise challenge it
+            // with the current ACK without changing session state.
+            if (tcp.sequence == existing.clientNext) {
+                sessions.remove(key)
+                return emptyList()
+            }
+            return listOf(ack(tcp, existing))
         }
 
         if (tcp.syn && !tcp.ack) {
