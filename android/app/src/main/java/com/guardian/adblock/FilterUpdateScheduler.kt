@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.ExistingWorkPolicy
+import androidx.work.workDataOf
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
@@ -32,6 +35,8 @@ internal object FilterStartupPolicy {
 /** Keeps one persistent periodic refresh request aligned with the user's settings. */
 object FilterUpdateScheduler {
     const val UNIQUE_WORK_NAME = "guardian_periodic_filter_update"
+    const val RECOVERY_WORK_NAME = "guardian_filter_failure_recovery"
+    const val KEY_FORCE_RECOVERY = "force_filter_recovery"
     const val DEFAULT_INTERVAL_MS = 24L * 60L * 60L * 1000L
     const val MIN_INTERVAL_MS = 15L * 60L * 1000L
     internal fun normalizeInterval(intervalMs: Long): Long = intervalMs.coerceAtLeast(MIN_INTERVAL_MS)
@@ -47,6 +52,31 @@ object FilterUpdateScheduler {
     internal fun selectionIndex(intervalMs: Long, supportedIntervals: List<Long>, defaultIndex: Int): Int {
         val index = supportedIntervals.indexOf(intervalMs)
         return if (index >= 0) index else defaultIndex.coerceIn(0, (supportedIntervals.size - 1).coerceAtLeast(0))
+    }
+
+    /**
+     * Retry a failed manual/startup refresh independently of the recurring-update
+     * preference. This is one-shot recovery, not an opt-in periodic schedule.
+     */
+    fun enqueueRecovery(context: Context) {
+        val appContext = context.applicationContext
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val request = OneTimeWorkRequestBuilder<FilterUpdateWorker>()
+            .setInputData(workDataOf(KEY_FORCE_RECOVERY to true))
+            .setConstraints(constraints)
+            .setBackoffCriteria(
+                androidx.work.BackoffPolicy.EXPONENTIAL,
+                30L,
+                TimeUnit.SECONDS
+            )
+            .build()
+        WorkManager.getInstance(appContext).enqueueUniqueWork(
+            RECOVERY_WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            request
+        )
     }
 
     fun sync(context: Context) {
