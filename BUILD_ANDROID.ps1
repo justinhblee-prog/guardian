@@ -64,6 +64,56 @@ if (!(Test-Path $Apk)) { throw "Build returned success but APK was not found: $A
 $ApkItem = Get-Item $Apk
 if ($ApkItem.Length -le 0) { throw "APK exists but is empty: $Apk" }
 
+$ApkEntries = (& $Aapt list $Apk 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0) { throw "aapt could not list APK contents. See $BuildLog" }
+if ($ApkEntries -notmatch '(?m)^assets/filter_rules\.txt\s*
+if ($LASTEXITCODE -ne 0) { throw "aapt could not inspect the APK. See $BuildLog" }
+$PackageLine = ($Badging -split '\r?\n' | Where-Object { $_ -match "^package:" } | Select-Object -First 1)
+if ([string]::IsNullOrWhiteSpace($PackageLine)) { throw 'APK package metadata is missing from aapt output.' }
+$PackageMatch = [regex]::Match($PackageLine, "^package:\s+name='(?<name>[^']+)'\s+versionCode='(?<code>[^']+)'\s+versionName='(?<version>[^']+)'")
+if (!$PackageMatch.Success) { throw "APK package metadata could not be parsed: $PackageLine" }
+if ($PackageMatch.Groups['name'].Value -ne 'com.guardian.adblock' -or
+    $PackageMatch.Groups['code'].Value -ne $ExpectedVersionCode -or
+    $PackageMatch.Groups['version'].Value -ne $ExpectedVersionName) {
+    throw "APK metadata mismatch. Expected com.guardian.adblock $ExpectedVersionName ($ExpectedVersionCode); got $PackageLine"
+}
+
+$ArtifactApk = Join-Path $OutputRoot 'Guardian-debug.apk'
+Copy-Item -LiteralPath $Apk -Destination $ArtifactApk
+$Hash = (Get-FileHash -LiteralPath $ArtifactApk -Algorithm SHA256).Hash.ToLowerInvariant()
+$GitCommit = 'unavailable'
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    $GitCommitCandidate = (& git -C $Root rev-parse HEAD 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -eq 0 -and $GitCommitCandidate) { $GitCommit = $GitCommitCandidate }
+}
+$Report = @(
+    'Guardian Android Debug Build Verification'
+    "Timestamp: $(Get-Date -Format o)"
+    "Git commit: $GitCommit"
+    "Java: $($JavaMatch.Groups['major'].Value)"
+    'Gradle: 8.9'
+    'Android SDK platform: 35'
+    "Package: $($PackageMatch.Groups['name'].Value)"
+    "Version name: $($PackageMatch.Groups['version'].Value)"
+    "Version code: $($PackageMatch.Groups['code'].Value)"
+    "APK size bytes: $((Get-Item $ArtifactApk).Length)"
+    "APK SHA-256: $Hash"
+    'Unit tests: Gradle task completed successfully'
+    'Lint: Gradle task completed successfully'
+    'APK assembly: completed successfully'
+    'Device verification: NOT RUN by this script'
+)
+$ReportPath = Join-Path $OutputRoot 'verification.txt'
+$Report | Set-Content -LiteralPath $ReportPath -Encoding UTF8
+Write-Host ''
+Write-Host '[PASS] Android unit tests, lint, APK assembly and metadata verification'
+Write-Host "APK: $ArtifactApk"
+Write-Host "SHA-256: $Hash"
+Write-Host "Evidence: $OutputRoot"
+) {
+    throw 'APK is missing assets/filter_rules.txt. The app cannot load its mandatory bundled DNS baseline.'
+}
+
 $Badging = (& $Aapt dump badging $Apk 2>&1 | Out-String)
 if ($LASTEXITCODE -ne 0) { throw "aapt could not inspect the APK. See $BuildLog" }
 $PackageLine = ($Badging -split '\r?\n' | Where-Object { $_ -match "^package:" } | Select-Object -First 1)
