@@ -49,15 +49,32 @@ function Invoke-Agent {
     $failureLog = Join-Path $LogRoot 'latest-ci-failures.log'
     Set-Content -LiteralPath $failureLog -Value ('Guardian CI failure audit: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')) -Encoding UTF8
     foreach ($run in $failedRuns) {
-        Add-Content -LiteralPath $failureLog -Value (([Environment]::NewLine + '## Run {0}: {1} | branch={2} | commit={3} | {4}') -f $run.databaseId, $run.name, $run.headBranch, $run.headSha, $run.url) -Encoding UTF8
+        $classification = 'workflow_failure_unclassified'
+        $detailsJson = & gh run view ([string]$run.databaseId) --repo $OwnerRepo --json jobs 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            try {
+                $details = $detailsJson | ConvertFrom-Json
+                $jobs = @($details.jobs)
+                $startedSteps = @($jobs | ForEach-Object { $_.steps } | Where-Object { $_.status -in @('completed', 'in_progress') })
+                $failedSteps = @($jobs | ForEach-Object { $_.steps } | Where-Object { $_.conclusion -eq 'failure' })
+                if ($jobs.Count -gt 0 -and $startedSteps.Count -eq 0) {
+                    $classification = 'runner_or_job_start_failure'
+                } elseif ($failedSteps.Count -gt 0) {
+                    $classification = 'workflow_step_failure'
+                }
+            } catch {
+                $classification = 'workflow_failure_unclassified'
+            }
+        }
+        Add-Content -LiteralPath $failureLog -Value (([Environment]::NewLine + '## Run {0}: {1} | class={2} | branch={3} | commit={4} | {5}') -f $run.databaseId, $run.name, $classification, $run.headBranch, $run.headSha, $run.url) -Encoding UTF8
         $failedLog = & gh run view ([string]$run.databaseId) --repo $OwnerRepo --log-failed 2>&1
         $logExit = $LASTEXITCODE
         if ($logExit -eq 0) {
             Add-Content -LiteralPath $failureLog -Value ($failedLog -join [Environment]::NewLine) -Encoding UTF8
-            Write-Log ('Captured failed CI logs for run {0}.' -f $run.databaseId)
+            Write-Log ('Captured failed CI logs for run {0} ({1}).' -f $run.databaseId, $classification)
         } else {
             Add-Content -LiteralPath $failureLog -Value ('Failed to retrieve logs (exit {0}): {1}' -f $logExit, ($failedLog -join [Environment]::NewLine)) -Encoding UTF8
-            Write-Log ('CI run {0} failed; log retrieval also failed.' -f $run.databaseId)
+            Write-Log ('CI run {0} classified as {1}; log retrieval also failed.' -f $run.databaseId, $classification)
         }
     }
     Write-Log ('Recent CI runs inspected: {0}; failed runs with logs requested: {1}.' -f $runs.Count, $failedRuns.Count)
