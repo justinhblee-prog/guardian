@@ -62,13 +62,13 @@ DB에는 조회 코드 원문 대신 SHA-256 해시만 저장합니다. 관리�
 
 ## 5. 기존 운영 DB 반영
 
-기존 DB에는 migrations/003_support_tickets.sql이 필요합니다. 통합 브랜치의 Apply-GuardianLicenseMigrations.ps1는 PostgreSQL 준비 확인, 외부 경로 백업, migration 002/003 적용, 테이블 존재 검사, API 이미지 재빌드와 /ready 검증을 순서대로 수행하도록 작성되었습니다.
+기존 DB에는 migration 002/003/004가 순서대로 필요합니다. 통합 브랜치의 Apply-GuardianLicenseMigrations.ps1는 PostgreSQL 준비 확인, 외부 경로 백업 파일 크기 확인, migration 002_shared_rate_limit_buckets.sql → 003_support_tickets.sql → 004_customers.sql 순차 적용, api_rate_limit_buckets/support_tickets/customers 테이블 및 licenses.customer_id/order_ref 컬럼 검증, API 이미지 재빌드와 /ready 검증을 순서대로 수행하도록 작성되었습니다.
 
 PowerShell 7.2에서 다음 스크립트를 실행하도록 설계되어 있습니다.
 
     ./Apply-GuardianLicenseMigrations.ps1
 
-실제 사용자 노트북 운영 DB에는 아직 적용됐다고 간주하지 않습니다. 실행 직전 기존 백업 유효성, 현재 컨테이너 및 데이터 경로를 확인해야 합니다. 실패하면 새 초기 DB를 만들거나 기존 DB를 삭제하지 말고 백업과 오류를 보존합니다. schema.sql에도 신규 설치용 support_tickets 정의가 포함됩니다.
+실제 사용자 노트북 운영 DB에는 현재 세션에서 재적용 또는 최신 상태 확인을 하지 않았으므로 적용 완료로 간주하지 않습니다. 과거에 사용자가 migration 및 /ready 성공 로그를 제공한 적은 있지만, 이는 현재 시점의 재검증 증거가 아닙니다. 실행 직전 기존 백업 유효성, 현재 컨테이너 및 데이터 경로를 확인해야 합니다. 실패하면 새 초기 DB를 만들거나 기존 DB를 삭제하지 말고 백업과 오류를 보존합니다. schema.sql에도 신규 설치용 support_tickets 정의가 포함됩니다.
 
 ## 6. 출시 전 검증 및 보류 항목
 
