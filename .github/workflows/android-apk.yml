@@ -145,7 +145,7 @@ jobs:
           keytool -list -v -keystore android/guardian-dev.keystore -storepass android -alias androiddebugkey | grep -F 'ED:AE:EC:C9:E4:A2:7E:64:F0:7D:92:64:3F:B8:51:40:72:50:83:AB:ED:55:3F:91:2A:0D:EE:03:87:FB:D8:2C'
       - name: Assemble previous dev version for upgrade test
         run: |
-          gradle -p android --no-daemon -PguardianVersionCode=44 -PguardianVersionName=0.7.32-dev assembleDebug
+          gradle -p android --no-daemon -PguardianVersionCode=45 -PguardianVersionName=0.7.32-dev assembleDebug
           cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.32-dev.apk
 
       - name: Assemble current debug APK for build verification
@@ -182,7 +182,7 @@ jobs:
         run: |
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
-          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='45' versionName='0.7.33-dev'"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='46' versionName='0.7.33-dev'"
 
       - name: Verify APK exists and calculate checksum
         shell: bash
@@ -235,7 +235,7 @@ jobs:
           - 저장소 커밋: ${GITHUB_SHA}
           - GitHub Actions 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - versionCode: 45
+          - versionCode: 46
           - versionName: 0.7.33-dev
           - Android 단위 테스트: 통과
           - Android lintDebug: 통과
@@ -263,7 +263,7 @@ jobs:
           {
             "packageName": "com.guardian.adblock",
             "versionName": "0.7.33-dev",
-            "versionCode": 45,
+            "versionCode": 46,
             "sha256": "$SHA256",
             "signerSha256": "$SIGNER_SHA256",
             "channel": "development"
@@ -495,7 +495,7 @@ jobs:
           - 커밋: ${GITHUB_SHA}
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - 버전: 0.7.33-dev (45)
+          - 버전: 0.7.33-dev (46)
           - APK 생성 상태: ${APK_STATUS}
           - APK SHA-256: ${APK_SHA256}
           - 테스트 및 빌드 단계의 실제 결과는 위 GitHub Actions 단계 결과를 기준으로 확인합니다.
