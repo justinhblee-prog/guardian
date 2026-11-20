@@ -56,8 +56,8 @@ jobs:
           bash -n VERIFY_ANDROID_CORE.sh
           bash -n scripts/verify_android_emulator.sh
           bash -n scripts/verify_android_vpn_emulator.sh
-          python3 -m py_compile scripts/verify_guardian_crash_log.py
-          python3 -m unittest scripts/test_verify_guardian_crash_log.py
+          python3 -m py_compile scripts/verify_guardian_crash_log.py scripts/resolve_android_dialog_row.py
+          python3 -m unittest scripts/test_verify_guardian_crash_log.py scripts/test_resolve_android_dialog_row.py
 
       - name: Verify VPN manifest and branded launcher assets
         run: |
