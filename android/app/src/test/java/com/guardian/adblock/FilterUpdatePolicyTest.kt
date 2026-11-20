@@ -84,9 +84,13 @@ class FilterUpdatePolicyTest {
     }
 
     @Test
-    fun optionalFilterIsDisabledOnlyWhenFirstDownloadFailsWithoutTrustedCache() {
-        assertTrue(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hadValidCache = false))
-        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hadValidCache = true))
-        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = false, hadValidCache = false))
+    fun failedFirstOptionalDownloadRemainsDueForAutomaticRetry() {
+        assertTrue(FilterUpdatePolicy.isDue(
+            hasValidCache = false,
+            lastUpdatedAt = 0L,
+            intervalMs = 24L * 60L * 60L * 1000L,
+            now = 51_000L,
+            hasRefreshError = true
+        ))
     }
 }
