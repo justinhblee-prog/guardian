@@ -1836,7 +1836,7 @@ class MainActivity : Activity() {
                 addView(deactivateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
             }
         }.withTop(12))
-        body.addView(text("DNS 업스트림 서버", 18f, white, true).withTop(24))
+        body.addView(text("DNS 업스트림 서버 · 암호화 연결", 18f, white, true).withTop(24))
         body.addView(text("차단되지 않은 DNS 질의를 전달할 서버를 선택합니다.", 12f, muted, false).withTop(5))
         val dnsPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val knownDnsOptions = listOf(
@@ -1907,7 +1907,7 @@ class MainActivity : Activity() {
             adapter = darkSpinnerAdapter(transportOptions.map { it.first })
             setSelection(transportOptions.indexOfFirst { it.second == currentTransport }.coerceAtLeast(0))
         }
-        body.addView(text("업스트림 전송 방식", 15f, white, true).withTop(16))
+        body.addView(text("암호화 DNS · 업스트림 전송 방식", 15f, white, true).withTop(16))
         body.addView(card(panel, 14).apply {
             setPadding(dp(12), dp(5), dp(12), dp(5))
             addView(transportSpinner)
@@ -2140,7 +2140,7 @@ class MainActivity : Activity() {
         val autoUpdateCheck = CheckBox(this).apply {
             applyToggleTint(this)
             applyToggleTint(this)
-            text = "앱 실행 시 자동으로 최신 필터 확인"
+            text = "백그라운드에서 필터 자동 업데이트"
             textSize = 12f
             setTextColor(white)
             isChecked = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
@@ -2590,6 +2590,12 @@ class MainActivity : Activity() {
             .setPositiveButton("저장", null)
             .create()
         dialog.setOnShowListener {
+            // Force the entire app-picker surface to use the same dark palette as
+            // its rows. AlertDialog otherwise inherits a light window background
+            // on some Samsung/One UI theme combinations, reducing label contrast.
+            dialog.window?.setBackgroundDrawable(shape(panel, 18))
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(accent)
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(white)
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
                 isEnabled = false
                 setOnClickListener {
