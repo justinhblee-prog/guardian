@@ -20,6 +20,11 @@ on:
         required: true
         type: boolean
         default: true
+      include_postgres_integration:
+        description: Run License API PostgreSQL integration tests on an ephemeral database
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -29,7 +34,24 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    name: Validate selected parallel gates
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require at least one selected test track
+        env:
+          ANDROID: ${{ inputs.include_android_quality }}
+          LICENSE: ${{ inputs.include_license_api_unit }}
+          SOURCE: ${{ inputs.include_source_contract }}
+          POSTGRES: ${{ inputs.include_postgres_integration }}
+        run: |
+          if [[ "$ANDROID" != true && "$LICENSE" != true && "$SOURCE" != true && "$POSTGRES" != true ]]; then
+            echo "Select at least one verification track."
+            exit 1
+          fi
+
   android-quality:
+    needs: [preflight]
     name: Android unit tests and lint
     if: inputs.include_android_quality
     runs-on: ubuntu-24.04
@@ -58,6 +80,7 @@ jobs:
         run: gradle -p android --no-daemon lintDebug
 
   license-api-unit:
+    needs: [preflight]
     name: License API unit and HTTP tests
     if: inputs.include_license_api_unit
     runs-on: ubuntu-24.04
@@ -78,6 +101,7 @@ jobs:
         run: node --test test/license-core.test.mjs test/server-http.test.mjs test/admin-ui.test.mjs test/rate-limit.test.mjs
 
   source-contract:
+    needs: [preflight]
     name: Source, workflow and script contracts
     if: inputs.include_source_contract
     runs-on: ubuntu-24.04
@@ -109,10 +133,50 @@ jobs:
           abort 'Workflow must be read-only.' unless data.fetch('permissions') == { 'contents' => 'read' }
           RUBY
 
+  postgres-integration:
+    needs: [preflight]
+    name: License API PostgreSQL integration tests
+    if: inputs.include_postgres_integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: guardian
+          POSTGRES_PASSWORD: guardian-test-only
+          POSTGRES_DB: guardian_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U guardian -d guardian_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    defaults:
+      run:
+        working-directory: server/license-api
+    env:
+      DATABASE_URL: postgres://guardian:guardian-test-only@localhost:5432/guardian_test
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install API dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+      - name: Initialize disposable PostgreSQL schema
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
+      - name: Run License API PostgreSQL integration suite
+        run: node --test test/postgres-integration.test.mjs
+
   result:
     name: Parallel gate result
     if: always()
-    needs: [android-quality, license-api-unit, source-contract]
+    needs: [preflight, android-quality, license-api-unit, source-contract, postgres-integration]
     runs-on: ubuntu-24.04
     steps:
       - name: Summarize gate outcomes
@@ -120,15 +184,19 @@ jobs:
           ANDROID: ${{ needs.android-quality.result }}
           LICENSE: ${{ needs.license-api-unit.result }}
           SOURCE: ${{ needs.source-contract.result }}
+          POSTGRES: ${{ needs.postgres-integration.result }}
+          PREFLIGHT: ${{ needs.preflight.result }}
         run: |
           {
             echo '## Guardian Android 1.0 parallel gates'
             echo "- Android quality: ${ANDROID}"
             echo "- License API unit: ${LICENSE}"
             echo "- Source contracts: ${SOURCE}"
+            echo "- PostgreSQL integration: ${POSTGRES}"
             echo '- PostgreSQL integration, emulator E2E and Samsung device acceptance are separate gates and are not claimed by this workflow.'
             echo '- No APK or Production release is produced by this workflow.'
           } >> "$GITHUB_STEP_SUMMARY"
-          for result in "$ANDROID" "$LICENSE" "$SOURCE"; do
+          if [[ "$PREFLIGHT" != success ]]; then exit 1; fi
+          for result in "$ANDROID" "$LICENSE" "$SOURCE" "$POSTGRES"; do
             if [[ "$result" != success && "$result" != skipped ]]; then exit 1; fi
           done
