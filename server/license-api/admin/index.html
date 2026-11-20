@@ -96,6 +96,7 @@ button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
         <section class="panel">
           <div class="panel-head"><div><h2>새 라이선스 발급</h2><p class="muted">발급 키는 생성 직후 한 번만 표시됩니다.</p></div></div>
           <div class="issue-grid">
+            <div class="field full"><label for="planPreset">라이선스 기간 프리셋</label><select id="planPreset"><option value="annual_365d">Pro 연간 · 365일</option><option value="monthly_30d">Pro 월간 · 30일</option><option value="quarterly_90d">Pro 90일</option><option value="short_7d">Pro 단기 · 7일</option><option value="custom">직접 입력</option></select></div>
             <div class="field full"><label for="customerName">고객명</label><input id="customerName" maxlength="120" autocomplete="name" placeholder="고객 이름"></div>
             <div class="field"><label for="customerEmail">고객 이메일</label><input id="customerEmail" type="email" maxlength="254" autocomplete="email" placeholder="customer@example.com"></div>
             <div class="field"><label for="orderRef">주문번호 (선택)</label><input id="orderRef" maxlength="120" placeholder="결제 주문번호"></div>
@@ -141,6 +142,10 @@ button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
         <section class="panel">
           <div class="panel-head"><div><h2>보안 감사 기록</h2><p class="muted">최근 100건 · 발급, 활성화, 기기 해제, 정지</p></div></div>
           <div class="event-list" id="events"><div class="empty">관리자 인증이 필요합니다.</div></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><h2>고객 문의함</h2><p class="muted">고객 의견·질문·오류·결제 문의를 확인하고 답변합니다. 최근 300건</p></div></div>
+          <div class="event-list" id="supportTickets"><div class="empty">관리자 인증이 필요합니다.</div></div>
         </section>
       </div>
     </div>
