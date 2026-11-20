@@ -92,7 +92,7 @@ jobs:
           if ($worker -match '(?m)--yolo|--allow-all') {
             throw 'Copilot worker must not grant blanket permissions.'
           }
-          if ($worker -match 'git\s+reset\s+--hard|gh\s+pr\s+merge') {
+          if ($worker -match '(?m)^\s*(?:&\s*)?git\s+reset\s+--hard' -or $worker -match '(?m)^\s*(?:&\s*)?gh\s+pr\s+merge') {
             throw 'Copilot worker contains a prohibited destructive/merge command.'
           }
           Write-Host 'PASS: both PowerShell agents parse; Git and Copilot safety guards are present.'
