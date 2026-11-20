@@ -40,6 +40,8 @@ C License + support ────┘                                  │        
 | A/B 테스트 보강 | 소스 추가 / 실행 대기 | FilterUpdatePolicyTest에 캐시 누락, 주기 경계, 시계 역행, 최소 주기, optional feed 첫 다운로드 실패 정책 케이스 추가 | Android unit test job에서 컴파일·실행 확인 |
 | 필터 실패 복구 결함 수정 | 코드 반영 / 실행 대기 | 이전 다운로드·검증 오류가 있어도 유효 캐시의 갱신 시각만 보고 업데이트를 건너뛰던 문제 수정. 기본/보안/Android 광고 소스별 오류 플래그가 있으면 재시도하도록 변경하고 회귀 테스트 2개 추가 | Android unit test에서 컴파일·실행 확인 |
 | DNS 패킷 파서 회귀 테스트 | 소스 추가 / 실행 대기 | IPv4 UDP 체크섬이 0이 아닌 정상 패킷을 pseudo-header 포함 검증 후 허용하는 케이스 추가. 기존 잘못된 체크섬 거부 테스트와 함께 양방향 확인 | Android unit test에서 컴파일·실행 확인 |
+
+| IPv4 테스트 컴파일 결함 수정 | 소스 수정 / 실행 대기 | UDP checksum helper가 `sealHeader` 내부에 중첩되어 외부 테스트에서 호출할 수 없는 구조를 발견. 두 helper를 클래스 수준으로 분리해 호출 범위 오류 수정 | Android unit test compile 및 전체 테스트 실행 필요 |
 | C | 구현 존재 / 통합 검증 대기 | QA License API lifecycle은 노트북에서 통과. support ticket API/UI/migration 구현이 feature branch에 있음 | server HTTP/Postgres/admin 테스트 실행, migration 003 사전 점검, Android 연동 검증 |
 | D | 설정 준비 / 정식 산출물 없음 | Gradle은 Production signing 및 service public key/base URL을 요구. versionCode 43 기준 다음 release 최소 44 | 운영키/공개 endpoint 준비 후 release assemble, signer/checksum 및 설치 확인 |
 | E | 외부 단말 증거 대기 | Samsung 오류 보고가 있으나 정확한 호출 stack 미확정 | 진단용 privacy-filtered stack summary로 재현·수정·재시험 |
