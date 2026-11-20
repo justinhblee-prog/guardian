@@ -42,7 +42,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 외부 데이터 경로에 ACL을 적용하고 기존 `.env`는 덮어쓰지 않습니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `%LOCALAPPDATA%\Guardian\secrets\guardian-filter-private.dpapi`에 보관하고 평문 PEM 임시 파일은 삭제합니다. Docker 환경 파일, 필터 설정·dist·로그와 백업도 외부 경로에 저장합니다.
 
 ## 노트북에서 공개키를 포함한 Android APK 다시 빌드
-최초 설치 스크립트가 만든 두 공개키를 앱에 고정하려면 JDK 17 이상, Android SDK Platform 35 및 Build Tools 35.0.0, Gradle 8.9가 설치되고 `gradle` 명령이 PATH에 등록된 노트북에서 다음을 실행합니다. SDK 경로는 `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `%LOCALAPPDATA%\Android\Sdk` 순서로 자동 탐색합니다.
+최초 설치 스크립트가 만든 두 공개키를 앱에 고정하려면 JDK 17 또는 21, Android SDK Platform 35 및 Build Tools 35.0.0, Gradle 8.9가 설치되고 `gradle` 명령이 PATH에 등록된 노트북에서 다음을 실행합니다. SDK 경로는 `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `%LOCALAPPDATA%\Android\Sdk` 순서로 자동 탐색합니다.
 
 ```powershell
 ./Build-GuardianAndroid-Debug.ps1
