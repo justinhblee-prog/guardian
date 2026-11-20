@@ -1,19 +1,19 @@
 @echo off
 setlocal
-cd /d "%~dp0android"
-if exist gradlew.bat (
-  call gradlew.bat :app:testDebugUnitTest :app:assembleDebug
-) else (
-  where gradle >nul 2>nul
-  if errorlevel 1 (
-    echo Gradle not found. Install Android Studio or Gradle, open this android folder, and sync the project.
-    exit /b 1
-  )
-  call gradle :app:testDebugUnitTest :app:assembleDebug
+set "SCRIPT=%~dp0BUILD_ANDROID.ps1"
+if not exist "%SCRIPT%" (
+  echo Guardian Android build script was not found: "%SCRIPT%"
+  exit /b 2
 )
-if errorlevel 1 exit /b 1
-if not exist "app\build\outputs\apk\debug\app-debug.apk" (
-  echo Build returned success but the expected APK is missing.
-  exit /b 1
+where powershell.exe >nul 2>nul
+if errorlevel 1 (
+  echo Windows PowerShell 5.1 was not found.
+  exit /b 2
 )
-echo APK: %CD%\app\build\outputs\apk\debug\app-debug.apk
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT%"
+set "BUILD_EXIT=%ERRORLEVEL%"
+if not "%BUILD_EXIT%"=="0" (
+  echo Guardian Android verification failed with exit code %BUILD_EXIT%.
+  exit /b %BUILD_EXIT%
+)
+exit /b 0
