@@ -106,7 +106,8 @@ $Report = @(
     "Version name: $($PackageMatch.Groups['version'].Value)"
     "Version code: $($PackageMatch.Groups['code'].Value)"
     "APK size bytes: $((Get-Item $ArtifactApk).Length)"
-    "APK SHA-256: $Hash"\n    "Signer certificate SHA-256: $SignerFingerprint"
+    "APK SHA-256: $Hash"
+    "Signer certificate SHA-256: $SignerFingerprint"
     'Unit tests: Gradle task completed successfully'
     'Lint: Gradle task completed successfully'
     'APK assembly: completed successfully'
@@ -117,7 +118,8 @@ $Report | Set-Content -LiteralPath $ReportPath -Encoding UTF8
 Write-Host ''
 Write-Host '[PASS] Android unit tests, lint, APK assembly and metadata verification'
 Write-Host "APK: $ArtifactApk"
-Write-Host "SHA-256: $Hash"\nWrite-Host "Signer certificate SHA-256: $SignerFingerprint"
+Write-Host "SHA-256: $Hash"
+Write-Host "Signer certificate SHA-256: $SignerFingerprint"
 Write-Host "Evidence: $OutputRoot"
 )
 if (!$SignerMatch.Success) { throw 'APK signature was verified but the signer SHA-256 certificate fingerprint was not reported.' }
