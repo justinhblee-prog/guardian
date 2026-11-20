@@ -447,3 +447,10 @@
 - SYN-ACK 이후 첫 ACK가 serverNext와 정확히 일치하지 않아도 세션이 established로 승격될 수 있던 경로를 추가로 차단했습니다.
 - handshake 미완료 세션은 첫 ACK가 SYN-ACK의 다음 server sequence를 정확히 확인할 때만 established 전이합니다. 오래된 ACK에는 현재 ACK를 반환하고 handshake 상태를 유지합니다.
 - stale handshake ACK 후 SYN 재전송이 여전히 SYN-ACK를 받는 회귀 테스트를 추가했습니다.
+
+
+## 2026-11-20 — DoH chunk framing strictness
+
+- DoH chunked response parser no longer trims chunk-size tokens; leading/trailing whitespace is rejected to avoid accepting non-conforming message framing.
+- Chunk extensions are now parsed as RFC-style token names with optional token/quoted values; empty extensions, missing values, malformed quotes, and invalid separators are rejected.
+- Added regression cases for whitespace, empty/malformed extensions, and valid token/quoted extension values. Source-level remote verification follows; Android JUnit/Gradle execution is unavailable in this environment.
