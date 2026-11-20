@@ -3,6 +3,8 @@ package com.guardian.adblock
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class FilterUpdatePolicyTest {
     @Test
@@ -92,5 +94,37 @@ class FilterUpdatePolicyTest {
             now = 51_000L,
             hasRefreshError = true
         ))
+    }
+
+    @Test
+    fun manualAndBackgroundRefreshTransactionsCannotOverlap() {
+        val firstEntered = CountDownLatch(1)
+        val releaseFirst = CountDownLatch(1)
+        val secondFinished = CountDownLatch(1)
+        val first = Thread {
+            FilterUpdateExecutionLock.withLock {
+                firstEntered.countDown()
+                check(releaseFirst.await(5, TimeUnit.SECONDS))
+            }
+        }
+        first.start()
+        assertTrue("first refresh should acquire the transaction lock",
+            firstEntered.await(5, TimeUnit.SECONDS))
+
+        val second = Thread {
+            FilterUpdateExecutionLock.withLock { }
+            secondFinished.countDown()
+        }
+        second.start()
+        try {
+            assertFalse("a second refresh must wait for the active transaction",
+                secondFinished.await(150, TimeUnit.MILLISECONDS))
+        } finally {
+            releaseFirst.countDown()
+        }
+        assertTrue("queued refresh should proceed after the active transaction",
+            secondFinished.await(5, TimeUnit.SECONDS))
+        first.join(5000)
+        second.join(5000)
     }
 }
