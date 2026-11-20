@@ -370,3 +370,9 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - `PacketSessionOwnershipTest`에 교체된 세션 및 STOP 이후 지연된 통계 기록 차단 회귀 테스트 2건을 추가했습니다.
 - 독립 Kotlin/JVM 하네스 3개 시나리오 PASS: 이전 세션 기록 거부, 현재 세션 기록 허용, STOP 이후 지연 기록 거부.
 - Android Gradle/JUnit, APK 및 Samsung 실기기 검증은 미실행입니다.
+
+## 2026-11-20 DNS 통계 초기화·진단 기록 동기화
+- 점검 중 차단 기록 초기화 버튼이 패킷 워커의 `DNS_STATS_LOCK`을 사용하지 않아, 초기화와 동시에 들어온 DNS 이벤트가 카운터·최근 기록을 덮어쓰거나 초기화 전 값을 다시 반영할 수 있음을 확인했습니다.
+- `DNS_STATS_LOCK`을 서비스 내부 공유 잠금으로 노출하고, MainActivity의 전체 DNS 통계 초기화 트랜잭션을 같은 잠금으로 직렬화했습니다.
+- 업스트림 연결 테스트의 진단 기록 및 VPN 시작 전 DNS 사전검사 실패 진단도 동일 잠금으로 보호했습니다. 기존 패킷 카운터·무시 패킷 기록도 이 잠금 안에서 기록됩니다.
+- 소스 전체를 재검색해 DNS 통계 및 `KEY_DNS_DIAGNOSTIC` 쓰기 지점을 확인했습니다. Android 빌드/JUnit 및 Samsung 실기기 검증은 미실행입니다.
