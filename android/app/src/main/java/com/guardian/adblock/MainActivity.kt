@@ -2169,9 +2169,13 @@ class MainActivity : Activity() {
         form.addView(subject, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(9) })
         form.addView(email, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         form.addView(message, LinearLayout.LayoutParams(-1, dp(140)).apply { topMargin = dp(8) })
+        val formScroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(form)
+        }
         val dialog = AlertDialog.Builder(this)
             .setTitle("문의 및 의견 보내기")
-            .setView(form)
+            .setView(formScroll)
             .setNegativeButton("취소", null)
             .setPositiveButton("접수", null)
             .create()
