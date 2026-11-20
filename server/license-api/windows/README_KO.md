@@ -54,7 +54,7 @@ Samsung 실기기 또는 Android 기기 1대를 USB 디버깅으로 연결하고
 ./Build-GuardianAndroid-Debug.ps1 -InstallToConnectedDevice
 ```
 
-두 명령 모두 공개키를 빌드 프로세스에만 주입하고 단위 테스트·Lint·Debug APK 빌드를 실행합니다. APK와 SHA-256은 `%LOCALAPPDATA%\Guardian\outputs/`에 생성됩니다. `-InstallToConnectedDevice`는 빌드 성공 후 APK 설치, MainActivity 실행, 메인 화면 PNG 캡처와 기기 정보 보고서를 같은 출력 폴더에 추가합니다. 화면 캡처 성공은 앱 실행·렌더링 확인일 뿐 VPN 보호, DNS 차단, 라이선스 활성화 및 결제 검증을 대체하지 않습니다. 개인키는 APK에 포함되지 않습니다. 이 스크립트 산출물은 기존 개발용 서명 인증서를 사용하는 Debug APK이며, 상용 배포용 Production 서명 APK가 아닙니다. Release 서명은 별도 보호된 keystore와 Release 빌드 검증 절차가 필요합니다.
+두 명령 모두 공개키를 빌드 프로세스에만 주입하고 단위 테스트·Lint·Debug APK 빌드를 실행합니다. 빌드 후 `aapt`로 필수 `assets/filter_rules.txt`와 Guardian package ID를 검증합니다. APK와 SHA-256은 `%LOCALAPPDATA%\Guardian\outputs/`에 생성됩니다. `-InstallToConnectedDevice`는 빌드 성공 후 APK 설치, MainActivity 실행, 메인 화면 PNG 캡처와 기기 정보 보고서를 같은 출력 폴더에 추가합니다. 화면 캡처 성공은 앱 실행·렌더링 확인일 뿐 VPN 보호, DNS 차단, 라이선스 활성화 및 결제 검증을 대체하지 않습니다. 개인키는 APK에 포함되지 않습니다. 이 스크립트 산출물은 기존 개발용 서명 인증서를 사용하는 Debug APK이며, 상용 배포용 Production 서명 APK가 아닙니다. Release 서명은 별도 보호된 keystore와 Release 빌드 검증 절차가 필요합니다.
 
 ## 운영 명령
 - 전체 시작 및 상태 확인: `./Start-All-GuardianServices.ps1`
@@ -146,3 +146,8 @@ GitHub CLI의 표준 입력으로 keystore Base64와 비밀번호를 Actions Sec
 
 ## 완료 전 검증
 HTTPS/TLS, 접근제어, Android 앱의 공개키 일치, 실제 필터 갱신, 라이선스 발급/활성화/갱신/해제, 노트북 재부팅·절전·네트워크 장애 복구, 실제 Android 기기 E2E 테스트가 필요합니다. 이 문서는 배포 도구 설명이며 실제 노트북 설치, GitHub 클라우드 브랜치 최초 게시, Android 모바일 E2E 검증이 끝났다는 의미는 아닙니다.
+
+## 2026-11-20 병렬 트랙 D — APK 내 필수 기본 DNS asset 검증 추가
+- Guardian 시작 경로가 `assets.open("filter_rules.txt")`에 의존하므로, 소스 파일 존재만 확인하는 것으로는 최종 APK에 asset이 실제 포함되었는지 보장할 수 없습니다.
+- 루트 `BUILD_ANDROID.ps1`과 노트북 공개키 주입용 `Build-GuardianAndroid-Debug.ps1`에 `aapt list` 검사를 추가해 APK 내부 `assets/filter_rules.txt` 존재를 확인하고, 누락 시 APK 검증을 실패 처리합니다. 노트북 빌드 경로에는 APK 크기와 `com.guardian.adblock` package ID 검사도 추가했습니다.
+- 실제 APK를 만들거나 실행한 것은 아닙니다. Windows PowerShell/Android SDK/Gradle 미접근 상태이며, 스크립트 소스만 원격 재조회했습니다.
