@@ -3,7 +3,7 @@
 - 기준일: 2026-11-20 (KST)
 - 저장소: https://github.com/justinhblee-prog/guardian
 - 작업 브랜치: `feature/android-support-center-mainline`
-- 최종 판정: **출시 미완료 — 검증 및 외부 증거 필요**\n- 최신 브랜치 비교: `main` 대비 116 commits ahead / 0 behind / 31 files changed (2026-11-20 조회).
+- 최종 판정: **출시 미완료 — 검증 및 외부 증거 필요**\n- 최신 브랜치 비교: `main` 대비 120 commits ahead / 0 behind / 31 files changed (2026-11-20 조회).
 
 ## 목표
 
