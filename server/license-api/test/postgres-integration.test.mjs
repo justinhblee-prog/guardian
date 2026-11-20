@@ -48,17 +48,18 @@ if (!databaseUrl) {
   };
 
   before(async () => {
-    await pool.query('TRUNCATE api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE api_rate_limit_buckets, support_tickets, activation_requests, license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
 
-  test('existing license databases can apply migrations 002 and 003 repeatedly', async () => {
+  test('existing license databases can apply migrations 002 through 005 repeatedly', async () => {
     await pool.query('DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
     for (const migrationPath of [
       new URL('../migrations/002_shared_rate_limit_buckets.sql', import.meta.url),
       new URL('../migrations/003_support_tickets.sql', import.meta.url),
-      new URL('../migrations/004_customers.sql', import.meta.url)
+      new URL('../migrations/004_customers.sql', import.meta.url),
+      new URL('../migrations/005_activation_idempotency.sql', import.meta.url)
     ]) {
       const sql = readFileSync(migrationPath, 'utf8');
       await pool.query(sql);
@@ -69,6 +70,8 @@ if (!databaseUrl) {
     );
     assert.equal(tables.rows[0].rate_limits, 'api_rate_limit_buckets');
     assert.equal(tables.rows[0].support_tickets, 'support_tickets');
+    const activationRequests = await pool.query("SELECT to_regclass('public.activation_requests') AS activation_requests");
+    assert.equal(activationRequests.rows[0].activation_requests, 'activation_requests');
     const customers = await pool.query(
       "SELECT to_regclass('public.customers') AS customers, count(*) FILTER (WHERE column_name IN ('customer_id','order_ref')) AS customer_columns FROM information_schema.columns WHERE table_schema='public' AND table_name='licenses'"
     );
