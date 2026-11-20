@@ -1686,7 +1686,6 @@ class MainActivity : Activity() {
             }.withTop(12))
         }
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
-        body.addView(buildSupportCenterCard().withTop(12))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
