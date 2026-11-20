@@ -82,3 +82,17 @@ C License + support ────┘                                  │        
 - [ ] 문서: 설치/복구/제한사항/라이선스/고객지원 절차 업데이트
 
 현재 판정: 구현 일부 및 QA 서버 lifecycle 확인 단계. 통합 테스트 실행, emulator, Samsung 수용, Production APK는 아직 완료 증거가 없다.
+
+## 2026-11-20 추가 병렬 구현 통합 기록
+
+| 트랙 | 구현 결과 | 검증 근거 / 제한 |
+|---|---|---|
+| B — 필터 갱신 | 동기 Worker 취소 경계를 각 feed 및 VPN reload 앞에 추가. 취소 중 성공한 기본 feed는 오류 플래그를 먼저 정리한 뒤 후속 feed를 중단. | Worker 소스 9개 취소 경계 정적 확인. Android WorkManager/JUnit 미실행 |
+| B — 로그 보안 | 필터 다운로드 시작 로그에서 전체 URL 제거. | 원격 소스에서 URL 로그 문자열 제거 확인 |
+| C — 라이선스 UI | 라이선스 및 프리미엄 화면의 잘못된 자기 화면 뒤로가기 수정. | MainActivity callback 정적 확인 |
+| C — 고객지원 UI | 접수/조회 응답 도착 시 Activity 종료 여부를 확인해 폐기된 Activity에서 UI를 갱신하지 않도록 수정. | 두 비동기 callback guard 정적 확인. Android UI instrumentation 미실행 |
+| UI — 설정 탐색 | 중첩 화면에서도 설정 최상위 메뉴 선택 상태 유지. 규칙 화면의 시스템 Back은 필터링 설정으로 복귀. | ResponsiveLayoutPolicy Kotlin/JVM harness: 메뉴 선택 11개 경로 및 뒤로가기 7개 경로 PASS. Android JUnit 미실행 |
+
+- 관련 변경은 `feature/android-support-center-mainline`에 독립 파일 단위 커밋으로 반영했습니다.
+- 위 검증은 소스 재조회/순수 Kotlin/JVM harness 증거이며, Android Gradle compile, JUnit, lint, APK, emulator 및 Samsung 실기기 결과로 확대 해석하지 않습니다.
+- GitHub Actions는 실행하지 않았으며 runner/billing/usage 설정을 변경하지 않았습니다.
