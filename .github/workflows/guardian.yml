@@ -82,6 +82,10 @@ jobs:
             '--max-autopilot-continues',
             '--deny-tool',
             '--available-tools',
+            'GitHub.Copilot',
+            'winget install',
+            'shell(git reset)',
+            'shell(git clean)',
             'origin/main',
             'gh auth status',
             'worktree'
