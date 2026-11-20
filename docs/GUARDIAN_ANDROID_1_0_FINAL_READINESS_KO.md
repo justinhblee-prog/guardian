@@ -303,3 +303,10 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - **실행 증거**: 동일 ownership helper 구현을 독립 Kotlin/JVM harness로 컴파일하고 세 시나리오를 실행해 PASS를 확인했습니다. 저장소 Android JUnit/Gradle 빌드는 실행하지 않았으며, 이 harness 결과는 Android 컴파일 또는 단말 검증을 의미하지 않습니다.
 - **남은 생명주기 점검**: network callback/네트워크 변경 시 DNS upstream 재선택과 `onRevoke`/`onDestroy` 이후 실제 프로세스 재생성 동작은 별도 정적 검토 및 Android 기기 검증이 필요합니다.
 - GitHub Actions, PR, merge는 실행하지 않았습니다.
+
+
+## 2026-11-20 VPN 호환 앱 일시중지 종료 확인 보강
+
+- **추가 결함**: 호환 앱 자동 일시중지 경로는 DNS packet worker에 5초 join을 수행했지만, join timeout 뒤에도 worker가 살아 있는지 확인하지 않고 보호 재개 경로로 진행할 수 있었습니다. 세션 소유권 guard가 새 세션 상태 오염은 막더라도, 살아 있는 이전 reader와 새 reader가 동시에 존재하는 상태는 막지 못합니다.
+- **수정**: join이 인터럽트되면 인터럽트 상태를 복원하고 즉시 중단합니다. 5초 후에도 이전 worker가 살아 있으면 재연결하지 않고 보호 비활성/복구 대기 상태와 진단 메시지를 기록한 뒤 반환합니다. 앱 제외 재적용 경로의 기존 worker 생존 확인과 같은 안전 기준입니다.
+- **검증 범위**: 소스 재조회와 분기/상태 기록 확인은 수행합니다. Android Gradle 빌드, 기기에서 worker 종료 지연을 재현하는 테스트는 아직 실행하지 않았습니다.
