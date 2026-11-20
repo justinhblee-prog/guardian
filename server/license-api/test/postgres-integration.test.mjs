@@ -371,13 +371,6 @@ if (!databaseUrl) {
     assert.equal(replay.status, 200);
     assert.deepEqual(await replay.json(), firstToken);
 
-    const released = await post('/v1/licenses/deactivate', {
-      deviceBinding: device, licenseRef: firstToken.licenseRef
-    });
-    assert.equal(released.status, 200);
-    const replayAfterRelease = await post('/v1/licenses/activate', body);
-    assert.equal(replayAfterRelease.status, 409);
-
     const activationCount = await pool.query(
       'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL',
       [created.license.id, device]
@@ -393,6 +386,13 @@ if (!databaseUrl) {
       ...body, licenseKey: (await issue(1)).licenseKey
     });
     assert.equal(reused.status, 409);
+
+    const released = await post('/v1/licenses/deactivate', {
+      deviceBinding: device, licenseRef: firstToken.licenseRef
+    });
+    assert.equal(released.status, 200);
+    const replayAfterRelease = await post('/v1/licenses/activate', body);
+    assert.equal(replayAfterRelease.status, 409);
   });
 
   test('status, refresh and deactivation are scoped to the activated device and license', async () => {
