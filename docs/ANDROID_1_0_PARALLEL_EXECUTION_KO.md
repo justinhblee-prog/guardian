@@ -187,4 +187,4 @@ C License + support ────┘                                  │        
 
 - DoH chunked response parser no longer trims chunk-size tokens; leading/trailing whitespace is rejected to avoid accepting non-conforming message framing.
 - Chunk extensions are now parsed as RFC-style token names with optional token/quoted values; empty extensions, missing values, malformed quotes, and invalid separators are rejected.
-- Added regression cases for whitespace, empty/malformed extensions, and valid token/quoted extension values. Source-level remote verification follows; Android JUnit/Gradle execution is unavailable in this environment.
+- Added regression cases for whitespace, empty/malformed extensions, and valid token/quoted extension values. Remote source re-fetch confirms the parser and regression tests are present. A standalone Kotlin/JVM harness passed 10 chunk-extension grammar cases; this is not Android JUnit/Gradle execution, which remains unavailable in this environment.
