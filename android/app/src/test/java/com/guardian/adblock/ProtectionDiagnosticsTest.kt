@@ -75,6 +75,23 @@ class ProtectionDiagnosticsTest {
         assertTrue(!summary.contains("https://secret.invalid"))
     }
 
+    @Test fun exceptionTraceSummaryRetainsDeepNativeLoaderFrames() {
+        val cause = java.io.FileNotFoundException("Library file not found at /private/device/path")
+        cause.stackTrace = (1..12).map { index ->
+            StackTraceElement("androidx.loader.NativeLoader", "loadStep$index", "NativeLoader.kt", 40 + index)
+        }.toTypedArray()
+        val error = UnsatisfiedLinkError("private native library path")
+        error.stackTrace = arrayOf(
+            StackTraceElement("com.guardian.adblock.MainActivity", "requestProtection", "MainActivity.kt", 2110)
+        )
+        error.initCause(cause)
+
+        val summary = ProtectionDiagnostics.exceptionTraceSummary(error)
+        assertTrue(summary.contains("androidx.loader.NativeLoader.loadStep12:52"))
+        assertTrue(!summary.contains("/private/device/path"))
+        assertTrue(!summary.contains("Library file not found"))
+    }
+
     @Test fun filterReadinessSummaryUsesOnlyKnownFilterLabels() {
         val ready = ProtectionDiagnostics.filterReadinessSummary("모든 선택 필터가 준비되었습니다.")
         assertTrue(ready.contains("모든 선택 필터 준비됨"))

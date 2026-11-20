@@ -14,13 +14,14 @@ object ProtectionDiagnostics {
         val names = mutableListOf<String>()
         var current: Throwable? = error
         while (current != null && names.size < limit && seen.add(current)) {
-            val name = current.javaClass.simpleName.ifBlank {
-                current.javaClass.name.substringAfterLast('.')
+            val throwable = current
+            val name = throwable.javaClass.simpleName.ifBlank {
+                throwable.javaClass.name.substringAfterLast('.')
             }
             if (name.matches(Regex("[A-Za-z][A-Za-z0-9_]*(?:Exception|Error)"))) {
                 names.add(name)
             }
-            current = current.cause
+            current = throwable.cause
         }
         return names.ifEmpty { listOf("UnknownError") }.joinToString(" <- ")
     }
@@ -28,7 +29,7 @@ object ProtectionDiagnostics {
     /**
      * Captures bounded stack-frame identity without exception messages, paths, URLs or arguments.
      */
-    fun exceptionTraceSummary(error: Throwable, maxFrames: Int = 8): String {
+    fun exceptionTraceSummary(error: Throwable, maxFrames: Int = 16): String {
         val frames = mutableListOf<String>()
         val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Throwable, Boolean>())
         var current: Throwable? = error
