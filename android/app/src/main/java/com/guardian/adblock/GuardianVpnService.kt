@@ -89,7 +89,13 @@ class GuardianVpnService : VpnService() {
             "2a10:50c0::bad1:ff", "2a10:50c0::bad2:ff"
         )
         internal val DNS_STATS_LOCK = Any()
+        private val DNS_DIAGNOSTIC_SEQUENCE = DnsDiagnosticSequence()
         private const val DNS_STATS_BROADCAST_INTERVAL_MS = 500L
+
+        internal fun reserveDnsDiagnosticWrite(): Long = DNS_DIAGNOSTIC_SEQUENCE.reserve()
+        internal fun isDnsDiagnosticWriteCurrent(sequence: Long): Boolean =
+            DNS_DIAGNOSTIC_SEQUENCE.isCurrent(sequence)
+        internal fun invalidateDnsDiagnosticWrites(): Long = DNS_DIAGNOSTIC_SEQUENCE.invalidate()
         @Volatile private var tunnelActive = false
         fun isTunnelActive(): Boolean = tunnelActive
     }
@@ -531,13 +537,18 @@ class GuardianVpnService : VpnService() {
         error: Throwable?,
         diagnostic: Pair<String, String>? = null
     ) {
+        val diagnosticSequence = diagnostic?.let { reserveDnsDiagnosticWrite() }
         startCancellation.tryCommitStart(requestGeneration) {
             if (running.get()) return@tryCommitStart
             val prefsUpdate = getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             if (error == null) prefsUpdate.remove(KEY_STARTUP_TRACE)
             else prefsUpdate.putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error))
             synchronized(DNS_STATS_LOCK) {
-                diagnostic?.let { (key, value) -> prefsUpdate.putString(key, value) }
+                diagnostic?.let { (key, value) ->
+                    if (diagnosticSequence != null && isDnsDiagnosticWriteCurrent(diagnosticSequence)) {
+                        prefsUpdate.putString(key, value)
+                    }
+                }
                 prefsUpdate.apply()
             }
             tunnelActive = false
@@ -825,11 +836,14 @@ class GuardianVpnService : VpnService() {
 
     private fun recordIgnoredPacket(reason: String) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val diagnosticSequence = reserveDnsDiagnosticWrite()
         synchronized(DNS_STATS_LOCK) {
-            prefs.edit()
+            val update = prefs.edit()
                 .putLong(KEY_DNS_IGNORED, prefs.getLong(KEY_DNS_IGNORED, 0L) + 1L)
-                .putString(KEY_DNS_DIAGNOSTIC, reason)
-                .apply()
+            if (isDnsDiagnosticWriteCurrent(diagnosticSequence)) {
+                update.putString(KEY_DNS_DIAGNOSTIC, reason)
+            }
+            update.apply()
         }
         val now = android.os.SystemClock.elapsedRealtime()
         val previousBroadcast = lastStatsBroadcastAt.get()
@@ -841,6 +855,7 @@ class GuardianVpnService : VpnService() {
 
     private fun recordDnsActivity(domain: String, blocked: Boolean, forwarded: Boolean) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val diagnosticSequence = if (!blocked && !forwarded) reserveDnsDiagnosticWrite() else null
         synchronized(DNS_STATS_LOCK) {
             val queries = prefs.getLong(KEY_DNS_QUERIES, 0L) + 1L
             val blockedCount = prefs.getLong(KEY_DNS_BLOCKED, 0L) + if (blocked) 1L else 0L
@@ -870,7 +885,7 @@ class GuardianVpnService : VpnService() {
                 .putLong(KEY_DNS_OTHER_BLOCKED, otherBlocked)
                 .putString(KEY_DNS_RECENT, lines.joinToString("\n"))
                 .apply()
-            if (!blocked && !forwarded) {
+            if (diagnosticSequence != null && isDnsDiagnosticWriteCurrent(diagnosticSequence)) {
                 prefs.edit().putString(
                     KEY_DNS_DIAGNOSTIC,
                     "업스트림 DNS 오류: " + (lastUpstreamFailure ?: "응답 시간 초과, 연결 실패 또는 DNS 응답 검증 실패")
@@ -1210,6 +1225,7 @@ class GuardianVpnService : VpnService() {
     private fun runUpstreamConnectivityTest(startId: Int) {
         val query = DnsUpstreamProbe.query()
         val transport = configuredUpstreamTransport()
+        val diagnosticSequence = reserveDnsDiagnosticWrite()
         val startedAt = System.nanoTime()
         val response = forwardDns(query)
         val latencyMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
@@ -1221,12 +1237,16 @@ class GuardianVpnService : VpnService() {
                 .putLong(KEY_UPSTREAM_TEST_LATENCY_MS, latencyMs)
                 .putString(KEY_UPSTREAM_TEST_TRANSPORT, transport)
                 .putLong(KEY_UPSTREAM_TEST_AT, testedAt)
-                .putString(
-                    KEY_DNS_DIAGNOSTIC,
-                    if (success) "업스트림 DNS 연결 테스트 성공 (" + transport + ", " + latencyMs + "ms)"
-                    else "업스트림 DNS 연결 테스트 실패: " + (lastUpstreamFailure ?: "응답 검증 실패 또는 원인 미확인")
-                )
                 .apply()
+            if (isDnsDiagnosticWriteCurrent(diagnosticSequence)) {
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                    .putString(
+                        KEY_DNS_DIAGNOSTIC,
+                        if (success) "업스트림 DNS 연결 테스트 성공 (" + transport + ", " + latencyMs + "ms)"
+                        else "업스트림 DNS 연결 테스트 실패: " + (lastUpstreamFailure ?: "응답 검증 실패 또는 원인 미확인")
+                    )
+                    .apply()
+            }
         }
         sendBroadcast(Intent(ACTION_UPSTREAM_TEST_RESULT).apply {
             setPackage(packageName)
