@@ -45,7 +45,7 @@ dump_ui_hierarchy() {
     adb_cmd shell rm -f "$remote_path" >/dev/null 2>&1 || true
     dump_result="$(adb_cmd shell uiautomator dump "$remote_path" 2>&1 || true)"
     if grep -Eq 'UI hier(archy|chary) dumped to:' <<<"$dump_result"; then
-      xml="$(adb_cmd exec-out cat "$remote_path" 2>/dev/null | tr -d '\r' || true)"
+      xml="$(adb_cmd shell cat "$remote_path" 2>/dev/null | tr -d '\r' || true)"
       if [[ "$xml" == *'<hierarchy'* && "$xml" == *'</hierarchy>'* ]]; then
         printf '%s' "$xml"
         return 0
