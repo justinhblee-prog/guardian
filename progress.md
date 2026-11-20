@@ -1,6 +1,6 @@
 # Guardian Android 1.0 — Progress Tracker
 
-- **전체 상태**: 진행 중 (완료율: 30%)
+- **전체 상태**: 진행 중 — 외부 실행/운영 증거 대기 (완료율: 30%)
 - **마지막 업데이트**: Step 0 — 워크플로 초기화 및 증거 기준 고정
 - **기준일**: 2026-11-20 (KST)
 - **저장소**: https://github.com/justinhblee-prog/guardian
@@ -15,11 +15,11 @@
 - [x] Step 1: 현재 브랜치, 기준 문서, 출시 게이트 및 검증 상태 조사
 - [x] Step 2: Android VPN/DNS 엔진의 세션·패킷·앱 제외 경로 정적 감사
 - [x] Step 3: 필터 캐시 갱신 실패 재시도, 필수 번들 규칙 파일 및 DNS 테스트 소스의 결함 수정/회귀 테스트 추가
-- [ ] Step 4: Android Gradle compile, unit tests, lint 및 License API HTTP/PostgreSQL 테스트 실행
-- [ ] Step 5: API 35 emulator에서 신규 설치·업그레이드·VPN/DNS·앱 제외·복구 E2E 실행
-- [ ] Step 6: 필터 원본 재배포 권리 확인 및 서명 manifest/cache rollback 검증
-- [ ] Step 7: Samsung 실기기에서 Library file not found 원인 특정 및 VPN/DNS/네트워크 전환 수용시험
-- [ ] Step 8: 사용자 소유 Production 서명키와 공개 HTTPS endpoint로 release APK 생성, signer/version/package/SHA-256 검증
+- [ ] Step 4: BLOCKED — Android Gradle compile, unit tests, lint 및 License API HTTP/PostgreSQL 테스트 실행 (Actions runner/비용 제한, 로컬 checkout 실행환경 없음)
+- [ ] Step 5: BLOCKED — API 35 emulator에서 신규 설치·업그레이드·VPN/DNS·앱 제외·복구 E2E 실행 (에뮬레이터 실행 환경 미연결)
+- [ ] Step 6: BLOCKED — 필터 원본 재배포 권리 확인 및 서명 manifest/cache rollback 검증 (권리 승인 자료 미확보; 코드 테스트 실행도 미완료)
+- [ ] Step 7: EXTERNAL — Samsung 실기기에서 Library file not found 원인 특정 및 VPN/DNS/네트워크 전환 수용시험 (단말 로그/실행 접근 필요)
+- [ ] Step 8: EXTERNAL — 사용자 소유 Production 서명키와 공개 HTTPS endpoint로 release APK 생성, signer/version/package/SHA-256 검증
 - [ ] Step 9: 신규 설치·업그레이드 검증, 한국어 배포/복구 문서 확정, 최종 증거 보고서 작성
 - [ ] Step 10: Android 1.0 게이트 종료 후 Windows 보호 엔진·설치 패키지 작업 착수
 
