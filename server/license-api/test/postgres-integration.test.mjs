@@ -57,7 +57,8 @@ if (!databaseUrl) {
     await pool.query('DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
     for (const migrationPath of [
       new URL('../migrations/002_shared_rate_limit_buckets.sql', import.meta.url),
-      new URL('../migrations/003_support_tickets.sql', import.meta.url)
+      new URL('../migrations/003_support_tickets.sql', import.meta.url),
+      new URL('../migrations/004_customers.sql', import.meta.url)
     ]) {
       const sql = readFileSync(migrationPath, 'utf8');
       await pool.query(sql);
@@ -68,6 +69,11 @@ if (!databaseUrl) {
     );
     assert.equal(tables.rows[0].rate_limits, 'api_rate_limit_buckets');
     assert.equal(tables.rows[0].support_tickets, 'support_tickets');
+    const customers = await pool.query(
+      "SELECT to_regclass('public.customers') AS customers, count(*) FILTER (WHERE column_name IN ('customer_id','order_ref')) AS customer_columns FROM information_schema.columns WHERE table_schema='public' AND table_name='licenses'"
+    );
+    assert.equal(customers.rows[0].customers, 'customers');
+    assert.equal(Number(customers.rows[0].customer_columns), 2);
   });
 
   test('PostgreSQL rate limiter prunes expired buckets during bounded cleanup', async () => {
