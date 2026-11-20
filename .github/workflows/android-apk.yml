@@ -224,7 +224,7 @@ jobs:
           # SHA256SUMS.txt remains available for simple APK-only checks.
           sha256sum "$APK" "$SOURCE_ZIP" > release/SHA256SUMS.txt
           APK_SHA256="$(awk '$2 ~ /app-debug[.]apk$/ {print $1; exit}' release/SHA256SUMS.txt)"
-          SOURCE_SHA256="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]30-dev[.]zip$/ {print $1; exit}' release/SHA256SUMS.txt)"
+          SOURCE_SHA256="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]31-dev[.]zip$/ {print $1; exit}' release/SHA256SUMS.txt)"
           SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
           test "${#APK_SHA256}" -eq 64
           test "${#SOURCE_SHA256}" -eq 64
