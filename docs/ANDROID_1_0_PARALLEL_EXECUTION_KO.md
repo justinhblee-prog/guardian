@@ -117,3 +117,10 @@ C License + support ────┘                                  │        
 
 - HTTPS 필터 리디렉션이 fragment 또는 범위를 벗어난 port를 포함하면 요청을 시작하지 않고 거부하도록 보강.
 - 잘못된 포트와 fragment 리디렉션 회귀 테스트 추가. 원격 소스 재조회 확인 완료, Android JUnit 미실행.
+
+
+## 2026-11-20 — Signed manifest client URL boundary
+
+- Track B에서 manifest client의 첫 요청 URL과 detached signature sidecar URL에도 공통 HTTPS URL 검증을 적용했습니다. URL의 포트 범위·fragment·host/userinfo를 연결 전에 검사하고, sidecar가 원본 manifest와 동일한 host/port를 유지하도록 확인합니다.
+- 회귀 테스트: sidecar manifest URL의 99999 포트 및 fragment 거부, 초기 manifest URL의 99999 포트 거부.
+- 원격 소스 재조회 확인 완료. Java 21 URL parser 입력 확인 외에 Android JUnit/Gradle 및 실제 HTTPS 서버 호출은 미실행입니다.
