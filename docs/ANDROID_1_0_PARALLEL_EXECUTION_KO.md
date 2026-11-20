@@ -188,3 +188,10 @@ C License + support ────┘                                  │        
 - DoH chunked response parser no longer trims chunk-size tokens; leading/trailing whitespace is rejected to avoid accepting non-conforming message framing.
 - Chunk extensions are now parsed as RFC-style token names with optional token/quoted values; empty extensions, missing values, malformed quotes, and invalid separators are rejected.
 - Added regression cases for whitespace, empty/malformed extensions, and valid token/quoted extension values. Remote source re-fetch confirms the parser and regression tests are present. A standalone Kotlin/JVM harness passed 10 chunk-extension grammar cases; this is not Android JUnit/Gradle execution, which remains unavailable in this environment.
+
+
+## 2026-11-20 — DoT/DoH TLS peer identity correction
+
+- DoT/DoH previously created an unconnected SSLSocket, connected it to the selected resolver IP, then supplied SNI. The TLS peer host used for HTTPS endpoint identification could therefore remain the IP rather than the configured DNS provider hostname.
+- The transport now protects and connects a raw socket to the selected resolver IP, layers TLS with SSLSocketFactory.createSocket(connectedSocket, canonicalDnsHost, port, true), and applies the same canonical DNS hostname to SNI and HTTPS certificate verification. Resolver IP selection and VPN socket protection are preserved.
+- Added a host identity policy test asserting canonical peerHost/serverName equality and IP rejection. Remote source/test re-fetch is the available verification; Android Gradle/JUnit and live DoT/DoH certificate handshake tests are not available here.
