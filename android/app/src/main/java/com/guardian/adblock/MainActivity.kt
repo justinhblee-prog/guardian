@@ -1349,7 +1349,7 @@ class MainActivity : Activity() {
                 addView(text("라이선스 유효 기간 · $expiry 까지", 11f, muted, false).withTop(6))
             }
             addView(Button(this@MainActivity).apply {
-                text = if (proActive || retainedLicense != null) "PRO 라이선스 관리" else "PRO 라이선스 활성화"
+                text = "설정에서 라이선스 관리"
                 isAllCaps = false
                 typeface = Typeface.DEFAULT_BOLD
                 setTextColor(bg)
