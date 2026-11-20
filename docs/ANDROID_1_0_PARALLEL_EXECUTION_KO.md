@@ -175,3 +175,9 @@ C License + support ────┘                                  │        
 - DNS TCP handshake가 완료된 이후 최초 SYN이 지연 재전송될 때 최초 client sequence를 ACK하던 오류를 수정했습니다.
 - handshake 전 중복 SYN에는 동일 SYN-ACK를 재전송하고, established 세션에서는 현재 clientNext/serverNext를 사용하는 ACK를 반환하도록 연결 상태를 분리했습니다.
 - handshake 전후 재전송 경로에 회귀 테스트를 추가했습니다. 원격 소스 반영 확인과 실제 Android JUnit/단말 검증은 구분합니다.
+
+
+## 2026-11-20 — DNS TCP handshake ACK 정확성 보강
+
+- 최초 SYN-ACK 교환에서 클라이언트의 첫 ACK가 serverNext와 정확히 일치해야 handshake 완료로 처리하도록 강화했습니다.
+- 이전 server sequence를 가리키는 stale ACK는 세션을 established로 승격시키지 않으며, 회귀 테스트에서 중복 SYN에 대한 SYN-ACK 재전송을 확인하도록 했습니다.
