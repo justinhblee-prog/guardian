@@ -977,6 +977,7 @@ class GuardianVpnService : VpnService() {
             }
             .filter { it != VIRTUAL_DNS && it != VIRTUAL_DNS_V6 }
             .distinct()
+            .take(4)
             .toList()
     }
 
@@ -998,6 +999,7 @@ class GuardianVpnService : VpnService() {
                 listOf("1.1.1.1", "8.8.8.8")
             )
         }
+        val failures = ArrayList<String>()
         for (address in candidates) {
             // Some mobile carriers and managed Wi-Fi networks drop UDP/53 while
             // allowing TCP/53. Keep the selected transport first, then retry the
@@ -1017,15 +1019,23 @@ class GuardianVpnService : VpnService() {
                         !DnsUpstreamProbe.isRetryableResolverError(response)
                     }
                     if (usable) return response
-                    lastUpstreamFailure = attemptTransport.uppercase() + " " + address +
-                        ": resolver returned an unusable response (RCODE=" +
-                        DnsUpstreamProbe.responseCode(response) + ")"
+                    val reason = attemptTransport.uppercase() + " " + address +
+                        ": unusable DNS response (RCODE=" + DnsUpstreamProbe.responseCode(response) + ")"
+                    failures.add(reason)
+                    lastUpstreamFailure = reason
                     continue
                 }
-                if (lastUpstreamFailure == null) {
-                    lastUpstreamFailure = attemptTransport.uppercase() + " " + address + ": DNS 응답 없음 또는 검증 실패"
-                }
+                val reason = lastUpstreamFailure?.takeIf { it.isNotBlank() }
+                    ?: (attemptTransport.uppercase() + " " + address + ": no response or invalid DNS reply")
+                failures.add(reason)
             }
+        }
+        if (failures.isNotEmpty()) {
+            // Keep the most useful per-resolver failures for the on-device
+            // diagnostic instead of exposing only the final timeout.
+            lastUpstreamFailure = failures.distinct().take(6).joinToString(" | ").take(900)
+        } else {
+            lastUpstreamFailure = "DNS 후보 서버가 없습니다."
         }
         return null
     }
