@@ -6,6 +6,7 @@ let adminToken = "";
 let licenseItems = [];
 let eventItems = [];
 let customerItems = [];
+let supportItems = [];
 let loading = false;
 const $ = id => document.getElementById(id);
 
@@ -264,6 +265,37 @@ function renderEvents() {
   }
 }
 
+function renderSupportTickets() {
+  const root = $("supportTickets");
+  root.replaceChildren();
+  if (!supportItems.length) {
+    const empty = document.createElement("div"); empty.className = "empty";
+    empty.textContent = "접수된 고객 문의가 없습니다."; root.append(empty); return;
+  }
+  for (const item of supportItems) {
+    const card = document.createElement("article"); card.className = "license-card";
+    const title = document.createElement("strong"); title.textContent = "[" + item.ticket_ref + "] " + item.subject;
+    const meta = document.createElement("p"); meta.className = "muted";
+    meta.textContent = item.category + " · " + item.status + " · " + dateLabel(item.created_at) + " · " + (item.email || "회신 이메일 미제공");
+    const message = document.createElement("p"); message.textContent = item.message; message.style.whiteSpace = "pre-wrap";
+    card.append(title, meta, message);
+    if (item.admin_reply) { const old = document.createElement('p'); old.className = 'notice'; old.textContent = '기존 답변: ' + item.admin_reply; old.style.whiteSpace = 'pre-wrap'; card.append(old); }
+    const reply = document.createElement('textarea'); reply.rows = 3; reply.maxLength = 5000; reply.placeholder = '고객에게 전달할 답변'; reply.value = item.admin_reply || '';
+    reply.style.cssText = 'width:100%;margin:8px 0;padding:12px;border-radius:10px;background:#0b1424;color:#f1f6ff;border:1px solid #344765;resize:vertical';
+    const actions = document.createElement('div'); actions.className = 'actions';
+    const status = document.createElement('select');
+    for (const pair of [['answered','답변 완료'],['in_progress','처리 중'],['closed','종료']]) { const option = document.createElement('option'); option.value = pair[0]; option.textContent = pair[1]; status.append(option); }
+    status.value = item.status === 'open' ? 'answered' : item.status;
+    const send = createButton('답변 저장', 'secondary', async () => {
+      if (reply.value.trim().length < 2) { statusText('답변을 2자 이상 입력하세요.', 'error'); return; }
+      send.disabled = true;
+      try { await api('/v1/admin/support/tickets/' + encodeURIComponent(item.id) + '/reply', { method: 'POST', body: JSON.stringify({ reply: reply.value.trim(), status: status.value }) }); await load(); statusText('고객 문의 답변을 저장했습니다.', 'ok'); }
+      catch (error) { statusText(error.message, 'error'); send.disabled = false; }
+    });
+    actions.append(status, send); card.append(reply, actions); root.append(card);
+  }
+}
+
 function statusText(message, kind = "neutral") {
   setStatus(message, kind);
 }
@@ -292,18 +324,21 @@ async function load() {
   if (!adminToken || loading) return;
   setBusy(true);
   try {
-    const [licenses, audit, customers] = await Promise.all([
+    const [licenses, audit, customers, support] = await Promise.all([
       api("/v1/admin/licenses"),
       api("/v1/admin/events"),
-      api("/v1/admin/customers")
+      api("/v1/admin/customers"),
+      api("/v1/admin/support/tickets")
     ]);
     licenseItems = licenses.licenses || [];
     eventItems = audit.events || [];
     customerItems = customers.customers || [];
+    supportItems = support.tickets || [];
     renderSummary();
     renderLicenses();
     renderEvents();
     renderCustomers();
+    renderSupportTickets();
     $("dashboard").hidden = false;
     $("authPanel").hidden = true;
     setStatus("관리자 인증 성공", "ok");
@@ -332,6 +367,10 @@ $("connect").addEventListener("click", async () => {
   }
 });
 
+$("planPreset").addEventListener("change", () => {
+  if ($("planPreset").value !== "custom") $("days").value = ({ annual_365d: 365, monthly_30d: 30, quarterly_90d: 90, short_7d: 7 })[$("planPreset").value];
+});
+
 $("issue").addEventListener("click", async () => {
   if (!adminToken || loading) {
     statusText("먼저 관리자 인증을 진행하세요.", "error");
@@ -339,7 +378,7 @@ $("issue").addEventListener("click", async () => {
   }
   let input;
   try {
-    input = validateIssueInput($("days").value, $("devices").value);
+    input = validateIssueInput($("days").value, $("devices").value, $("planPreset").value);
   } catch (error) {
     statusText(error.message, "error");
     return;
@@ -392,6 +431,8 @@ $("disconnect").addEventListener("click", () => {
   adminToken = "";
   licenseItems = [];
   eventItems = [];
+  customerItems = [];
+  supportItems = [];
   $("dashboard").hidden = true;
   $("authPanel").hidden = false;
   $("issued").hidden = true;
