@@ -117,4 +117,49 @@ class SignedManifestHttpClientTest {
         }
     }
 
+    @Test
+    fun rejectsDetachedSidecarManifestUrlsWithInvalidPortOrFragment() {
+        val manifest = """
+            manifestVersion=1
+            generatedAt=1794900000
+            sourceId=adguard
+            sourceVersion=2026.11.17-ab12cd34
+            url=https://raw.githubusercontent.com/owner/repo/filters.txt
+            sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            minimumRules=1000
+        """.trimIndent().plus("\n").toByteArray(Charsets.UTF_8)
+        listOf(
+            "https://raw.githubusercontent.com:99999/owner/repo/adguard.manifest",
+            "https://raw.githubusercontent.com/owner/repo/adguard.manifest#fragment"
+        ).forEach { url ->
+            try {
+                detachedManifestSignatureUrl(url, manifest, "adguard")
+                throw AssertionError("unsafe sidecar manifest URL must be rejected: $url")
+            } catch (expected: IllegalArgumentException) {
+                assertEquals(
+                    "manifest URL은 유효한 호스트·포트의 사용자 정보·fragment가 없는 HTTPS 주소여야 합니다.",
+                    expected.message
+                )
+            }
+        }
+    }
+
+    @Test
+    fun refusesManifestWithOutOfRangePortBeforeOpeningConnection() {
+        try {
+            SignedManifestHttpClient().download(
+                "https://example.invalid:99999/adguard.manifest",
+                "adguard",
+                "not-a-key",
+                0L
+            )
+            throw AssertionError("out-of-range manifest port must be rejected")
+        } catch (expected: IllegalArgumentException) {
+            assertEquals(
+                "manifest 및 필터 URL은 유효한 호스트·포트의 사용자 정보·fragment가 없는 HTTPS 주소여야 합니다.",
+                expected.message
+            )
+        }
+    }
+
 }
