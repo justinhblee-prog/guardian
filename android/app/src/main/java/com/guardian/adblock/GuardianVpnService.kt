@@ -535,9 +535,9 @@ class GuardianVpnService : VpnService() {
         startId: Int,
         message: String,
         error: Throwable?,
-        diagnostic: Pair<String, String>? = null
+        diagnostic: Pair<String, String>? = null,
+        diagnosticSequence: Long? = null
     ) {
-        val diagnosticSequence = diagnostic?.let { reserveDnsDiagnosticWrite() }
         startCancellation.tryCommitStart(requestGeneration) {
             if (running.get()) return@tryCommitStart
             val prefsUpdate = getSharedPreferences(PREFS, MODE_PRIVATE).edit()
@@ -611,6 +611,7 @@ class GuardianVpnService : VpnService() {
         // unreachable, leaving the device's normal network untouched is safer
         // than activating a tunnel that makes every website appear offline.
         val preflightQuery = DnsUpstreamProbe.query()
+        val preflightDiagnosticSequence = reserveDnsDiagnosticWrite()
         val preflightResponse = forwardDns(preflightQuery, requireSuccessfulResolution = true)
         if (!startCancellation.isCurrent(requestGeneration)) {
             // The lifecycle owner (STOP, compatibility pause, or a newer START)
@@ -624,7 +625,8 @@ class GuardianVpnService : VpnService() {
                 startId,
                 "업스트림 DNS 연결을 확인하지 못해 보호를 시작하지 않았습니다. 일반 인터넷 연결은 변경하지 않았습니다. ($detail)",
                 error = null,
-                diagnostic = KEY_DNS_DIAGNOSTIC to "보호 시작 전 DNS 연결 확인 실패: $detail"
+                diagnostic = KEY_DNS_DIAGNOSTIC to "보호 시작 전 DNS 연결 확인 실패: $detail",
+                diagnosticSequence = preflightDiagnosticSequence
             )
             return
         }
