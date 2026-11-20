@@ -17,7 +17,8 @@ function Write-WorkerLog([string]$Message) {
     Write-Host $line
 }
 function Invoke-WorkerGit([string[]]$Arguments, [switch]$AllowFailure) {
-    $output = & git -C $RepoRoot @Arguments 2>&1
+    $gitRoot = if ($script:GitRoot) { $script:GitRoot } else { $RepoRoot }
+    $output = & git -C $gitRoot @Arguments 2>&1
     $code = $LASTEXITCODE
     if ($code -ne 0 -and -not $AllowFailure) {
         throw ('git {0} failed ({1}): {2}' -f ($Arguments -join ' '), $code, ($output -join [Environment]::NewLine))
@@ -92,6 +93,7 @@ Save-WorkerState
 
 try {
     Invoke-WorkerGit @('worktree', 'add', '-b', $branchName, $worktree, 'origin/main') | Out-Null
+    $script:GitRoot = $worktree
     Write-WorkerLog "Created isolated code worktree: $worktree (base=origin/main)."
     $prompt = @'
 You are the autonomous implementation engineer for Guardian AdBlock. Work only inside this isolated Git worktree.
@@ -144,13 +146,13 @@ Safety:
         Write-WorkerLog 'Copilot completed without source changes. No empty commit or PR was created.'
         return
     }
-    $check = Invoke-WorkerGit @('diff', '--check') -AllowFailure
+    $check = Invoke-WorkerGit @('diff', '--check', 'HEAD') -AllowFailure
     if ($check.Code -ne 0) {
         Write-WorkerLog "Diff whitespace validation failed; no push. $($check.Output)"
         return
     }
 
-    $changed = @((Invoke-WorkerGit @('diff', '--name-only')).Output -split "\r?\n" | Where-Object { $_ })
+    $changed = @((Invoke-WorkerGit @('diff', 'HEAD', '--name-only')).Output -split "\r?\n" | Where-Object { $_ })
     $untracked = @((Invoke-WorkerGit @('ls-files', '--others', '--exclude-standard')).Output -split "\r?\n" | Where-Object { $_ })
     $changed = @($changed + $untracked | Sort-Object -Unique)
     $allowedRoots = @('android/', 'server/', 'shared/', 'scripts/', 'docs/', '.github/workflows/')
@@ -247,8 +249,10 @@ Safety:
     Write-WorkerLog "Coding worker failed safely: $($_.Exception.Message)"
 } finally {
     if (Test-Path -LiteralPath $worktree) {
+        $script:GitRoot = $worktree
         $hasChanges = (Invoke-WorkerGit @('status', '--porcelain') -AllowFailure).Output.Trim()
         if ([string]::IsNullOrWhiteSpace($hasChanges)) {
+            $script:GitRoot = $RepoRoot
             Invoke-WorkerGit @('worktree', 'remove', '--force', $worktree) -AllowFailure | Out-Null
             Invoke-WorkerGit @('worktree', 'prune') -AllowFailure | Out-Null
         } else {
