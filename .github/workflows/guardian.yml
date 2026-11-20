@@ -116,33 +116,13 @@ jobs:
           }
           Write-Host 'PASS: PowerShell automation syntax, local-only Ollama wiring and Git safety guards.'
       - name: Test Guardian local multi-flow manifest and safety
-        shell: pwsh
+        shell: cmd
         run: |
-          $ErrorActionPreference = 'Stop'
-          $python = (Get-Command python -ErrorAction Stop).Source
-          function Invoke-PythonLogged([string[]]$Arguments, [string]$LogName) {
-            $stdoutPath = Join-Path $env:RUNNER_TEMP ($LogName + '.stdout.log')
-            $stderrPath = Join-Path $env:RUNNER_TEMP ($LogName + '.stderr.log')
-            $process = Start-Process -FilePath $python -ArgumentList $Arguments -NoNewWindow -Wait -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
-            foreach ($logPath in @($stdoutPath, $stderrPath)) {
-              if (Test-Path -LiteralPath $logPath) {
-                Get-Content -LiteralPath $logPath | ForEach-Object { Write-Host $_ }
-              }
-            }
-            return [int]$process.ExitCode
-          }
-
-          $compileExit = Invoke-PythonLogged @('-m', 'py_compile', 'scripts/guardian_multiflow.py', 'scripts/test_guardian_multiflow.py') 'guardian-python-compile'
-          Write-Host "Python compile exit code: $compileExit"
-          if ($compileExit -ne 0) { throw 'Python compile validation failed.' }
-
-          $testExit = Invoke-PythonLogged @('scripts/test_guardian_multiflow.py') 'guardian-multiflow-tests'
-          Write-Host "Guardian multi-flow test process exit code: $testExit"
-          if ($testExit -ne 0) { throw 'Guardian multi-flow regression tests failed.' }
-
-          exit 0
-
-
+          python -m py_compile scripts/guardian_multiflow.py scripts/test_guardian_multiflow.py
+          if errorlevel 1 exit /b 1
+          python scripts/test_guardian_multiflow.py
+          if errorlevel 1 exit /b 1
+          exit /b 0
       - name: Compare exact PR head against current main with Git CLI
         if: github.event_name == 'pull_request'
         shell: pwsh
