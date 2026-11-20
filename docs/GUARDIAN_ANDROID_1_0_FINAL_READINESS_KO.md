@@ -292,3 +292,14 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - `VpnStartCancellationGateTest.explicitStopBeforeDelayedResumeCheckCannotCreateANewStartGeneration` 회귀 테스트를 추가했습니다.
 - 반영 커밋: `60aac5ad43333ce6b60cf01d84a58b973632b30e`, `27166f490466c7d80a9fa7481a745afdc9746cf3`.
 - GitHub 원격 재조회로 두 재연결 경로의 최종 상태 확인/세대 발급 잠금과 테스트 존재를 확인했습니다. Android Gradle/JUnit 실행, APK, Samsung 실기기 검증은 아직 수행하지 않았습니다. 별도 Kotlin/JVM 컴파일/동시성 하네스는 이번 수정에 대해 실행하지 않았습니다.
+
+
+## 2026-11-20 VPN 패킷 세션 소유권 경합 수정
+
+- **확정 결함**: 이전 TUN의 packet reader가 종료되는 시점에 STOP 후 새 START가 이미 새 TUN을 활성화했다면, 이전 reader의 `finally`가 공유 `running` 플래그를 `true → false`로 바꾸고 새 foreground notification까지 제거할 수 있었습니다. 기존 `running.compareAndSet(true, false)`만으로는 세션 소유권을 구분하지 못했습니다.
+- **수정**: `PacketSessionOwnership`을 추가해 TUN descriptor 객체 identity를 기준으로 세션 활성화·종료·중지를 직렬화했습니다. 이전 descriptor의 종료 콜백은 새 descriptor가 owner가 된 뒤에는 공유 보호 상태를 변경할 수 없습니다.
+- **적용 경로**: 새 TUN 커밋, 패킷 루프 `finally`, 명시적 STOP/서비스 종료, 호환 앱 자동 일시중지, 앱 제외 설정 재적용 경로가 동일한 ownership guard를 사용합니다. 이전 세션의 descriptor는 stale 상태에서도 개별 close 처리합니다.
+- **회귀 테스트 소스**: 새 세션 활성화 후 이전 세션 cleanup 차단, 명시적 STOP 후 이전 cleanup 무효화, 동일 세션 cleanup 1회만 허용하는 JUnit 테스트 3개를 추가했습니다.
+- **실행 증거**: 동일 ownership helper 구현을 독립 Kotlin/JVM harness로 컴파일하고 세 시나리오를 실행해 PASS를 확인했습니다. 저장소 Android JUnit/Gradle 빌드는 실행하지 않았으며, 이 harness 결과는 Android 컴파일 또는 단말 검증을 의미하지 않습니다.
+- **남은 생명주기 점검**: network callback/네트워크 변경 시 DNS upstream 재선택과 `onRevoke`/`onDestroy` 이후 실제 프로세스 재생성 동작은 별도 정적 검토 및 Android 기기 검증이 필요합니다.
+- GitHub Actions, PR, merge는 실행하지 않았습니다.
