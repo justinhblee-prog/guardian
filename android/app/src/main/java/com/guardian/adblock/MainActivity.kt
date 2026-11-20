@@ -2407,6 +2407,7 @@ class MainActivity : Activity() {
                     email.requestFocus()
                     return@setOnClickListener
                 }
+                email.error = null
                 val submit = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 submit.isEnabled = false
                 submit.text = "접수 중…"
@@ -2483,6 +2484,7 @@ class MainActivity : Activity() {
                     android.widget.Toast.makeText(this, "올바른 접수 번호와 조회 코드를 입력하세요.", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
+                ticketRef.error = null
                 val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 button.isEnabled = false
                 button.text = "조회 중…"
