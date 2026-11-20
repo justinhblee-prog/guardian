@@ -36,5 +36,6 @@ class SupportInputPolicyTest {
         assertFalse(SupportInputPolicy.isValidAccessToken("A".repeat(101)))
         assertFalse(SupportInputPolicy.isValidAccessToken("A".repeat(42) + "="))
         assertFalse(SupportInputPolicy.isValidAccessToken("A".repeat(42) + " "))
+        assertFalse(SupportInputPolicy.isValidAccessToken("가" + "A".repeat(42)))
     }
 }
