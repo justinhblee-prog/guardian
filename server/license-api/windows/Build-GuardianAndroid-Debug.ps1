@@ -1,4 +1,6 @@
 #Requires -Version 7.2
+[CmdletBinding()]
+param([switch]$InstallToConnectedDevice)
 $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $AndroidDir = Join-Path $RepoRoot 'android'
@@ -53,6 +55,7 @@ if (-not (Test-Path (Join-Path $sdkPath 'platforms\android-35')) -or
   throw 'Android SDK Platform 35와 Build Tools 35.0.0이 필요합니다. Android SDK Manager에서 설치하세요.'
 }
 if (-not (Get-Command gradle -ErrorAction SilentlyContinue)) { throw 'Gradle 8.9를 설치하고 PATH에 등록하세요. 이 저장소에는 Gradle Wrapper가 포함되어 있지 않습니다.' }
+if ($InstallToConnectedDevice -and -not (Get-Command adb -ErrorAction SilentlyContinue)) { throw '실기기 설치/화면 캡처에는 Android SDK Platform Tools(adb)가 필요합니다.' }
 $gradleVersion = (& gradle --version 2>&1 | Out-String)
 if ($LASTEXITCODE -ne 0 -or $gradleVersion -notmatch 'Gradle 8\.9') { throw '이 빌드는 Gradle 8.9가 필요합니다.' }
 $env:GUARDIAN_LICENSE_PUBLIC_KEY = (Get-Content -Raw $licensePublicPath).Trim()
@@ -79,3 +82,48 @@ $checksum = $hash + '  Guardian-AdBlock-Debug.apk' + [Environment]::NewLine
 Write-Host "Android debug APK: $apkTarget"
 Write-Host "SHA-256: $hash"
 Write-Host '이 APK는 노트북에서 생성한 서명 공개키를 포함합니다. 앱 설정에서 공개 HTTPS 서버 주소를 입력한 뒤 서명 필터/라이선스 연동을 사용할 수 있습니다.'
+
+if ($InstallToConnectedDevice) {
+  $adb = (Get-Command adb -ErrorAction Stop).Source
+  $deviceLines = @(& $adb devices)
+  if ($LASTEXITCODE -ne 0) { throw 'adb devices 실행에 실패했습니다.' }
+  $connected = @($deviceLines | Select-Object -Skip 1 | Where-Object { $_ -match '^\S+\s+device
+ })
+  if ($connected.Count -ne 1) {
+    throw "실기기 자동 검증은 adb 연결 기기가 정확히 1대일 때만 진행합니다. 현재 연결된 기기 수: $($connected.Count)"
+  }
+  $deviceId = ($connected[0] -split '\s+')[0]
+  $manufacturer = (& $adb -s $deviceId shell getprop ro.product.manufacturer).Trim()
+  $model = (& $adb -s $deviceId shell getprop ro.product.model).Trim()
+  $androidRelease = (& $adb -s $deviceId shell getprop ro.build.version.release).Trim()
+  if ($LASTEXITCODE -ne 0) { throw '연결 기기의 제조사/모델/Android 버전 확인에 실패했습니다.' }
+  if ($manufacturer -notmatch 'Samsung') {
+    Write-Warning "연결 기기는 Samsung이 아닙니다: $manufacturer $model. 일반 Android 설치 확인만 수행합니다."
+  }
+  & $adb -s $deviceId install -r $apkTarget
+  if ($LASTEXITCODE -ne 0) { throw '연결 기기에 Guardian debug APK 설치 실패' }
+  & $adb -s $deviceId shell am force-stop com.guardian.adblock
+  & $adb -s $deviceId shell am start -n com.guardian.adblock/.MainActivity
+  if ($LASTEXITCODE -ne 0) { throw 'Guardian MainActivity 실행 실패' }
+  Start-Sleep -Seconds 5
+  $captureDir = Join-Path $outputDir ('DeviceCapture-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+  New-Item -ItemType Directory -Force -Path $captureDir | Out-Null
+  $remoteShot = '/sdcard/guardian-debug-screen.png'
+  & $adb -s $deviceId shell screencap -p $remoteShot
+  if ($LASTEXITCODE -ne 0) { throw 'Android 화면 캡처 실패' }
+  & $adb -s $deviceId pull $remoteShot (Join-Path $captureDir 'main-screen.png')
+  if ($LASTEXITCODE -ne 0) { throw '화면 캡처 파일을 노트북으로 가져오지 못했습니다.' }
+  & $adb -s $deviceId shell rm -f $remoteShot
+  $deviceReport = @(
+    "Manufacturer: $manufacturer"
+    "Model: $model"
+    "Android: $androidRelease"
+    "APK SHA-256: $hash"
+    "Installed and launched: PASS"
+    "Main screen capture: main-screen.png"
+    "Note: screenshot capture confirms launch/render availability only; VPN, DNS blocking, license activation and billing still require separate functional checks."
+  ) -join [Environment]::NewLine
+  [IO.File]::WriteAllText((Join-Path $captureDir 'device-verification.txt'), $deviceReport + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+  Write-Host "Device verification report: $(Join-Path $captureDir 'device-verification.txt')"
+  Write-Host "Main screen screenshot: $(Join-Path $captureDir 'main-screen.png')"
+}
