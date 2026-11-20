@@ -201,12 +201,29 @@ async function recordEvent(client, licenseId, type, actor, metadata = {}) {
 async function activate(body) {
   requireEnv();
   const device = validateDeviceBinding(body.deviceBinding);
+  const requestId = validateUuid(body.requestId, '활성화 요청 ID');
   const appVersion = typeof body.appVersion === 'string' ? body.appVersion.slice(0, 40) : '';
   if (typeof body.licenseKey !== 'string') throw Object.assign(new Error('라이선스 키가 필요합니다.'), { status: 400 });
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // A transaction-scoped advisory lock serializes duplicate requests even
+    // when the original HTTP response was lost after its DB commit.
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [requestId]);
     const candidate = await hashLicenseKey(body.licenseKey, LOOKUP_SECRET, '00000000000000000000000000000000');
+    const fingerprint = createHash('sha256').update(`${candidate.keyLookup}:${device}`).digest('hex');
+    const replay = await client.query(
+      'SELECT device_binding,request_fingerprint,response FROM activation_requests WHERE request_id=$1',
+      [requestId]
+    );
+    if (replay.rowCount) {
+      if (replay.rows[0].device_binding !== device || replay.rows[0].request_fingerprint !== fingerprint) {
+        throw Object.assign(new Error('이미 다른 활성화 요청에 사용된 요청 ID입니다.'), { status: 409 });
+      }
+      const cached = replay.rows[0].response;
+      await client.query('COMMIT');
+      return cached;
+    }
     const found = await client.query(
       `SELECT l.*, p.code AS product_code, p.active AS product_active
        FROM licenses l JOIN products p ON p.id=l.product_id
@@ -234,9 +251,13 @@ async function activate(body) {
     } else {
       await client.query('UPDATE activations SET last_seen_at=now(),app_version=$3 WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL', [license.id, device, appVersion]);
     }
-    const token = tokenFor(license, device);
+    const response = { ...tokenFor(license, device), licenseStatus: 'pro', licenseRef: license.license_ref };
+    await client.query(
+      'INSERT INTO activation_requests(request_id,device_binding,request_fingerprint,response) VALUES($1,$2,$3,$4::jsonb)',
+      [requestId, device, fingerprint, JSON.stringify(response)]
+    );
     await client.query('COMMIT');
-    return { ...token, licenseStatus: 'pro', licenseRef: license.license_ref };
+    return response;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
