@@ -526,6 +526,7 @@ class MainActivity : Activity() {
             "rules" -> buildRules(body)
             "activity" -> buildActivity(body)
             "premium" -> buildPremium(body)
+            "settings-general" -> buildGeneralSettings(body)
             "app-exclusions" -> {
                 body.addView(text("앱 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
@@ -1470,7 +1471,7 @@ class MainActivity : Activity() {
         body.addView(text("설정", 25f, white, true))
         body.addView(text("Guardian의 주요 기능과 계정·앱 설정을 관리합니다.", 13f, muted, false).withTop(5))
         body.addView(settingsCategoryRow("일반", "앱 모양과 기본 동작 관리", "smartphone") {
-            contentScrollView?.smoothScrollTo(0, dp(280))
+            showTab("settings-general")
         }.withTop(18))
         body.addView(settingsCategoryRow("필터링", "DNS 서버, 필터 및 사용자 규칙 구성", "filter") {
             AlertDialog.Builder(this)
@@ -1512,6 +1513,14 @@ class MainActivity : Activity() {
                 .setPositiveButton("종료") { _, _ -> finish() }
                 .show()
         })
+    }
+
+    private fun buildGeneralSettings(body: LinearLayout) {
+        body.addView(text("일반", 25f, white, true))
+        body.addView(text("앱 동작과 네트워크 관련 세부 설정", 13f, muted, false).withTop(5))
+        body.addView(settingsCategoryRow("‹ 설정", "설정 카테고리로 돌아가기", "smartphone") {
+            showTab("settings")
+        }.withTop(14))
         body.addView(text("앱 및 서버 세부 설정", 17f, white, true).withTop(22))
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         if (BuildConfig.DEBUG) {
