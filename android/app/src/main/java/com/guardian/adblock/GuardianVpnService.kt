@@ -921,7 +921,7 @@ class GuardianVpnService : VpnService() {
         val unavailable = mutableListOf<String>()
         var bundledBaselineRuleCount = 0
         sources.add {
-            BundledFilterAssetLoader.load(assets::open).also { parsed ->
+            BundledFilterAssetLoader.load { assetName -> assets.open(assetName) }.also { parsed ->
                 bundledBaselineRuleCount = parsed.blocked.size + parsed.importantBlocked.size
             }
         }
