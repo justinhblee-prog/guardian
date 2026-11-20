@@ -97,14 +97,45 @@ if ($apkEntries -notmatch '(?m)^assets/filter_rules\.txt\s*$') {
 $apkBadging = (& $aaptPath dump badging $apkSource 2>&1 | Out-String)
 if ($LASTEXITCODE -ne 0) { throw 'aapt가 APK 패키지 메타데이터를 읽지 못했습니다.' }
 $packageLine = ($apkBadging -split '\r?\n' | Where-Object { $_ -match '^package:' } | Select-Object -First 1)
-if ($packageLine -notmatch "^package:\s+name='com\.guardian\.adblock'") {
-  throw "APK 패키지 ID가 Guardian과 일치하지 않습니다: $packageLine"
+$packageMatch = [regex]::Match($packageLine, "^package:\s+name='(?<name>[^']+)'\s+versionCode='(?<code>[^']+)'\s+versionName='(?<version>[^']+)'")
+$expectedVersionName = if ($env:GUARDIAN_VERSION_NAME) { $env:GUARDIAN_VERSION_NAME } else { '0.7.30-dev' }
+$expectedVersionCode = if ($env:GUARDIAN_VERSION_CODE) { $env:GUARDIAN_VERSION_CODE } else { '43' }
+if (-not $packageMatch.Success -or
+    $packageMatch.Groups['name'].Value -ne 'com.guardian.adblock' -or
+    $packageMatch.Groups['code'].Value -ne $expectedVersionCode -or
+    $packageMatch.Groups['version'].Value -ne $expectedVersionName) {
+  throw "APK package/version metadata mismatch. Expected com.guardian.adblock $expectedVersionName ($expectedVersionCode); got $packageLine"
 }
 Copy-Item -LiteralPath $apkSource -Destination $apkTarget -Force
 $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $apkTarget).Hash.ToLowerInvariant()
+$apkSize = (Get-Item -LiteralPath $apkTarget).Length
 $checksum = $hash + '  Guardian-AdBlock-Debug.apk' + [Environment]::NewLine
 [System.IO.File]::WriteAllText((Join-Path $outputDir 'SHA256SUMS.txt'), $checksum, [System.Text.UTF8Encoding]::new($false))
+$gitCommit = 'unavailable'
+if (Get-Command git -ErrorAction SilentlyContinue) {
+  $candidateCommit = (& git -C $RepoRoot rev-parse HEAD 2>$null | Out-String).Trim()
+  if ($LASTEXITCODE -eq 0 -and $candidateCommit) { $gitCommit = $candidateCommit }
+}
+$buildReport = @(
+  'Guardian Android Debug Build Verification'
+  "Timestamp: $(Get-Date -Format o)"
+  "Git commit: $gitCommit"
+  "Java: $($javaVersionMatch.Groups[1].Value)"
+  'Gradle: 8.9'
+  'Android SDK platform: 35'
+  "Package: $($packageMatch.Groups['name'].Value)"
+  "Version name: $($packageMatch.Groups['version'].Value)"
+  "Version code: $($packageMatch.Groups['code'].Value)"
+  "APK size bytes: $apkSize"
+  "APK SHA-256: $hash"
+  'Unit tests: Gradle testDebugUnitTest task completed successfully'
+  'Lint: Gradle lintDebug task completed successfully'
+  'APK assembly: Gradle assembleDebug task completed successfully'
+  'Device verification: NOT RUN unless InstallToConnectedDevice was supplied'
+)
+[IO.File]::WriteAllText((Join-Path $outputDir 'build-verification.txt'), ($buildReport -join [Environment]::NewLine) + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
 Write-Host "Android debug APK: $apkTarget"
+Write-Host "Build verification: $(Join-Path $outputDir 'build-verification.txt')"
 Write-Host "SHA-256: $hash"
 Write-Host '이 APK는 노트북에서 생성한 서명 공개키를 포함합니다. 앱 설정에서 공개 HTTPS 서버 주소를 입력한 뒤 서명 필터/라이선스 연동을 사용할 수 있습니다.'
 
