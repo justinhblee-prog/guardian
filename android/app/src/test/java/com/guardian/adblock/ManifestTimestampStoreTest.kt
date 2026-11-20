@@ -94,7 +94,7 @@ class ManifestTimestampStoreTest {
     @Test
     fun restoreRepairsCorruptSourceTimestampWithoutResettingOtherSources() {
         val (file, store) = newStore()
-        file.writeText("base-adblock=corrupt\\nsecurity=1500\\n")
+        file.writeText("base-adblock=corrupt\nsecurity=1500\n")
 
         store.restore("base-adblock", 2500L)
 
@@ -134,7 +134,7 @@ class ManifestTimestampStoreTest {
     @Test
     fun restoreSalvagesValidSourcesWhenPropertiesContainsMalformedUnicodeEscape() {
         val (file, store) = newStore()
-        file.writeText("base-adblock=1000\\nsecurity=1500\\nbroken=\\\\uZZZZ\\n")
+        file.writeText("base-adblock=1000\nsecurity=1500\nbroken=\\uZZZZ\n")
 
         try {
             store.lastAccepted("base-adblock")
