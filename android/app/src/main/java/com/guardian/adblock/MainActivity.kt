@@ -1646,7 +1646,7 @@ class MainActivity : Activity() {
 
     private fun buildLicenseSettings(body: LinearLayout) {
         body.addView(settingsCategoryRow("‹ 설정", "설정 카테고리로 돌아가기", "license") {
-            showTab("settings-license")
+            showTab("settings")
         }.withTop(4))
         buildPremium(body)
         val verifiedLicense = LicenseEntitlementStore.current(this)
