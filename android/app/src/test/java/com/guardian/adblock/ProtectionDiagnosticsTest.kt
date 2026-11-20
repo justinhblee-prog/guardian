@@ -97,7 +97,7 @@ class ProtectionDiagnosticsTest {
         cause.stackTrace = (1..12).map { index ->
             StackTraceElement("androidx.loader.NativeLoader", "loadStep$index", "NativeLoader.kt", 40 + index)
         }.toTypedArray()
-        val error = UnsatisfiedLinkError("private wrapper message", cause)
+        val error = UnsatisfiedLinkError("private wrapper message").apply { initCause(cause) }
         error.stackTrace = (1..24).map { index ->
             StackTraceElement("com.guardian.adblock.FrameworkWrapper", "dispatch$index", "Wrapper.kt", 100 + index)
         }.toTypedArray()
