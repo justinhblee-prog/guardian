@@ -304,3 +304,8 @@
 - FilterUpdateWorker에 worker 시작, base feed 전후, optional feed 사이/실패 처리, VPN reload 전 취소 경계를 추가했습니다. 이미 진행 중인 동기 HTTP 요청은 해당 요청의 timeout/종료 시점까지 남을 수 있지만, 취소 후 추가 feed 작업은 시작하지 않습니다.
 - FilterUpdatePolicyTest에 예약 업데이트 opt-in과 강제 복구의 구분 회귀 테스트를 추가했습니다.
 - 검증: 변경 소스의 취소 검사 위치를 재조회해 정적 확인합니다. Android Gradle/JUnit 실행은 하지 않았습니다.
+
+
+## 2026-11-20 병렬 구현 — 라이선스 설정 탐색 수정
+- Track C/UI에서 `설정 → 라이선스 및 프리미엄` 화면의 `‹ 설정` 행이 자기 화면(`settings-license`)을 다시 여는 self-loop를 확인했습니다.
+- 해당 뒤로가기 행을 실제 설정 카테고리(`settings`)로 이동하도록 수정했습니다. Android UI instrumentation은 실행하지 않았으며, 수정된 callback source를 원격 재조회해 확인합니다.
