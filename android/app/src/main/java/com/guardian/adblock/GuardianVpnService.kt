@@ -522,13 +522,16 @@ class GuardianVpnService : VpnService() {
         requestGeneration: Long,
         startId: Int,
         message: String,
-        error: Throwable
+        error: Throwable?,
+        diagnostic: Pair<String, String>? = null
     ) {
         startCancellation.tryCommitStart(requestGeneration) {
             if (running.get()) return@tryCommitStart
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                .putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error))
-                .apply()
+            val prefsUpdate = getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+            if (error == null) prefsUpdate.remove(KEY_STARTUP_TRACE)
+            else prefsUpdate.putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error))
+            diagnostic?.let { (key, value) -> prefsUpdate.putString(key, value) }
+            prefsUpdate.apply()
             tunnelActive = false
             try { tun?.close() } catch (closeError: Exception) {
                 android.util.Log.w("GuardianProtection", "Failed to close partial VPN tunnel", closeError)
@@ -571,12 +574,8 @@ class GuardianVpnService : VpnService() {
             return
         }
         if (!startCancellation.isCurrent(requestGeneration)) {
-            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
-            if (!compatibilityPaused) {
-                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-                stopSelf(startId)
-            }
+            // The lifecycle owner (STOP, compatibility pause, or a newer START)
+            // owns foreground and service teardown. A stale worker must not touch it.
             return
         }
 
@@ -587,25 +586,19 @@ class GuardianVpnService : VpnService() {
         val preflightQuery = DnsUpstreamProbe.query()
         val preflightResponse = forwardDns(preflightQuery, requireSuccessfulResolution = true)
         if (!startCancellation.isCurrent(requestGeneration)) {
-            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
-            if (!compatibilityPaused) {
-                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-                stopSelf(startId)
-            }
+            // The lifecycle owner (STOP, compatibility pause, or a newer START)
+            // owns foreground and service teardown. A stale worker must not touch it.
             return
         }
         if (!DnsUpstreamProbe.isSuccessfulResolution(preflightQuery, preflightResponse)) {
             val detail = lastUpstreamFailure ?: "업스트림 DNS 응답 검증 실패"
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                .putString(KEY_DNS_DIAGNOSTIC, "보호 시작 전 DNS 연결 확인 실패: $detail")
-                .apply()
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            publishState(
-                false,
-                "업스트림 DNS 연결을 확인하지 못해 보호를 시작하지 않았습니다. 일반 인터넷 연결은 변경하지 않았습니다. ($detail)"
+            reportStartupFailure(
+                requestGeneration,
+                startId,
+                "업스트림 DNS 연결을 확인하지 못해 보호를 시작하지 않았습니다. 일반 인터넷 연결은 변경하지 않았습니다. ($detail)",
+                error = null,
+                diagnostic = KEY_DNS_DIAGNOSTIC to "보호 시작 전 DNS 연결 확인 실패: $detail"
             )
-            stopSelf(startId)
             return
         }
 
@@ -681,13 +674,13 @@ class GuardianVpnService : VpnService() {
             null
         }
         if (descriptor == null) {
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             val detail = establishError?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
-            establishError?.let { error ->
-                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
-            }
-            publishState(false, "VPN 연결 생성 실패$detail. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요.")
-            stopSelf(startId)
+            reportStartupFailure(
+                requestGeneration,
+                startId,
+                "VPN 연결 생성 실패$detail. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요.",
+                establishError
+            )
             return
         }
         val committed = startCancellation.tryCommitStart(requestGeneration) {
@@ -708,13 +701,9 @@ class GuardianVpnService : VpnService() {
             }
         }
         if (!committed) {
+            // The descriptor belongs to this stale request only. Closing it is
+            // safe; foreground/service teardown belongs to the newer lifecycle owner.
             try { descriptor.close() } catch (_: Exception) { }
-            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
-            if (!compatibilityPaused) {
-                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-                stopSelf(startId)
-            }
         }
     }
 
