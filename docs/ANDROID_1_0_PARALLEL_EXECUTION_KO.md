@@ -96,3 +96,11 @@ C License + support ────┘                                  │        
 - 관련 변경은 `feature/android-support-center-mainline`에 독립 파일 단위 커밋으로 반영했습니다.
 - 위 검증은 소스 재조회/순수 Kotlin/JVM harness 증거이며, Android Gradle compile, JUnit, lint, APK, emulator 및 Samsung 실기기 결과로 확대 해석하지 않습니다.
 - GitHub Actions는 실행하지 않았으며 runner/billing/usage 설정을 변경하지 않았습니다.
+
+
+## 2026-11-20 — Release/Debug APK 서명 검증 보강
+
+- 두 Windows 빌드 스크립트에 Android Build Tools `apksigner.bat` 존재 확인 및 `verify --verbose --print-certs` 검증을 추가.
+- 서명 검증이 성공해도 인증서 SHA-256 지문이 출력되지 않으면 실패 처리하고, 지문을 검증 보고서와 콘솔에 남기도록 함.
+- 기존 APK package/version, 번들 필터 asset, 파일 크기, APK SHA-256 검증은 유지.
+- 원격 소스 재조회로 변경 내용과 정적 구조 확인 완료. PowerShell/Android SDK/Gradle 실행환경이 없어 실제 스크립트 파싱·APK 생성·서명 검증은 미실행 상태이며, Debug 서명 지문은 Production 서명 지문을 대체하지 않음.
