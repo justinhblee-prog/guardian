@@ -2284,7 +2284,7 @@ class MainActivity : Activity() {
                                 else -> "기타"
                             }
                             val details = if (ticket == null) "문의 정보를 읽을 수 없습니다." else
-                                "상태: $statusLabel\n유형: $categoryLabel\n제목: \${ticket.optString("subject")}\n\n접수 내용:\n\${ticket.optString("message")}\n\n답변:\n\${ticket.optString("admin_reply").ifBlank { "아직 답변이 등록되지 않았습니다." }}"
+                                "상태: $statusLabel\n유형: $categoryLabel\n제목: ${ticket.optString("subject")}\n\n접수 내용:\n${ticket.optString("message")}\n\n답변:\n${ticket.optString("admin_reply").ifBlank { "아직 답변이 등록되지 않았습니다." }}"
                             dialog.dismiss()
                             AlertDialog.Builder(this@MainActivity)
                                 .setTitle("문의 처리 현황")
