@@ -9,6 +9,16 @@ internal object FilterStartupGate {
     fun hasUsableBundledBaseline(blockedRules: Int, importantBlockedRules: Int): Boolean =
         blockedRules > 0 || importantBlockedRules > 0
 
+    /** Distinguish the tiny bundled recovery list from selected full community feeds. */
+    fun readinessMessage(bundledRuleCount: Int, unavailableFeeds: List<String>): String {
+        val count = bundledRuleCount.coerceAtLeast(0)
+        return if (unavailableFeeds.isEmpty()) {
+            "선택 필터 준비 완료 · 기본 규칙 ${count}개 포함"
+        } else {
+            "기본 규칙 ${count}개만 우선 적용 중 · 필터 업데이트 필요: ${unavailableFeeds.distinct().joinToString()}"
+        }
+    }
+
     /**
      * Parses an optional feed without allowing a stale, missing, or malformed cache
      * to take down the DNS tunnel. A failed feed becomes an empty source and is
