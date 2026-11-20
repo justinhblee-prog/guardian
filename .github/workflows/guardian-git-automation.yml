@@ -17,6 +17,13 @@ on:
     paths:
       - 'scripts/guardian-git-agent.ps1'
       - 'scripts/guardian-git-agent-bootstrap.ps1'
+      - 'scripts/guardian-multiflow.ps1'
+      - 'scripts/guardian-copilot-worker.ps1'
+      - 'scripts/guardian_multiflow.py'
+      - 'scripts/test_guardian_multiflow.py'
+      - '.guardian/automation/tasks.json'
+      - '.github/workflows/guardian-windows-multiflow.yml'
+      - '.github/workflows/aider-qwen-local.yml'
       - '.github/workflows/guardian-git-automation.yml'
   workflow_dispatch:
 permissions:
