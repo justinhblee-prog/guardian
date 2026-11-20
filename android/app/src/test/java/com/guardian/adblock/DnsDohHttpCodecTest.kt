@@ -98,9 +98,9 @@ class DnsDohHttpCodecTest {
         assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(response("1d "))))
         assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(response("1d;"))))
         assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(response("1d;=bad"))))
-        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(response("1d;name=\\"unterminated"))))
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(response("1d;name=\"unterminated"))))
         assertArrayEquals(dnsMessage, DnsDohHttpCodec.readResponse(
-            ByteArrayInputStream(response("1d;name=token; quoted=\\"ok value\\""))
+            ByteArrayInputStream(response("1d;name=token; quoted=\"ok value\""))
         ))
     }
 
