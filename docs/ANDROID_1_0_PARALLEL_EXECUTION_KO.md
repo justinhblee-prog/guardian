@@ -41,6 +41,8 @@ C License + support ────┘                                  │        
 | D | 설정 준비 / 정식 산출물 없음 | Gradle은 Production signing 및 service public key/base URL을 요구. versionCode 43 기준 다음 release 최소 44 | 운영키/공개 endpoint 준비 후 release assemble, signer/checksum 및 설치 확인 |
 | E | 외부 단말 증거 대기 | Samsung 오류 보고가 있으나 정확한 호출 stack 미확정 | 진단용 privacy-filtered stack summary로 재현·수정·재시험 |
 
+- D 정적 검토: 기존 Android APK workflow의 source ZIP SHA-256 추출식이 0.7.29-dev를 찾는 오류를 확인하고, 실제 생성 파일 0.7.30-dev에 맞게 수정했습니다. 실행 검증은 아직 없습니다.
+
 ## 4. 수동 병렬 검증 워크플로
 
 - GitHub Actions 파일: .github/workflows/android-1-0-parallel-gates.yml
