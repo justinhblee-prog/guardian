@@ -37,40 +37,72 @@ if (Test-Path -LiteralPath $StatePath) {
 function Save-WorkerState {
     $state | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $StatePath -Encoding UTF8
 }
+function Write-WorkerThrottled([string]$Key, [string]$Message, [int]$Hours = 6) {
+    $last = $null
+    if ($state[$Key]) {
+        try { $last = [DateTimeOffset]::Parse([string]$state[$Key]) } catch {}
+    }
+    if (-not $last -or ([DateTimeOffset]::UtcNow - $last).TotalHours -ge $Hours) {
+        Write-WorkerLog $Message
+        $state[$Key] = [DateTimeOffset]::UtcNow.ToString('o')
+        Save-WorkerState
+    }
+}
 
 $today = Get-Date -Format 'yyyy-MM-dd'
 if ([string]$state['lastAttemptDate'] -eq $today) {
     Write-WorkerLog 'Daily coding-agent limit already used; no duplicate AI session started.'
     return
 }
-$copilot = Get-Command copilot -ErrorAction SilentlyContinue
-if (-not $copilot) {
-    $lastProbe = $null
-    if ($state['copilotMissingLoggedAt']) {
-        try { $lastProbe = [DateTimeOffset]::Parse([string]$state['copilotMissingLoggedAt']) } catch {}
-    }
-    if (-not $lastProbe -or ([DateTimeOffset]::UtcNow - $lastProbe).TotalHours -ge 6) {
-        Write-WorkerLog 'Copilot CLI is not installed or not in PATH. No AI credit was consumed; source/CI work continues independently.'
-        $state['copilotMissingLoggedAt'] = [DateTimeOffset]::UtcNow.ToString('o')
-        Save-WorkerState
-    }
-    return
-}
-if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    Write-WorkerLog 'GitHub CLI is unavailable; coding agent cannot inspect release issues or open a review PR.'
+$gh = Get-Command gh -ErrorAction SilentlyContinue
+if (-not $gh) {
+    Write-WorkerThrottled 'ghMissingLoggedAt' 'GitHub CLI is unavailable; local coding automation needs the already-installed gh client.'
     return
 }
 & gh auth status --hostname github.com *> $null
 if ($LASTEXITCODE -ne 0) {
-    Write-WorkerLog 'GitHub CLI is not authenticated. Copilot CLI can reuse a valid gh login; no interactive login was attempted.'
+    Write-WorkerThrottled 'ghAuthMissingLoggedAt' 'GitHub CLI is not authenticated. No interactive login or token creation was attempted.'
     return
 }
 & gh auth setup-git *> $null
 if ($LASTEXITCODE -ne 0) {
-    Write-WorkerLog 'GitHub CLI could not configure Git authentication; no coding worktree was created.'
+    Write-WorkerThrottled 'ghSetupGitFailedLoggedAt' 'GitHub CLI could not configure Git authentication; no coding worktree was created.'
     return
 }
 
+$copilot = Get-Command copilot -ErrorAction SilentlyContinue
+if (-not $copilot) {
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $winget) {
+        Write-WorkerThrottled 'copilotMissingLoggedAt' 'Copilot CLI is missing and WinGet is unavailable. No AI credits were consumed; source/CI work continues independently.'
+        return
+    }
+    $lastInstall = $null
+    if ($state['copilotInstallAttemptedAt']) {
+        try { $lastInstall = [DateTimeOffset]::Parse([string]$state['copilotInstallAttemptedAt']) } catch {}
+    }
+    if ($lastInstall -and ([DateTimeOffset]::UtcNow - $lastInstall).TotalHours -lt 6) {
+        return
+    }
+    $state['copilotInstallAttemptedAt'] = [DateTimeOffset]::UtcNow.ToString('o')
+    Save-WorkerState
+    Write-WorkerLog 'Installing the official GitHub Copilot CLI for the current Windows user via WinGet; no Copilot session starts during installation.'
+    & winget install --id GitHub.Copilot --exact --silent --accept-source-agreements --accept-package-agreements 2>&1 |
+        Tee-Object -FilePath (Join-Path $LogRoot 'copilot-install.log')
+    if ($LASTEXITCODE -ne 0) {
+        Write-WorkerLog "WinGet Copilot CLI installation failed with exit code $LASTEXITCODE. No AI credit was consumed."
+        return
+    }
+    $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $env:PATH = @($machinePath, $userPath) -join ';'
+    $copilot = Get-Command copilot -ErrorAction SilentlyContinue
+    if (-not $copilot) {
+        Write-WorkerLog 'WinGet reported success, but copilot.exe is not visible in this process PATH yet. The next agent cycle will re-check.'
+        return
+    }
+    Write-WorkerLog 'Copilot CLI is installed and visible. Existing gh authentication will be used as the CLI credential fallback when eligible.'
+}
 $branchName = 'automation/copilot-guardian-' + (Get-Date -Format 'yyyyMMdd')
 $existingRemote = & git -C $RepoRoot ls-remote --heads origin $branchName 2>$null
 if ($LASTEXITCODE -ne 0) {
