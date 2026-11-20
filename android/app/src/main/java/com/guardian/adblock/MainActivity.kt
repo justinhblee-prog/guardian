@@ -1545,7 +1545,7 @@ class MainActivity : Activity() {
                 when (which) {
                     0 -> AlertDialog.Builder(this)
                         .setTitle("Guardian AdBlock")
-                        .setMessage("버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\\n패키지: ${packageName}\\n\\n필터 원본의 라이선스와 재배포 조건은 제3자 고지 문서에서 확인할 수 있습니다.")
+                        .setMessage("버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n패키지: ${packageName}\n\n필터 원본의 라이선스와 재배포 조건은 제3자 고지 문서에서 확인할 수 있습니다.")
                         .setPositiveButton("확인", null)
                         .show()
                     1 -> openGuardianInfoUrl("https://github.com/justinhblee-prog/guardian/blob/main/server/filter-distribution/THIRD_PARTY_NOTICES_KO.md")
@@ -1568,7 +1568,7 @@ class MainActivity : Activity() {
 
     private fun buildGeneralSettings(body: LinearLayout) {
         body.addView(text("일반", 25f, white, true))
-        body.addView(text("앱 동작과 네트워크 관련 세부 설정", 13f, muted, false).withTop(5))
+        body.addView(text("앱 기본 동작, 업데이트 및 연결 관련 세부 설정", 13f, muted, false).withTop(5))
         body.addView(settingsCategoryRow("‹ 설정", "설정 카테고리로 돌아가기", "smartphone") {
             showTab("settings")
         }.withTop(14))
