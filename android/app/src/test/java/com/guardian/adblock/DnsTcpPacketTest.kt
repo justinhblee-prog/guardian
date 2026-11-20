@@ -168,10 +168,10 @@ class DnsTcpPacketTest {
             unsupported, unsupported.size, expectedNextHeader = 6, minimumTransportBytes = 20
         ))
 
-        val misplacedHopByHop = ByteArray(68)
+        val misplacedHopByHop = ByteArray(76)
         misplacedHopByHop[0] = 0x60
         misplacedHopByHop[4] = 0
-        misplacedHopByHop[5] = 28
+        misplacedHopByHop[5] = 36
         misplacedHopByHop[6] = 60 // Destination Options appears first
         misplacedHopByHop[40] = 0 // Invalid: Hop-by-Hop cannot follow Destination Options
         misplacedHopByHop[41] = 0
