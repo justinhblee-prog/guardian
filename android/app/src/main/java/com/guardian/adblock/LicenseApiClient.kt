@@ -184,7 +184,9 @@ internal object LicenseApiClient {
                 .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
                 .put("licenseRef", current.licenseRef)
         )
-        return LicenseEntitlementStore.clear(context)
+        val entitlementCleared = LicenseEntitlementStore.clear(context)
+        val pendingRequestCleared = clearPendingActivationRequest(context)
+        return entitlementCleared && pendingRequestCleared
     }
 
     @Synchronized
@@ -249,7 +251,7 @@ internal object LicenseApiClient {
         val savedFingerprint = prefs.getString(KEY_PENDING_ACTIVATION_FINGERPRINT, null)
         val savedRequestId = prefs.getString(KEY_PENDING_ACTIVATION_ID, null)
         if (savedFingerprint == fingerprint && savedRequestId != null &&
-            savedRequestId.matches(Regex("[0-9a-fA-F-]{36}"))) return savedRequestId
+            savedRequestId.matches(Regex("(?i)[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"))) return savedRequestId
         val requestId = UUID.randomUUID().toString()
         check(prefs.edit()
             .putString(KEY_PENDING_ACTIVATION_FINGERPRINT, fingerprint)
@@ -258,12 +260,11 @@ internal object LicenseApiClient {
         return requestId
     }
 
-    private fun clearPendingActivationRequest(context: Context) {
-        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+    private fun clearPendingActivationRequest(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .remove(KEY_PENDING_ACTIVATION_ID)
             .remove(KEY_PENDING_ACTIVATION_FINGERPRINT)
-            .commit()) { "라이선스는 확인됐지만 완료 기록 저장에 실패했습니다. 앱을 다시 열어 상태를 확인하세요." }
-    }
+            .commit()
 
     private fun persistToken(
         context: Context,
