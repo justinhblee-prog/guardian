@@ -976,7 +976,7 @@ class GuardianVpnService : VpnService() {
             // Some mobile carriers and managed Wi-Fi networks drop UDP/53 while
             // allowing TCP/53. Keep the selected transport first, then retry the
             // same resolver over TCP before moving to another resolver.
-            val attempts = if (transport == "udp") listOf("udp", "tcp") else listOf(transport)
+            val attempts = DnsUpstreamTransportPolicy.attempts(transport)
             for (attemptTransport in attempts) {
                 val response = when (attemptTransport) {
                     "tcp" -> forwardDnsTcp(query, address)
