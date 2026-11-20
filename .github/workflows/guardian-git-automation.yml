@@ -1,0 +1,58 @@
+name: Guardian Git CLI Automation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/guardian-git-agent.ps1'
+      - '.github/workflows/guardian-git-automation.yml'
+  pull_request:
+    paths:
+      - 'scripts/guardian-git-agent.ps1'
+      - '.github/workflows/guardian-git-automation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: guardian-git-cli-validation-\${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate-agent:
+    name: Validate Windows Git CLI automation script
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Parse PowerShell and verify safety guards
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = 'scripts/guardian-git-agent.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw 'PowerShell syntax validation failed.'
+          }
+          $source = Get-Content -Raw -LiteralPath $path
+          $required = @(
+            "git",
+            "gh pr list",
+            "worktree",
+            "--rebase-merges",
+            "--force-with-lease",
+            "merge-base",
+            "status",
+            "Unregister-ScheduledTask"
+          )
+          foreach ($token in $required) {
+            if (-not $source.Contains($token)) { throw "Required automation guard/operation missing: $token" }
+          }
+          if ($source -match 'push\s+--force(?!-with-lease)') {
+            throw 'Unsafe unleased force push detected.'
+          }
+          if ($source -match 'git\s+reset\s+--hard') {
+            throw 'Destructive hard reset detected.'
+          }
+          Write-Host 'PASS: PowerShell parses and Git CLI safety guards are present.'
