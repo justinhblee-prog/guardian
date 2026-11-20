@@ -120,9 +120,14 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           python -m py_compile scripts/guardian_multiflow.py scripts/test_guardian_multiflow.py
-          if ($LASTEXITCODE -ne 0) { throw 'Python compile failed.' }
+          $compileExit = $LASTEXITCODE
+          Write-Host "Python compile exit code: $compileExit"
+          if ($compileExit -ne 0) { throw 'Python compile validation failed.' }
           python scripts/test_guardian_multiflow.py
-          if ($LASTEXITCODE -ne 0) { throw 'Guardian multi-flow regression tests failed.' }
+          $testExit = $LASTEXITCODE
+          Write-Host "Guardian multi-flow test process exit code: $testExit"
+          if ($testExit -ne 0) { throw 'Guardian multi-flow regression tests failed.' }
+          exit 0
 
 
       - name: Compare exact PR head against current main with Git CLI
