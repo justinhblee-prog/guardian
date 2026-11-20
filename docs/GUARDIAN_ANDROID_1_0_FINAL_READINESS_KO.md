@@ -335,3 +335,11 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - **회귀 테스트 소스**: 취소된 이전 시작의 진단 저장 및 서비스 종료 side effect가 차단되는지, 동일 세대에서 cleanup이 한 번만 허용되는지 테스트 2건을 추가했습니다.
 - **독립 JVM 실행**: `VpnStartCancellationGate` 동작을 별도 Kotlin/JVM harness로 컴파일·실행해 stale failure side effect 차단과 current-generation cleanup one-shot을 PASS 확인했습니다. Android Gradle/JUnit 실행은 아닙니다.
 - **검증 한계**: GitHub 원격 소스 재조회와 diff 확인은 수행합니다. Android 프로젝트 컴파일, JUnit, APK, 실제 Android 서비스 재시작/실기기 검증은 미실행입니다.
+
+
+## 2026-11-20 VPN 시작 중단·신규 시작 간 stale worker 정리 경합 추가 수정
+
+- **추가 확정 결함**: DNS 사전 연결 실패, `VpnService.Builder.establish()` 실패, TUN 커밋 거부 및 시작 중 취소 감지 분기에서 이전 시작 worker가 `stopForeground()`/`stopSelf()`를 호출할 수 있었습니다. 사용자가 새 START를 발행해 새 요청이 foreground notification을 준비한 직후 이전 worker가 늦게 돌아오면 새 알림/서비스를 제거할 수 있는 경합입니다. DNS preflight 실패 상태와 진단도 세대 변경 직전에 오래된 요청이 기록할 수 있었습니다.
+- **수정**: 사전 연결 실패와 VPN 인터페이스 생성 실패를 공통 generation-guarded failure handler로 이동했습니다. 이 handler는 현재 시작 세대일 때만 진단/상태/notification/service 정리를 수행합니다. 시작 중 취소 감지 분기는 이전 worker에서 foreground/service를 정리하지 않고 즉시 반환합니다. TUN commit이 거부된 worker는 자신이 생성한 descriptor만 닫고 공유 서비스 상태는 건드리지 않습니다.
+- **회귀 테스트 소스**: stale preflight failure의 상태 게시/foreground 제거/서비스 종료 차단, stale descriptor 정리의 공유 teardown 차단 테스트 2건을 추가했습니다.
+- **검증 한계**: 앞선 generation gate 독립 Kotlin/JVM harness는 PASS했습니다. 이번 추가 분기별 Android 서비스 실행 테스트는 아직 수행하지 않았으며, Android Gradle/JUnit/APK/Samsung 실기기 검증은 계속 미완료입니다.
