@@ -25,26 +25,32 @@ function Invoke-Git([string]$Path, [string[]]$Arguments, [switch]$AllowFailure) 
 function Install-AgentTask {
     $pwsh = (Get-Command pwsh.exe -ErrorAction SilentlyContinue).Source
     if (-not $pwsh) { $pwsh = (Get-Command powershell.exe -ErrorAction Stop).Source }
-    $script = Join-Path $PSScriptRoot 'guardian-git-agent.ps1'
+    $bootstrap = Join-Path $PSScriptRoot 'guardian-git-agent-bootstrap.ps1'
+    if (-not (Test-Path -LiteralPath $bootstrap)) {
+        throw "Self-updating bootstrap is missing: $bootstrap"
+    }
     try {
-        $action = New-ScheduledTaskAction -Execute $pwsh -Argument ('-NoProfile -ExecutionPolicy Bypass -File "{0}"' -f $script) -WorkingDirectory $Repo
+        $action = New-ScheduledTaskAction -Execute $pwsh -Argument ('-NoProfile -ExecutionPolicy Bypass -File "{0}"' -f $bootstrap) -WorkingDirectory $Repo
         $trigger = New-ScheduledTaskTrigger -AtLogOn
         $repeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Minutes 15) -RepetitionDuration (New-TimeSpan -Days 3650)
-        Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger @($trigger, $repeat) -Description 'Guardian Git CLI: fetch main, audit open PRs, safely rebase same-repository branches, and push with lease.' -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 20)) -Force -ErrorAction Stop | Out-Null
-        Write-Log "Windows scheduled task installed: logon + every 15 minutes. Repo=$Repo"
+        Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger @($trigger, $repeat) -Description 'Guardian Git CLI self-updating bootstrap: sync clean main, stop legacy loop safely, and start the current agent.' -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 20)) -Force -ErrorAction Stop | Out-Null
+        $startup = [Environment]::GetFolderPath('Startup')
+        $legacyLauncher = Join-Path $startup 'Guardian-Git-Automation.vbs'
+        if (Test-Path -LiteralPath $legacyLauncher) { Remove-Item -LiteralPath $legacyLauncher -Force }
+        Write-Log "Windows scheduled task installed: bootstrap at logon + every 15 minutes. Repo=$Repo"
         return
     } catch {
-        Write-Log "Task Scheduler registration unavailable ($($_.Exception.Message)); installing current-user Startup fallback without administrator rights."
+        Write-Log "Task Scheduler registration unavailable ($($_.Exception.Message)); installing current-user Startup bootstrap fallback without administrator rights."
     }
 
     $startup = [Environment]::GetFolderPath('Startup')
     $launcher = Join-Path $startup 'Guardian-Git-Automation.vbs'
-    $command = '"' + $pwsh + '" -NoProfile -ExecutionPolicy Bypass -File "' + $script + '" -RunLoop'
+    $command = '"' + $pwsh + '" -NoProfile -ExecutionPolicy Bypass -File "' + $bootstrap + '" -RunLoop'
     $vbs = 'Set shell = CreateObject("WScript.Shell")' + [Environment]::NewLine +
            'shell.Run "' + $command.Replace('"', '""') + '", 0, False'
     [System.IO.File]::WriteAllText($launcher, $vbs, [System.Text.Encoding]::ASCII)
     Start-Process -FilePath (Join-Path $env:WINDIR 'System32\wscript.exe') -ArgumentList ('"{0}"' -f $launcher) -WindowStyle Hidden
-    Write-Log "Current-user Startup fallback installed and launched: $launcher (15-minute cycle)."
+    Write-Log "Current-user Startup bootstrap installed and launched: $launcher (agent self-updates each 15-minute cycle)."
 }
 function Invoke-Agent {
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'Git CLI is not installed or not in PATH.' }
