@@ -38,15 +38,16 @@ object ProtectionDiagnostics {
         // consumes the whole budget, the actual native/file-loader cause disappears.
         // Bound the cause chain and divide the frame budget across each throwable.
         while (current != null && seen.add(current) && framesByCause.size < 8) {
-            val safeFrames = current.stackTrace.mapNotNull { frame ->
+            val throwable = current
+            val safeFrames = throwable.stackTrace.mapNotNull { frame ->
                 val owner = frame.className.takeIf { it.matches(Regex("[A-Za-z0-9_$.]{1,180}")) }
                     ?: return@mapNotNull null
                 val method = frame.methodName.takeIf { it.matches(Regex("[A-Za-z0-9_$<>]{1,100}")) }
                     ?: return@mapNotNull null
                 "$owner.$method:${frame.lineNumber.coerceAtLeast(-1)}"
             }
-            framesByCause.add(safeFrames)
-            current = current.cause
+            framesByCause.add(safeFrames.take(limit))
+            current = throwable.cause
         }
         val frames = mutableListOf<String>()
         var remaining = limit
