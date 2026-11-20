@@ -13,8 +13,6 @@ on:
       - 'scripts/**'
       - 'docs/**'
       - '.github/workflows/**'
-  schedule:
-    - cron: '17 */6 * * *'
 
 permissions:
   contents: read
@@ -75,30 +73,42 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            server/license-api/package-lock.json
+            server/filter-distribution/package-lock.json
       - name: Discover and run package test suites
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t manifests < <(find server -name package.json -not -path '*/node_modules/*' -print 2>/dev/null | sort)
+          mapfile -t manifests < <(find server -type f -name package.json -not -path '*/node_modules/*' -print 2>/dev/null | sort)
           if [ "${#manifests[@]}" -eq 0 ]; then
-            echo "No server package.json files found; inspect repository layout."
+            echo "No server package.json files found."
             exit 1
           fi
           for manifest in "${manifests[@]}"; do
             dir="$(dirname "$manifest")"
-            echo "::group::${dir}"
+            echo "::group::Test $dir"
             node -e "const p=require('./$manifest'); if (!p.scripts || !p.scripts.test) process.exit(2)"
-            (cd "$dir" && npm install --ignore-scripts --no-audit --no-fund && npm test)
+            if [ -f "$dir/package-lock.json" ]; then
+              (cd "$dir" && npm ci --ignore-scripts --no-audit --no-fund && npm test)
+            else
+              (cd "$dir" && npm install --ignore-scripts --no-audit --no-fund && npm test)
+            fi
             echo "::endgroup::"
           done
-      - name: Validate Compose configuration when present
+      - name: Validate each discovered Compose configuration
         shell: bash
         run: |
           set -euo pipefail
-          if find . -maxdepth 4 -iname '*compose*.yml' -o -iname '*compose*.yaml' | grep -q .; then
-            docker compose config -q
-          else
+          mapfile -t compose_files < <(find . -maxdepth 5 -type f \( -iname 'compose.yml' -o -iname 'compose.yaml' -o -iname 'docker-compose.yml' -o -iname 'docker-compose.yaml' \) -not -path '*/node_modules/*' | sort)
+          if [ "${#compose_files[@]}" -eq 0 ]; then
             echo "No Compose manifest discovered; not applicable."
+          else
+            for compose_file in "${compose_files[@]}"; do
+              echo "Validating $compose_file"
+              docker compose -f "$compose_file" config -q
+            done
           fi
 
   repository-integrity:
@@ -120,8 +130,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          while IFS= read -r file; do bash -n "$file"; done < <(find scripts -type f -name '*.sh' -print 2>/dev/null)
-          python3 -m compileall -q scripts
+          if [ -d scripts ]; then
+            while IFS= read -r file; do bash -n "$file"; done < <(find scripts -type f -name '*.sh' -print)
+            python3 -m compileall -q scripts
+          fi
       - name: Capture immutable run identity
         run: |
           {
@@ -150,7 +162,7 @@ jobs:
           BACKEND_RESULT: ${{ needs.backend.result }}
           INTEGRITY_RESULT: ${{ needs.repository-integrity.result }}
         run: |
-          printf 'Android=%s Backend=%s Integrity=%s\n' "$ANDROID_RESULT" "$BACKEND_RESULT" "$INTEGRITY_RESULT"
+          printf 'Android=%s Backend=%s Integrity=%s\\n' "$ANDROID_RESULT" "$BACKEND_RESULT" "$INTEGRITY_RESULT"
           test "$ANDROID_RESULT" = success
           test "$BACKEND_RESULT" = success
           test "$INTEGRITY_RESULT" = success
