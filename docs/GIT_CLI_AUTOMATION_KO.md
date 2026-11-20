@@ -109,7 +109,7 @@ AI 사용 제한:
 - `--max-ai-credits 1`: 응답당 soft limit입니다. 서비스의 hard billing cap이나 무료 사용 보증으로 해석하지 않습니다.
 - `--max-autopilot-continues 3`: 자동 연속 응답을 제한합니다.
 - blanket `--yolo` / `--allow-all`은 사용하지 않습니다. PowerShell/file 도구 목록을 제한하고 commit/push/PR 생성/merge/issue close는 모델 도구에서 금지합니다. 최종 commit·push·draft PR 생성은 검증 가드가 있는 로컬 wrapper가 수행합니다.
-- 하루 1회 트리거는 반복 호출을 방지합니다. Copilot CLI가 설치되지 않았거나 인증이 없으면 AI credit을 소비하지 않고 6시간 간격으로 설치/인증 상태만 재확인합니다.
+- 하루 1회 트리거는 반복 호출을 방지합니다. Copilot CLI가 없으면 WinGet이 설치를 시도합니다. 설치/인증 단계에서는 AI credit을 소비하지 않습니다. Copilot CLI가 없거나 인증/라이선스가 없으면 6시간 간격으로 설치·인증 상태만 재확인합니다.
 
 로그:
 - `%LOCALAPPDATA%\\GuardianGitAgent\\copilot-worker-state.json`: 하루 실행 중복 방지 및 마지막 PR 상태
