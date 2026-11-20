@@ -23,6 +23,25 @@ class DnsTcpSessionManagerTest {
         assertEquals(0, manager.activeSessionCount())
     }
 
+
+    @Test fun outOfWindowSegmentsDoNotExtendSessionIdleTimeout() {
+        var now = 1_000L
+        val manager = DnsTcpSessionManager({ now }, deterministicRandom())
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 7_000)
+        manager.handle(syn, syn.size) { null }
+
+        // A segment with an invalid client sequence is answered but is not valid
+        // activity and must not keep an otherwise idle session allocated.
+        now += 50_000L
+        val stale = packet(flags = DnsTcpPacket.ACK, seq = 7_099)
+        manager.handle(stale, stale.size) { null }
+        assertEquals(1, manager.activeSessionCount())
+
+        now += 11_001L
+        manager.handle(packet(flags = DnsTcpPacket.ACK, seq = 7_000), 40) { null }
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     @Test fun boundsBufferedTcpDataAndResetsConnection() {
         val manager = newManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 300)
