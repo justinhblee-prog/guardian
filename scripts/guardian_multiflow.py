@@ -56,7 +56,7 @@ class FileLease:
             # If tasklist itself fails, preserve the lease rather than steal it.
             try:
                 result = subprocess.run(
-                    ["tasklist.exe", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                    ["tasklist.exe", "/FO", "CSV", "/NH"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
