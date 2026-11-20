@@ -374,3 +374,12 @@
 - 필터/manifest HTTPS 리디렉션 대상에 대해 URL fragment 및 1–65535 범위를 벗어난 포트를 연결 전에 거부하도록 강화.
 - `FilterRedirectPolicyTest.rejectsRedirectsWithInvalidPortsOrFragments` 회귀 테스트 추가.
 - manifest 콘텐츠 URL의 포트 검증과 함께 정적 재조회로 정책·테스트 반영 확인. Android JUnit/Gradle은 실행 환경 부재로 미실행.
+
+
+## 2026-11-20 — Signed manifest HTTP endpoint validation
+
+- Signed manifest HTTP client의 최초 manifest URL, detached signature sidecar URL, manifest 콘텐츠 URL이 동일한 HTTPS URL 정책을 통과하도록 보강. 호스트 누락, 사용자 정보, fragment, 1–65535 범위를 벗어난 포트는 연결 전에 거부.
+- `detachedManifestSignatureUrl`은 sidecar 생성 시 원본과 동일한 host/port를 유지하는지 확인하고, query/fragment가 없는 URL만 허용.
+- `SignedManifestHttpClientTest`에 sidecar URL의 잘못된 포트/fragment 및 초기 manifest의 99999 포트 거부 회귀 테스트 추가.
+- GitHub 원격 재조회로 구현과 테스트 반영 확인. Java 21 URL parser에서 99999 포트가 URL 객체로 보존됨을 확인해 정책 검사에서 명시적으로 거부되는 입력임을 확인.
+- Android Gradle/JUnit은 실행하지 않았으며, 네트워크 연결이나 실제 서명 서버 호출도 수행하지 않음.
