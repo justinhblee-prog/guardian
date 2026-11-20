@@ -208,3 +208,10 @@
 - Android 라이선스 활성화는 서버가 먼저 기기 등록 슬롯을 할당하고, 앱이 응답 토큰의 서명/기기 바인딩을 검증한 뒤 SharedPreferences에 저장합니다. 검증 또는 로컬 영구 저장이 실패하면 서버 슬롯은 활성 상태로 남지만 앱은 licenseRef를 보존하지 못해 다른 키를 선택했을 때 이전 슬롯을 해제할 방법이 없었습니다.
 - `LicenseApiClient.activate()`에서 서버 응답 수신 후 토큰 검증/저장이 실패하면 응답의 bounded licenseRef 형식을 검사하고 동일 deviceBinding으로 `/v1/licenses/deactivate`를 best-effort 호출하도록 보완했습니다. 보상 해제도 실패하면 원래 활성화/저장 오류를 유지하고 해제 오류는 suppressed exception으로 보존합니다.
 - `LicenseApiClientTest`에 보상 해제 참조값의 허용/거부 테스트를 추가했습니다. 실제 API·Android JUnit은 아직 실행하지 않았습니다.
+
+
+## 2026-11-20 라이선스 활성화 보상 해제 범위 명확화
+- 기존 등록 차단은 만료된 서명 entitlement도 보존된 기기 등록으로 취급합니다. API 오류 문구가 '활성 PRO'로만 표현되어 만료 등록이 왜 차단되는지 오해할 수 있어 '기존 라이선스 등록 정보(만료 포함)'로 수정했습니다.
+- 보상 해제는 서버의 활성화 응답을 앱이 수신한 뒤 토큰 검증/저장에 실패한 경우에 적용됩니다. 서버가 DB 커밋한 직후 응답이 네트워크에서 유실되거나 응답 JSON을 읽기 전에 연결이 끊긴 경우에는 앱이 licenseRef를 알 수 없어 이 경로로 해제할 수 없습니다.
+- 이 불확실한 결과 구간을 완전히 해결하려면 activation request idempotency/pending-attempt recovery를 API와 앱 저장소에 함께 설계해야 합니다. 현재는 해당 미구현 구간을 완료로 표시하지 않으며, 임의의 'device binding 전체 해제' API를 추가해 다른 활성 등록을 부주의하게 끊는 방식은 채택하지 않았습니다.
+- 소스 정적 검토만 수행했습니다. API/PostgreSQL 및 Android JUnit/실기기 검증은 미실행입니다.
