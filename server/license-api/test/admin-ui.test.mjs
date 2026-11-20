@@ -36,7 +36,10 @@ test("license sorting supports expiry, device count and newest", () => {
 });
 
 test("license issue form accepts only bounded integer values", () => {
-  assert.deepEqual(validateIssueInput("365", "2"), { validDays: 365, maxDevices: 2 });
+  assert.deepEqual(validateIssueInput("365", "2"), { validDays: 365, maxDevices: 2, planCode: "custom" });
+  assert.deepEqual(validateIssueInput("30", "2", "monthly_30d"), { validDays: 30, maxDevices: 2, planCode: "monthly_30d" });
+  assert.throws(() => validateIssueInput("31", "2", "monthly_30d"), /상품과 유효 기간/);
+  assert.throws(() => validateIssueInput("30", "2", "lifetime"), /상품 유형/);
   for (const [days, devices] of [["0", "1"], ["36501", "1"], ["1.5", "1"], ["365", "0"], ["365", "21"], ["365", "1.5"]]) {
     assert.throws(() => validateIssueInput(days, devices), RangeError);
   }
@@ -81,4 +84,17 @@ test("customer migration is additive and protects email uniqueness", async () =>
   assert.match(migration, /CREATE UNIQUE INDEX IF NOT EXISTS customers_email_lower_uq ON customers \(lower\(email\)\)/);
   assert.match(migration, /ADD COLUMN IF NOT EXISTS customer_id/);
   assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM/i);
+});
+
+test("support inbox and license plan controls are wired without replacing the customer directory", async () => {
+  const html = await readFile(new URL("../admin/index.html", import.meta.url), "utf8");
+  const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
+  assert.match(html, /id="planPreset"/);
+  assert.match(html, /id="supportTickets"/);
+  assert.match(html, /id="customers"/);
+  assert.match(js, /api\("\/v1\/admin\/support\/tickets"\)/);
+  assert.match(js, /supportItems = support\.tickets \|\| \[\]/);
+  assert.match(js, /renderSupportTickets\(\)/);
+  assert.match(js, /validateIssueInput\(\$\("days"\)\.value, \$\("devices"\)\.value, \$\("planPreset"\)\.value\)/);
+  assert.doesNotMatch(js, /\.innerHTML\s*=/);
 });

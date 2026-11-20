@@ -136,6 +136,23 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
+# Android AlertDialog ListView row TextViews are intentionally non-clickable
+# in UIAutomator's accessibility tree; ListView itself dispatches row taps.
+# Resolve only an exact child of android:id/select_dialog_listview, leaving
+# the generic clickable-control helper strict for buttons and navigation.
+tap_text_row() {
+  local wanted="$1"
+  local xml bounds
+  xml="$(dump_ui_hierarchy /sdcard/guardian-window.xml)"
+  if ! bounds="$(python3 scripts/resolve_android_dialog_row.py "$wanted" <<<"$xml")"; then
+    echo "Could not resolve one exact visible AlertDialog ListView row: $wanted"
+    echo "$xml"
+    return 1
+  fi
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 dismiss_dev_update_prompt() {
   local xml
   for attempt in $(seq 1 8); do
@@ -1072,6 +1089,91 @@ selected_settings=any(node.attrib.get("content-desc")=="설정"
                       for node in nodes)
 if "Guardian 앱 정보와 보호 정책" not in texts or not selected_settings:
     raise SystemExit("Guardian Settings tab did not open after tapping its clickable navigation parent.")' <<<"$settings_tab_xml"
+
+# Verify the customer-facing support center is reachable and its FAQ/form UI
+# renders. Do not submit a real ticket from the emulator fixture.
+# The preceding VPN auto-pause acceptance test may leave Settings scrolled well below
+# the support card. Reset the Settings ScrollView to its top before searching for
+# the support entry; otherwise a downward-only search can never find a card above
+# the retained scroll position.
+for attempt in $(seq 1 20); do
+  adb_cmd shell input swipe 540 500 540 1550 250
+  sleep 0.15
+done
+adb_cmd shell uiautomator dump /sdcard/guardian-support-top.xml >/dev/null 2>&1
+support_top_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-top.xml | tr -d '\r')"
+if ! grep -Fq "Guardian 앱 정보와 보호 정책" <<<"$support_top_xml"; then
+  echo "Could not confirm Settings returned to its top before support-center verification."
+  echo "$support_top_xml"
+  exit 1
+fi
+
+# The support card is intentionally the first content card in Settings.
+# Verify it at the top immediately; scrolling down would move it out of view.
+adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
+support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
+if ! python3 -c 'import sys, xml.etree.ElementTree as ET
+root = ET.fromstring(sys.stdin.read())
+texts = [node.attrib.get("text", "") for node in root.iter("node")]
+required = (
+    "고객지원 센터",
+    "자주 묻는 질문 (Q&A)",
+    "문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다",
+)
+missing = [item for item in required if not any(item in text for text in texts)]
+if missing:
+    raise SystemExit("Customer support Settings text missing: " + ", ".join(missing))' <<<"$support_settings_xml"; then
+  echo "Customer support center card is missing from the top of Settings."
+  echo "$support_settings_xml"
+  exit 1
+fi
+echo "Customer support center found at the top of Settings."
+
+tap_text "자주 묻는 질문 (Q&A)"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-faq.xml >/dev/null 2>&1
+support_faq_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq.xml | tr -d '\r')"
+grep -Fq '광고 차단이 되지 않아요' <<<"$support_faq_xml" || {
+  echo "Customer support FAQ list did not open."
+  echo "$support_faq_xml"
+  exit 1
+}
+tap_text_row "광고 차단이 되지 않아요"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
+support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
+grep -Fq 'DNS 기반 광고·추적 도메인' <<<"$support_faq_answer_xml" || {
+  echo "Customer support FAQ answer did not render."
+  echo "$support_faq_answer_xml"
+  exit 1
+}
+tap_text "확인"
+tap_text "문의 및 의견 보내기"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-form.xml >/dev/null 2>&1
+support_form_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-form.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+fields=[n for n in nodes if n.attrib.get("class")=="android.widget.EditText"]
+if len(fields)<3:
+    raise SystemExit("Support submission form must expose subject, optional email, and message fields.")
+if not any("문의 및 의견 보내기" in n.attrib.get("text","") for n in nodes):
+    raise SystemExit("Support submission dialog title is missing.")' <<<"$support_form_xml"
+tap_text "취소"
+tap_text "내 문의 답변 확인"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-lookup.xml >/dev/null 2>&1
+support_lookup_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-lookup.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+fields=[n for n in root.iter("node") if n.attrib.get("class")=="android.widget.EditText"]
+if len(fields)<2:
+    raise SystemExit("Support ticket lookup must expose ticket reference and private access-code fields.")' <<<"$support_lookup_xml"
+tap_text "취소"
+echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
+
+
 auto_pause_picker_visible=0
 # The Settings tab opens at its top after the app is relaunched. Scroll down
 # through account/DNS settings until the compatibility card appears. The card is

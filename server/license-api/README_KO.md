@@ -57,7 +57,17 @@ openssl pkey -in guardian-license-private.pem -pubout -out guardian-license-publ
 docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup.sql
 ```
 
-`schema.sql`은 빈 데이터 볼륨 최초 생성 시에만 자동 실행됩니다. 기존 DB에는 배포 전에 `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_shared_rate_limit_buckets.sql`로 공유 rate-limit 테이블 migration을 적용해야 합니다. 이후 스키마 변경도 별도 migration으로 적용해야 합니다. 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
+`schema.sql`은 빈 데이터 볼륨 최초 생성 시에만 자동 실행됩니다. 기존 Windows 노트북 운영 DB에는 새 API 배포 전에 반드시 migration을 적용해야 합니다.
+
+PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다음 스크립트를 실행합니다.
+
+```powershell
+./Apply-GuardianLicenseMigrations.ps1
+```
+
+이 스크립트는 PostgreSQL 준비 상태 확인 → 외부 보호 경로에 DB 백업 생성 → `002_shared_rate_limit_buckets.sql`, `003_support_tickets.sql`, `004_customers.sql` 순차 적용 → 필수 테이블 존재 확인 → 최신 API 이미지 재빌드 → `/ready` 확인까지 수행합니다. SQL migration은 재실행해도 안전하도록 `IF NOT EXISTS`를 사용합니다. 자동 스크립트를 사용할 수 없는 환경에서는 `docker compose exec -T db psql -v ON_ERROR_STOP=1 -U guardian -d guardian`에 migration SQL을 순서대로 전달할 수 있지만, 반드시 먼저 백업하십시오. migration 실패 시 백업을 보존하고 원인을 확인한 뒤 재시도하며, 운영 DB를 임의로 삭제하거나 초기화하지 마십시오.
+
+실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
 
 ## API
 - `POST /v1/licenses/activate`: `{ "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`

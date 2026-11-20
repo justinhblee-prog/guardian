@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/guardian-git-agent.ps1'
+      - 'scripts/guardian-copilot-worker.ps1'
       - 'docs/GIT_CLI_AUTOMATION_KO.md'
       - '.github/workflows/guardian.yml'
   workflow_dispatch:
@@ -34,15 +35,19 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $path = 'scripts/guardian-git-agent.ps1'
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Error $_.Message }
-            throw 'PowerShell syntax validation failed.'
+          $paths = @('scripts/guardian-git-agent.ps1', 'scripts/guardian-copilot-worker.ps1')
+          foreach ($path in $paths) {
+            if (-not (Test-Path -LiteralPath $path)) { throw "Required PowerShell agent is missing: $path" }
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              throw "PowerShell syntax validation failed: $path"
+            }
           }
-          $source = Get-Content -Raw -LiteralPath $path
+          $source = Get-Content -Raw -LiteralPath 'scripts/guardian-git-agent.ps1'
+          $worker = Get-Content -Raw -LiteralPath 'scripts/guardian-copilot-worker.ps1'
           $required = @(
             'gh auth status',
             'gh pr list',
@@ -54,7 +59,8 @@ jobs:
             'status',
             'Register-ScheduledTask',
             'Unregister-ScheduledTask',
-            'Invoke-AgentWithLock'
+            'Invoke-AgentWithLock',
+            'guardian-copilot-worker.ps1'
           )
           foreach ($token in $required) {
             if (-not $source.Contains($token)) { throw "Required operation or safety guard missing: $token" }
@@ -68,7 +74,32 @@ jobs:
           if (-not (Test-Path 'docs/GIT_CLI_AUTOMATION_KO.md')) {
             throw 'Git CLI automation operating guide is missing.'
           }
-          Write-Host 'PASS: PowerShell syntax, Git safety guards, and operating guide.'
+          $workerRequired = @(
+            '--autopilot',
+            '--no-ask-user',
+            '--assisted-approval',
+            '--max-ai-credits',
+            '--max-autopilot-continues',
+            '--deny-tool',
+            '--available-tools',
+            'GitHub.Copilot',
+            'winget install',
+            'shell(git reset)',
+            'shell(git clean)',
+            'origin/main',
+            'gh auth status',
+            'worktree'
+          )
+          foreach ($token in $workerRequired) {
+            if (-not $worker.Contains($token)) { throw "Copilot worker is missing required safety/automation token: $token" }
+          }
+          if ($worker -match '(?m)--yolo|--allow-all') {
+            throw 'Copilot worker must not grant blanket permissions.'
+          }
+          if ($worker -match '(?m)^\s*(?:&\s*)?git\s+reset\s+--hard' -or $worker -match '(?m)^\s*(?:&\s*)?gh\s+pr\s+merge') {
+            throw 'Copilot worker contains a prohibited destructive/merge command.'
+          }
+          Write-Host 'PASS: both PowerShell agents parse; Git and Copilot safety guards are present.'
 
       - name: Compare exact PR head against current main with Git CLI
         if: github.event_name == 'pull_request'

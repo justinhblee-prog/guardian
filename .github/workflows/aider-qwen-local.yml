@@ -5,6 +5,19 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/aider-qwen-local.yml"
+      # Verify the user's local Qwen runner when the Settings/update flow changes.
+      - "android/app/src/main/java/com/guardian/adblock/MainActivity.kt"
+      # Revalidate the local coding agent whenever its worker contract changes.
+      - "scripts/guardian-copilot-worker.ps1"
+  # Same-repository PRs can verify the user's Windows Ollama runner before merge.
+  # This job only checks the local model/Aider response and uploads a smoke log.
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths:
+      - ".github/workflows/aider-qwen-local.yml"
+      - "android/app/src/main/java/com/guardian/adblock/MainActivity.kt"
+      - "scripts/guardian-copilot-worker.ps1"
   workflow_dispatch:
 
 permissions:
@@ -17,7 +30,9 @@ concurrency:
 jobs:
   verify-local-qwen:
     name: Verify Aider to local Ollama Qwen
-    runs-on: [self-hosted]
+    # Never execute a PR-controlled workflow on the user's PC for a fork.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Windows]
     timeout-minutes: 12
     steps:
       - name: Checkout repository

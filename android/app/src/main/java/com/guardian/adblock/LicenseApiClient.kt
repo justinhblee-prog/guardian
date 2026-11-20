@@ -194,6 +194,34 @@ internal object LicenseApiClient {
         return response
     }
 
+    fun submitSupportTicket(
+        context: Context,
+        category: String,
+        subject: String,
+        message: String,
+        email: String = ""
+    ): JSONObject = post(
+        context,
+        "/v1/support/tickets",
+        JSONObject()
+            .put("category", category)
+            .put("subject", subject)
+            .put("message", message)
+            .put("email", email)
+    )
+
+    fun lookupSupportTicket(
+        context: Context,
+        ticketRef: String,
+        accessToken: String
+    ): JSONObject = post(
+        context,
+        "/v1/support/tickets/lookup",
+        JSONObject()
+            .put("ticketRef", ticketRef.trim().uppercase())
+            .put("accessToken", accessToken.trim())
+    )
+
     private fun persistToken(
         context: Context,
         response: JSONObject

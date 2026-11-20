@@ -106,3 +106,43 @@ test('license endpoints return 429 and Retry-After after the configured request 
   assert.ok(Number(limited.headers.get('retry-after')) >= 1);
   assert.equal(limited.headers.get('ratelimit-remaining'), '0');
 });
+
+test('customer support submission is rate-limited before database access', async () => {
+  const request = () => fetch(`${baseUrl}/v1/support/tickets`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ category: 'question', subject: '테스트 문의', message: '테스트 문의 내용입니다.' })
+  });
+  assert.equal((await request()).status, 503); // Database is intentionally absent.
+  assert.equal((await request()).status, 503);
+  const limited = await request();
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get('retry-after')) >= 1);
+});
+
+test('customer support ticket lookup is independently rate-limited', async () => {
+  const request = () => fetch(`${baseUrl}/v1/support/tickets/lookup`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ticketRef: 'GDN-ABCDEF123456', accessToken: 'a'.repeat(43) }) });
+  assert.equal((await request()).status, 503); // Database is intentionally absent.
+  assert.equal((await request()).status, 503);
+  const limited = await request();
+  assert.equal(limited.status, 429);
+});
+
+
+test('admin support reply rate limit is shared across ticket IDs', async () => {
+  const ticketIds = [
+    '00000000-0000-4000-8000-000000000001',
+    '00000000-0000-4000-8000-000000000002',
+    '00000000-0000-4000-8000-000000000003'
+  ];
+  const request = id => fetch(`${baseUrl}/v1/admin/support/tickets/${id}/reply`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ reply: '테스트 답변', status: 'answered' })
+  });
+  assert.equal((await request(ticketIds[0])).status, 503);
+  assert.equal((await request(ticketIds[1])).status, 503);
+  const limited = await request(ticketIds[2]);
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get('retry-after')) >= 1);
+});
