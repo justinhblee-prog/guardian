@@ -947,7 +947,7 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
         body.addView(text("최근 DNS 요청", 18f, white, true).withTop(24))
         recentText = text(
-            prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null)
+            dnsStats.recent
                 ?: "아직 DNS 요청 기록이 없습니다. 보호를 시작한 뒤 앱이나 웹사이트를 이용해 주세요.",
             12f, muted, false
         ).withTop(10) as TextView
@@ -956,7 +956,7 @@ class MainActivity : Activity() {
             addView(recentText!!)
         }.withTop(10))
         diagnosticText = text(
-            "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}",
+            "마지막 패킷 진단: ${(dnsStats.diagnostic ?: "아직 기록 없음")}",
             11f, muted, false
         ).withTop(12) as TextView
         body.addView(diagnosticText!!)
