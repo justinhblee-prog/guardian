@@ -332,8 +332,8 @@ object FilterListManager {
         var connection: HttpsURLConnection? = null
         try {
             var currentUrl = URL(url)
-            require(currentUrl.protocol.equals("https", ignoreCase = true) && currentUrl.userInfo == null) {
-                "필터 다운로드 URL은 사용자 정보가 없는 HTTPS 주소여야 합니다."
+            require(FilterRedirectPolicy.isAllowedHttpsUrl(currentUrl)) {
+                "필터 다운로드 URL은 호스트·포트가 유효하고 사용자 정보·fragment가 없는 HTTPS 주소여야 합니다."
             }
             var redirectsFollowed = 0
             while (connection == null) {
