@@ -349,24 +349,9 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        when (currentTab) {
-            "settings-general", "settings-filtering", "settings-support", "settings-license" -> {
-                showTab("settings")
-                return
-            }
-            "premium" -> {
-                showTab("settings-license")
-                return
-            }
-            "settings" -> {
-                showTab("home")
-                return
-            }
-            "home" -> Unit
-            else -> {
-                showTab("home")
-                return
-            }
+        ResponsiveLayoutPolicy.backNavigationTarget(currentTab)?.let { target ->
+            showTab(target)
+            return
         }
         AlertDialog.Builder(this)
             .setTitle("Guardian 종료")
