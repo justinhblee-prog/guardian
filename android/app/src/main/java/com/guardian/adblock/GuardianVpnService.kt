@@ -97,10 +97,10 @@ class GuardianVpnService : VpnService() {
     // DNS forwarding can run concurrently from the packet reader, startup preflight,
     // and the on-demand upstream test. Keep failure details scoped to the calling
     // thread so one request cannot overwrite another request's diagnostic.
-    private val upstreamFailureContext = ThreadLocal<String?>()
+    private val upstreamFailureContext = DnsFailureContext()
     private var lastUpstreamFailure: String?
         get() = upstreamFailureContext.get()
-        set(value) { upstreamFailureContext.set(value) }
+        set(value) = upstreamFailureContext.set(value)
     private var tun: ParcelFileDescriptor? = null
     @Volatile private var packetWorker: Thread? = null
     private val running = AtomicBoolean(false)
