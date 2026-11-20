@@ -88,7 +88,7 @@ class GuardianVpnService : VpnService() {
             "2a10:50c0::ad1:ff", "2a10:50c0::ad2:ff",
             "2a10:50c0::bad1:ff", "2a10:50c0::bad2:ff"
         )
-        private val DNS_STATS_LOCK = Any()
+        internal val DNS_STATS_LOCK = Any()
         private const val DNS_STATS_BROADCAST_INTERVAL_MS = 500L
         @Volatile private var tunnelActive = false
         fun isTunnelActive(): Boolean = tunnelActive
@@ -536,8 +536,10 @@ class GuardianVpnService : VpnService() {
             val prefsUpdate = getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             if (error == null) prefsUpdate.remove(KEY_STARTUP_TRACE)
             else prefsUpdate.putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error))
-            diagnostic?.let { (key, value) -> prefsUpdate.putString(key, value) }
-            prefsUpdate.apply()
+            synchronized(DNS_STATS_LOCK) {
+                diagnostic?.let { (key, value) -> prefsUpdate.putString(key, value) }
+                prefsUpdate.apply()
+            }
             tunnelActive = false
             try { tun?.close() } catch (closeError: Exception) {
                 android.util.Log.w("GuardianProtection", "Failed to close partial VPN tunnel", closeError)
@@ -1213,17 +1215,19 @@ class GuardianVpnService : VpnService() {
         val latencyMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
         val success = DnsUpstreamProbe.isSuccessfulResolution(query, response)
         val testedAt = System.currentTimeMillis()
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-            .putBoolean(KEY_UPSTREAM_TEST_SUCCESS, success)
-            .putLong(KEY_UPSTREAM_TEST_LATENCY_MS, latencyMs)
-            .putString(KEY_UPSTREAM_TEST_TRANSPORT, transport)
-            .putLong(KEY_UPSTREAM_TEST_AT, testedAt)
-            .putString(
-                KEY_DNS_DIAGNOSTIC,
-                if (success) "업스트림 DNS 연결 테스트 성공 (" + transport + ", " + latencyMs + "ms)"
-                else "업스트림 DNS 연결 테스트 실패: " + (lastUpstreamFailure ?: "응답 검증 실패 또는 원인 미확인")
-            )
-            .apply()
+        synchronized(DNS_STATS_LOCK) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean(KEY_UPSTREAM_TEST_SUCCESS, success)
+                .putLong(KEY_UPSTREAM_TEST_LATENCY_MS, latencyMs)
+                .putString(KEY_UPSTREAM_TEST_TRANSPORT, transport)
+                .putLong(KEY_UPSTREAM_TEST_AT, testedAt)
+                .putString(
+                    KEY_DNS_DIAGNOSTIC,
+                    if (success) "업스트림 DNS 연결 테스트 성공 (" + transport + ", " + latencyMs + "ms)"
+                    else "업스트림 DNS 연결 테스트 실패: " + (lastUpstreamFailure ?: "응답 검증 실패 또는 원인 미확인")
+                )
+                .apply()
+        }
         sendBroadcast(Intent(ACTION_UPSTREAM_TEST_RESULT).apply {
             setPackage(packageName)
             putExtra("success", success)
