@@ -332,4 +332,4 @@
 ## 2026-11-20 병렬 구현 — 내비게이션 정책 회귀 테스트
 - 앞서 수정한 하위 화면의 상위 메뉴 선택 규칙을 `ResponsiveLayoutPolicy`로 분리해 순수 정책으로 만들었습니다.
 - 일반/필터링/고객지원/라이선스/기존 premium 경로/규칙 화면이 설정을 선택하고, 5개 최상위 화면은 자기 메뉴를 유지하는 회귀 테스트 2개를 추가했습니다.
-- MainActivity와 테스트가 동일 정책 함수를 사용하도록 연결했습니다. Android JUnit 실행은 아직 하지 않았습니다.
+- MainActivity와 테스트가 동일 정책 함수를 사용하도록 연결했습니다. 실제 `ResponsiveLayoutPolicy.kt`를 Android 비의존 Kotlin/JVM 하네스로 컴파일해 하위 6개 경로 및 최상위 5개 경로 검증이 PASS했습니다. Android JUnit 실행은 아직 하지 않았습니다.
