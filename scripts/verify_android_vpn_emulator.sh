@@ -595,6 +595,27 @@ if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))' <<<"$home_controls_xml"
 echo "App-exclusion search, package filtering, Android Auto lookup, and single Home protection control passed."
 
+# Assert that the simplified dashboard has no redundant shortcut tiles and that
+# every persistent bottom-navigation destination is present before navigation.
+echo "Verifying home dashboard structure and all seven bottom-navigation destinations."
+adb_cmd shell rm -f /sdcard/guardian-home-navigation.xml
+adb_cmd shell uiautomator dump /sdcard/guardian-home-navigation.xml >/dev/null 2>&1
+home_navigation_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-navigation.xml | tr -d '\\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+if any("화면 열기" in node.attrib.get("content-desc","") for node in nodes):
+    raise SystemExit("Redundant home shortcut tile remains beside bottom navigation.")
+expected={"홈","보호 설정","앱 제외","DNS 활동","프리미엄","필터 규칙","설정"}
+actual={node.attrib.get("content-desc") for node in nodes
+        if node.attrib.get("class")=="android.widget.LinearLayout"
+        and node.attrib.get("clickable")=="true"}
+if not expected.issubset(actual):
+    raise SystemExit("Bottom navigation is missing destinations: "+repr(sorted(expected-actual)))
+if not any(node.attrib.get("content-desc")=="홈" and node.attrib.get("selected")=="true"
+           for node in nodes):
+    raise SystemExit("Home is not the selected bottom-navigation destination.")' <<<"$home_navigation_xml"
+
 # Verify the single persistent bottom navigation and each destination.
 echo "Verifying the persistent bottom navigation destinations."
 for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "프리미엄" "필터 규칙" "설정"; do
