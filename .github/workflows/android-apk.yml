@@ -25,10 +25,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
-# Keep PR runs separate and never cancel an in-flight verification.
+# PR runs remain isolated and are never cancelled by other PRs.
+# For main, a newer commit supersedes a stale emulator run so it cannot block
+# every subsequent Android APK build indefinitely.
 concurrency:
   group: guardian-android-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 permissions:
   contents: write
