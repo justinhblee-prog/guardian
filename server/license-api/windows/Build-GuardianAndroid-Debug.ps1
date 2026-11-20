@@ -4,7 +4,6 @@ param([switch]$InstallToConnectedDevice)
 $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $AndroidDir = Join-Path $RepoRoot 'android'
-$repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 . (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
 $paths=Get-GuardianPaths -RepositoryRoot $repoRoot
 $SecretDir = $paths.Secrets
@@ -87,8 +86,7 @@ if ($InstallToConnectedDevice) {
   $adb = (Get-Command adb -ErrorAction Stop).Source
   $deviceLines = @(& $adb devices)
   if ($LASTEXITCODE -ne 0) { throw 'adb devices 실행에 실패했습니다.' }
-  $connected = @($deviceLines | Select-Object -Skip 1 | Where-Object { $_ -match '^\S+\s+device
- })
+  $connected = @($deviceLines | Select-Object -Skip 1 | Where-Object { $_ -match '^\S+\s+device(?:\s|$)' })
   if ($connected.Count -ne 1) {
     throw "실기기 자동 검증은 adb 연결 기기가 정확히 1대일 때만 진행합니다. 현재 연결된 기기 수: $($connected.Count)"
   }
