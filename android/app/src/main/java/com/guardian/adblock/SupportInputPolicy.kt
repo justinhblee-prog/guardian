@@ -4,6 +4,16 @@ import java.util.Locale
 
 /** Client-side validation mirrors the support API contract before network requests. */
 internal object SupportInputPolicy {
+    private val supportCategories = setOf("question", "bug", "suggestion", "billing", "license")
+
+    fun isValidSupportText(value: String, minLength: Int, maxLength: Int): Boolean {
+        val normalized = value.trim()
+        return minLength >= 0 && maxLength >= minLength &&
+            normalized.length in minLength..maxLength && !normalized.contains('\\u0000')
+    }
+
+    fun isValidSupportCategory(value: String): Boolean = value in supportCategories
+
     fun isValidReplyEmail(value: String): Boolean {
         val email = value.trim()
         return email.isEmpty() || (
