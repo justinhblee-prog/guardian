@@ -145,8 +145,8 @@ jobs:
           keytool -list -v -keystore android/guardian-dev.keystore -storepass android -alias androiddebugkey | grep -F 'ED:AE:EC:C9:E4:A2:7E:64:F0:7D:92:64:3F:B8:51:40:72:50:83:AB:ED:55:3F:91:2A:0D:EE:03:87:FB:D8:2C'
       - name: Assemble previous dev version for upgrade test
         run: |
-          gradle -p android --no-daemon -PguardianVersionCode=44 -PguardianVersionName=0.7.32-dev assembleDebug
-          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.32-dev.apk
+          gradle -p android --no-daemon -PguardianVersionCode=44 -PguardianVersionName=0.7.31-dev assembleDebug
+          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.31-dev.apk
 
       - name: Assemble current debug APK for build verification
         shell: bash
@@ -355,7 +355,7 @@ jobs:
       - name: Install and launch APK on Android emulator
         id: android_emulator
         env:
-          GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.32-dev.apk
+          GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.31-dev.apk
           GUARDIAN_PREVIOUS_VERSION_CODE: "44"
           GUARDIAN_PREVIOUS_VERSION_NAME: 0.7.31-dev
           GUARDIAN_CURRENT_VERSION_CODE: "45"
@@ -495,7 +495,7 @@ jobs:
           - 커밋: ${GITHUB_SHA}
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
-          - 버전: 0.7.32-dev (44)
+          - 버전: 0.7.32-dev (45)
           - APK 생성 상태: ${APK_STATUS}
           - APK SHA-256: ${APK_SHA256}
           - 테스트 및 빌드 단계의 실제 결과는 위 GitHub Actions 단계 결과를 기준으로 확인합니다.
