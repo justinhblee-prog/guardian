@@ -41,7 +41,14 @@ C License + support ────┘                                  │        
 | D | 설정 준비 / 정식 산출물 없음 | Gradle은 Production signing 및 service public key/base URL을 요구. versionCode 43 기준 다음 release 최소 44 | 운영키/공개 endpoint 준비 후 release assemble, signer/checksum 및 설치 확인 |
 | E | 외부 단말 증거 대기 | Samsung 오류 보고가 있으나 정확한 호출 stack 미확정 | 진단용 privacy-filtered stack summary로 재현·수정·재시험 |
 
-## 4. 실행 규칙
+## 4. 수동 병렬 검증 워크플로
+
+- GitHub Actions 파일: .github/workflows/android-1-0-parallel-gates.yml
+- Android unit/lint, DB 독립 License API 테스트, source/script contract를 별도 job으로 병렬 실행하도록 구성했습니다.
+- workflow_dispatch 전용이며 push/PR/schedule 자동 실행은 없습니다. 생성만 했고 실행하지 않았습니다. Actions runner 문제 및 사용량 비용을 피하기 위해 사용자의 기존 제한을 유지합니다.
+- 이 workflow는 APK를 만들지 않으며 PostgreSQL 통합, emulator E2E, Samsung 실기기 검증도 수행한다고 주장하지 않습니다.
+
+## 5. 실행 규칙
 
 1. 독립 트랙의 저장소 조사와 파일 변경은 가능한 한 병렬로 수행한다.
 2. 같은 파일, migration 순서, API contract, shared model은 충돌을 피하기 위해 직렬화한다.
@@ -52,7 +59,7 @@ C License + support ────┘                                  │        
 7. 실패 시 실패한 단계, 재현 조건, 로그 근거, 수정 커밋, 재검증 결과를 함께 남긴다. 증거가 없으면 상태는 검증 대기다.
 8. 운영 RSA 키/DB는 보존한다. 키 교체, DB 초기화, 운영 migration은 백업과 명시적 운영 절차 없이 수행하지 않는다.
 
-## 5. Android 1.0 종료 게이트
+## 6. Android 1.0 종료 게이트
 
 - [ ] A: Gradle compile + unit tests + lint 통과
 - [ ] B: filter manifest/signature/cache/update failure tests 통과
