@@ -42,6 +42,10 @@ internal fun isLicensePublicKeyConfigurationValid(encoded: String): Boolean =
         false
     }
 
+/** Match the server's UUID v4 contract for durable activation retries. */
+internal fun isValidActivationRequestId(value: String): Boolean =
+    value.matches(Regex("(?i)[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"))
+
 /** The status endpoint returns HTTP 200 with status=free for revoked devices. */
 internal fun isActiveLicenseStatus(status: String): Boolean =
     status.equals("active", ignoreCase = true)
@@ -257,7 +261,7 @@ internal object LicenseApiClient {
         val savedFingerprint = prefs.getString(KEY_PENDING_ACTIVATION_FINGERPRINT, null)
         val savedRequestId = prefs.getString(KEY_PENDING_ACTIVATION_ID, null)
         if (savedFingerprint == fingerprint && savedRequestId != null &&
-            savedRequestId.matches(Regex("(?i)[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"))) return savedRequestId
+            isValidActivationRequestId(savedRequestId)) return savedRequestId
         val requestId = UUID.randomUUID().toString()
         check(prefs.edit()
             .putString(KEY_PENDING_ACTIVATION_FINGERPRINT, fingerprint)
