@@ -1,6 +1,7 @@
 """Unit tests for the Guardian local multi-flow safety boundary."""
 from __future__ import annotations
 import json
+import sys
 import tempfile
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
@@ -200,4 +201,6 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
             first.release()
 
 if __name__ == "__main__":
-    unittest.main()
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(GuardianMultiFlowValidationTests)
+    result = unittest.TextTestRunner(stream=sys.stdout, verbosity=2).run(suite)
+    raise SystemExit(0 if result.wasSuccessful() else 1)
