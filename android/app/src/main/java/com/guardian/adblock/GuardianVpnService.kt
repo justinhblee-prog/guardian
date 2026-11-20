@@ -967,13 +967,26 @@ class GuardianVpnService : VpnService() {
             .sortedBy { if (it == active) 0 else 1 }
             .asSequence()
             .filter { network ->
-                manager.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true
+                val capabilities = manager.getNetworkCapabilities(network)
+                capabilities != null &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
             }
             .flatMap { network ->
                 manager.getLinkProperties(network)?.dnsServers.orEmpty().asSequence()
             }
             .mapNotNull { address ->
-                DnsAddressValidator.normalize(address.hostAddress.orEmpty().substringBefore('%'))
+                val normalized = DnsAddressValidator.normalize(
+                    address.hostAddress.orEmpty().substringBefore('%')
+                ) ?: return@mapNotNull null
+                // Link-local and loopback DNS entries require an interface scope
+                // or local stub routing that a newly-created unbound socket cannot
+                // reliably preserve. Never add them as generic upstream candidates.
+                val numeric = runCatching { InetAddress.getByName(normalized) }.getOrNull()
+                    ?: return@mapNotNull null
+                if (numeric.isAnyLocalAddress || numeric.isLoopbackAddress ||
+                    numeric.isLinkLocalAddress || numeric.isMulticastAddress) null
+                else normalized
             }
             .filter { it != VIRTUAL_DNS && it != VIRTUAL_DNS_V6 }
             .distinct()
