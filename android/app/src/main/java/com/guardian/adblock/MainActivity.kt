@@ -3581,6 +3581,12 @@ class MainActivity : Activity() {
                     "Guardian",
                     "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}"
                 )
+                if ((securityWasEnabled && securityResult == null) ||
+                    (androidAdsWasEnabled && androidAdsResult == null)) {
+                    // Failed optional sources need a one-shot retry even when the
+                    // user has disabled recurring automatic updates.
+                    FilterUpdateScheduler.enqueueRecovery(this)
+                }
                 filterUpdateRunning.set(false)
                 runOnUiThread {
                     val securityMessage = if (securityWasEnabled) {
@@ -3605,6 +3611,7 @@ class MainActivity : Activity() {
                 filterUpdateRunning.set(false)
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
                     .putString(FilterListManager.KEY_LAST_ERROR, e.message ?: e.javaClass.simpleName).apply()
+                FilterUpdateScheduler.enqueueRecovery(this)
                 runOnUiThread {
                     val cacheMessage = if (hadPreviousMainCache) {
                         "이전 정상 필터를 계속 사용합니다."
