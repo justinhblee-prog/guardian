@@ -355,6 +355,24 @@ class DnsTcpSessionManagerTest {
         assertEquals(1202, framedAnswer.size)
     }
 
+    @Test fun staleHandshakeAckDoesNotEstablishDnsTcpSession() {
+        val manager = newManager()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 4800)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+
+        val staleAck = packet(flags = DnsTcpPacket.ACK, seq = 4801,
+            acknowledgment = synAck.sequence)
+        val challenge = manager.handle(staleAck, staleAck.size) { null }.single()
+        assertTrue(DnsTcpPacket.parse(challenge, challenge.size, 53000)!!.ack)
+
+        val retransmittedSyn = DnsTcpPacket.parse(
+            manager.handle(syn, syn.size) { null }.single(), 40, 53000
+        )!!
+        assertTrue(retransmittedSyn.syn)
+        assertTrue(retransmittedSyn.ack)
+        assertEquals(1, manager.activeSessionCount())
+    }
+
     @Test fun synRetransmissionDuringHandshakeReplaysSynAckUntilEstablished() {
         val manager = newManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 4900)
