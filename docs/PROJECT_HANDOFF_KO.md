@@ -39,9 +39,9 @@ Issue #141만을 최종 완료 기준으로 사용합니다.
 
 ### 4.1 Android 앱
 
-- 최신 확인된 개발 APK: `com.guardian.adblock`, `0.7.34-dev`, versionCode 47, 3,209,047 bytes.
+- 최신 확인된 개발 APK: `com.guardian.adblock`, `0.7.34-dev`, versionCode 47, 3,210,279 bytes.
 - APK SHA-256: `9daa4663b90b98e5800fe66dbc50978bebee6a1aa74ce853af8974a6c52c7804`.
-- Source ZIP: `Guardian-AdBlock-Source-v0.7.34-dev.zip`, 673,108 bytes; SHA-256 `c57c0f788b664fa9e2762795dab65ae9bc1b16d890da39b2d6878834a6239895`.
+- Source ZIP: `Guardian-AdBlock-Source-v0.7.34-dev.zip`, 674,030 bytes; SHA-256 `c2306943346b534bd1dc95f0a159ba4020964004e9b1a787648d8cb00cec7a67`.
 - Exact-head Android workflow [44766753106](https://github.com/justinhblee-prog/guardian/actions/runs/44766753106) passed unit tests, lint, APK identity/checksum, API 35 emulator upgrade/install, VPN DNS allow/block, custom rules, app exclusions, update recovery, Support Center FAQ/form/private lookup, foreground-app auto-pause/resume and Home protection start/stop.
 - This is a development-signed Debug APK and emulator evidence, not a production-signed release or Samsung physical-device acceptance.
 - The historical handset-only `Library file not found` message remains undiagnosed. The inspected APK includes the bundled `assets/filter_rules.txt`; the app does not bundle app-owned JNI/native libraries. The actual caller must be identified from the handset's safe `GuardianProtection` stack summary and installed app version.
