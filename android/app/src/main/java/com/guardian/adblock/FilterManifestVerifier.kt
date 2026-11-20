@@ -107,7 +107,10 @@ internal object FilterManifestVerifier {
         require(manifest.sha256.matches(Regex("[a-f0-9]{64}"))) { "SHA-256 해시 형식이 올바르지 않습니다." }
         val uri = URI(manifest.url)
         require(uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank() &&
-            uri.userInfo == null && uri.fragment == null) { "필터 URL은 사용자 정보가 없는 HTTPS 주소여야 합니다." }
+            uri.userInfo == null && uri.fragment == null &&
+            (uri.port == -1 || uri.port in 1..65535)) {
+            "필터 URL은 유효한 포트를 사용하는 사용자 정보 없는 HTTPS 주소여야 합니다."
+        }
         return manifest
     }
 
