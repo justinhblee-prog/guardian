@@ -2439,6 +2439,9 @@ class MainActivity : Activity() {
                         )
                     }
                     runOnUiThread {
+                        // The Activity may be finishing after the network request returns.
+                        // Never show a new dialog or touch detached views in that case.
+                        if (isFinishing || isDestroyed) return@runOnUiThread
                         result.onSuccess { response ->
                             val receipt = "접수 번호: ${response.optString("ticketRef")}\n조회 코드: ${response.optString("accessToken")}\n\n이 정보는 다시 표시되지 않으므로 안전한 곳에 보관하세요."
                             dialog.dismiss()
@@ -2520,6 +2523,8 @@ class MainActivity : Activity() {
                         LicenseApiClient.lookupSupportTicket(this@MainActivity, lookupRef, lookupToken)
                     }
                     runOnUiThread {
+                        // Ignore late responses after the owning Activity has been destroyed.
+                        if (isFinishing || isDestroyed) return@runOnUiThread
                         result.onSuccess { response ->
                             val ticket = response.optJSONObject("ticket")
                             val statusLabel = when (ticket?.optString("status")) {
