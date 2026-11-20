@@ -7,6 +7,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SupportInputPolicyTest {
+    @Test fun supportTextMatchesServerLengthAndControlCharacterRules() {
+        assertTrue(SupportInputPolicy.isValidSupportText("abc", 3, 120))
+        assertTrue(SupportInputPolicy.isValidSupportText("  abc  ", 3, 120))
+        assertFalse(SupportInputPolicy.isValidSupportText("ab", 3, 120))
+        assertFalse(SupportInputPolicy.isValidSupportText("a".repeat(121), 3, 120))
+        assertFalse(SupportInputPolicy.isValidSupportText("abc\\u0000", 3, 120))
+        assertFalse(SupportInputPolicy.isValidSupportText("abc", 4, 3))
+    }
+
+    @Test fun supportCategoryMatchesServerAllowList() {
+        listOf("question", "bug", "suggestion", "billing", "license").forEach {
+            assertTrue(SupportInputPolicy.isValidSupportCategory(it))
+        }
+        assertFalse(SupportInputPolicy.isValidSupportCategory("other"))
+        assertFalse(SupportInputPolicy.isValidSupportCategory("BUG"))
+    }
+
     @Test fun replyEmailMayBeOmittedOrMustMatchServerContract() {
         assertTrue(SupportInputPolicy.isValidReplyEmail(""))
         assertTrue(SupportInputPolicy.isValidReplyEmail("  "))
