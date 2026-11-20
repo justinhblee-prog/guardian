@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -958,6 +960,26 @@ class GuardianVpnService : VpnService() {
             .getString(KEY_UPSTREAM_TLS_HOST, DEFAULT_UPSTREAM_TLS_HOST)
             ?: DEFAULT_UPSTREAM_TLS_HOST
 
+    private fun systemDnsResolvers(): List<String> {
+        val manager = getSystemService(CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return emptyList()
+        val active = manager.activeNetwork
+        return manager.allNetworks
+            .sortedBy { if (it == active) 0 else 1 }
+            .asSequence()
+            .filter { network ->
+                manager.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true
+            }
+            .flatMap { network ->
+                manager.getLinkProperties(network)?.dnsServers.orEmpty().asSequence()
+            }
+            .mapNotNull { address ->
+                DnsAddressValidator.normalize(address.hostAddress.orEmpty().substringBefore('%'))
+            }
+            .filter { it != VIRTUAL_DNS && it != VIRTUAL_DNS_V6 }
+            .distinct()
+            .toList()
+    }
+
     private fun forwardDns(query: ByteArray, requireSuccessfulResolution: Boolean = false): ByteArray? {
         lastUpstreamFailure = null
         val configured = configuredUpstreamDns()
@@ -970,7 +992,11 @@ class GuardianVpnService : VpnService() {
                     listOf(configured, "1.1.1.1", "1.0.0.1").distinct()
                 } else listOf(configured)
             }
-            else -> listOf(configured, "1.1.1.1", "8.8.8.8").distinct()
+            else -> DnsUpstreamTransportPolicy.resolverCandidates(
+                configured,
+                systemDnsResolvers(),
+                listOf("1.1.1.1", "8.8.8.8")
+            )
         }
         for (address in candidates) {
             // Some mobile carriers and managed Wi-Fi networks drop UDP/53 while
