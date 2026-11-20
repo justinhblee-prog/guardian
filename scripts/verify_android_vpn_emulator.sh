@@ -1092,13 +1092,24 @@ if ! grep -Fq "Guardian 앱 정보와 보호 정책" <<<"$support_top_xml"; then
 fi
 
 # The support card is intentionally the first content card in Settings.
-# Verify it at the top immediately; scrolling down would move it out of view.
-adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
-support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
-if ! grep -Fq '고객지원 센터' <<<"$support_settings_xml" ||
-   ! grep -Fq '자주 묻는 질문 (Q&A)' <<<"$support_settings_xml" ||
-   ! grep -Fq '문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다' <<<"$support_settings_xml"; then
-  echo "Customer support center card is missing from the top of Settings."
+# Activity transitions and accessibility hierarchy refresh can lag briefly after
+# returning from another app. Poll the actual top-of-Settings hierarchy instead
+# of failing on a single stale/empty UIAutomator snapshot.
+support_settings_xml=""
+support_card_ready=0
+for attempt in $(seq 1 10); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1 || true
+  support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml 2>/dev/null | tr -d '\r' || true)"
+  if grep -Fq '고객지원 센터' <<<"$support_settings_xml" &&
+     grep -Fq '자주 묻는 질문 (Q&A)' <<<"$support_settings_xml" &&
+     grep -Fq '문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다' <<<"$support_settings_xml"; then
+    support_card_ready=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$support_card_ready" -ne 1 ]]; then
+  echo "Customer support center card did not become visible at the top of Settings after 10 attempts."
   echo "$support_settings_xml"
   exit 1
 fi
