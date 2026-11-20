@@ -1673,6 +1673,7 @@ class MainActivity : Activity() {
             val licenseFeedback = text(
                 when {
                     verifiedLicense != null -> "이 기기에 활성 PRO 라이선스가 등록되어 있습니다. 새 키를 사용하려면 먼저 아래에서 기존 기기 등록을 해제하세요."
+                    releasableLicense != null -> "만료된 라이선스의 기기 등록이 서버에 남아 있을 수 있습니다. 새 키를 활성화하기 전에 아래에서 기존 등록을 해제하세요."
                     LicenseApiClient.configuredBaseUrl(this@MainActivity).isBlank() -> "운영 라이선스 서버 주소가 아직 설정되지 않았습니다."
                     else -> "라이선스 키는 서버에서 확인하며 앱에는 원문을 저장하지 않습니다."
                 },
@@ -1681,8 +1682,8 @@ class MainActivity : Activity() {
             addView(licenseFeedback)
             val activateButton = Button(this@MainActivity).apply {
                 text = "라이선스 활성화"
-                isEnabled = verifiedLicense == null
-                alpha = if (verifiedLicense == null) 1f else 0.55f
+                isEnabled = releasableLicense == null
+                alpha = if (releasableLicense == null) 1f else 0.55f
                 isAllCaps = false
                 setTextColor(bg)
                 background = shape(accent, 12)
