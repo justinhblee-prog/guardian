@@ -6,6 +6,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FilterUpdateSchedulePolicyTest {
+    @Test fun oneShotFailureRecoveryRunsWithAutomaticUpdatesDisabled() {
+        assertTrue(FilterRecoveryPolicy.shouldRun(autoUpdateEnabled = false, forcedRecovery = true))
+    }
+
+    @Test fun recurringUpdatesRemainDisabledWithoutExplicitRecoveryRequest() {
+        assertFalse(FilterRecoveryPolicy.shouldRun(autoUpdateEnabled = false, forcedRecovery = false))
+    }
+
+    @Test fun enabledRecurringUpdatesDoNotNeedRecoveryOverride() {
+        assertTrue(FilterRecoveryPolicy.shouldRun(autoUpdateEnabled = true, forcedRecovery = false))
+    }
+
     @Test fun changedSelectedProfileRequiresDownloadEvenWhenAutomaticUpdatesAreDisabled() {
         assertTrue(
             FilterStartupPolicy.shouldRefresh(
