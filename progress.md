@@ -44,7 +44,7 @@
 - [Step 8] 사용자 소유 Production keystore 및 해당 signing secrets가 제공/연결되었다는 확인이 없음. 임시 signer/Debug APK는 정식 산출물로 대체할 수 없음.
 - [Step 9] 완료 판정은 실제 APK 파일과 SHA-256/인증서 지문 및 설치 검증 증거 확보 이후에만 수행.
 
-## 4. 현재 외부 차단 요인
+## 4. 최신 저장소 기준점\n\n- GitHub compare: `main...feature/android-support-center-mainline` = 112 commits ahead, 0 behind, 29 files changed (2026-11-20 조회).\n- 새 문서: `docs/GUARDIAN_ANDROID_1_0_FINAL_READINESS_KO.md`.\n- 필터 무결성 정적 감사: 서명 검증/캐시 복구/배포 HTTP 서버의 주요 방어 코드 및 테스트 소스를 확인했으나 실제 테스트 실행이나 운영 키/배포 검증을 대체하지 않음.\n\n## 5. 현재 외부 차단 요인
 
 1. **CI 실행**: 사용량/runner 제약으로 Actions 실행 금지. 별도 로컬 실행 결과도 현재 저장소 연결 환경에서는 확인되지 않음.
 2. **필터 배포 권리**: 원본별 재배포 승인 증거 없음.
@@ -52,7 +52,7 @@
 4. **Production 서명**: 사용자 소유 운영 keystore/서명 secrets 확인 필요.
 5. **공개 API**: Tailscale Serve 주소의 외부 고객 공개 접근성은 검증되지 않음. 공개 endpoint라고 간주하지 않음.
 
-## 5. 완료 판정 원칙
+## 6. 완료 판정 원칙
 
 - 소스 구현, 테스트 소스 작성, 테스트 실행, 에뮬레이터, Samsung 실기기, 운영환경, Production APK를 별도 증거 단계로 관리한다.
 - 체크박스는 증거가 확인된 단계만 완료 처리한다.
