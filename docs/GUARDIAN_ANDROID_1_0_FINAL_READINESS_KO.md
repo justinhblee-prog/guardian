@@ -275,3 +275,11 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 소스 반영 커밋: b21de112851ffe2718d4ae45648fded952b2e7e4, 380b897d73af62f3a0a6b6260c9fa85044346965, 013e7a9479aa1e401f785b9ffcbf44a9b897c2f7, f2069febb3647f14876869b8b7c62adc688122ff, 3d8fce78fe550653d2dce1d83a8dde6c7208cd62.
 - GitHub 파일 재조회로 잠금 적용 위치, VPN reload 동기화, 회귀 테스트 존재를 확인했습니다. Android Gradle/JUnit 실행, APK, 실기기 검증은 아직 하지 않았으며 GitHub Actions도 실행하지 않았습니다.
 - 브랜치 비교 상태: main 대비 ahead / 0 behind. 정확한 ahead 수는 후속 소스·문서 커밋으로 변하므로 GitHub compare 결과를 기준으로 확인합니다.
+
+## 2026-11-20 필터 갱신 전체 트랜잭션 직렬화
+
+- 기존에는 WorkManager 주기 갱신과 실패 복구 작업이 서로 다른 고유 작업 이름을 사용했고, Activity 수동 갱신은 별도 스레드에서 실행됐습니다. 각 파일 다운로드는 FilterListManager 내부 동기화로 보호했지만, 기본·보안·Android 광고 목록을 순서대로 처리하는 전체 갱신 흐름과 오류/성공 SharedPreferences 갱신은 서로 겹칠 수 있었습니다. 이 경우 한 작업이 성공한 직후 다른 작업의 늦은 실패 기록이 남아 불필요한 재시도를 만들거나 화면에 오래된 오류 상태가 남을 수 있었습니다.
+- FilterUpdateExecutionLock을 추가해 Activity 수동 갱신, 주기 Worker, 실패 복구 Worker가 각각의 전체 갱신 트랜잭션을 동일한 프로세스 내 모니터로 직렬 실행하도록 변경했습니다. 캐시 단위 잠금과 다운로드 단위 잠금은 그대로 유지해 파일 원자성·복구 보호도 함께 유지합니다.
+- FilterUpdatePolicyTest.manualAndBackgroundRefreshTransactionsCannotOverlap 회귀 테스트를 추가해 첫 갱신이 잠금을 보유한 동안 두 번째 갱신이 진입하지 못하고 첫 갱신 종료 후 진행되는지 검증하도록 했습니다.
+- 반영 커밋: b70709d5663fc79eaebb8400ee283675a901356a, 008fe5a52347aee9e7eddb6d9de5125acbc0e380, 17b5dcdfaa3838b667113324cb161bdc71d19f96, 2cae5516da1ff3739a2785852d280192fab68438.
+- GitHub 원격 파일 재조회 및 구조 확인은 진행 예정이며, Android Gradle/JUnit 실행·APK·실기기 검증은 아직 하지 않았습니다. 이 잠금은 동일 앱 프로세스 내 갱신 경합을 막으며, Android 프로세스가 강제 종료된 경우에는 WorkManager 재실행과 캐시 복구 절차가 처리합니다.
