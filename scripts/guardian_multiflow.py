@@ -321,7 +321,7 @@ def ollama_json(base_url: str, payload: dict[str, Any], timeout: int = 600) -> d
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             result = json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as error:
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError, OSError) as error:
         raise AutomationError(f"Local Ollama inference failed: {error}") from error
     if not isinstance(result, dict) or not isinstance(result.get("message"), dict):
         raise AutomationError("Ollama response has no message object.")
@@ -332,9 +332,11 @@ def verify_ollama_model(base_url: str, model: str) -> None:
     try:
         with urllib.request.urlopen(request, timeout=15) as response:
             result = json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as error:
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError, OSError) as error:
         raise AutomationError(f"Ollama tags endpoint is unavailable: {error}") from error
-    names = {str(item.get("name", "")) for item in result.get("models", []) if isinstance(item, dict)}
+    if not isinstance(result, dict) or not isinstance(result.get("models"), list):
+        raise AutomationError("Ollama tags response must contain a models array.")
+    names = {str(item.get("name", "")) for item in result["models"] if isinstance(item, dict)}
     if model not in names:
         raise AutomationError(f"Required local model is not installed: {model}. No model download was started.")
 
@@ -350,7 +352,7 @@ def smoke_test(base_url: str, model: str, slot_root: Path) -> str:
         parsed = json.loads(result["message"].get("content", ""))
     except (TypeError, json.JSONDecodeError) as error:
         raise AutomationError("Ollama smoke test did not return valid JSON.") from error
-    if parsed.get("token") != "GUARDIAN_LOCAL_OLLAMA_OK":
+    if not isinstance(parsed, dict) or parsed.get("token") != "GUARDIAN_LOCAL_OLLAMA_OK":
         raise AutomationError("Ollama smoke test returned an unexpected token.")
     return "PASS: real /api/chat inference executed against the installed loopback model."
 
