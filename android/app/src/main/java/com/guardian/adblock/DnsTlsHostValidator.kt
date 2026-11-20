@@ -5,6 +5,11 @@ import java.util.Locale
 object DnsTlsHostValidator {
     private val labelPattern = Regex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
+    data class TlsIdentity(val peerHost: String, val serverName: String)
+
+    fun identity(value: String): TlsIdentity? =
+        normalize(value)?.let { TlsIdentity(peerHost = it, serverName = it) }
+
     fun normalize(value: String): String? {
         val raw = value.trim()
         if (raw.endsWith("..")) return null
