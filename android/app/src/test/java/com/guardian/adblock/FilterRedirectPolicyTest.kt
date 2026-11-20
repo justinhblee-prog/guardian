@@ -65,7 +65,7 @@ class FilterRedirectPolicyTest {
     @Test fun rejectsMalformedRawRequestTargetCharacters() {
         listOf(
             "https://example.com/filter list.txt",
-            "https://example.com/filter.txt\\\\segment"
+            """https://example.com/filter.txt\segment"""
         ).forEach { value ->
             try {
                 assertFalse("must reject malformed URL $value",
@@ -75,7 +75,7 @@ class FilterRedirectPolicyTest {
             }
         }
         assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/filter list.txt", 0))
-        assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/filter.txt\\\\segment", 0))
+        assertNull(FilterRedirectPolicy.resolve(base, 302, """https://example.com/filter.txt\segment""", 0))
     }
 
 }
