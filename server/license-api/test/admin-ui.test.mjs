@@ -85,3 +85,16 @@ test("customer migration is additive and protects email uniqueness", async () =>
   assert.match(migration, /ADD COLUMN IF NOT EXISTS customer_id/);
   assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM/i);
 });
+
+test("support inbox and license plan controls are wired without replacing the customer directory", async () => {
+  const html = await readFile(new URL("../admin/index.html", import.meta.url), "utf8");
+  const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
+  assert.match(html, /id="planPreset"/);
+  assert.match(html, /id="supportTickets"/);
+  assert.match(html, /id="customers"/);
+  assert.match(js, /api\("\/v1\/admin\/support\/tickets"\)/);
+  assert.match(js, /supportItems = support\.tickets \|\| \[\]/);
+  assert.match(js, /renderSupportTickets\(\)/);
+  assert.match(js, /validateIssueInput\(\$\("days"\)\.value, \$\("devices"\)\.value, \$\("planPreset"\)\.value\)/);
+  assert.doesNotMatch(js, /\.innerHTML\s*=/);
+});
