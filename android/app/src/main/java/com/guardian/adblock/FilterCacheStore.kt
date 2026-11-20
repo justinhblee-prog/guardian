@@ -11,6 +11,10 @@ import java.nio.file.StandardCopyOption
  * A failed metadata commit restores the previous bytes as well as a failed file move.
  */
 internal object FilterCacheStore {
+    /** Keep a cache read/recovery snapshot mutually exclusive with replace(). */
+    @Synchronized
+    fun <T> withLock(block: () -> T): T = block()
+
     @Synchronized
     fun recover(target: File, isCommitted: (File) -> Boolean = { true }) {
         val backup = File(target.parentFile, "${target.name}.bak")
