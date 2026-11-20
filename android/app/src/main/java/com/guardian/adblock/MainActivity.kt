@@ -1806,7 +1806,7 @@ class MainActivity : Activity() {
                                         } else {
                                             "서버 확인 완료 · 활성 PRO 라이선스입니다."
                                         }
-                                        statusButton.isEnabled = true
+                                        this@apply.isEnabled = true
                                     } else {
                                         showTab("settings")
                                     }
@@ -1814,7 +1814,7 @@ class MainActivity : Activity() {
                             } catch (error: Exception) {
                                 runOnUiThread {
                                     licenseFeedback.text = error.message ?: "서버 라이선스 상태 확인에 실패했습니다."
-                                    statusButton.isEnabled = true
+                                    this@apply.isEnabled = true
                                 }
                             }
                         }
