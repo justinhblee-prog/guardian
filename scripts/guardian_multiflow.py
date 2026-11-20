@@ -571,8 +571,6 @@ def run(repo: Path, args: argparse.Namespace) -> int:
         raise AutomationError(f"Could not read task manifest {manifest_path}: {error}") from error
     tasks = validate_manifest(manifest)
     roots = default_roots()
-    for key in ("leases", "slots", "worktrees", "logs"):
-        roots[key].mkdir(parents=True, exist_ok=True)
     if args.validate_only:
         for task in tasks:
             if task["status"] == "ready":
@@ -580,8 +578,10 @@ def run(repo: Path, args: argparse.Namespace) -> int:
                     target = repo / Path(*PurePosixPath(path).parts)
                     if not target.is_file() or target.is_symlink():
                         raise AutomationError(f"Manifest file is missing or not a regular file: {path}")
-        print(f"PASS: manifest schema, task IDs, test profiles and non-overlapping scopes ({len(tasks)} tasks).")
+        print(f"PASS: manifest schema, task IDs, test profiles and non-overlapping scopes ({len(tasks)} tasks).", flush=True)
         return 0
+    for key in ("leases", "slots", "worktrees", "logs"):
+        roots[key].mkdir(parents=True, exist_ok=True)
     base_url = validate_local_ollama_url(args.ollama_url)
     verify_ollama_model(base_url, args.model)
     if args.smoke_test:
@@ -636,7 +636,10 @@ def main() -> int:
     try:
         return run(Path(args.repo_root), args)
     except AutomationError as error:
-        print(f"Guardian multi-flow BLOCKED: {error}", file=sys.stderr)
+        print(f"Guardian multi-flow BLOCKED: {error}", file=sys.stderr, flush=True)
+        return 2
+    except Exception as error:
+        print(f"Guardian multi-flow UNEXPECTED ERROR: {type(error).__name__}: {error}", file=sys.stderr, flush=True)
         return 2
 
 if __name__ == "__main__":
