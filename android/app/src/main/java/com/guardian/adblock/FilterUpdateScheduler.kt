@@ -3,10 +3,10 @@ package com.guardian.adblock
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.ExistingWorkPolicy
 import androidx.work.workDataOf
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
@@ -30,6 +30,11 @@ internal object FilterStartupPolicy {
             (securityEnabled && securityCacheMissing) ||
             (androidAdsEnabled && androidAdsCacheMissing) ||
             scheduledRefreshDue
+}
+
+internal object FilterRecoveryPolicy {
+    fun shouldRun(autoUpdateEnabled: Boolean, forcedRecovery: Boolean): Boolean =
+        autoUpdateEnabled || forcedRecovery
 }
 
 /** Keeps one persistent periodic refresh request aligned with the user's settings. */
