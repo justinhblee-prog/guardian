@@ -9,7 +9,7 @@ import org.junit.Test
 class BundledFilterAssetLoaderTest {
     @Test fun loadsValidBundledBaselineAndClosesStream() {
         var closed = false
-        val stream = object : ByteArrayInputStream("||baseline.example^\\n".toByteArray()) {
+        val stream = object : ByteArrayInputStream("||baseline.example^\n".toByteArray()) {
             override fun close() {
                 closed = true
                 super.close()
@@ -40,7 +40,7 @@ class BundledFilterAssetLoaderTest {
 
     @Test fun emptyOrUnusableBundledAssetIsRejected() {
         val error = try {
-            BundledFilterAssetLoader.load { ByteArrayInputStream("! no rules\\n".toByteArray()) }
+            BundledFilterAssetLoader.load { ByteArrayInputStream("! no rules\n".toByteArray()) }
             throw AssertionError("Expected invalid baseline failure")
         } catch (expected: IllegalStateException) {
             expected
