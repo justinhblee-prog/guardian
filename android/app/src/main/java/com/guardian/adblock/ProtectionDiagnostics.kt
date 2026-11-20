@@ -28,7 +28,7 @@ object ProtectionDiagnostics {
     /**
      * Captures bounded stack-frame identity without exception messages, paths, URLs or arguments.
      */
-    fun exceptionTraceSummary(error: Throwable, maxFrames: Int = 8): String {
+    fun exceptionTraceSummary(error: Throwable, maxFrames: Int = 16): String {
         val frames = mutableListOf<String>()
         val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Throwable, Boolean>())
         var current: Throwable? = error
