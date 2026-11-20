@@ -40,6 +40,26 @@ function Invoke-Agent {
     if ($LASTEXITCODE -ne 0) { throw 'Could not configure Git to use the authenticated GitHub CLI.' }
     Write-Log 'Starting Git CLI automation.'
     Invoke-Git $Repo @('fetch', 'origin', '--prune') | Out-Null
+
+    $runsJson = & gh run list --repo $OwnerRepo --limit 30 --json databaseId,name,status,conclusion,headBranch,headSha,url
+    if ($LASTEXITCODE -ne 0) { throw 'Could not retrieve recent GitHub Actions runs.' }
+    $runs = @($runsJson | ConvertFrom-Json)
+    $failedRuns = @($runs | Where-Object { $_.status -eq 'completed' -and $_.conclusion -eq 'failure' })
+    $failureLog = Join-Path $LogRoot 'latest-ci-failures.log'
+    Set-Content -LiteralPath $failureLog -Value ('Guardian CI failure audit: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')) -Encoding UTF8
+    foreach ($run in $failedRuns) {
+        Add-Content -LiteralPath $failureLog -Value (([Environment]::NewLine + '## Run {0}: {1} | branch={2} | commit={3} | {4}') -f $run.databaseId, $run.name, $run.headBranch, $run.headSha, $run.url) -Encoding UTF8
+        $failedLog = & gh run view ([string]$run.databaseId) --repo $OwnerRepo --log-failed 2>&1
+        $logExit = $LASTEXITCODE
+        if ($logExit -eq 0) {
+            Add-Content -LiteralPath $failureLog -Value ($failedLog -join [Environment]::NewLine) -Encoding UTF8
+            Write-Log ('Captured failed CI logs for run {0}.' -f $run.databaseId)
+        } else {
+            Add-Content -LiteralPath $failureLog -Value ('Failed to retrieve logs (exit {0}): {1}' -f $logExit, ($failedLog -join [Environment]::NewLine)) -Encoding UTF8
+            Write-Log ('CI run {0} failed; log retrieval also failed.' -f $run.databaseId)
+        }
+    }
+    Write-Log ('Recent CI runs inspected: {0}; failed runs with logs requested: {1}.' -f $runs.Count, $failedRuns.Count)
     $branch = (Invoke-Git $Repo @('branch', '--show-current')).Output.Trim()
     $dirty = (Invoke-Git $Repo @('status', '--porcelain')).Output.Trim()
     if ($branch -eq 'main' -and -not $dirty) {
