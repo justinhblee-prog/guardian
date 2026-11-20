@@ -312,7 +312,7 @@ object FilterListManager {
         cachedProfileKey: String? = null
     ): UpdateResult {
         val startedAt = System.currentTimeMillis()
-        android.util.Log.i("Guardian", "Filter download started: cache=$cacheName url=$url")
+        android.util.Log.i("Guardian", "Filter download started: cache=$cacheName")
         val manifestBaseUrl = FilterDistributionSettings.configuredBaseUrl(context).trimEnd('/')
         val manifestPublicKey = BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
         if (FilterDistributionSettings.requiresSignedDelivery(manifestBaseUrl, manifestPublicKey)) {
