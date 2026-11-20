@@ -62,4 +62,20 @@ class FilterRedirectPolicyTest {
         assertNotNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/next", 4))
         assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/next", 5))
     }
+    @Test fun rejectsMalformedRawRequestTargetCharacters() {
+        listOf(
+            "https://example.com/filter list.txt",
+            "https://example.com/filter.txt\\\\segment"
+        ).forEach { value ->
+            try {
+                assertFalse("must reject malformed URL $value",
+                    FilterRedirectPolicy.isAllowedHttpsUrl(java.net.URL(value)))
+            } catch (_: java.net.MalformedURLException) {
+                // A malformed URL is rejected before a connection can be opened.
+            }
+        }
+        assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/filter list.txt", 0))
+        assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/filter.txt\\\\segment", 0))
+    }
+
 }
