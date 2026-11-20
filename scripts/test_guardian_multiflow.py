@@ -8,6 +8,13 @@ from io import StringIO
 import unittest
 from pathlib import Path
 
+# Direct execution (python scripts/test_guardian_multiflow.py) places only the
+# scripts directory on sys.path. Add the repository root so the same import
+# works both directly on Windows and via python -m unittest.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from scripts.guardian_multiflow import (
     AutomationError,
     FileLease,
