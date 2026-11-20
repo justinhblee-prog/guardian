@@ -973,26 +973,32 @@ class GuardianVpnService : VpnService() {
             else -> listOf(configured, "1.1.1.1", "8.8.8.8").distinct()
         }
         for (address in candidates) {
-            val response = when (transport) {
-                "tcp" -> forwardDnsTcp(query, address)
-                "dot" -> forwardDnsOverTls(query, address)
-                "doh" -> forwardDnsOverHttps(query, address)
-                else -> forwardDnsUdp(query, address)
-            }
-            if (response != null && DomainFilter.isMatchingResponse(query, response)) {
-                val usable = if (requireSuccessfulResolution) {
-                    DnsUpstreamProbe.isSuccessfulResolution(query, response)
-                } else {
-                    !DnsUpstreamProbe.isRetryableResolverError(response)
+            // Some mobile carriers and managed Wi-Fi networks drop UDP/53 while
+            // allowing TCP/53. Keep the selected transport first, then retry the
+            // same resolver over TCP before moving to another resolver.
+            val attempts = if (transport == "udp") listOf("udp", "tcp") else listOf(transport)
+            for (attemptTransport in attempts) {
+                val response = when (attemptTransport) {
+                    "tcp" -> forwardDnsTcp(query, address)
+                    "dot" -> forwardDnsOverTls(query, address)
+                    "doh" -> forwardDnsOverHttps(query, address)
+                    else -> forwardDnsUdp(query, address)
                 }
-                if (usable) return response
-                lastUpstreamFailure = transport.uppercase() + " " + address +
-                    ": resolver returned an unusable response (RCODE=" +
-                    DnsUpstreamProbe.responseCode(response) + ")"
-                continue
-            }
-            if (lastUpstreamFailure == null) {
-                lastUpstreamFailure = transport.uppercase() + " " + address + ": DNS 응답 없음 또는 검증 실패"
+                if (response != null && DomainFilter.isMatchingResponse(query, response)) {
+                    val usable = if (requireSuccessfulResolution) {
+                        DnsUpstreamProbe.isSuccessfulResolution(query, response)
+                    } else {
+                        !DnsUpstreamProbe.isRetryableResolverError(response)
+                    }
+                    if (usable) return response
+                    lastUpstreamFailure = attemptTransport.uppercase() + " " + address +
+                        ": resolver returned an unusable response (RCODE=" +
+                        DnsUpstreamProbe.responseCode(response) + ")"
+                    continue
+                }
+                if (lastUpstreamFailure == null) {
+                    lastUpstreamFailure = attemptTransport.uppercase() + " " + address + ": DNS 응답 없음 또는 검증 실패"
+                }
             }
         }
         return null
