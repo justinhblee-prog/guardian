@@ -288,3 +288,12 @@
 - 활성화 API가 기기 슬롯을 할당한 뒤 서명 검증 또는 로컬 entitlement 영구 저장이 실패하면, 서버 슬롯이 남을 수 있는 경로를 발견했습니다. 기존 코드에는 보상 해제용 licenseRef 형식 검사와 테스트만 있었고 실제 활성화 예외 경로에서 호출되지 않았습니다.
 - `recoverFailedActivation`으로 정책을 분리해, 안전한 opaque licenseRef인지 확인하고 로컬 entitlement 정리를 먼저 성공시킨 뒤 동일 기기 바인딩으로 서버 `/deactivate`를 호출하도록 연결했습니다. 서버 해제가 확인된 경우에만 pending request ID를 정리합니다. 보상 해제가 실패하면 원래 활성화 오류를 유지하고 cleanup 오류를 suppressed로 보존하며, idempotent retry용 request ID를 남깁니다.
 - 정상 순서, 로컬 정리 실패, 서버 보상 해제 실패, 안전하지 않은 licenseRef 거부 테스트를 추가했습니다. 독립 Kotlin/JVM 하네스 4개 시나리오 PASS. Android Gradle/JUnit 및 실제 API/PostgreSQL 호출은 미실행입니다.
+
+
+## 2026-11-20 Android filter status consistency
+
+- **발견한 결함**: 보안 필터 또는 Android 앱 광고 필터를 사용자가 끈 뒤에도 과거 다운로드 실패 메시지가 상태 요약과 전체 진단의 오류 플래그에 계속 포함될 수 있었습니다. 비활성화된 목록의 과거 오류가 현재 보호 상태의 장애처럼 보이는 문제입니다.
+- **수정**: `FilterUpdateErrorPolicy`를 추가해 기본 필터 오류는 항상 표시하고, 선택 필터 오류는 해당 필터가 활성화된 경우에만 상태/진단 오류로 노출하도록 통일했습니다. `MainActivity` 상태 요약도 비활성화된 선택 필터의 실패 문구를 숨깁니다.
+- **회귀 테스트**: 비활성 선택 목록 오류 숨김, 활성 선택 목록 오류 표시, 기본 목록 오류 상시 표시 등 3개 테스트를 추가했습니다.
+- **검증**: 변경 파일을 GitHub에서 다시 조회해 반영을 확인했습니다. 동일 정책을 복제한 독립 Kotlin/JVM 하네스 3개 시나리오 PASS. 이는 Android Gradle/JUnit 실행이 아닙니다.
+- **제한**: Android 컴파일, 실제 앱 UI, Samsung 실기기 및 전체 필터 갱신은 아직 검증하지 않았습니다. GitHub Actions는 실행하지 않았습니다.
