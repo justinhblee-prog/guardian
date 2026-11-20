@@ -755,7 +755,7 @@ class MainActivity : Activity() {
             setPadding(dp(15), dp(14), dp(15), dp(14))
             addView(text("보호 범위", 14f, white, true))
             addView(text("IPv4 / IPv6 · UDP/53 + TCP/53 DNS", 12f, muted, false).withTop(8))
-            addView(text("DNS 이외 트래픽과 앱이 직접 사용하는 암호화 DNS(DoH/DoT)는 현재 필터링하지 않습니다.", 11f, muted, false).withTop(6))
+            addView(text("앱 자체 DoH/DoT 요청은 가로채 차단하지 않습니다. 다만 아래 설정에서 Guardian의 DNS 업스트림 전송을 DoH/DoT로 암호화할 수 있습니다.", 11f, muted, false).withTop(6))
         })
         val privateDns = privateDnsCompatibilityStatus()
         right.addView(card(homePanel, 14).apply {
@@ -1186,7 +1186,8 @@ class MainActivity : Activity() {
 
         body.addView(text("현재 보호 범위", 18f, white, true).withTop(24))
         body.addView(infoRow("DNS 프로토콜", "시스템 가상 DNS의 IPv4 / IPv6 요청", "UDP/53 · TCP/53", accent))
-        body.addView(infoRow("암호화 DNS", "앱 자체 DoH / DoT 및 DNS 우회 연결", "미지원", red))
+        body.addView(infoRow("앱 자체 암호화 DNS", "앱 내부 DoH / DoT 요청 가로채기", "미지원", red))
+        body.addView(text("참고: Guardian이 필터링한 DNS 질의를 업스트림 서버로 전달할 때 사용하는 DoH / DoT 전송은 설정에서 지원합니다. 앱이 자체적으로 직접 연결하는 암호화 DNS를 가로채는 기능과는 다릅니다.", 11f, muted, false).withTop(6))
         body.addView(text(
             "DNS 이외의 네트워크 트래픽은 중계하지 않습니다. IPv6 확장 헤더와 IP 조각화, HTTPS 내부 광고 요소, 앱에 직접 내장된 광고 콘텐츠는 필터링하지 못할 수 있습니다.",
             11f, muted, false
