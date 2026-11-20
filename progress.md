@@ -236,3 +236,5 @@
 - Android은 저장된 pending activation ID가 서버와 동일한 UUID v4 형식인지 확인합니다. 토큰 저장 성공 뒤 pending 기록 정리 실패가 이미 저장된 entitlement의 활성화 성공을 예외로 바꾸지 않도록 정리 동작을 비차단으로 변경했습니다. 명시적 기기 해제 성공 후에는 entitlement와 pending 요청 기록을 함께 정리합니다.
 - Windows 운영 README에 기존 DB migration 002~005 적용 스크립트, 백업/검증 단계, 005의 보존·정리 주의사항을 추가했습니다.
 - 원격 GitHub 소스 재조회와 정적 조건 확인은 통과했습니다. PostgreSQL 통합 테스트, 실제 migration, Android Gradle/JUnit, 네트워크 응답 유실 재현, APK 설치 및 Samsung 실기기 검증은 실행하지 않았습니다. activation_requests 자동 TTL 정리는 아직 없으며, 재시도 복구를 깨뜨리지 않는 보존 정책이 결정되기 전 임의 삭제하지 않습니다.
+
+- 후속 상태 일관성 보강: Android에서 서버가 403으로 기존 등록을 무효화하거나 status=free를 반환한 경우, entitlement 로컬 삭제가 실제 저장된 뒤에만 pending activation 요청 ID도 제거합니다. 명시적 해제 시에도 entitlement 삭제가 실패하면 pending 복구 키를 보존합니다. 저장 실패로 복구 키까지 먼저 잃는 상황을 피하도록 했습니다.
