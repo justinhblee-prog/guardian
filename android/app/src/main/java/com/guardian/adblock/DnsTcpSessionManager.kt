@@ -22,6 +22,7 @@ class DnsTcpSessionManager(
         val serverInitial: Long,
         val received: ByteArrayOutputStream = ByteArrayOutputStream(),
         var lastActivity: Long,
+        var established: Boolean = false,
         var lastClientSegmentStart: Long? = null,
         var lastClientPayload: ByteArray = byteArrayOf(),
         var lastClientFin: Boolean = false,
@@ -63,9 +64,16 @@ class DnsTcpSessionManager(
             val expectedClientNext = (tcp.sequence + 1L) and MASK
             if (existing != null && existing.clientInitialSequence == tcp.sequence) {
                 existing.lastActivity = now
-                return listOf(DnsTcpPacket.response(tcp, existing.serverInitial,
-                    (existing.clientInitialSequence + 1L) and MASK,
-                    DnsTcpPacket.SYN or DnsTcpPacket.ACK))
+                // Before the handshake completes, replay the original SYN-ACK.
+                // After establishment, acknowledge the live stream position;
+                // replaying the initial SYN-ACK would advertise a stale ACK.
+                return if (existing.established) {
+                    listOf(ack(tcp, existing))
+                } else {
+                    listOf(DnsTcpPacket.response(tcp, existing.serverInitial,
+                        (existing.clientInitialSequence + 1L) and MASK,
+                        DnsTcpPacket.SYN or DnsTcpPacket.ACK))
+                }
             }
             if (sessions.size >= maxSessions && existing == null) {
                 val oldest = sessions.minByOrNull { it.value.lastActivity }?.key
@@ -117,6 +125,7 @@ class DnsTcpSessionManager(
         }
         // Only an in-order segment (or exact retransmission above) is valid activity.
         // Out-of-window packets must not keep bounded sessions alive indefinitely.
+        session.established = true
         session.lastActivity = now
         // Once the client has sent FIN, its byte stream is closed.
         // Do not accept new payload at the FIN sequence boundary; otherwise a
