@@ -1,0 +1,156 @@
+name: Guardian Engineering Orchestrator
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'server/**'
+      - 'shared/**'
+      - 'scripts/**'
+      - 'docs/**'
+      - '.github/workflows/**'
+  schedule:
+    - cron: '17 */6 * * *'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: guardian-orchestrator-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: Android build, unit tests and lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Unit tests
+        run: gradle -p android --no-daemon clean testDebugUnitTest
+      - name: Lint
+        run: gradle -p android --no-daemon lintDebug
+      - name: Assemble APK
+        run: gradle -p android --no-daemon assembleDebug
+      - name: Record APK evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          sha256sum "$apk" | tee android-apk.sha256
+          aapt="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          "$aapt" dump badging "$apk" | grep "^package:"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: orchestrator-android-evidence
+          path: |
+            android-apk.sha256
+            android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+  backend:
+    name: Backend, API and deployment configuration tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Discover and run package test suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t manifests < <(find server -name package.json -not -path '*/node_modules/*' -print 2>/dev/null | sort)
+          if [ "${#manifests[@]}" -eq 0 ]; then
+            echo "No server package.json files found; inspect repository layout."
+            exit 1
+          fi
+          for manifest in "${manifests[@]}"; do
+            dir="$(dirname "$manifest")"
+            echo "::group::${dir}"
+            node -e "const p=require('./$manifest'); if (!p.scripts || !p.scripts.test) process.exit(2)"
+            (cd "$dir" && npm install --ignore-scripts --no-audit --no-fund && npm test)
+            echo "::endgroup::"
+          done
+      - name: Validate Compose configuration when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -maxdepth 4 -iname '*compose*.yml' -o -iname '*compose*.yaml' | grep -q .; then
+            docker compose config -q
+          else
+            echo "No Compose manifest discovered; not applicable."
+          fi
+
+  repository-integrity:
+    name: Repository integrity and automation safety
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check whitespace and conflict markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          if git grep -n -E '^(<<<<<<< |=======|>>>>>>> )' -- ':!*.lock'; then
+            echo "Merge-conflict markers found."
+            exit 1
+          fi
+      - name: Validate automation scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r file; do bash -n "$file"; done < <(find scripts -type f -name '*.sh' -print 2>/dev/null)
+          python3 -m compileall -q scripts
+      - name: Capture immutable run identity
+        run: |
+          {
+            echo "commit=$(git rev-parse HEAD)"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+          } | tee orchestrator-run-identity.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: orchestrator-integrity-evidence
+          path: orchestrator-run-identity.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  decision:
+    name: Engineering verification decision
+    if: always()
+    needs: [android, backend, repository-integrity]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail closed unless every required track passed
+        env:
+          ANDROID_RESULT: ${{ needs.android.result }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          INTEGRITY_RESULT: ${{ needs.repository-integrity.result }}
+        run: |
+          printf 'Android=%s Backend=%s Integrity=%s\n' "$ANDROID_RESULT" "$BACKEND_RESULT" "$INTEGRITY_RESULT"
+          test "$ANDROID_RESULT" = success
+          test "$BACKEND_RESULT" = success
+          test "$INTEGRITY_RESULT" = success
