@@ -178,6 +178,13 @@ object FilterListManager {
             val bytes = readBoundedFile(candidate, MAX_BYTES) ?: return false
             return FilterManifestVerifier.matchesSha256(bytes, expectedHash)
         }
+        val timestampStore = ManifestTimestampStore(
+            File(context.filesDir, "manifest_timestamps.properties")
+        )
+        // SharedPreferences and the timestamp ledger are separate durable stores. Preserve
+        // the committed manifest timestamp so cache recovery can repair a damaged ledger
+        // without reopening the source to an older, previously accepted manifest.
+        val committedGeneratedAt = preferences.getLong(keys.third, 0L)
         try {
             FilterCacheStore.recover(target, ::matchesCommittedHash)
             if (target.exists() && !matchesCommittedHash(target)) {
@@ -185,17 +192,19 @@ object FilterListManager {
             }
             // SharedPreferences may have committed immediately before process death while
             // the separate anti-rollback timestamp file had not yet been updated.
-            val committedGeneratedAt = preferences.getLong(keys.third, 0L)
             if (committedGeneratedAt > 0L) {
-                val timestampStore = ManifestTimestampStore(
-                    File(context.filesDir, "manifest_timestamps.properties")
-                )
                 if (timestampStore.lastAccepted(sourceId) < committedGeneratedAt) {
                     timestampStore.restore(sourceId, committedGeneratedAt)
                 }
             }
         } catch (_: IllegalStateException) {
             discardCacheFiles(target)
+            // The cache generation is discarded, but keep the last accepted signed
+            // timestamp from committed metadata. This repairs an invalid/missing ledger
+            // entry without allowing a previously accepted manifest to be replayed.
+            if (committedGeneratedAt > 0L) {
+                timestampStore.restore(sourceId, committedGeneratedAt)
+            }
             preferences.edit()
                 .remove(keys.first).remove(keys.second).remove(keys.third)
                 .putInt(when (cacheName) {
