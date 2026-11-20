@@ -86,15 +86,15 @@ PR별 최종 상태는 UPDATED, already based, BLOCKED, skipped, ERROR로 기록
 - Samsung 실기기, 운영 서명키, 사용자 노트북 DB 및 실제 결제처럼 외부 증거가 필요한 작업은 이 Git CLI 에이전트가 완료 처리하지 않습니다.
 
 
-## 로컬 AI 코드 구현 트랙 (Copilot CLI)
+## 로컬 AI 코드 구현 트랙 (Aider/Qwen 우선, Copilot CLI 보조)
 
-PR/브랜치 동기화만 하던 Git agent 뒤에 선택형 AI 코드 구현 트랙을 연결합니다. 새 트랙은 기존 15분 Git 유지보수 cycle 마지막에 실행되며, 별도 격리 worktree에서 하루 최대 1회 구현 작업을 시도합니다.
+PR/브랜치 동기화만 하던 Git agent 뒤에 로컬 AI 코드 구현 트랙을 연결합니다. 새 트랙은 기존 15분 Git 유지보수 cycle 마지막에 실행되며, Aider + Ollama Qwen 로컬 추론을 우선 사용하고, 별도 격리 worktree에서 하루 최대 1회 구현 작업을 시도합니다. 로컬 모델을 사용할 수 없을 때만 GitHub Copilot CLI 보조 경로를 확인합니다.
 
 실행 경로:
-1. GitHub CLI 인증 상태와 Copilot CLI 설치 여부를 비대화형으로 확인합니다. Copilot CLI는 저장된 로그인 또는 GitHub CLI 인증 토큰을 사용할 수 있습니다.
+1. GitHub CLI 인증 상태를 비대화형으로 확인하고 `http://127.0.0.1:11434`의 Ollama에서 `qwen2.5-coder:7b` 모델을 찾습니다. 모델이 있고 Aider를 실행할 수 있으면 로컬 추론을 우선합니다.
 2. 최신 origin/main을 기준으로 `automation/copilot-guardian-YYYYMMDD` worktree를 만듭니다.
 3. Issue #141~#144와 실제 소스/테스트를 읽고, 물리 기기·승인·운영키·실제 서버가 필요 없는 미완료 코드 작업 하나를 선택합니다.
-4. Copilot Autopilot이 구현·회귀 테스트를 수행합니다. 질문을 하지 않고, continuation 및 AI credit 한도를 설정합니다.
+4. Aider가 로컬 Qwen으로 구현·회귀 테스트를 수행합니다. Aider/Ollama가 준비되지 않은 경우 Copilot Autopilot 보조 경로를 사용할 수 있으며, 질문·continuation·AI credit 한도를 제한합니다.
 5. 보호 경로·비밀 파일·운영 필터 승인 파일 변경을 차단합니다. 검증을 통과한 변경만 새 draft PR로 push합니다.
 6. 자동 병합하지 않습니다. Android 실기기, production, 법적 재배포 승인 등 외부 증거는 완료 처리하지 않습니다.
 
@@ -115,5 +115,9 @@ AI 사용 제한:
 - `%LOCALAPPDATA%\\GuardianGitAgent\\copilot-worker-state.json`: 하루 실행 중복 방지 및 마지막 PR 상태
 - `%LOCALAPPDATA%\\GuardianGitAgent\\copilot-YYYYMMDD-HHMMSS.log`: Copilot CLI의 실행 결과
 - Android/백엔드 검증 로그는 같은 GuardianGitAgent 로그 폴더에 기록합니다.
+
+## 로컬 Qwen 연결 검증 워크플로
+
+`.github/workflows/aider-qwen-local.yml`은 Windows self-hosted runner에서 Ollama 모델과 Aider를 확인하고 `QWEN_OLLAMA_CONNECTION_OK` 실제 응답 토큰을 검증합니다. MainActivity 또는 코딩 worker가 main에 반영되면 push로 실행되며, 동일 저장소 PR에서 해당 경로가 변경된 경우에도 검사하도록 구성했습니다. PR 설정 변경은 base 브랜치의 워크플로가 적용되므로 최초 연결 검증은 통합 PR이 main에 반영된 뒤의 main push 실행으로 판정합니다. workflow가 queued로 남거나 runner가 없어 실패하면 PC 자동 연결이 확인된 것으로 보지 않습니다.
 
 중요한 구분: GitHub Actions의 병렬 테스트/빌드 워크플로가 통과해도 이 로컬 코딩 agent가 설치·인증되어 실제 코드를 작성했다는 뜻은 아닙니다. Copilot CLI가 현재 PC에 있고 인증된 뒤 실행 로그와 draft PR이 생성되어야 AI 구현 트랙의 작동이 확인됩니다.
