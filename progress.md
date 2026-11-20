@@ -432,3 +432,11 @@
 - Established session의 RST는 현재 기대 client sequence와 정확히 일치할 때만 세션을 종료하도록 수정했습니다. 오래되었거나 위조된 sequence의 RST는 현재 ACK로 응답하고 세션/버퍼 상태를 유지합니다.
 - stale RST가 세션을 종료하지 않고 현재 ACK를 받는 경우와 정확한 sequence의 RST가 정상 종료시키는 회귀 테스트를 추가했습니다.
 - GitHub 원격 파일 재조회로 소스·테스트 반영을 확인합니다. Android Gradle/JUnit, 실제 패킷 주입 및 Samsung 단말 검증은 실행하지 않았습니다.
+
+
+## 2026-11-20 — DNS TCP established SYN 재전송 ACK 수정
+
+- 연결 성립 및 DNS 질의 처리 이후 최초 SYN이 늦게 재전송되면 기존 구현이 최초 client sequence 기준의 오래된 SYN-ACK를 다시 보내는 상태 전이 오류를 확인했습니다.
+- 세션에 handshake 완료 상태를 추가했습니다. handshake 전 중복 SYN은 원래 SYN-ACK를 재전송하고, 연결 성립 후 중복 SYN은 현재 server/client sequence 위치를 담은 ACK로 응답합니다.
+- handshake 중 SYN 재전송과 established 상태의 지연 SYN 재전송을 각각 검증하는 회귀 테스트를 추가/수정했습니다.
+- GitHub 원격 소스 재조회로 반영을 확인합니다. Android Gradle/JUnit 및 실제 네트워크/Samsung 단말 검증은 실행하지 않았습니다.
