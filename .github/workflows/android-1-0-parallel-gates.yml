@@ -123,6 +123,9 @@ jobs:
           grep -q "'/v1/admin/support/tickets'" server/license-api/src/server.mjs
           test -s server/license-api/migrations/003_support_tickets.sql
           test -s android/app/src/main/java/com/guardian/adblock/LicenseApiClient.kt
+          test -s shared/filter_rules.txt
+          grep -F 'verifyBundledFilterAsset' android/app/build.gradle.kts
+          grep -F 'tasks.named("preBuild")' android/app/build.gradle.kts
           grep -F "SOURCE_ZIP='release/Guardian-AdBlock-Source-v0.7.30-dev.zip'" .github/workflows/android-apk.yml
           grep -F "SOURCE_SHA256=\"\$(awk '\$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]30-dev[.]zip\$/" .github/workflows/android-apk.yml
           if grep -Fq "SOURCE_SHA256=\"\$(awk '\$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]29-dev[.]zip\$/" .github/workflows/android-apk.yml; then
