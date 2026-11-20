@@ -505,23 +505,41 @@ class GuardianVpnService : VpnService() {
         error: Throwable
     ) {
         android.util.Log.e("GuardianProtection", "Unexpected VPN startup failure", error)
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
-        // A stale worker must not overwrite an explicit stop or a newer start request.
-        if (!startCancellation.isCurrent(requestGeneration) || running.get()) return
-        tunnelActive = false
-        try { tun?.close() } catch (closeError: Exception) {
-            android.util.Log.w("GuardianProtection", "Failed to close partial VPN tunnel", closeError)
-        }
-        tun = null
-        try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (stopError: Exception) {
-            android.util.Log.w("GuardianProtection", "Failed to remove startup notification", stopError)
-        }
-        val detail = error.message?.takeIf { it.isNotBlank() } ?: "상세 오류 메시지가 없습니다."
-        publishState(
-            false,
-            "보호 시작 중 예기치 않은 오류가 발생했습니다 (${ProtectionDiagnostics.exceptionTypeChain(error)}): $detail"
+        reportStartupFailure(
+            requestGeneration = requestGeneration,
+            startId = startId,
+            message = "보호 시작 중 예기치 않은 오류가 발생했습니다 (${ProtectionDiagnostics.exceptionTypeChain(error)}): ${error.message?.takeIf { it.isNotBlank() } ?: "상세 오류 메시지가 없습니다."}",
+            error = error
         )
-        stopSelf(startId)
+    }
+
+    /**
+     * A startup worker may fail after STOP or after a newer START has taken ownership.
+     * Serialize the entire failure publication/cleanup with generation changes so a
+     * stale worker cannot erase a newer session's foreground notification or status.
+     */
+    private fun reportStartupFailure(
+        requestGeneration: Long,
+        startId: Int,
+        message: String,
+        error: Throwable
+    ) {
+        startCancellation.tryCommitStart(requestGeneration) {
+            if (running.get()) return@tryCommitStart
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error))
+                .apply()
+            tunnelActive = false
+            try { tun?.close() } catch (closeError: Exception) {
+                android.util.Log.w("GuardianProtection", "Failed to close partial VPN tunnel", closeError)
+            }
+            tun = null
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (stopError: Exception) {
+                android.util.Log.w("GuardianProtection", "Failed to remove startup notification", stopError)
+            }
+            publishState(false, message)
+            stopSelf(startId)
+        }
     }
     private fun startProtectionInternal(requestGeneration: Long, startId: Int) {
         tunnelActive = false
@@ -532,20 +550,24 @@ class GuardianVpnService : VpnService() {
             createNotificationChannel()
             startForeground(41, buildNotification())
         } catch (e: Exception) {
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(e)).apply()
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            publishState(false, "포그라운드 서비스 시작 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${e.message ?: "권한 또는 Android 정책을 확인하세요."}")
-            stopSelf(startId)
+            reportStartupFailure(
+                requestGeneration,
+                startId,
+                "포그라운드 서비스 시작 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${e.message ?: "권한 또는 Android 정책을 확인하세요."}",
+                e
+            )
             return
         }
         try {
             // Parsing a large downloaded filter list must not block the service main thread.
             loadConfiguredRules()
         } catch (e: Exception) {
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(e)).apply()
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            publishState(false, "필터 규칙 로드 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${e.message ?: "원인 정보 없음"}")
-            stopSelf(startId)
+            reportStartupFailure(
+                requestGeneration,
+                startId,
+                "필터 규칙 로드 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${e.message ?: "원인 정보 없음"}",
+                e
+            )
             return
         }
         if (!startCancellation.isCurrent(requestGeneration)) {
