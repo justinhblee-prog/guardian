@@ -2289,46 +2289,6 @@ class MainActivity : Activity() {
         body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
     }
 
-    private fun buildSupportCenterCard(): View {
-        return card(panel, 14).apply {
-            setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("고객지원 센터", 16f, white, true))
-            addView(text(
-                "자주 묻는 질문을 확인하고, 기능 제안·오류·결제·라이선스 문의를 접수하거나 답변을 조회할 수 있습니다.",
-                11f, muted, false
-            ).withTop(5))
-            addView(text(
-                "문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다. 진단 정보는 별도 동의 없이는 전송하지 않습니다.",
-                11f, muted, false
-            ).withTop(6))
-            addView(text(
-                "답변 알림 이메일은 발송되지 않습니다. 접수 번호와 조회 코드로 앱에서 답변을 확인해 주세요.",
-                11f, muted, false
-            ).withTop(5))
-            addView(Button(this@MainActivity).apply {
-                text = "자주 묻는 질문 (Q&A)"
-                isAllCaps = false
-                setTextColor(white)
-                background = shape(panel2, 11)
-                setOnClickListener { showSupportFaq() }
-            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
-            addView(Button(this@MainActivity).apply {
-                text = "문의 및 의견 보내기"
-                isAllCaps = false
-                setTextColor(bg)
-                background = shape(accent, 11)
-                setOnClickListener { showSupportSubmitDialog() }
-            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-            addView(Button(this@MainActivity).apply {
-                text = "내 문의 답변 확인"
-                isAllCaps = false
-                setTextColor(white)
-                background = shape(panel2, 11)
-                setOnClickListener { showSupportLookupDialog() }
-            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-        }
-    }
-
     private fun showSupportFaq() {
         val questions = arrayOf(
             "광고 차단이 되지 않아요",
