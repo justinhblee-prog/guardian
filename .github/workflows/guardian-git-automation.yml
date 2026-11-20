@@ -3,11 +3,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'scripts/guardian-git-agent.ps1'\n      - 'scripts/guardian-git-agent-bootstrap.ps1'
+      - 'scripts/guardian-git-agent.ps1'
+      - 'scripts/guardian-git-agent-bootstrap.ps1'
       - '.github/workflows/guardian-git-automation.yml'
   pull_request:
     paths:
       - 'scripts/guardian-git-agent.ps1'
+      - 'scripts/guardian-git-agent-bootstrap.ps1'
       - '.github/workflows/guardian-git-automation.yml'
   workflow_dispatch:
 permissions:
@@ -17,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   validate-agent:
-    name: Validate Windows Git CLI automation script
+    name: Validate Windows Git CLI automation scripts
     runs-on: windows-latest
     timeout-minutes: 5
     steps:
@@ -27,32 +29,38 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $path = 'scripts/guardian-git-agent.ps1'
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Error $_.Message }
-            throw 'PowerShell syntax validation failed.'
+          foreach ($path in @('scripts/guardian-git-agent.ps1', 'scripts/guardian-git-agent-bootstrap.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error ('{0}: {1}' -f $path, $_.Message) }
+              throw "PowerShell syntax validation failed: $path"
+            }
           }
-          $source = Get-Content -Raw -LiteralPath $path
+          $source = Get-Content -Raw -LiteralPath 'scripts/guardian-git-agent.ps1'
+          $bootstrap = Get-Content -Raw -LiteralPath 'scripts/guardian-git-agent-bootstrap.ps1'
           $required = @(
-            "git",
-            "gh pr list",
-            "worktree",
-            "--rebase-merges",
-            "--force-with-lease",
-            "merge-base",
-            "status",
-            "Unregister-ScheduledTask"
+            'gh auth status',
+            'gh pr list',
+            '--rebase-merges',
+            '--force-with-lease',
+            'merge-base',
+            'Register-ScheduledTask',
+            'Unregister-ScheduledTask',
+            'Invoke-AgentWithLock',
+            'guardian-git-agent-bootstrap.ps1'
           )
           foreach ($token in $required) {
-            if (-not $source.Contains($token)) { throw "Required automation guard/operation missing: $token" }
+            if (-not $source.Contains($token)) { throw "Required agent operation or safety guard missing: $token" }
           }
-          if ($source -match 'push\s+--force(?!-with-lease)') {
-            throw 'Unsafe unleased force push detected.'
+          foreach ($token in @('fetch origin main --prune', 'merge --ff-only origin/main', 'FileShare]::None', 'Stop-Process', 'guardian-git-agent.ps1')) {
+            if (-not $bootstrap.Contains($token)) { throw "Bootstrap safety operation missing: $token" }
           }
-          if ($source -match 'git\s+reset\s+--hard') {
-            throw 'Destructive hard reset detected.'
+          if ($source -match 'push\s+--force(?!-with-lease)' -or $bootstrap -match 'reset\s+--hard') {
+            throw 'Unsafe force push or destructive hard reset detected.'
           }
-          foreach ($token in @('git fetch origin main --prune', 'git merge --ff-only origin/main', 'FileShare]::None', 'Stop-Process', 'guardian-git-agent.ps1')) {\n            if (-not $bootstrap.Contains($token)) { throw \"Bootstrap safety operation missing: $token\" }\n          }\n          if ($bootstrap -match 'git\\s+reset\\s+--hard') { throw 'Destructive hard reset detected in bootstrap.' }\n          Write-Host 'PASS: agent/bootstrap PowerShell syntax and Git safety guards are present.'
+          if (-not (Test-Path 'docs/GIT_CLI_AUTOMATION_KO.md')) {
+            throw 'Git CLI automation operating guide is missing.'
+          }
+          Write-Host 'PASS: agent/bootstrap PowerShell syntax and Git safety guards.'
