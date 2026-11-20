@@ -1,15 +1,16 @@
 """Unit tests for the Guardian local multi-flow safety boundary."""
 from __future__ import annotations
 import json
-import subprocess
-import sys
 import tempfile
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 import unittest
 from pathlib import Path
 
 from scripts.guardian_multiflow import (
     AutomationError,
     FileLease,
+    main,
     process_environment,
     safe_relative_path,
     validate_local_ollama_url,
@@ -32,20 +33,15 @@ def task(task_id="sample-task", allowed=None, profile="android-unit-lint"):
 
 class GuardianMultiFlowValidationTests(unittest.TestCase):
     def test_validate_only_cli_reports_success_and_zero_exit(self):
+        from unittest.mock import patch
         root = Path(__file__).resolve().parents[1]
-        script = root / "scripts" / "guardian_multiflow.py"
-        result = subprocess.run(
-            [sys.executable, str(script), "--validate-only", "--repo-root", str(root)],
-            cwd=str(root),
-            text=True,
-            encoding="utf-8",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=30,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertIn("PASS: manifest schema", result.stdout)
+        stdout = StringIO()
+        stderr = StringIO()
+        argv = ["guardian_multiflow.py", "--validate-only", "--repo-root", str(root)]
+        with patch("sys.argv", argv), redirect_stdout(stdout), redirect_stderr(stderr):
+            exit_code = main()
+        self.assertEqual(exit_code, 0, stdout.getvalue() + stderr.getvalue())
+        self.assertIn("PASS: manifest schema", stdout.getvalue())
         print("PASS: validate-only CLI returned exit code 0.")
 
     def test_real_manifest_has_three_disjoint_ready_tracks(self):
