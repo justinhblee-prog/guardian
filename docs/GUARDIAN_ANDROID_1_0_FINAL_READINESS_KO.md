@@ -112,3 +112,13 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - PostgreSQL integration test에도 004 반복 적용 및 고객 스키마 assertion을 추가했습니다.
 - 변경 소스는 GitHub feature branch에 반영했습니다. 노트북 DB에서의 실제 적용·API 준비 상태·고객 API 검증은 미실행이며, 기존 데이터/키를 건드리지 않았습니다.
 - Android compile/test/lint/APK, emulator 화면 및 Samsung 실기기 검증도 아직 실행 증거가 없습니다. Actions workflow는 실행하지 않았습니다.
+
+
+## 2026-11-20 Android 실기기 설치/화면 캡처 자동화 추가
+
+- Windows `Build-GuardianAndroid-Debug.ps1`에 선택적 `-InstallToConnectedDevice` 옵션을 추가했습니다.
+- 기본 빌드 동작은 기존대로 단위 테스트 → Lint → Debug APK 조립 → SHA-256 생성입니다.
+- 옵션 사용 시 ADB 연결 기기가 정확히 1대인지 확인하고, 제조사/모델/Android 버전을 읽은 뒤 APK 설치, `MainActivity` 실행, 메인 화면 PNG 캡처, 기기 검증 텍스트 보고서를 `%LOCALAPPDATA%\\Guardian\\outputs\\DeviceCapture-*`에 저장합니다. Samsung 외 기기면 제조사 경고를 기록합니다.
+- 캡처는 앱 시작/화면 렌더링 확인이며 VPN·DNS 차단·라이선스·결제 기능 E2E를 대체하지 않는다고 보고서에 명시했습니다.
+- Windows README에 실행 명령을 추가했습니다. 실제 빌드/설치/캡처는 노트북과 USB 연결 기기에 접근할 수 없어 아직 실행되지 않았습니다.
+- GitHub Actions 실행/PR/merge는 수행하지 않았습니다.
