@@ -121,7 +121,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           python -m py_compile scripts/guardian_multiflow.py scripts/test_guardian_multiflow.py
           if ($LASTEXITCODE -ne 0) { throw 'Python compile failed.' }
-          python -m unittest scripts.test_guardian_multiflow 2>&1
+          python scripts/test_guardian_multiflow.py
           if ($LASTEXITCODE -ne 0) { throw 'Guardian multi-flow regression tests failed.' }
 
 
