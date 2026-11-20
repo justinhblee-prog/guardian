@@ -11,9 +11,9 @@ internal fun detachedManifestSignatureUrl(
     expectedSourceId: String
 ): String {
     val manifestUri = URL(manifestUrl)
-    require(manifestUri.protocol.equals("https", true) &&
-        manifestUri.userInfo == null && manifestUri.query == null && manifestUri.ref == null) {
-        "manifest URL 형식이 올바르지 않습니다."
+    require(FilterRedirectPolicy.isAllowedHttpsUrl(manifestUri) &&
+        manifestUri.query == null) {
+        "manifest URL은 유효한 호스트·포트의 사용자 정보·fragment가 없는 HTTPS 주소여야 합니다."
     }
     val text = FilterManifestVerifier.decodeUtf8Strict(manifestBytes)
     fun field(name: String): String {
@@ -32,7 +32,8 @@ internal fun detachedManifestSignatureUrl(
         "manifest 서명 파일 경로가 올바르지 않습니다."
     }
     val signatureUrl = URL(manifestUri, "$sourceId.$version.$generatedAt.sig")
-    require(signatureUrl.protocol.equals("https", true) &&
+    require(FilterRedirectPolicy.isAllowedHttpsUrl(signatureUrl) &&
+        signatureUrl.query == null &&
         signatureUrl.host.equals(manifestUri.host, true) &&
         signatureUrl.port == manifestUri.port) {
         "manifest 서명 파일의 출처가 일치하지 않습니다."
@@ -116,6 +117,9 @@ internal class SignedManifestHttpClient(
         var currentUrl = URL(initialUrl)
         require(currentUrl.protocol.equals("https", true) && currentUrl.userInfo == null) {
             "manifest 및 필터 URL은 사용자 정보가 없는 HTTPS 주소여야 합니다."
+        }
+        require(FilterRedirectPolicy.isAllowedHttpsUrl(currentUrl)) {
+            "manifest 및 필터 URL은 유효한 호스트·포트의 사용자 정보·fragment가 없는 HTTPS 주소여야 합니다."
         }
         var redirects = 0
         while (true) {
