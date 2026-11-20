@@ -62,7 +62,7 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 `schema.sql`은 빈 데이터 볼륨 최초 생성 시에만 자동 실행됩니다. 기존 DB에는 배포 전에 `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_shared_rate_limit_buckets.sql`로 공유 rate-limit 테이블 migration을 적용해야 합니다. 이후 스키마 변경도 별도 migration으로 적용해야 합니다. 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
 
 ## API
-- `POST /v1/licenses/activate`: `{ "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`
+- `POST /v1/licenses/activate`: `{ "requestId": "<UUID v4>", "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`. 모바일 앱은 요청 ID를 로컬에 먼저 영속화하고, 서명 토큰 저장이 성공할 때까지 재시도에 같은 ID를 사용합니다. 구형 클라이언트는 requestId 생략이 가능하지만 응답 유실 복구 멱등성은 제공되지 않습니다.
 - `POST /v1/licenses/refresh`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
 - `POST /v1/licenses/deactivate`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
 - `POST /v1/licenses/status`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
@@ -121,3 +121,7 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 - DB 스키마는 신규 설치용 초기 스키마입니다. 기존 DB에 적용할 경우 별도 migration 검토가 필요합니다.
 - 운영 RSA 개인키와 관리자/HMAC 비밀값, DATABASE_URL은 절대 저장소/앱/채팅에 커밋하지 않습니다.
 - 실제 결제 연결 전에는 수동 발급용 관리 도구이며, 실제 유료 판매/결제 완료를 주장하지 않습니다.
+
+
+## 활성화 요청 멱등성 migration
+기존 DB에는 `migrations/005_activation_idempotency.sql`을 한 번 적용해야 합니다. 이 테이블은 UUID 요청 ID, 기기 바인딩, 라이선스 키 HMAC 조회값 기반 fingerprint, 최초 서명 응답을 저장합니다. 동일 요청 재전송에는 저장된 동일 응답을 반환하며 요청 ID의 다른 기기/키 재사용은 거부합니다. 응답 본문에는 기기 바인딩된 서명 entitlement가 포함되므로 DB 접근 권한과 백업 접근을 제한하고 TLS 및 DB 암호화를 유지해야 합니다. 오래된 요청 레코드 정리 정책은 현재 미구현이며, 운영 적용 전 보존 기간·정리 작업을 정해야 합니다.
