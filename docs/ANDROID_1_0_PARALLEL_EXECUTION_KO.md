@@ -154,3 +154,10 @@ C License + support ────┘                                  │        
 - Hop-by-Hop Options(0)는 IPv6 기본 헤더 바로 뒤에만 허용하도록 제한했습니다. Destination Options 뒤에 오거나 반복된 위치의 Hop-by-Hop 헤더는 거부합니다. Routing/AH/Fragment 정책은 기존 동작을 유지합니다.
 - TCP/UDP가 공유하는 walker에 회귀 테스트를 추가했습니다: 지원하지 않는 Mobility/HIP 헤더 거부, 잘못 배치된 Hop-by-Hop 거부. 기존 정상 Hop-by-Hop + Destination Options 경로는 유지됩니다.
 - Android JUnit/Gradle 실행 환경이 없어 테스트 소스 추가 및 원격 반영만 확인했습니다. 실제 IPv6 네트워크/Samsung 단말 검증은 미실행입니다.
+
+
+## 2026-11-20 병렬 트랙 A — DNS TCP 세션 내 SYN 재주입 방어
+- Established DNS TCP 세션에 ACK+SYN 또는 ACK+SYN+payload가 들어오고 sequence가 현재 clientNext와 일치하면 기존 구현이 payload를 정상 DNS stream 데이터로 소비할 수 있었습니다.
+- 최초 handshake 및 ACK 없는 기존 SYN 재전송 경로는 유지하고, 세션이 열린 이후 ACK가 있는 SYN 세그먼트는 현재 ACK 응답만 반환하며 stream buffer, client sequence, resolver를 변경하지 않도록 차단했습니다.
+- 회귀 테스트는 injected SYN+ACK+payload가 resolver에 도달하지 않고 sequence가 보존되며, 같은 sequence의 정상 ACK+payload는 처리되는지 확인합니다.
+- Android JUnit/Gradle 및 실제 DNS-over-TCP 단말 검증은 미실행입니다.
