@@ -545,10 +545,18 @@ class GuardianVpnService : VpnService() {
         }
     }
     private fun startProtectionInternal(requestGeneration: Long, startId: Int) {
-        tunnelActive = false
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-            .remove(KEY_FILTER_READINESS)
-            .apply()
+        // The request can be cancelled after startProtection()'s first generation
+        // check but before this worker reaches the internal startup path. Keep even
+        // the initial shared-state reset behind the same generation gate so a stale
+        // worker cannot clear diagnostics belonging to a newer lifecycle request.
+        val prepared = startCancellation.tryCommitStart(requestGeneration) {
+            tunnelActive = false
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .remove(KEY_FILTER_READINESS)
+                .apply()
+        }
+        if (!prepared) return
+
         try {
             createNotificationChannel()
             startForeground(41, buildNotification())
