@@ -187,32 +187,69 @@ Safety:
 - Do not expand scope into visual redesign or unrelated refactoring.
 - At the end, print a compact report with: selected issue/task, root cause, files changed, tests actually run with exact outcomes, any remaining blockers, and whether no safe source-only task was available.
 '@
-    Write-WorkerLog "Starting bounded Copilot Autopilot session (AI credit soft cap=$DailyAiCreditLimit per response; max continuations=$MaxAutopilotContinues)."
-    $copilotArgs = @(
-        '--autopilot',
-        '--no-ask-user',
-        '--assisted-approval',
-        '--max-autopilot-continues', "$MaxAutopilotContinues",
-        '--max-ai-credits', "$DailyAiCreditLimit",
-        '--available-tools', 'powershell,view,edit,create,apply_patch,grep,glob',
-        '--deny-tool', 'shell(git commit)',
-        '--deny-tool', 'shell(git push)',
-        '--deny-tool', 'shell(git reset)',
-        '--deny-tool', 'shell(git clean)',
-        '--deny-tool', 'shell(git worktree remove)',
-        '--deny-tool', 'shell(gh pr create)',
-        '--deny-tool', 'shell(gh pr merge)',
-        '--deny-tool', 'shell(gh issue close)',
-        '-p', $prompt
-    )
     Push-Location -LiteralPath $worktree
     try {
-        $agentOutput = & $copilot.Source @copilotArgs 2>&1
-        $copilotExit = $LASTEXITCODE
+        if ($agentKind -like 'aider-*') {
+            $promptFile = Join-Path $LogRoot 'aider-guardian-task-prompt.md'
+            $ignoreFile = Join-Path $LogRoot 'aider-guardian-ignore.txt'
+            Set-Content -LiteralPath $promptFile -Value $prompt -Encoding UTF8
+            @(
+                '.env*',
+                '**/.env*',
+                '**/secrets/**',
+                '**/*.jks',
+                '**/*.keystore',
+                '**/*.p12',
+                '**/*.pfx',
+                '**/*.pem',
+                '**/outputs/**',
+                '**/logs/**',
+                'shared/filter_sources.json'
+            ) | Set-Content -LiteralPath $ignoreFile -Encoding UTF8
+
+            Write-WorkerLog "Starting local Aider inference with Ollama model $localModel (no auto-commit; wrapper owns Git operations)."
+            $aiderArgs = @(
+                '--model', 'ollama_chat/qwen2.5-coder:7b',
+                '--message-file', $promptFile,
+                '--yes-always',
+                '--no-auto-commits',
+                '--no-dirty-commits',
+                '--aiderignore', $ignoreFile
+            )
+            if ($agentKind -eq 'aider-exe') {
+                & $aider.Source @aiderArgs 2>&1 | Tee-Object -FilePath $promptLog
+            } elseif ($agentKind -eq 'aider-python') {
+                & $python.Source -m aider @aiderArgs 2>&1 | Tee-Object -FilePath $promptLog
+            } else {
+                & $py.Source -m aider @aiderArgs 2>&1 | Tee-Object -FilePath $promptLog
+            }
+            $copilotExit = $LASTEXITCODE
+        } else {
+            Write-WorkerLog "Starting bounded Copilot Autopilot session (AI credit soft cap=$DailyAiCreditLimit per response; max continuations=$MaxAutopilotContinues)."
+            $copilotArgs = @(
+                '--autopilot',
+                '--no-ask-user',
+                '--assisted-approval',
+                '--max-autopilot-continues', "$MaxAutopilotContinues",
+                '--max-ai-credits', "$DailyAiCreditLimit",
+                '--available-tools', 'powershell,view,edit,create,apply_patch,grep,glob',
+                '--deny-tool', 'shell(git commit)',
+                '--deny-tool', 'shell(git push)',
+                '--deny-tool', 'shell(git reset)',
+                '--deny-tool', 'shell(git clean)',
+                '--deny-tool', 'shell(git worktree remove)',
+                '--deny-tool', 'shell(gh pr create)',
+                '--deny-tool', 'shell(gh pr merge)',
+                '--deny-tool', 'shell(gh issue close)',
+                '-p', $prompt
+            )
+            $agentOutput = & $copilot.Source @copilotArgs 2>&1
+            $copilotExit = $LASTEXITCODE
+            $agentOutput | Tee-Object -FilePath $promptLog
+        }
     } finally {
         Pop-Location
     }
-    $agentOutput | Tee-Object -FilePath $promptLog
     if ($copilotExit -ne 0) {
         Write-WorkerLog "Copilot CLI exited with code $copilotExit. Worktree is retained for diagnosis; no changes were pushed."
         return
