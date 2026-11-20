@@ -37,6 +37,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import kotlin.concurrent.thread
 import java.util.concurrent.atomic.AtomicBoolean
 import java.text.SimpleDateFormat
@@ -1608,6 +1609,7 @@ class MainActivity : Activity() {
         }
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        body.addView(buildSupportCenterCard().withTop(12))
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("운영 서버 주소 (노트북)", 15f, white, true))
@@ -2041,6 +2043,227 @@ class MainActivity : Activity() {
         // inventory so it remains discoverable without scrolling through every app.
         buildCompatibilityPauseSection(body)
         body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
+    }
+
+
+    private fun buildSupportCenterCard(): View {
+        return card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("고객지원 센터", 16f, white, true))
+            addView(text(
+                "자주 묻는 질문을 확인하고, 기능 제안·오류·결제·라이선스 문의를 접수하거나 답변을 조회할 수 있습니다.",
+                11f, muted, false
+            ).withTop(5))
+            addView(text(
+                "문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다. 진단 정보는 별도 동의 없이는 전송하지 않습니다.",
+                11f, muted, false
+            ).withTop(6))
+            addView(Button(this@MainActivity).apply {
+                text = "자주 묻는 질문 (Q&A)"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(panel2, 11)
+                setOnClickListener { showSupportFaq() }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+            addView(Button(this@MainActivity).apply {
+                text = "문의 및 의견 보내기"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 11)
+                setOnClickListener { showSupportSubmitDialog() }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            addView(Button(this@MainActivity).apply {
+                text = "내 문의 답변 확인"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(panel2, 11)
+                setOnClickListener { showSupportLookupDialog() }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+        }
+    }
+
+    private fun showSupportFaq() {
+        val questions = arrayOf(
+            "광고 차단이 되지 않아요",
+            "VPN 보호가 연결되지 않아요",
+            "특정 앱을 보호에서 제외하고 싶어요",
+            "Samsung Wallet에서 VPN 경고가 나와요",
+            "필터 업데이트는 어떻게 하나요?",
+            "Pro 라이선스는 어떻게 활성화하나요?",
+            "기기 변경 또는 라이선스 만료"
+        )
+        val answers = arrayOf(
+            "Guardian은 DNS 기반 광고·추적 도메인을 차단합니다. 앱 내부 광고, 자체 DNS 암호화(DoH/DoT), 이미 내려받은 콘텐츠 광고는 차단되지 않을 수 있습니다. 보호 상태와 필터 업데이트 시각을 확인하세요.",
+            "Android VPN 권한을 허용하고 다른 VPN 앱과 충돌하는지 확인하세요. 계속 실패하면 오류 신고에 보호 진단 정보를 직접 첨부해 주세요.",
+            "설정의 앱 제외에서 앱 이름 또는 패키지명을 검색하고 선택한 뒤 변경사항 저장을 누르세요. 저장 후 VPN에 적용된 앱 수와 실패 수를 확인하세요.",
+            "앱별 트래픽 제외와 기기 전체 VPN 연결 해제는 다릅니다. 금융 앱이 VPN 연결 자체를 감지하면 자동 일시중지 호환성 설정을 사용해야 할 수 있으며, 일시중지 중에는 다른 앱도 VPN DNS 보호를 받지 못합니다.",
+            "필터 규칙 또는 보호 설정에서 필터 업데이트를 실행하세요. 자동 업데이트는 설정한 주기에 따라 동작합니다.",
+            "프리미엄 화면에서 발급받은 라이선스 키를 입력하고 활성화하세요. 활성화에는 운영 라이선스 서버 연결이 필요합니다.",
+            "라이선스 관리자는 등록 기기를 해제할 수 있습니다. 만료·정지된 키는 관리자에게 갱신 또는 상태 확인을 요청하세요."
+        )
+        AlertDialog.Builder(this)
+            .setTitle("Guardian 자주 묻는 질문")
+            .setItems(questions) { _, which ->
+                AlertDialog.Builder(this)
+                    .setTitle(questions[which])
+                    .setMessage(answers[which])
+                    .setPositiveButton("확인", null)
+                    .show()
+            }
+            .setNegativeButton("닫기", null)
+            .show()
+    }
+
+    private fun showSupportSubmitDialog() {
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(4))
+        }
+        val categories = listOf(
+            "질문 / Q&A" to "question",
+            "오류 신고" to "bug",
+            "기능 제안 / 의견" to "suggestion",
+            "결제 문의" to "billing",
+            "라이선스 문의" to "license"
+        )
+        val category = Spinner(this).apply {
+            adapter = darkSpinnerAdapter(categories.map { it.first })
+            background = shape(panel2, 10)
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+        }
+        fun field(hintText: String, multiline: Boolean = false): EditText = EditText(this).apply {
+            hint = hintText
+            setHintTextColor(muted)
+            setTextColor(white)
+            textSize = 13f
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = shape(panel2, 10)
+            if (multiline) {
+                minLines = 4
+                maxLines = 7
+                gravity = Gravity.TOP
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            } else {
+                setSingleLine(true)
+                inputType = InputType.TYPE_CLASS_TEXT
+            }
+        }
+        val subject = field("제목 (3~120자)")
+        val email = field("답변 받을 이메일 (선택)")
+        val message = field("문의 또는 의견을 자세히 입력하세요 (10~5,000자)", true)
+        form.addView(text("문의 유형", 11f, muted, true))
+        form.addView(category, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(5) })
+        form.addView(subject, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(9) })
+        form.addView(email, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
+        form.addView(message, LinearLayout.LayoutParams(-1, dp(140)).apply { topMargin = dp(8) })
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("문의 및 의견 보내기")
+            .setView(form)
+            .setNegativeButton("취소", null)
+            .setPositiveButton("접수", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = subject.text.toString().trim()
+                val body = message.text.toString().trim()
+                if (title.length !in 3..120 || body.length !in 10..5000) {
+                    android.widget.Toast.makeText(this, "제목은 3~120자, 내용은 10~5,000자로 입력하세요.", Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
+                val submit = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                submit.isEnabled = false
+                submit.text = "접수 중…"
+                val selectedCategory = categories[category.selectedItemPosition].second
+                thread(name = "guardian-support-submit") {
+                    val result = runCatching {
+                        LicenseApiClient.submitSupportTicket(
+                            this@MainActivity, selectedCategory, title, body, email.text.toString().trim()
+                        )
+                    }
+                    runOnUiThread {
+                        result.onSuccess { response ->
+                            val receipt = "접수 번호: ${response.optString("ticketRef")}\n조회 코드: ${response.optString("accessToken")}\n\n이 정보는 다시 표시되지 않으므로 안전한 곳에 보관하세요."
+                            dialog.dismiss()
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle("문의 접수 완료")
+                                .setMessage(receipt)
+                                .setPositiveButton("접수 정보 복사") { _, _ ->
+                                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian 문의 접수 정보", receipt))
+                                    android.widget.Toast.makeText(this@MainActivity, "접수 정보가 복사되었습니다.", Toast.LENGTH_SHORT).show()
+                                }
+                                .setNegativeButton("닫기", null)
+                                .show()
+                        }.onFailure { error ->
+                            submit.isEnabled = true
+                            submit.text = "접수"
+                            android.widget.Toast.makeText(this@MainActivity, error.message ?: "문의 접수에 실패했습니다.", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun showSupportLookupDialog() {
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(4))
+        }
+        fun input(hintText: String): EditText = EditText(this).apply {
+            hint = hintText
+            setHintTextColor(muted)
+            setTextColor(white)
+            textSize = 13f
+            setSingleLine(true)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = shape(panel2, 10)
+        }
+        val ticketRef = input("접수 번호 (GDN-...)")
+        val accessToken = input("접수 시 발급된 조회 코드")
+        form.addView(ticketRef)
+        form.addView(accessToken, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("내 문의 답변 확인")
+            .setView(form)
+            .setNegativeButton("취소", null)
+            .setPositiveButton("조회", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if (ticketRef.text.isNullOrBlank() || accessToken.text.isNullOrBlank()) {
+                    android.widget.Toast.makeText(this, "접수 번호와 조회 코드를 입력하세요.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                button.isEnabled = false
+                button.text = "조회 중…"
+                thread(name = "guardian-support-lookup") {
+                    val result = runCatching {
+                        LicenseApiClient.lookupSupportTicket(this@MainActivity, ticketRef.text.toString(), accessToken.text.toString())
+                    }
+                    runOnUiThread {
+                        result.onSuccess { response ->
+                            val ticket = response.optJSONObject("ticket")
+                            val details = if (ticket == null) "문의 정보를 읽을 수 없습니다." else
+                                "상태: ${ticket.optString("status")}\n유형: ${ticket.optString("category")}\n제목: ${ticket.optString("subject")}\n\n접수 내용:\n${ticket.optString("message")}\n\n답변:\n${ticket.optString("admin_reply").ifBlank { "아직 답변이 등록되지 않았습니다." }}"
+                            dialog.dismiss()
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle("문의 처리 현황")
+                                .setMessage(details)
+                                .setPositiveButton("확인", null)
+                                .show()
+                        }.onFailure { error ->
+                            button.isEnabled = true
+                            button.text = "조회"
+                            android.widget.Toast.makeText(this@MainActivity, error.message ?: "문의 조회에 실패했습니다.", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun defaultTlsHostForDns(address: String): String? = when (address.lowercase()) {
