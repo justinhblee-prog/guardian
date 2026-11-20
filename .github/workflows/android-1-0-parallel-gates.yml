@@ -101,15 +101,13 @@ jobs:
           test -s android/app/src/main/java/com/guardian/adblock/LicenseApiClient.kt
       - name: Ensure this gate remains manual-only
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import yaml
-          data = yaml.safe_load(Path('.github/workflows/android-1-0-parallel-gates.yml').read_text())
-          triggers = data.get('on', data.get(True, {}))
-          assert set(triggers) == {'workflow_dispatch'}, f'Unexpected automatic trigger: {list(triggers)}'
-          assert set(data.get('permissions', {})) == {'contents'}
-          assert data['permissions']['contents'] == 'read'
-          PY
+          ruby - <<'RUBY'
+          require 'yaml'
+          data = YAML.load_file('.github/workflows/android-1-0-parallel-gates.yml', aliases: true)
+          triggers = data.fetch('on', data[true] || {})
+          abort "Unexpected automatic trigger: #{triggers.keys}" unless triggers.keys == ['workflow_dispatch']
+          abort 'Workflow must be read-only.' unless data.fetch('permissions') == { 'contents' => 'read' }
+          RUBY
 
   result:
     name: Parallel gate result
