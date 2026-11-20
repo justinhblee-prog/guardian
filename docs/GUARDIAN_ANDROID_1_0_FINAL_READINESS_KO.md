@@ -363,3 +363,10 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 동시 두 요청이 각각 다른 실패 원인을 유지하고, 한 요청의 `clear()`가 다른 요청의 진단을 지우지 않는 JUnit 회귀 테스트 `DnsFailureContextTest`를 추가했습니다.
 - 동일 구현을 사용하는 독립 Kotlin/JVM 하네스 실행 결과: 두 동시성 검증 PASS.
 - Android Gradle/JUnit 및 실제 Android 런타임 검증은 아직 실행하지 않았습니다.
+
+## 2026-11-20 VPN 종료·재시작 중 오래된 DNS 패킷 통계 기록 차단
+- DNS 응답 처리가 진행 중인 동안 STOP 또는 TUN 교체가 발생하면 이전 패킷 워커가 늦게 돌아와 DNS 통계·최근 활동·진단을 기록할 수 있었습니다.
+- `PacketSessionOwnership.withCurrent()`를 추가해 현재 소유 세션에 한해서만 DNS 성공/실패/무시 통계를 기록하도록 했습니다. TCP·UDP DNS 경로 모두 적용했고, 이미 종료되었거나 교체된 세션은 통계 기록을 건너뜁니다.
+- `PacketSessionOwnershipTest`에 교체된 세션 및 STOP 이후 지연된 통계 기록 차단 회귀 테스트 2건을 추가했습니다.
+- 독립 Kotlin/JVM 하네스 3개 시나리오 PASS: 이전 세션 기록 거부, 현재 세션 기록 허용, STOP 이후 지연 기록 거부.
+- Android Gradle/JUnit, APK 및 Samsung 실기기 검증은 미실행입니다.
