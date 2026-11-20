@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+import socket
+import time
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 import unittest
@@ -206,6 +208,22 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
             second = FileLease(path)
             self.assertFalse(second.acquire())
             first.release()
+
+    def test_file_lease_reclaims_expired_lock_from_a_dead_same_host_process(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "task.lock"
+            path.write_text(json.dumps({
+                "token": "expired-owner",
+                "pid": 2147483647,
+                "host": socket.gethostname(),
+                "created_unix": time.time() - 120,
+                "expires_unix": time.time() - 60,
+            }), encoding="utf-8")
+            lease = FileLease(path)
+            self.assertTrue(lease.acquire())
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["token"], lease.token)
+            lease.release()
+            self.assertFalse(path.exists())
 
 if __name__ == "__main__":
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(GuardianMultiFlowValidationTests)
