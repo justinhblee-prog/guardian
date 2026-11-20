@@ -1,6 +1,8 @@
 """Unit tests for the Guardian local multi-flow safety boundary."""
 from __future__ import annotations
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -29,6 +31,22 @@ def task(task_id="sample-task", allowed=None, profile="android-unit-lint"):
     }
 
 class GuardianMultiFlowValidationTests(unittest.TestCase):
+    def test_validate_only_cli_reports_success_and_zero_exit(self):
+        root = Path(__file__).resolve().parents[1]
+        script = root / "scripts" / "guardian_multiflow.py"
+        result = subprocess.run(
+            [sys.executable, str(script), "--validate-only", "--repo-root", str(root)],
+            cwd=str(root),
+            text=True,
+            encoding="utf-8",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("PASS: manifest schema", result.stdout)
+
     def test_real_manifest_has_three_disjoint_ready_tracks(self):
         root = Path(__file__).resolve().parents[1]
         manifest = json.loads((root / ".guardian/automation/tasks.json").read_text(encoding="utf-8"))
