@@ -51,12 +51,51 @@ class DnsUpstreamProbeTest {
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, null))
     }
 
+    @Test fun rejectsAnswerCountWithoutAnActualResourceRecord() {
+        val query = DnsUpstreamProbe.query()
+        val response = successfulResponse(query).copyOf(29).also {
+            it[6] = 0
+            it[7] = 1
+        }
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
+    }
+
+    @Test fun rejectsTruncatedAnswerHeaderAndRdata() {
+        val query = DnsUpstreamProbe.query()
+        val complete = successfulResponse(query)
+        assertTrue(DnsUpstreamProbe.isSuccessfulResolution(query, complete))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, complete.copyOf(complete.size - 1)))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, complete.copyOf(complete.size - 8)))
+    }
+
+    @Test fun rejectsInvalidOrCyclicAnswerCompressionPointers() {
+        val query = DnsUpstreamProbe.query()
+        val valid = successfulResponse(query)
+        val answerOffset = 29
+        val outside = valid.copyOf().also {
+            it[answerOffset] = 0xff.toByte()
+            it[answerOffset + 1] = 0xff.toByte()
+        }
+        val cyclic = valid.copyOf().also {
+            it[answerOffset] = 0xc0.toByte()
+            it[answerOffset + 1] = answerOffset.toByte()
+        }
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, outside))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, cyclic))
+    }
+
     private fun successfulResponse(query: ByteArray): ByteArray {
         val response = DomainFilter.makeServfail(query)!!
         response[2] = (response[2].toInt() and 0xff).toByte()
         response[3] = ((response[3].toInt() and 0xff) and 0xf0).toByte()
         response[6] = 0
         response[7] = 1
-        return response
+        val answer = byteArrayOf(
+            0xc0.toByte(), 0x0c,
+            0x00, 0x01, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x3c,
+            0x00, 0x04, 1, 2, 3, 4
+        )
+        return response + answer
     }
 }
