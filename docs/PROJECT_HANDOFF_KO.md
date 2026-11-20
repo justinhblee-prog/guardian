@@ -104,6 +104,7 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 
 - [Android 1.0 잔여 작업 및 검증 계획](REMAINING_WORKFLOW_KO.md)
 - [Android 1.0 병렬 실행 워크플로](ANDROID_1_0_PARALLEL_EXECUTION_KO.md)
+- [Android 1.0 수동 병렬 검증 Actions](../.github/workflows/android-1-0-parallel-gates.yml)
 - [Android 1.0 단일 출시 게이트](https://github.com/justinhblee-prog/guardian/issues/141)
 - [고객지원/라이선스 운영 PR](https://github.com/justinhblee-prog/guardian/pull/205)
 
