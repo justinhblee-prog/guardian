@@ -201,7 +201,7 @@ async function recordEvent(client, licenseId, type, actor, metadata = {}) {
 async function activate(body) {
   requireEnv();
   const device = validateDeviceBinding(body.deviceBinding);
-  const requestId = validateUuid(body.requestId, '활성화 요청 ID');
+  const requestId = body.requestId === undefined ? randomUUID() : validateUuid(body.requestId, '활성화 요청 ID');
   const appVersion = typeof body.appVersion === 'string' ? body.appVersion.slice(0, 40) : '';
   if (typeof body.licenseKey !== 'string') throw Object.assign(new Error('라이선스 키가 필요합니다.'), { status: 400 });
   const client = await pool.connect();
