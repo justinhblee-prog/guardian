@@ -16,7 +16,7 @@
 
 - JDK 17
 - Android SDK Platform 35
-- Android SDK Build Tools 34.0.0
+- Android SDK Build Tools 35.0.0
 - Gradle 8.9
 - 인터넷 연결(Gradle/Android 빌드 의존성 설치)
 
@@ -30,7 +30,7 @@ Windows 프로젝트 루트에서 실행:
 
 또는 `BUILD_ANDROID.bat`을 실행합니다. 배치 파일도 동일한 PowerShell 검증 파이프라인을 호출합니다.
 
-- JDK 17/21, Android SDK Platform 35, Build Tools 34.0.0, Gradle 8.9를 사전 확인합니다.
+- JDK 17/21, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9를 사전 확인합니다.
 - `clean`, `testDebugUnitTest`, `lintDebug`, `assembleDebug`를 실행합니다.
 - APK 패키지 ID/versionCode/versionName을 `aapt`로 확인하고 SHA-256을 계산합니다.
 - APK, Gradle 버전, 빌드 로그, 검증 요약을 `%LOCALAPPDATA%\Guardian\outputs\Android-Debug-<timestamp>`에 보존합니다.
