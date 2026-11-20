@@ -21,9 +21,9 @@ $Sdk = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } elseif ($env:ANDROID
 if ([string]::IsNullOrWhiteSpace($Sdk) -or !(Test-Path (Join-Path $Sdk 'platforms\android-35\android.jar'))) {
     throw 'Android SDK Platform 35 was not found. Set ANDROID_SDK_ROOT (or ANDROID_HOME) and install Android SDK Platform 35.'
 }
-$Aapt = Join-Path $Sdk 'build-tools\35.0.0\aapt.exe'
+$Aapt = Join-Path $Sdk 'build-tools\34.0.0\aapt.exe'
 if (!(Test-Path $Aapt)) {
-    throw "Android Build Tools 35.0.0 (aapt.exe) were not found: $Aapt"
+    throw "Android Build Tools 34.0.0 (aapt.exe) were not found: $Aapt"
 }
 
 Set-Location $Android
