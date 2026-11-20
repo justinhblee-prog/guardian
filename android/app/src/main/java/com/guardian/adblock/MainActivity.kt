@@ -1498,12 +1498,8 @@ class MainActivity : Activity() {
                 .setNegativeButton("닫기", null)
                 .show()
         })
-        body.addView(settingsCategoryRow("정보", "앱 정보 및 법적 문서 확인", "info") {
-            AlertDialog.Builder(this)
-                .setTitle("Guardian 정보")
-                .setMessage("Guardian AdBlock\n버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n\n개인정보 보호와 오픈소스 라이선스 정보는 배포 문서에서 확인할 수 있습니다.")
-                .setPositiveButton("확인", null)
-                .show()
+        body.addView(settingsCategoryRow("정보", "앱 버전, 제3자 고지 및 오픈소스 라이선스", "info") {
+            showGuardianInfo()
         })
         body.addView(settingsCategoryRow("종료", "앱 종료 · 보호 VPN은 별도 정책에 따라 유지됩니다", "exit") {
             AlertDialog.Builder(this)
@@ -1513,6 +1509,41 @@ class MainActivity : Activity() {
                 .setPositiveButton("종료") { _, _ -> finish() }
                 .show()
         })
+    }
+
+    private fun showGuardianInfo() {
+        val items = arrayOf(
+            "앱 버전 및 빌드 정보",
+            "제3자 필터 라이선스 고지",
+            "Guardian 저장소 및 문서",
+            "GNU GPL version 3",
+            "Mozilla Public License 2.0"
+        )
+        AlertDialog.Builder(this)
+            .setTitle("Guardian 정보")
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> AlertDialog.Builder(this)
+                        .setTitle("Guardian AdBlock")
+                        .setMessage("버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\\n패키지: ${packageName}\\n\\n필터 원본의 라이선스와 재배포 조건은 제3자 고지 문서에서 확인할 수 있습니다.")
+                        .setPositiveButton("확인", null)
+                        .show()
+                    1 -> openGuardianInfoUrl("https://github.com/justinhblee-prog/guardian/blob/main/server/filter-distribution/THIRD_PARTY_NOTICES_KO.md")
+                    2 -> openGuardianInfoUrl("https://github.com/justinhblee-prog/guardian")
+                    3 -> openGuardianInfoUrl("https://www.gnu.org/licenses/gpl-3.0.html")
+                    4 -> openGuardianInfoUrl("https://www.mozilla.org/en-US/MPL/2.0/")
+                }
+            }
+            .setNegativeButton("닫기", null)
+            .show()
+    }
+
+    private fun openGuardianInfoUrl(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(this, "링크를 열 수 있는 브라우저를 찾지 못했습니다.", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun buildGeneralSettings(body: LinearLayout) {
@@ -2228,8 +2259,8 @@ class MainActivity : Activity() {
             "설정의 앱 제외에서 앱 이름 또는 패키지명을 검색하고 선택한 뒤 변경사항 저장을 누르세요. 저장 후 VPN에 적용된 앱 수와 실패 수를 확인하세요.",
             "앱별 트래픽 제외와 기기 전체 VPN 연결 해제는 다릅니다. 금융 앱이 VPN 연결 자체를 감지하면 자동 일시중지 호환성 설정을 사용해야 할 수 있으며, 일시중지 중에는 다른 앱도 VPN DNS 보호를 받지 못합니다.",
             "필터 규칙 또는 보호 설정에서 필터 업데이트를 실행하세요. 자동 업데이트는 설정한 주기에 따라 동작합니다.",
-            "설정 화면의 라이선스 관리에서 발급받은 라이선스 키를 입력하고 활성화하세요. 활성화에는 운영 라이선스 서버 연결이 필요합니다.",
-            "라이선스 관리자는 등록 기기를 해제할 수 있습니다. 만료·정지된 키는 관리자에게 갱신 또는 상태 확인을 요청하세요."
+            "설정 → 라이선스 및 프리미엄에서 발급받은 라이선스 키를 입력하고 활성화하세요. 활성화에는 운영 라이선스 서버 연결이 필요합니다.",
+            "설정 → 라이선스 및 프리미엄에서 등록 기기를 해제할 수 있습니다. 만료·정지된 키는 관리자에게 갱신 또는 상태 확인을 요청하세요."
         )
         AlertDialog.Builder(this)
             .setTitle("Guardian 자주 묻는 질문")
