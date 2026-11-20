@@ -897,6 +897,7 @@ class MainActivity : Activity() {
             background = shape(panel2, 12)
             setOnClickListener {
                 synchronized(GuardianVpnService.DNS_STATS_LOCK) {
+                    GuardianVpnService.invalidateDnsDiagnosticWrites()
                     prefs.edit()
                         .putLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
                         .putLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)
