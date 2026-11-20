@@ -392,15 +392,18 @@ def write_state(path: Path, state: dict[str, Any]) -> None:
     temp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
     os.replace(temp, path)
 
-def check_previous_submission(repo: Path, task_id: str, previous: dict[str, Any]) -> bool:
+def check_previous_submission(repo: Path, task_id: str, previous: dict[str, Any], current_main: str) -> str:
+    if previous.get("status") == "no_change" and previous.get("base_sha") == current_main:
+        print(f"[{task_id}] previous model pass found no justified diff on this exact main revision; skipping.")
+        return "no_change"
     branch, commit, pr_url = previous.get("branch"), previous.get("commit"), previous.get("pr_url")
     if not branch or not commit:
-        return False
+        return ""
     try:
         ancestor = run_process(["git", "-C", str(repo), "merge-base", "--is-ancestor", str(commit), "origin/main"], repo, 30)
         if ancestor.returncode == 0:
             print(f"[{task_id}] already integrated into origin/main at {commit[:12]}; skipping.")
-            return True
+            return "integrated"
     except AutomationError:
         pass
     if pr_url:
@@ -409,10 +412,10 @@ def check_previous_submission(repo: Path, task_id: str, previous: dict[str, Any]
             try:
                 if json.loads(result.stdout).get("state") == "OPEN":
                     print(f"[{task_id}] previous Draft PR remains open: {pr_url}; skipping duplicate.")
-                    return True
+                    return "pr_open"
             except json.JSONDecodeError:
                 pass
-    return False
+    return ""
 
 def task_prompt_body(task: dict[str, Any], outcomes: list[str], commit: str, model: str, branch: str) -> str:
     lines = [
@@ -445,9 +448,15 @@ def execute_task(repo: Path, task: dict[str, Any], model: str, base_url: str, ro
     try:
         with state_guard:
             previous = dict(state["tasks"].get(task_id, {}))
-        if previous.get("status") in {"pr_open", "integrated"} and check_previous_submission(repo, task_id, previous):
-            return {"task": task_id, "status": "skipped", "reason": "previous PR is open or already integrated"}
         base_sha = git(repo, ["rev-parse", "origin/main"])
+        previous_status = check_previous_submission(repo, task_id, previous, base_sha)
+        if previous_status:
+            if previous_status == "integrated":
+                with state_guard:
+                    state["tasks"][task_id]["status"] = "integrated"
+                    state["tasks"][task_id]["integrated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+                    write_state(roots["state"], state)
+            return {"task": task_id, "status": "skipped", "reason": f"previous state: {previous_status}"}
         suffix = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d%H%M%S") + "-" + uuid.uuid4().hex[:6]
         branch = f"automation/ollama/{task_id}-{suffix}"
         worktree = roots["worktrees"] / f"{task_id}-{suffix}"
