@@ -17,7 +17,7 @@ if (!$JavaMatch.Success -or @('17', '21') -notcontains $JavaMatch.Groups['major'
     throw "Guardian Android requires JDK 17 or 21. Detected: $JavaVersionOutput"
 }
 
-$Sdk = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { $env:ANDROID_HOME }
+$Sdk = if ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } elseif ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif ($env:LOCALAPPDATA -and (Test-Path (Join-Path $env:LOCALAPPDATA 'Android\Sdk'))) { Join-Path $env:LOCALAPPDATA 'Android\Sdk' } else { $null }
 if ([string]::IsNullOrWhiteSpace($Sdk) -or !(Test-Path (Join-Path $Sdk 'platforms\android-35\android.jar'))) {
     throw 'Android SDK Platform 35 was not found. Set ANDROID_SDK_ROOT (or ANDROID_HOME) and install Android SDK Platform 35.'
 }
@@ -67,6 +67,7 @@ if ($ApkItem.Length -le 0) { throw "APK exists but is empty: $Apk" }
 $Badging = (& $Aapt dump badging $Apk 2>&1 | Out-String)
 if ($LASTEXITCODE -ne 0) { throw "aapt could not inspect the APK. See $BuildLog" }
 $PackageLine = ($Badging -split '\r?\n' | Where-Object { $_ -match "^package:" } | Select-Object -First 1)
+if ([string]::IsNullOrWhiteSpace($PackageLine)) { throw 'APK package metadata is missing from aapt output.' }
 $PackageMatch = [regex]::Match($PackageLine, "^package:\s+name='(?<name>[^']+)'\s+versionCode='(?<code>[^']+)'\s+versionName='(?<version>[^']+)'")
 if (!$PackageMatch.Success) { throw "APK package metadata could not be parsed: $PackageLine" }
 if ($PackageMatch.Groups['name'].Value -ne 'com.guardian.adblock' -or
