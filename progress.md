@@ -192,3 +192,14 @@
 ## 2026-11-20 병렬 트랙 D — 노트북 JDK 사전검사 일치
 - 공개키 주입/ADB 캡처용 Windows 빌드 스크립트가 JDK 17 이상을 폭넓게 허용해 루트 빌드 스크립트의 JDK 17/21 허용 정책과 달랐습니다.
 - 두 진입점이 동일한 JDK 17 또는 21 정책을 사용하도록 통일하고 Windows 운영 README도 갱신했습니다. PowerShell 실행 검증은 미실행입니다.
+
+## 2026-11-20 병렬 트랙 D — APK 검증 스크립트 복구 및 소스 재검토
+- APK asset 검증 추가 후 두 PowerShell 빌드 스크립트의 후속 구문이 중복/절단된 것을 소스 재검토에서 발견했습니다. 실제 노트북 실행 전이지만, 이 상태로는 빌드 스크립트 파싱/실행이 실패할 수 있어 즉시 복구했습니다.
+- `BUILD_ANDROID.ps1`의 APK 검증 후반부를 단일 연속 블록으로 재작성했습니다: aapt 목록 exit code → 필수 `assets/filter_rules.txt` → badging → package/version 메타데이터 → APK 복사/SHA-256/검증 보고서.
+- `Build-GuardianAndroid-Debug.ps1`도 동일하게 asset/package 검증 후 APK 복사/SHA-256 및 선택적 ADB 설치·실행·화면 캡처 흐름이 한 번만 존재하도록 복구했습니다.
+- 원격 파일 재조회로 두 파일의 줄 수, 정규식 검사 행, APK 복사 및 checksum 흐름, 중복된 후행 블록 제거를 확인했습니다. PowerShell 파서/실행은 이 환경에 pwsh가 없어 미실행입니다.
+
+## 2026-11-20 병렬 트랙 A/C — 라이선스 식별자·고객지원 재검증
+- 원격 브랜치에서 실제 `InstallationIdStore.kt` 구현을 가져와 별도 Kotlin/JVM으로 다시 컴파일·실행했습니다. PASS: 24개 동시 최초 호출이 하나의 저장 ID로 수렴, 기존 ID 불변, 저장 실패 시 미저장 ID 반환 금지.
+- 고객지원 FAQ 질문 8개/답변 8개 일치 확인.
+- VPN/DNS 진단 writer 4개 경로의 순서 토큰 검사와 `DNS_STATS_LOCK` 동기화 위치를 재검토했습니다. 확인한 경로에서 DNS 통계 잠금 안에서 진단 시퀀스 확인 후 기록하며, startup failure는 시작 세대 게이트 후 DNS 통계 잠금 순서입니다. 이 정적 점검은 Android 런타임 교착/경합 검증을 대체하지 않습니다.
