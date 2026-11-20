@@ -126,7 +126,7 @@ if ($InstallToConnectedDevice) {
     & $adb -s $deviceId pull $remoteShot $localShot
     if ($LASTEXITCODE -ne 0) { throw '화면 캡처 파일을 노트북으로 가져오지 못했습니다.' }
     $shot = [IO.File]::ReadAllBytes($localShot)
-    if ($shot.Length -lt 8 -or $shot[0] -ne 137 -or $shot[1] -ne 80 -or $shot[2] -ne 78 -or $shot[3] -ne 71) {
+    if ($shot.Length -lt 8 -or [Convert]::ToHexString($shot[0..7]) -ne '89504E470D0A1A0A') {
       throw '가져온 화면 캡처가 유효한 PNG 파일이 아닙니다.'
     }
   } finally {
