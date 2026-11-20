@@ -78,4 +78,27 @@ class FilterRedirectPolicyTest {
         assertNull(FilterRedirectPolicy.resolve(base, 302, """https://example.com/filter.txt\segment""", 0))
     }
 
+    @Test fun acceptsIpv6HttpsAndPercentEncodedPath() {
+        assertTrue(
+            FilterRedirectPolicy.isAllowedHttpsUrl(
+                java.net.URL("https://[2001:db8::1]:8443/filter%20list.txt")
+            )
+        )
+        assertEquals(
+            "https://[2001:db8::1]:8443/filter%20list.txt",
+            FilterRedirectPolicy.resolve(
+                base, 302, "https://[2001:db8::1]:8443/filter%20list.txt", 0
+            )
+        )
+    }
+
+    @Test fun rejectsControlCharactersInRedirectTargets() {
+        listOf(
+            "https://example.com/filter\\nlist.txt",
+            "https://example.com/filter\\u0001list.txt"
+        ).forEach { value ->
+            assertNull(FilterRedirectPolicy.resolve(base, 302, value, 0))
+        }
+    }
+
 }
