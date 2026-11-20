@@ -69,6 +69,48 @@ class DnsTcpSessionManagerTest {
     }
 
 
+    @Test fun establishedSessionRejectsUnexpectedSynWithoutConsumingDnsBytes() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 100)
+        val synAck = DnsTcpPacket.parse(
+            manager.handle(syn, syn.size) { null }.single(), 40, 53000
+        )!!
+
+        var resolveCalls = 0
+        val injectedSyn = packet(
+            flags = DnsTcpPacket.SYN or DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 101,
+            acknowledgment = (synAck.sequence + 1L) and 0xffffffffL,
+            payload = framed
+        )
+        val rejected = manager.handle(injectedSyn, injectedSyn.size) {
+            resolveCalls++
+            DomainFilter.makeServfail(it)
+        }.single()
+        val rejectionAck = DnsTcpPacket.parse(rejected, rejected.size, 53000)!!
+        assertTrue(rejectionAck.ack)
+        assertEquals(101L, rejectionAck.acknowledgement)
+        assertEquals(0, resolveCalls)
+        assertEquals(1, manager.activeSessionCount())
+
+        val legitimate = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 101,
+            acknowledgment = (synAck.sequence + 1L) and 0xffffffffL,
+            payload = framed
+        )
+        val accepted = manager.handle(legitimate, legitimate.size) {
+            resolveCalls++
+            assertArrayEquals(query, it)
+            DomainFilter.makeServfail(it)
+        }
+        assertTrue(accepted.isNotEmpty())
+        assertEquals(1, resolveCalls)
+        assertEquals(1, manager.activeSessionCount())
+    }
+
     @Test fun forwardsCompleteDnsOverTcpQueryAndFramesTheAnswer() {
         val manager = newManager()
         val query = dnsQuery()
