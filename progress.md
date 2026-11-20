@@ -416,3 +416,11 @@
 - Android JUnit/Gradle 및 실제 네트워크 업스트림 검증은 실행하지 않았습니다.
 
 - DNS 이름 압축 포인터는 현재 위치보다 앞선 오프셋만 허용하도록 추가 제한하고, 패킷 내부를 가리키는 forward pointer 회귀 테스트를 추가했습니다.
+
+
+## 2026-11-20 — DNS TCP established-flow SYN injection guard
+
+- DNS TCP 세션이 이미 열린 뒤에도 ACK가 붙은 새 SYN/SYN+ACK 세그먼트가 현재 client sequence와 일치하면 일반 데이터처럼 처리될 수 있는 경로를 확인했습니다. payload가 붙은 SYN이 DNS length-prefixed stream에 삽입되어 resolver 호출까지 도달할 수 있었습니다.
+- 세션 handshake 이후 ACK가 없는 세그먼트는 기존대로 무시하고, ACK가 있더라도 SYN 플래그가 남아 있는 세그먼트는 stream state를 변경하지 않고 현재 ACK만 반환하도록 차단했습니다. 최초 SYN 및 기존 지연 SYN 재전송 처리는 유지됩니다.
+- establishedSessionRejectsUnexpectedSynWithoutConsumingDnsBytes 회귀 테스트를 추가했습니다. 잘못된 SYN+ACK+payload가 resolver를 호출하지 않고 client sequence를 보존하며, 이어지는 정상 ACK+payload는 정상 처리되는지 검증합니다.
+- GitHub 소스 반영 확인 예정. Android JUnit/Gradle, 실제 DNS-over-TCP 네트워크 및 Samsung 단말 검증은 이 환경에서 실행하지 않았습니다.
