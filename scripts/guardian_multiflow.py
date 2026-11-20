@@ -110,7 +110,10 @@ class FileLease:
                 self.acquired = True
                 return True
             except FileExistsError:
-                self._try_reap_stale()
+                if self._try_reap_stale():
+                    # The stale file was removed; retry exclusive creation
+                    # immediately instead of returning on a zero wait timeout.
+                    continue
             if time.monotonic() >= deadline:
                 return False
             time.sleep(1)
