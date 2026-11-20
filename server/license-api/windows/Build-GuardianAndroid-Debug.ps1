@@ -132,7 +132,8 @@ $buildReport = @(
   "Version name: $($packageMatch.Groups['version'].Value)"
   "Version code: $($packageMatch.Groups['code'].Value)"
   "APK size bytes: $apkSize"
-  "APK SHA-256: $hash"\n  "Signer certificate SHA-256: $signerFingerprint"
+  "APK SHA-256: $hash"
+  "Signer certificate SHA-256: $signerFingerprint"
   'Unit tests: Gradle testDebugUnitTest task completed successfully'
   'Lint: Gradle lintDebug task completed successfully'
   'APK assembly: Gradle assembleDebug task completed successfully'
@@ -141,7 +142,8 @@ $buildReport = @(
 [IO.File]::WriteAllText((Join-Path $outputDir 'build-verification.txt'), ($buildReport -join [Environment]::NewLine) + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
 Write-Host "Android debug APK: $apkTarget"
 Write-Host "Build verification: $(Join-Path $outputDir 'build-verification.txt')"
-Write-Host "SHA-256: $hash"\nWrite-Host "Signer certificate SHA-256: $signerFingerprint"
+Write-Host "SHA-256: $hash"
+Write-Host "Signer certificate SHA-256: $signerFingerprint"
 Write-Host '이 APK는 노트북에서 생성한 서명 공개키를 포함합니다. 앱 설정에서 공개 HTTPS 서버 주소를 입력한 뒤 서명 필터/라이선스 연동을 사용할 수 있습니다.'
 
 if ($InstallToConnectedDevice) {
