@@ -4,7 +4,7 @@
 - 저장소: https://github.com/justinhblee-prog/guardian
 - 작업 브랜치: `feature/android-support-center-mainline`
 - 최종 판정: **출시 미완료 — 검증 및 외부 증거 필요**
-- 최신 브랜치 비교: `main...feature/android-support-center-mainline` = 207 commits ahead, 0 behind (2026-11-20 확인; 이 문서 수정 커밋 전 수치).
+- 최신 브랜치 비교: `main...feature/android-support-center-mainline` = 389 commits ahead, 2 behind (2026-11-20 재조회).
 
 ## 목표
 
@@ -463,3 +463,9 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - Android 라이선스 활성화는 서버가 먼저 기기 등록 슬롯을 할당하고, 앱이 응답 토큰의 서명/기기 바인딩을 검증한 뒤 SharedPreferences에 저장합니다. 검증 또는 로컬 영구 저장이 실패하면 서버 슬롯은 활성 상태로 남지만 앱은 licenseRef를 보존하지 못해 다른 키를 선택했을 때 이전 슬롯을 해제할 방법이 없었습니다.
 - `LicenseApiClient.activate()`에서 서버 응답 수신 후 토큰 검증/저장이 실패하면 부분 저장됐을 수 있는 로컬 토큰을 먼저 제거하고, 응답의 bounded licenseRef 형식을 검사해 동일 deviceBinding으로 `/v1/licenses/deactivate`를 best-effort 호출하도록 보완했습니다. 로컬 정리 또는 보상 해제도 실패하면 원래 활성화/저장 오류를 유지하고 부가 오류는 suppressed exception으로 보존합니다.
 - `LicenseApiClientTest`에 보상 해제 참조값의 허용/거부 테스트를 추가했습니다. 실제 API·Android JUnit은 아직 실행하지 않았습니다.
+
+## 2026-11-20 필터 업데이트 워커 컴파일 경로 보정
+
+- 수동 업데이트와 WorkManager 업데이트가 공유하는 `FilterUpdateExecutionLock.withLock { ... }` 안에서 `return Result.success()` 및 `return try`를 사용하던 비지역 return 구문을 수정했습니다. 해당 람다는 inline이 아니므로 비지역 return은 Kotlin 컴파일 오류가 됩니다.
+- early return을 `return@withLock Result.success()`로 바꾸고, 나머지 `try/catch`를 람다의 최종 표현식으로 유지해 모든 분기에서 `Result`를 반환하도록 정리했습니다.
+- 원격 소스를 재조회해 비지역 return 잔존 여부와 Result 반환 구조를 정적 확인했습니다. Android Gradle compile/JUnit은 실행하지 않았습니다.
