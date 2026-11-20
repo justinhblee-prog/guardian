@@ -3482,8 +3482,8 @@ class MainActivity : Activity() {
         val securityIgnored = if (securityOn) FilterListManager.cachedSecurityIgnoredCount(this) else 0
         val androidAdsIgnored = if (androidAdsOn) FilterListManager.cachedAndroidAdsIgnoredCount(this) else 0
         val lastError = prefs.getString(FilterListManager.KEY_LAST_ERROR, null)
-        val securityError = if (securityOn) prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null) else null
-        val androidAdsError = if (androidAdsOn) prefs.getString(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR, null) else null
+        val securityError = prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null)
+        val androidAdsError = prefs.getString(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR, null)
         val selectedProfile = FilterListManager.selectedProfile(this)
         val cachedProfile = FilterListManager.cachedProfile(this)
         val profileLabel = if (FilterListManager.hasCachedList(this) && selectedProfile.key != cachedProfile.key) {
@@ -3547,9 +3547,6 @@ class MainActivity : Activity() {
                             FilterListManager.KEY_SECURITY_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
                         )
-                        if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityWasEnabled, securityWasCached)) {
-                            editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                        }
                         editor.apply()
                         null
                     }
@@ -3565,8 +3562,6 @@ class MainActivity : Activity() {
                             FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                             e.message ?: e.javaClass.simpleName
                         ).apply()
-                        if (!androidAdsWasCached) prefs.edit()
-                            .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
                         null
                     }
                 } else null
