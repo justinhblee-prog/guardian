@@ -108,4 +108,43 @@ class VpnStartCancellationGateTest {
         assertEquals(1, cleanupCount)
     }
 
+    @Test fun stalePreflightFailureCannotPublishStatusOrRemoveNewForegroundNotification() {
+        val gate = VpnStartCancellationGate()
+        val oldStart = gate.onStartRequested()
+        gate.cancel()
+        val newStart = gate.onStartRequested()
+        var statusPublished = false
+        var foregroundRemoved = false
+        var serviceStopped = false
+
+        assertFalse(gate.tryCommitStart(oldStart) {
+            statusPublished = true
+            foregroundRemoved = true
+            serviceStopped = true
+        })
+
+        assertFalse(statusPublished)
+        assertFalse(foregroundRemoved)
+        assertFalse(serviceStopped)
+        assertTrue(gate.isCurrent(newStart))
+    }
+
+    @Test fun staleTunnelDescriptorCleanupDoesNotRunSharedServiceTeardown() {
+        val gate = VpnStartCancellationGate()
+        val oldStart = gate.onStartRequested()
+        gate.cancel()
+        gate.onStartRequested()
+        var ownDescriptorClosed = false
+        var sharedServiceTeardown = false
+
+        // A stale worker may close only the descriptor it created. Shared
+        // foreground/service state remains owned by the newer request.
+        ownDescriptorClosed = true
+        val committed = gate.tryCommitStart(oldStart) { sharedServiceTeardown = true }
+
+        assertTrue(ownDescriptorClosed)
+        assertFalse(committed)
+        assertFalse(sharedServiceTeardown)
+    }
+
 }
