@@ -367,3 +367,10 @@
 - Signed manifest의 HTTPS 콘텐츠 URL에 대해 URI 포트가 생략됐거나 1–65535 범위인지 검증하도록 강화. 서명된 manifest라도 99999 등 유효하지 않은 포트는 캐시 교체 전에 거부.
 - `FilterManifestVerifierTest.rejectsOutOfRangeHttpsPortEvenWhenManifestIsSigned` 회귀 테스트 추가.
 - 원격 소스 재조회로 검증식과 테스트 케이스의 반영 확인. Android JUnit/Gradle 실행은 이 환경에 Android SDK·Gradle이 없어 미실행.
+
+
+## 2026-11-20 — Filter redirect URL validation
+
+- 필터/manifest HTTPS 리디렉션 대상에 대해 URL fragment 및 1–65535 범위를 벗어난 포트를 연결 전에 거부하도록 강화.
+- `FilterRedirectPolicyTest.rejectsRedirectsWithInvalidPortsOrFragments` 회귀 테스트 추가.
+- manifest 콘텐츠 URL의 포트 검증과 함께 정적 재조회로 정책·테스트 반영 확인. Android JUnit/Gradle은 실행 환경 부재로 미실행.
