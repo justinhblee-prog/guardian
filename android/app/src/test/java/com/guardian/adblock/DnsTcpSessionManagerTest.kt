@@ -663,6 +663,23 @@ class DnsTcpSessionManagerTest {
     }
 
 
+    @Test fun staleResetCannotTerminateAnEstablishedDnsSession() {
+        val manager = newManager()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 3200)
+        manager.handle(syn, syn.size) { null }
+
+        val staleReset = packet(flags = DnsTcpPacket.RST or DnsTcpPacket.ACK, seq = 3199)
+        val challenge = manager.handle(staleReset, staleReset.size) { null }.single()
+        val parsedChallenge = DnsTcpPacket.parse(challenge, challenge.size, 53000)!!
+        assertTrue(parsedChallenge.ack)
+        assertEquals(3201L, parsedChallenge.acknowledgement)
+        assertEquals(1, manager.activeSessionCount())
+
+        val validReset = packet(flags = DnsTcpPacket.RST or DnsTcpPacket.ACK, seq = 3201)
+        assertTrue(manager.handle(validReset, validReset.size) { null }.isEmpty())
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     @Test fun resolverExceptionReturnsServfailAndKeepsTcpSessionAlive() {
         val manager = newManager()
         val query = dnsQuery()
