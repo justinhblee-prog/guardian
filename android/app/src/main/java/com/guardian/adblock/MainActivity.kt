@@ -3534,8 +3534,6 @@ class MainActivity : Activity() {
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
                 val securityWasEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
                 val androidAdsWasEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-                val securityWasCached = FilterListManager.hasCachedSecurityList(this)
-                val androidAdsWasCached = FilterListManager.hasCachedAndroidAdsList(this)
                 val securityResult = if (securityWasEnabled) {
                     try {
                         FilterListManager.updateSecurity(this).also {
