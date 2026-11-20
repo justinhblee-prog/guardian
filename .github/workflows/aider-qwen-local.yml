@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/aider-qwen-local.yml"
+      # Verify the user's local Qwen runner when the Settings/update flow changes.
+      - "android/app/src/main/java/com/guardian/adblock/MainActivity.kt"
+      # Revalidate the local coding agent whenever its worker contract changes.
+      - "scripts/guardian-copilot-worker.ps1"
   workflow_dispatch:
 
 permissions:
