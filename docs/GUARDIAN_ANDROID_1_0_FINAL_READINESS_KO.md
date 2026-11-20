@@ -357,3 +357,9 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 기존 `lastUpstreamFailure` 단일 공유 변수는 한 요청이 다른 요청의 실패 원인을 초기화하거나 덮어써서 잘못된 진단 메시지를 기록할 수 있었습니다.
 - 호출 스레드별 `ThreadLocal` 진단 컨텍스트로 변경해 DNS 요청 간 실패 사유가 섞이지 않도록 수정했습니다. 기존 호출부와 DNS 응답 처리 정책은 유지했습니다.
 - 검증 범위: 소스 반영 및 독립 JVM 동시성 하네스. Android Gradle/JUnit, APK, 실제 기기 검증은 별도 미실행 상태입니다.
+
+## 2026-11-20 DNS 실패 진단 컨텍스트 회귀 테스트 보강
+- 공유 문자열을 직접 `ThreadLocal`로 감싸던 구현을 `DnsFailureContext` 클래스로 분리해 테스트 가능한 순수 Kotlin 구성요소로 만들었습니다.
+- 동시 두 요청이 각각 다른 실패 원인을 유지하고, 한 요청의 `clear()`가 다른 요청의 진단을 지우지 않는 JUnit 회귀 테스트 `DnsFailureContextTest`를 추가했습니다.
+- 동일 구현을 사용하는 독립 Kotlin/JVM 하네스 실행 결과: 두 동시성 검증 PASS.
+- Android Gradle/JUnit 및 실제 Android 런타임 검증은 아직 실행하지 않았습니다.
