@@ -46,6 +46,7 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn("PASS: manifest schema", result.stdout)
+        print("PASS: validate-only CLI returned exit code 0.")
 
     def test_real_manifest_has_three_disjoint_ready_tracks(self):
         root = Path(__file__).resolve().parents[1]
