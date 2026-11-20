@@ -161,3 +161,10 @@ C License + support ────┘                                  │        
 - 최초 handshake 및 ACK 없는 기존 SYN 재전송 경로는 유지하고, 세션이 열린 이후 ACK가 있는 SYN 세그먼트는 현재 ACK 응답만 반환하며 stream buffer, client sequence, resolver를 변경하지 않도록 차단했습니다.
 - 회귀 테스트는 injected SYN+ACK+payload가 resolver에 도달하지 않고 sequence가 보존되며, 같은 sequence의 정상 ACK+payload는 처리되는지 확인합니다.
 - Android JUnit/Gradle 및 실제 DNS-over-TCP 단말 검증은 미실행입니다.
+
+
+## 2026-11-20 — DNS TCP 세션 RST 시퀀스 검증
+
+- DNS TCP 세션 종료 시 4-tuple만으로 RST를 신뢰하던 경로를 수정했습니다. Established session의 RST sequence가 현재 기대 client sequence와 정확히 일치할 때만 종료하며, 오래되거나 잘못된 RST는 현재 ACK로 응답하고 세션을 보존합니다.
+- 회귀 테스트는 stale RST 거부 및 정확한 sequence의 정상 RST 종료를 확인하도록 추가했습니다.
+- 소스/테스트 반영 확인과 Android JUnit/Gradle 실행 여부는 별도로 기록하며, 실제 네트워크/Samsung 검증을 대체하지 않습니다.
