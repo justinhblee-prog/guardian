@@ -50,35 +50,28 @@ class FileLease:
         if pid <= 0:
             return False
         if os.name == "nt":
-            # os.kill(pid, 0) on Windows can report a missing process as a
-            # generic OSError. Treating every OSError as "alive" would leave
-            # crashed workers' expired leases stuck forever. OpenProcess gives
-            # a distinct ERROR_INVALID_PARAMETER (87) for a PID that no longer
-            # exists; access denied (5) remains conservatively "alive".
+            # os.kill(pid, 0) and OpenProcess can report platform-specific
+            # errors for vanished PIDs. Windows tasklist emits stable CSV
+            # process IDs; only an explicit matching row counts as alive.
+            # If tasklist itself fails, preserve the lease rather than steal it.
             try:
-                import ctypes
-                from ctypes import wintypes
-
-                kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-                open_process = kernel32.OpenProcess
-                open_process.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
-                open_process.restype = wintypes.HANDLE
-                close_handle = kernel32.CloseHandle
-                close_handle.argtypes = (wintypes.HANDLE,)
-                close_handle.restype = wintypes.BOOL
-
-                handle = open_process(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
-                if handle:
-                    close_handle(handle)
+                result = subprocess.run(
+                    ["tasklist.exe", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=8,
+                    check=False,
+                )
+                if result.returncode != 0:
                     return True
-                error = ctypes.get_last_error()
-                if error == 87:  # ERROR_INVALID_PARAMETER: process ID no longer exists
-                    return False
-                if error == 5:   # ERROR_ACCESS_DENIED: do not steal an inaccessible live lease
-                    return True
-                return True
-            except Exception:
-                # Unknown Win32 failures must never permit unsafe lease stealing.
+                return any(
+                    re.search(rf'^"[^"]+","{pid}"(?:,|$)', line) is not None
+                    for line in result.stdout.splitlines()
+                )
+            except (OSError, subprocess.TimeoutExpired):
                 return True
         try:
             os.kill(pid, 0)
