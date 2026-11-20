@@ -1658,6 +1658,7 @@ class MainActivity : Activity() {
                 11f, muted, false
             ).withTop(5))
             val licenseKeyInput = EditText(this@MainActivity).apply {
+                isEnabled = releasableLicense == null
                 hint = "GDN-XXXX-XXXX-..."
                 contentDescription = "PRO 라이선스 활성화 코드 입력"
                 setHintTextColor(muted)
