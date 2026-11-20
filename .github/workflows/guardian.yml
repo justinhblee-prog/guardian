@@ -1,0 +1,104 @@
+name: Guardian Git Consistency Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/guardian-git-agent.ps1'
+      - 'docs/GIT_CLI_AUTOMATION_KO.md'
+      - '.github/workflows/guardian.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guardian-git-consistency-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-and-compare:
+    name: Validate Git CLI agent and PR baseline
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact PR head or triggering commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Parse PowerShell and verify safe Git operations
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = 'scripts/guardian-git-agent.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw 'PowerShell syntax validation failed.'
+          }
+          $source = Get-Content -Raw -LiteralPath $path
+          $required = @(
+            'gh auth status',
+            'gh pr list',
+            'git fetch',
+            'worktree add',
+            '--rebase-merges',
+            '--force-with-lease',
+            'merge-base',
+            'status',
+            'Register-ScheduledTask',
+            'Unregister-ScheduledTask',
+            'Invoke-AgentWithLock'
+          )
+          foreach ($token in $required) {
+            if (-not $source.Contains($token)) { throw "Required operation or safety guard missing: $token" }
+          }
+          if ($source -match 'push\s+--force(?!-with-lease)') {
+            throw 'Unsafe unleased force push detected.'
+          }
+          if ($source -match 'git\s+reset\s+--hard') {
+            throw 'Destructive hard reset detected.'
+          }
+          if (-not (Test-Path 'docs/GIT_CLI_AUTOMATION_KO.md')) {
+            throw 'Git CLI automation operating guide is missing.'
+          }
+          Write-Host 'PASS: PowerShell syntax, Git safety guards, and operating guide.'
+
+      - name: Compare exact PR head against current main with Git CLI
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git fetch origin main --no-tags
+          if ($LASTEXITCODE -ne 0) { throw 'Could not fetch origin/main.' }
+          $mergeBase = git merge-base origin/main HEAD
+          if ($LASTEXITCODE -ne 0 -or -not $mergeBase) {
+            throw 'PR head has no merge base with origin/main.'
+          }
+          $counts = (git rev-list --left-right --count origin/main...HEAD).Trim()
+          if ($LASTEXITCODE -ne 0) { throw 'Could not calculate ahead/behind counts.' }
+          $parts = $counts -split '\s+'
+          $behind = [int]$parts[0]
+          $ahead = [int]$parts[1]
+          $status = if ($behind -eq 0) { 'SYNCED' } else { 'BEHIND' }
+          @(
+            '## Guardian PR baseline check',
+            '',
+            '| Status | Ahead of main | Behind main |',
+            '|---|---:|---:|',
+            "| $status | $ahead | $behind |",
+            '',
+            'Base: origin/main',
+            "Head: $env:GITHUB_SHA"
+          ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+          if ($behind -gt 0) {
+            Write-Warning "PR is $behind commit(s) behind main. The local Guardian Git agent will attempt a safe rebase; conflicts and protected-branch rejections remain manual blockers."
+          } else {
+            Write-Host "PR head is synchronized with main (ahead=$ahead, behind=0)."
+          }
