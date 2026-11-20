@@ -203,3 +203,8 @@
 - 원격 브랜치에서 실제 `InstallationIdStore.kt` 구현을 가져와 별도 Kotlin/JVM으로 다시 컴파일·실행했습니다. PASS: 24개 동시 최초 호출이 하나의 저장 ID로 수렴, 기존 ID 불변, 저장 실패 시 미저장 ID 반환 금지.
 - 고객지원 FAQ 질문 8개/답변 8개 일치 확인.
 - VPN/DNS 진단 writer 4개 경로의 순서 토큰 검사와 `DNS_STATS_LOCK` 동기화 위치를 재검토했습니다. 확인한 경로에서 DNS 통계 잠금 안에서 진단 시퀀스 확인 후 기록하며, startup failure는 시작 세대 게이트 후 DNS 통계 잠금 순서입니다. 이 정적 점검은 Android 런타임 교착/경합 검증을 대체하지 않습니다.
+
+## 2026-11-20 병렬 트랙 C — 활성화 후 토큰 저장 실패 시 기기 슬롯 보상 해제
+- Android 라이선스 활성화는 서버가 먼저 기기 등록 슬롯을 할당하고, 앱이 응답 토큰의 서명/기기 바인딩을 검증한 뒤 SharedPreferences에 저장합니다. 검증 또는 로컬 영구 저장이 실패하면 서버 슬롯은 활성 상태로 남지만 앱은 licenseRef를 보존하지 못해 다른 키를 선택했을 때 이전 슬롯을 해제할 방법이 없었습니다.
+- `LicenseApiClient.activate()`에서 서버 응답 수신 후 토큰 검증/저장이 실패하면 응답의 bounded licenseRef 형식을 검사하고 동일 deviceBinding으로 `/v1/licenses/deactivate`를 best-effort 호출하도록 보완했습니다. 보상 해제도 실패하면 원래 활성화/저장 오류를 유지하고 해제 오류는 suppressed exception으로 보존합니다.
+- `LicenseApiClientTest`에 보상 해제 참조값의 허용/거부 테스트를 추가했습니다. 실제 API·Android JUnit은 아직 실행하지 않았습니다.
