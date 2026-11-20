@@ -148,7 +148,7 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
                         verify_ollama_model("http://127.0.0.1:11434", "qwen2.5-coder:7b")
 
     def test_ollama_json_rejects_invalid_utf8_and_missing_message(self):
-        for payload in (b'\\xff', b'{"response":"not-chat"}'):
+        for payload in (b'\xff', b'{"response":"not-chat"}'):
             with self.subTest(payload=payload):
                 with patch("scripts.guardian_multiflow.urllib.request.urlopen", mock_open(read_data=payload)):
                     with self.assertRaises(AutomationError):
