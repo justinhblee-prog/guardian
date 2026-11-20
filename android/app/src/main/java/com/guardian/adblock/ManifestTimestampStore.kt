@@ -11,23 +11,22 @@ import java.util.Properties
  *
  * Call [recordAccepted] only after signature, content hash and rule parsing have all passed.
  * The state file is app-private and atomically replaced so process death cannot reset rollback
- * protection to an older value.
+ * protection to an older value. All instances share one process lock because recovery and
+ * download paths construct separate store instances over the same file.
  */
 internal class ManifestTimestampStore(private val stateFile: File) {
-    @Synchronized
-    fun lastAccepted(sourceId: String): Long {
+    fun lastAccepted(sourceId: String): Long = synchronized(processLock) {
         validateSourceId(sourceId)
-        if (!stateFile.isFile) return 0L
+        if (!stateFile.isFile) return@synchronized 0L
         val properties = Properties()
         stateFile.inputStream().use(properties::load)
-        return properties.getProperty(sourceId)?.toLongOrNull()
+        return@synchronized properties.getProperty(sourceId)?.toLongOrNull()
             ?: if (properties.containsKey(sourceId)) {
                 throw IllegalStateException("저장된 manifest 시각 데이터가 손상되었습니다.")
             } else 0L
     }
 
-    @Synchronized
-    fun recordAccepted(sourceId: String, generatedAt: Long) {
+    fun recordAccepted(sourceId: String, generatedAt: Long) = synchronized(processLock) {
         validateSourceId(sourceId)
         require(generatedAt > 0L) { "manifest 생성 시각은 양수여야 합니다." }
         val properties = Properties()
@@ -46,20 +45,13 @@ internal class ManifestTimestampStore(private val stateFile: File) {
                 properties.store(output, "Guardian accepted filter manifest timestamps")
                 output.fd.sync()
             }
-            try {
-                Files.move(temporary.toPath(), stateFile.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
-                Files.move(temporary.toPath(), stateFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
-            }
+            replaceStateFile(temporary)
         } finally {
             temporary.delete()
         }
     }
 
-
-    @Synchronized
-    fun restore(sourceId: String, generatedAt: Long) {
+    fun restore(sourceId: String, generatedAt: Long) = synchronized(processLock) {
         validateSourceId(sourceId)
         require(generatedAt >= 0L) { "manifest 복구 시각은 음수일 수 없습니다." }
         val properties = Properties()
@@ -71,15 +63,22 @@ internal class ManifestTimestampStore(private val stateFile: File) {
         check(parent.exists() || parent.mkdirs()) { "manifest 상태 디렉터리를 만들 수 없습니다." }
         val temporary = File(parent, stateFile.name + ".tmp")
         try {
-            temporary.outputStream().use { properties.store(it, "Guardian accepted filter manifest timestamps") }
-            try {
-                Files.move(temporary.toPath(), stateFile.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
-                Files.move(temporary.toPath(), stateFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            FileOutputStream(temporary).use { output ->
+                properties.store(output, "Guardian accepted filter manifest timestamps")
+                output.fd.sync()
             }
+            replaceStateFile(temporary)
         } finally {
             temporary.delete()
+        }
+    }
+
+    private fun replaceStateFile(temporary: File) {
+        try {
+            Files.move(temporary.toPath(), stateFile.toPath(),
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            Files.move(temporary.toPath(), stateFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 
@@ -87,5 +86,10 @@ internal class ManifestTimestampStore(private val stateFile: File) {
         require(sourceId.matches(Regex("[a-zA-Z0-9_-]{1,64}"))) {
             "manifest sourceId 형식이 올바르지 않습니다."
         }
+    }
+
+    private companion object {
+        /** Synchronizes read-modify-atomic-replace across independently constructed stores. */
+        val processLock = Any()
     }
 }
