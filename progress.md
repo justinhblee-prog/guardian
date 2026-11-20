@@ -225,3 +225,6 @@
 - 신규 DB schema와 기존 DB용 migration 005를 추가하고 README에 적용/운영 주의사항을 기록했습니다. PostgreSQL 통합 테스트에 동일 응답 replay, 단일 activation/event 보장, ID 오용 409 케이스를 추가했습니다.
 - 아직 미검증: 실제 PostgreSQL migration 적용, Node test suite 실행, Android JUnit/Gradle, 실제 네트워크 응답 차단 재현. migration 005 적용 전 운영 API에 새 Android 클라이언트를 배포하면 activation_requests 테이블 부재로 활성화가 실패하므로 서버 migration 선적용이 필수입니다.
 - activation_requests 보존 레코드의 정리/TTL 정책은 미구현이며 운영 배포 전 확정이 필요합니다.
+
+- 추가 반영: Windows 운영 migration runner가 005를 002~004 뒤에 적용하고 `activation_requests` 테이블 존재까지 검증하도록 수정했습니다. README의 기존 DB 적용 절차도 002~005 순서로 바로잡았습니다.
+- GitHub 소스 재조회 결과 서버 멱등성 로직, Android pending request ID 보존, PostgreSQL replay 테스트, migration 및 운영 runner가 브랜치에 존재함을 확인했습니다. 실행 검증은 여전히 수행하지 않았습니다.
