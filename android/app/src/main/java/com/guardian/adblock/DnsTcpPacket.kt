@@ -203,12 +203,18 @@ internal object Ipv6ExtensionHeaderParser {
         while (nextHeader != expectedNextHeader) {
             if (++count > 8 || offset - 40 > 2048 || offset + 2 > packetLength) return null
             val following = packet[offset].toInt() and 0xff
+            // Only skip extension headers whose semantics Guardian can preserve
+            // when synthesizing a transport reply. Mobility/HIP/Shim6 headers
+            // are deliberately unsupported rather than treated as opaque options.
             val headerLength = when (nextHeader) {
-                0, 43, 60, 135, 139, 140 -> ((packet[offset + 1].toInt() and 0xff) + 1) * 8
+                0, 43, 60 -> ((packet[offset + 1].toInt() and 0xff) + 1) * 8
                 51 -> ((packet[offset + 1].toInt() and 0xff) + 2) * 4
                 44 -> return null
                 else -> return null
             }
+            // Hop-by-Hop Options is only valid immediately after the IPv6
+            // base header. Reject a misplaced or repeated instance.
+            if (nextHeader == 0 && offset != 40) return null
             val minimumHeaderLength = if (nextHeader == 51) 12 else 8
             if (headerLength < minimumHeaderLength || offset + headerLength > packetLength) return null
             // A Routing header with segments left still changes the packet's
