@@ -185,6 +185,22 @@ android {
         }
     }
     sourceSets.getByName("main").assets.srcDir("../../shared")
+
+    // GuardianVpnService loads filter_rules.txt as its mandatory bundled baseline.
+    // Fail during Gradle configuration if the shared asset disappears or becomes empty,
+    // instead of shipping an APK that can install but cannot start protection.
+    val bundledFilterAsset = layout.projectDirectory.file("../../shared/filter_rules.txt")
+    val verifyBundledFilterAsset by tasks.registering {
+        inputs.file(bundledFilterAsset)
+        doLast {
+            check(bundledFilterAsset.asFile.isFile && bundledFilterAsset.asFile.length() > 0L) {
+                "Required Guardian asset is missing or empty: ${bundledFilterAsset.asFile}"
+            }
+        }
+    }
+    tasks.named("preBuild").configure {
+        dependsOn(verifyBundledFilterAsset)
+    }
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
