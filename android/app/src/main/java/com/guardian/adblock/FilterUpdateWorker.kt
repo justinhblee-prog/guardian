@@ -18,10 +18,10 @@ class FilterUpdateWorker(
                 prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false),
                 forcedRecovery
             )) {
-            return Result.success()
+            return@withLock Result.success()
         }
 
-        return try {
+        try {
             val now = System.currentTimeMillis()
             val interval = FilterUpdateScheduler.normalizeInterval(
                 prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, FilterUpdateScheduler.DEFAULT_INTERVAL_MS)
