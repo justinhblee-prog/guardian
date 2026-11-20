@@ -607,6 +607,10 @@ class MainActivity : Activity() {
             }
             else -> buildSettings(body)
         }
+        val selectedNavigationTab = when (tab) {
+            "settings-general", "settings-filtering", "settings-support", "settings-license", "premium", "rules" -> "settings"
+            else -> tab
+        }
         val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
         val contentWidth = ResponsiveLayoutPolicy.contentWidthPx(
             ResponsiveLayoutPolicy.contentAreaWidthDp(screenWidthDp),
@@ -659,12 +663,12 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
                 setBackgroundColor(bg)
             }
-            workspace.addView(bottomNav(tab, asRail = true), LinearLayout.LayoutParams(dp(88), -1))
+            workspace.addView(bottomNav(selectedNavigationTab, asRail = true), LinearLayout.LayoutParams(dp(88), -1))
             workspace.addView(scroll, LinearLayout.LayoutParams(0, -1, 1f))
             root.addView(workspace, LinearLayout.LayoutParams(-1, 0, 1f))
         } else {
             root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-            root.addView(bottomNav(tab))
+            root.addView(bottomNav(selectedNavigationTab))
         }
         setContentView(root)
         root.requestApplyInsets()
