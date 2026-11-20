@@ -101,6 +101,11 @@ class DnsTcpSessionManager(
         if (sequenceAfter(tcp.acknowledgement, session.serverNext)) {
             return listOf(ack(tcp, session))
         }
+        // The first ACK must complete the SYN-ACK exchange exactly. A stale
+        // ACK must not promote a half-open session into an established stream.
+        if (!session.established && tcp.acknowledgement != session.serverNext) {
+            return listOf(ack(tcp, session))
+        }
         // Keep a half-closed session until the client acknowledges our FIN.
         // This lets a lost FIN/data response be replayed on an exact retransmission.
         // A FIN is complete only when the ACK belongs to the current client stream.
