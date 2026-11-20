@@ -188,13 +188,14 @@ class MainActivity : Activity() {
                 .putBoolean("security_filter_default_enabled_v1", true)
                 .apply()
         }
-        // Disable scheduled filter refresh for existing installations as well as
-        // fresh installs. Users can explicitly opt in from Protection settings.
-        if (!filterPrefs.getBoolean("filter_auto_update_default_off_v1", false)) {
-            filterPrefs.edit()
-                .putBoolean(FilterListManager.KEY_AUTO_UPDATE, false)
-                .putBoolean("filter_auto_update_default_off_v1", true)
-                .apply()
+        // Enable recurring filter refresh by default. Preserve an explicit user
+        // choice made in Protection settings; migrate installations that only
+        // received the old forced-off default to the safer current default.
+        if (!filterPrefs.getBoolean("filter_auto_update_default_on_v2", false)) {
+            if (!filterPrefs.getBoolean("filter_auto_update_user_choice_v1", false)) {
+                filterPrefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, true).apply()
+            }
+            filterPrefs.edit().putBoolean("filter_auto_update_default_on_v2", true).apply()
         }
         // Update discovery is user-initiated from Settings. Do not run a
         // background development/stable update check or show an install prompt
@@ -222,7 +223,7 @@ class MainActivity : Activity() {
         thread(name = "guardian-startup-filter-check") {
             android.util.Log.i("Guardian", "Startup filter readiness check started")
             try {
-                val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false)
+                val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
                 val lastUpdate = FilterListManager.lastUpdatedAt(this)
                 val updateInterval = filterPrefs.getLong(
                     FilterListManager.KEY_UPDATE_INTERVAL_MS,
@@ -978,7 +979,7 @@ class MainActivity : Activity() {
                 securityCacheBytes = cacheBytes("hagezi_threat_intelligence.txt"),
                 androidAdsFilterEnabled = androidAdsEnabled,
                 androidAdsCacheBytes = cacheBytes("awavenue_android_ads.txt"),
-                autoUpdateEnabled = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false),
+                autoUpdateEnabled = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true),
                 updateIntervalHours = intervalMs / 3_600_000L,
                 hasBaseUpdateTimestamp = FilterListManager.lastUpdatedAt(this) > 0L,
                 signedFilterDeliveryConfigured = FilterDistributionSettings.requiresSignedDelivery(
@@ -1110,9 +1111,9 @@ class MainActivity : Activity() {
         body.addView(protectionSwitchCard(
             "자동 필터 업데이트",
             "네트워크 연결 시 설정한 주기에 따라 광고·추적 필터를 갱신합니다.",
-            prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false)
+            prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
         ) { checked ->
-            prefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).apply()
+            prefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).putBoolean("filter_auto_update_user_choice_v1", true).apply()
             FilterUpdateScheduler.sync(this)
             feedback.text = if (checked) "자동 업데이트를 켰습니다." else "자동 업데이트를 껐습니다."
         }.withTop(10))
@@ -2142,7 +2143,7 @@ class MainActivity : Activity() {
             text = "앱 실행 시 자동으로 최신 필터 확인"
             textSize = 12f
             setTextColor(white)
-            isChecked = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false)
+            isChecked = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
             setOnCheckedChangeListener { _, checked ->
                 prefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).apply()
                 FilterUpdateScheduler.sync(this@MainActivity)
