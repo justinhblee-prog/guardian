@@ -181,3 +181,10 @@ C License + support ────┘                                  │        
 
 - 최초 SYN-ACK 교환에서 클라이언트의 첫 ACK가 serverNext와 정확히 일치해야 handshake 완료로 처리하도록 강화했습니다.
 - 이전 server sequence를 가리키는 stale ACK는 세션을 established로 승격시키지 않으며, 회귀 테스트에서 중복 SYN에 대한 SYN-ACK 재전송을 확인하도록 했습니다.
+
+
+## 2026-11-20 — DoH chunk framing strictness
+
+- DoH chunked response parser no longer trims chunk-size tokens; leading/trailing whitespace is rejected to avoid accepting non-conforming message framing.
+- Chunk extensions are now parsed as RFC-style token names with optional token/quoted values; empty extensions, missing values, malformed quotes, and invalid separators are rejected.
+- Added regression cases for whitespace, empty/malformed extensions, and valid token/quoted extension values. Source-level remote verification follows; Android JUnit/Gradle execution is unavailable in this environment.
