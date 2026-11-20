@@ -4,7 +4,7 @@
 - 저장소: https://github.com/justinhblee-prog/guardian
 - 작업 브랜치: `feature/android-support-center-mainline`
 - 최종 판정: **출시 미완료 — 검증 및 외부 증거 필요**
-- 최신 브랜치 비교: `main...feature/android-support-center-mainline` = 389 commits ahead, 2 behind (2026-11-20 재조회).
+- 최신 브랜치 비교: `main`과 분기 상태이며, ahead/behind 수치는 변경이 잦으므로 최신 GitHub compare 결과를 기준으로 확인합니다.
 
 ## 목표
 
