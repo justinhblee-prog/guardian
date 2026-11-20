@@ -124,3 +124,10 @@ C License + support ────┘                                  │        
 - Track B에서 manifest client의 첫 요청 URL과 detached signature sidecar URL에도 공통 HTTPS URL 검증을 적용했습니다. URL의 포트 범위·fragment·host/userinfo를 연결 전에 검사하고, sidecar가 원본 manifest와 동일한 host/port를 유지하도록 확인합니다.
 - 회귀 테스트: sidecar manifest URL의 99999 포트 및 fragment 거부, 초기 manifest URL의 99999 포트 거부.
 - 원격 소스 재조회 확인 완료. Java 21 URL parser 입력 확인 외에 Android JUnit/Gradle 및 실제 HTTPS 서버 호출은 미실행입니다.
+
+
+## 2026-11-20 — Filter redirect request-target parsing
+
+- Track B redirect policy를 URI 파싱으로 보강해 URL 파서가 허용할 수 있는 raw 공백·제어문자·역슬래시를 거부합니다. HTTPS scheme/host, userinfo, fragment, port 검사는 유지하며 IPv6 literal도 허용합니다.
+- raw 공백/역슬래시 redirect 및 초기 URL 거부 회귀 테스트를 추가했습니다.
+- 별도 Kotlin/JVM harness에서 동등 정책 구현을 컴파일·실행해 HTTPS/IPv6 허용과 잘못된 포트·fragment·공백·역슬래시 거부를 PASS로 확인했습니다. 이는 Android JUnit/Gradle 결과가 아니며, 실제 Android 빌드/테스트는 미실행입니다.
