@@ -46,9 +46,6 @@ import java.util.Locale
 import java.io.File
 
 class MainActivity : Activity() {
-    private companion object {
-        const val UPDATE_CHECK_THROTTLE_PREFS = "guardian_update_check_throttle"
-    }
     private lateinit var root: LinearLayout
     private lateinit var status: TextView
     private lateinit var statusTitle: TextView
@@ -3921,6 +3918,7 @@ class MainActivity : Activity() {
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     companion object {
+        private const val UPDATE_CHECK_THROTTLE_PREFS = "guardian_update_check_throttle"
         private const val REQUEST_VPN = 100
         private const val MAX_USER_RULES = 1000
         private const val KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED = "app_inventory_disclosure_accepted_v1"
