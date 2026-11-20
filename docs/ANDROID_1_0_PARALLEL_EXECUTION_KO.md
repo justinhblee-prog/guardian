@@ -46,6 +46,7 @@ C License + support ────┘                                  │        
 - GitHub Actions 파일: .github/workflows/android-1-0-parallel-gates.yml
 - Android unit/lint, DB 독립 License API 테스트, source/script contract를 별도 job으로 병렬 실행하도록 구성했습니다.
 - workflow_dispatch 전용이며 push/PR/schedule 자동 실행은 없습니다. 생성만 했고 실행하지 않았습니다. Actions runner 문제 및 사용량 비용을 피하기 위해 사용자의 기존 제한을 유지합니다.
+- GitHub의 수동 실행 버튼은 workflow 파일이 기본 브랜치에 반영된 뒤 사용할 수 있습니다. 현재는 feature 브랜치에만 저장되어 있으며, PR 생성/merge로 기존 Android PR 검증을 자동 실행시키지 않았습니다.
 - 이 workflow는 APK를 만들지 않으며 PostgreSQL 통합, emulator E2E, Samsung 실기기 검증도 수행한다고 주장하지 않습니다.
 
 ## 5. 실행 규칙
