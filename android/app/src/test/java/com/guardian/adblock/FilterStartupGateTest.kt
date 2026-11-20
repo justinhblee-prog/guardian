@@ -12,6 +12,24 @@ class FilterStartupGateTest {
     }
 
     @Test
+    fun readinessClearlyDistinguishesBundledFallbackFromReadyFeeds() {
+        assertTrue(
+            FilterStartupGate.readinessMessage(10, listOf("광고·추적", "보안"))
+                .contains("기본 규칙 10개만 우선 적용 중")
+        )
+        assertTrue(
+            FilterStartupGate.readinessMessage(10, listOf("광고·추적", "광고·추적"))
+                .endsWith("광고·추적")
+        )
+        assertTrue(FilterStartupGate.readinessMessage(10, emptyList()).contains("선택 필터 준비 완료"))
+    }
+
+    @Test
+    fun readinessMessageNeverReportsNegativeBundledRuleCount() {
+        assertTrue(FilterStartupGate.readinessMessage(-5, listOf("보안")).contains("기본 규칙 0개"))
+    }
+
+    @Test
     fun rejectsStartupWhenBundledBaselineHasNoBlockRules() {
         assertFalse(FilterStartupGate.hasUsableBundledBaseline(0, 0))
         assertFalse(FilterStartupGate.hasUsableBundledBaseline(-1, -2))
