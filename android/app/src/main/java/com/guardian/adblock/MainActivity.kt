@@ -47,6 +47,36 @@ import java.util.Locale
 import java.io.File
 
 class MainActivity : Activity() {
+    private data class DnsStatsSnapshot(
+        val queries: Long,
+        val blocked: Long,
+        val forwarded: Long,
+        val failed: Long,
+        val ignored: Long,
+        val ads: Long,
+        val trackers: Long,
+        val other: Long,
+        val recent: String?,
+        val diagnostic: String?
+    )
+
+    private fun readDnsStatsSnapshot(
+        prefs: android.content.SharedPreferences
+    ): DnsStatsSnapshot = synchronized(GuardianVpnService.DNS_STATS_LOCK) {
+        DnsStatsSnapshot(
+            queries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
+            blocked = prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
+            forwarded = prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
+            failed = prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
+            ignored = prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0L),
+            ads = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
+            trackers = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
+            other = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L),
+            recent = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null),
+            diagnostic = prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, null)
+        )
+    }
+
     private lateinit var root: LinearLayout
     private lateinit var status: TextView
     private lateinit var statusTitle: TextView
@@ -827,20 +857,21 @@ class MainActivity : Activity() {
         body.addView(text("활동 및 통계", 25f, white, true))
         body.addView(text("VPN DNS 엔진이 실제 처리한 요청만 기록합니다.", 13f, muted, false).withTop(5))
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val dnsStats = readDnsStatsSnapshot(prefs)
         val summary = card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("실시간 DNS 통계", 14f, white, true))
             statsText = text(
-                "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)}",
+                "질의 ${dnsStats.queries} · 차단 ${dnsStats.blocked} · 전달 ${dnsStats.forwarded} · 실패 ${dnsStats.failed} · 무시 ${dnsStats.ignored}",
                 12f, accent, true
             ).withTop(10) as TextView
             addView(statsText!!)
         }
         body.addView(summary.withTop(18))
 
-        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
-        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
-        val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
+        val adCount = dnsStats.ads
+        val trackerCount = dnsStats.trackers
+        val otherCount = dnsStats.other
         val chartCard = card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("차단 활동 그래프", 14f, white, true))
@@ -854,7 +885,7 @@ class MainActivity : Activity() {
             categories.addView(metricCard("추적 차단 건수", trackerBlockedValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(76), 1f))
             addView(categories.withTop(10))
             addView(text("예상 절약 데이터", 11f, muted, false).withTop(14))
-            savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(4) as TextView
+            savedDataValue = text(estimatedSavedDataLabel(dnsStats.blocked), 18f, accent, true).withTop(4) as TextView
             addView(savedDataValue!!)
             addView(text("광고/추적 구분은 도메인 이름 기반 추정 분류입니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치이며 실제 전송량 측정값이 아닙니다.", 10f, muted, false).withTop(8))
         }
@@ -3783,6 +3814,7 @@ class MainActivity : Activity() {
 
     private fun refreshStatus() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val dnsStats = readDnsStatsSnapshot(prefs)
         // A persisted flag can outlive an Android process kill. Confirm this
         // process still owns the VPN tunnel before showing protection as active.
         val persistedActive = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)
@@ -3867,30 +3899,30 @@ class MainActivity : Activity() {
             }
             protectionStatusDetail?.text = ProtectionDiagnostics.statusDetail(
                 active,
-                prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
-                prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
-                prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
-                prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
+                dnsStats.queries,
+                dnsStats.blocked,
+                dnsStats.forwarded,
+                dnsStats.failed,
                 privateDnsMode(),
                 message
             )
         }
         statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
-        val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
-        val blockedQueries = prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)
+        val totalQueries = dnsStats.queries
+        val blockedQueries = dnsStats.blocked
         val blockRate = if (totalQueries > 0L) blockedQueries * 100.0 / totalQueries else 0.0
         blockRateValue?.text = String.format(Locale.getDefault(), "%.1f%%", blockRate)
         blockedCountValue?.text = String.format(Locale.getDefault(), "%,d", blockedQueries)
         queryCountValue?.text = String.format(Locale.getDefault(), "%,d", totalQueries)
-        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
-        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
-        val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
+        val adCount = dnsStats.ads
+        val trackerCount = dnsStats.trackers
+        val otherCount = dnsStats.other
         adBlockedValue?.text = String.format(Locale.getDefault(), "%,d", adCount)
         trackerBlockedValue?.text = String.format(Locale.getDefault(), "%,d", trackerCount)
         savedDataValue?.text = estimatedSavedDataLabel(blockedQueries)
-        activityChart?.update(adCount, trackerCount, otherCount, prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))
-        recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
-        diagnosticText?.text = "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}"
+        activityChart?.update(adCount, trackerCount, otherCount, dnsStats.forwarded)
+        recentText?.text = dnsStats.recent ?: "아직 기록된 DNS 활동이 없습니다."
+        diagnosticText?.text = "마지막 패킷 진단: ${(dnsStats.diagnostic ?: "아직 기록 없음")}"
         updateCompatibilityPauseStatus()
     }
 
