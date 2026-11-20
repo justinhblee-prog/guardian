@@ -1127,6 +1127,7 @@ class MainActivity : Activity() {
 
     private fun buildProtection(body: LinearLayout) {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val dnsStats = readDnsStatsSnapshot(prefs)
         val active = ProtectionState.isActive(
             prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
             GuardianVpnService.isTunnelActive()
@@ -1146,10 +1147,10 @@ class MainActivity : Activity() {
             protectionStatusDetail = text(
                 ProtectionDiagnostics.statusDetail(
                     active,
-                    prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
-                    prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
-                    prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
-                    prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
+                    dnsStats.queries,
+                    dnsStats.blocked,
+                    dnsStats.forwarded,
+                    dnsStats.failed,
                     privateDnsMode()
                 ),
                 12f, muted, false
