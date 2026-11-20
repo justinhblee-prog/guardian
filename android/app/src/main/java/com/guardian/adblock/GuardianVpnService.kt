@@ -1234,14 +1234,12 @@ class GuardianVpnService : VpnService() {
         val success = DnsUpstreamProbe.isSuccessfulResolution(query, response)
         val testedAt = System.currentTimeMillis()
         synchronized(DNS_STATS_LOCK) {
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                .putBoolean(KEY_UPSTREAM_TEST_SUCCESS, success)
-                .putLong(KEY_UPSTREAM_TEST_LATENCY_MS, latencyMs)
-                .putString(KEY_UPSTREAM_TEST_TRANSPORT, transport)
-                .putLong(KEY_UPSTREAM_TEST_AT, testedAt)
-                .apply()
             if (isDnsDiagnosticWriteCurrent(diagnosticSequence)) {
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                    .putBoolean(KEY_UPSTREAM_TEST_SUCCESS, success)
+                    .putLong(KEY_UPSTREAM_TEST_LATENCY_MS, latencyMs)
+                    .putString(KEY_UPSTREAM_TEST_TRANSPORT, transport)
+                    .putLong(KEY_UPSTREAM_TEST_AT, testedAt)
                     .putString(
                         KEY_DNS_DIAGNOSTIC,
                         if (success) "업스트림 DNS 연결 테스트 성공 (" + transport + ", " + latencyMs + "ms)"
