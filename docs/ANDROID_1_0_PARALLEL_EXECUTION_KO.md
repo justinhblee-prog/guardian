@@ -195,3 +195,11 @@ C License + support ────┘                                  │        
 - DoT/DoH previously created an unconnected SSLSocket, connected it to the selected resolver IP, then supplied SNI. The TLS peer host used for HTTPS endpoint identification could therefore remain the IP rather than the configured DNS provider hostname.
 - The transport now protects and connects a raw socket to the selected resolver IP, layers TLS with SSLSocketFactory.createSocket(connectedSocket, canonicalDnsHost, port, true), and applies the same canonical DNS hostname to SNI and HTTPS certificate verification. Resolver IP selection and VPN socket protection are preserved.
 - Added a host identity policy test asserting canonical peerHost/serverName equality and IP rejection. Remote source/test re-fetch is the available verification; Android Gradle/JUnit and live DoT/DoH certificate handshake tests are not available here.
+
+
+## 2026-11-20 — Filter rule modifier grammar fail-closed
+
+- FilterRuleParser previously accepted an explicit empty modifier suffix (for example `||example.test^$`) and ignored empty/duplicate comma-separated modifier tokens. That could turn a malformed source rule into a broader DNS-wide domain block.
+- The parser now rejects explicit modifier suffixes that are empty, contain empty tokens, or repeat a modifier (case-insensitive). Valid supported modifiers remain unchanged; unsupported URL-context modifiers continue to be ignored rather than broadened.
+- Replaced the permissive regression case with cases for empty suffix, leading/trailing empty tokens, duplicate modifiers, unsupported context modifiers, and a valid important rule. Test source now expects five malformed/unsupported lines to be counted as ignored.
+- Source-level change only. Android Gradle/JUnit, full filter feed compatibility, and device behavior have not been executed in this environment.
