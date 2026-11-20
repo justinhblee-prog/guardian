@@ -246,10 +246,23 @@ def validate_unified_patch(patch: str, allowed_files: set[str]) -> set[str]:
         changed.add(header_path)
     return changed
 
-def run_process(args: list[str], cwd: Path, timeout: int, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
+def process_environment(*, strip_credentials: bool = False) -> dict[str, str]:
     env = os.environ.copy()
+    if strip_credentials:
+        sensitive_markers = ("TOKEN", "SECRET", "PASSWORD", "PRIVATE_KEY", "ACCESS_KEY")
+        for name in tuple(env):
+            if any(marker in name.upper() for marker in sensitive_markers):
+                env.pop(name, None)
+        # Do not let model-authored test code inherit Actions artifact upload credentials.
+        env.pop("ACTIONS_RUNTIME_URL", None)
+        env.pop("ACTIONS_RESULTS_URL", None)
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GH_PROMPT_DISABLED"] = "1"
+    return env
+
+def run_process(args: list[str], cwd: Path, timeout: int, input_text: str | None = None,
+                *, strip_credentials: bool = False) -> subprocess.CompletedProcess[str]:
+    env = process_environment(strip_credentials=strip_credentials)
     try:
         return subprocess.run(args, cwd=str(cwd), input=input_text, text=True, encoding="utf-8", errors="replace",
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout, env=env, check=False)
@@ -388,7 +401,9 @@ Rules:
 def run_profile(profile: str, worktree: Path, log_dir: Path, task_id: str) -> list[str]:
     outcomes = []
     for index, (command, timeout) in enumerate(TEST_PROFILES[profile], start=1):
-        result = run_process(command, worktree, timeout)
+        # Test/build code executes model-authored source. It must not inherit
+        # the workflow's short-lived GitHub token or artifact-upload credentials.
+        result = run_process(command, worktree, timeout, strip_credentials=True)
         log_dir.mkdir(parents=True, exist_ok=True)
         (log_dir / f"{task_id}-test-{index}.log").write_text(result.stdout, encoding="utf-8")
         if result.returncode != 0:
