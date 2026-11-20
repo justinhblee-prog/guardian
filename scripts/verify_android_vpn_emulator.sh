@@ -602,7 +602,11 @@ adb_cmd shell rm -f /sdcard/guardian-home-navigation.xml
 adb_cmd shell uiautomator dump /sdcard/guardian-home-navigation.xml >/dev/null 2>&1
 home_navigation_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-navigation.xml | tr -d '\\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
+raw=sys.stdin.read()
+start=raw.find("<hierarchy")
+if start < 0:
+    raise SystemExit("UIAutomator dump does not contain a hierarchy root element.")
+root=ET.fromstring(raw[start:])
 nodes=list(root.iter("node"))
 if any("화면 열기" in node.attrib.get("content-desc","") for node in nodes):
     raise SystemExit("Redundant home shortcut tile remains beside bottom navigation.")
