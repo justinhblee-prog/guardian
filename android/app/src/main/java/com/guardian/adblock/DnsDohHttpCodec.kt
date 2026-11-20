@@ -89,9 +89,11 @@ object DnsDohHttpCodec {
         val output = ByteArrayOutputStream()
         while (output.size() <= MAX_DNS_BYTES) {
             val line = readAsciiLine(input, 128) ?: return null
-            val token = line.substringBefore(';').trim()
-            // A chunk-size is one or more hexadecimal digits; signs and prefixes are invalid.
+            val separator = line.indexOf(';')
+            val token = if (separator < 0) line else line.substring(0, separator)
+            // RFC chunk-size is bare hexadecimal: surrounding whitespace is not permitted.
             if (!token.matches(Regex("[0-9A-Fa-f]+"))) return null
+            if (separator >= 0 && !isValidChunkExtensions(line.substring(separator))) return null
             val size = token.toLongOrNull(16) ?: return null
             if (size > MAX_DNS_BYTES || output.size() + size > MAX_DNS_BYTES) return null
             if (size == 0L) {
@@ -120,6 +122,65 @@ object DnsDohHttpCodec {
             if (input.read() != 13 || input.read() != 10) return null
         }
         return null
+    }
+
+    private fun isValidChunkExtensions(value: String): Boolean {
+        var index = 0
+
+        fun isTokenChar(char: Char): Boolean =
+            char in '0'..'9' || char in 'A'..'Z' || char in 'a'..'z' ||
+                char in "!#$%&'*+-.^_`|~"
+
+        fun skipOptionalWhitespace() {
+            while (index < value.length && (value[index] == ' ' || value[index] == '\t')) index++
+        }
+
+        while (index < value.length) {
+            if (value[index] != ';') return false
+            index++
+            skipOptionalWhitespace()
+
+            val nameStart = index
+            while (index < value.length && isTokenChar(value[index])) index++
+            if (index == nameStart) return false
+
+            skipOptionalWhitespace()
+            if (index < value.length && value[index] == '=') {
+                index++
+                skipOptionalWhitespace()
+                if (index >= value.length) return false
+
+                if (value[index] == '"') {
+                    index++
+                    var closed = false
+                    while (index < value.length) {
+                        val char = value[index++]
+                        when {
+                            char == '"' -> {
+                                closed = true
+                                break
+                            }
+                            char == '\\' -> {
+                                if (index >= value.length) return false
+                                val escaped = value[index++]
+                                if (escaped != '\t' && escaped.code !in 0x20..0x7e) return false
+                            }
+                            char == '\t' || char.code in 0x20..0x7e -> Unit
+                            else -> return false
+                        }
+                    }
+                    if (!closed) return false
+                } else {
+                    val valueStart = index
+                    while (index < value.length && isTokenChar(value[index])) index++
+                    if (index == valueStart) return false
+                }
+                skipOptionalWhitespace()
+            }
+
+            if (index < value.length && value[index] != ';') return false
+        }
+        return true
     }
 
     private fun readAsciiLine(input: InputStream, maxLength: Int): String? {
