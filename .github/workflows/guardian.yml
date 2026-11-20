@@ -46,8 +46,8 @@ jobs:
           $required = @(
             'gh auth status',
             'gh pr list',
-            'git fetch',
-            'worktree add',
+            "@('fetch', 'origin'",
+            "@('worktree', 'add'",
             '--rebase-merges',
             '--force-with-lease',
             'merge-base',
