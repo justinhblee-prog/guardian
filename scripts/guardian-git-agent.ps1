@@ -6,6 +6,7 @@ $TaskName = 'Guardian-Git-Automation'
 $LogRoot = Join-Path $env:LOCALAPPDATA 'GuardianGitAgent'
 $WorktreeRoot = Join-Path $LogRoot 'worktrees'
 $LogFile = Join-Path $LogRoot 'agent.log'
+$LockFile = Join-Path $LogRoot 'agent.lock'
 $OwnerRepo = 'justinhblee-prog/guardian'
 New-Item -ItemType Directory -Force -Path $LogRoot, $WorktreeRoot | Out-Null
 function Write-Log([string]$Message) {
@@ -131,12 +132,29 @@ function Invoke-Agent {
     Invoke-Git $Repo @('worktree', 'prune') -AllowFailure | Out-Null
     Write-Log 'Automation cycle finished. See log for updated, skipped, and blocked PRs.'
 }
+function Invoke-AgentWithLock {
+    $stream = $null
+    try {
+        # FileShare.None is a cross-process lock: manual runs and the scheduled
+        # task cannot mutate the same Git refs/worktrees at the same time.
+        $stream = [System.IO.File]::Open($LockFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    } catch [System.IO.IOException] {
+        Write-Log 'Another Guardian Git automation cycle is already running; this invocation exits without changes.'
+        return
+    }
+    try {
+        Invoke-Agent
+    } finally {
+        if ($stream) { $stream.Dispose() }
+    }
+}
+
 if ($InstallScheduledTask) {
     Install-AgentTask
-    Invoke-Agent
+    Invoke-AgentWithLock
 } elseif ($UninstallScheduledTask) {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
     Write-Log 'Scheduled task removed.'
 } else {
-    Invoke-Agent
+    Invoke-AgentWithLock
 }
