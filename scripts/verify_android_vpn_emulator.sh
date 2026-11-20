@@ -613,8 +613,30 @@ if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))' <<<"$home_controls_xml"
 echo "App-exclusion search, package filtering, Android Auto lookup, and single Home protection control passed."
 
-# Verify the single persistent bottom navigation and each destination.
-echo "Verifying the persistent bottom navigation destinations."
+# Verify the simplified dashboard and all seven persistent bottom-navigation destinations.
+echo "Verifying the simplified home dashboard and all seven bottom-navigation destinations."
+home_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-home-navigation.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+if any("화면 열기" in node.attrib.get("content-desc","") for node in nodes):
+    raise SystemExit("Redundant home shortcut tile remains beside bottom navigation.")
+controls=[node.attrib.get("text","").strip() for node in nodes
+    if node.attrib.get("class")=="android.widget.Button"
+    and node.attrib.get("text","").strip() in {"보호 시작","보호 중지","보호 완전 중지","다시 연결"}
+    and node.attrib.get("visible-to-user","true")=="true"
+    and node.attrib.get("clickable")=="true"]
+if len(controls)!=1:
+    raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))
+expected={"홈","보호 설정","앱 제외","DNS 활동","프리미엄","필터 규칙","설정"}
+actual={node.attrib.get("content-desc") for node in nodes
+        if node.attrib.get("class")=="android.widget.LinearLayout"
+        and node.attrib.get("clickable")=="true"}
+if not expected.issubset(actual):
+    raise SystemExit("Bottom navigation is missing destinations: "+repr(sorted(expected-actual)))
+if not any(node.attrib.get("content-desc")=="홈" and node.attrib.get("selected")=="true"
+           for node in nodes):
+    raise SystemExit("Home is not the selected bottom-navigation destination.")' <<<"$home_navigation_xml"
 for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "프리미엄" "필터 규칙" "설정"; do
   tap_content_description "$navigation_label"
   sleep 1
@@ -625,14 +647,14 @@ if not any(node.attrib.get("content-desc")==sys.argv[1]
        and node.attrib.get("class")=="android.widget.LinearLayout"
        and node.attrib.get("selected")=="true"
        for node in root.iter("node")):
-    raise SystemExit("Bottom navigation did not select the expected destination: "+sys.argv[1])' "$navigation_label" <<<"$navigation_xml"; then
-    echo "Bottom navigation failed: $navigation_label"
+    raise SystemExit("Bottom navigation did not select destination: "+sys.argv[1])' "$navigation_label" <<<"$navigation_xml"; then
+    echo "Bottom-navigation route failed: $navigation_label"
     echo "$navigation_xml"
     exit 1
   fi
 done
 tap_content_description "홈"
-echo "All six persistent bottom navigation destinations passed."
+echo "Single home protection control and all seven bottom-navigation destinations passed."
 
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
