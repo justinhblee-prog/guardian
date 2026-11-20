@@ -112,7 +112,7 @@ if ($InstallToConnectedDevice) {
   $processId = (& $adb -s $deviceId shell pidof com.guardian.adblock).Trim()
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($processId)) {
     $processList = @(& $adb -s $deviceId shell ps -A)
-    if ($LASTEXITCODE -ne 0 -or -not ($processList | Where-Object { $_ -match '\\bcom\\.guardian\\.adblock\\b' })) {
+    if ($LASTEXITCODE -ne 0 -or -not ($processList | Where-Object { $_ -match '\bcom\.guardian\.adblock\b' })) {
       throw 'Guardian 화면 실행 후 앱 프로세스가 유지되지 않습니다. 앱 시작 직후 종료되었을 수 있습니다.'
     }
   }
