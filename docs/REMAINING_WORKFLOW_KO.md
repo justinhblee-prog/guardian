@@ -70,3 +70,12 @@ Android 1.0은 Issue #141의 필수 항목만 완료 기준으로 사용합니�
 ## 5. Windows 순서
 
 Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 패키지를 진행합니다. Android 출시 차단과 무관한 Windows 작업을 Android 범위에 끌어오지 않습니다.
+
+## 2026-11-20 최신 저장소 확인 — main `ef0d75e7551477e9aa2d3b004d14bf867249302a`
+
+- Git 자동화 관련 workflow: [Guardian Git CLI Automation #8](https://github.com/justinhblee-prog/guardian/actions/runs/44709774724), [Git Consistency Gate #5](https://github.com/justinhblee-prog/guardian/actions/runs/44709774731), [Event-Driven Continuation #923](https://github.com/justinhblee-prog/guardian/actions/runs/44710914353) 모두 성공.
+- 최신으로 확인된 Android APK workflow #1621은 성공했지만 head SHA가 `25a5dbaf9ba9baea0c421f2e8d9fec953a156b17`입니다. 현재 main `ef0d75e7` 빌드가 아니므로 현재 main 산출물의 검증으로 간주하지 않습니다. 해당 run의 artifact는 debug APK ZIP ID `14616472344`, final verification ID `14617700552`입니다.
+- 현재 main과 PR #205 head의 비교 결과: PR head는 59 commits ahead / 62 commits behind로 diverged. PR을 그대로 병합하면 main의 관리자 고객 검색/고객 연결 발급 흐름이 사라질 위험이 확인되어 PR 대화에 통합 주의사항을 기록했습니다. 고객지원 기능은 main의 고객 관리 기능을 보존하는 방식으로 재통합해야 합니다.
+- PR #202는 emulator verification script 충돌, PR #75는 광범위한 브랜치 divergence와 충돌로 미통합 상태입니다. 충돌 브랜치에 force-push하지 않았습니다.
+- 운영 차단 항목은 여전히 실기기 Samsung 검증, 필터 원본 재배포 권리 승인 및 배포 브랜치, 사용자 소유 production signing key/secrets, 실제 결제 webhook 검증입니다. Debug APK 성공은 이 항목들을 대체하지 않습니다.
+- 다음 CI 판정은 이 문서 변경이 반영된 새 commit SHA에서 Android workflow가 실제로 실행·완료된 뒤 기록합니다.
