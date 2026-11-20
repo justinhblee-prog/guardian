@@ -131,3 +131,9 @@ C License + support ────┘                                  │        
 - Track B redirect policy를 URI 파싱으로 보강해 URL 파서가 허용할 수 있는 raw 공백·제어문자·역슬래시를 거부합니다. HTTPS scheme/host, userinfo, fragment, port 검사는 유지하며 IPv6 literal도 허용합니다.
 - raw 공백/역슬래시 redirect 및 초기 URL 거부 회귀 테스트를 추가했습니다.
 - 별도 Kotlin/JVM harness에서 동등 정책 구현을 컴파일·실행해 HTTPS/IPv6 허용과 잘못된 포트·fragment·공백·역슬래시 거부를 PASS로 확인했습니다. 이는 Android JUnit/Gradle 결과가 아니며, 실제 Android 빌드/테스트는 미실행입니다.
+
+
+## 2026-11-20 — Redirect edge-case regression coverage
+
+- IPv6 HTTPS 및 percent-encoded path 허용, raw newline/control-character redirect 거부 테스트를 추가하고 테스트 입력 escape를 확인했습니다.
+- 독립 Kotlin/JVM harness에서 동일 URL policy로 11개 시나리오 PASS. Android JUnit/Gradle compile/lint/APK 결과가 아닙니다.
