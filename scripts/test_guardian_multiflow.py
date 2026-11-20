@@ -104,6 +104,27 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(AutomationError, "outside its exact allowlist"):
             validate_unified_patch(patch, {"docs/README.md"})
 
+    def test_patch_rejects_file_markers_that_escape_an_allowed_header(self):
+        patch = (
+            "diff --git a/README.md b/README.md\n"
+            "--- a/README.md\n"
+            "+++ b/.env.production\n"
+            "@@ -1 +1 @@\n-old\n+secret\n"
+        )
+        with self.assertRaisesRegex(AutomationError, "header/marker path mismatch"):
+            validate_unified_patch(patch, {"README.md"})
+
+    def test_patch_rejects_second_file_marker_even_when_header_is_allowed(self):
+        patch = (
+            "diff --git a/README.md b/README.md\n"
+            "--- a/README.md\n"
+            "+++ b/README.md\n"
+            "@@ -1 +1 @@\n-old\n+new\n"
+            "+++ b/.github/workflows/evil.yml\n"
+        )
+        with self.assertRaises(AutomationError):
+            validate_unified_patch(patch, {"README.md"})
+
     def test_patch_rejects_binary_creation_deletion_and_mode_changes(self):
         allowed = {"README.md"}
         examples = (
