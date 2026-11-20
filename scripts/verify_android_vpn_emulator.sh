@@ -36,11 +36,32 @@ foreground="$(adb_cmd shell dumpsys activity activities | grep -E 'mResumedActiv
 echo "Guardian foreground activity: ${foreground:-not reported}"
 grep -q "$PACKAGE" <<<"$foreground"
 
+# UIAutomator occasionally returns an empty/non-XML dump while the emulator is
+# still settling after a tab transition. Retry and validate before parsing/tapping.
+dump_ui_hierarchy() {
+  local remote_path="${1:-/sdcard/guardian-window.xml}"
+  local dump_result xml attempt
+  for attempt in $(seq 1 5); do
+    adb_cmd shell rm -f "$remote_path" >/dev/null 2>&1 || true
+    dump_result="$(adb_cmd shell uiautomator dump "$remote_path" 2>&1 || true)"
+    if grep -q 'UI hierarchy dumped to:' <<<"$dump_result"; then
+      xml="$(adb_cmd exec-out cat "$remote_path" 2>/dev/null | tr -d '\r' || true)"
+      if [[ "$xml" == *'<hierarchy'* && "$xml" == *'</hierarchy>'* ]]; then
+        printf '%s' "$xml"
+        return 0
+      fi
+    fi
+    echo "Retrying UIAutomator hierarchy capture ($attempt/5): ${dump_result:-no dump response}" >&2
+    sleep 1
+  done
+  echo "UIAutomator did not return a complete hierarchy after 5 attempts: $remote_path" >&2
+  return 1
+}
+
 tap_checkbox() {
   local wanted="$1"
   local xml bounds
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  xml="$(dump_ui_hierarchy /sdcard/guardian-window.xml)"
   bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
@@ -66,8 +87,7 @@ for node in root.iter("node"):
 tap_content_description() {
   local wanted="$1"
   local xml bounds
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  xml="$(dump_ui_hierarchy /sdcard/guardian-window.xml)"
   bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
@@ -92,8 +112,7 @@ for node in root.iter("node"):
 tap_text() {
   local wanted="$1"
   local xml
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  xml="$(dump_ui_hierarchy /sdcard/guardian-window.xml)"
   local bounds
   bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
