@@ -326,3 +326,12 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - **Foreground monitor 확인**: 감시 스레드는 daemon이며 stop 시 running=false 및 interrupt 후 제한 시간 join을 수행합니다. 종료 join이 완전하지 않아도 서비스의 monitor generation 검사가 이전 감시 스레드의 늦은 callback을 무효화합니다. Usage Events 조회 실패/잠금 상태에서는 tracker를 reset해 자동 일시중지 상태를 고집하지 않고 보호 재개를 기본값으로 합니다.
 - **추가 코드 변경 여부**: 위 경로에서 즉시 수정이 필요한 확정 결함은 이번 정적 검토 범위에서 확인하지 못해 불필요한 lifecycle 변경은 추가하지 않았습니다. Android 버전별 백그라운드 실행 제한과 제조사 절전 정책은 실기기 검증 대상입니다.
 - **독립 JVM 확인**: `PacketSessionOwnership` helper를 Kotlin/JVM으로 별도 컴파일하고 stale replacement cleanup, STOP 후 cleanup 무효화, current-session one-shot cleanup 3개 시나리오를 실제 실행해 PASS를 확인했습니다. 이는 Android Gradle 빌드/JUnit 실행이 아닙니다.
+
+
+## 2026-11-20 VPN 시작 실패 처리의 세대 소유권 경합 수정
+
+- **확정 결함**: 시작 worker가 취소되거나 더 새로운 START가 발급된 뒤에도 포그라운드 서비스 시작/필터 규칙 로드의 예외 처리 블록이 이전 오류 진단을 저장하고, foreground notification을 제거하고, 서비스 상태를 실패로 기록한 뒤 `stopSelf(startId)`를 호출할 수 있었습니다. 예기치 않은 예외 경로도 현재 세대 확인보다 먼저 stack summary를 저장하고 있어 오래된 오류가 최신 상태에 남을 수 있었습니다.
+- **수정**: 모든 시작 실패 정리·진단 저장을 `reportStartupFailure()`로 통합하고 `VpnStartCancellationGate.tryCommitStart()` 안에서 현재 요청 세대가 유효할 때만 수행하도록 변경했습니다. 세대 검증과 실패 상태 반영/notification 제거/부분 TUN 정리/`stopSelf(startId)`가 STOP 또는 새 START의 세대 변경과 직렬화됩니다. 이미 새 TUN이 실행 중이면 실패 정리를 건너뜁니다.
+- **회귀 테스트 소스**: 취소된 이전 시작의 진단 저장 및 서비스 종료 side effect가 차단되는지, 동일 세대에서 cleanup이 한 번만 허용되는지 테스트 2건을 추가했습니다.
+- **독립 JVM 실행**: `VpnStartCancellationGate` 동작을 별도 Kotlin/JVM harness로 컴파일·실행해 stale failure side effect 차단과 current-generation cleanup one-shot을 PASS 확인했습니다. Android Gradle/JUnit 실행은 아닙니다.
+- **검증 한계**: GitHub 원격 소스 재조회와 diff 확인은 수행합니다. Android 프로젝트 컴파일, JUnit, APK, 실제 Android 서비스 재시작/실기기 검증은 미실행입니다.
