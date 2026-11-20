@@ -247,3 +247,10 @@
 - 실제 제3자 필터 재배포 권한은 확인되지 않았으므로 예제 source의 `redistributionApproved=false` 잠금은 그대로 유지했습니다. 법적 승인 없는 상태에서 upstream 목록을 실제 운영 배포물로 수집·서명하지 않았습니다.
 - updater/publisher는 HTTPS·크기·UTF-8·서명키·재배포 승인 및 배치 잠금 검증을 수행하도록 구현되어 있음을 소스에서 확인했습니다. 다만 Node 테스트 실행이나 실제 upstream 다운로드/게시를 수행한 것은 아닙니다.
 - 문서 재검토에서 라이선스 표의 열 구분선도 3열로 남아 있던 것을 발견해 4열 전체를 다시 정렬했습니다. GitHub 원격 파일 재조회로 제목 시작, 표의 4개 헤더/4개 데이터 열을 확인했습니다.
+
+## 2026-11-20 — 필터 워커 및 노트북 APK 검증 리포트 보강
+
+- WorkManager 필터 워커의 synchronized transaction lambda 안에서 발생할 수 있는 Kotlin 비지역 return 컴파일 오류를 수정했습니다. early return은 `return@withLock`로 명시하고 try/catch를 lambda 최종 결과로 유지했습니다.
+- 노트북 Debug APK 빌드 스크립트에 package ID뿐 아니라 versionName/versionCode 일치 검증을 추가했습니다. 빌드 성공 시 Git commit, JDK/Gradle/SDK, APK 크기, SHA-256, unit test/lint/assemble task 결과를 `build-verification.txt`에 남깁니다.
+- 원격 소스 재조회로 워커의 비지역 return 제거, APK 자산 확인, 패키지/버전 검증 및 빌드 리포트 작성 경로를 정적으로 확인했습니다.
+- PowerShell 구문 분석/실행, Gradle 빌드, JUnit/Lint, 실제 APK 생성 및 Samsung 설치·화면 확인은 이 세션에서 실행하지 않았습니다.
