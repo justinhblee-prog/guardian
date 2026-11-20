@@ -140,7 +140,7 @@ dismiss_dev_update_prompt() {
   local xml
   for attempt in $(seq 1 8); do
     adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
-    xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+    xml="$(adb_cmd shell cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
     if ! grep -Fq 'text="Guardian 개발 업데이트"' <<<"$xml"; then
       return 0
     fi
@@ -189,7 +189,7 @@ dismiss_dev_update_prompt
 tap_content_description "프리미엄"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-premium_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 text=" ".join(node.attrib.get("text","") for node in root.iter("node"))
@@ -203,7 +203,7 @@ else
 fi
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-premium_license_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+premium_license_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 # A prior UI flow can leave the first-run installed-app privacy disclosure on
 # top of the settings screen. Do not accept it implicitly during the Premium
 # focus check; dismiss it with the explicit cancel action, then inspect the
@@ -212,7 +212,7 @@ if grep -Fq 'text="설치 앱 목록 접근 안내"' <<<"$premium_license_xml"; 
   tap_text "취소"
   sleep 1
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  premium_license_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  premium_license_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 fi
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -234,7 +234,7 @@ for attempt in $(seq 1 8); do
   adb_cmd shell input swipe 540 1500 540 650 450
   sleep 1
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  premium_features_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  premium_features_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 visible={node.attrib.get("text","") for node in root.iter("node")
@@ -312,7 +312,7 @@ tap_first_edit_text() {
   local xml bounds
   for attempt in $(seq 1 5); do
     adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-    xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+    xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
     bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
@@ -342,7 +342,7 @@ echo "Verifying the app-exclusion search field is automatically revealed and fil
 tap_content_description "보호 설정"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-protection-controls.xml >/dev/null 2>&1
-protection_controls_xml="$(adb_cmd exec-out cat /sdcard/guardian-protection-controls.xml | tr -d '\r')"
+protection_controls_xml="$(adb_cmd shell cat /sdcard/guardian-protection-controls.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 duplicate=[node.attrib.get("text","") for node in root.iter("node")
@@ -355,7 +355,7 @@ if duplicate:
 tap_content_description "앱 제외"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+app_inventory_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 if grep -q '동의하고 계속' <<<"$app_inventory_xml"; then
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -384,7 +384,7 @@ for node in root.iter("node"):
   for attempt in $(seq 1 20); do
     adb_cmd shell rm -f /sdcard/guardian-window.xml
     dump_result="$(adb_cmd shell uiautomator dump /sdcard/guardian-window.xml 2>&1 || true)"
-    app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+    app_inventory_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
     if grep -q 'content-desc="앱별 보호 제외 검색 입력"' <<<"$app_inventory_xml"; then
       consent_transitioned=1
       break
@@ -408,7 +408,7 @@ app_search_visible=0
 for attempt in $(seq 1 20); do
   adb_cmd shell rm -f /sdcard/guardian-window.xml
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  app_inventory_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if any(node.attrib.get("class")=="android.widget.EditText"
@@ -437,7 +437,7 @@ inventory_ready=0
 for attempt in $(seq 1 30); do
   adb_cmd shell rm -f /sdcard/guardian-window.xml
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  app_inventory_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import re,sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
@@ -459,7 +459,7 @@ if [[ "$inventory_ready" -ne 1 ]]; then
 fi
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+app_inventory_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 package_listing="$(adb_cmd shell pm list packages --user 0 | tr -d '\r')"
 installed_package_count="$(grep -c '^package:' <<<"$package_listing")"
 guardian_package_count="$(grep -c '^package:com.guardian.adblock$' <<<"$package_listing" || true)"
@@ -486,7 +486,7 @@ tap_content_description "앱별 보호 제외 검색 입력"
 # sent on the same frame as focus can drop the first characters on slow emulators.
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-keyboard.xml >/dev/null 2>&1
-keyboard_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-keyboard.xml | tr -d '\r')"
+keyboard_search_xml="$(adb_cmd shell cat /sdcard/guardian-keyboard.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("class")=="android.widget.EditText"
@@ -503,7 +503,7 @@ for attempt in $(seq 1 3); do
   adb_cmd shell input text 'com.android.settings'
   sleep 1
   adb_cmd shell uiautomator dump /sdcard/guardian-keyboard.xml >/dev/null 2>&1
-  keyboard_search_xml="$(adb_cmd exec-out cat /sdcard/guardian-keyboard.xml | tr -d '\r')"
+  keyboard_search_xml="$(adb_cmd shell cat /sdcard/guardian-keyboard.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if any(node.attrib.get("class")=="android.widget.EditText"
@@ -526,7 +526,7 @@ fi
 adb_cmd shell input keyevent KEYCODE_BACK || true
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-app_filtered_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+app_filtered_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
@@ -570,7 +570,7 @@ if [[ "$android_auto_path" == package:* ]]; then
   adb_cmd shell input keyevent KEYCODE_BACK || true
   sleep 1
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  android_auto_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  android_auto_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
   python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.google.android.projection.gearhead"
@@ -588,7 +588,7 @@ if not any(node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.
   adb_cmd shell input keyevent KEYCODE_BACK || true
   sleep 1
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  android_auto_name_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  android_auto_name_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
   python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("text","").split("\n",1)[0].strip()=="Android Auto"
@@ -602,7 +602,7 @@ else
 fi
 tap_content_description "홈"
 adb_cmd shell uiautomator dump /sdcard/guardian-home-controls.xml >/dev/null 2>&1
-home_controls_xml="$(adb_cmd exec-out cat /sdcard/guardian-home-controls.xml | tr -d '\r')"
+home_controls_xml="$(adb_cmd shell cat /sdcard/guardian-home-controls.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 controls=[node.attrib.get("text","").strip() for node in root.iter("node")
@@ -621,7 +621,7 @@ for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "프리미엄"
   sleep 1
   adb_cmd shell rm -f /sdcard/guardian-navigation.xml
   adb_cmd shell uiautomator dump /sdcard/guardian-navigation.xml >/dev/null 2>&1
-  navigation_xml="$(adb_cmd exec-out cat /sdcard/guardian-navigation.xml | tr -d '\r')"
+  navigation_xml="$(adb_cmd shell cat /sdcard/guardian-navigation.xml | tr -d '\r')"
   if ! python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("content-desc")==sys.argv[1]
@@ -644,7 +644,7 @@ tap_content_description "필터 규칙"
 tap_first_edit_text
 adb_cmd shell input text 'rotation-preserved.example'
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-before_rotation_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+before_rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any("rotation-preserved.example" in node.attrib.get("text","") for node in root.iter("node")):
@@ -653,7 +653,7 @@ adb_cmd shell settings put system accelerometer_rotation 0
 adb_cmd shell settings put system user_rotation 1
 sleep 3
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-rotation_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
@@ -696,7 +696,7 @@ tap_text "보호 시작"
 for attempt in $(seq 1 15); do
   echo "Checking Android VPN consent dialog (attempt $attempt/15)."
   adb_poll shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1 || true
-  xml="$(adb_poll exec-out cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
+  xml="$(adb_poll shell cat /sdcard/guardian-window.xml 2>/dev/null | tr -d '\r' || true)"
   consent_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 try:
     root=ET.fromstring(sys.stdin.read())
@@ -755,7 +755,7 @@ sleep 1
 # Assert the EditText actually received the query before hiding the IME;
 # a successful shell input command alone does not prove the UI accepted it.
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+app_inventory_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("class")=="android.widget.EditText"
@@ -767,7 +767,7 @@ if not any(node.attrib.get("class")=="android.widget.EditText"
 settings_visible=0
 for attempt in $(seq 1 10); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  app_inventory_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  app_inventory_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 raise SystemExit(0 if any(node.attrib.get("class")=="android.widget.CheckBox"
@@ -1043,7 +1043,7 @@ sleep 2
 tap_content_description "설정"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-settings-tab.xml >/dev/null 2>&1
-settings_tab_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-tab.xml | tr -d '\r')"
+settings_tab_xml="$(adb_cmd shell cat /sdcard/guardian-settings-tab.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
@@ -1060,7 +1060,7 @@ auto_pause_picker_visible=0
 # does not depend on the number of installed packages or an old scroll offset.
 for attempt in $(seq 1 24); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  auto_pause_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  auto_pause_settings_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
@@ -1087,7 +1087,7 @@ fi
 # Verify the Usage Access control is a real enabled action when access is
 # missing; cancel its confirmation dialog so the test does not leave Guardian.
 adb_cmd shell uiautomator dump /sdcard/guardian-usage-access.xml >/dev/null 2>&1
-usage_access_xml="$(adb_cmd exec-out cat /sdcard/guardian-usage-access.xml | tr -d '\r')"
+usage_access_xml="$(adb_cmd shell cat /sdcard/guardian-usage-access.xml | tr -d '\r')"
 usage_access_enabled="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 for node in root.iter("node"):
@@ -1097,7 +1097,7 @@ if [[ "$usage_access_enabled" == "true" ]]; then
   tap_content_description "사용 정보 접근 권한 설정"
   sleep 1
   adb_cmd shell uiautomator dump /sdcard/guardian-usage-dialog.xml >/dev/null 2>&1
-  usage_dialog_xml="$(adb_cmd exec-out cat /sdcard/guardian-usage-dialog.xml | tr -d '\r')"
+  usage_dialog_xml="$(adb_cmd shell cat /sdcard/guardian-usage-dialog.xml | tr -d '\r')"
   if ! grep -q '설정 열기' <<<"$usage_dialog_xml"; then
     echo "Usage Access button did not open its confirmation dialog."
     echo "$usage_dialog_xml"
@@ -1119,7 +1119,7 @@ sleep 1
 adb_cmd shell input text 'com.android.settings'
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-compatibility-keyboard.xml >/dev/null 2>&1
-compatibility_keyboard_xml="$(adb_cmd exec-out cat /sdcard/guardian-compatibility-keyboard.xml | tr -d '\r')"
+compatibility_keyboard_xml="$(adb_cmd shell cat /sdcard/guardian-compatibility-keyboard.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("class")=="android.widget.EditText"
@@ -1132,7 +1132,7 @@ compatibility_row_ready=0
 for attempt in $(seq 1 20); do
   adb_cmd shell rm -f /sdcard/guardian-window.xml
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  auto_pause_picker_xml="$(adb_cmd exec-out cat /sdcard/guardian-window.xml | tr -d '\r')"
+  auto_pause_picker_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if any(node.attrib.get("class")=="android.widget.CheckBox"
