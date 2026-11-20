@@ -406,3 +406,11 @@
 - 필수 스키마 조회와 검사 목록에 `activation_requests`를 추가했습니다. PostgreSQL 통합 테스트는 migration 005 재적용 확인과 함께, 테이블 제거 시 /ready가 503을 반환하고 migration 복구 후 200을 반환하는 회귀 시나리오를 추가했습니다.
 - 운영 README의 준비 상태 설명도 실제 검사 대상과 일치시켰습니다.
 - 이 변경은 소스/테스트/문서 반영이며, 현재 세션에서는 PostgreSQL 연결 및 통합 테스트를 실행하지 않았습니다.
+
+
+## 2026-11-20 — DNS upstream probe answer validation
+
+- DNS 사전 연결 점검이 ANCOUNT만 확인해 Answer 레코드가 없는 불완전 응답을 성공으로 오인할 수 있던 문제를 수정했습니다.
+- 첫 Answer 리소스 레코드의 압축 이름 포인터(범위/순환 포함), RR 고정 헤더, RDLENGTH 및 실제 RDATA 범위를 검증합니다.
+- 유효한 압축 QNAME 포인터가 포함된 A 레코드 fixture와 Answer 누락, 헤더/RDATA 절단, 잘못된/순환 포인터 회귀 케이스를 추가했습니다.
+- Android JUnit/Gradle 및 실제 네트워크 업스트림 검증은 실행하지 않았습니다.
