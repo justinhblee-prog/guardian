@@ -73,7 +73,6 @@ function Invoke-Agent {
             if (Test-Path $worktree) { Remove-Item -LiteralPath $worktree -Recurse -Force }
         }
         try {
-            Invoke-Git $Repo @('fetch', 'origin', 'main', $branchName) | Out-Null
             Invoke-Git $Repo @('worktree', 'add', '--detach', $worktree, "origin/$branchName") | Out-Null
             Invoke-Git $worktree @('switch', '-c', $branchName) | Out-Null
             $counts = (Invoke-Git $worktree @('rev-list', '--left-right', '--count', "origin/main...HEAD")).Output.Trim()
@@ -87,7 +86,7 @@ function Invoke-Agent {
             $mergeBase = (Invoke-Git $worktree @('merge-base', 'HEAD', 'origin/main')).Output.Trim()
             if (-not $mergeBase) { throw "PR #$number has no merge base with origin/main." }
             Write-Log "PR #$number ($branchName): rebasing; behind=$behind ahead=$ahead."
-            $rebase = Invoke-Git $worktree @('rebase', 'origin/main') -AllowFailure
+            $rebase = Invoke-Git $worktree @('rebase', '--rebase-merges', 'origin/main') -AllowFailure
             if ($rebase.Code -ne 0) {
                 Invoke-Git $worktree @('rebase', '--abort') -AllowFailure | Out-Null
                 Write-Log "PR #$number BLOCKED: rebase conflict; branch left unchanged. $($rebase.Output)"
