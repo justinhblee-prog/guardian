@@ -28,7 +28,8 @@ class FilterUpdateWorker(
             // A retry caused by an optional list failure must not download the
             // already successful base list again. Each source has its own age.
             if (FilterUpdatePolicy.isDue(
-                    baseCacheReady, FilterListManager.lastUpdatedAt(applicationContext), interval, now
+                    baseCacheReady, FilterListManager.lastUpdatedAt(applicationContext), interval, now,
+                    hasRefreshError = prefs.contains(FilterListManager.KEY_LAST_ERROR)
                 )) {
                 FilterListManager.update(applicationContext)
             }
@@ -40,7 +41,8 @@ class FilterUpdateWorker(
             if (securityEnabled &&
                 FilterUpdatePolicy.isDue(
                     securityCacheReady,
-                    FilterListManager.lastSecurityUpdatedAt(applicationContext), interval, now
+                    FilterListManager.lastSecurityUpdatedAt(applicationContext), interval, now,
+                    hasRefreshError = prefs.contains(FilterListManager.KEY_SECURITY_LAST_ERROR)
                 )) {
                 try {
                     FilterListManager.updateSecurity(applicationContext)
@@ -62,7 +64,8 @@ class FilterUpdateWorker(
             if (androidAdsEnabled &&
                 FilterUpdatePolicy.isDue(
                     androidAdsCacheReady,
-                    FilterListManager.lastAndroidAdsUpdatedAt(applicationContext), interval, now
+                    FilterListManager.lastAndroidAdsUpdatedAt(applicationContext), interval, now,
+                    hasRefreshError = prefs.contains(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR)
                 )) {
                 try {
                     FilterListManager.updateAndroidAds(applicationContext)
@@ -117,8 +120,16 @@ internal object FilterUpdatePolicy {
     fun shouldDisableOptionalFilter(wasEnabled: Boolean, hadValidCache: Boolean): Boolean =
         wasEnabled && !hadValidCache
 
-    fun isDue(hasValidCache: Boolean, lastUpdatedAt: Long, intervalMs: Long, now: Long): Boolean {
-        if (!hasValidCache || lastUpdatedAt <= 0L) return true
+    fun isDue(
+        hasValidCache: Boolean,
+        lastUpdatedAt: Long,
+        intervalMs: Long,
+        now: Long,
+        hasRefreshError: Boolean = false
+    ): Boolean {
+        // Keep serving a last-known-good cache, but do not let its freshness
+        // suppress recovery after a failed network or validation refresh.
+        if (hasRefreshError || !hasValidCache || lastUpdatedAt <= 0L) return true
         val interval = FilterUpdateScheduler.normalizeInterval(intervalMs)
         return now >= lastUpdatedAt && now - lastUpdatedAt >= interval
     }
