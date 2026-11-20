@@ -17,6 +17,15 @@ internal class PacketSessionOwnership {
     }
 
     @Synchronized
+    fun isCurrent(session: Any): Boolean = owner === session
+
+    @Synchronized
+    fun <T> withCurrent(session: Any, action: () -> T): T? {
+        if (owner !== session) return null
+        return action()
+    }
+
+    @Synchronized
     fun finish(session: Any, onFinish: () -> Unit): Boolean {
         if (owner !== session) return false
         owner = null
