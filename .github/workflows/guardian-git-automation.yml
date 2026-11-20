@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'scripts/guardian-git-agent.ps1'
+      - 'scripts/guardian-git-agent.ps1'\n      - 'scripts/guardian-git-agent-bootstrap.ps1'
       - '.github/workflows/guardian-git-automation.yml'
   pull_request:
     paths:
@@ -55,4 +55,4 @@ jobs:
           if ($source -match 'git\s+reset\s+--hard') {
             throw 'Destructive hard reset detected.'
           }
-          Write-Host 'PASS: PowerShell parses and Git CLI safety guards are present.'
+          foreach ($token in @('git fetch origin main --prune', 'git merge --ff-only origin/main', 'FileShare]::None', 'Stop-Process', 'guardian-git-agent.ps1')) {\n            if (-not $bootstrap.Contains($token)) { throw \"Bootstrap safety operation missing: $token\" }\n          }\n          if ($bootstrap -match 'git\\s+reset\\s+--hard') { throw 'Destructive hard reset detected in bootstrap.' }\n          Write-Host 'PASS: agent/bootstrap PowerShell syntax and Git safety guards are present.'
