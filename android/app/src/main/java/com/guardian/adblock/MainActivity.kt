@@ -108,7 +108,10 @@ class MainActivity : Activity() {
             when (intent?.action) {
                 FilterUpdateWorker.ACTION_FILTERS_CHANGED -> {
                     syncFilterOptionControls()
-                    filterStatusText?.text = filterStatusDescription()
+                    // Keep Home, Protection, and Settings in sync after background
+                    // refresh/recovery; updating only the Settings view leaves stale
+                    // success or failure text visible on the other screens.
+                    setFilterUpdateStatus(filterStatusDescription())
                 }
                 GuardianVpnService.ACTION_UPSTREAM_TEST_RESULT -> {
                     upstreamTestText?.text = upstreamTestDescription()
