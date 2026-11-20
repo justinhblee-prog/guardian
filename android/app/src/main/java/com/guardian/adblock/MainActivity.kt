@@ -1583,11 +1583,9 @@ class MainActivity : Activity() {
     }
 
     private fun buildLicenseSettings(body: LinearLayout) {
-        body.addView(text("라이선스 및 프리미엄", 25f, white, true))
-        body.addView(text("PRO 기능, 라이선스 활성화와 기기 등록을 한곳에서 관리합니다.", 13f, muted, false).withTop(5))
         body.addView(settingsCategoryRow("‹ 설정", "설정 카테고리로 돌아가기", "license") {
             showTab("settings")
-        }.withTop(14))
+        }.withTop(4))
         buildPremium(body)
         val verifiedLicense = LicenseEntitlementStore.current(this)
         // Keep an expired-but-valid signed token available for device-slot release.
