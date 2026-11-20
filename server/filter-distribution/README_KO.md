@@ -70,8 +70,8 @@ node scripts/publish-manifest.mjs \
 
 앱이 사용하는 sourceId와 최소 규칙 수:
 
-| 앱 필터 | sourceId | 최소 규칙 | 공개 라이선스 표시 | 공개 라이선스 표시 |
-|---|---|---:|
+| 앱 필터 | sourceId | 최소 규칙 | 공개 라이선스 |
+|---|---|---:|---|
 | AdGuard DNS Filter | `adguard` | 1000 | GPL-3.0 |
 | 1Hosts Lite | `1hosts_lite` | 100 | MPL-2.0 |
 | OISD Big | `oisd_big` | 100 | GPL-3.0 |
