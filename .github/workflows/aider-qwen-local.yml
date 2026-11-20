@@ -1,36 +1,42 @@
-name: Aider Qwen Local Runner Verification
+name: Guardian Local Ollama Runner Verification
 
 on:
   push:
     branches: [main]
     paths:
       - ".github/workflows/aider-qwen-local.yml"
-      # Verify the user's local Qwen runner when the Settings/update flow changes.
-      - "android/app/src/main/java/com/guardian/adblock/MainActivity.kt"
-      # Revalidate the local coding agent whenever its worker contract changes.
+      - ".github/workflows/guardian-windows-multiflow.yml"
+      - ".github/workflows/guardian-git-automation.yml"
+      - ".guardian/automation/tasks.json"
+      - "scripts/guardian_multiflow.py"
+      - "scripts/guardian-multiflow.ps1"
       - "scripts/guardian-copilot-worker.ps1"
-  # Same-repository PRs can verify the user's Windows Ollama runner before merge.
-  # This job only checks the local model/Aider response and uploads a smoke log.
+      - "scripts/guardian-git-agent.ps1"
+      - "scripts/guardian-git-agent-bootstrap.ps1"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
       - ".github/workflows/aider-qwen-local.yml"
-      - "android/app/src/main/java/com/guardian/adblock/MainActivity.kt"
+      - ".github/workflows/guardian-windows-multiflow.yml"
+      - ".guardian/automation/tasks.json"
+      - "scripts/guardian_multiflow.py"
+      - "scripts/guardian-multiflow.ps1"
       - "scripts/guardian-copilot-worker.ps1"
+      - "scripts/guardian-git-agent.ps1"
+      - "scripts/guardian-git-agent-bootstrap.ps1"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: aider-qwen-local-${{ github.ref }}
+  group: guardian-local-ollama-smoke-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  verify-local-qwen:
-    name: Verify Aider to local Ollama Qwen
-    # Never execute a PR-controlled workflow on the user's PC for a fork.
+  verify-local-ollama:
+    name: Verify real local Ollama inference on the Windows runner
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Windows]
     timeout-minutes: 12
@@ -38,67 +44,48 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify Ollama model and run a real Aider inference
+      - name: Verify loopback Ollama and real Qwen inference
         shell: pwsh
+        env:
+          GUARDIAN_OLLAMA_MODEL: qwen2.5-coder:7b
         run: |
           $ErrorActionPreference = 'Stop'
           if ($env:OS -ne 'Windows_NT') { throw 'This verification requires the Windows self-hosted Runner.' }
-          $env:OLLAMA_API_BASE = 'http://127.0.0.1:11434'
-          $modelName = 'qwen2.5-coder:7b'
-          $api = $env:OLLAMA_API_BASE
+          $api = 'http://127.0.0.1:11434'
+          $modelName = $env:GUARDIAN_OLLAMA_MODEL
+          $log = Join-Path $env:RUNNER_TEMP 'guardian-local-ollama-smoke.log'
+          "Endpoint=$api Model=$modelName" | Set-Content -LiteralPath $log -Encoding UTF8
 
-          Write-Host "Checking Ollama endpoint: $api"
           $tags = Invoke-RestMethod -Uri "$api/api/tags" -TimeoutSec 20
-          $installed = @($tags.models | Where-Object {
-            $_.name -eq $modelName -or $_.model -eq $modelName
-          })
-          if ($installed.Count -eq 0) {
-            throw "Ollama model '$modelName' is not visible to the self-hosted Runner account."
-          }
-          Write-Host "Ollama model found: $modelName"
+          $installed = @($tags.models | Where-Object { $_.name -eq $modelName -or $_.model -eq $modelName })
+          if ($installed.Count -eq 0) { throw "Required local Ollama model is not installed: $modelName" }
 
-          $aiderCommand = Get-Command aider -ErrorAction SilentlyContinue
-          $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
-          $pyCommand = Get-Command py -ErrorAction SilentlyContinue
-
-          if ($aiderCommand) {
-            $aiderExe = $aiderCommand.Source
-            Write-Host "Aider executable: $aiderExe"
-            & $aiderExe --version
-            if ($LASTEXITCODE -ne 0) { throw 'Aider version check failed.' }
-            $prompt = 'Reply with this exact token and nothing else: QWEN_OLLAMA_CONNECTION_OK'
-            $output = & $aiderExe --model 'ollama_chat/qwen2.5-coder:7b' --message $prompt --no-auto-commits 2>&1 | Out-String
-            $exitCode = $LASTEXITCODE
-          } elseif ($pythonCommand) {
-            & $pythonCommand.Source -m aider --version
-            if ($LASTEXITCODE -ne 0) { throw 'Python Aider module version check failed.' }
-            $prompt = 'Reply with this exact token and nothing else: QWEN_OLLAMA_CONNECTION_OK'
-            $output = & $pythonCommand.Source -m aider --model 'ollama_chat/qwen2.5-coder:7b' --message $prompt --no-auto-commits 2>&1 | Out-String
-            $exitCode = $LASTEXITCODE
-          } elseif ($pyCommand) {
-            & $pyCommand.Source -m aider --version
-            if ($LASTEXITCODE -ne 0) { throw 'Python launcher Aider module version check failed.' }
-            $prompt = 'Reply with this exact token and nothing else: QWEN_OLLAMA_CONNECTION_OK'
-            $output = & $pyCommand.Source -m aider --model 'ollama_chat/qwen2.5-coder:7b' --message $prompt --no-auto-commits 2>&1 | Out-String
-            $exitCode = $LASTEXITCODE
-          } else {
-            throw 'Aider is not available in the self-hosted Runner service PATH or Python environment.'
+          $body = @{
+            model = $modelName
+            stream = $false
+            format = 'json'
+            options = @{ temperature = 0; num_predict = 64 }
+            messages = @(@{
+              role = 'user'
+              content = 'Return JSON only: {"token":"GUARDIAN_LOCAL_OLLAMA_OK"}'
+            })
+          } | ConvertTo-Json -Depth 8 -Compress
+          $reply = Invoke-RestMethod -Uri "$api/api/chat" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 180
+          $response = [string]$reply.message.content
+          $response | Add-Content -LiteralPath $log -Encoding UTF8
+          try { $result = $response | ConvertFrom-Json -ErrorAction Stop }
+          catch { throw 'Ollama returned malformed JSON in the real model inference response.' }
+          if ($result.token -ne 'GUARDIAN_LOCAL_OLLAMA_OK') {
+            throw 'Ollama returned an unexpected token; local inference is not verified.'
           }
+          Write-Host "PASS: local Ollama model $modelName completed a real /api/chat inference."
+          'PASS: real loopback inference' | Add-Content -LiteralPath $log -Encoding UTF8
 
-          $output | Tee-Object -FilePath "$env:RUNNER_TEMP\aider-qwen-smoke.log"
-          if ($exitCode -ne 0) {
-            throw "Aider inference failed with exit code $exitCode."
-          }
-          if ($output -notmatch 'QWEN_OLLAMA_CONNECTION_OK') {
-            throw 'Aider ran but the expected response token was not found; local inference is not verified.'
-          }
-          Write-Host 'PASS: Aider completed a real inference through local Ollama Qwen.'
-
-      - name: Upload inference log
+      - name: Upload local inference verification log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: aider-qwen-local-verification
-          path: ${{ runner.temp }}/aider-qwen-smoke.log
+          name: guardian-local-ollama-verification
+          path: ${{ runner.temp }}/guardian-local-ollama-smoke.log
           if-no-files-found: ignore
           retention-days: 7
