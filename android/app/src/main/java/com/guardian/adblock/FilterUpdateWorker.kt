@@ -12,6 +12,10 @@ class FilterUpdateWorker(
 ) : Worker(appContext, params) {
 
     override fun doWork(): Result = FilterUpdateExecutionLock.withLock {
+        // WorkManager cancellation is cooperative for this synchronous Worker.
+        // Check between feeds so cancelling a refresh cannot start additional
+        // network downloads after the active request returns.
+        if (isStopped) return@withLock Result.failure()
         val prefs = applicationContext.getSharedPreferences(GuardianVpnService.PREFS, Context.MODE_PRIVATE)
         val forcedRecovery = inputData.getBoolean(FilterUpdateScheduler.KEY_FORCE_RECOVERY, false)
         if (!FilterRecoveryPolicy.shouldRun(
@@ -33,17 +37,20 @@ class FilterUpdateWorker(
 
             // A retry caused by an optional list failure must not download the
             // already successful base list again. Each source has its own age.
+            if (isStopped) return@withLock Result.failure()
             if (FilterUpdatePolicy.isDue(
                     baseCacheReady, FilterListManager.lastUpdatedAt(applicationContext), interval, now,
                     hasRefreshError = prefs.contains(FilterListManager.KEY_LAST_ERROR)
                 )) {
                 FilterListManager.update(applicationContext)
             }
+            if (isStopped) return@withLock Result.failure()
             prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
 
             var optionalFailure = false
             val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
             val securityCacheReady = FilterListManager.hasCachedSecurityList(applicationContext)
+            if (isStopped) return@withLock Result.failure()
             if (securityEnabled &&
                 FilterUpdatePolicy.isDue(
                     securityCacheReady,
@@ -54,6 +61,7 @@ class FilterUpdateWorker(
                     FilterListManager.updateSecurity(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                 } catch (e: Exception) {
+                    if (isStopped) return@withLock Result.failure()
                     optionalFailure = true
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_SECURITY_LAST_ERROR,
@@ -64,6 +72,7 @@ class FilterUpdateWorker(
             }
             val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
             val androidAdsCacheReady = FilterListManager.hasCachedAndroidAdsList(applicationContext)
+            if (isStopped) return@withLock Result.failure()
             if (androidAdsEnabled &&
                 FilterUpdatePolicy.isDue(
                     androidAdsCacheReady,
@@ -74,6 +83,7 @@ class FilterUpdateWorker(
                     FilterListManager.updateAndroidAds(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                 } catch (e: Exception) {
+                    if (isStopped) return@withLock Result.failure()
                     optionalFailure = true
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
@@ -83,6 +93,7 @@ class FilterUpdateWorker(
                 }
             }
 
+            if (isStopped) return@withLock Result.failure()
             val active = ProtectionState.isActive(
                 prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
                 GuardianVpnService.isTunnelActive()
@@ -98,6 +109,7 @@ class FilterUpdateWorker(
             )
             if (optionalFailure) Result.retry() else Result.success()
         } catch (e: Exception) {
+            if (isStopped) return@withLock Result.failure()
             prefs.edit().putString(
                 FilterListManager.KEY_LAST_ERROR,
                 e.message ?: e.javaClass.simpleName
