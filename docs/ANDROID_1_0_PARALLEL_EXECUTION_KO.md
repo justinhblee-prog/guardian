@@ -37,6 +37,7 @@ C License + support ────┘                                  │        
 |---|---|---|---|
 | A | 구현 존재 / 검증 대기 | VPN baseline startup, service recovery, app pause logic 및 테스트 소스가 있음 | 최신 통합 소스 컴파일·unit/lint 및 emulator 실행 |
 | B | 구현 일부 / 운영 차단 | 캐시 atomic replace/recovery 코드가 있음. 예시 feed 7개는 재배포 승인 근거가 없음 | manifest/cache 테스트와 update UI 확인, 승인 feed만 배포하도록 게이트 유지 |
+| A/B 테스트 보강 | 소스 추가 / 실행 대기 | FilterUpdatePolicyTest에 캐시 누락, 주기 경계, 시계 역행, 최소 주기, optional feed 첫 다운로드 실패 정책 케이스 추가 | Android unit test job에서 컴파일·실행 확인 |
 | C | 구현 존재 / 통합 검증 대기 | QA License API lifecycle은 노트북에서 통과. support ticket API/UI/migration 구현이 feature branch에 있음 | server HTTP/Postgres/admin 테스트 실행, migration 003 사전 점검, Android 연동 검증 |
 | D | 설정 준비 / 정식 산출물 없음 | Gradle은 Production signing 및 service public key/base URL을 요구. versionCode 43 기준 다음 release 최소 44 | 운영키/공개 endpoint 준비 후 release assemble, signer/checksum 및 설치 확인 |
 | E | 외부 단말 증거 대기 | Samsung 오류 보고가 있으나 정확한 호출 stack 미확정 | 진단용 privacy-filtered stack summary로 재현·수정·재시험 |
