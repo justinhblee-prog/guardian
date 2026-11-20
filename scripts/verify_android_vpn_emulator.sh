@@ -136,32 +136,16 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
-# Android AlertDialog list adapters expose their row TextViews as non-clickable
-# children even though ListView dispatches row taps. Use this helper only for
-# an exact, visible text row; coordinate tapping lets the ListView perform the
-# normal item-click callback without weakening the general clickable-control
-# helper used by buttons and settings controls.
+# Android AlertDialog ListView row TextViews are intentionally non-clickable
+# in UIAutomator's accessibility tree; ListView itself dispatches row taps.
+# Resolve only an exact child of android:id/select_dialog_listview, leaving
+# the generic clickable-control helper strict for buttons and navigation.
 tap_text_row() {
   local wanted="$1"
   local xml bounds
   xml="$(dump_ui_hierarchy /sdcard/guardian-window.xml)"
-  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-matches=[]
-for node in root.iter("node"):
-    if (node.attrib.get("class") == "android.widget.TextView"
-        and node.attrib.get("text","").strip() == sys.argv[1]
-        and node.attrib.get("visible-to-user", "true") == "true"
-        and node.attrib.get("enabled") == "true"):
-        parts=node.attrib.get("bounds","").strip("[]").split("][")
-        if len(parts)==2:
-            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
-            matches.append(((x1+x2)//2,(y1+y2)//2))
-if len(matches) != 1:
-    raise SystemExit("Expected one exact visible dialog row; found %d." % len(matches))
-print(*matches[0])' "$wanted" <<<"$xml")"
-  if [[ -z "$bounds" ]]; then
-    echo "Could not locate one exact visible dialog row: $wanted"
+  if ! bounds="$(python3 scripts/resolve_android_dialog_row.py "$wanted" <<<"$xml")"; then
+    echo "Could not resolve one exact visible AlertDialog ListView row: $wanted"
     echo "$xml"
     return 1
   fi
