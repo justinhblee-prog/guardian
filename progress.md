@@ -360,3 +360,10 @@
 - 기존 패키지명/버전/필수 `assets/filter_rules.txt`/APK SHA-256 확인은 유지.
 - 두 스크립트는 GitHub 원격 소스를 재조회해 도구 경로, 검증 호출, 지문 파싱, 보고서 반영 및 PowerShell 소스 내 잘못 삽입된 개행 이스케이프가 없는 것을 정적 확인함.
 - **미실행**: 현재 실행 환경에 PowerShell, Android SDK Build Tools, Gradle/Android SDK가 없어 스크립트 파싱·실행, 실제 APK 서명 검증은 수행하지 않음. 운영 서명키 지문으로 오인하지 않도록 이 절차의 Debug APK 지문은 개발 서명 지문으로만 기록됨.
+
+
+## 2026-11-20 — Signed filter URL port validation
+
+- Signed manifest의 HTTPS 콘텐츠 URL에 대해 URI 포트가 생략됐거나 1–65535 범위인지 검증하도록 강화. 서명된 manifest라도 99999 등 유효하지 않은 포트는 캐시 교체 전에 거부.
+- `FilterManifestVerifierTest.rejectsOutOfRangeHttpsPortEvenWhenManifestIsSigned` 회귀 테스트 추가.
+- 원격 소스 재조회로 검증식과 테스트 케이스의 반영 확인. Android JUnit/Gradle 실행은 이 환경에 Android SDK·Gradle이 없어 미실행.
