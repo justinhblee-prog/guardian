@@ -48,14 +48,11 @@ class FilterUpdateWorker(
                     FilterListManager.updateSecurity(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                 } catch (e: Exception) {
-                    optionalFailure = securityCacheReady
+                    optionalFailure = true
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_SECURITY_LAST_ERROR,
                         e.message ?: e.javaClass.simpleName
                     )
-                    if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityEnabled, securityCacheReady)) {
-                        editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                    }
                     editor.apply()
                 }
             }
@@ -71,14 +68,11 @@ class FilterUpdateWorker(
                     FilterListManager.updateAndroidAds(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                 } catch (e: Exception) {
-                    optionalFailure = optionalFailure || androidAdsCacheReady
+                    optionalFailure = true
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                         e.message ?: e.javaClass.simpleName
                     )
-                    if (FilterUpdatePolicy.shouldDisableOptionalFilter(androidAdsEnabled, androidAdsCacheReady)) {
-                        editor.putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
-                    }
                     editor.apply()
                 }
             }
