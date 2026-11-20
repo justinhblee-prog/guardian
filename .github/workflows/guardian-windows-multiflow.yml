@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Verify Windows, Git, Python and GitHub CLI
         shell: pwsh
@@ -61,6 +61,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Python version check failed.' }
           gh auth status --hostname github.com
           if ($LASTEXITCODE -ne 0) { throw 'The runner GitHub token is not accepted by gh CLI.' }
+          gh auth setup-git
+          if ($LASTEXITCODE -ne 0) { throw 'Could not configure temporary Git authentication for this runner job.' }
 
       - name: Validate manifest and fixed test allowlists
         shell: pwsh
