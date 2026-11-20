@@ -10,6 +10,8 @@ import java.security.KeyFactory
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.nio.ByteBuffer
+import java.security.MessageDigest
+import java.util.UUID
 import java.nio.charset.CodingErrorAction
 
 
@@ -96,6 +98,8 @@ internal class LicenseApiException(
 internal object LicenseApiClient {
     private const val PREFS = "guardian_server_settings"
     private const val KEY_LICENSE_API_BASE_URL = "license_api_base_url"
+    private const val KEY_PENDING_ACTIVATION_ID = "pending_activation_request_id"
+    private const val KEY_PENDING_ACTIVATION_FINGERPRINT = "pending_activation_fingerprint"
     private const val MAX_RESPONSE_BYTES = 8192
 
     fun configuredBaseUrl(context: Context): String =
@@ -125,42 +129,22 @@ internal object LicenseApiClient {
         }
         // Fail locally before the server allocates a device activation slot.
         validateLicensePublicKeyConfiguration(BuildConfig.LICENSE_PUBLIC_KEY)
+        val normalizedKey = licenseKey.trim().uppercase()
         val deviceBinding = LicenseEntitlementStore.deviceBinding(context)
+        val requestId = pendingActivationRequestId(context, normalizedKey, deviceBinding)
+        // Keep the same durable request ID until a signed token is verified and
+        // committed locally. A retry can then replay the exact server response.
         val response = post(context,
             "/v1/licenses/activate",
             JSONObject()
-                .put("licenseKey", licenseKey.trim().uppercase())
+                .put("requestId", requestId)
+                .put("licenseKey", normalizedKey)
                 .put("deviceBinding", deviceBinding)
                 .put("appVersion", appVersion.take(40))
         )
-        return try {
-            persistToken(context, response)
-        } catch (activationSaveError: Exception) {
-            // A failed SharedPreferences commit can still leave an in-memory value.
-            // Remove any partially saved token before attempting remote compensation.
-            try {
-                LicenseEntitlementStore.clear(context)
-            } catch (clearError: Exception) {
-                activationSaveError.addSuppressed(clearError)
-            }
-            // The server has already allocated a device slot. If local signature
-            // verification or durable storage fails, compensate by releasing that
-            // exact slot so a later attempt with a different key cannot strand it.
-            val licenseRef = response.optString("licenseRef")
-            if (isSafeLicenseRefForActivationCleanup(licenseRef)) {
-                try {
-                    post(context,
-                        "/v1/licenses/deactivate",
-                        JSONObject()
-                            .put("deviceBinding", deviceBinding)
-                            .put("licenseRef", licenseRef)
-                    )
-                } catch (releaseError: Exception) {
-                    activationSaveError.addSuppressed(releaseError)
-                }
-            }
-            throw activationSaveError
-        }
+        val entitlement = persistToken(context, response)
+        clearPendingActivationRequest(context)
+        return entitlement
     }
 
     @Synchronized
@@ -256,6 +240,30 @@ internal object LicenseApiClient {
             .put("ticketRef", ticketRef.trim().uppercase())
             .put("accessToken", accessToken.trim())
     )
+
+    private fun pendingActivationRequestId(context: Context, licenseKey: String, deviceBinding: String): String {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val fingerprint = MessageDigest.getInstance("SHA-256")
+            .digest("$licenseKey:$deviceBinding".toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        val savedFingerprint = prefs.getString(KEY_PENDING_ACTIVATION_FINGERPRINT, null)
+        val savedRequestId = prefs.getString(KEY_PENDING_ACTIVATION_ID, null)
+        if (savedFingerprint == fingerprint && savedRequestId != null &&
+            savedRequestId.matches(Regex("[0-9a-fA-F-]{36}"))) return savedRequestId
+        val requestId = UUID.randomUUID().toString()
+        check(prefs.edit()
+            .putString(KEY_PENDING_ACTIVATION_FINGERPRINT, fingerprint)
+            .putString(KEY_PENDING_ACTIVATION_ID, requestId)
+            .commit()) { "활성화 요청을 안전하게 저장하지 못했습니다. 저장 공간을 확인한 뒤 다시 시도하세요." }
+        return requestId
+    }
+
+    private fun clearPendingActivationRequest(context: Context) {
+        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(KEY_PENDING_ACTIVATION_ID)
+            .remove(KEY_PENDING_ACTIVATION_FINGERPRINT)
+            .commit()) { "라이선스는 확인됐지만 완료 기록 저장에 실패했습니다. 앱을 다시 열어 상태를 확인하세요." }
+    }
 
     private fun persistToken(
         context: Context,
