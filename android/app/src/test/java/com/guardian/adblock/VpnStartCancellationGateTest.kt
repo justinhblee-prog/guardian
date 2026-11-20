@@ -147,4 +147,23 @@ class VpnStartCancellationGateTest {
         assertFalse(sharedServiceTeardown)
     }
 
+    @Test fun staleStartupWorkerCannotResetSharedReadinessBeforePreparing() {
+        val gate = VpnStartCancellationGate()
+        val oldStart = gate.onStartRequested()
+        gate.cancel()
+        val currentStart = gate.onStartRequested()
+        var readinessReset = false
+        var tunnelMarkedInactive = false
+
+        val prepared = gate.tryCommitStart(oldStart) {
+            readinessReset = true
+            tunnelMarkedInactive = true
+        }
+
+        assertFalse(prepared)
+        assertFalse(readinessReset)
+        assertFalse(tunnelMarkedInactive)
+        assertTrue(gate.isCurrent(currentStart))
+    }
+
 }
