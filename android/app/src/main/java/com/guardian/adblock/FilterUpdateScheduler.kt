@@ -50,7 +50,7 @@ object FilterUpdateScheduler {
     fun sync(context: Context) {
         val appContext = context.applicationContext
         val prefs = appContext.getSharedPreferences(GuardianVpnService.PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false)) {
+        if (!prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)) {
             WorkManager.getInstance(appContext).cancelUniqueWork(UNIQUE_WORK_NAME)
             return
         }
