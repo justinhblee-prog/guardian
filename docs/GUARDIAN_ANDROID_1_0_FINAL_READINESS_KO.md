@@ -140,3 +140,12 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 화면 캡처를 가져온 뒤 PNG 시그니처를 검사하고, 성공/실패와 관계없이 기기 임시 캡처 파일을 제거하도록 변경했습니다.
 - 스크립트 변경 커밋: `125001ea6707367bc188d1e27c7e4e6001b7c78e`, 프로세스 fallback 정규식 보정: `56171e70edcbcd99599227da65a969ae25ee5078`.
 - GitHub에서 수정된 소스를 재조회해 각 검증 단계와 정규식을 확인했습니다. PowerShell 실행, 실제 APK 빌드, Samsung 설치/실행/화면 캡처는 이 환경에서 실행하지 않았습니다.
+
+## 2026-11-20 로컬 Android 빌드 증거 수집 보강
+
+- 루트 BUILD_ANDROID.ps1을 보강했습니다. 기존에는 Gradle test/assemble 실행과 APK 존재 여부만 확인했으나, 이제 JDK 17/21, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9를 사전 확인합니다.
+- 빌드 단계에서 clean, testDebugUnitTest, lintDebug, assembleDebug를 순서대로 실행하고 각 실행 로그를 보존합니다. 실패 시 해당 로그 경로와 종료 코드로 중단합니다.
+- 산출 APK의 패키지 ID, versionCode, versionName을 aapt dump badging으로 검증하고, 비어 있지 않은 APK를 %LOCALAPPDATA%\Guardian\outputs\Android-Debug-<timestamp>에 복사합니다.
+- 해당 폴더에 Gradle 버전 출력, 전체 빌드 로그, APK SHA-256 및 검증 요약을 함께 저장합니다. 단말 검증은 이 스크립트가 수행하지 않았다고 명시합니다.
+- 기본 기대 버전은 현재 앱 Gradle 설정과 병렬 실행 문서에 기록된 0.7.30-dev / 43이며, GUARDIAN_VERSION_NAME 및 GUARDIAN_VERSION_CODE 환경 변수로 명시적 변경이 가능합니다.
+- GitHub 브랜치 파일 재조회로 스크립트 반영을 확인했습니다. 이 세션에는 Windows PowerShell, Android SDK 및 Gradle이 없어 PowerShell 파서 검사, 실제 Gradle 실행, APK 생성은 아직 수행하지 않았습니다. 따라서 이 수정은 빌드 성공 증거가 아니라 로컬 실행 시 증거를 빠짐없이 수집하기 위한 준비입니다.
