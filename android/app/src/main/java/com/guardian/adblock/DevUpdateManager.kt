@@ -25,39 +25,65 @@ internal data class GuardianDevUpdate(
 
 internal object DevUpdateManager {
     private const val RELEASES_URL =
-        "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=30"
+        "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=100"
     private const val APK_ASSET = "guardian-android-dev.apk"
     private const val MANIFEST_ASSET = "guardian-android-dev.json"
     private const val PACKAGE_NAME = "com.guardian.adblock"
     private const val MAX_APK_BYTES = 100L * 1024L * 1024L
 
+    private data class ReleaseCandidate(
+        val tagVersion: Int,
+        val manifestUrl: String,
+        val apkUrl: String,
+        val notes: String
+    )
+
     fun checkForUpdate(): GuardianDevUpdate? {
-        val releases = JSONArray(readHttps(RELEASES_URL, 2 * 1024 * 1024))
+        val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
+        val candidates = ArrayList<ReleaseCandidate>()
+        val tagPattern = Regex("^guardian-dev-v(\\d+)$")
+
+        // GitHub sorts releases by commit-created time, not semantic/version order.
+        // Collect all valid development releases and select by the numeric tag version.
         for (index in 0 until releases.length()) {
-            val release = releases.getJSONObject(index)
+            val release = releases.optJSONObject(index) ?: continue
             if (release.optBoolean("draft", true) || !release.optBoolean("prerelease", false)) continue
-            if (!release.optString("tag_name").startsWith("guardian-dev-v")) continue
+            val tagVersion = tagPattern.matchEntire(release.optString("tag_name"))
+                ?.groupValues?.getOrNull(1)?.toIntOrNull() ?: continue
             val assets = release.optJSONArray("assets") ?: continue
             var manifestUrl: String? = null
             var apkUrl: String? = null
             for (assetIndex in 0 until assets.length()) {
-                val asset = assets.getJSONObject(assetIndex)
+                val asset = assets.optJSONObject(assetIndex) ?: continue
                 when (asset.optString("name")) {
                     MANIFEST_ASSET -> manifestUrl = asset.optString("browser_download_url")
                     APK_ASSET -> apkUrl = asset.optString("browser_download_url")
                 }
             }
             if (manifestUrl.isNullOrBlank() || apkUrl.isNullOrBlank()) continue
-            require(manifestUrl.startsWith("https://github.com/justinhblee-prog/guardian/releases/download/")) {
+            candidates += ReleaseCandidate(
+                tagVersion = tagVersion,
+                manifestUrl = manifestUrl,
+                apkUrl = apkUrl,
+                notes = release.optString("body").take(2000)
+            )
+        }
+
+        for (candidate in candidates.sortedByDescending { it.tagVersion }) {
+            require(candidate.manifestUrl.startsWith("https://github.com/justinhblee-prog/guardian/releases/download/")) {
                 "개발 업데이트 manifest 주소가 허용된 GitHub 저장소가 아닙니다."
             }
-            require(apkUrl.startsWith("https://github.com/justinhblee-prog/guardian/releases/download/")) {
+            require(candidate.apkUrl.startsWith("https://github.com/justinhblee-prog/guardian/releases/download/")) {
                 "개발 APK 주소가 허용된 GitHub 저장소가 아닙니다."
             }
-            val manifest = JSONObject(readHttps(manifestUrl, 64 * 1024))
+            val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
             if (manifest.optString("packageName") != PACKAGE_NAME) continue
             val versionCode = manifest.optInt("versionCode", 0)
-            if (versionCode <= BuildConfig.VERSION_CODE) return null
+            // Do not stop at the first older release: GitHub release ordering can
+            // differ from the numeric Guardian development version sequence.
+            if (versionCode <= BuildConfig.VERSION_CODE) continue
+            if (versionCode < candidate.tagVersion) continue
+
             val digest = manifest.optString("sha256").lowercase()
             val signer = manifest.optString("signerSha256").lowercase()
             require(digest.matches(Regex("[a-f0-9]{64}"))) { "업데이트 SHA-256 형식이 올바르지 않습니다." }
@@ -67,8 +93,8 @@ internal object DevUpdateManager {
                 versionCode,
                 digest,
                 signer,
-                apkUrl,
-                release.optString("body").take(2000)
+                candidate.apkUrl,
+                candidate.notes
             )
         }
         return null
