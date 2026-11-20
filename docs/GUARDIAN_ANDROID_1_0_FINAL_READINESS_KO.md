@@ -403,3 +403,8 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 활동 화면과 보호 상세 화면의 DNS 수치·최근 요청·마지막 진단 표시가 모두 잠금 기반 `DnsStatsSnapshot`을 사용하는지 재조회했습니다. snapshot 구성 함수 내부 외에 DNS 통계를 직접 읽는 UI 경로가 남아 있지 않은 것을 확인했습니다.
 - DNS 진단 기록 지점은 시작 사전검사, 패킷 실패/무시, 수동 업스트림 테스트의 순서 토큰 검사 및 공용 잠금 적용을 재확인했습니다.
 - 독립 Kotlin/JVM 컴파일/실행 결과 `DnsDiagnosticSequence` 시나리오 3개 PASS. Android 프로젝트 컴파일/JUnit, APK, UI 런타임 및 Samsung 실기기 검증은 미실행입니다.
+
+## 2026-11-20 병렬 트랙 D — Android SDK Build Tools 버전 충돌 수정
+- 루트 `BUILD_ANDROID.ps1`은 APK 메타데이터 검사 도구로 Android Build Tools 34.0.0의 `aapt.exe`를 요구했지만, 앱 빌드 전용 `Build-GuardianAndroid-Debug.ps1`은 35.0.0을 요구하고 AGP 8.7.3/compileSdk 35 프로젝트의 실제 빌드 도구 기본값도 35.0.0 계열입니다. 두 빌드 진입점이 서로 다른 SDK 도구를 요구하는 설정 불일치를 확인했습니다.
+- 루트 빌드 스크립트의 aapt 경로와 오류 안내를 35.0.0으로 통일하고 `BUILD_ANDROID_KO.md`도 함께 수정했습니다.
+- GitHub 원격 파일 재조회로 스크립트/문서 일치 여부를 확인했습니다. PowerShell Parser, Android SDK, Gradle이 없는 현재 실행 환경에서는 실제 PowerShell 실행·APK 검증은 미실행입니다.
