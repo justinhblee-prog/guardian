@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$InstallScheduledTask,[switch]$UninstallScheduledTask,[switch]$Once)
+param([switch]$InstallScheduledTask,[switch]$UninstallScheduledTask)
 $ErrorActionPreference = 'Stop'
 $Repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $TaskName = 'Guardian-Git-Automation'
