@@ -46,6 +46,9 @@ import java.util.Locale
 import java.io.File
 
 class MainActivity : Activity() {
+    private companion object {
+        const val UPDATE_CHECK_THROTTLE_PREFS = "guardian_update_check_throttle"
+    }
     private lateinit var root: LinearLayout
     private lateinit var status: TextView
     private lateinit var statusTitle: TextView
@@ -1482,6 +1485,7 @@ class MainActivity : Activity() {
                     setTextColor(bg)
                     background = shape(accent, 12)
                     setOnClickListener {
+                        recordSettingsUpdateCheck("development")
                         isEnabled = false
                         downloadedUpdate = null
                         setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = true, hasVerifiedApk = false)
@@ -1522,7 +1526,12 @@ class MainActivity : Activity() {
                 }
                 addView(checkButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
                 // Check automatically when Settings is opened; keep manual retry available.
-                checkButton.post { if (checkButton.isEnabled) checkButton.performClick() }
+                postSettingsUpdateCheck(
+                    "development",
+                    GuardianAutoUpdateCheckPolicy.DEVELOPMENT_INTERVAL_MILLIS,
+                    checkButton,
+                    updateStatus
+                )
                 addView(installUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
             }.withTop(12))
         } else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED) {
@@ -1569,6 +1578,7 @@ class MainActivity : Activity() {
                     setTextColor(bg)
                     background = shape(accent, 12)
                     setOnClickListener {
+                        recordSettingsUpdateCheck("stable")
                         isEnabled = false
                         downloadedUpdate = null
                         setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = true, hasVerifiedApk = false)
@@ -1609,7 +1619,12 @@ class MainActivity : Activity() {
                 }
                 addView(checkButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
                 // Check automatically when Settings is opened; keep manual retry available.
-                checkButton.post { if (checkButton.isEnabled) checkButton.performClick() }
+                postSettingsUpdateCheck(
+                    "stable",
+                    GuardianAutoUpdateCheckPolicy.STABLE_INTERVAL_MILLIS,
+                    checkButton,
+                    updateStatus
+                )
                 addView(installUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
             }.withTop(12))
         }
@@ -3694,6 +3709,39 @@ class MainActivity : Activity() {
             }
         }
         return domains.toList()
+    }
+
+    private fun recordSettingsUpdateCheck(channel: String) {
+        getSharedPreferences(UPDATE_CHECK_THROTTLE_PREFS, MODE_PRIVATE)
+            .edit()
+            .putLong("last_settings_check_$channel", System.currentTimeMillis())
+            .apply()
+    }
+
+    private fun shouldRunAutomaticSettingsUpdateCheck(channel: String, intervalMillis: Long): Boolean {
+        val lastCheck = getSharedPreferences(UPDATE_CHECK_THROTTLE_PREFS, MODE_PRIVATE)
+            .getLong("last_settings_check_$channel", 0L)
+        return GuardianAutoUpdateCheckPolicy.shouldCheck(
+            lastCheckAtMillis = lastCheck,
+            nowMillis = System.currentTimeMillis(),
+            intervalMillis = intervalMillis
+        )
+    }
+
+    private fun postSettingsUpdateCheck(
+        channel: String,
+        intervalMillis: Long,
+        checkButton: Button,
+        updateStatus: TextView
+    ) {
+        checkButton.post {
+            if (!checkButton.isEnabled) return@post
+            if (shouldRunAutomaticSettingsUpdateCheck(channel, intervalMillis)) {
+                checkButton.performClick()
+            } else {
+                updateStatus.text = "최근 업데이트를 확인했습니다. 아래 버튼으로 지금 다시 확인할 수 있습니다."
+            }
+        }
     }
 
     private fun setUpdateActionButtons(
