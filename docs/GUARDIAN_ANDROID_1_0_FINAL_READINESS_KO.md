@@ -343,3 +343,11 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - **수정**: 사전 연결 실패와 VPN 인터페이스 생성 실패를 공통 generation-guarded failure handler로 이동했습니다. 이 handler는 현재 시작 세대일 때만 진단/상태/notification/service 정리를 수행합니다. 시작 중 취소 감지 분기는 이전 worker에서 foreground/service를 정리하지 않고 즉시 반환합니다. TUN commit이 거부된 worker는 자신이 생성한 descriptor만 닫고 공유 서비스 상태는 건드리지 않습니다.
 - **회귀 테스트 소스**: stale preflight failure의 상태 게시/foreground 제거/서비스 종료 차단, stale descriptor 정리의 공유 teardown 차단 테스트 2건을 추가했습니다.
 - **검증 한계**: 앞선 generation gate 독립 Kotlin/JVM harness는 PASS했습니다. 이번 추가 분기별 Android 서비스 실행 테스트는 아직 수행하지 않았으며, Android Gradle/JUnit/APK/Samsung 실기기 검증은 계속 미완료입니다.
+
+
+## 2026-11-20 VPN 시작 초기 공유 상태 초기화의 세대 보호
+
+- **추가 경합 지점**: `startProtection()`의 첫 세대 확인과 `startProtectionInternal()` 진입 사이에 STOP/새 START가 들어올 수 있습니다. 내부 진입 직후 수행하던 `tunnelActive=false` 및 필터 준비 진단 삭제는 세대 보호 밖에 있어, 이미 취소된 worker가 공용 상태를 변경할 여지가 있었습니다.
+- **수정**: 초기 공유 상태 초기화도 `VpnStartCancellationGate.tryCommitStart(requestGeneration)` 안에서 실행하도록 이동했습니다. 세대가 더 이상 유효하지 않으면 필터 준비 진단과 터널 상태를 건드리지 않고 즉시 반환합니다.
+- **회귀 테스트 소스**: `staleStartupWorkerCannotResetSharedReadinessBeforePreparing`를 추가해 stale generation의 readiness 초기화 및 tunnel inactive side effect가 차단되는 조건을 검증하도록 했습니다.
+- **검증 범위**: GitHub 원격 파일 재조회와 커밋 반영 확인 대상입니다. 이 테스트 소스는 Android JUnit으로 실행하지 않았으며 Android Gradle 빌드/APK/Samsung 실기기 검증도 수행하지 않았습니다.
