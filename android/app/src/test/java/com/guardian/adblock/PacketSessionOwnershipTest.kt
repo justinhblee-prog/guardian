@@ -47,4 +47,34 @@ class PacketSessionOwnershipTest {
         assertFalse(ownership.finish(session) { cleanupCount++ })
         assertEquals(1, cleanupCount)
     }
+    @Test
+    fun staleSessionCannotRecordDnsActivityAfterReplacementIsActive() {
+        val ownership = PacketSessionOwnership()
+        val oldSession = Any()
+        val currentSession = Any()
+        var oldRecords = 0
+        var currentRecords = 0
+
+        ownership.activate(oldSession) { }
+        ownership.activate(currentSession) { }
+
+        assertNull(ownership.withCurrent(oldSession) { oldRecords++ })
+        assertEquals(0, oldRecords)
+        assertEquals(Unit, ownership.withCurrent(currentSession) { currentRecords++ })
+        assertEquals(1, currentRecords)
+    }
+
+    @Test
+    fun stoppedSessionCannotRecordLateDnsActivity() {
+        val ownership = PacketSessionOwnership()
+        val session = Any()
+        var records = 0
+
+        ownership.activate(session) { }
+        ownership.stop { }
+
+        assertNull(ownership.withCurrent(session) { records++ })
+        assertEquals(0, records)
+    }
+
 }
