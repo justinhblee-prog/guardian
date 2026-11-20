@@ -440,3 +440,10 @@
 - 세션에 handshake 완료 상태를 추가했습니다. handshake 전 중복 SYN은 원래 SYN-ACK를 재전송하고, 연결 성립 후 중복 SYN은 현재 server/client sequence 위치를 담은 ACK로 응답합니다.
 - handshake 중 SYN 재전송과 established 상태의 지연 SYN 재전송을 각각 검증하는 회귀 테스트를 추가/수정했습니다.
 - GitHub 원격 소스 재조회로 반영을 확인합니다. Android Gradle/JUnit 및 실제 네트워크/Samsung 단말 검증은 실행하지 않았습니다.
+
+
+## 2026-11-20 — DNS TCP handshake ACK 정확성 보강
+
+- SYN-ACK 이후 첫 ACK가 serverNext와 정확히 일치하지 않아도 세션이 established로 승격될 수 있던 경로를 추가로 차단했습니다.
+- handshake 미완료 세션은 첫 ACK가 SYN-ACK의 다음 server sequence를 정확히 확인할 때만 established 전이합니다. 오래된 ACK에는 현재 ACK를 반환하고 handshake 상태를 유지합니다.
+- stale handshake ACK 후 SYN 재전송이 여전히 SYN-ACK를 받는 회귀 테스트를 추가했습니다.
