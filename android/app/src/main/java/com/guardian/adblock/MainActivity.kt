@@ -2397,15 +2397,20 @@ class MainActivity : Activity() {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val title = subject.text.toString().trim()
                 val body = message.text.toString().trim()
+                val replyEmail = email.text.toString().trim()
                 if (title.length !in 3..120 || body.length !in 10..5000) {
                     android.widget.Toast.makeText(this, "제목은 3~120자, 내용은 10~5,000자로 입력하세요.", Toast.LENGTH_LONG).show()
+                    return@setOnClickListener
+                }
+                if (!SupportInputPolicy.isValidReplyEmail(replyEmail)) {
+                    email.error = "올바른 이메일 주소를 입력하거나 비워 두세요."
+                    email.requestFocus()
                     return@setOnClickListener
                 }
                 val submit = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 submit.isEnabled = false
                 submit.text = "접수 중…"
                 val selectedCategory = categories[category.selectedItemPosition].second
-                val replyEmail = email.text.toString().trim()
                 thread(name = "guardian-support-submit") {
                     val result = runCatching {
                         LicenseApiClient.submitSupportTicket(
@@ -2470,12 +2475,14 @@ class MainActivity : Activity() {
             .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (ticketRef.text.isNullOrBlank() || accessToken.text.isNullOrBlank()) {
-                    android.widget.Toast.makeText(this, "접수 번호와 조회 코드를 입력하세요.", Toast.LENGTH_SHORT).show()
+                val lookupRef = SupportInputPolicy.normalizeTicketReference(ticketRef.text.toString())
+                val lookupToken = accessToken.text.toString().trim()
+                if (lookupRef == null || lookupToken.isBlank()) {
+                    ticketRef.error = "GDN- 뒤에 12자리 영문·숫자 접수 번호를 입력하세요."
+                    ticketRef.requestFocus()
+                    android.widget.Toast.makeText(this, "올바른 접수 번호와 조회 코드를 입력하세요.", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-                val lookupRef = ticketRef.text.toString().trim()
-                val lookupToken = accessToken.text.toString().trim()
                 val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 button.isEnabled = false
                 button.text = "조회 중…"
