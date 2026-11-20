@@ -254,3 +254,10 @@
 - 노트북 Debug APK 빌드 스크립트에 package ID뿐 아니라 versionName/versionCode 일치 검증을 추가했습니다. 빌드 성공 시 Git commit, JDK/Gradle/SDK, APK 크기, SHA-256, unit test/lint/assemble task 결과를 `build-verification.txt`에 남깁니다.
 - 원격 소스 재조회로 워커의 비지역 return 제거, APK 자산 확인, 패키지/버전 검증 및 빌드 리포트 작성 경로를 정적으로 확인했습니다.
 - PowerShell 구문 분석/실행, Gradle 빌드, JUnit/Lint, 실제 APK 생성 및 Samsung 설치·화면 확인은 이 세션에서 실행하지 않았습니다.
+
+## 2026-11-20 — 고객 지원 입력 사전 검증
+
+- 문의 접수 시 선택 이메일을 서버의 형식·길이 규칙(최대 254자, 공백/@/도메인 구분자, NUL 거부)에 맞춰 앱에서 먼저 검증하도록 추가했습니다. 잘못된 주소는 요청을 보내기 전에 입력란 오류로 안내합니다.
+- 문의 조회 접수 번호는 서버가 생성하는 `GDN-` + 12자리 16진수 형식으로 정규화하고, 형식이 맞지 않으면 조회 API를 호출하지 않도록 했습니다.
+- `SupportInputPolicyTest`에 이메일 선택/유효/무효/길이 경계와 접수 번호 대소문자 정규화·형식 검증을 추가했습니다.
+- 독립 Kotlin/JVM 하네스에서 이메일 검증과 접수 번호 검증 시나리오 2개를 통과했습니다. Android Gradle/JUnit 실행은 하지 않았습니다.
