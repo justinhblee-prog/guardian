@@ -30,10 +30,14 @@ internal class ForegroundAppTracker(private val targetPackages: Set<String>) {
     fun accept(packageName: String?, eventType: Int) {
         if (packageName.isNullOrBlank()) return
         when {
-            eventType == UsageEvents.Event.MOVE_TO_FOREGROUND -> {
-                // Track transitions from every package, not just selected pause targets.
-                // A stale/missed PAUSED event for Wallet must not keep the VPN off after
-                // Guardian or another non-target app has actually moved to foreground.
+            eventType == UsageEvents.Event.MOVE_TO_FOREGROUND ||
+                eventType == UsageEvents.Event.ACTIVITY_RESUMED -> {
+                // Android 10+ emits ACTIVITY_RESUMED/PAUSED. Older platform
+                // versions and some OEM event streams emit MOVE_TO_FOREGROUND/
+                // MOVE_TO_BACKGROUND. Handle both families or app-based pause
+                // silently never activates on modern Android releases.
+                // Track every package, not only selected targets, so a new
+                // non-target foreground activity always restores protection.
                 mostRecentResumedPackage = packageName
                 if (packageName in targetPackages) {
                     resumedActivityCounts[packageName] =
@@ -41,7 +45,8 @@ internal class ForegroundAppTracker(private val targetPackages: Set<String>) {
                 }
             }
 
-            eventType == UsageEvents.Event.MOVE_TO_BACKGROUND -> {
+            eventType == UsageEvents.Event.MOVE_TO_BACKGROUND ||
+                eventType == UsageEvents.Event.ACTIVITY_PAUSED -> {
                 if (packageName in targetPackages) {
                     val count = resumedActivityCounts[packageName] ?: return
                     if (count <= 1) {
