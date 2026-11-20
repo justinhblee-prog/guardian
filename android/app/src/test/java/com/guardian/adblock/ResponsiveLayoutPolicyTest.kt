@@ -32,6 +32,18 @@ class ResponsiveLayoutPolicyTest {
     }
 
     @Test
+    fun nestedSettingsPagesKeepSettingsNavigationSelected() {
+        listOf("settings-general", "settings-filtering", "settings-support", "settings-license", "premium", "rules")
+            .forEach { assertEquals("settings", ResponsiveLayoutPolicy.selectedNavigationTab(it)) }
+    }
+
+    @Test
+    fun topLevelPagesKeepTheirOwnNavigationSelection() {
+        listOf("home", "protection", "app-exclusions", "activity", "settings")
+            .forEach { assertEquals(it, ResponsiveLayoutPolicy.selectedNavigationTab(it)) }
+    }
+
+    @Test
     fun wideTabletContentWidthExcludesNavigationRail() {
         assertEquals(752, ResponsiveLayoutPolicy.contentAreaWidthDp(840))
         assertEquals(1192, ResponsiveLayoutPolicy.contentAreaWidthDp(1280))
