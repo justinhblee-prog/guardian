@@ -1095,9 +1095,17 @@ fi
 # Verify it at the top immediately; scrolling down would move it out of view.
 adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
 support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
-if ! grep -Fq '고객지원 센터' <<<"$support_settings_xml" ||
-   ! grep -Fq '자주 묻는 질문 (Q&A)' <<<"$support_settings_xml" ||
-   ! grep -Fq '문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다' <<<"$support_settings_xml"; then
+if ! python3 -c 'import sys, xml.etree.ElementTree as ET
+root = ET.fromstring(sys.stdin.read())
+texts = [node.attrib.get("text", "") for node in root.iter("node")]
+required = (
+    "고객지원 센터",
+    "자주 묻는 질문 (Q&A)",
+    "문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다",
+)
+missing = [item for item in required if not any(item in text for text in texts)]
+if missing:
+    raise SystemExit("Customer support Settings text missing: " + ", ".join(missing))' <<<"$support_settings_xml"; then
   echo "Customer support center card is missing from the top of Settings."
   echo "$support_settings_xml"
   exit 1
