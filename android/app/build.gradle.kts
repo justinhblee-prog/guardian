@@ -107,8 +107,8 @@ val validateGuardianReleaseServices by tasks.registering {
             licenseUri.query == null && licenseUri.fragment == null) {
             "GUARDIAN_LICENSE_API_BASE_URL must be an HTTPS origin/path without credentials, query or fragment."
         }
-        check(!licenseUri.host.endsWith(".ts.net", ignoreCase = true) &&
-            !licenseUri.host.equals("ts.net", ignoreCase = true)) {
+        check(licenseUri.host?.endsWith(".ts.net", ignoreCase = true) != true &&
+            licenseUri.host?.equals("ts.net", ignoreCase = true) != true) {
             "GUARDIAN_LICENSE_API_BASE_URL must be publicly reachable by customer devices; private Tailscale .ts.net endpoints are not allowed in Production builds."
         }
         check(guardianLicensePublicKey.isNotBlank()) {
