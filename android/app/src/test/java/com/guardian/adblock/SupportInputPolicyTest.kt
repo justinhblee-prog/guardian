@@ -27,4 +27,14 @@ class SupportInputPolicyTest {
         assertNull(SupportInputPolicy.normalizeTicketReference("OTHER-ABCDEF012345"))
         assertNull(SupportInputPolicy.normalizeTicketReference(""))
     }
+
+    @Test fun lookupAccessTokenMatchesServerBase64UrlContract() {
+        assertTrue(SupportInputPolicy.isValidAccessToken("A".repeat(43)))
+        assertTrue(SupportInputPolicy.isValidAccessToken("ab-_".repeat(8)))
+        assertTrue(SupportInputPolicy.isValidAccessToken("A".repeat(100)))
+        assertFalse(SupportInputPolicy.isValidAccessToken("A".repeat(31)))
+        assertFalse(SupportInputPolicy.isValidAccessToken("A".repeat(101)))
+        assertFalse(SupportInputPolicy.isValidAccessToken("A".repeat(42) + "="))
+        assertFalse(SupportInputPolicy.isValidAccessToken("A".repeat(42) + " "))
+    }
 }
