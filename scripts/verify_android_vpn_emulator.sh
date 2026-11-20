@@ -136,6 +136,39 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
+# Android AlertDialog list adapters expose their row TextViews as non-clickable
+# children even though ListView dispatches row taps. Use this helper only for
+# an exact, visible text row; coordinate tapping lets the ListView perform the
+# normal item-click callback without weakening the general clickable-control
+# helper used by buttons and settings controls.
+tap_text_row() {
+  local wanted="$1"
+  local xml bounds
+  xml="$(dump_ui_hierarchy /sdcard/guardian-window.xml)"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+matches=[]
+for node in root.iter("node"):
+    if (node.attrib.get("class") == "android.widget.TextView"
+        and node.attrib.get("text","").strip() == sys.argv[1]
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("enabled") == "true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            matches.append(((x1+x2)//2,(y1+y2)//2))
+if len(matches) != 1:
+    raise SystemExit("Expected one exact visible dialog row; found %d." % len(matches))
+print(*matches[0])' "$wanted" <<<"$xml")"
+  if [[ -z "$bounds" ]]; then
+    echo "Could not locate one exact visible dialog row: $wanted"
+    echo "$xml"
+    return 1
+  fi
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 dismiss_dev_update_prompt() {
   local xml
   for attempt in $(seq 1 8); do
@@ -1121,7 +1154,7 @@ grep -Fq '광고 차단이 되지 않아요' <<<"$support_faq_xml" || {
   echo "$support_faq_xml"
   exit 1
 }
-tap_text "광고 차단이 되지 않아요"
+tap_text_row "광고 차단이 되지 않아요"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
 support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
