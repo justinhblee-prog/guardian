@@ -34,6 +34,10 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          # Avoid the action's deprecated default "tools" package; this workflow
+          # installs the exact platform/build-tools versions in the next step.
+          packages: platform-tools
       - name: Install Android SDK packages
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
       - uses: gradle/actions/setup-gradle@v4
@@ -100,12 +104,27 @@ jobs:
           mapfile -t compose_files < <(find . -maxdepth 5 -type f \( -iname 'compose.yml' -o -iname 'compose.yaml' -o -iname 'docker-compose.yml' -o -iname 'docker-compose.yaml' \) -not -path '*/node_modules/*' | sort)
           if [ "${#compose_files[@]}" -eq 0 ]; then
             echo "No Compose manifest discovered; not applicable."
-          else
-            for compose_file in "${compose_files[@]}"; do
-              echo "Validating $compose_file"
-              docker compose -f "$compose_file" config -q
-            done
+            exit 0
           fi
+
+          # Compose files intentionally require external paths and production secrets.
+          # Supply disposable CI-only placeholders so syntax/interpolation is checked
+          # without provisioning a server or using any real credential.
+          test_root="$(mktemp -d)"
+          trap 'rm -rf "$test_root"' EXIT
+          mkdir -p "$test_root/filter-dist"
+          : > "$test_root/filter.env"
+          export GUARDIAN_FILTER_ENV_FILE="$test_root/filter.env"
+          export GUARDIAN_FILTER_DIST_DIR="$test_root/filter-dist"
+          export POSTGRES_PASSWORD='ci-placeholder-not-a-secret'
+          export GUARDIAN_ADMIN_TOKEN='ci-placeholder-not-a-secret'
+          export GUARDIAN_LICENSE_LOOKUP_SECRET='ci-placeholder-not-a-secret'
+          export GUARDIAN_LICENSE_PRIVATE_KEY='ci-placeholder-not-a-secret'
+
+          for compose_file in "${compose_files[@]}"; do
+            echo "Validating $compose_file with disposable CI placeholders"
+            docker compose -f "$compose_file" config -q
+          done
 
   repository-integrity:
     name: Repository integrity and automation safety
@@ -158,7 +177,7 @@ jobs:
           BACKEND_RESULT: ${{ needs.backend.result }}
           INTEGRITY_RESULT: ${{ needs.repository-integrity.result }}
         run: |
-          printf 'Android=%s Backend=%s Integrity=%s\\n' "$ANDROID_RESULT" "$BACKEND_RESULT" "$INTEGRITY_RESULT"
+          printf 'Android=%s Backend=%s Integrity=%s\n' "$ANDROID_RESULT" "$BACKEND_RESULT" "$INTEGRITY_RESULT"
           test "$ANDROID_RESULT" = success
           test "$BACKEND_RESULT" = success
           test "$INTEGRITY_RESULT" = success
