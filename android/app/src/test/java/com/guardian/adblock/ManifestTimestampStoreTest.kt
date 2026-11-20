@@ -127,7 +127,8 @@ class ManifestTimestampStoreTest {
             assertEquals(100L, reopened.lastAccepted("source_$index"))
         }
     }
-}
+
+
 
 
     @Test
@@ -146,3 +147,4 @@ class ManifestTimestampStoreTest {
         assertEquals(2500L, reopened.lastAccepted("base-adblock"))
         assertEquals(1500L, reopened.lastAccepted("security"))
     }
+}
