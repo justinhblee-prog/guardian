@@ -3907,7 +3907,7 @@ class MainActivity : Activity() {
                 message
             )
         }
-        statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
+        statsText?.text = "질의 ${dnsStats.queries} · 차단 ${dnsStats.blocked} · 전달 ${dnsStats.forwarded} · 실패 ${dnsStats.failed} · 무시 ${dnsStats.ignored}"
         val totalQueries = dnsStats.queries
         val blockedQueries = dnsStats.blocked
         val blockRate = if (totalQueries > 0L) blockedQueries * 100.0 / totalQueries else 0.0
