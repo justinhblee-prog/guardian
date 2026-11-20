@@ -634,7 +634,7 @@ class GuardianVpnService : VpnService() {
             tunnelActive = true
             val filterNotice = getSharedPreferences(PREFS, MODE_PRIVATE)
                 .getString(KEY_FILTER_READINESS, null)
-                ?.takeIf { it.isNotBlank() && it != "모든 선택 필터가 준비되었습니다." }
+                ?.takeIf { it.isNotBlank() && !it.startsWith("선택 필터 준비 완료") }
             val activeMessage = if (filterNotice == null) {
                 "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다."
             } else {
@@ -813,8 +813,11 @@ class GuardianVpnService : VpnService() {
         val sources = mutableListOf<() -> FilterRuleParser.Parsed>()
         val minimumRuleCounts = mutableListOf<Int>()
         val unavailable = mutableListOf<String>()
+        var bundledBaselineRuleCount = 0
         sources.add {
-            assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
+            assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse).also { parsed ->
+                bundledBaselineRuleCount = parsed.blocked.size + parsed.importantBlocked.size
+            }
         }
         minimumRuleCounts.add(1)
 
@@ -903,8 +906,7 @@ class GuardianVpnService : VpnService() {
         )
         prefs.edit().putString(
             KEY_FILTER_READINESS,
-            if (unavailable.isEmpty()) "모든 선택 필터가 준비되었습니다."
-            else "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: ${unavailable.joinToString()}"
+            FilterStartupGate.readinessMessage(bundledBaselineRuleCount, unavailable)
         ).apply()
     }
 
