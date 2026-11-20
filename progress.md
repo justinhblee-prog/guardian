@@ -351,3 +351,12 @@
 - UI 경로 감사에서 설정 → 필터링 → 필터 규칙으로 진입한 뒤 Android 시스템 Back을 누르면 규칙 화면에서 곧바로 홈으로 이동하는 것을 확인했습니다. 상위 필터링 설정으로 돌아가지 않는 탐색 결함입니다.
 - 뒤로가기 정책을 순수 `ResponsiveLayoutPolicy`로 분리하고 규칙 → 필터링 설정, 설정 하위 화면 → 설정, 설정 → 홈, 홈 → 종료 확인의 부모 흐름을 연결했습니다.
 - 3개 회귀 테스트를 추가해 규칙 화면, 설정 하위 화면, 설정/홈 동작을 고정했습니다. 실제 ResponsiveLayoutPolicy.kt를 Kotlin/JVM으로 컴파일해 메뉴 선택 11개 경로와 뒤로가기 7개 경로 검증이 PASS했습니다. Android JUnit 실행은 별도입니다.
+
+
+## 2026-11-20 — APK 서명 검증 증거 보강
+
+- `BUILD_ANDROID.ps1` 및 `server/license-api/windows/Build-GuardianAndroid-Debug.ps1`가 APK 산출 후 Android Build Tools `apksigner.bat verify --verbose --print-certs`를 실행하도록 보강.
+- APK 서명 검증 실패 시 빌드 산출물을 성공으로 보고하지 않으며, 서명 인증서 SHA-256 지문을 추출해 빌드 검증 보고서와 콘솔에 기록.
+- 기존 패키지명/버전/필수 `assets/filter_rules.txt`/APK SHA-256 확인은 유지.
+- 두 스크립트는 GitHub 원격 소스를 재조회해 도구 경로, 검증 호출, 지문 파싱, 보고서 반영 및 PowerShell 소스 내 잘못 삽입된 개행 이스케이프가 없는 것을 정적 확인함.
+- **미실행**: 현재 실행 환경에 PowerShell, Android SDK Build Tools, Gradle/Android SDK가 없어 스크립트 파싱·실행, 실제 APK 서명 검증은 수행하지 않음. 운영 서명키 지문으로 오인하지 않도록 이 절차의 Debug APK 지문은 개발 서명 지문으로만 기록됨.
