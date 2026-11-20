@@ -8,6 +8,7 @@ from pathlib import Path
 from scripts.guardian_multiflow import (
     AutomationError,
     FileLease,
+    process_environment,
     safe_relative_path,
     validate_local_ollama_url,
     validate_manifest,
@@ -76,6 +77,25 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
         for path in (".github/workflows/new.yml", "scripts/guardian-git-agent.ps1", ".guardian/automation/tasks.json"):
             with self.subTest(path=path), self.assertRaises(AutomationError):
                 safe_relative_path(path)
+
+    def test_test_process_environment_strips_credentials_and_artifact_tokens(self):
+        from unittest.mock import patch
+        with patch.dict("os.environ", {
+            "GH_TOKEN": "temporary-token",
+            "GITHUB_TOKEN": "temporary-token",
+            "CUSTOM_CLIENT_SECRET": "temporary-secret",
+            "ACTIONS_RUNTIME_TOKEN": "runtime-token",
+            "PATH": "C:\\Windows\\System32",
+            "GUARDIAN_OLLAMA_MODEL": "qwen2.5-coder:7b",
+        }, clear=True):
+            env = process_environment(strip_credentials=True)
+        self.assertNotIn("GH_TOKEN", env)
+        self.assertNotIn("GITHUB_TOKEN", env)
+        self.assertNotIn("CUSTOM_CLIENT_SECRET", env)
+        self.assertNotIn("ACTIONS_RUNTIME_TOKEN", env)
+        self.assertNotIn("ACTIONS_RUNTIME_URL", env)
+        self.assertEqual(env["PATH"], "C:\\Windows\\System32")
+        self.assertEqual(env["GUARDIAN_OLLAMA_MODEL"], "qwen2.5-coder:7b")
 
     def test_ollama_url_must_be_loopback(self):
         self.assertEqual(validate_local_ollama_url("http://127.0.0.1:11434/"), "http://127.0.0.1:11434")
