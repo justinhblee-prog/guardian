@@ -222,3 +222,12 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 별도 인스턴스 4개가 4개 source timestamp를 병렬 갱신하는 회귀 테스트를 추가했습니다.
 - GitHub 소스 반영 커밋: `73cc83c888f53b381a32c645d860266062c6efa9`, 회귀 테스트: `903d36c3ab2ed1cf39c9a64f44c9f665ed3b7d39`. 현재 compare는 main 대비 217 commits ahead / 0 behind입니다.
 - Android Gradle/JUnit 실행은 아직 하지 않았습니다. 이 변경은 소스 반영 및 재조회 수준이며 실제 컴파일·테스트 성공으로 간주하지 않습니다.
+
+
+## 2026-11-20 서명 manifest timestamp ledger 손상 복구 보완
+
+- 캐시 복구 중 anti-rollback timestamp ledger의 특정 source 값이 손상되면, 기존 코드는 해당 캐시와 manifest 메타데이터를 폐기하면서 timestamp ledger의 손상 값은 남겨 이후 업데이트도 계속 실패할 수 있었습니다.
+- 캐시 복구 시작 시 SharedPreferences에 커밋된 마지막 manifest 생성 시각을 보존하고, 캐시 무결성 오류로 해당 세대를 폐기할 때도 그 시각으로 ledger를 복구하도록 수정했습니다. 손상된 source 값만 교체하며 다른 필터 source의 timestamp는 유지합니다. 저장된 committed timestamp가 없으면 ledger를 임의로 초기화하지 않습니다.
+- 회귀 테스트: 손상된 source timestamp를 복구하면서 다른 source의 timestamp가 유지되는지 확인하는 테스트를 추가했습니다.
+- GitHub 반영 커밋: `55d0d79a4284d4e9a424728e1bb5d2da6ef093fb`, 테스트 커밋: `7c35f0a905810857de5bb885d2f324942ba22949`.
+- Android Gradle/JUnit 실행은 아직 하지 않았으며, 소스 재조회 정적 검증만 수행합니다.
