@@ -383,3 +383,11 @@
 - `SignedManifestHttpClientTest`에 sidecar URL의 잘못된 포트/fragment 및 초기 manifest의 99999 포트 거부 회귀 테스트 추가.
 - GitHub 원격 재조회로 구현과 테스트 반영 확인. Java 21 URL parser에서 99999 포트가 URL 객체로 보존됨을 확인해 정책 검사에서 명시적으로 거부되는 입력임을 확인.
 - Android Gradle/JUnit은 실행하지 않았으며, 네트워크 연결이나 실제 서명 서버 호출도 수행하지 않음.
+
+
+## 2026-11-20 — Strict filter redirect request-target parsing
+
+- `FilterRedirectPolicy`의 URL 허용 판단을 `java.net.URI` 파싱 기반으로 강화. `java.net.URL`이 허용할 수 있는 raw 공백/제어문자/역슬래시를 거부하고, HTTPS scheme·host·userinfo·fragment·port를 함께 확인.
+- `FilterRedirectPolicyTest.rejectsMalformedRawRequestTargetCharacters` 회귀 테스트 추가. 기존 IPv6 HTTPS 허용, 상대 경로 redirect, invalid port/fragment 차단 정책은 유지.
+- Kotlin/JVM 독립 하네스(정책 구현을 별도 파일로 옮긴 동등 코드) 컴파일 및 실행: 정상 HTTPS, IPv6, 잘못된 포트, fragment, raw 공백/역슬래시, redirect 검증 PASS. Android JUnit/Gradle은 미실행.
+- 원격 소스 재조회로 실제 정책/test 소스 반영 확인.
