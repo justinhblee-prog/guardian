@@ -6,7 +6,8 @@ import sys
 import tempfile
 import socket
 import time
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import nullcontext, redirect_stderr, redirect_stdout
+from unittest.mock import mock_open, patch
 from io import StringIO
 import unittest
 from pathlib import Path
@@ -22,10 +23,14 @@ from scripts.guardian_multiflow import (
     AutomationError,
     FileLease,
     main,
+    ollama_json,
     process_environment,
+    propose_patch,
     safe_relative_path,
+    smoke_test,
     validate_local_ollama_url,
     validate_manifest,
+    verify_ollama_model,
     validate_unified_patch,
 )
 
@@ -122,6 +127,70 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
         self.assertNotIn("ACTIONS_RUNTIME_URL", env)
         self.assertEqual(env["PATH"], "C:\\Windows\\System32")
         self.assertEqual(env["GUARDIAN_OLLAMA_MODEL"], "qwen2.5-coder:7b")
+
+    def test_ollama_tags_accepts_installed_exact_model_name(self):
+        payload = b'{"models":[{"name":"qwen2.5-coder:7b"}]}'
+        with patch("scripts.guardian_multiflow.urllib.request.urlopen", mock_open(read_data=payload)):
+            verify_ollama_model("http://127.0.0.1:11434", "qwen2.5-coder:7b")
+
+    def test_ollama_tags_rejects_missing_model_without_download(self):
+        payload = b'{"models":[{"name":"qwen2.5-coder:3b"}]}'
+        with patch("scripts.guardian_multiflow.urllib.request.urlopen", mock_open(read_data=payload)) as urlopen:
+            with self.assertRaisesRegex(AutomationError, "not installed"):
+                verify_ollama_model("http://127.0.0.1:11434", "qwen2.5-coder:7b")
+        self.assertEqual(urlopen.call_count, 1)
+
+    def test_ollama_tags_rejects_non_object_or_missing_models_array(self):
+        for payload in (b'[]', b'{"models":{}}', b'{"model":[] }'):
+            with self.subTest(payload=payload), patch(
+                "scripts.guardian_multiflow.urllib.request.urlopen", mock_open(read_data=payload)
+            ):
+                with self.assertRaisesRegex(AutomationError, "models array"):
+                    verify_ollama_model("http://127.0.0.1:11434", "qwen2.5-coder:7b")
+
+    def test_ollama_json_rejects_invalid_utf8_and_missing_message(self):
+        for payload in (b'\\xff', b'{"response":"not-chat"}'):
+            with self.subTest(payload=payload), patch(
+                "scripts.guardian_multiflow.urllib.request.urlopen", mock_open(read_data=payload)
+            ):
+                with self.assertRaises(AutomationError):
+                    ollama_json("http://127.0.0.1:11434", {"model": "qwen2.5-coder:7b"})
+
+    def test_smoke_test_requires_the_exact_json_token(self):
+        good = {"message": {"content": '{"token":"GUARDIAN_LOCAL_OLLAMA_OK"}'}}
+        with patch("scripts.guardian_multiflow.verify_ollama_model"), \\
+             patch("scripts.guardian_multiflow.ollama_slot", return_value=nullcontext()), \\
+             patch("scripts.guardian_multiflow.ollama_json", return_value=good):
+            result = smoke_test("http://127.0.0.1:11434", "qwen2.5-coder:7b", Path("slots"))
+        self.assertIn("PASS:", result)
+
+    def test_smoke_test_rejects_non_object_json_and_wrong_token(self):
+        for content in ('[]', '{"token":"WRONG"}'):
+            with self.subTest(content=content), \\
+                 patch("scripts.guardian_multiflow.verify_ollama_model"), \\
+                 patch("scripts.guardian_multiflow.ollama_slot", return_value=nullcontext()), \\
+                 patch("scripts.guardian_multiflow.ollama_json", return_value={"message": {"content": content}}):
+                with self.assertRaisesRegex(AutomationError, "unexpected token"):
+                    smoke_test("http://127.0.0.1:11434", "qwen2.5-coder:7b", Path("slots"))
+
+    def test_propose_patch_accepts_only_the_exact_diff_envelope(self):
+        task_data = task()
+        with patch("scripts.guardian_multiflow.ollama_slot", return_value=nullcontext()), \\
+             patch("scripts.guardian_multiflow.ollama_json", return_value={"message": {"content": '{"diff":""}'}}):
+            self.assertEqual(propose_patch("http://127.0.0.1:11434", "qwen2.5-coder:7b", Path("slots"), task_data, "source"), "")
+
+        invalid = (
+            '{"diff":"","extra":"not allowed"}',
+            '{"diff":null}',
+            '[]',
+            'not-json',
+        )
+        for content in invalid:
+            with self.subTest(content=content), \\
+                 patch("scripts.guardian_multiflow.ollama_slot", return_value=nullcontext()), \\
+                 patch("scripts.guardian_multiflow.ollama_json", return_value={"message": {"content": content}}):
+                with self.assertRaises(AutomationError):
+                    propose_patch("http://127.0.0.1:11434", "qwen2.5-coder:7b", Path("slots"), task_data, "source")
 
     def test_ollama_url_must_be_loopback(self):
         self.assertEqual(validate_local_ollama_url("http://127.0.0.1:11434/"), "http://127.0.0.1:11434")
