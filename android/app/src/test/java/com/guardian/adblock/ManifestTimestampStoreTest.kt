@@ -2,6 +2,8 @@ package com.guardian.adblock
 
 import java.io.File
 import java.nio.file.Files
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.concurrent.thread
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -87,5 +89,30 @@ class ManifestTimestampStoreTest {
             throw AssertionError("corrupt state must fail closed")
         } catch (_: IllegalStateException) { }
         assertTrue(file.isFile)
+    }
+
+    @Test
+    fun concurrentStoreInstancesDoNotLoseIndependentSourceUpdates() {
+        val (file, _) = newStore()
+        val failure = AtomicReference<Throwable?>(null)
+        val writers = (1..4).map { index ->
+            thread(start = true) {
+                try {
+                    val store = ManifestTimestampStore(file)
+                    repeat(100) { timestamp ->
+                        store.recordAccepted("source_$index", timestamp + 1L)
+                    }
+                } catch (error: Throwable) {
+                    failure.compareAndSet(null, error)
+                }
+            }
+        }
+        writers.forEach { it.join() }
+        failure.get()?.let { throw AssertionError("concurrent timestamp update failed", it) }
+
+        val reopened = ManifestTimestampStore(file)
+        (1..4).forEach { index ->
+            assertEquals(100L, reopened.lastAccepted("source_$index"))
+        }
     }
 }
