@@ -85,8 +85,8 @@ PowerShell 7.2에서 다음 스크립트를 실행하도록 설계되어 있습�
 
 ## 정식 고객 배포 전 License API 공개 엔드포인트 차단 조건
 
-- 개발/운영자 점검용 Tailscale 주소(예: 개인 tailnet의 `.ts.net`)는 해당 tailnet에 가입·인증된 기기에서만 접근할 수 있으므로 일반 고객용 기본 서버 주소로 사용하지 않습니다.
+- Tailscale Serve로만 공개한 주소는 tailnet 가입·인증된 기기에서만 접근할 수 있으므로 일반 고객용 기본 서버 주소로 사용하지 않습니다. Tailscale Funnel처럼 공개 인터넷에 노출한 구성은 예외일 수 있으나, 고객 단말에서 인증 없이 실제 접근 가능한지 별도 외부 네트워크로 검증해야 합니다.
 - Production 앱의 `GUARDIAN_LICENSE_API_BASE_URL`은 고객 단말에서 Tailscale 설치나 사내 VPN 없이 접근 가능한 공개 HTTPS 도메인으로 설정해야 합니다.
 - 공개 엔드포인트 배포 전에는 TLS 인증서 체인, DNS, 방화벽/역방향 프록시, API rate limit, 관리자 경로 접근통제, 백업·복구를 별도로 검증합니다.
 - 현재 노트북 Tailscale `/ready` HTTP 200 및 QA lifecycle 통과는 개인 tailnet 내부의 서버·DB 검증입니다. 공개 인터넷의 고객 단말 접근성이나 Production 서비스 준비 완료를 의미하지 않습니다.
-- 공개 서버로 전환하기 전까지는 Production 앱 빌드/배포 게이트를 닫힌 상태로 유지합니다. Tailscale 주소를 APK에 고정해 고객에게 배포하지 않습니다.
+- 공개 접근성 검증 전까지는 Production 앱 빌드/배포 게이트를 닫힌 상태로 유지합니다. Tailscale 주소를 사용하는 경우 Serve인지 Funnel인지와 외부 고객망 접근 가능 여부를 먼저 확인하고, 개인 tailnet 전용 주소를 APK에 고정해 배포하지 않습니다.
