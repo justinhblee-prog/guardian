@@ -601,8 +601,7 @@ else
   echo "Android Auto is not installed in this emulator image; exact Android Auto lookup is skipped. Full inventory count and installed-package search were still verified."
 fi
 tap_content_description "홈"
-adb_cmd shell uiautomator dump /sdcard/guardian-home-controls.xml >/dev/null 2>&1
-home_controls_xml="$(adb_cmd shell cat /sdcard/guardian-home-controls.xml | tr -d '\r')"
+home_controls_xml="$(dump_ui_hierarchy /sdcard/guardian-home-controls.xml)"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 controls=[node.attrib.get("text","").strip() for node in root.iter("node")
@@ -619,9 +618,7 @@ echo "Verifying the persistent bottom navigation destinations."
 for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "프리미엄" "필터 규칙" "설정"; do
   tap_content_description "$navigation_label"
   sleep 1
-  adb_cmd shell rm -f /sdcard/guardian-navigation.xml
-  adb_cmd shell uiautomator dump /sdcard/guardian-navigation.xml >/dev/null 2>&1
-  navigation_xml="$(adb_cmd shell cat /sdcard/guardian-navigation.xml | tr -d '\r')"
+  navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-navigation.xml)"
   if ! python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("content-desc")==sys.argv[1]
