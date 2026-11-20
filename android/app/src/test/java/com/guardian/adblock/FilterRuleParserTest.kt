@@ -105,18 +105,21 @@ class FilterRuleParserTest {
         ))
         assertEquals(setOf("good.example"), parsed.blocked)
     }
-    @Test fun safelyScansEmptyAndMultipleModifierTokens() {
+    @Test fun rejectsEmptyAndDuplicateModifierTokensWithoutBroadeningRules() {
         val parsed = FilterRuleParser.parse(listOf(
             "||empty-suffix.example^\$",
+            "||leading-empty.example^\$,important",
+            "||trailing-empty.example^\$important,",
+            "||duplicate.example^\$important,IMPORTANT",
             "||multiple.example^\$third-party,important",
             "||cancelled.example^\$important,badfilter",
             "||survives.example^\$important"
         ))
-        assertEquals(setOf("empty-suffix.example"), parsed.blocked)
+        assertTrue(parsed.blocked.isEmpty())
         // URL-context modifiers cannot be represented by DNS filtering.
-        // Reject constrained rules instead of broadening them to every request.
+        // Reject malformed/unsupported suffixes instead of broadening them to every request.
         assertEquals(setOf("survives.example"), parsed.importantBlocked)
-        assertEquals(1, parsed.ignored)
+        assertEquals(5, parsed.ignored)
     }
 
     @Test fun badfilterDisablesAnImportantBlockRule() {
