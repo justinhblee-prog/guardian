@@ -30,18 +30,33 @@ object ProtectionDiagnostics {
      * Captures bounded stack-frame identity without exception messages, paths, URLs or arguments.
      */
     fun exceptionTraceSummary(error: Throwable, maxFrames: Int = 16): String {
-        val frames = mutableListOf<String>()
+        val framesByCause = mutableListOf<List<String>>()
         val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Throwable, Boolean>())
         var current: Throwable? = error
         val limit = maxFrames.coerceIn(1, 16)
-        while (current != null && seen.add(current) && frames.size < limit) {
-            for (frame in current.stackTrace) {
-                if (frames.size >= limit) break
-                val owner = frame.className.takeIf { it.matches(Regex("[A-Za-z0-9_$.]{1,180}")) } ?: continue
-                val method = frame.methodName.takeIf { it.matches(Regex("[A-Za-z0-9_$<>]{1,100}")) } ?: continue
-                frames.add("$owner.$method:${frame.lineNumber.coerceAtLeast(-1)}")
+        // A wrapper often has a long Android framework stack of its own. If that
+        // consumes the whole budget, the actual native/file-loader cause disappears.
+        // Bound the cause chain and divide the frame budget across each throwable.
+        while (current != null && seen.add(current) && framesByCause.size < 8) {
+            val safeFrames = current.stackTrace.mapNotNull { frame ->
+                val owner = frame.className.takeIf { it.matches(Regex("[A-Za-z0-9_$.]{1,180}")) }
+                    ?: return@mapNotNull null
+                val method = frame.methodName.takeIf { it.matches(Regex("[A-Za-z0-9_$<>]{1,100}")) }
+                    ?: return@mapNotNull null
+                "$owner.$method:${frame.lineNumber.coerceAtLeast(-1)}"
             }
+            framesByCause.add(safeFrames)
             current = current.cause
+        }
+        val frames = mutableListOf<String>()
+        var remaining = limit
+        framesByCause.forEachIndexed { index, causeFrames ->
+            if (remaining <= 0) return@forEachIndexed
+            val causesLeft = framesByCause.size - index
+            val quota = (remaining + causesLeft - 1) / causesLeft
+            val selected = causeFrames.take(quota)
+            frames.addAll(selected)
+            remaining -= selected.size
         }
         return "${exceptionTypeChain(error)} | ${frames.joinToString(" <- ").ifBlank { "stack unavailable" }}"
     }
