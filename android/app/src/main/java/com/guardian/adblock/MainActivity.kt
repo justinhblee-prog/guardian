@@ -242,7 +242,9 @@ class MainActivity : Activity() {
                     !FilterListManager.hasCachedAndroidAdsList(this) ||
                         System.currentTimeMillis() - FilterListManager.lastAndroidAdsUpdatedAt(this) >= updateInterval
                     )
-                val initialMainMissing = !FilterListManager.hasCachedList(this)
+                // A cache belonging to a different profile is not a valid first-run
+                // cache for the current selection, even when recurring updates are off.
+                val initialMainMissing = !FilterListManager.hasCachedList(this) || profileChanged
                 val initialSecurityMissing = securityEnabled && !FilterListManager.hasCachedSecurityList(this)
                 val initialAndroidAdsMissing = androidAdsEnabled && !FilterListManager.hasCachedAndroidAdsList(this)
                 val scheduledRefreshDue = autoUpdate && (
@@ -255,7 +257,8 @@ class MainActivity : Activity() {
                     securityEnabled = securityEnabled,
                     androidAdsCacheMissing = initialAndroidAdsMissing,
                     androidAdsEnabled = androidAdsEnabled,
-                    scheduledRefreshDue = scheduledRefreshDue
+                    scheduledRefreshDue = scheduledRefreshDue,
+                    selectedProfileChanged = profileChanged
                 )
                 android.util.Log.i(
                     "Guardian",
