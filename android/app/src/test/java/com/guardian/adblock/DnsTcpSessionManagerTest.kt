@@ -355,6 +355,28 @@ class DnsTcpSessionManagerTest {
         assertEquals(1202, framedAnswer.size)
     }
 
+    @Test fun synRetransmissionDuringHandshakeReplaysSynAckUntilEstablished() {
+        val manager = newManager()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 4900)
+        val first = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val retry = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        assertTrue(retry.syn)
+        assertTrue(retry.ack)
+        assertEquals(first.sequence, retry.sequence)
+        assertEquals(first.acknowledgement, retry.acknowledgement)
+
+        val handshakeAck = packet(flags = DnsTcpPacket.ACK, seq = 4901,
+            acknowledgment = (first.sequence + 1L) and 0xffffffffL)
+        assertTrue(manager.handle(handshakeAck, handshakeAck.size) { null }.isEmpty())
+
+        val delayedSyn = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        assertFalse(delayedSyn.syn)
+        assertTrue(delayedSyn.ack)
+        assertEquals(4901L, delayedSyn.acknowledgement)
+        assertEquals((first.sequence + 1L) and 0xffffffffL, delayedSyn.sequence)
+        assertEquals(1, manager.activeSessionCount())
+    }
+
     @Test fun retransmittedSynReceivesTheSameServerSequence() {
         val manager = newManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 5000)
@@ -380,8 +402,10 @@ class DnsTcpSessionManagerTest {
 
         val delayedSynAckBytes = manager.handle(syn, syn.size) { null }.single()
         val delayedSynAck = DnsTcpPacket.parse(delayedSynAckBytes, delayedSynAckBytes.size, 53000)!!
-        assertEquals(initialSynAck.sequence, delayedSynAck.sequence)
-        assertEquals(5101L, delayedSynAck.acknowledgement)
+        assertEquals(initialSynAck.sequence + 1L, delayedSynAck.sequence)
+        assertTrue(delayedSynAck.ack)
+        assertFalse(delayedSynAck.flags and DnsTcpPacket.SYN != 0)
+        assertEquals(5101L + framed.size, delayedSynAck.acknowledgement)
         assertEquals(1, manager.activeSessionCount())
 
         var calls = 0
