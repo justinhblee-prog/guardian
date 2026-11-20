@@ -92,6 +92,26 @@ class ProtectionDiagnosticsTest {
         assertTrue(!summary.contains("Library file not found"))
     }
 
+    @Test fun exceptionTraceSummaryReservesFramesForRootCauseAfterLongWrapperStack() {
+        val cause = java.io.FileNotFoundException("private loader path /data/user/0/secret/libx.so")
+        cause.stackTrace = (1..12).map { index ->
+            StackTraceElement("androidx.loader.NativeLoader", "loadStep$index", "NativeLoader.kt", 40 + index)
+        }.toTypedArray()
+        val error = UnsatisfiedLinkError("private wrapper message").apply { initCause(cause) }
+        error.stackTrace = (1..24).map { index ->
+            StackTraceElement("com.guardian.adblock.FrameworkWrapper", "dispatch$index", "Wrapper.kt", 100 + index)
+        }.toTypedArray()
+
+        val summary = ProtectionDiagnostics.exceptionTraceSummary(error)
+        assertTrue(summary.contains("com.guardian.adblock.FrameworkWrapper.dispatch1:101"))
+        assertTrue(summary.contains("androidx.loader.NativeLoader.loadStep1:41"))
+        assertTrue(!summary.contains("loadStep12"))
+        assertTrue(!summary.contains("/data/user/0/secret"))
+        assertTrue(!summary.contains("private wrapper message"))
+        val frameSection = summary.substringAfter(" | ")
+        assertTrue(frameSection.split(" <- ").size <= 16)
+    }
+
     @Test fun filterReadinessSummaryUsesOnlyKnownFilterLabels() {
         val ready = ProtectionDiagnostics.filterReadinessSummary("모든 선택 필터가 준비되었습니다.")
         assertTrue(ready.contains("모든 선택 필터 준비됨"))
