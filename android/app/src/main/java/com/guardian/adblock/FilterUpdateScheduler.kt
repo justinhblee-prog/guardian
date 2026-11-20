@@ -37,6 +37,16 @@ internal object FilterRecoveryPolicy {
         autoUpdateEnabled || forcedRecovery
 }
 
+/**
+ * Serializes the complete filter refresh transaction across manual, periodic,
+ * and recovery entry points. Per-file cache locks alone do not protect the
+ * multi-source preference/error snapshot from overlapping refresh workflows.
+ */
+internal object FilterUpdateExecutionLock {
+    @Synchronized
+    fun <T> withLock(block: () -> T): T = block()
+}
+
 /** Keeps one persistent periodic refresh request aligned with the user's settings. */
 object FilterUpdateScheduler {
     const val UNIQUE_WORK_NAME = "guardian_periodic_filter_update"
