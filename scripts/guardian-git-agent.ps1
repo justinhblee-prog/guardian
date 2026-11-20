@@ -94,7 +94,9 @@ function Invoke-Agent {
         }
         try {
             Invoke-Git $Repo @('worktree', 'add', '--detach', $worktree, "origin/$branchName") | Out-Null
-            Invoke-Git $worktree @('switch', '-c', $branchName) | Out-Null
+            # Keep the isolated worktree detached. This avoids collisions when the same PR branch
+            # already exists in the primary checkout or another linked worktree.
+            Invoke-Git $worktree @('switch', '--detach') | Out-Null
             $counts = (Invoke-Git $worktree @('rev-list', '--left-right', '--count', "origin/main...HEAD")).Output.Trim()
             $parts = $counts -split '\s+'
             $behind = [int]$parts[0]
