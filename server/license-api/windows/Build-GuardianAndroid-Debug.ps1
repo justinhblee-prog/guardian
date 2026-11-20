@@ -47,8 +47,18 @@ $javaVersionMatch = [regex]::Match($javaVersionText, 'version\s+"(\d+)')
 if ($LASTEXITCODE -ne 0 -or -not $javaVersionMatch.Success -or [int]$javaVersionMatch.Groups[1].Value -lt 17) {
   throw 'Android 빌드에는 JDK 17 이상이 필요합니다. 현재 java 버전을 확인하세요.'
 }
-$sdkPath = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { $env:ANDROID_SDK_ROOT }
-if ([string]::IsNullOrWhiteSpace($sdkPath)) { throw 'ANDROID_HOME 또는 ANDROID_SDK_ROOT를 Android SDK 경로로 설정하세요.' }
+$sdkPath = if ($env:ANDROID_SDK_ROOT) {
+  $env:ANDROID_SDK_ROOT
+} elseif ($env:ANDROID_HOME) {
+  $env:ANDROID_HOME
+} elseif ($env:LOCALAPPDATA -and (Test-Path (Join-Path $env:LOCALAPPDATA 'Android\Sdk'))) {
+  Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+} else {
+  $null
+}
+if ([string]::IsNullOrWhiteSpace($sdkPath)) {
+  throw 'Android SDK 경로를 찾을 수 없습니다. ANDROID_SDK_ROOT 또는 ANDROID_HOME을 설정하거나 기본 Android SDK 경로에 설치하세요.'
+}
 if (-not (Test-Path (Join-Path $sdkPath 'platforms\android-35')) -or
     -not (Test-Path (Join-Path $sdkPath 'build-tools\35.0.0'))) {
   throw 'Android SDK Platform 35와 Build Tools 35.0.0이 필요합니다. Android SDK Manager에서 설치하세요.'
