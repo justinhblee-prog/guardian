@@ -235,9 +235,20 @@ Safety:
                     Write-WorkerLog 'npm is unavailable locally; leaving backend validation to the PR CI gate.'
                     break
                 }
-                Write-WorkerLog "Running backend tests in $dir."
+                Write-WorkerLog "Installing backend test dependencies and running tests in $dir."
                 Push-Location (Join-Path $worktree $dir)
                 try {
+                    if (Test-Path -LiteralPath 'package-lock.json') {
+                        & npm ci --ignore-scripts --no-audit --no-fund 2>&1 |
+                            Tee-Object -FilePath (Join-Path $LogRoot ('copilot-' + ($dir -replace '/', '-') + '-install.log'))
+                    } else {
+                        & npm install --ignore-scripts --no-audit --no-fund --no-save --package-lock=false 2>&1 |
+                            Tee-Object -FilePath (Join-Path $LogRoot ('copilot-' + ($dir -replace '/', '-') + '-install.log'))
+                    }
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-WorkerLog "Backend dependency installation failed in $dir; no PR was pushed."
+                        return
+                    }
                     & npm test 2>&1 | Tee-Object -FilePath (Join-Path $LogRoot ('copilot-' + ($dir -replace '/', '-') + '-test.log'))
                     if ($LASTEXITCODE -ne 0) {
                         Write-WorkerLog "Backend tests failed in $dir; no PR was pushed."
