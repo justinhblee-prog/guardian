@@ -123,3 +123,15 @@ object FilterUpdateScheduler {
         )
     }
 }
+
+internal object FilterUpdateErrorPolicy {
+    fun hasVisibleError(
+        baseError: Boolean,
+        securityEnabled: Boolean,
+        securityError: Boolean,
+        androidAdsEnabled: Boolean,
+        androidAdsError: Boolean
+    ): Boolean = baseError ||
+        (securityEnabled && securityError) ||
+        (androidAdsEnabled && androidAdsError)
+}
