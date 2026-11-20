@@ -449,6 +449,23 @@ if (!databaseUrl) {
   });
 
 
+  test('existing license databases can apply migrations 002 and 003 repeatedly', async () => {
+    await pool.query('DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
+    for (const migrationPath of [
+      new URL('../migrations/002_shared_rate_limit_buckets.sql', import.meta.url),
+      new URL('../migrations/003_support_tickets.sql', import.meta.url)
+    ]) {
+      const sql = readFileSync(migrationPath, 'utf8');
+      await pool.query(sql);
+      await pool.query(sql);
+    }
+    const tables = await pool.query(
+      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets"
+    );
+    assert.equal(tables.rows[0].rate_limits, 'api_rate_limit_buckets');
+    assert.equal(tables.rows[0].support_tickets, 'support_tickets');
+  });
+
   test('admin license issuance enforces plan duration and records the selected plan', async () => {
     const valid = await post('/v1/admin/licenses', {
       planCode: 'monthly_30d', validDays: 30, maxDevices: 2
