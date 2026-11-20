@@ -2398,8 +2398,9 @@ class MainActivity : Activity() {
                 val title = subject.text.toString().trim()
                 val body = message.text.toString().trim()
                 val replyEmail = email.text.toString().trim()
-                if (title.length !in 3..120 || body.length !in 10..5000) {
-                    android.widget.Toast.makeText(this, "제목은 3~120자, 내용은 10~5,000자로 입력하세요.", Toast.LENGTH_LONG).show()
+                if (!SupportInputPolicy.isValidSupportText(title, 3, 120) ||
+                    !SupportInputPolicy.isValidSupportText(body, 10, 5000)) {
+                    android.widget.Toast.makeText(this, "제목은 3~120자, 내용은 10~5,000자로 입력하세요. 제어 문자는 사용할 수 없습니다.", Toast.LENGTH_LONG).show()
                     return@setOnClickListener
                 }
                 if (!SupportInputPolicy.isValidReplyEmail(replyEmail)) {
