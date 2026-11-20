@@ -160,7 +160,6 @@ class Ipv4UdpTest {
         assertNotNull(Ipv4Udp.parseDns(dontFragment, dontFragment.size))
     }
 
-    private fun sealHeader(packet: ByteArray, headerLength: Int) {
     private fun sealUdpChecksum(packet: ByteArray, offset: Int, length: Int) {
         packet[offset + 6] = 0
         packet[offset + 7] = 0
@@ -188,7 +187,7 @@ class Ipv4UdpTest {
         packet[offset + 7] = checksum.toByte()
     }
 
-
+    private fun sealHeader(packet: ByteArray, headerLength: Int) {
         packet[10] = 0
         packet[11] = 0
         var sum = 0L
@@ -202,5 +201,4 @@ class Ipv4UdpTest {
         packet[10] = (checksum ushr 8).toByte()
         packet[11] = checksum.toByte()
     }
-
 }
