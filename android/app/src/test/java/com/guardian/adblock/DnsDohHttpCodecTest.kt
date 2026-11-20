@@ -88,6 +88,22 @@ class DnsDohHttpCodecTest {
         assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(prefixedChunk)))
     }
 
+    @Test fun validatesChunkSizeWhitespaceAndExtensionGrammar() {
+        fun response(chunkLine: String): ByteArray =
+            ("HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\n" +
+                "Transfer-Encoding: chunked\\r\\n\\r\\n$chunkLine\\r\\n").toByteArray(StandardCharsets.ISO_8859_1) +
+                dnsMessage + "\\r\\n0\\r\\n\\r\\n".toByteArray(StandardCharsets.ISO_8859_1)
+
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(response(" 1d"))))
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(response("1d "))))
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(response("1d;"))))
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(response("1d;=bad"))))
+        assertNull(DnsDohHttpCodec.readResponse(ByteArrayInputStream(response("1d;name=\\\"unterminated"))))
+        assertArrayEquals(dnsMessage, DnsDohHttpCodec.readResponse(
+            ByteArrayInputStream(response("1d;name=token; quoted=\\\"ok value\\\""))
+        ))
+    }
+
     @Test fun rejectsMalformedChunkTrailersAndControlCharacters() {
         val malformedTrailer = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nTransfer-Encoding: chunked\r\n\r\n1d\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage + "\r\n0\r\nNot-A-Header\r\n\r\n".toByteArray(StandardCharsets.ISO_8859_1)
