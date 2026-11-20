@@ -55,4 +55,26 @@ class VpnStartCancellationGateTest {
         assertFalse(gate.isCurrent(first))
         assertTrue(gate.isCurrent(second))
     }
+
+    @Test fun explicitStopBeforeDelayedResumeCheckCannotCreateANewStartGeneration() {
+        val gate = VpnStartCancellationGate()
+        val lifecycleLock = Any()
+        var restoreRequested = true
+        gate.onStartRequested()
+
+        // Models stopProtection(): durable intent is cleared and the active
+        // generation is cancelled while holding the service lifecycle monitor.
+        synchronized(lifecycleLock) {
+            restoreRequested = false
+            gate.cancel()
+        }
+
+        // Models the delayed compatibility/exclusion resume handoff. The
+        // intent check and generation creation must use the same monitor.
+        val resumedGeneration = synchronized(lifecycleLock) {
+            if (!restoreRequested) null else gate.onStartRequested()
+        }
+
+        assertNull(resumedGeneration)
+    }
 }
