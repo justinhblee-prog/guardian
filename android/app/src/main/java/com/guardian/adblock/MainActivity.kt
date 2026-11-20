@@ -1067,10 +1067,13 @@ class MainActivity : Activity() {
                 ),
                 licenseApiConfigured = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
                     BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank(),
-                filterUpdateErrorPresent =
-                    !prefs.getString(FilterListManager.KEY_LAST_ERROR, null).isNullOrBlank() ||
-                    (securityEnabled && !prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null).isNullOrBlank()) ||
-                    (androidAdsEnabled && !prefs.getString(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR, null).isNullOrBlank()),
+                filterUpdateErrorPresent = FilterUpdateErrorPolicy.hasVisibleError(
+                    baseError = !prefs.getString(FilterListManager.KEY_LAST_ERROR, null).isNullOrBlank(),
+                    securityEnabled = securityEnabled,
+                    securityError = !prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null).isNullOrBlank(),
+                    androidAdsEnabled = androidAdsEnabled,
+                    androidAdsError = !prefs.getString(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR, null).isNullOrBlank()
+                ),
                 lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null),
                 lastStartupTrace = prefs.getString(GuardianVpnService.KEY_STARTUP_TRACE, null),
                 bundledRuleAssetBytes = assetBytes,
