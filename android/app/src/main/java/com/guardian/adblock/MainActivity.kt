@@ -1067,11 +1067,10 @@ class MainActivity : Activity() {
                 ),
                 licenseApiConfigured = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
                     BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank(),
-                filterUpdateErrorPresent = listOf(
-                    FilterListManager.KEY_LAST_ERROR,
-                    FilterListManager.KEY_SECURITY_LAST_ERROR,
-                    FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
-                ).any { !prefs.getString(it, null).isNullOrBlank() },
+                filterUpdateErrorPresent =
+                    !prefs.getString(FilterListManager.KEY_LAST_ERROR, null).isNullOrBlank() ||
+                    (securityEnabled && !prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null).isNullOrBlank()) ||
+                    (androidAdsEnabled && !prefs.getString(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR, null).isNullOrBlank()),
                 lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null),
                 lastStartupTrace = prefs.getString(GuardianVpnService.KEY_STARTUP_TRACE, null),
                 bundledRuleAssetBytes = assetBytes,
@@ -3541,8 +3540,8 @@ class MainActivity : Activity() {
             summary,
             signedManifestStatus,
             lastError?.takeIf { it.isNotBlank() }?.let { "광고 필터 업데이트 실패(이전 목록 유지): $it" },
-            securityError?.takeIf { it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): $it" },
-            androidAdsError?.takeIf { it.isNotBlank() }?.let { "Android 앱 광고 필터 업데이트 실패(이전 목록 유지): $it" }
+            securityError?.takeIf { securityOn && it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): $it" },
+            androidAdsError?.takeIf { androidAdsOn && it.isNotBlank() }?.let { "Android 앱 광고 필터 업데이트 실패(이전 목록 유지): $it" }
         ).joinToString(" · ")
     }
 
