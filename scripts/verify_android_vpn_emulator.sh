@@ -1091,27 +1091,18 @@ if ! grep -Fq "Guardian 앱 정보와 보호 정책" <<<"$support_top_xml"; then
   exit 1
 fi
 
-support_center_visible=0
-# Use short overlapping scroll gestures. A long fling can jump over a compact
-# support card between two UI hierarchy snapshots and report a false absence.
-for attempt in $(seq 1 32); do
-  adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
-  support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
-  if grep -Fq '고객지원 센터' <<<"$support_settings_xml" &&
-     grep -Fq '자주 묻는 질문 (Q&A)' <<<"$support_settings_xml" &&
-     grep -Fq '선택 이메일은 답변 처리를 위해 서버로 전송됩니다' <<<"$support_settings_xml"; then
-    support_center_visible=1
-    echo "Customer support center found after $attempt incremental Settings scroll checks."
-    break
-  fi
-  adb_cmd shell input swipe 540 1300 540 1000 300
-  sleep 0.25
-done
-if [[ "$support_center_visible" -ne 1 ]]; then
-  echo "Customer support center entry was not visible in Settings."
+# The support card is intentionally the first content card in Settings.
+# Verify it at the top immediately; scrolling down would move it out of view.
+adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
+support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
+if ! grep -Fq '고객지원 센터' <<<"$support_settings_xml" ||
+   ! grep -Fq '자주 묻는 질문 (Q&A)' <<<"$support_settings_xml" ||
+   ! grep -Fq '문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다' <<<"$support_settings_xml"; then
+  echo "Customer support center card is missing from the top of Settings."
   echo "$support_settings_xml"
   exit 1
 fi
+echo "Customer support center found at the top of Settings."
 
 tap_text "자주 묻는 질문 (Q&A)"
 sleep 1
