@@ -11,7 +11,7 @@ class FilterUpdateWorker(
     params: WorkerParameters
 ) : Worker(appContext, params) {
 
-    override fun doWork(): Result {
+    override fun doWork(): Result = FilterUpdateExecutionLock.withLock {
         val prefs = applicationContext.getSharedPreferences(GuardianVpnService.PREFS, Context.MODE_PRIVATE)
         val forcedRecovery = inputData.getBoolean(FilterUpdateScheduler.KEY_FORCE_RECOVERY, false)
         if (!FilterRecoveryPolicy.shouldRun(
