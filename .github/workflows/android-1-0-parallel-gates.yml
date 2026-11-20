@@ -1,0 +1,136 @@
+name: Guardian Android 1.0 Parallel Gates
+
+# Manual-only by design. No push/PR/schedule triggers; this file is safe to stage
+# without consuming hosted-runner minutes. Dispatch only after explicit cost approval.
+on:
+  workflow_dispatch:
+    inputs:
+      include_android_quality:
+        description: Run Android unit tests and lint
+        required: true
+        type: boolean
+        default: true
+      include_license_api_unit:
+        description: Run DB-independent License API tests
+        required: true
+        type: boolean
+        default: true
+      include_source_contract:
+        description: Run source and script contract checks
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guardian-android-1-0-parallel-gates-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android-quality:
+    name: Android unit tests and lint
+    if: inputs.include_android_quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android platform and build tools
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Run Android unit tests
+        run: gradle -p android --no-daemon testDebugUnitTest
+      - name: Run Android lint
+        run: gradle -p android --no-daemon lintDebug
+
+  license-api-unit:
+    name: License API unit and HTTP tests
+    if: inputs.include_license_api_unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: server/license-api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install API dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false
+      - name: Run DB-independent API tests
+        run: node --test test/license-core.test.mjs test/server-http.test.mjs test/admin-ui.test.mjs test/rate-limit.test.mjs
+
+  source-contract:
+    name: Source, workflow and script contracts
+    if: inputs.include_source_contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate shell and Python verification scripts
+        run: |
+          bash -n VERIFY_ANDROID_CORE.sh
+          bash -n scripts/verify_android_emulator.sh
+          bash -n scripts/verify_android_vpn_emulator.sh
+          python3 -m py_compile scripts/verify_guardian_crash_log.py
+          python3 -m unittest scripts/test_verify_guardian_crash_log.py
+      - name: Check support API and migration contract
+        run: |
+          grep -q "'/v1/support/tickets'" server/license-api/src/server.mjs
+          grep -q "'/v1/support/tickets/lookup'" server/license-api/src/server.mjs
+          grep -q "'/v1/admin/support/tickets'" server/license-api/src/server.mjs
+          test -s server/license-api/migrations/003_support_tickets.sql
+          test -s android/app/src/main/java/com/guardian/adblock/LicenseApiClient.kt
+      - name: Ensure this gate remains manual-only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import yaml
+          data = yaml.safe_load(Path('.github/workflows/android-1-0-parallel-gates.yml').read_text())
+          triggers = data.get('on', data.get(True, {}))
+          assert set(triggers) == {'workflow_dispatch'}, f'Unexpected automatic trigger: {list(triggers)}'
+          assert set(data.get('permissions', {})) == {'contents'}
+          assert data['permissions']['contents'] == 'read'
+          PY
+
+  result:
+    name: Parallel gate result
+    if: always()
+    needs: [android-quality, license-api-unit, source-contract]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Summarize gate outcomes
+        env:
+          ANDROID: ${{ needs.android-quality.result }}
+          LICENSE: ${{ needs.license-api-unit.result }}
+          SOURCE: ${{ needs.source-contract.result }}
+        run: |
+          {
+            echo '## Guardian Android 1.0 parallel gates'
+            echo "- Android quality: ${ANDROID}"
+            echo "- License API unit: ${LICENSE}"
+            echo "- Source contracts: ${SOURCE}"
+            echo '- PostgreSQL integration, emulator E2E and Samsung device acceptance are separate gates and are not claimed by this workflow.'
+            echo '- No APK or Production release is produced by this workflow.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          for result in "$ANDROID" "$LICENSE" "$SOURCE"; do
+            if [[ "$result" != success && "$result" != skipped ]]; then exit 1; fi
+          done
