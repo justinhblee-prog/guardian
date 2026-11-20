@@ -317,3 +317,12 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - `forwardDns()`는 DNS 질의마다 `systemDnsResolvers()`를 다시 호출하며, 해당 함수는 매번 `ConnectivityManager.allNetworks`, 네트워크 capability 및 link properties의 DNS 서버 목록을 다시 조회합니다. 업스트림 UDP/TCP 소켓도 질의 단위로 생성·종료되어 이전 네트워크의 영구 소켓이나 resolver 목록 캐시를 유지하지 않습니다.
 - 따라서 현 구조에는 별도 network callback으로 VPN 전체를 매번 재생성해야 하는 근거가 확인되지 않았습니다. 네트워크 전환 직후 진행 중인 질의가 기존 경로에서 실패할 수는 있으나, 다음 resolver 후보/다음 질의에서 최신 네트워크 목록과 fallback을 사용합니다.
 - 이 결론은 소스 구조에 대한 정적 점검이며, Wi-Fi↔모바일 데이터 전환, 비행기 모드, captive portal, 삼성 절전/백그라운드 조건의 실기기 검증을 대체하지 않습니다.
+
+
+## 2026-11-20 서비스 복구·전면 앱 감시 생명주기 정적 감사
+
+- **복구 정책 확인**: `ProtectionRestoreReceiver`는 BOOT_COMPLETED/MY_PACKAGE_REPLACED만 허용하고, `KEY_RESTORE_REQUESTED`가 명시적으로 false이면 오래된 `KEY_ACTIVE=true`가 남아 있어도 복구하지 않습니다. 복구 요청 시 기존 active 비트를 먼저 false로 내리고 recovery pending을 설정한 뒤 foreground service를 요청합니다.
+- **START_STICKY 확인**: null intent 재생성 경로는 durable restore intent(구버전 설정에는 persisted active)를 기준으로 TUN 복구를 시도합니다. 명시적 STOP은 durable intent와 recovery pending을 동기적으로 해제합니다. `onRevoke()`는 명시적 중지 처리로 재승인을 자동 시도하지 않으며, `onDestroy()`는 restore intent를 보존합니다.
+- **Foreground monitor 확인**: 감시 스레드는 daemon이며 stop 시 running=false 및 interrupt 후 제한 시간 join을 수행합니다. 종료 join이 완전하지 않아도 서비스의 monitor generation 검사가 이전 감시 스레드의 늦은 callback을 무효화합니다. Usage Events 조회 실패/잠금 상태에서는 tracker를 reset해 자동 일시중지 상태를 고집하지 않고 보호 재개를 기본값으로 합니다.
+- **추가 코드 변경 여부**: 위 경로에서 즉시 수정이 필요한 확정 결함은 이번 정적 검토 범위에서 확인하지 못해 불필요한 lifecycle 변경은 추가하지 않았습니다. Android 버전별 백그라운드 실행 제한과 제조사 절전 정책은 실기기 검증 대상입니다.
+- **독립 JVM 확인**: `PacketSessionOwnership` helper를 Kotlin/JVM으로 별도 컴파일하고 stale replacement cleanup, STOP 후 cleanup 무효화, current-session one-shot cleanup 3개 시나리오를 실제 실행해 PASS를 확인했습니다. 이는 Android Gradle 빌드/JUnit 실행이 아닙니다.
