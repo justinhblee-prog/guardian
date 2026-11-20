@@ -88,3 +88,14 @@ Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 �
 - 라이선스 7/30/90/365일 프리셋과 서버측 기간 일치 검증, 발급 감사 metadata를 통합했다. Lifetime은 계속 미지원이다.
 - PR #220 License API Node/PostgreSQL 통합, Docker 설정, PowerShell 파서 검증과 Git consistency gate는 통과했다. Android 에뮬레이터/지원 UI 및 secrets 없는 Production Release 검증은 별도 CI 완료 전까지 미확정이다.
 - 실제 노트북 DB migration, 운영 서버 배포, 실사용자 이메일 발송, 실기기 지원 UI 검증은 수행하지 않았다.
+
+
+## 2026-11-21 Android 진단 개선 및 최신 main 검증
+
+- PR #226/#227을 main에 반영했습니다. PR #227 merge commit: `bd2668928ea6985e0ce710fc5d230be39682f371`. 긴 wrapper 예외가 진단 프레임 예산을 독점하지 않도록 cause chain별로 제한된 stack frame을 배분하며, 긴 wrapper 뒤의 `FileNotFoundException` 등 root cause frame이 보존되는 회귀 테스트를 추가했습니다.
+- PR #227 CI run [44785653107](https://github.com/justinhblee-prog/guardian/actions/runs/44785653107): Android unit tests, lint, APK assembly/evidence, backend/API, repository integrity 및 engineering verification 성공.
+- main Engineering Orchestrator [44786165634](https://github.com/justinhblee-prog/guardian/actions/runs/44786165634): 성공. Android unit/build/lint, backend/API/deployment, repository integrity 및 aggregate decision 통과.
+- main Android APK workflow [44786165624](https://github.com/justinhblee-prog/guardian/actions/runs/44786165624): 최신 main SHA `bd266892...`에서 실행 중. 마지막 확인 시 unit tests 성공, lint 및 이전 dev APK 업그레이드 fixture 진행 중이며, 이 run의 최종 APK/emulator 결과는 아직 미확정.
+- 별도 Android run [44785000260](https://github.com/justinhblee-prog/guardian/actions/runs/44785000260)은 완료 success이며 emulator install/launch 및 VPN DNS E2E 성공. 단, head SHA는 `bdb63e201f1e7aa0cc92a322e93c4c206e21f816`로 현재 main SHA와 다르므로 최신 main 검증으로 대체하지 않습니다.
+- main 개발 APK `0.7.34-dev` (versionCode 47)은 별도 artifact에서 다운로드 및 SHA-256 검증 후 사용자에게 전달했습니다. 이는 debug/dev 서명 APK이며 Production release가 아닙니다.
+- 실기기 Samsung `Library file not found`는 여전히 미확정입니다. 새 진단은 실제 단말에서 발생한 root cause frame을 보존하기 위한 개선이며, 단말 로그 없이 원인을 해결했다고 주장하지 않습니다.
