@@ -92,32 +92,52 @@ if ($InstallToConnectedDevice) {
   }
   $deviceId = ($connected[0] -split '\s+')[0]
   $manufacturer = (& $adb -s $deviceId shell getprop ro.product.manufacturer).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($manufacturer)) { throw '연결 기기의 제조사 확인에 실패했습니다.' }
   $model = (& $adb -s $deviceId shell getprop ro.product.model).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($model)) { throw '연결 기기의 모델 확인에 실패했습니다.' }
   $androidRelease = (& $adb -s $deviceId shell getprop ro.build.version.release).Trim()
-  if ($LASTEXITCODE -ne 0) { throw '연결 기기의 제조사/모델/Android 버전 확인에 실패했습니다.' }
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($androidRelease)) { throw '연결 기기의 Android 버전 확인에 실패했습니다.' }
   if ($manufacturer -notmatch 'Samsung') {
     Write-Warning "연결 기기는 Samsung이 아닙니다: $manufacturer $model. 일반 Android 설치 확인만 수행합니다."
   }
   & $adb -s $deviceId install -r $apkTarget
   if ($LASTEXITCODE -ne 0) { throw '연결 기기에 Guardian debug APK 설치 실패' }
   & $adb -s $deviceId shell am force-stop com.guardian.adblock
-  & $adb -s $deviceId shell am start -n com.guardian.adblock/.MainActivity
-  if ($LASTEXITCODE -ne 0) { throw 'Guardian MainActivity 실행 실패' }
+  if ($LASTEXITCODE -ne 0) { throw '기존 Guardian 프로세스 종료 실패' }
+  $launchOutput = @(& $adb -s $deviceId shell am start -W -n com.guardian.adblock/.MainActivity)
+  if ($LASTEXITCODE -ne 0 -or ($launchOutput -join "`n") -notmatch 'Status:\s*ok') {
+    throw "Guardian MainActivity 실행 실패: $($launchOutput -join ' ')"
+  }
   Start-Sleep -Seconds 5
+  $processId = (& $adb -s $deviceId shell pidof com.guardian.adblock).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($processId)) {
+    $processList = @(& $adb -s $deviceId shell ps -A)
+    if ($LASTEXITCODE -ne 0 -or -not ($processList | Where-Object { $_ -match '\\bcom\\.guardian\\.adblock\\b' })) {
+      throw 'Guardian 화면 실행 후 앱 프로세스가 유지되지 않습니다. 앱 시작 직후 종료되었을 수 있습니다.'
+    }
+  }
   $captureDir = Join-Path $outputDir ('DeviceCapture-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
   New-Item -ItemType Directory -Force -Path $captureDir | Out-Null
   $remoteShot = '/sdcard/guardian-debug-screen.png'
-  & $adb -s $deviceId shell screencap -p $remoteShot
-  if ($LASTEXITCODE -ne 0) { throw 'Android 화면 캡처 실패' }
-  & $adb -s $deviceId pull $remoteShot (Join-Path $captureDir 'main-screen.png')
-  if ($LASTEXITCODE -ne 0) { throw '화면 캡처 파일을 노트북으로 가져오지 못했습니다.' }
-  & $adb -s $deviceId shell rm -f $remoteShot
+  $localShot = Join-Path $captureDir 'main-screen.png'
+  try {
+    & $adb -s $deviceId shell screencap -p $remoteShot
+    if ($LASTEXITCODE -ne 0) { throw 'Android 화면 캡처 실패' }
+    & $adb -s $deviceId pull $remoteShot $localShot
+    if ($LASTEXITCODE -ne 0) { throw '화면 캡처 파일을 노트북으로 가져오지 못했습니다.' }
+    $shot = [IO.File]::ReadAllBytes($localShot)
+    if ($shot.Length -lt 8 -or $shot[0] -ne 137 -or $shot[1] -ne 80 -or $shot[2] -ne 78 -or $shot[3] -ne 71) {
+      throw '가져온 화면 캡처가 유효한 PNG 파일이 아닙니다.'
+    }
+  } finally {
+    & $adb -s $deviceId shell rm -f $remoteShot | Out-Null
+  }
   $deviceReport = @(
     "Manufacturer: $manufacturer"
     "Model: $model"
     "Android: $androidRelease"
     "APK SHA-256: $hash"
-    "Installed and launched: PASS"
+    "Installed, launched and process alive: PASS"
     "Main screen capture: main-screen.png"
     "Note: screenshot capture confirms launch/render availability only; VPN, DNS blocking, license activation and billing still require separate functional checks."
   ) -join [Environment]::NewLine
