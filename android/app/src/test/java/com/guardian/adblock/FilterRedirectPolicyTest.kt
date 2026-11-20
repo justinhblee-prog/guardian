@@ -94,8 +94,8 @@ class FilterRedirectPolicyTest {
 
     @Test fun rejectsControlCharactersInRedirectTargets() {
         listOf(
-            "https://example.com/filter\\nlist.txt",
-            "https://example.com/filter\\u0001list.txt"
+            "https://example.com/filter\nlist.txt",
+            "https://example.com/filter\u0001list.txt"
         ).forEach { value ->
             assertNull(FilterRedirectPolicy.resolve(base, 302, value, 0))
         }
