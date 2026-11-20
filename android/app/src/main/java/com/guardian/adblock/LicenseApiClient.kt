@@ -44,6 +44,10 @@ internal fun isLicensePublicKeyConfigurationValid(encoded: String): Boolean =
 internal fun isActiveLicenseStatus(status: String): Boolean =
     status.equals("active", ignoreCase = true)
 
+/** Only a bounded opaque reference may be used for compensating release after a failed activation save. */
+internal fun isSafeLicenseRefForActivationCleanup(value: String): Boolean =
+    value.matches(Regex("[a-zA-Z0-9._-]{8,128}"))
+
 /** Parse only an HTTPS origin; API paths are appended from fixed internal constants. */
 internal fun parseLicenseApiBaseUrl(value: String): URL {
     val base = value.trim()
@@ -121,14 +125,35 @@ internal object LicenseApiClient {
         }
         // Fail locally before the server allocates a device activation slot.
         validateLicensePublicKeyConfiguration(BuildConfig.LICENSE_PUBLIC_KEY)
+        val deviceBinding = LicenseEntitlementStore.deviceBinding(context)
         val response = post(context,
             "/v1/licenses/activate",
             JSONObject()
                 .put("licenseKey", licenseKey.trim().uppercase())
-                .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
+                .put("deviceBinding", deviceBinding)
                 .put("appVersion", appVersion.take(40))
         )
-        return persistToken(context, response)
+        return try {
+            persistToken(context, response)
+        } catch (activationSaveError: Exception) {
+            // The server has already allocated a device slot. If local signature
+            // verification or durable storage fails, compensate by releasing that
+            // exact slot so a later attempt with a different key cannot strand it.
+            val licenseRef = response.optString("licenseRef")
+            if (isSafeLicenseRefForActivationCleanup(licenseRef)) {
+                try {
+                    post(context,
+                        "/v1/licenses/deactivate",
+                        JSONObject()
+                            .put("deviceBinding", deviceBinding)
+                            .put("licenseRef", licenseRef)
+                    )
+                } catch (releaseError: Exception) {
+                    activationSaveError.addSuppressed(releaseError)
+                }
+            }
+            throw activationSaveError
+        }
     }
 
     @Synchronized
