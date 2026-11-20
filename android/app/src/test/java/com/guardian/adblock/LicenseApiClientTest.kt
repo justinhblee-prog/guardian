@@ -13,6 +13,15 @@ import org.junit.Test
 class LicenseApiClientTest {
 
     @Test
+    fun persistedActivationRequestIdsMustMatchServerUuidV4Contract() {
+        assertTrue(isValidActivationRequestId("b5d9c8d4-0b25-4d55-9a66-6c2d9a4c8e21"))
+        assertTrue(isValidActivationRequestId("B5D9C8D4-0B25-4D55-9A66-6C2D9A4C8E21"))
+        assertFalse(isValidActivationRequestId("b5d9c8d4-0b25-1d55-9a66-6c2d9a4c8e21"))
+        assertFalse(isValidActivationRequestId("b5d9c8d4-0b25-4d55-7a66-6c2d9a4c8e21"))
+        assertFalse(isValidActivationRequestId("not-a-uuid"))
+    }
+
+    @Test
     fun acceptsRsa2048OrStrongerPinnedLicenseKey() {
         val generator = KeyPairGenerator.getInstance("RSA")
         generator.initialize(2048)
