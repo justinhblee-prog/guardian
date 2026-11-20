@@ -106,6 +106,16 @@ function Invoke-Agent {
     if ($LASTEXITCODE -ne 0) { throw 'Could not retrieve open PR list with gh CLI.' }
     $prs = @($prsJson | ConvertFrom-Json)
     Write-Log ("Open PRs targeting main: {0}" -f $prs.Count)
+    $blockedRebaseFile = Join-Path $LogRoot 'blocked-rebases.json'
+    $blockedRebases = @{}
+    if (Test-Path $blockedRebaseFile) {
+        try {
+            $savedBlocks = Get-Content -LiteralPath $blockedRebaseFile -Raw | ConvertFrom-Json
+            foreach ($property in $savedBlocks.PSObject.Properties) { $blockedRebases[$property.Name] = [string]$property.Value }
+        } catch {
+            Write-Log 'Previous conflict-suppression state is unreadable; starting with an empty state.'
+        }
+    }
     foreach ($pr in $prs) {
         $number = [int]$pr.number
         $branchName = [string]$pr.headRefName
@@ -137,13 +147,22 @@ function Invoke-Agent {
                 Write-Log "PR #$number ($branchName): already based on current main; ahead=$ahead."
                 continue
             }
+            $headSha = (Invoke-Git $worktree @('rev-parse', 'HEAD')).Output.Trim()
+            $mainSha = (Invoke-Git $Repo @('rev-parse', 'origin/main')).Output.Trim()
+            $conflictFingerprint = "$headSha|$mainSha"
+            if ($blockedRebases.ContainsKey([string]$number) -and $blockedRebases[[string]$number] -eq $conflictFingerprint) {
+                Write-Log "PR #$number SKIPPED: same head/main revisions already produced a rebase conflict; waiting for either revision to change."
+                continue
+            }
             $mergeBase = (Invoke-Git $worktree @('merge-base', 'HEAD', 'origin/main')).Output.Trim()
             if (-not $mergeBase) { throw "PR #$number has no merge base with origin/main." }
             Write-Log "PR #$number ($branchName): rebasing; behind=$behind ahead=$ahead."
             $rebase = Invoke-Git $worktree @('rebase', '--rebase-merges', 'origin/main') -AllowFailure
             if ($rebase.Code -ne 0) {
                 Invoke-Git $worktree @('rebase', '--abort') -AllowFailure | Out-Null
-                Write-Log "PR #$number BLOCKED: rebase conflict; branch left unchanged. $($rebase.Output)"
+                $blockedRebases[[string]$number] = $conflictFingerprint
+                [pscustomobject]$blockedRebases | ConvertTo-Json | Set-Content -LiteralPath $blockedRebaseFile -Encoding UTF8
+                Write-Log "PR #$number BLOCKED: rebase conflict; branch left unchanged and identical revisions will not be retried. $($rebase.Output)"
                 continue
             }
             $push = Invoke-Git $worktree @('push', '--force-with-lease', 'origin', "HEAD:refs/heads/$branchName") -AllowFailure
@@ -189,9 +208,18 @@ if ($InstallScheduledTask) {
     if (Test-Path $launcher) { Remove-Item -LiteralPath $launcher -Force }
     Write-Log 'Scheduled task and current-user Startup fallback removed.'
 } elseif ($RunLoop) {
-    Write-Log 'Current-user background loop started; interval=15 minutes.'
+    $scriptPath = $PSCommandPath
+    $loadedScriptHash = (Get-FileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash
+    Write-Log 'Current-user background loop started; interval=15 minutes; automatic script hot-reload enabled.'
     while ($true) {
         try { Invoke-AgentWithLock } catch { Write-Log "Automation cycle failed: $($_.Exception.Message)" }
+        $currentScriptHash = (Get-FileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash
+        if ($currentScriptHash -ne $loadedScriptHash) {
+            Write-Log 'Agent script changed on disk; starting a fresh process with the updated script and exiting the old process.'
+            $enginePath = (Get-Process -Id $PID).Path
+            Start-Process -FilePath $enginePath -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $scriptPath), '-RunLoop') -WorkingDirectory $Repo -WindowStyle Hidden
+            exit 0
+        }
         Start-Sleep -Seconds 900
     }
 } else {
