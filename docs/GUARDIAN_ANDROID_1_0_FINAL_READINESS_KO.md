@@ -239,3 +239,10 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 회귀 테스트는 malformed Unicode escape가 포함된 파일에서 정상 source timestamp가 보존되고 손상 source만 복구되는지 확인합니다. 기존 corruption fixture의 줄바꿈/escape도 실제 별도 행을 만들도록 수정했습니다.
 - 독립 JVM 검증: JDK 21 + kotlinc로 ManifestTimestampStore를 컴파일하고 실행했습니다. 8개 독립 source × 250회 병렬 기록, malformed Unicode ledger 복구 및 다른 source 보존, 동일/과거 timestamp 거부와 새 timestamp 허용, sourceId 검증을 모두 통과했습니다.
 - 검증 범위 제한: 위 실행은 저장소의 클래스 로직을 분리한 JVM 검증입니다. Android Gradle 빌드, Android JUnit 전체 실행, APK 생성/설치, Samsung 실기기 VPN·DNS 차단 검증을 대체하지 않습니다. GitHub Actions는 실행하지 않았습니다.
+## 2026-11-20 선택 필터 프로필 변경 후 초기 갱신 누락 수정
+
+- 시작 시 기존 캐시 파일이 있어도 캐시의 프로필과 사용자가 선택한 프로필이 다르면 새 프로필의 캐시를 준비해야 합니다.
+- 기존 로직은 프로필 변경을 예약 업데이트 신호에만 포함해 자동 업데이트가 꺼진 경우 시작 시 새 프로필 다운로드가 누락될 수 있었습니다.
+- 선택 프로필 불일치를 초기 캐시 누락과 동일하게 취급하도록 수정했습니다. 자동 업데이트 설정은 예약 갱신만 제어하고, 선택한 프로필 적용에 필요한 최초 다운로드는 계속 수행합니다.
+- 회귀 테스트 2건(프로필 변경 시 갱신, 변경이 없을 때 비예약 갱신 방지)을 추가했습니다. 테스트 실행은 아직 하지 않았습니다.
+- 반영 커밋: `f9da1d3`, `d3de3e6`, `2790e73`.
