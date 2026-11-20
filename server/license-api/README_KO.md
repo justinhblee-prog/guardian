@@ -76,7 +76,7 @@ docker compose exec -T db pg_dump -U guardian guardian > guardian-license-backup
 - `GET /v1/admin/customers?q=<검색어>`: 관리자 인증 후 고객명/이메일 검색, 고객별 전체 라이선스 수·사용 가능 라이선스 수·최근 발급일 조회(최대 200명)
 - 기존 고객 정보가 없는 과거 라이선스는 자동으로 고객을 추정하지 않습니다. 마이그레이션 004 이후 신규 발급부터 고객 연결이 저장됩니다.
 - `GET /health`: 프로세스 생존 상태
-- `GET /ready`: DB 연결, 관리자 토큰, HMAC 비밀값 및 RSA 2048비트 이상 서명키 준비 상태 확인. Docker health check에서 사용
+- `GET /ready`: DB 연결, 필수 스키마(products/licenses/activations/license_events/api_rate_limit_buckets/support_tickets/activation_requests), 관리자 토큰, HMAC 비밀값 및 RSA 2048비트 이상 서명키 준비 상태 확인. Docker health check에서 사용
 
 활성화/갱신 성공 시 `payload`, `signature`, `expiresIn`을 반환합니다. 서버는 `Bearer` 인증 스킴을 엄격히 요구하며, `expiresIn`은 서명된 `expiresAt - issuedAt`과 일치합니다. Android 앱에는 개인키가 아닌 동일 RSA 키쌍의 X.509 공개키를 `GUARDIAN_LICENSE_PUBLIC_KEY` 빌드 환경 변수로 주입해야 합니다. 앱은 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증합니다.
 
