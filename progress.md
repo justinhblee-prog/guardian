@@ -282,3 +282,9 @@
 - 앱 시작 시 캐시 무결성/필터 준비 상태를 확인하는 백그라운드 검사에서 예외가 발생하면 기존에는 로그만 남기고 종료해, 해당 실행에서 최초 필터 다운로드/복구가 시작되지 않을 수 있었습니다.
 - 실패 원인을 `KEY_LAST_ERROR`에 보존하고 사용자 상태 영역에 진단을 표시하며, 자동 업데이트 설정과 별개인 one-shot `FilterUpdateScheduler.enqueueRecovery()`를 예약하도록 보완했습니다. WorkManager 예약 자체가 실패하면 별도 로그로 구분합니다.
 - 변경 파일을 GitHub에서 다시 읽어 예외 경로의 진단 저장 → 복구 예약 → UI 표시 순서를 확인했습니다. Android Gradle 컴파일, Android JUnit, WorkManager 실제 실행은 이 세션에서 미실행입니다.
+
+## 2026-11-20 — 라이선스 활성화 실패 시 기기 슬롯 보상 해제
+
+- 활성화 API가 기기 슬롯을 할당한 뒤 서명 검증 또는 로컬 entitlement 영구 저장이 실패하면, 서버 슬롯이 남을 수 있는 경로를 발견했습니다. 기존 코드에는 보상 해제용 licenseRef 형식 검사와 테스트만 있었고 실제 활성화 예외 경로에서 호출되지 않았습니다.
+- `recoverFailedActivation`으로 정책을 분리해, 안전한 opaque licenseRef인지 확인하고 로컬 entitlement 정리를 먼저 성공시킨 뒤 동일 기기 바인딩으로 서버 `/deactivate`를 호출하도록 연결했습니다. 서버 해제가 확인된 경우에만 pending request ID를 정리합니다. 보상 해제가 실패하면 원래 활성화 오류를 유지하고 cleanup 오류를 suppressed로 보존하며, idempotent retry용 request ID를 남깁니다.
+- 정상 순서, 로컬 정리 실패, 서버 보상 해제 실패, 안전하지 않은 licenseRef 거부 테스트를 추가했습니다. 독립 Kotlin/JVM 하네스 4개 시나리오 PASS. Android Gradle/JUnit 및 실제 API/PostgreSQL 호출은 미실행입니다.
