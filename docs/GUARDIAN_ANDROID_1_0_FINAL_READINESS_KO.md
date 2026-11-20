@@ -257,3 +257,11 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 
 - 후속 보완: 자동 업데이트 OFF/ON 및 강제 복구 요청 여부를 분리한 `FilterRecoveryPolicy`를 추출하고, 복구 Worker 진입 조건에 대한 단위 테스트 3건을 추가했습니다. 반영 커밋 `cf83400`, `011d7e5`, `47deb21`.
 - 최종 소스 재조회에서 수동 기본/선택 필터 실패 양쪽의 복구 예약 호출 2곳, Worker 강제 복구 분기, 회귀 테스트 3건을 확인했습니다. `main...feature/android-support-center-mainline` 비교는 238 ahead, 0 behind입니다. Android Gradle/JUnit/WorkManager 런타임 실행은 아직 수행하지 않았습니다.
+
+## 2026-11-20 백그라운드 필터 상태의 화면 간 동기화 수정
+
+- 백그라운드 필터 업데이트 Worker가 완료 브로드캐스트를 보내도 기존 Activity 수신기는 설정 화면의 `filterStatusText`만 갱신했습니다. 홈 및 보호 화면의 상태 문구는 이전 성공/실패 결과를 계속 보여줄 수 있었습니다.
+- 브로드캐스트 수신 시 공통 `setFilterUpdateStatus(filterStatusDescription())`를 호출해 홈·보호·설정 화면을 동일한 저장 상태로 갱신하도록 수정했습니다.
+- Activity가 중지된 동안 Worker가 완료되면 브로드캐스트 수신기가 등록되어 있지 않습니다. `onStart()`에서도 공통 상태 갱신 함수를 호출해 화면 재진입 시 최신 오류·캐시 상태를 복원하도록 수정했습니다.
+- GitHub 원격 파일 재조회로 두 경로의 변경을 확인했습니다. 반영 커밋: `7019446c462967f3b461096c858e4d6c3ade10ad`, `32a7e1fdf9d24abd3705d4661f79d769998d6603`.
+- 현재 브랜치 비교: `main` 대비 242 commits ahead / 0 behind. Android Gradle 컴파일, JUnit, APK, UI 런타임 및 Samsung 실기기 검증은 아직 수행되지 않았습니다.
