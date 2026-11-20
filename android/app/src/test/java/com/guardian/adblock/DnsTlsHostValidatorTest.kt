@@ -20,6 +20,13 @@ class DnsTlsHostValidatorTest {
         assertNull(DnsTlsHostValidator.normalize("2001:4860:4860::8888"))
     }
 
+    @Test fun usesCanonicalDnsNameForTlsPeerAndSniIdentity() {
+        val identity = DnsTlsHostValidator.identity(" CloudFlare-DNS.COM. ")!!
+        assertEquals("cloudflare-dns.com", identity.peerHost)
+        assertEquals(identity.peerHost, identity.serverName)
+        assertNull(DnsTlsHostValidator.identity("1.1.1.1"))
+    }
+
     @Test fun rejectsInvalidDnsLabels() {
         assertNull(DnsTlsHostValidator.normalize("-dns.example.com"))
         assertNull(DnsTlsHostValidator.normalize("dns_.example.com"))
