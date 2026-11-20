@@ -25,6 +25,10 @@ $Aapt = Join-Path $Sdk 'build-tools\35.0.0\aapt.exe'
 if (!(Test-Path $Aapt)) {
     throw "Android Build Tools 35.0.0 (aapt.exe) were not found: $Aapt"
 }
+$ApkSigner = Join-Path $Sdk 'build-tools\35.0.0\apksigner.bat'
+if (!(Test-Path $ApkSigner)) {
+    throw "Android Build Tools 35.0.0 (apksigner.bat) were not found: $ApkSigner"
+}
 
 Set-Location $Android
 $Wrapper = Join-Path $Android 'gradlew.bat'
@@ -81,6 +85,43 @@ if ($PackageMatch.Groups['name'].Value -ne 'com.guardian.adblock' -or
     $PackageMatch.Groups['version'].Value -ne $ExpectedVersionName) {
     throw "APK metadata mismatch. Expected com.guardian.adblock $ExpectedVersionName ($ExpectedVersionCode); got $PackageLine"
 }
+
+$SignatureReport = (& $ApkSigner verify --verbose --print-certs $Apk 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0) { throw "APK signature verification failed. See $BuildLog" }
+$SignerMatch = [regex]::Match($SignatureReport, '(?im)^Signer #1 certificate SHA-256 digest: (?<fingerprint>[0-9a-f:]{64,95})\s*Copy-Item -LiteralPath $Apk -Destination $ArtifactApk
+$Hash = (Get-FileHash -LiteralPath $ArtifactApk -Algorithm SHA256).Hash.ToLowerInvariant()
+$GitCommit = 'unavailable'
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    $GitCommitCandidate = (& git -C $Root rev-parse HEAD 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -eq 0 -and $GitCommitCandidate) { $GitCommit = $GitCommitCandidate }
+}
+$Report = @(
+    'Guardian Android Debug Build Verification'
+    "Timestamp: $(Get-Date -Format o)"
+    "Git commit: $GitCommit"
+    "Java: $($JavaMatch.Groups['major'].Value)"
+    'Gradle: 8.9'
+    'Android SDK platform: 35'
+    "Package: $($PackageMatch.Groups['name'].Value)"
+    "Version name: $($PackageMatch.Groups['version'].Value)"
+    "Version code: $($PackageMatch.Groups['code'].Value)"
+    "APK size bytes: $((Get-Item $ArtifactApk).Length)"
+    "APK SHA-256: $Hash"\n    "Signer certificate SHA-256: $SignerFingerprint"
+    'Unit tests: Gradle task completed successfully'
+    'Lint: Gradle task completed successfully'
+    'APK assembly: completed successfully'
+    'Device verification: NOT RUN by this script'
+)
+$ReportPath = Join-Path $OutputRoot 'verification.txt'
+$Report | Set-Content -LiteralPath $ReportPath -Encoding UTF8
+Write-Host ''
+Write-Host '[PASS] Android unit tests, lint, APK assembly and metadata verification'
+Write-Host "APK: $ArtifactApk"
+Write-Host "SHA-256: $Hash"\nWrite-Host "Signer certificate SHA-256: $SignerFingerprint"
+Write-Host "Evidence: $OutputRoot"
+)
+if (!$SignerMatch.Success) { throw 'APK signature was verified but the signer SHA-256 certificate fingerprint was not reported.' }
+$SignerFingerprint = $SignerMatch.Groups['fingerprint'].Value.ToLowerInvariant()
 
 $ArtifactApk = Join-Path $OutputRoot 'Guardian-debug.apk'
 Copy-Item -LiteralPath $Apk -Destination $ArtifactApk
