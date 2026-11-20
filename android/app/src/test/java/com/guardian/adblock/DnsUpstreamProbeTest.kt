@@ -80,8 +80,13 @@ class DnsUpstreamProbeTest {
             it[answerOffset] = 0xc0.toByte()
             it[answerOffset + 1] = answerOffset.toByte()
         }
+        val forward = valid.copyOf().also {
+            it[answerOffset] = 0xc0.toByte()
+            it[answerOffset + 1] = 40
+        }
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, outside))
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, cyclic))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, forward))
     }
 
     private fun successfulResponse(query: ByteArray): ByteArray {
