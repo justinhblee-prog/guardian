@@ -13,7 +13,7 @@ class FilterUpdateWorker(
 
     override fun doWork(): Result {
         val prefs = applicationContext.getSharedPreferences(GuardianVpnService.PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, false)) return Result.success()
+        if (!prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)) return Result.success()
 
         return try {
             val now = System.currentTimeMillis()
