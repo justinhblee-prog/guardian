@@ -98,6 +98,7 @@ class GuardianVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     @Volatile private var packetWorker: Thread? = null
     private val running = AtomicBoolean(false)
+    private val packetSessionOwnership = PacketSessionOwnership()
     private val starting = AtomicBoolean(false)
     private data class PendingStart(val generation: Long, val startId: Int)
     private val pendingStart = AtomicReference<PendingStart?>(null)
@@ -290,15 +291,19 @@ class GuardianVpnService : VpnService() {
 
         startCancellation.cancel()
         pendingStart.set(null)
-        running.set(false)
-        tunnelActive = false
-        val oldTun = tun
-        tun = null
-        try {
-            oldTun?.close()
-        } catch (error: Exception) {
-            android.util.Log.w("GuardianProtection", "Could not close TUN for app compatibility pause", error)
+        packetSessionOwnership.stop {
+            running.set(false)
+            tunnelActive = false
+            val oldTun = tun
+            tun = null
+            try {
+                oldTun?.close()
+            } catch (error: Exception) {
+                android.util.Log.w("GuardianProtection", "Could not close TUN for app compatibility pause", error)
+            }
         }
+        try {
+            packetWorker?.join(5_000L)
         try {
             packetWorker?.join(5_000L)
         } catch (error: InterruptedException) {
@@ -412,12 +417,14 @@ class GuardianVpnService : VpnService() {
         }
         startCancellation.cancel()
         pendingStart.set(null)
-        running.set(false)
-        tunnelActive = false
-        val oldTun = tun
-        tun = null
-        try { oldTun?.close() } catch (error: Exception) {
-            android.util.Log.w("GuardianProtection", "Could not close old TUN before exclusion refresh", error)
+        packetSessionOwnership.stop {
+            running.set(false)
+            tunnelActive = false
+            val oldTun = tun
+            tun = null
+            try { oldTun?.close() } catch (error: Exception) {
+                android.util.Log.w("GuardianProtection", "Could not close old TUN before exclusion refresh", error)
+            }
         }
         // Wait for the previous blocking packet reader to exit before allowing a
         // new worker to set running=true; otherwise its finally block could stop
@@ -650,19 +657,21 @@ class GuardianVpnService : VpnService() {
             return
         }
         val committed = startCancellation.tryCommitStart(requestGeneration) {
-            tun = descriptor
-            running.set(true)
-            tunnelActive = true
-            val filterNotice = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getString(KEY_FILTER_READINESS, null)
-                ?.takeIf { it.isNotBlank() && !it.startsWith("선택 필터 준비 완료") }
-            val activeMessage = if (filterNotice == null) {
-                "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다."
-            } else {
-                "DNS 보호가 실행 중입니다. $filterNotice"
+            packetSessionOwnership.activate(descriptor) {
+                tun = descriptor
+                running.set(true)
+                tunnelActive = true
+                val filterNotice = getSharedPreferences(PREFS, MODE_PRIVATE)
+                    .getString(KEY_FILTER_READINESS, null)
+                    ?.takeIf { it.isNotBlank() && !it.startsWith("선택 필터 준비 완료") }
+                val activeMessage = if (filterNotice == null) {
+                    "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다."
+                } else {
+                    "DNS 보호가 실행 중입니다. $filterNotice"
+                }
+                publishState(true, activeMessage)
+                packetWorker = thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
             }
-            publishState(true, activeMessage)
-            packetWorker = thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
         }
         if (!committed) {
             try { descriptor.close() } catch (_: Exception) { }
@@ -747,15 +756,21 @@ class GuardianVpnService : VpnService() {
         } catch (e: LinkageError) {
             if (running.get()) loopFailure = e
         } finally {
-            // A dead packet loop must never leave the UI claiming protection is active.
-            if (running.compareAndSet(true, false)) {
+            // Only the currently-owned descriptor may transition shared VPN state.
+            // A previous reader can exit after STOP + START; it must never mark the
+            // replacement session inactive or remove its foreground notification.
+            val endedCurrentSession = packetSessionOwnership.finish(descriptor) {
+                running.set(false)
                 tunnelActive = false
-                try { descriptor.close() } catch (_: Exception) { }
                 if (tun === descriptor) tun = null
                 try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
                 val detail = loopFailure?.let { " (${it.javaClass.simpleName}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
                 publishState(false, "DNS 패킷 처리 중단$detail. 보호를 다시 시작해 주세요.")
                 stopSelf()
+            }
+            try { descriptor.close() } catch (_: Exception) { }
+            if (!endedCurrentSession) {
+                android.util.Log.d("GuardianProtection", "Stale DNS packet session exited without changing current VPN state")
             }
         }
     }
@@ -1307,10 +1322,13 @@ class GuardianVpnService : VpnService() {
         }
         pendingStart.set(null)
         startCancellation.cancel()
-        tunnelActive = false
-        val wasActive = running.getAndSet(false) || tun != null
-        try { tun?.close() } catch (_: Exception) { }
-        tun = null
+        var wasActive = false
+        packetSessionOwnership.stop {
+            tunnelActive = false
+            wasActive = running.getAndSet(false) || tun != null
+            try { tun?.close() } catch (_: Exception) { }
+            tun = null
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
         // An explicit user stop must clear the persisted restart intent even
         // when startup was still in flight and no TUN descriptor was committed.
