@@ -66,10 +66,11 @@ if (!databaseUrl) {
       await pool.query(sql);
     }
     const tables = await pool.query(
-      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets"
+      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets, to_regclass('public.activation_requests') AS activation_requests"
     );
     assert.equal(tables.rows[0].rate_limits, 'api_rate_limit_buckets');
     assert.equal(tables.rows[0].support_tickets, 'support_tickets');
+    assert.equal(tables.rows[0].activation_requests, 'activation_requests');
     const activationRequests = await pool.query("SELECT to_regclass('public.activation_requests') AS activation_requests");
     assert.equal(activationRequests.rows[0].activation_requests, 'activation_requests');
     const customers = await pool.query(
@@ -133,7 +134,14 @@ if (!databaseUrl) {
     }
   });
 
-  test('readiness endpoint requires a reachable database and valid RSA signer', async () => {
+  test('readiness endpoint requires activation idempotency schema as well as database and signer', async () => {
+    await pool.query('DROP TABLE activation_requests');
+    const missingMigration = await fetch(`${baseUrl}/ready`);
+    assert.equal(missingMigration.status, 503);
+    assert.deepEqual(await missingMigration.json(), { ok: false, error: 'not_ready' });
+
+    const migration = readFileSync(new URL('../migrations/005_activation_idempotency.sql', import.meta.url), 'utf8');
+    await pool.query(migration);
     const response = await fetch(`${baseUrl}/ready`);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ok: true, service: 'guardian-license-api', database: 'ready', signer: 'ready' });
