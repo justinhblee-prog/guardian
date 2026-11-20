@@ -9,7 +9,7 @@ internal object SupportInputPolicy {
     fun isValidSupportText(value: String, minLength: Int, maxLength: Int): Boolean {
         val normalized = value.trim()
         return minLength >= 0 && maxLength >= minLength &&
-            normalized.length in minLength..maxLength && !normalized.contains('\\u0000')
+            normalized.length in minLength..maxLength && !normalized.contains('\u0000')
     }
 
     fun isValidSupportCategory(value: String): Boolean = value in supportCategories
