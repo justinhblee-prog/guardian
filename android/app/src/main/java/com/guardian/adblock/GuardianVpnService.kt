@@ -803,6 +803,7 @@ class GuardianVpnService : VpnService() {
         }
     }
 
+    @Synchronized
     private fun loadConfiguredRules() {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val selectedProfile = FilterListManager.selectedProfile(this)
