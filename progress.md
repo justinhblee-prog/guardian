@@ -424,3 +424,11 @@
 - 세션 handshake 이후 ACK가 없는 세그먼트는 기존대로 무시하고, ACK가 있더라도 SYN 플래그가 남아 있는 세그먼트는 stream state를 변경하지 않고 현재 ACK만 반환하도록 차단했습니다. 최초 SYN 및 기존 지연 SYN 재전송 처리는 유지됩니다.
 - establishedSessionRejectsUnexpectedSynWithoutConsumingDnsBytes 회귀 테스트를 추가했습니다. 잘못된 SYN+ACK+payload가 resolver를 호출하지 않고 client sequence를 보존하며, 이어지는 정상 ACK+payload는 정상 처리되는지 검증합니다.
 - GitHub 소스 반영 확인 예정. Android JUnit/Gradle, 실제 DNS-over-TCP 네트워크 및 Samsung 단말 검증은 이 환경에서 실행하지 않았습니다.
+
+
+## 2026-11-20 — DNS TCP 세션 RST 시퀀스 검증
+
+- 동일한 source/destination/port 4-tuple만 일치하면 client sequence 검증 없이 RST가 활성 DNS TCP 세션을 제거할 수 있는 경로를 확인했습니다.
+- Established session의 RST는 현재 기대 client sequence와 정확히 일치할 때만 세션을 종료하도록 수정했습니다. 오래되었거나 위조된 sequence의 RST는 현재 ACK로 응답하고 세션/버퍼 상태를 유지합니다.
+- stale RST가 세션을 종료하지 않고 현재 ACK를 받는 경우와 정확한 sequence의 RST가 정상 종료시키는 회귀 테스트를 추가했습니다.
+- GitHub 원격 파일 재조회로 소스·테스트 반영을 확인합니다. Android Gradle/JUnit, 실제 패킷 주입 및 Samsung 단말 검증은 실행하지 않았습니다.
