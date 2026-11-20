@@ -6,6 +6,8 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class FilterCacheStoreTest {
     private fun newFolder(): File = Files.createTempDirectory("guardian-filter-cache-test").toFile()
@@ -153,4 +155,52 @@ class FilterCacheStoreTest {
         } catch (_: IllegalStateException) { }
     }
 
+
+    @Test
+    fun cacheReplacementWaitsUntilReaderFinishesItsSnapshot() {
+        val folder = newFolder()
+        val target = File(folder, "filter.txt").apply { writeText("old-snapshot") }
+        val readerEntered = CountDownLatch(1)
+        val releaseReader = CountDownLatch(1)
+        val replacementFinished = CountDownLatch(1)
+        val readerFailure = java.util.concurrent.atomic.AtomicReference<Throwable?>(null)
+
+        val reader = Thread {
+            try {
+                FilterCacheStore.withLock {
+                    readerEntered.countDown()
+                    check(releaseReader.await(5, TimeUnit.SECONDS))
+                    assertArrayEquals("old-snapshot".toByteArray(), target.readBytes())
+                }
+            } catch (error: Throwable) {
+                readerFailure.set(error)
+            }
+        }
+        reader.start()
+        assertTrue("reader should acquire the cache lock", readerEntered.await(5, TimeUnit.SECONDS))
+
+        val writer = Thread {
+            try {
+                FilterCacheStore.replace(target, "new-snapshot".toByteArray(), commitMetadata = { })
+            } finally {
+                replacementFinished.countDown()
+            }
+        }
+        writer.start()
+        try {
+            assertFalse(
+                "replacement must wait while a reader holds the cache snapshot",
+                replacementFinished.await(150, TimeUnit.MILLISECONDS)
+            )
+        } finally {
+            releaseReader.countDown()
+        }
+
+        assertTrue("replacement should finish after reader releases the lock",
+            replacementFinished.await(5, TimeUnit.SECONDS))
+        reader.join(5000)
+        writer.join(5000)
+        readerFailure.get()?.let { throw AssertionError("reader failed", it) }
+        assertArrayEquals("new-snapshot".toByteArray(), target.readBytes())
+    }
 }
