@@ -297,3 +297,10 @@
 - **회귀 테스트**: 비활성 선택 목록 오류 숨김, 활성 선택 목록 오류 표시, 기본 목록 오류 상시 표시 등 3개 테스트를 추가했습니다.
 - **검증**: 변경 파일을 GitHub에서 다시 조회해 반영을 확인했습니다. 동일 정책을 복제한 독립 Kotlin/JVM 하네스 3개 시나리오 PASS. 이는 Android Gradle/JUnit 실행이 아닙니다.
 - **제한**: Android 컴파일, 실제 앱 UI, Samsung 실기기 및 전체 필터 갱신은 아직 검증하지 않았습니다. GitHub Actions는 실행하지 않았습니다.
+
+
+## 2026-11-20 병렬 구현 — 필터 작업 취소 안전성
+- Track B에서 동기식 WorkManager 필터 worker가 취소된 뒤에도 다음 optional feed 다운로드와 VPN 규칙 reload를 시작할 수 있는 경로를 확인했습니다.
+- FilterUpdateWorker에 worker 시작, base feed 전후, optional feed 사이/실패 처리, VPN reload 전 취소 경계를 추가했습니다. 이미 진행 중인 동기 HTTP 요청은 해당 요청의 timeout/종료 시점까지 남을 수 있지만, 취소 후 추가 feed 작업은 시작하지 않습니다.
+- FilterUpdatePolicyTest에 예약 업데이트 opt-in과 강제 복구의 구분 회귀 테스트를 추가했습니다.
+- 검증: 변경 소스의 취소 검사 위치를 재조회해 정적 확인합니다. Android Gradle/JUnit 실행은 하지 않았습니다.
