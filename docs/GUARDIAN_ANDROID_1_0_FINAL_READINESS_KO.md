@@ -143,7 +143,7 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 
 ## 2026-11-20 로컬 Android 빌드 증거 수집 보강
 
-- 루트 BUILD_ANDROID.ps1을 보강했습니다. 기존에는 Gradle test/assemble 실행과 APK 존재 여부만 확인했으나, 이제 JDK 17/21, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9를 사전 확인합니다.
+- 루트 BUILD_ANDROID.ps1을 보강했습니다. 기존에는 Gradle test/assemble 실행과 APK 존재 여부만 확인했으나, 이제 JDK 17/21, Android SDK Platform 35, Build Tools 34.0.0, Gradle 8.9를 사전 확인합니다.
 - 빌드 단계에서 clean, testDebugUnitTest, lintDebug, assembleDebug를 순서대로 실행하고 각 실행 로그를 보존합니다. 실패 시 해당 로그 경로와 종료 코드로 중단합니다.
 - 산출 APK의 패키지 ID, versionCode, versionName을 aapt dump badging으로 검증하고, 비어 있지 않은 APK를 %LOCALAPPDATA%\Guardian\outputs\Android-Debug-<timestamp>에 복사합니다.
 - 해당 폴더에 Gradle 버전 출력, 전체 빌드 로그, APK SHA-256 및 검증 요약을 함께 저장합니다. 단말 검증은 이 스크립트가 수행하지 않았다고 명시합니다.
