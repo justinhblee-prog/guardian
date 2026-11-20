@@ -213,3 +213,12 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 설정 화면의 오류 요약은 필터 활성 여부와 관계없이 보안 / Android 앱 광고 오류 키를 읽어 표시한다. 따라서 오류가 사용자에게 숨겨지지 않는다.
 - 회귀 테스트에 캐시가 없는 최초 다운로드 실패 후 재시도 대상 판정을 추가했다.
 - GitHub 원격 소스 재조회로 변경 내용을 확인했다. 이 수정은 정적 소스 확인이며 Gradle 단위 테스트, 컴파일, APK, Samsung 실기기 검증은 아직 실행되지 않았다.
+
+
+## 2026-11-20 manifest anti-rollback 동시성 및 내구성 보완
+
+- 필터 manifest timestamp 저장소는 다운로드 경로와 캐시 복구 경로가 서로 다른 인스턴스를 생성할 수 있습니다. 기존 인스턴스별 `@Synchronized`만으로는 동일 properties 파일의 read-modify-write가 직렬화되지 않아, 동시에 서로 다른 source의 timestamp를 기록할 때 한쪽 갱신이 유실될 수 있었습니다.
+- 모든 `ManifestTimestampStore` 인스턴스가 공유하는 프로세스 잠금으로 조회·기록·복구를 직렬화했습니다. 기록뿐 아니라 rollback/restore 저장에도 `FileDescriptor.sync()`를 적용해 임시 파일 내용을 교체 전에 디스크로 flush하도록 맞췄습니다.
+- 별도 인스턴스 4개가 4개 source timestamp를 병렬 갱신하는 회귀 테스트를 추가했습니다.
+- GitHub 소스 반영 커밋: `73cc83c888f53b381a32c645d860266062c6efa9`, 회귀 테스트: `903d36c3ab2ed1cf39c9a64f44c9f665ed3b7d39`. 현재 compare는 main 대비 217 commits ahead / 0 behind입니다.
+- Android Gradle/JUnit 실행은 아직 하지 않았습니다. 이 변경은 소스 반영 및 재조회 수준이며 실제 컴파일·테스트 성공으로 간주하지 않습니다.
