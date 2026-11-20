@@ -24,6 +24,16 @@ internal object ResponsiveLayoutPolicy {
         else -> tab
     }
 
+    /** Returns the parent screen for system Back, or null when the home exit prompt should be shown. */
+    fun backNavigationTarget(tab: String): String? = when (tab) {
+        "settings-general", "settings-filtering", "settings-support", "settings-license" -> "settings"
+        "premium" -> "settings-license"
+        "rules" -> "settings-filtering"
+        "settings" -> "home"
+        "home" -> null
+        else -> "home"
+    }
+
     fun contentAreaWidthDp(screenWidthDp: Int): Int {
         require(screenWidthDp > 0) { "screenWidthDp must be positive" }
         val railWidth = if (usesNavigationRail(screenWidthDp)) NAVIGATION_RAIL_WIDTH_DP else 0
