@@ -44,6 +44,23 @@ class ResponsiveLayoutPolicyTest {
     }
 
     @Test
+    fun backFromNestedRulesReturnsToFilteringSettings() {
+        assertEquals("settings-filtering", ResponsiveLayoutPolicy.backNavigationTarget("rules"))
+    }
+
+    @Test
+    fun backFromSettingsCategoriesReturnsToSettings() {
+        listOf("settings-general", "settings-filtering", "settings-support", "settings-license")
+            .forEach { assertEquals("settings", ResponsiveLayoutPolicy.backNavigationTarget(it)) }
+    }
+
+    @Test
+    fun backFromSettingsReturnsHomeAndHomeRequestsExitPrompt() {
+        assertEquals("home", ResponsiveLayoutPolicy.backNavigationTarget("settings"))
+        assertEquals(null, ResponsiveLayoutPolicy.backNavigationTarget("home"))
+    }
+
+    @Test
     fun wideTabletContentWidthExcludesNavigationRail() {
         assertEquals(752, ResponsiveLayoutPolicy.contentAreaWidthDp(840))
         assertEquals(1192, ResponsiveLayoutPolicy.contentAreaWidthDp(1280))
