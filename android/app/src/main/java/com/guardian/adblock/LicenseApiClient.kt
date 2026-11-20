@@ -162,7 +162,9 @@ internal object LicenseApiClient {
             if (error.invalidatesEntitlement) {
                 // A server-side revoke/deactivation/product disable must not leave
                 // an offline Pro token active until its local expiry timestamp.
-                LicenseEntitlementStore.clear(context)
+                if (LicenseEntitlementStore.clear(context)) {
+                    clearPendingActivationRequest(context)
+                }
             }
             throw error
         }
@@ -185,7 +187,7 @@ internal object LicenseApiClient {
                 .put("licenseRef", current.licenseRef)
         )
         val entitlementCleared = LicenseEntitlementStore.clear(context)
-        val pendingRequestCleared = clearPendingActivationRequest(context)
+        val pendingRequestCleared = entitlementCleared && clearPendingActivationRequest(context)
         return entitlementCleared && pendingRequestCleared
     }
 
@@ -202,7 +204,9 @@ internal object LicenseApiClient {
             )
         } catch (error: LicenseApiException) {
             if (error.invalidatesEntitlement) {
-                LicenseEntitlementStore.clear(context)
+                if (LicenseEntitlementStore.clear(context)) {
+                    clearPendingActivationRequest(context)
+                }
             }
             throw error
         }
@@ -210,7 +214,9 @@ internal object LicenseApiClient {
         // device activation was revoked or deactivated; treat that as loss
         // of entitlement, not as a successful Pro status check.
         if (!isActiveLicenseStatus(response.optString("status"))) {
-            LicenseEntitlementStore.clear(context)
+            if (LicenseEntitlementStore.clear(context)) {
+                clearPendingActivationRequest(context)
+            }
         }
         return response
     }
