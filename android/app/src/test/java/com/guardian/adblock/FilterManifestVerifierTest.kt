@@ -77,6 +77,24 @@ class FilterManifestVerifierTest {
         }
     }
 
+    @Test fun rejectsOutOfRangeHttpsPortEvenWhenManifestIsSigned() {
+        val pair = keyPair()
+        val bytes = String(payload(), StandardCharsets.UTF_8)
+            .replace("filters.example.test/base.txt", "filters.example.test:99999/base.txt")
+            .toByteArray(StandardCharsets.UTF_8)
+        try {
+            FilterManifestVerifier.parseAndVerify(
+                bytes, signed(bytes, pair), Base64.getEncoder().encodeToString(pair.public.encoded)
+            )
+            fail("out-of-range HTTPS port must be rejected")
+        } catch (expected: IllegalArgumentException) {
+            assertEquals(
+                "필터 URL은 유효한 포트를 사용하는 사용자 정보 없는 HTTPS 주소여야 합니다.",
+                expected.message
+            )
+        }
+    }
+
     @Test fun rejectsHttpAndMalformedSha256EvenWhenSigned() {
         val pair = keyPair()
         val badUrl = String(payload(), StandardCharsets.UTF_8)
