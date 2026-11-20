@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$InstallScheduledTask,[switch]$UninstallScheduledTask)
+param([switch]$InstallScheduledTask,[switch]$UninstallScheduledTask,[switch]$RunLoop)
 $ErrorActionPreference = 'Stop'
 $Repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $TaskName = 'Guardian-Git-Automation'
@@ -26,11 +26,25 @@ function Install-AgentTask {
     $pwsh = (Get-Command pwsh.exe -ErrorAction SilentlyContinue).Source
     if (-not $pwsh) { $pwsh = (Get-Command powershell.exe -ErrorAction Stop).Source }
     $script = Join-Path $PSScriptRoot 'guardian-git-agent.ps1'
-    $action = New-ScheduledTaskAction -Execute $pwsh -Argument ('-NoProfile -ExecutionPolicy Bypass -File "{0}" -Once' -f $script) -WorkingDirectory $Repo
-    $trigger = New-ScheduledTaskTrigger -AtLogOn
-    $repeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Minutes 15) -RepetitionDuration (New-TimeSpan -Days 3650)
-    Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger @($trigger, $repeat) -Description 'Guardian Git CLI: fetch main, audit open PRs, safely rebase same-repository branches, and push with lease.' -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 20)) -Force | Out-Null
-    Write-Log "Scheduled task installed: runs at logon and every 15 minutes. Repo=$Repo"
+    try {
+        $action = New-ScheduledTaskAction -Execute $pwsh -Argument ('-NoProfile -ExecutionPolicy Bypass -File "{0}"' -f $script) -WorkingDirectory $Repo
+        $trigger = New-ScheduledTaskTrigger -AtLogOn
+        $repeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Minutes 15) -RepetitionDuration (New-TimeSpan -Days 3650)
+        Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger @($trigger, $repeat) -Description 'Guardian Git CLI: fetch main, audit open PRs, safely rebase same-repository branches, and push with lease.' -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 20)) -Force -ErrorAction Stop | Out-Null
+        Write-Log "Windows scheduled task installed: logon + every 15 minutes. Repo=$Repo"
+        return
+    } catch {
+        Write-Log "Task Scheduler registration unavailable ($($_.Exception.Message)); installing current-user Startup fallback without administrator rights."
+    }
+
+    $startup = [Environment]::GetFolderPath('Startup')
+    $launcher = Join-Path $startup 'Guardian-Git-Automation.vbs'
+    $command = '"' + $pwsh + '" -NoProfile -ExecutionPolicy Bypass -File "' + $script + '" -RunLoop'
+    $vbs = 'Set shell = CreateObject("WScript.Shell")' + [Environment]::NewLine +
+           'shell.Run "' + $command.Replace('"', '""') + '", 0, False'
+    [System.IO.File]::WriteAllText($launcher, $vbs, [System.Text.Encoding]::ASCII)
+    Start-Process -FilePath (Join-Path $env:WINDIR 'System32\wscript.exe') -ArgumentList ('"{0}"' -f $launcher) -WindowStyle Hidden
+    Write-Log "Current-user Startup fallback installed and launched: $launcher (15-minute cycle)."
 }
 function Invoke-Agent {
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw 'Git CLI is not installed or not in PATH.' }
@@ -171,7 +185,15 @@ if ($InstallScheduledTask) {
     Invoke-AgentWithLock
 } elseif ($UninstallScheduledTask) {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
-    Write-Log 'Scheduled task removed.'
+    $launcher = Join-Path ([Environment]::GetFolderPath('Startup')) 'Guardian-Git-Automation.vbs'
+    if (Test-Path $launcher) { Remove-Item -LiteralPath $launcher -Force }
+    Write-Log 'Scheduled task and current-user Startup fallback removed.'
+} elseif ($RunLoop) {
+    Write-Log 'Current-user background loop started; interval=15 minutes.'
+    while ($true) {
+        try { Invoke-AgentWithLock } catch { Write-Log "Automation cycle failed: $($_.Exception.Message)" }
+        Start-Sleep -Seconds 900
+    }
 } else {
     Invoke-AgentWithLock
 }
