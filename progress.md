@@ -238,3 +238,4 @@
 - 원격 GitHub 소스 재조회와 정적 조건 확인은 통과했습니다. PostgreSQL 통합 테스트, 실제 migration, Android Gradle/JUnit, 네트워크 응답 유실 재현, APK 설치 및 Samsung 실기기 검증은 실행하지 않았습니다. activation_requests 자동 TTL 정리는 아직 없으며, 재시도 복구를 깨뜨리지 않는 보존 정책이 결정되기 전 임의 삭제하지 않습니다.
 
 - 후속 상태 일관성 보강: Android에서 서버가 403으로 기존 등록을 무효화하거나 status=free를 반환한 경우, entitlement 로컬 삭제가 실제 저장된 뒤에만 pending activation 요청 ID도 제거합니다. 명시적 해제 시에도 entitlement 삭제가 실패하면 pending 복구 키를 보존합니다. 저장 실패로 복구 키까지 먼저 잃는 상황을 피하도록 했습니다.
+- Android 활성화 요청 ID 검증을 서버의 UUID v4 형식과 동일한 내부 함수로 분리하고, 정상 소문자/대문자 UUID v4 허용 및 UUID v1·잘못된 variant·비 UUID 거부 JUnit 케이스를 추가했습니다. 테스트 소스만 추가했으며 Android Gradle/JUnit 실행은 미실행입니다.
