@@ -1,6 +1,7 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomUUID, verify } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createPostgresRateLimiter } from '../src/rate-limit.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -47,7 +48,7 @@ if (!databaseUrl) {
   };
 
   before(async () => {
-    await pool.query('TRUNCATE api_rate_limit_buckets, license_events, activations, licenses RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
@@ -170,6 +171,358 @@ if (!databaseUrl) {
       validDays: 30, maxDevices: 1, customer: { name: 'x'.repeat(121), email: 'valid@example.test' }
     }, adminHeaders);
     assert.equal(invalidName.status, 400);
+  });
+
+  test('activation issues a valid signed entitlement and is idempotent per device', async () => {
+    const created = await issue(1);
+    assert.match(created.licenseKey, /^GDN-(?:[A-F0-9]{8}-){5}[A-F0-9]{8}$/);
+    const device = 'a'.repeat(64);
+    const activate = () => post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'integration-test'
+    });
+    const first = await activate();
+    assert.equal(first.status, 200);
+    const firstToken = await first.json();
+    assert.equal(firstToken.licenseStatus, 'pro');
+    assertSignedToken(firstToken);
+
+    const second = await activate();
+    assert.equal(second.status, 200);
+    assertSignedToken(await second.json());
+    const count = await pool.query('SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND deactivated_at IS NULL', [created.license.id]);
+    assert.equal(count.rows[0].n, 1);
+
+    const overflow = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: 'b'.repeat(64), appVersion: 'second-device'
+    });
+    assert.equal(overflow.status, 409);
+  });
+
+  test('status, refresh and deactivation are scoped to the activated device and license', async () => {
+    const rows = await pool.query(
+      'SELECT l.license_ref FROM licenses l JOIN activations a ON a.license_id=l.id WHERE a.device_binding=$1 AND a.deactivated_at IS NULL LIMIT 1',
+      ['a'.repeat(64)]
+    );
+    const licenseRef = rows.rows[0].license_ref;
+    const status = await post('/v1/licenses/status', { deviceBinding: 'a'.repeat(64), licenseRef });
+    assert.equal(status.status, 200);
+    assert.equal((await status.json()).status, 'active');
+
+    const refresh = await post('/v1/licenses/refresh', { deviceBinding: 'a'.repeat(64), licenseRef });
+    assert.equal(refresh.status, 200);
+    assertSignedToken(await refresh.json());
+
+    const wrongDevice = await post('/v1/licenses/refresh', { deviceBinding: 'c'.repeat(64), licenseRef });
+    assert.equal(wrongDevice.status, 403);
+
+    const deactivate = await post('/v1/licenses/deactivate', { deviceBinding: 'a'.repeat(64), licenseRef });
+    assert.equal(deactivate.status, 200);
+    assert.equal((await deactivate.json()).deactivated, 1);
+    const deactivationEvent = await pool.query(
+      "SELECT count(*)::int AS n FROM license_events WHERE event_type='deactivated' AND license_id=(SELECT id FROM licenses WHERE license_ref=$1)",
+      [licenseRef]
+    );
+    assert.equal(deactivationEvent.rows[0].n, 1);
+
+    const afterDeactivate = await post('/v1/licenses/status', { deviceBinding: 'a'.repeat(64), licenseRef });
+    assert.equal((await afterDeactivate.json()).status, 'free');
+    const refreshAfterDeactivate = await post('/v1/licenses/refresh', { deviceBinding: 'a'.repeat(64), licenseRef });
+    assert.equal(refreshAfterDeactivate.status, 403);
+  });
+
+
+  test('a refresh waiting behind deactivation cannot issue a token for a released device slot', async () => {
+    const created = await issue(1);
+    const device = '8'.repeat(64);
+    const activation = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'refresh-deactivation-race'
+    });
+    assert.equal(activation.status, 200);
+
+    const lockClient = await pool.connect();
+    let pendingRefresh;
+    try {
+      await lockClient.query('BEGIN');
+      await lockClient.query(
+        'SELECT id FROM activations WHERE license_id=$1 AND device_binding=$2 FOR UPDATE',
+        [created.license.id, device]
+      );
+
+      pendingRefresh = post('/v1/licenses/refresh', {
+        deviceBinding: device, licenseRef: created.license.license_ref
+      });
+
+      // Start the refresh while the deactivation transaction owns the
+      // activation row lock. Give the HTTP request a short opportunity to
+      // enter the API before releasing the lock; correctness is asserted by
+      // the response and final database state below, not pg_stat_activity
+      // polling (which is timing-sensitive on shared CI runners).
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      await lockClient.query(
+        'UPDATE activations SET deactivated_at=now() WHERE license_id=$1 AND device_binding=$2',
+        [created.license.id, device]
+      );
+      await lockClient.query('COMMIT');
+
+      const response = await pendingRefresh;
+      assert.equal(response.status, 403);
+      const remaining = await pool.query(
+        'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL',
+        [created.license.id, device]
+      );
+      assert.equal(remaining.rows[0].n, 0);
+    } catch (error) {
+      await lockClient.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      lockClient.release();
+    }
+  });
+
+  test('concurrent activations cannot exceed the license device limit', async () => {
+    const created = await issue(1);
+    const activate = deviceBinding => post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding, appVersion: 'concurrency-test'
+    });
+    const responses = await Promise.all([activate('e'.repeat(64)), activate('f'.repeat(64))]);
+    assert.deepEqual(responses.map(response => response.status).sort(), [200, 409]);
+    const count = await pool.query(
+      'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND deactivated_at IS NULL',
+      [created.license.id]
+    );
+    assert.equal(count.rows[0].n, 1);
+  });
+
+  test('revocation disables all device activations and is visible in audit history', async () => {
+    const created = await issue(2);
+    const device = 'd'.repeat(64);
+    const activation = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'integration-test'
+    });
+    assert.equal(activation.status, 200);
+
+    const revoke = await post(
+      `/v1/admin/licenses/${encodeURIComponent(created.license.id)}/revoke`,
+      {},
+      adminHeaders
+    );
+    assert.equal(revoke.status, 200);
+    assert.equal((await revoke.json()).revoked, true);
+
+    const denied = await post('/v1/licenses/refresh', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(denied.status, 403);
+
+    const audit = await fetch(`${baseUrl}/v1/admin/events`, { headers: adminHeaders });
+    assert.equal(audit.status, 200);
+    const events = (await audit.json()).events;
+    assert.ok(events.some(event => event.event_type === 'issued' && event.license_ref === created.license.license_ref));
+    assert.ok(events.some(event => event.event_type === 'activated' && event.license_ref === created.license.license_ref));
+    assert.ok(events.some(event => event.event_type === 'revoked' && event.license_ref === created.license.license_ref));
+  });
+
+  test('expired licenses cannot refresh Pro but can still release their device activation', async () => {
+    const created = await issue(1);
+    const device = '7'.repeat(64);
+    const activation = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'expired-license-deactivate'
+    });
+    assert.equal(activation.status, 200);
+
+    await pool.query(
+      "UPDATE licenses SET expires_at=now()-interval '1 second' WHERE id=$1",
+      [created.license.id]
+    );
+
+    const status = await post('/v1/licenses/status', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(status.status, 200);
+    assert.equal((await status.json()).status, 'free');
+
+    const refresh = await post('/v1/licenses/refresh', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(refresh.status, 403);
+
+    const deactivate = await post('/v1/licenses/deactivate', {
+      deviceBinding: device, licenseRef: created.license.license_ref
+    });
+    assert.equal(deactivate.status, 200);
+    assert.equal((await deactivate.json()).deactivated, 1);
+
+    const active = await pool.query(
+      'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND deactivated_at IS NULL',
+      [created.license.id]
+    );
+    assert.equal(active.rows[0].n, 0);
+  });
+
+  test('admin can inspect activations and release one device without revoking the license', async () => {
+    const created = await issue(2);
+    const firstDevice = 'c'.repeat(64);
+    const secondDevice = 'd'.repeat(64);
+    for (const [deviceBinding, appVersion] of [
+      [firstDevice, 'pixel-test'],
+      [secondDevice, 'tablet-test']
+    ]) {
+      const response = await post('/v1/licenses/activate', {
+        licenseKey: created.licenseKey, deviceBinding, appVersion
+      });
+      assert.equal(response.status, 200);
+    }
+
+    const path = `/v1/admin/licenses/${encodeURIComponent(created.license.id)}/activations`;
+    const unauthorized = await fetch(`${baseUrl}${path}`);
+    assert.equal(unauthorized.status, 401);
+
+    const listing = await fetch(`${baseUrl}${path}`, { headers: adminHeaders });
+    assert.equal(listing.status, 200);
+    const activations = (await listing.json()).activations;
+    assert.equal(activations.length, 2);
+    const first = activations.find(item => item.device_hint === firstDevice.slice(-8));
+    assert.ok(first);
+    assert.equal(first.app_version, 'pixel-test');
+
+    const invalidId = await post(
+      `/v1/admin/licenses/${encodeURIComponent(created.license.id)}/activations/not-a-uuid/deactivate`,
+      {},
+      adminHeaders
+    );
+    assert.equal(invalidId.status, 400);
+
+    const released = await post(
+      `${path}/${encodeURIComponent(first.id)}/deactivate`,
+      {},
+      adminHeaders
+    );
+    assert.equal(released.status, 200);
+    assert.deepEqual(await released.json(), { deactivated: true });
+
+    const firstRefresh = await post('/v1/licenses/refresh', {
+      deviceBinding: firstDevice, licenseRef: created.license.license_ref
+    });
+    assert.equal(firstRefresh.status, 403);
+    const secondRefresh = await post('/v1/licenses/refresh', {
+      deviceBinding: secondDevice, licenseRef: created.license.license_ref
+    });
+    assert.equal(secondRefresh.status, 200);
+    assertSignedToken(await secondRefresh.json());
+
+    const audit = await fetch(`${baseUrl}/v1/admin/events`, { headers: adminHeaders });
+    assert.equal(audit.status, 200);
+    const events = (await audit.json()).events;
+    assert.ok(events.some(event =>
+      event.event_type === 'admin_device_deactivated' &&
+      event.license_ref === created.license.license_ref &&
+      event.metadata.deviceHint === firstDevice.slice(-8)
+    ));
+
+    const repeated = await post(
+      `${path}/${encodeURIComponent(first.id)}/deactivate`,
+      {},
+      adminHeaders
+    );
+    assert.equal(repeated.status, 409);
+  });
+
+  test('status does not report Pro while the product is disabled', async () => {
+    const created = await issue(1);
+    const device = '9'.repeat(64);
+    const activation = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding: device, appVersion: 'product-disable-test'
+    });
+    assert.equal(activation.status, 200);
+    const licenseRef = created.license.license_ref;
+    try {
+      await pool.query("UPDATE products SET active=false WHERE code='guardian-android-pro'");
+      const status = await post('/v1/licenses/status', { deviceBinding: device, licenseRef });
+      assert.equal(status.status, 200);
+      assert.equal((await status.json()).status, 'free');
+      const refresh = await post('/v1/licenses/refresh', { deviceBinding: device, licenseRef });
+      assert.equal(refresh.status, 403);
+    } finally {
+      await pool.query("UPDATE products SET active=true WHERE code='guardian-android-pro'");
+    }
+  });
+
+
+  test('admin license issuance enforces plan duration and records the selected plan', async () => {
+    const valid = await post('/v1/admin/licenses', {
+      planCode: 'monthly_30d', validDays: 30, maxDevices: 2
+    }, adminHeaders);
+    assert.equal(valid.status, 200);
+    const issued = await valid.json();
+    assert.match(issued.licenseKey, /^GDN-(?:[A-F0-9]{8}-){5}[A-F0-9]{8}$/);
+    const event = await pool.query(
+      `SELECT metadata FROM license_events WHERE license_id=$1 AND event_type='issued'`,
+      [issued.license.id]
+    );
+    assert.equal(event.rowCount, 1);
+    assert.equal(event.rows[0].metadata.planCode, 'monthly_30d');
+    assert.equal(event.rows[0].metadata.days, 30);
+
+    const mismatch = await post('/v1/admin/licenses', {
+      planCode: 'monthly_30d', validDays: 31, maxDevices: 2
+    }, adminHeaders);
+    assert.equal(mismatch.status, 400);
+    assert.match((await mismatch.json()).error, /기간 설정/);
+  });
+
+  test('customers can submit and privately track support tickets while admins reply securely', async () => {
+    const submitted = await post('/v1/support/tickets', {
+      category: 'suggestion',
+      subject: '광고 차단 규칙 제안',
+      message: '특정 앱에서 광고 도메인이 계속 노출됩니다. 확인 부탁드립니다.',
+      email: 'customer@example.com'
+    });
+    assert.equal(submitted.status, 200);
+    const receipt = await submitted.json();
+    assert.match(receipt.ticketRef, /^GDN-[A-F0-9]{12}$/);
+    assert.equal(typeof receipt.accessToken, 'string');
+    assert.ok(receipt.accessToken.length >= 40);
+
+    const stored = await pool.query(
+      'SELECT id,access_token_hash,status FROM support_tickets WHERE ticket_ref=$1',
+      [receipt.ticketRef]
+    );
+    assert.equal(stored.rowCount, 1);
+    assert.equal(stored.rows[0].status, 'open');
+    assert.notEqual(stored.rows[0].access_token_hash, receipt.accessToken);
+    assert.equal(stored.rows[0].access_token_hash.length, 64);
+
+    const unauthorized = await fetch(`${baseUrl}/v1/admin/support/tickets`);
+    assert.equal(unauthorized.status, 401);
+    const inbox = await fetch(`${baseUrl}/v1/admin/support/tickets`, { headers: adminHeaders });
+    assert.equal(inbox.status, 200);
+    const tickets = (await inbox.json()).tickets;
+    const item = tickets.find(ticket => ticket.ticket_ref === receipt.ticketRef);
+    assert.ok(item);
+    assert.equal(Object.hasOwn(item, 'access_token_hash'), false);
+
+    const reply = await post(`/v1/admin/support/tickets/${item.id}/reply`, {
+      reply: '제보 감사합니다. 필터 규칙을 확인하고 다음 업데이트에 반영하겠습니다.',
+      status: 'answered'
+    }, adminHeaders);
+    assert.equal(reply.status, 200);
+    assert.equal((await reply.json()).ticket.status, 'answered');
+
+    const lookup = await post('/v1/support/tickets/lookup', {
+      ticketRef: receipt.ticketRef,
+      accessToken: receipt.accessToken
+    });
+    assert.equal(lookup.status, 200);
+    const ticket = (await lookup.json()).ticket;
+    assert.equal(ticket.status, 'answered');
+    assert.match(ticket.admin_reply, /제보 감사합니다/);
+
+    const wrongToken = await post('/v1/support/tickets/lookup', {
+      ticketRef: receipt.ticketRef,
+      accessToken: 'x'.repeat(43)
+    });
+    assert.equal(wrongToken.status, 404);
   });
 
   test('activation issues a valid signed entitlement and is idempotent per device', async () => {
