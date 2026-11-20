@@ -17,7 +17,7 @@ class InstallationIdStoreTest {
         val writes = AtomicInteger(0)
         val ready = CountDownLatch(24)
         val start = CountDownLatch(1)
-        val executor = Executors.newFixedThreadPool(12)
+        val executor = Executors.newFixedThreadPool(24)
         try {
             val tasks = (1..24).map {
                 executor.submit<String> {
