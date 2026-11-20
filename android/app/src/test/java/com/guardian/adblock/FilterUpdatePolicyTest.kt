@@ -97,6 +97,46 @@ class FilterUpdatePolicyTest {
     }
 
     @Test
+    fun disabledOptionalSourceErrorsDoNotAffectVisibleHealth() {
+        assertFalse(FilterUpdateErrorPolicy.hasVisibleError(
+            baseError = false,
+            securityEnabled = false,
+            securityError = true,
+            androidAdsEnabled = false,
+            androidAdsError = true
+        ))
+    }
+
+    @Test
+    fun enabledOptionalSourceErrorsRemainVisible() {
+        assertTrue(FilterUpdateErrorPolicy.hasVisibleError(
+            baseError = false,
+            securityEnabled = true,
+            securityError = true,
+            androidAdsEnabled = false,
+            androidAdsError = true
+        ))
+        assertTrue(FilterUpdateErrorPolicy.hasVisibleError(
+            baseError = false,
+            securityEnabled = false,
+            securityError = true,
+            androidAdsEnabled = true,
+            androidAdsError = true
+        ))
+    }
+
+    @Test
+    fun baseFilterErrorIsVisibleRegardlessOfOptionalSources() {
+        assertTrue(FilterUpdateErrorPolicy.hasVisibleError(
+            baseError = true,
+            securityEnabled = false,
+            securityError = false,
+            androidAdsEnabled = false,
+            androidAdsError = false
+        ))
+    }
+
+    @Test
     fun manualAndBackgroundRefreshTransactionsCannotOverlap() {
         val firstEntered = CountDownLatch(1)
         val releaseFirst = CountDownLatch(1)
