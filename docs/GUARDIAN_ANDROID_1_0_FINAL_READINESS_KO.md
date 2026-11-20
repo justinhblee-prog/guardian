@@ -187,7 +187,7 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 빌드 단계에서 clean, testDebugUnitTest, lintDebug, assembleDebug를 순서대로 실행하고 각 실행 로그를 보존합니다. 실패 시 해당 로그 경로와 종료 코드로 중단합니다.
 - 산출 APK의 패키지 ID, versionCode, versionName을 aapt dump badging으로 검증하고, 비어 있지 않은 APK를 %LOCALAPPDATA%\Guardian\outputs\Android-Debug-<timestamp>에 복사합니다.
 - 해당 폴더에 Gradle 버전 출력, 전체 빌드 로그, APK SHA-256 및 검증 요약을 함께 저장합니다. 단말 검증은 이 스크립트가 수행하지 않았다고 명시합니다.
-- 기본 기대 버전은 현재 앱 Gradle 설정과 병렬 실행 문서에 기록된 0.7.30-dev / 43이며, GUARDIAN_VERSION_NAME 및 GUARDIAN_VERSION_CODE 환경 변수로 명시적 변경이 가능합니다.
+- 기본 기대 버전은 현재 앱 Gradle 설정 기준 0.7.34-dev / 47이며, GUARDIAN_VERSION_NAME 및 GUARDIAN_VERSION_CODE 환경 변수로 명시적 변경이 가능합니다.
 - GitHub 브랜치 파일 재조회로 스크립트 반영을 확인했습니다. 이 세션에는 Windows PowerShell, Android SDK 및 Gradle이 없어 PowerShell 파서 검사, 실제 Gradle 실행, APK 생성은 아직 수행하지 않았습니다. 따라서 이 수정은 빌드 성공 증거가 아니라 로컬 실행 시 증거를 빠짐없이 수집하기 위한 준비입니다.
 
 ## 2026-11-20 보호 시작 및 필터 초기 상태 심층 점검
@@ -481,3 +481,12 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 문의 조회 화면뿐 아니라 `LicenseApiClient.lookupSupportTicket()` 진입점에서도 접수 번호와 조회 코드를 검증해 다른 호출 경로에서 잘못된 요청이 전송되지 않도록 했습니다.
 - 테스트에 조회 코드 최소/최대 길이, 잘못된 패딩 및 공백 문자를 추가했습니다.
 - 실제 `SupportInputPolicy.kt`와 동등한 독립 Kotlin/JVM 하네스를 `kotlinc`로 컴파일·실행해 이메일, 접수 번호, 조회 코드 검증 3개 시나리오를 통과했습니다. Android Gradle/JUnit 및 실제 API/DB는 미실행입니다.
+
+
+## 2026-11-21 개발 업데이트 배포 버전 승급
+
+- Settings 진입 시 업데이트 자동 확인을 추가했지만, 이미 설치된 `0.7.33-dev (46)`와 같은 versionCode는 인앱 업데이트가 새 빌드로 인식하지 못하는 점을 확인했습니다.
+- Gradle 기본 개발 버전을 `0.7.34-dev (47)`로 승급하고 APK 워크플로의 이전 설치 fixture를 `0.7.33-dev (46)`로 맞췄습니다.
+- APK package identity 검사, source ZIP 이름·경로·SHA-256 검사, 개발 업데이트 manifest, `guardian-dev-v47` prerelease 태그, 최종 검증 보고서가 모두 versionCode 47을 사용하도록 정렬했습니다.
+- Production 1.0 versionCode는 개발 versionCode보다 1 큰 값으로 계산되므로 이번 기준은 48입니다. 실제 운영키가 없으면 Production 서명 산출물은 계속 생성하지 않습니다.
+- 새 exact-head Android CI/E2E가 이 버전 전환과 업그레이드 경로를 확인해야 하며, 0.7.33-dev 빌드의 이전 CI 성공을 0.7.34-dev 검증으로 간주하지 않습니다.
