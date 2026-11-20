@@ -6,6 +6,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FilterUpdateSchedulePolicyTest {
+    @Test fun changedSelectedProfileRequiresDownloadEvenWhenAutomaticUpdatesAreDisabled() {
+        assertTrue(
+            FilterStartupPolicy.shouldRefresh(
+                mainCacheMissing = false,
+                securityCacheMissing = false,
+                securityEnabled = false,
+                androidAdsCacheMissing = false,
+                androidAdsEnabled = false,
+                scheduledRefreshDue = false,
+                selectedProfileChanged = true
+            )
+        )
+    }
+
+    @Test fun unchangedProfileDoesNotForceAnUnscheduledRefresh() {
+        assertFalse(
+            FilterStartupPolicy.shouldRefresh(
+                mainCacheMissing = false,
+                securityCacheMissing = false,
+                securityEnabled = false,
+                androidAdsCacheMissing = false,
+                androidAdsEnabled = false,
+                scheduledRefreshDue = false,
+                selectedProfileChanged = false
+            )
+        )
+    }
+
     @Test fun firstRunFilterSetupRunsEvenWhenAutomaticUpdatesAreDisabled() {
         assertTrue(
             FilterStartupPolicy.shouldRefresh(
