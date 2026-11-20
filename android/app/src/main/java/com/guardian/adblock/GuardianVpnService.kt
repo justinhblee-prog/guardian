@@ -1267,24 +1267,9 @@ class GuardianVpnService : VpnService() {
 
     private fun forwardDnsOverTls(query: ByteArray, upstreamAddress: String): ByteArray? {
         if (query.size !in 17..4096) return null
-        val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
-        var socket: SSLSocket? = null
+        val identity = DnsTlsHostValidator.identity(configuredUpstreamTlsHost()) ?: return null
+        val socket = openProtectedDnsTlsSocket(upstreamAddress, identity, 853, "DoT") ?: return null
         return try {
-            val address = InetAddress.getByName(upstreamAddress)
-            val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
-            socket = factory.createSocket() as SSLSocket
-            if (!protect(socket)) {
-                lastUpstreamFailure = "DoT: VPN 소켓 우회 설정 실패"
-                return null
-            }
-            socket.connect(InetSocketAddress(address, 853), 3500)
-            socket.soTimeout = 3500
-            val parameters = socket.sslParameters
-            parameters.endpointIdentificationAlgorithm = "HTTPS"
-            parameters.serverNames = listOf(SNIHostName(tlsHost))
-            socket.sslParameters = parameters
-            socket.startHandshake()
-
             val output = DataOutputStream(socket.outputStream)
             output.writeShort(query.size)
             output.write(query)
@@ -1300,31 +1285,16 @@ class GuardianVpnService : VpnService() {
             lastUpstreamFailure = "DoT: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
             null
         } finally {
-            try { socket?.close() } catch (_: Exception) { }
+            try { socket.close() } catch (_: Exception) { }
         }
     }
 
     private fun forwardDnsOverHttps(query: ByteArray, upstreamAddress: String): ByteArray? {
         if (query.size !in 17..4096) return null
-        val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
-        val request = DnsDohHttpCodec.buildPostRequest(tlsHost, "/dns-query", query) ?: return null
-        var socket: SSLSocket? = null
+        val identity = DnsTlsHostValidator.identity(configuredUpstreamTlsHost()) ?: return null
+        val request = DnsDohHttpCodec.buildPostRequest(identity.serverName, "/dns-query", query) ?: return null
+        val socket = openProtectedDnsTlsSocket(upstreamAddress, identity, 443, "DoH") ?: return null
         return try {
-            val address = InetAddress.getByName(upstreamAddress)
-            val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
-            socket = factory.createSocket() as SSLSocket
-            if (!protect(socket)) {
-                lastUpstreamFailure = "DoH: VPN 소켓 우회 설정 실패"
-                return null
-            }
-            socket.connect(InetSocketAddress(address, 443), 3500)
-            socket.soTimeout = 3500
-            val parameters = socket.sslParameters
-            parameters.endpointIdentificationAlgorithm = "HTTPS"
-            parameters.serverNames = listOf(SNIHostName(tlsHost))
-            socket.sslParameters = parameters
-            socket.startHandshake()
-
             socket.outputStream.write(request)
             socket.outputStream.flush()
             val answer = DnsDohHttpCodec.readResponse(socket.inputStream) ?: return null
@@ -1333,7 +1303,49 @@ class GuardianVpnService : VpnService() {
             lastUpstreamFailure = "DoH: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
             null
         } finally {
-            try { socket?.close() } catch (_: Exception) { }
+            try { socket.close() } catch (_: Exception) { }
+        }
+    }
+
+    /**
+     * Connect the protected transport socket to the selected resolver IP, then layer TLS
+     * with the configured DNS hostname as the peer identity. This keeps routing pinned
+     * to the chosen IP while certificate verification and SNI use the DNS provider name.
+     */
+    private fun openProtectedDnsTlsSocket(
+        upstreamAddress: String,
+        identity: DnsTlsHostValidator.TlsIdentity,
+        port: Int,
+        protocol: String
+    ): SSLSocket? {
+        var transportSocket: Socket? = null
+        return try {
+            val address = InetAddress.getByName(upstreamAddress)
+            transportSocket = Socket()
+            if (!protect(transportSocket)) {
+                lastUpstreamFailure = "$protocol: VPN 소켓 우회 설정 실패"
+                return null
+            }
+            transportSocket.connect(InetSocketAddress(address, port), 3500)
+
+            val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
+            val tlsSocket = factory.createSocket(
+                transportSocket, identity.peerHost, port, true
+            ) as? SSLSocket ?: throw IllegalStateException("$protocol: TLS 소켓 생성 실패")
+            // Ownership is transferred to the layered SSLSocket.
+            transportSocket = null
+            tlsSocket.soTimeout = 3500
+            val parameters = tlsSocket.sslParameters
+            parameters.endpointIdentificationAlgorithm = "HTTPS"
+            parameters.serverNames = listOf(SNIHostName(identity.serverName))
+            tlsSocket.sslParameters = parameters
+            tlsSocket.startHandshake()
+            tlsSocket
+        } catch (error: Exception) {
+            lastUpstreamFailure = "$protocol: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
+            null
+        } finally {
+            try { transportSocket?.close() } catch (_: Exception) { }
         }
     }
 
