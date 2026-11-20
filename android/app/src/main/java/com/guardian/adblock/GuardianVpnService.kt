@@ -307,6 +307,20 @@ class GuardianVpnService : VpnService() {
         } catch (error: InterruptedException) {
             Thread.currentThread().interrupt()
             android.util.Log.w("GuardianProtection", "Interrupted while waiting for DNS worker to pause", error)
+            return
+        }
+        if (packetWorker?.isAlive == true) {
+            // Do not resume or establish a replacement TUN while the old reader
+            // is still alive. The ownership guard protects shared state, but a
+            // stuck reader would still consume resources and obscure shutdown.
+            prefs.edit()
+                .putBoolean(KEY_ACTIVE, false)
+                .putBoolean(KEY_RECOVERY_PENDING, true)
+                .putString(KEY_STATUS, "이전 DNS 패킷 처리가 종료되지 않아 VPN 자동 재연결을 보류했습니다. Guardian을 열어 보호 상태를 확인해 주세요.")
+                .commit()
+            sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
+            android.util.Log.e("GuardianProtection", "DNS packet worker did not stop within 5 seconds during compatibility pause")
+            return
         }
 
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) return
