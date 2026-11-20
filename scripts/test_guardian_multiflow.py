@@ -68,7 +68,7 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
                 safe_relative_path(path)
 
     def test_repository_paths_reject_dotenv_variants_and_secrets(self):
-        for path in ("docs/README-extra.md", "server/license-api/secrets/private.pem", "android/app/build/outputs/app.apk"):
+        for path in (".env.production", "server/license-api/secrets/private.pem", "android/app/build/outputs/app.apk"):
             with self.subTest(path=path), self.assertRaises(AutomationError):
                 safe_relative_path(path)
 
@@ -108,7 +108,7 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
         patch = (
             "diff --git a/README.md b/README.md\n"
             "--- a/README.md\n"
-            "+++ b/.env.production\n"
+            "+++ b/docs/README-extra.md\n"
             "@@ -1 +1 @@\n-old\n+secret\n"
         )
         with self.assertRaisesRegex(AutomationError, "header/marker path mismatch"):
