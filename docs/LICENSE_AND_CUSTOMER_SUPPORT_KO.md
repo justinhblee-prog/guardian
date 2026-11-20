@@ -39,7 +39,9 @@
 - `POST /v1/admin/support/tickets/{id}/reply`: 관리자 답변 및 상태 변경.
 - 고객 접수, 문의 조회, 관리자 문의 작업은 기존 요청 제한기를 통과합니다.
 
-기존 운영 DB에는 `migrations/003_support_tickets.sql`을 적용해야 합니다. `schema.sql`에도 신규 설치용 테이블 정의가 포함되어 있습니다.
+기존 운영 DB에는 백업 후 `migrations/002_shared_rate_limit_buckets.sql`, `migrations/003_support_tickets.sql`, `migrations/004_customers.sql`을 순서대로 적용해야 합니다. `server/license-api/windows/Apply-GuardianLicenseMigrations.ps1`은 이 순서를 지키고 백업 및 `/ready`를 확인합니다. `schema.sql`에도 신규 설치용 테이블 정의가 포함되어 있습니다.
+
+선택 이메일은 관리자가 문의에 회신할 때 참고하는 연락처로만 저장됩니다. 현재 메일 발송/알림 기능은 구현되어 있지 않으며, 고객은 접수 번호와 비밀 코드로 앱에서 답변을 조회합니다.
 
 ## 아직 완료로 간주하지 않는 항목
 
