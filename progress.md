@@ -391,3 +391,10 @@
 - `FilterRedirectPolicyTest.rejectsMalformedRawRequestTargetCharacters` 회귀 테스트 추가. 기존 IPv6 HTTPS 허용, 상대 경로 redirect, invalid port/fragment 차단 정책은 유지.
 - Kotlin/JVM 독립 하네스(정책 구현을 별도 파일로 옮긴 동등 코드) 컴파일 및 실행: 정상 HTTPS, IPv6, 잘못된 포트, fragment, raw 공백/역슬래시, redirect 검증 PASS. Android JUnit/Gradle은 미실행.
 - 원격 소스 재조회로 실제 정책/test 소스 반영 확인.
+
+
+## 2026-11-20 — Redirect edge-case coverage
+
+- Redirect policy 회귀 케이스에 IPv6 HTTPS + percent-encoded path 허용, raw newline/control character 차단을 추가했습니다. 테스트 입력은 실제 제어문자 escape를 사용하도록 정정했습니다.
+- Kotlin/JVM 독립 harness에서 동일한 URL 검증 규칙으로 11개 시나리오 PASS: 일반 HTTPS, IPv6/encoded path, 범위 밖 포트, fragment, raw 공백/역슬래시, 상대 redirect, 역슬래시·newline·제어문자 redirect, 5-hop 제한.
+- harness는 Android 모듈/JUnit 실행이 아니며 Android Gradle compile/lint/APK는 미실행입니다. 테스트 소스는 원격 재조회로 확인했습니다.
