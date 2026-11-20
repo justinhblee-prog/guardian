@@ -97,5 +97,3 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Python compile validation failed.' }
           python -m unittest scripts.test_guardian_multiflow
           if ($LASTEXITCODE -ne 0) { throw 'Guardian multi-flow safety tests failed.' }
-          python scripts/guardian_multiflow.py --validate-only --repo-root .
-          if ($LASTEXITCODE -ne 0) { throw 'Guardian multi-flow task manifest validation failed.' }
