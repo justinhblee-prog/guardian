@@ -607,10 +607,7 @@ class MainActivity : Activity() {
             }
             else -> buildSettings(body)
         }
-        val selectedNavigationTab = when (tab) {
-            "settings-general", "settings-filtering", "settings-support", "settings-license", "premium", "rules" -> "settings"
-            else -> tab
-        }
+        val selectedNavigationTab = ResponsiveLayoutPolicy.selectedNavigationTab(tab)
         val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
         val contentWidth = ResponsiveLayoutPolicy.contentWidthPx(
             ResponsiveLayoutPolicy.contentAreaWidthDp(screenWidthDp),
