@@ -254,3 +254,6 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 주기 업데이트와 별개인 고유 OneTimeWork 요청(`guardian_filter_failure_recovery`)을 추가했습니다. 네트워크 연결 제약과 지수형 재시도를 적용하고, 실패 복구 요청만 자동 업데이트 OFF 상태에서도 실행되도록 Worker 입력 플래그로 분리했습니다.
 - 수동 업데이트에서 기본 목록 실패 또는 활성화된 선택 목록 실패가 발생하면 복구 작업을 예약합니다. 정상적으로 갱신된 기본 목록은 기존 개별 소스별 시각/오류 상태를 이용해 불필요하게 다시 다운로드하지 않습니다.
 - 반영 커밋: `7483ad2`, `edef90e`, `2fd49ce`. 소스 재조회로 예약 경로와 Worker의 강제 복구 분기를 확인했습니다. WorkManager 런타임/Android 빌드 테스트는 아직 실행하지 않았습니다.
+
+- 후속 보완: 자동 업데이트 OFF/ON 및 강제 복구 요청 여부를 분리한 `FilterRecoveryPolicy`를 추출하고, 복구 Worker 진입 조건에 대한 단위 테스트 3건을 추가했습니다. 반영 커밋 `cf83400`, `011d7e5`, `47deb21`.
+- 최종 소스 재조회에서 수동 기본/선택 필터 실패 양쪽의 복구 예약 호출 2곳, Worker 강제 복구 분기, 회귀 테스트 3건을 확인했습니다. `main...feature/android-support-center-mainline` 비교는 238 ahead, 0 behind입니다. Android Gradle/JUnit/WorkManager 런타임 실행은 아직 수행하지 않았습니다.
