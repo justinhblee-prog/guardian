@@ -2478,13 +2478,20 @@ class MainActivity : Activity() {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val lookupRef = SupportInputPolicy.normalizeTicketReference(ticketRef.text.toString())
                 val lookupToken = accessToken.text.toString().trim()
-                if (lookupRef == null || lookupToken.isBlank()) {
-                    ticketRef.error = "GDN- 뒤에 12자리 영문·숫자 접수 번호를 입력하세요."
+                if (lookupRef == null) {
+                    ticketRef.error = "GDN- 뒤에 12자리 16진수 접수 번호를 입력하세요."
                     ticketRef.requestFocus()
-                    android.widget.Toast.makeText(this, "올바른 접수 번호와 조회 코드를 입력하세요.", Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(this, "올바른 접수 번호를 입력하세요.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                if (!SupportInputPolicy.isValidAccessToken(lookupToken)) {
+                    accessToken.error = "접수 시 발급된 32~100자리 조회 코드를 입력하세요."
+                    accessToken.requestFocus()
+                    android.widget.Toast.makeText(this, "조회 코드 형식을 확인하세요.", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
                 ticketRef.error = null
+                accessToken.error = null
                 val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 button.isEnabled = false
                 button.text = "조회 중…"
