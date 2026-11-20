@@ -2858,7 +2858,10 @@ class MainActivity : Activity() {
                         text = "$label\n$pkg"
                         contentDescription = "자동 일시중지 앱 $pkg"
                         textSize = 12f
-                        setTextColor(white)
+                        // AlertDialog uses the device's light surface on Samsung;
+                        // white labels disappear against that white app-list area.
+                        setTextColor(Color.rgb(30, 41, 59))
+                        setBackgroundColor(Color.WHITE)
                         isChecked = pkg in selected
                         setPadding(dp(4), dp(6), dp(4), dp(6))
                         setOnCheckedChangeListener { _, checked ->
