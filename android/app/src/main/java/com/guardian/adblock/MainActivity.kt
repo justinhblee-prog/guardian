@@ -1584,7 +1584,7 @@ class MainActivity : Activity() {
 
     private fun buildLicenseSettings(body: LinearLayout) {
         body.addView(settingsCategoryRow("‹ 설정", "설정 카테고리로 돌아가기", "license") {
-            showTab("settings")
+            showTab("settings-license")
         }.withTop(4))
         buildPremium(body)
         val verifiedLicense = LicenseEntitlementStore.current(this)
@@ -1682,7 +1682,7 @@ class MainActivity : Activity() {
                                         }
                                         this@apply.isEnabled = true
                                     } else {
-                                        showTab("settings")
+                                        showTab("settings-license")
                                     }
                                 }
                             } catch (error: Exception) {
@@ -1708,12 +1708,12 @@ class MainActivity : Activity() {
                         thread {
                             try {
                                 LicenseApiClient.refresh(this@MainActivity)
-                                runOnUiThread { showTab("settings") }
+                                runOnUiThread { showTab("settings-license") }
                             } catch (error: Exception) {
                                 runOnUiThread {
                                     if (error is LicenseApiException && error.invalidatesEntitlement) {
                                         // Rebuild settings after the local signed token was cleared.
-                                        showTab("settings")
+                                        showTab("settings-license")
                                     } else {
                                         licenseFeedback.text = error.message ?: "라이선스 갱신에 실패했습니다."
                                         isEnabled = true
@@ -1734,7 +1734,7 @@ class MainActivity : Activity() {
                         thread {
                             try {
                                 LicenseApiClient.deactivate(this@MainActivity)
-                                runOnUiThread { showTab("settings") }
+                                runOnUiThread { showTab("settings-license") }
                             } catch (error: Exception) {
                                 runOnUiThread {
                                     licenseFeedback.text = error.message ?: "기기 등록 해제에 실패했습니다."
