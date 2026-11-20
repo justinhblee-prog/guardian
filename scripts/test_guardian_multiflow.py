@@ -1,6 +1,7 @@
 """Unit tests for the Guardian local multi-flow safety boundary."""
 from __future__ import annotations
 import json
+import subprocess
 import sys
 import tempfile
 import socket
@@ -209,7 +210,8 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
             self.assertFalse(second.acquire())
             first.release()
 
-    def test_file_lease_reclaims_expired_lock_from_a_dead_same_host_process(self):
+    def test_file_lease_reclaims_expired_lock_when_owner_is_confirmed_dead(self):
+        from unittest.mock import patch
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "task.lock"
             path.write_text(json.dumps({
@@ -220,10 +222,16 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
                 "expires_unix": time.time() - 60,
             }), encoding="utf-8")
             lease = FileLease(path)
-            self.assertTrue(lease.acquire())
+            with patch.object(FileLease, "_pid_alive", return_value=False):
+                self.assertTrue(lease.acquire())
             self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["token"], lease.token)
             lease.release()
             self.assertFalse(path.exists())
+
+    def test_windows_pid_probe_detects_a_terminated_child_process(self):
+        child = subprocess.Popen([sys.executable, "-c", "pass"])
+        child.wait(timeout=15)
+        self.assertFalse(FileLease._pid_alive(child.pid))
 
 if __name__ == "__main__":
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(GuardianMultiFlowValidationTests)
