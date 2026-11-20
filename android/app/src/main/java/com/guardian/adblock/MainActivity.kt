@@ -1305,7 +1305,7 @@ class MainActivity : Activity() {
         // from real signed-license entitlement. Never use this flag to authorize
         // production features or alter LicenseEntitlementStore.
         val developmentPreview = BuildConfig.DEBUG
-        val apiReady = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
+        val apiReady = LicenseApiClient.configuredBaseUrl(this).isNotBlank() &&
             BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank()
 
         body.addView(text("Guardian Premium", 26f, white, true))
@@ -1327,7 +1327,7 @@ class MainActivity : Activity() {
             ).withTop(12))
             addView(text(
                 when {
-                    proActive -> "서버 서명과 이 기기의 등록 정보를 확인했습니다."
+                    proActive -> "서버 서명 토큰의 유효성과 이 기기 바인딩을 로컬에서 검증했습니다."
                     retainedLicense != null -> "이전에 등록한 라이선스가 만료되었습니다. 상태를 갱신하거나 새 라이선스를 활성화하세요."
                     developmentPreview -> "개발 빌드에서는 라이선스 등록 없이 프리미엄 화면과 기능 구성을 미리 볼 수 있습니다. 실제 라이선스 권한은 별도로 검증됩니다."
                     else -> "현재 FREE 플랜을 사용 중입니다. 발급받은 PRO 라이선스 코드로 이 기기를 등록할 수 있습니다."
@@ -1720,13 +1720,18 @@ class MainActivity : Activity() {
         body.addView(infoRow(
             "라이선스",
             when {
-                verifiedLicense != null -> "서버 서명 및 이 기기 등록을 확인했습니다"
+                verifiedLicense != null -> "서버 서명 토큰 및 이 기기 바인딩 검증 완료"
                 releasableLicense != null -> "라이선스가 만료되었습니다 · 이 기기 등록 해제 가능"
                 else -> "서명 라이선스 미등록 · 무료 보호 기능 사용 중"
             },
             if (verifiedLicense != null) "PRO" else "FREE",
             if (verifiedLicense != null) accent else muted
         ))
+        if (verifiedLicense != null) {
+            val expiry = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
+                .format(Date(verifiedLicense.expiresAt * 1000L))
+            body.addView(text("PRO 이용 만료 · $expiry", 11f, muted, false).withTop(6))
+        }
 
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
