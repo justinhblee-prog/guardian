@@ -307,7 +307,24 @@ class MainActivity : Activity() {
                 }
             } catch (error: Exception) {
                 startupFilterCheckStarted.set(false)
-                android.util.Log.e("Guardian", "Startup filter readiness check failed", error)
+                val diagnostic = error.message ?: error.javaClass.simpleName
+                android.util.Log.e("Guardian", "Startup filter readiness check failed; scheduling one-shot recovery", error)
+                filterPrefs.edit()
+                    .putString(FilterListManager.KEY_LAST_ERROR, "필터 상태 확인 실패: $diagnostic")
+                    .apply()
+                // A storage/cache inspection failure must not silently leave a
+                // first-run installation without another attempt. The recovery
+                // worker independently validates each source and preserves the
+                // last-known-good cache before reporting failure.
+                runCatching { FilterUpdateScheduler.enqueueRecovery(applicationContext) }
+                    .onFailure {
+                        android.util.Log.e("Guardian", "Could not enqueue startup filter recovery", it)
+                    }
+                runOnUiThread {
+                    if (!isFinishing && !isDestroyed) {
+                        setFilterUpdateStatus("필터 상태 확인에 실패했습니다. 복구 업데이트를 예약했습니다: $diagnostic")
+                    }
+                }
             }
         }
     }
