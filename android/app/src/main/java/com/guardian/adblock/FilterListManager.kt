@@ -128,7 +128,7 @@ object FilterListManager {
         }
     }
 
-    private fun recoverCache(context: Context, cacheName: String): File {
+    private fun recoverCache(context: Context, cacheName: String): File = FilterCacheStore.withLock {
         val target = File(context.filesDir, cacheName)
         val signedConfigured = FilterDistributionSettings.requiresSignedDelivery(
             FilterDistributionSettings.configuredBaseUrl(context),
@@ -158,7 +158,7 @@ object FilterListManager {
                     .putInt(countKeys.second, 0)
                     .apply()
             }
-            return target
+            return@withLock target
         }
         val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val sourceId = if (cacheName == CACHE_FILE) preferences.getString(KEY_CACHED_PROFILE, "adguard") ?: "adguard" else when (cacheName) {
@@ -172,7 +172,7 @@ object FilterListManager {
             // A cache without a committed signed hash may be a partially replaced first install
             // or an old unsigned cache. Neither is trusted once signed delivery is configured.
             discardCacheFiles(target)
-            return target
+            return@withLock target
         }
         fun matchesCommittedHash(candidate: File): Boolean {
             val bytes = readBoundedFile(candidate, MAX_BYTES) ?: return false
@@ -214,7 +214,7 @@ object FilterListManager {
                 }, 0)
                 .apply()
         }
-        return target
+        return@withLock target
     }
 
     fun hasCachedFile(context: Context): Boolean = FilterCacheStore.withLock {
