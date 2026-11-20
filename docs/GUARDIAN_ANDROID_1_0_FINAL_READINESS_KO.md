@@ -231,3 +231,11 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 회귀 테스트: 손상된 source timestamp를 복구하면서 다른 source의 timestamp가 유지되는지 확인하는 테스트를 추가했습니다.
 - GitHub 반영 커밋: `55d0d79a4284d4e9a424728e1bb5d2da6ef093fb`, 테스트 커밋: `7c35f0a905810857de5bb885d2f324942ba22949`.
 - Android Gradle/JUnit 실행은 아직 하지 않았으며, 소스 재조회 정적 검증만 수행합니다.
+
+## 2026-11-20 manifest timestamp ledger의 malformed Properties 복구 및 JVM 실행 검증
+
+- ManifestTimestampStore는 정상적인 숫자 값 손상은 복구할 수 있었지만, Properties 파일에 잘못된 Unicode escape가 들어가면 Properties.load()가 IllegalArgumentException을 던졌습니다. 이 예외는 기존 캐시 복구 분기에서 처리되지 않아 손상 ledger가 복구되지 않는 결함이었습니다.
+- 엄격 조회/기록은 malformed Properties를 IllegalStateException으로 변환해 fail-closed 동작을 유지합니다. 복구 경로만 파일을 줄 단위로 검사해 이 클래스가 기록하는 ASCII sourceId/숫자 timestamp 형식의 정상 항목을 살리고, 손상된 행은 제외한 뒤 대상 source timestamp를 복원합니다.
+- 회귀 테스트는 malformed Unicode escape가 포함된 파일에서 정상 source timestamp가 보존되고 손상 source만 복구되는지 확인합니다. 기존 corruption fixture의 줄바꿈/escape도 실제 별도 행을 만들도록 수정했습니다.
+- 독립 JVM 검증: JDK 21 + kotlinc로 ManifestTimestampStore를 컴파일하고 실행했습니다. 8개 독립 source × 250회 병렬 기록, malformed Unicode ledger 복구 및 다른 source 보존, 동일/과거 timestamp 거부와 새 timestamp 허용, sourceId 검증을 모두 통과했습니다.
+- 검증 범위 제한: 위 실행은 저장소의 클래스 로직을 분리한 JVM 검증입니다. Android Gradle 빌드, Android JUnit 전체 실행, APK 생성/설치, Samsung 실기기 VPN·DNS 차단 검증을 대체하지 않습니다. GitHub Actions는 실행하지 않았습니다.
