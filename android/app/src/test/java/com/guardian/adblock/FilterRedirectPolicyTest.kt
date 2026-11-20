@@ -38,6 +38,26 @@ class FilterRedirectPolicyTest {
         assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/filter.txt#fragment", 0))
     }
 
+    @Test fun rejectsUnsafeInitialDownloadUrlsBeforeConnecting() {
+        listOf(
+            "http://example.com/filter.txt",
+            "https:///filter.txt",
+            "https://user:pass@example.com/filter.txt",
+            "https://example.com:99999/filter.txt",
+            "https://example.com/filter.txt#fragment"
+        ).forEach { value ->
+            try {
+                assertFalse("must reject $value", FilterRedirectPolicy.isAllowedHttpsUrl(java.net.URL(value)))
+            } catch (_: java.net.MalformedURLException) {
+                // A malformed URL is rejected before a connection can be opened.
+            }
+        }
+    }
+
+    @Test fun acceptsSafeInitialDownloadUrl() {
+        assertTrue(FilterRedirectPolicy.isAllowedHttpsUrl(java.net.URL(base)))
+    }
+
     @Test fun capsRedirectChainAtFiveHops() {
         assertNotNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/next", 4))
         assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/next", 5))
