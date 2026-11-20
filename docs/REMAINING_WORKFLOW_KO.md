@@ -84,6 +84,8 @@ Android 1.0은 Issue #141의 필수 항목만 완료 기준으로 사용합니�
 
 - [Android 1.0 병렬 실행 워크플로](ANDROID_1_0_PARALLEL_EXECUTION_KO.md)
 
+- [Android 1.0 수동 병렬 검증 Actions](../.github/workflows/android-1-0-parallel-gates.yml)
+
 ## 5. Windows 순서
 
 Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 패키지를 진행합니다. Android 출시 차단과 무관한 Windows 작업을 Android 범위에 끌어오지 않습니다.
