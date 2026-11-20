@@ -79,3 +79,12 @@ Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 �
 - PR #202는 emulator verification script 충돌, PR #75는 광범위한 브랜치 divergence와 충돌로 미통합 상태입니다. 충돌 브랜치에 force-push하지 않았습니다.
 - 운영 차단 항목은 여전히 실기기 Samsung 검증, 필터 원본 재배포 권리 승인 및 배포 브랜치, 사용자 소유 production signing key/secrets, 실제 결제 webhook 검증입니다. Debug APK 성공은 이 항목들을 대체하지 않습니다.
 - 다음 CI 판정은 이 문서 변경이 반영된 새 commit SHA에서 Android workflow가 실제로 실행·완료된 뒤 기록합니다.
+
+## 2026-11-20 고객지원·라이선스 운영 통합 (PR #220)
+- 기존 PR #205는 현재 main보다 72개 커밋 뒤처진 상태여서 직접 병합하지 않았다. 최신 main에서 새 통합 브랜치를 만들고 고객 디렉터리/고객 연결 라이선스 기능을 보존한 채 지원센터 변경을 재적용했다.
+- Android Settings 고객지원 FAQ, 문의 접수, 접수번호+비밀코드 기반 답변 조회 UI를 추가했다. 문의 내용과 선택 이메일만 서버로 전송하며 진단정보는 자동 첨부하지 않는다.
+- License API에 문의 생성/비밀 조회/관리자 목록·답변 API, 임의 비밀코드의 SHA-256 저장, 공통 IP rate-limit bucket을 추가했다.
+- 기존 DB 업그레이드 스크립트는 002 rate-limit, 003 support-ticket, 004 customer migration을 순서대로 적용하고 사전 백업 및 /ready 확인을 수행하도록 구성했다.
+- 라이선스 7/30/90/365일 프리셋과 서버측 기간 일치 검증, 발급 감사 metadata를 통합했다. Lifetime은 계속 미지원이다.
+- PR #220 License API Node/PostgreSQL 통합, Docker 설정, PowerShell 파서 검증과 Git consistency gate는 통과했다. Android 에뮬레이터/지원 UI 및 secrets 없는 Production Release 검증은 별도 CI 완료 전까지 미확정이다.
+- 실제 노트북 DB migration, 운영 서버 배포, 실사용자 이메일 발송, 실기기 지원 UI 검증은 수행하지 않았다.
