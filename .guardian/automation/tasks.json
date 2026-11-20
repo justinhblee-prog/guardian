@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "description": "Guardian Android-first implementation tracks. Each ready task has disjoint exact file scope and a code-owned fixed test profile.",
+  "max_parallel_tasks": 3,
+  "tasks": [
+    {
+      "id": "android-diagnostic-trace",
+      "title": "Strengthen privacy-safe Android startup diagnostics",
+      "priority": 10,
+      "status": "ready",
+      "dependencies": [],
+      "scope": "Review Guardian ProtectionDiagnostics exception-chain and startup failure summary behavior. Improve only correctness or coverage that is directly supported by the current implementation. Preserve privacy by excluding exception messages, filesystem paths, URLs, DNS history, credentials and device identifiers.",
+      "allowed_files": [
+        "android/app/src/main/java/com/guardian/adblock/ProtectionDiagnostics.kt",
+        "android/app/src/test/java/com/guardian/adblock/ProtectionDiagnosticsTest.kt"
+      ],
+      "test_profile": "android-unit-lint",
+      "acceptance_criteria": [
+        "Exception cause-chain and stack-frame summaries remain bounded and cycle-safe.",
+        "Private messages, paths, URLs and credentials never enter the support report.",
+        "Regression tests cover any changed behavior, including long wrapper chains and root causes.",
+        "No physical-device issue is marked resolved without a device diagnostic bundle."
+      ]
+    },
+    {
+      "id": "filter-redistribution-gate",
+      "title": "Harden the filter redistribution approval gate",
+      "priority": 20,
+      "status": "ready",
+      "dependencies": [],
+      "scope": "Review the existing production redistribution approval verifier and its tests. Improve fail-closed validation for malformed or ambiguous approval records only. Never approve a source, invent a legal decision, or weaken existing release gating.",
+      "allowed_files": [
+        "server/filter-distribution/scripts/verify-production-approvals.mjs",
+        "server/filter-distribution/test/production-approval-gate.test.mjs"
+      ],
+      "test_profile": "filter-node",
+      "acceptance_criteria": [
+        "An empty source list, missing license identifier, duplicate source ID or missing approval reference remains blocked.",
+        "Only explicitly approved and traceably referenced records can pass the contract test.",
+        "Example upstream filter sources remain unapproved; no live source approval is fabricated.",
+        "All filter-distribution Node tests pass."
+      ]
+    },
+    {
+      "id": "release-signing-contract",
+      "title": "Strengthen Android production signing and distribution policy",
+      "priority": 30,
+      "status": "ready",
+      "dependencies": [],
+      "scope": "Review the Android Gradle release configuration and distribution build-type policy tests. Improve validation or regression coverage without supplying production secrets, changing signer identity, inventing HTTPS endpoints, or making Release builds succeed when required production configuration is missing.",
+      "allowed_files": [
+        "android/app/build.gradle.kts",
+        "android/app/src/test/java/com/guardian/adblock/DistributionBuildTypePolicyTest.kt"
+      ],
+      "test_profile": "android-unit-lint",
+      "acceptance_criteria": [
+        "Release and direct-install variants remain blocked without the real production keystore and required HTTPS service configuration.",
+        "Google Play and direct-install permission/updater boundaries remain distinct.",
+        "No secret, private key, keystore or fabricated production endpoint is added.",
+        "Android unit tests and lint pass."
+      ]
+    }
+  ]
+}
