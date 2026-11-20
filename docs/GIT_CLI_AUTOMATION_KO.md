@@ -36,7 +36,13 @@ gh auth login
 gh auth setup-git
 ```
 
-## 업데이트 및 부트스트랩 동작\n\n- `guardian-git-agent-bootstrap.ps1`은 agent보다 먼저 실행됩니다. Git CLI로 origin/main을 가져오고, 현재 branch가 `main`이며 working tree가 깨끗할 때만 `git merge --ff-only origin/main`으로 최신 파일을 반영합니다. `reset --hard`, 강제 checkout, dirty working tree 덮어쓰기는 사용하지 않습니다.\n- bootstrap은 공유 파일 잠금을 확보한 뒤 이전 버전의 `-RunLoop` agent 프로세스를 정리하고, 디스크에 반영된 최신 agent를 실행합니다. 기존 agent의 Git 작업이 잠금을 보유 중이면 최대 120초 기다리며, 잠금을 얻지 못하면 기존 프로세스를 강제 종료하지 않습니다.\n- 따라서 기존 Startup fallback을 사용하는 PC는 새 bootstrap 방식이 반영된 저장소를 한 번 동기화하고 `-InstallScheduledTask`를 다시 실행해야 Startup launcher가 교체됩니다. 이 최초 1회 로컬 설치 이후에는 bootstrap이 매 주기 최신 agent 파일을 확인합니다.\n\n## 수동 실행 및 제거
+## 업데이트 및 부트스트랩 동작
+
+- `guardian-git-agent-bootstrap.ps1`은 agent보다 먼저 실행됩니다. Git CLI로 origin/main을 가져오고, 현재 branch가 `main`이며 working tree가 깨끗할 때만 `git merge --ff-only origin/main`으로 최신 파일을 반영합니다. `reset --hard`, 강제 checkout, dirty working tree 덮어쓰기는 사용하지 않습니다.
+- bootstrap은 공유 파일 잠금을 확보한 뒤 이전 버전의 `-RunLoop` agent 프로세스를 정리하고, 디스크에 반영된 최신 agent를 실행합니다. 기존 agent의 Git 작업이 잠금을 보유 중이면 최대 120초 기다리며, 잠금을 얻지 못하면 기존 프로세스를 강제 종료하지 않습니다.
+- 따라서 기존 Startup fallback을 사용하는 PC는 새 bootstrap 방식이 반영된 저장소를 한 번 동기화하고 `-InstallScheduledTask`를 다시 실행해야 Startup launcher가 교체됩니다. 이 최초 1회 로컬 설치 이후에는 예약된 bootstrap 또는 Startup fallback의 agent RunLoop가 주기적으로 origin/main을 확인합니다.
+
+## 수동 실행 및 제거
 
 ```powershell
 # 즉시 1회 실행
