@@ -461,3 +461,11 @@
 - DoT/DoH previously created an unconnected SSLSocket, connected it to the selected resolver IP, then supplied SNI. The TLS peer host used for HTTPS endpoint identification could therefore remain the IP rather than the configured DNS provider hostname.
 - The transport now protects and connects a raw socket to the selected resolver IP, layers TLS with SSLSocketFactory.createSocket(connectedSocket, canonicalDnsHost, port, true), and applies the same canonical DNS hostname to SNI and HTTPS certificate verification. Resolver IP selection and VPN socket protection are preserved.
 - Added a host identity policy test asserting canonical peerHost/serverName equality and IP rejection. Remote source/test re-fetch is the available verification; Android Gradle/JUnit and live DoT/DoH certificate handshake tests are not available here.
+
+
+## 2026-11-20 — Filter rule modifier grammar fail-closed
+
+- 발견: FilterRuleParser가 명시적인 빈 modifier suffix(`||example.test^$`)와 비어 있거나 중복된 comma modifier token을 허용했습니다. 잘못된 필터 문법이 의도보다 넓은 DNS 도메인 차단 규칙으로 해석될 수 있었습니다.
+- 수정: modifier suffix가 존재하면 토큰이 최소 1개여야 하고, 각 토큰이 비어 있지 않으며 대소문자 무관 중복이 없어야 합니다. 지원하는 important/all/badfilter 정책은 유지하고, 지원하지 않는 URL-context modifier는 계속 무시합니다.
+- 회귀 테스트: 빈 suffix, 선행/후행 빈 토큰, 중복 modifier, 미지원 context modifier, 정상 important 규칙을 검증하도록 기존 테스트를 교체했습니다.
+- 검증 한계: GitHub 원격 소스 반영 확인만 수행합니다. Android Gradle/JUnit, 실제 대형 upstream feed 호환성 및 Samsung 단말 동작은 미실행입니다.
