@@ -13,6 +13,10 @@ internal object SupportInputPolicy {
             )
     }
 
+    /** Server issues a 32-byte base64url access token (43 chars); accept its bounded contract. */
+    fun isValidAccessToken(value: String): Boolean =
+        value.length in 32..100 && value.all { it.isLetterOrDigit() || it == '-' || it == '_' }
+
     /** Server-generated references are GDN- plus 12 uppercase hexadecimal characters. */
     fun normalizeTicketReference(value: String): String? {
         val normalized = value.trim().uppercase(Locale.ROOT)
