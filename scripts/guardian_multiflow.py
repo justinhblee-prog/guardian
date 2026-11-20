@@ -208,21 +208,42 @@ def validate_unified_patch(patch: str, allowed_files: set[str]) -> set[str]:
     for forbidden in ("new file mode ", "deleted file mode ", "rename from ", "rename to ", "copy from ", "old mode ", "new mode "):
         if forbidden in patch:
             raise AutomationError(f"File creation/deletion/rename/mode changes are not accepted ({forbidden.strip()}).")
-    headers = re.findall(r"^diff --git a/([^\r\n]+) b/([^\r\n]+)$", patch, flags=re.MULTILINE)
-    if not headers or len(headers) > MAX_PATCH_FILES:
+    sections = re.split(r"(?=^diff --git )", patch, flags=re.MULTILINE)
+    sections = [section for section in sections if section.strip()]
+    if not sections or len(sections) > MAX_PATCH_FILES:
         raise AutomationError("Diff must contain 1-8 ordinary git diff file sections.")
     changed: set[str] = set()
-    for old, new in headers:
+    for section in sections:
+        lines = section.splitlines()
+        if not lines:
+            raise AutomationError("Empty diff file section.")
+        header = re.fullmatch(r"diff --git a/([^\r\n]+) b/([^\r\n]+)", lines[0])
+        if not header:
+            raise AutomationError("Quoted, combined or malformed git diff headers are not accepted.")
+        old, new = header.groups()
         if old != new:
             raise AutomationError("Renames and copies are not accepted.")
-        clean = safe_relative_path(old)
-        if clean not in allowed_files:
-            raise AutomationError(f"Model attempted to modify a file outside its exact allowlist: {clean}")
-        changed.add(clean)
-    if len(changed) != len(headers):
-        raise AutomationError("Diff repeats a file section.")
-    if re.search(r"^--- /dev/null$|^\+\+\+ /dev/null$", patch, flags=re.MULTILINE):
-        raise AutomationError("Creating or deleting files is not permitted for model patches.")
+        header_path = safe_relative_path(old)
+        if header_path not in allowed_files:
+            raise AutomationError(f"Model attempted to modify a file outside its exact allowlist: {header_path}")
+        old_markers = [line for line in lines if line.startswith("--- ")]
+        new_markers = [line for line in lines if line.startswith("+++ ")]
+        if len(old_markers) != 1 or len(new_markers) != 1:
+            raise AutomationError(f"Diff for {header_path} must contain exactly one old and new file marker.")
+        old_marker, new_marker = old_markers[0], new_markers[0]
+        if old_marker == "--- /dev/null" or new_marker == "+++ /dev/null":
+            raise AutomationError("Creating or deleting files is not permitted for model patches.")
+        if not old_marker.startswith("--- a/") or not new_marker.startswith("+++ b/"):
+            raise AutomationError("Diff markers must use ordinary a/ and b/ repository paths.")
+        old_path = safe_relative_path(old_marker[6:])
+        new_path = safe_relative_path(new_marker[6:])
+        if old_path != header_path or new_path != header_path:
+            raise AutomationError(
+                f"Diff header/marker path mismatch: header={header_path}, old={old_path}, new={new_path}."
+            )
+        if header_path in changed:
+            raise AutomationError("Diff repeats a file section.")
+        changed.add(header_path)
     return changed
 
 def run_process(args: list[str], cwd: Path, timeout: int, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
