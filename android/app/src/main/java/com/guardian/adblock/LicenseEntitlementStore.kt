@@ -16,15 +16,15 @@ internal object LicenseEntitlementStore {
     private const val KEY_PAYLOAD = "signed_payload"
     private const val KEY_SIGNATURE = "signature"
 
+    private val installationIdStore = InstallationIdStore()
+
     fun deviceBinding(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        var installId = prefs.getString(KEY_INSTALL_ID, null)
-        if (installId.isNullOrBlank()) {
-            installId = UUID.randomUUID().toString()
-            check(prefs.edit().putString(KEY_INSTALL_ID, installId).commit()) {
-                "기기 등록 식별자를 저장하지 못했습니다."
-            }
-        }
+        val installId = installationIdStore.getOrCreate(
+            readExisting = { prefs.getString(KEY_INSTALL_ID, null) },
+            create = { UUID.randomUUID().toString() },
+            persist = { value -> prefs.edit().putString(KEY_INSTALL_ID, value).commit() }
+        )
         return sha256("guardian-android:$installId")
     }
 
