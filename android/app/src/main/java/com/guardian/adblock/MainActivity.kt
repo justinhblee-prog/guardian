@@ -3797,7 +3797,7 @@ class MainActivity : Activity() {
         // Unchecked selection boxes must remain clearly visible on dark cards.
         toggle.buttonTintList = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(accent, Color.WHITE)
+            intArrayOf(accent, Color.rgb(100, 116, 139))
         )
     }
 
