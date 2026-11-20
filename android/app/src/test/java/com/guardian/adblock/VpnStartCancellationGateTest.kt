@@ -77,4 +77,35 @@ class VpnStartCancellationGateTest {
 
         assertNull(resumedGeneration)
     }
+    @Test fun staleStartupFailureCannotPublishDiagnosticsOrStopNewerRequest() {
+        val gate = VpnStartCancellationGate()
+        val staleStart = gate.onStartRequested()
+        gate.cancel()
+        val currentStart = gate.onStartRequested()
+        var diagnosticsPublished = false
+        var serviceStopped = false
+
+        val committed = gate.tryCommitStart(staleStart) {
+            diagnosticsPublished = true
+            serviceStopped = true
+        }
+
+        assertFalse(committed)
+        assertFalse(diagnosticsPublished)
+        assertFalse(serviceStopped)
+        assertTrue(gate.isCurrent(currentStart))
+    }
+
+    @Test fun startupFailureCleanupRunsOnlyWhileItsGenerationOwnsTheGate() {
+        val gate = VpnStartCancellationGate()
+        val start = gate.onStartRequested()
+        var cleanupCount = 0
+
+        assertTrue(gate.tryCommitStart(start) { cleanupCount += 1 })
+        gate.cancel()
+        assertFalse(gate.tryCommitStart(start) { cleanupCount += 1 })
+
+        assertEquals(1, cleanupCount)
+    }
+
 }
