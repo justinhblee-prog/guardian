@@ -94,10 +94,9 @@ PR별 최종 상태는 UPDATED, already based, BLOCKED, skipped, ERROR로 기록
 
 - `.guardian/automation/tasks.json`: Issue #142 Android 진단, #143 필터 승인 fail-closed, #144 Production 서명 게이트의 범위·우선순위·완료 조건·검증 프로필을 명시합니다.
 - `scripts/guardian_multiflow.py`: 작업 선택, 로컬 Ollama 호출, patch 검증, lease, worktree, allowlist 검증, commit/push 및 Draft PR을 수행합니다.
-- `scripts/guardian-multiflow.ps1`: 기존 Windows Git agent와 같은 Windows 사용자 환경에서 Python worker를 실행하는 진입점입니다.
+- `scripts/guardian-multiflow.ps1`: 기존 Windows Git agent와 같은 Windows 사용자 환경에서 Python worker를 실행하는 진입점입니다. Runner 서비스 계정과 Windows 예약 Agent는 동일한 Windows 사용자 계정을 사용해야 로컬 lease/state 및 Ollama slot을 공유합니다.
 - `.github/workflows/guardian-windows-multiflow.yml`: Windows self-hosted runner에서 매시간 또는 수동으로 최대 1~3개 독립 작업을 처리합니다.
 - `.github/workflows/aider-qwen-local.yml`: 기존 파일 경로를 유지하되 이제 Aider가 아니라 실제 localhost Ollama inference를 검증합니다.
-- `scripts/verify_guardian_release_gates.py`: Production release signing gate를 secret 없이 정적 검증합니다.
 
 ### Windows 사전 조건
 
@@ -129,7 +128,7 @@ gh auth setup-git
 
 `.github/workflows/guardian-windows-multiflow.yml`의 `runs-on`은 기존 Guardian runner와 동일하게 `[self-hosted, Windows]`입니다. GitHub 저장소의 Windows Runner가 Online이어야 하며, Runner 서비스 계정에서 Python·Git·GitHub CLI·Ollama 모델을 볼 수 있어야 합니다.
 
-Actions workflow는 `workflow_dispatch`와 매시간 schedule로 실행됩니다. 수동 실행 입력은 다음과 같습니다.
+Actions workflow는 main의 관련 변경 push, `workflow_dispatch` 및 매시간 schedule로 실행됩니다. 수동 실행 입력은 다음과 같습니다.
 
 - `max_tasks`: 최초에는 1, 이후 실제 PC의 RAM/VRAM 여유 및 안정성 확인 후 2 또는 3
 - `task_id`: manifest의 특정 작업 ID. 비워 두면 우선순위 순서로 선택
@@ -138,7 +137,7 @@ Workflow는 `contents: write`와 `pull-requests: write` 권한으로 task branch
 
 ### 멀티 작업 격리와 lease
 
-1. Manifest에서 `status=ready`이고 모든 선행 작업이 `completed`인 작업만 선택합니다.
+1. Manifest에서 `status=ready`이고 모든 선행 작업의 PR이 main에 통합된 것으로 확인된 작업만 선택합니다.
 2. 각 작업은 고정된 task ID별 lease를 획득하고 독립 Git branch/worktree를 만듭니다.
 3. 같은 PC의 Windows 예약 Agent와 GitHub workflow가 겹쳐도 같은 task lease를 동시에 획득할 수 없습니다.
 4. Ollama는 공용 3-slot semaphore를 사용하므로 두 실행 경로가 겹쳐도 로컬 모델 동시 호출이 3개를 넘지 않습니다.
