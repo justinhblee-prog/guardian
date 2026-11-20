@@ -156,6 +156,33 @@ class DnsTcpPacketTest {
         assertArrayEquals(byteArrayOf(1, 2, 3), reply.payload)
     }
 
+    @Test fun rejectsUnsupportedAndMisplacedIpv6ExtensionHeaders() {
+        val unsupported = ByteArray(68)
+        unsupported[0] = 0x60
+        unsupported[4] = 0
+        unsupported[5] = 28
+        unsupported[6] = 135 // Mobility Header: not safely interpreted by Guardian
+        unsupported[40] = 6
+        unsupported[41] = 0
+        assertNull(Ipv6ExtensionHeaderParser.transportOffset(
+            unsupported, unsupported.size, expectedNextHeader = 6, minimumTransportBytes = 20
+        ))
+
+        val misplacedHopByHop = ByteArray(68)
+        misplacedHopByHop[0] = 0x60
+        misplacedHopByHop[4] = 0
+        misplacedHopByHop[5] = 28
+        misplacedHopByHop[6] = 60 // Destination Options appears first
+        misplacedHopByHop[40] = 0 // Invalid: Hop-by-Hop cannot follow Destination Options
+        misplacedHopByHop[41] = 0
+        misplacedHopByHop[48] = 6
+        misplacedHopByHop[49] = 0
+        assertNull(Ipv6ExtensionHeaderParser.transportOffset(
+            misplacedHopByHop, misplacedHopByHop.size,
+            expectedNextHeader = 6, minimumTransportBytes = 20
+        ))
+    }
+
     private fun ipv6Request(): ByteArray {
         val p = ByteArray(60)
         p[0] = 0x60
