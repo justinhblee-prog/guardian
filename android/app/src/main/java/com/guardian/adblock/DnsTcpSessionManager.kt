@@ -81,7 +81,6 @@ class DnsTcpSessionManager(
         if (sequenceAfter(tcp.acknowledgement, session.serverNext)) {
             return listOf(ack(tcp, session))
         }
-        session.lastActivity = now
         // Keep a half-closed session until the client acknowledges our FIN.
         // This lets a lost FIN/data response be replayed on an exact retransmission.
         // A FIN is complete only when the ACK belongs to the current client stream.
@@ -98,11 +97,15 @@ class DnsTcpSessionManager(
             if (tcp.sequence == session.lastClientSegmentStart &&
                 tcp.payload.contentEquals(session.lastClientPayload) &&
                 tcp.fin == session.lastClientFin) {
+                session.lastActivity = now
                 return if (session.lastServerReplies.isNotEmpty()) session.lastServerReplies
                     else listOf(ack(tcp, session))
             }
             return listOf(ack(tcp, session))
         }
+        // Only an in-order segment (or exact retransmission above) is valid activity.
+        // Out-of-window packets must not keep bounded sessions alive indefinitely.
+        session.lastActivity = now
         // Once the client has sent FIN, its byte stream is closed.
         // Do not accept new payload at the FIN sequence boundary; otherwise a
         // stray ACK+data can advance clientNext and prevent the final ACK closing
