@@ -304,8 +304,6 @@ class GuardianVpnService : VpnService() {
         }
         try {
             packetWorker?.join(5_000L)
-        try {
-            packetWorker?.join(5_000L)
         } catch (error: InterruptedException) {
             Thread.currentThread().interrupt()
             android.util.Log.w("GuardianProtection", "Interrupted while waiting for DNS worker to pause", error)
