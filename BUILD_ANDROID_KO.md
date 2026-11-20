@@ -1,6 +1,6 @@
-# 최신 Android 빌드 기준 — 2026-11-18
+# 최신 Android 빌드 기준 — 2026-11-20
 
-- 현재 main 목표 버전: `com.guardian.adblock`, versionCode `32`, versionName `0.7.19-dev`.
+- 현재 feature 통합 브랜치 기본 빌드 버전: `com.guardian.adblock`, versionCode `43`, versionName `0.7.30-dev`. 빌드 시 `GUARDIAN_VERSION_CODE` 및 `GUARDIAN_VERSION_NAME`으로 명시적으로 재정의할 수 있습니다.
 - Android 소스 기준 커밋(PR #146 진단 기능 병합): `1e5ec6c4c943e56c36accaac49220eecdbdec98f`. 문서 전용 후속 커밋은 기능 기준 커밋과 구분합니다.
 - Android main CI [run 44270330488](https://github.com/justinhblee-prog/guardian/actions/runs/44270330488): 단위 테스트, lint, Debug APK 조립·패키지/버전·필터 asset·SHA-256 검사, Android API 35 에뮬레이터 설치/실행·업그레이드 및 VPN DNS E2E 전체 성공.
 - 해당 run의 APK는 검증용 Debug 빌드이며 운영 배포용 Release 서명본이 아닙니다. PR 검증 run에서는 artifact 업로드가 생략될 수 있으므로 실제 전달 시에는 성공한 main push 또는 수동 실행의 artifact를 사용합니다.
@@ -20,13 +20,21 @@
 - Gradle 8.9
 - 인터넷 연결(Gradle/Android 빌드 의존성 설치)
 
-## 자동화 빌드
+## 자동화 빌드 및 증거 수집
 
-프로젝트 루트에서 실행:
+Windows 프로젝트 루트에서 실행:
 
-```bash
-gradle -p android --no-daemon clean testDebugUnitTest assembleDebug
+```powershell
+.\BUILD_ANDROID.ps1
 ```
+
+또는 `BUILD_ANDROID.bat`을 실행합니다. 배치 파일도 동일한 PowerShell 검증 파이프라인을 호출합니다.
+
+- JDK 17/21, Android SDK Platform 35, Build Tools 35.0.0, Gradle 8.9를 사전 확인합니다.
+- `clean`, `testDebugUnitTest`, `lintDebug`, `assembleDebug`를 실행합니다.
+- APK 패키지 ID/versionCode/versionName을 `aapt`로 확인하고 SHA-256을 계산합니다.
+- APK, Gradle 버전, 빌드 로그, 검증 요약을 `%LOCALAPPDATA%\Guardian\outputs\Android-Debug-<timestamp>`에 보존합니다.
+- 이 파이프라인은 Debug APK 검증이며 Production 서명이나 Samsung 실기기 검증을 대신하지 않습니다.
 
 ## Android Studio
 
