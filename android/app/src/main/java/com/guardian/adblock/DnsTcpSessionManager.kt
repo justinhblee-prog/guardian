@@ -75,6 +75,10 @@ class DnsTcpSessionManager(
         // Every segment after the SYN handshake must carry ACK. Ignore
         // malformed ACK-less data/FIN so it cannot mutate the DNS stream.
         if (!tcp.ack) return emptyList()
+        // SYN is valid only when opening a session. A second SYN (including
+        // SYN+ACK) inside an established flow must not consume client sequence
+        // space or append attacker-controlled bytes to the DNS stream.
+        if (tcp.syn) return listOf(ack(tcp, session))
         // A client cannot acknowledge server sequence space that Guardian has
         // not transmitted. Reject future ACKs before accepting any DNS payload;
         // otherwise an invalid segment can mutate the request stream state.
