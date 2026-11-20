@@ -220,6 +220,21 @@ async function activate(body) {
       if (replay.rows[0].device_binding !== device || replay.rows[0].request_fingerprint !== fingerprint) {
         throw Object.assign(new Error('이미 다른 활성화 요청에 사용된 요청 ID입니다.'), { status: 409 });
       }
+      // A cached response must not resurrect an activation after an administrator
+      // or the device has released/revoked the slot. Signed offline tokens remain
+      // valid only until their bounded expiry, but replay itself must honor current state.
+      const stillActive = await client.query(
+        `SELECT 1 FROM licenses l
+         JOIN products p ON p.id=l.product_id
+         JOIN activations a ON a.license_id=l.id
+         WHERE l.license_ref=$1 AND l.status='active' AND l.expires_at>now()
+           AND p.active=true AND a.device_binding=$2 AND a.deactivated_at IS NULL
+         LIMIT 1`,
+        [replay.rows[0].response.licenseRef, device]
+      );
+      if (!stillActive.rowCount) {
+        throw Object.assign(new Error('이미 해제되었거나 정지된 활성화 요청입니다. 새 요청으로 다시 활성화하세요.'), { status: 409 });
+      }
       const cached = replay.rows[0].response;
       await client.query('COMMIT');
       return cached;
