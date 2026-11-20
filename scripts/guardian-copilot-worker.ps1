@@ -221,6 +221,11 @@ Safety:
     }
 
     Invoke-WorkerGit @('add', '--all') | Out-Null
+    $stagedCheck = Invoke-WorkerGit @('diff', '--cached', '--check') -AllowFailure
+    if ($stagedCheck.Code -ne 0) {
+        Write-WorkerLog "Staged diff validation failed; no commit or push. $($stagedCheck.Output)"
+        return
+    }
     $staged = (Invoke-WorkerGit @('diff', '--cached', '--name-only')).Output
     if ([string]::IsNullOrWhiteSpace($staged)) {
         Write-WorkerLog 'No safe staged source changes remained after validation.'
