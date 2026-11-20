@@ -146,8 +146,44 @@ internal object LicenseApiClient {
                 .put("deviceBinding", deviceBinding)
                 .put("appVersion", appVersion.take(40))
         )
-        val entitlement = persistToken(context, response)
-        clearPendingActivationRequest(context)
+        val entitlement = try {
+            persistToken(context, response)
+        } catch (activationError: Exception) {
+            // The server allocates the device slot before the app verifies and
+            // durably stores its signed entitlement. If local verification or
+            // persistence fails, compensate by releasing that exact slot.
+            // Keep the request ID when compensation is uncertain: replaying it
+            // is the only safe way to recover the original committed response.
+            var slotReleased = false
+            val licenseRef = response.optString("licenseRef")
+            if (isSafeLicenseRefForActivationCleanup(licenseRef)) {
+                runCatching {
+                    LicenseEntitlementStore.clear(context)
+                    post(
+                        context,
+                        "/v1/licenses/deactivate",
+                        JSONObject()
+                            .put("deviceBinding", deviceBinding)
+                            .put("licenseRef", licenseRef)
+                    )
+                }.onSuccess {
+                    slotReleased = true
+                }.onFailure { cleanupError ->
+                    activationError.addSuppressed(cleanupError)
+                }
+            }
+            if (slotReleased) {
+                if (!clearPendingActivationRequest(context)) {
+                    activationError.addSuppressed(
+                        IllegalStateException("보상 해제 후 활성화 재시도 식별자를 정리하지 못했습니다.")
+                    )
+                }
+            }
+            throw activationError
+        }
+        check(clearPendingActivationRequest(context)) {
+            "라이선스는 활성화됐지만 재시도 식별자를 정리하지 못했습니다. 앱을 다시 열어 상태를 확인하세요."
+        }
         return entitlement
     }
 
