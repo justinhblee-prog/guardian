@@ -351,3 +351,9 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - **수정**: 초기 공유 상태 초기화도 `VpnStartCancellationGate.tryCommitStart(requestGeneration)` 안에서 실행하도록 이동했습니다. 세대가 더 이상 유효하지 않으면 필터 준비 진단과 터널 상태를 건드리지 않고 즉시 반환합니다.
 - **회귀 테스트 소스**: `staleStartupWorkerCannotResetSharedReadinessBeforePreparing`를 추가해 stale generation의 readiness 초기화 및 tunnel inactive side effect가 차단되는 조건을 검증하도록 했습니다.
 - **검증 범위**: GitHub 원격 파일 재조회와 커밋 반영 확인 대상입니다. 이 테스트 소스는 Android JUnit으로 실행하지 않았으며 Android Gradle 빌드/APK/Samsung 실기기 검증도 수행하지 않았습니다.
+
+## 2026-11-20 DNS 동시 요청 진단 격리
+- VPN 패킷 처리, 시작 전 DNS 사전 점검, 사용자가 실행하는 업스트림 연결 테스트는 서로 다른 작업 스레드에서 `forwardDns()`를 호출할 수 있습니다.
+- 기존 `lastUpstreamFailure` 단일 공유 변수는 한 요청이 다른 요청의 실패 원인을 초기화하거나 덮어써서 잘못된 진단 메시지를 기록할 수 있었습니다.
+- 호출 스레드별 `ThreadLocal` 진단 컨텍스트로 변경해 DNS 요청 간 실패 사유가 섞이지 않도록 수정했습니다. 기존 호출부와 DNS 응답 처리 정책은 유지했습니다.
+- 검증 범위: 소스 반영 및 독립 JVM 동시성 하네스. Android Gradle/JUnit, APK, 실제 기기 검증은 별도 미실행 상태입니다.
