@@ -12,7 +12,7 @@ class SupportInputPolicyTest {
         assertTrue(SupportInputPolicy.isValidSupportText("  abc  ", 3, 120))
         assertFalse(SupportInputPolicy.isValidSupportText("ab", 3, 120))
         assertFalse(SupportInputPolicy.isValidSupportText("a".repeat(121), 3, 120))
-        assertFalse(SupportInputPolicy.isValidSupportText("abc\\u0000", 3, 120))
+        assertFalse(SupportInputPolicy.isValidSupportText("abc\u0000", 3, 120))
         assertFalse(SupportInputPolicy.isValidSupportText("abc", 4, 3))
     }
 
