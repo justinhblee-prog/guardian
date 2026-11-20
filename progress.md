@@ -148,3 +148,8 @@
 - 오래된 DNS 진단 결과가 초기화 또는 최신 패킷 결과를 덮어쓰지 않도록 순서 토큰을 공용 잠금과 함께 적용했습니다. 독립 Kotlin/JVM 컴파일/실행 3개 시나리오 PASS.
 - 미사용 고객지원 카드 구현을 제거했습니다. 현재 Settings > Support 단일 진입점의 FAQ/문의 접수/답변 조회 기능은 유지됩니다.
 - GitHub 원격 파일 재조회 및 정적 감사 완료. Android Gradle/JUnit/APK/실기기 검증은 미실행, Actions/PR/merge는 실행하지 않았습니다.
+
+## 2026-11-20 병렬 트랙 D — Android SDK Build Tools 버전 충돌 수정
+- 루트 `BUILD_ANDROID.ps1`은 APK 메타데이터 검사 도구로 Android Build Tools 34.0.0의 `aapt.exe`를 요구했지만, 앱 빌드 전용 `Build-GuardianAndroid-Debug.ps1`은 35.0.0을 요구하고 AGP 8.7.3/compileSdk 35 프로젝트의 실제 빌드 도구 기본값도 35.0.0 계열입니다. 두 빌드 진입점이 서로 다른 SDK 도구를 요구하는 설정 불일치를 확인했습니다.
+- 루트 빌드 스크립트의 aapt 경로와 오류 안내를 35.0.0으로 통일하고 `BUILD_ANDROID_KO.md`도 함께 수정했습니다.
+- GitHub 원격 파일 재조회로 스크립트/문서 일치 여부를 확인했습니다. PowerShell Parser, Android SDK, Gradle이 없는 현재 실행 환경에서는 실제 PowerShell 실행·APK 검증은 미실행입니다.
