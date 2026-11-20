@@ -56,6 +56,16 @@ Samsung 실기기 또는 Android 기기 1대를 USB 디버깅으로 연결하고
 
 두 명령 모두 공개키를 빌드 프로세스에만 주입하고 단위 테스트·Lint·Debug APK 빌드를 실행합니다. 빌드 후 `aapt`로 필수 `assets/filter_rules.txt`와 Guardian package ID를 검증합니다. APK와 SHA-256은 `%LOCALAPPDATA%\Guardian\outputs/`에 생성됩니다. `-InstallToConnectedDevice`는 빌드 성공 후 APK 설치, MainActivity 실행, 메인 화면 PNG 캡처와 기기 정보 보고서를 같은 출력 폴더에 추가합니다. 화면 캡처 성공은 앱 실행·렌더링 확인일 뿐 VPN 보호, DNS 차단, 라이선스 활성화 및 결제 검증을 대체하지 않습니다. 개인키는 APK에 포함되지 않습니다. 이 스크립트 산출물은 기존 개발용 서명 인증서를 사용하는 Debug APK이며, 상용 배포용 Production 서명 APK가 아닙니다. Release 서명은 별도 보호된 keystore와 Release 빌드 검증 절차가 필요합니다.
 
+## 기존 운영 DB 마이그레이션
+
+기존 노트북 PostgreSQL에는 신규 스키마를 덮어쓰지 말고, 저장소의 Windows 운영 폴더에서 아래 스크립트로 migration 002~005를 순서대로 적용합니다. 스크립트는 실행 전 DB 백업을 만들고, 네 migration 적용 후 필수 테이블·컬럼을 검증하고 API 이미지를 재빌드한 뒤 `/ready`를 확인합니다.
+
+```powershell
+./Apply-GuardianLicenseMigrations.ps1
+```
+
+migration 005는 모바일 라이선스 활성화 요청의 UUID와 최초 서명 응답을 저장해, HTTP 응답 유실 후 동일 요청 재시도 시 중복 기기 슬롯 생성을 방지합니다. 활성화 요청 응답 캐시는 DB에 보존되며 현재 자동 만료/정리 작업은 없습니다. 안전한 보존기간과 정리 정책이 확정되기 전에는 운영 DB에서 임의로 삭제하지 마십시오. 스크립트 실행은 실제 노트북 Docker/PostgreSQL에 변경을 적용하므로, 배포 전 백업 경로와 노트북 운영 상태를 확인해야 합니다.
+
 ## 운영 명령
 - 전체 시작 및 상태 확인: `./Start-All-GuardianServices.ps1`
 - 전체 중지: `./Stop-All-GuardianServices.ps1`
