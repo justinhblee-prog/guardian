@@ -217,23 +217,25 @@ object FilterListManager {
         return target
     }
 
-    fun hasCachedFile(context: Context): Boolean =
+    fun hasCachedFile(context: Context): Boolean = FilterCacheStore.withLock {
         recoverCache(context, CACHE_FILE).let { it.isFile && it.length() > 0L }
+    }
 
     internal fun isCacheValid(fileExists: Boolean, blockCount: Int, minimumRules: Int): Boolean =
         fileExists && minimumRules > 0 && blockCount >= minimumRules
 
-    fun hasCachedList(context: Context): Boolean =
+    fun hasCachedList(context: Context): Boolean = FilterCacheStore.withLock {
         isCacheValid(hasCachedFile(context), cachedBlockCount(context), selectedProfile(context).minimumRules)
-
-    fun hasCachedSecurityList(context: Context): Boolean {
-        val fileExists = recoverCache(context, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
-        return isCacheValid(fileExists, cachedSecurityBlockCount(context), MIN_SECURITY_BLOCKS)
     }
 
-    fun hasCachedAndroidAdsList(context: Context): Boolean {
+    fun hasCachedSecurityList(context: Context): Boolean = FilterCacheStore.withLock {
+        val fileExists = recoverCache(context, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
+        isCacheValid(fileExists, cachedSecurityBlockCount(context), MIN_SECURITY_BLOCKS)
+    }
+
+    fun hasCachedAndroidAdsList(context: Context): Boolean = FilterCacheStore.withLock {
         val fileExists = recoverCache(context, ANDROID_ADS_CACHE_FILE).let { it.isFile && it.length() > 0L }
-        return isCacheValid(fileExists, cachedAndroidAdsBlockCount(context), MIN_ANDROID_ADS_BLOCKS)
+        isCacheValid(fileExists, cachedAndroidAdsBlockCount(context), MIN_ANDROID_ADS_BLOCKS)
     }
     fun cachedLines(context: Context): List<String> = readCache(context, CACHE_FILE)
     fun cachedSecurityLines(context: Context): List<String> = readCache(context, SECURITY_CACHE_FILE)
@@ -243,7 +245,7 @@ object FilterListManager {
      * Loads only validated, enabled cache files for the optional Guardian WebView.
      * Parsing is streaming so large DNS lists are not duplicated as line lists.
      */
-    fun cachedCosmeticRules(context: Context): CosmeticFilterEngine.RuleSet {
+    fun cachedCosmeticRules(context: Context): CosmeticFilterEngine.RuleSet = FilterCacheStore.withLock {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val cacheNames = buildList {
             val baseProfileMatches = selectedProfile(context).key == cachedProfile(context).key
@@ -268,17 +270,17 @@ object FilterListManager {
             }.getOrNull()
             if (parsed != null) sources.add(parsed)
         }
-        return CosmeticFilterEngine.merge(sources)
+        CosmeticFilterEngine.merge(sources)
     }
 
     /** Parse an app-private cache incrementally to avoid retaining millions of line objects. */
-    internal fun parseCachedList(context: Context, cacheName: String): FilterRuleParser.Parsed {
+    internal fun parseCachedList(context: Context, cacheName: String): FilterRuleParser.Parsed = FilterCacheStore.withLock {
         require(cacheName in setOf(CACHE_FILE, SECURITY_CACHE_FILE, ANDROID_ADS_CACHE_FILE)) {
             "지원하지 않는 필터 캐시입니다."
         }
         val file = recoverCache(context, cacheName)
         check(file.isFile && file.length() > 0L) { "검증된 필터 캐시 파일을 찾을 수 없습니다: $cacheName" }
-        return file.bufferedReader(Charsets.UTF_8).use(FilterRuleParser::parse)
+        file.bufferedReader(Charsets.UTF_8).use(FilterRuleParser::parse)
     }
 
     fun update(context: Context): UpdateResult {
@@ -293,9 +295,9 @@ object FilterListManager {
         download(context, ANDROID_ADS_URL, ANDROID_ADS_CACHE_FILE, MIN_ANDROID_ADS_BLOCKS,
             KEY_ANDROID_ADS_UPDATED_AT, KEY_ANDROID_ADS_BLOCK_COUNT, KEY_ANDROID_ADS_IGNORED_COUNT)
 
-    private fun readCache(context: Context, name: String): List<String> {
+    private fun readCache(context: Context, name: String): List<String> = FilterCacheStore.withLock {
         val file = recoverCache(context, name)
-        return if (file.isFile && file.length() > 0L) file.readLines(Charsets.UTF_8) else emptyList()
+        if (file.isFile && file.length() > 0L) file.readLines(Charsets.UTF_8) else emptyList()
     }
 
     @Synchronized
