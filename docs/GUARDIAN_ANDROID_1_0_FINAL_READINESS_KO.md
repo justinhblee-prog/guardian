@@ -392,3 +392,8 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - **트랙 C — 라이선스/고객지원 정적 감사**: 고객 문의 제출/조회는 독립 요청 제한 경로와 본문 크기 제한(413), UTF-8/JSON 객체 형태 검증, 조회용 256-bit 난수 토큰의 SHA-256 저장, 관리자 답변의 인증 및 기기별 공유 DB rate limit 경로가 있는 것을 소스와 HTTP 테스트에서 확인했습니다. API/PostgreSQL 테스트 실행은 하지 않았습니다.
 - **트랙 D — 빌드/배포 감사**: 현재 Android 프로젝트는 compileSdk/targetSdk 35, JDK target 17, Gradle 8.9 요구이며 Android Gradle Wrapper 파일은 없습니다. Windows 빌드 스크립트는 SDK Platform 35 및 Build Tools 34.0.0을 요구하고, APK metadata/package/version/SHA-256 기록을 구현했으나 Windows PowerShell/SDK/Gradle이 없는 이 환경에서 실행하지 않았습니다.
 - **검증 한계**: GitHub 원격 소스 재조회로 변경을 확인했습니다. Android Gradle 컴파일, Android JUnit 전체, lint, APK, 앱 UI 실행, emulator, Samsung 실기기, 노트북 Docker/PostgreSQL/DPAPI/실제 라이선스 발급은 미실행입니다. GitHub Actions/PR/merge는 실행하지 않았습니다.
+
+## 2026-11-20 병렬 트랙 추가 — DNS 화면 최종 읽기 경로 통합
+- 활동 화면의 최근 요청·마지막 진단 표시와 보호 상세 화면의 질의/차단/전달/실패 수치도 동일한 `DnsStatsSnapshot`을 사용하도록 추가 정리했습니다. 이제 화면 구성 중 개별 SharedPreferences 읽기로 서로 다른 시점의 DNS 값이 섞이는 경로를 제거했습니다.
+- 독립 Kotlin/JVM으로 저장소와 동일한 `DnsDiagnosticSequence` 구현을 컴파일하고 실행했습니다. 오래된 비동기 진단 거부, 초기화 시 pending 진단 무효화, 최신 진단 유지 3개 시나리오 모두 PASS입니다.
+- 이 검증은 순수 Kotlin 구성요소 실행만 의미합니다. Android Gradle 컴파일/JUnit, APK, 실제 UI 렌더링, Samsung VPN/DNS E2E는 여전히 미실행입니다.
