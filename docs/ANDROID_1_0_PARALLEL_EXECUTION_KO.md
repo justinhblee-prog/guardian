@@ -168,3 +168,10 @@ C License + support ────┘                                  │        
 - DNS TCP 세션 종료 시 4-tuple만으로 RST를 신뢰하던 경로를 수정했습니다. Established session의 RST sequence가 현재 기대 client sequence와 정확히 일치할 때만 종료하며, 오래되거나 잘못된 RST는 현재 ACK로 응답하고 세션을 보존합니다.
 - 회귀 테스트는 stale RST 거부 및 정확한 sequence의 정상 RST 종료를 확인하도록 추가했습니다.
 - 소스/테스트 반영 확인과 Android JUnit/Gradle 실행 여부는 별도로 기록하며, 실제 네트워크/Samsung 검증을 대체하지 않습니다.
+
+
+## 2026-11-20 — DNS TCP established SYN 재전송 ACK 수정
+
+- DNS TCP handshake가 완료된 이후 최초 SYN이 지연 재전송될 때 최초 client sequence를 ACK하던 오류를 수정했습니다.
+- handshake 전 중복 SYN에는 동일 SYN-ACK를 재전송하고, established 세션에서는 현재 clientNext/serverNext를 사용하는 ACK를 반환하도록 연결 상태를 분리했습니다.
+- handshake 전후 재전송 경로에 회귀 테스트를 추가했습니다. 원격 소스 반영 확인과 실제 Android JUnit/단말 검증은 구분합니다.
