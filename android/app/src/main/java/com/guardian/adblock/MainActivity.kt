@@ -348,7 +348,9 @@ class MainActivity : Activity() {
         // A filter update may finish while this Activity is stopped, when its
         // package-scoped broadcast receiver is not registered. Re-read persisted
         // cache metadata whenever the screen becomes visible again.
-        filterStatusText?.text = filterStatusDescription()
+        // Reconcile every visible filter-status surface after work completed
+        // while the Activity was stopped and its broadcast receiver was unregistered.
+        setFilterUpdateStatus(filterStatusDescription())
         upstreamTestText?.text = upstreamTestDescription()
     }
 
