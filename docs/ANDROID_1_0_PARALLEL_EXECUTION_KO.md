@@ -147,3 +147,10 @@ C License + support ────┘                                  │        
 - Android JUnit/Gradle 및 실제 네트워크 업스트림 검증은 실행하지 않았습니다.
 
 - DNS 이름 압축 포인터는 현재 위치보다 앞선 오프셋만 허용하도록 추가 제한하고, 패킷 내부를 가리키는 forward pointer 회귀 테스트를 추가했습니다.
+
+
+## 2026-11-20 병렬 트랙 A — IPv6 확장 헤더 fail-closed 처리
+- 공용 IPv6 확장 헤더 walker가 Mobility(135), HIP(139), Shim6(140) 헤더를 단순 길이만 보고 건너뛰고 있던 점을 수정했습니다. Guardian이 목적지/라우팅 의미를 보존해 응답 패킷을 만들 수 없는 확장 헤더는 지원하는 척 처리하지 않고 거부하도록 변경했습니다.
+- Hop-by-Hop Options(0)는 IPv6 기본 헤더 바로 뒤에만 허용하도록 제한했습니다. Destination Options 뒤에 오거나 반복된 위치의 Hop-by-Hop 헤더는 거부합니다. Routing/AH/Fragment 정책은 기존 동작을 유지합니다.
+- TCP/UDP가 공유하는 walker에 회귀 테스트를 추가했습니다: 지원하지 않는 Mobility/HIP 헤더 거부, 잘못 배치된 Hop-by-Hop 거부. 기존 정상 Hop-by-Hop + Destination Options 경로는 유지됩니다.
+- Android JUnit/Gradle 실행 환경이 없어 테스트 소스 추가 및 원격 반영만 확인했습니다. 실제 IPv6 네트워크/Samsung 단말 검증은 미실행입니다.
