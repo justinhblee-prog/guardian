@@ -231,15 +231,29 @@ internal object LicenseApiClient {
         subject: String,
         message: String,
         email: String = ""
-    ): JSONObject = post(
-        context,
-        "/v1/support/tickets",
-        JSONObject()
-            .put("category", category)
-            .put("subject", subject)
-            .put("message", message)
-            .put("email", email)
-    )
+    ): JSONObject {
+        require(SupportInputPolicy.isValidSupportCategory(category)) {
+            "문의 유형이 올바르지 않습니다."
+        }
+        require(SupportInputPolicy.isValidSupportText(subject, 3, 120)) {
+            "문의 제목은 3~120자여야 하며 제어 문자는 사용할 수 없습니다."
+        }
+        require(SupportInputPolicy.isValidSupportText(message, 10, 5000)) {
+            "문의 내용은 10~5,000자여야 하며 제어 문자는 사용할 수 없습니다."
+        }
+        require(SupportInputPolicy.isValidReplyEmail(email)) {
+            "이메일 주소 형식 또는 길이를 확인하세요."
+        }
+        return post(
+            context,
+            "/v1/support/tickets",
+            JSONObject()
+                .put("category", category)
+                .put("subject", subject.trim())
+                .put("message", message.trim())
+                .put("email", email.trim())
+        )
+    }
 
     fun lookupSupportTicket(
         context: Context,
