@@ -283,3 +283,12 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - FilterUpdatePolicyTest.manualAndBackgroundRefreshTransactionsCannotOverlap 회귀 테스트를 추가해 첫 갱신이 잠금을 보유한 동안 두 번째 갱신이 진입하지 못하고 첫 갱신 종료 후 진행되는지 검증하도록 했습니다.
 - 반영 커밋: b70709d5663fc79eaebb8400ee283675a901356a, 008fe5a52347aee9e7eddb6d9de5125acbc0e380, 17b5dcdfaa3838b667113324cb161bdc71d19f96, 2cae5516da1ff3739a2785852d280192fab68438.
 - GitHub 원격 파일 5개 재조회로 잠금 객체, Worker·Activity 적용 지점, 회귀 테스트 및 문서 반영을 확인했습니다. 별도 Kotlin/JVM 하네스에서 동일한 @Synchronized 제네릭 잠금 패턴의 컴파일 및 두 스레드 직렬화 동작은 PASS했습니다. 다만 Android Gradle/JUnit 프로젝트 테스트 실행·APK·실기기 검증은 아직 하지 않았습니다. 현재 작업 컨테이너에는 Gradle 실행 파일이 없고 저장소의 Android Gradle Wrapper도 확인되지 않아 여기서 Android 프로젝트 빌드를 실행할 수 없습니다. 이 잠금은 동일 앱 프로세스 내 갱신 경합을 막으며, Android 프로세스가 강제 종료된 경우에는 WorkManager 재실행과 캐시 복구 절차가 처리합니다. 브랜치 비교: main 대비 256 commits ahead / 0 behind.
+
+## 2026-11-20 명시적 중지와 지연 VPN 재연결 경합 보완
+
+- VPN 서비스 생명주기 경로를 추가 점검하면서 실제 재연결 경합을 확인했습니다. 앱별 보호 제외 재적용은 이전 DNS 패킷 스레드 종료를 기다린 뒤 새 시작 세대를 발급합니다. 그 대기 중 사용자가 보호 중지를 누르면 중지 요청이 기존 세대를 취소하고 복원 의도를 false로 바꾸지만, 기존 코드가 대기 후 복원 의도를 다시 확인하지 않고 새 시작 세대를 발급할 수 있었습니다. 이 순서에서는 명시적 중지 뒤 제외 재적용이 보호를 다시 켤 수 있었습니다.
+- 자동 일시중지 해제 후 재연결에도 같은 형태의 틈이 있었습니다. 복원 의도/일시중지 상태 확인과 새 시작 세대 발급 사이에 명시적 중지가 들어오면 지연 재연결이 중지보다 최신 세대가 될 수 있었습니다.
+- 두 경로 모두 최종 복원 의도 확인, 일시중지 상태 확인, 필요 시 일시중지 플래그 변경 및 새 시작 세대 발급을 `synchronized(this@GuardianVpnService)` 안에서 수행하도록 수정했습니다. `stopProtection()`도 `@Synchronized`이므로 중지와 재연결의 최종 결정이 같은 서비스 모니터에서 순서화됩니다. 이 임계 구역은 짧게 유지하고 DNS 사전 검사/터널 생성 동안에는 서비스 모니터를 점유하지 않습니다.
+- `VpnStartCancellationGateTest.explicitStopBeforeDelayedResumeCheckCannotCreateANewStartGeneration` 회귀 테스트를 추가했습니다.
+- 반영 커밋: `60aac5ad43333ce6b60cf01d84a58b973632b30e`, `27166f490466c7d80a9fa7481a745afdc9746cf3`.
+- GitHub 원격 재조회로 두 재연결 경로의 최종 상태 확인/세대 발급 잠금과 테스트 존재를 확인했습니다. Android Gradle/JUnit 실행, APK, Samsung 실기기 검증은 아직 수행하지 않았습니다. 별도 Kotlin/JVM 컴파일/동시성 하네스는 이번 수정에 대해 실행하지 않았습니다.
