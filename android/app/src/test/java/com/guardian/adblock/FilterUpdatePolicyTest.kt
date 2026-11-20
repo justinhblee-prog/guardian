@@ -8,6 +8,14 @@ import java.util.concurrent.TimeUnit
 
 class FilterUpdatePolicyTest {
     @Test
+    fun recurringRefreshRequiresOptInButForcedRecoveryDoesNot() {
+        assertFalse(FilterRecoveryPolicy.shouldRun(autoUpdateEnabled = false, forcedRecovery = false))
+        assertTrue(FilterRecoveryPolicy.shouldRun(autoUpdateEnabled = true, forcedRecovery = false))
+        assertTrue(FilterRecoveryPolicy.shouldRun(autoUpdateEnabled = false, forcedRecovery = true))
+        assertTrue(FilterRecoveryPolicy.shouldRun(autoUpdateEnabled = true, forcedRecovery = true))
+    }
+
+    @Test
     fun missingOrUninitializedCacheIsAlwaysDue() {
         assertTrue(FilterUpdatePolicy.isDue(hasValidCache = false, lastUpdatedAt = 0L, intervalMs = 86_400_000L, now = 1_000L))
         assertTrue(FilterUpdatePolicy.isDue(hasValidCache = true, lastUpdatedAt = 0L, intervalMs = 86_400_000L, now = 1_000L))
