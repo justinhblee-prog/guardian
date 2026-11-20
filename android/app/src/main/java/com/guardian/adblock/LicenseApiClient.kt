@@ -154,33 +154,22 @@ internal object LicenseApiClient {
             // persistence fails, compensate by releasing that exact slot.
             // Keep the request ID when compensation is uncertain: replaying it
             // is the only safe way to recover the original committed response.
-            var slotReleased = false
-            val licenseRef = response.optString("licenseRef")
-            if (isSafeLicenseRefForActivationCleanup(licenseRef)) {
-                runCatching {
-                    check(LicenseEntitlementStore.clear(context)) {
-                        "부분 저장된 라이선스 정보를 정리하지 못했습니다."
-                    }
+            recoverFailedActivation(
+                licenseRef = response.optString("licenseRef"),
+                clearLocalEntitlement = { LicenseEntitlementStore.clear(context) },
+                releaseServerSlot = {
                     post(
                         context,
                         "/v1/licenses/deactivate",
                         JSONObject()
                             .put("deviceBinding", deviceBinding)
-                            .put("licenseRef", licenseRef)
+                            .put("licenseRef", response.optString("licenseRef"))
                     )
-                }.onSuccess {
-                    slotReleased = true
-                }.onFailure { cleanupError ->
-                    activationError.addSuppressed(cleanupError)
-                }
-            }
-            if (slotReleased) {
-                if (!clearPendingActivationRequest(context)) {
-                    activationError.addSuppressed(
-                        IllegalStateException("보상 해제 후 활성화 재시도 식별자를 정리하지 못했습니다.")
-                    )
-                }
-            }
+                    Unit
+                },
+                clearPendingRequest = { clearPendingActivationRequest(context) },
+                onCleanupFailure = activationError::addSuppressed
+            )
             throw activationError
         }
         check(clearPendingActivationRequest(context)) {
