@@ -3,7 +3,8 @@
 - 기준일: 2026-11-20 (KST)
 - 저장소: https://github.com/justinhblee-prog/guardian
 - 작업 브랜치: `feature/android-support-center-mainline`
-- 최종 판정: **출시 미완료 — 검증 및 외부 증거 필요**\n- 최신 브랜치 비교: 최신 브랜치 비교 수치는 GitHub compare를 실시간 재조회해 확인합니다.
+- 최종 판정: **출시 미완료 — 검증 및 외부 증거 필요**
+- 최신 브랜치 비교: 최신 브랜치 비교 수치는 GitHub compare를 실시간 재조회해 확인합니다.
 
 ## 목표
 
@@ -17,7 +18,45 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - DNS-over-TCP 세션에서 out-of-window 세그먼트가 idle timeout을 연장하지 않도록 수정 및 회귀 테스트 추가.
 - 앱별 보호 제외 저장·터널 재구성·적용/실패 상태 분리 로직 정적 검토.
 
-## 추가 필터 무결성 정적 감사\n\n- Android signed manifest verifier: exact UTF-8 payload signature, RSA 공개키 최소 2048-bit, SHA-256 콘텐츠 해시, manifest replay/future timestamp 차단, sourceId/sourceVersion 경로 문자 제한 및 동일 sourceVersion 콘텐츠 변경 차단을 확인했습니다.\n- Signed HTTP client: HTTPS-only, 사용자정보/query/fragment 제한, redirect 정책, manifest/signature/filter 다운로드 크기 제한 및 detached signature source binding을 확인했습니다.\n- Cache: 서명 해시 기반 target/backup 복구, 크기 제한, metadata rollback 경로를 확인했습니다.\n- Distribution HTTP server: 경로 이탈, symlink parent/final component, 파일 크기, canonical signature base64 및 read-only GET 경로 방어를 확인했습니다.\n- 위 항목은 코드 정적 감사이며 Android/Node 테스트 실행 성공이나 실제 공개 배포를 의미하지 않습니다.\n\n## DNS 규칙 및 캐시 심층 감사\n\n- Parser/composer: DNS 호스트 단위로 안전하게 표현할 수 있는 anchored rule만 수용하고 URL/path/cosmetic 등 DNS 계층에서 의미가 다른 규칙은 무시해 과도한 도메인 차단을 피합니다. `badfilter`는 각 원본 안에서만 적용되며 ordinary/important 규칙 변형도 구분합니다.\n- Domain matching: suffix 경계 단위 매칭, 일반 allow 예외, important block 우선순위 및 규칙 집합의 원자적 교체 구조를 확인했습니다.\n- Cache/update: 임시 파일 fsync 후 교체, 기존 캐시 backup, metadata commit 실패 시 bytes/metadata rollback, signed hash 복구, 크기 제한, feed별 실패 재시도 및 periodic network constraint 구성을 확인했습니다.\n- 이 구간의 정적 감사에서는 추가 확정 결함을 찾지 못했습니다. 관련 테스트는 소스에 존재하지만 실제 실행은 하지 않았습니다.\n\n## VPN 복구 및 서비스 생명주기 감사\n\n- 부팅/앱 패키지 교체 시 사용자의 durable restore intent를 기준으로 복구를 요청하며, 명시적 중지는 오래된 active 플래그보다 우선합니다.\n- sticky service restart는 이전 active 힌트만으로 UI에 보호 중이라고 표시하지 않고 실제 프로세스의 live TUN 상태와 결합합니다.\n- 복구 시작 시 stale active 상태를 내리고 recovery pending으로 표시하며, `publishState`가 성공/실패 결과를 기록하고 pending 플래그를 정리합니다.\n- 서비스 종료는 사용자 명시 중지와 구분해 복구 의도를 보존합니다. 관련 경로 정적 검토에서 추가 확정 결함은 발견하지 못했습니다. 테스트는 실행하지 않았습니다.\n\n## 홈 대시보드 및 업데이트 UI 감사\n\n- 홈 화면에는 단일 보호 시작/중지 버튼을 두고, 설정 화면은 보호 상태 표시 및 기능별 정책 조정으로 역할을 분리했습니다.\n- 버튼 상태는 실제 TUN 활성, 자동 복구 대기, 호환 앱으로 인한 일시중지 상태에 따라 분기됩니다.\n- 필터 업데이트는 원자적 중복 실행 방지 플래그와 진행 중 버튼 잠금을 사용합니다.\n- APK 업데이트는 확인/다운로드 중 두 버튼 잠금, 검증된 APK가 없을 때 설치 비활성, 검증 완료 후 설치 활성 정책을 적용하며 관련 순수 정책 테스트가 존재합니다.\n- 해당 UI/정책 코드는 정적으로 확인했으며 Android 테스트는 실행하지 않았습니다.\n\n## Android 플랫폼·TUN·DNS 업스트림 감사\n\n- `minSdk 26`, `targetSdk 35`; Android 14+ 특수 용도 foreground service 권한과 VPN 서비스 subtype 메타데이터를 선언했습니다.\n- Android O 이상에서는 foreground service 시작 경로에서 알림/foreground 상태를 먼저 설정하고, 비동기 TUN 준비를 진행합니다.\n- 실제 DNS preflight 성공 후 VPN TUN을 생성하며, DNS 업스트림 소켓은 `VpnService.protect()`로 VPN 경로 밖에 연결합니다.\n- UDP/TCP/DoT/DoH 경로에 연결·읽기 타임아웃과 DNS 응답 검증이 있고, TUN 시작 취소 generation으로 중지된 이전 worker가 나중에 TUN을 커밋하지 못하게 합니다.\n- 패킷 루프 예외·종료 시 descriptor와 활성 상태를 정리하는 경로를 확인했습니다. 추가 확정 결함은 발견하지 못했습니다. 이는 정적 감사이며 Android API별 빌드/에뮬레이터/실기기 검증은 미실행입니다.\n\n## 검증 현황
+## 추가 필터 무결성 정적 감사
+
+- Android signed manifest verifier: exact UTF-8 payload signature, RSA 공개키 최소 2048-bit, SHA-256 콘텐츠 해시, manifest replay/future timestamp 차단, sourceId/sourceVersion 경로 문자 제한 및 동일 sourceVersion 콘텐츠 변경 차단을 확인했습니다.
+- Signed HTTP client: HTTPS-only, 사용자정보/query/fragment 제한, redirect 정책, manifest/signature/filter 다운로드 크기 제한 및 detached signature source binding을 확인했습니다.
+- Cache: 서명 해시 기반 target/backup 복구, 크기 제한, metadata rollback 경로를 확인했습니다.
+- Distribution HTTP server: 경로 이탈, symlink parent/final component, 파일 크기, canonical signature base64 및 read-only GET 경로 방어를 확인했습니다.
+- 위 항목은 코드 정적 감사이며 Android/Node 테스트 실행 성공이나 실제 공개 배포를 의미하지 않습니다.
+
+## DNS 규칙 및 캐시 심층 감사
+
+- Parser/composer: DNS 호스트 단위로 안전하게 표현할 수 있는 anchored rule만 수용하고 URL/path/cosmetic 등 DNS 계층에서 의미가 다른 규칙은 무시해 과도한 도메인 차단을 피합니다. `badfilter`는 각 원본 안에서만 적용되며 ordinary/important 규칙 변형도 구분합니다.
+- Domain matching: suffix 경계 단위 매칭, 일반 allow 예외, important block 우선순위 및 규칙 집합의 원자적 교체 구조를 확인했습니다.
+- Cache/update: 임시 파일 fsync 후 교체, 기존 캐시 backup, metadata commit 실패 시 bytes/metadata rollback, signed hash 복구, 크기 제한, feed별 실패 재시도 및 periodic network constraint 구성을 확인했습니다.
+- 이 구간의 정적 감사에서는 추가 확정 결함을 찾지 못했습니다. 관련 테스트는 소스에 존재하지만 실제 실행은 하지 않았습니다.
+
+## VPN 복구 및 서비스 생명주기 감사
+
+- 부팅/앱 패키지 교체 시 사용자의 durable restore intent를 기준으로 복구를 요청하며, 명시적 중지는 오래된 active 플래그보다 우선합니다.
+- sticky service restart는 이전 active 힌트만으로 UI에 보호 중이라고 표시하지 않고 실제 프로세스의 live TUN 상태와 결합합니다.
+- 복구 시작 시 stale active 상태를 내리고 recovery pending으로 표시하며, `publishState`가 성공/실패 결과를 기록하고 pending 플래그를 정리합니다.
+- 서비스 종료는 사용자 명시 중지와 구분해 복구 의도를 보존합니다. 관련 경로 정적 검토에서 추가 확정 결함은 발견하지 못했습니다. 테스트는 실행하지 않았습니다.
+
+## 홈 대시보드 및 업데이트 UI 감사
+
+- 홈 화면에는 단일 보호 시작/중지 버튼을 두고, 설정 화면은 보호 상태 표시 및 기능별 정책 조정으로 역할을 분리했습니다.
+- 버튼 상태는 실제 TUN 활성, 자동 복구 대기, 호환 앱으로 인한 일시중지 상태에 따라 분기됩니다.
+- 필터 업데이트는 원자적 중복 실행 방지 플래그와 진행 중 버튼 잠금을 사용합니다.
+- APK 업데이트는 확인/다운로드 중 두 버튼 잠금, 검증된 APK가 없을 때 설치 비활성, 검증 완료 후 설치 활성 정책을 적용하며 관련 순수 정책 테스트가 존재합니다.
+- 해당 UI/정책 코드는 정적으로 확인했으며 Android 테스트는 실행하지 않았습니다.
+
+## Android 플랫폼·TUN·DNS 업스트림 감사
+
+- `minSdk 26`, `targetSdk 35`; Android 14+ 특수 용도 foreground service 권한과 VPN 서비스 subtype 메타데이터를 선언했습니다.
+- Android O 이상에서는 foreground service 시작 경로에서 알림/foreground 상태를 먼저 설정하고, 비동기 TUN 준비를 진행합니다.
+- 실제 DNS preflight 성공 후 VPN TUN을 생성하며, DNS 업스트림 소켓은 `VpnService.protect()`로 VPN 경로 밖에 연결합니다.
+- UDP/TCP/DoT/DoH 경로에 연결·읽기 타임아웃과 DNS 응답 검증이 있고, TUN 시작 취소 generation으로 중지된 이전 worker가 나중에 TUN을 커밋하지 못하게 합니다.
+- 패킷 루프 예외·종료 시 descriptor와 활성 상태를 정리하는 경로를 확인했습니다. 추가 확정 결함은 발견하지 못했습니다. 이는 정적 감사이며 Android API별 빌드/에뮬레이터/실기기 검증은 미실행입니다.
+
+## 검증 현황
 
 | 영역 | 현재 증거 | 판정 |
 |---|---|---|
@@ -61,7 +100,7 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - **DNS 업스트림 복구 경로 확장**: UDP 모드에서 선택 서버 UDP/53 실패 시 동일 서버 TCP/53 재시도 후, 물리 네트워크의 LinkProperties에서 가져온 시스템 DNS 서버들을 차례로 시도하고 마지막에 공용 DNS fallback을 시도합니다. VPN 네트워크 자체는 시스템 DNS 후보에서 제외하고 Guardian 가상 DNS 주소도 걸러냅니다. TCP/DoT/DoH 명시 선택은 임의 변경하지 않습니다.
 - **회귀 테스트 소스 추가**: DNS 전송 정책에 UDP→TCP 순서, 기기 DNS→공용 fallback 순서/중복 제거, TCP 고정, DoT/DoH downgrade 금지 테스트를 추가했습니다. 테스트 실행은 하지 않았습니다.
 - **검증 한계**: GitHub 파일 재조회로 UI·DNS 후보 경로·테스트 소스 반영만 확인했습니다. Android compile/unit/lint 및 Samsung 실기기 연결은 미검증이며 DNS 문제가 해결됐다고 확정하지 않습니다.
-- **최신 compare**: `main...feature/android-support-center-mainline` = 139 commits ahead, 0 behind. Actions 실행, PR 생성, merge는 하지 않았습니다.
+- **최신 compare (2026-11-20 재조회)**: `main...feature/android-support-center-mainline` = 200 commits ahead, 0 behind. Actions 실행, PR 생성, merge는 하지 않았습니다.
 
 - **DNS 진단 추가 개선**: 업스트림 후보별 실패 원인(UDP/TCP 전송 오류, 소켓 VPN 우회 실패, 타임아웃, 응답 검증/RCODE 실패)을 최대 6개까지 연결해 기기 진단에 남기도록 변경했습니다. 마지막 서버의 오류 하나만 보여 원인 파악이 어려운 문제를 줄입니다.
 - **DNS 후보 탐색 제한**: 시스템 네트워크 DNS 후보를 중복 제거 후 최대 4개로 제한해, 기기에서 stale/비활성 네트워크가 여러 개 보일 때 보호 시작이 불필요하게 오래 지연되는 것을 방지합니다. 선택 DNS 및 공용 fallback 순서는 유지합니다.
@@ -149,3 +188,11 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 해당 폴더에 Gradle 버전 출력, 전체 빌드 로그, APK SHA-256 및 검증 요약을 함께 저장합니다. 단말 검증은 이 스크립트가 수행하지 않았다고 명시합니다.
 - 기본 기대 버전은 현재 앱 Gradle 설정과 병렬 실행 문서에 기록된 0.7.30-dev / 43이며, GUARDIAN_VERSION_NAME 및 GUARDIAN_VERSION_CODE 환경 변수로 명시적 변경이 가능합니다.
 - GitHub 브랜치 파일 재조회로 스크립트 반영을 확인했습니다. 이 세션에는 Windows PowerShell, Android SDK 및 Gradle이 없어 PowerShell 파서 검사, 실제 Gradle 실행, APK 생성은 아직 수행하지 않았습니다. 따라서 이 수정은 빌드 성공 증거가 아니라 로컬 실행 시 증거를 빠짐없이 수집하기 위한 준비입니다.
+
+## 2026-11-20 보호 시작 및 필터 초기 상태 심층 점검
+
+- 앱별 보호 제외는 SharedPreferences 저장 후 `ACTION_RECONFIGURE_EXCLUDED_APPS`로 기존 TUN을 종료하고 새 VPN Builder에 `addDisallowedApplication()`을 적용하는 구조입니다. 적용된 패키지와 Android가 거부했거나 설치되지 않은 패키지를 별도 저장합니다. 이 확인은 코드 정적 추적이며 Samsung의 실제 패키지별 라우팅 검증은 아닙니다.
+- 번들 `shared/filter_rules.txt`에는 현재 10개의 차단 도메인만 있습니다. 이 파일은 빌드 시 에셋 포함 여부를 검사하는 최소 복구용 기준 규칙이며, AdGuard 권장 프로필(최소 1,000개 규칙)이나 활성화한 선택 필터 캐시를 대체하는 충분한 상용 필터 목록이 아닙니다.
+- 첫 실행에서 기본/활성화 선택 필터 캐시가 없으면 `checkStartupFilterReadiness()`가 필터 업데이트를 요청합니다. 자동 주기 업데이트 설정이 꺼져 있어도 초기 캐시 누락은 별도 복구 조건입니다. 다운로드가 실패하면 기본 규칙만으로 VPN이 시작될 수 있으므로, VPN 연결 성공과 광고 차단 목록의 충분한 준비 상태를 동일하게 취급하면 안 됩니다.
+- `Library file not found`라는 문구는 현재 점검한 `MainActivity`, `GuardianVpnService`, 필터 파서/로더 경로에서 직접 생성되는 메시지로 확인되지 않았습니다. 현재 저장소 코드만으로 원인을 확정할 수 없으며, Samsung 단말의 전체 오류 스택과 비개인정보 진단 보고서가 있어야 해당 호출 지점을 특정할 수 있습니다.
+- 이 점검은 코드 정적 분석입니다. 필터 URL 다운로드 성공, 실기기 DNS 차단, 앱별 제외 라우팅, Android 빌드 및 테스트 실행을 의미하지 않습니다.
