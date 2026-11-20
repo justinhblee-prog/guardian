@@ -44,8 +44,10 @@ class FilterUpdateWorker(
                 )) {
                 FilterListManager.update(applicationContext)
             }
-            if (isStopped) return@withLock Result.failure()
+            // Commit successful base-source health even if cancellation arrived
+            // during the synchronous download; then stop before optional feeds.
             prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
+            if (isStopped) return@withLock Result.failure()
 
             var optionalFailure = false
             val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
