@@ -2,6 +2,7 @@ package com.guardian.adblock
 
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.Properties
@@ -17,47 +18,76 @@ import java.util.Properties
 internal class ManifestTimestampStore(private val stateFile: File) {
     fun lastAccepted(sourceId: String): Long = synchronized(processLock) {
         validateSourceId(sourceId)
-        if (!stateFile.isFile) return@synchronized 0L
-        val properties = Properties()
-        stateFile.inputStream().use(properties::load)
-        return@synchronized properties.getProperty(sourceId)?.toLongOrNull()
-            ?: if (properties.containsKey(sourceId)) {
-                throw IllegalStateException("저장된 manifest 시각 데이터가 손상되었습니다.")
-            } else 0L
+        val properties = loadPropertiesStrict()
+        val stored = properties.getProperty(sourceId)
+        return@synchronized stored?.toLongOrNull()
+            ?: if (stored == null) 0L else throw IllegalStateException(
+                "저장된 manifest 시각 데이터가 손상되었습니다."
+            )
     }
 
     fun recordAccepted(sourceId: String, generatedAt: Long) = synchronized(processLock) {
         validateSourceId(sourceId)
         require(generatedAt > 0L) { "manifest 생성 시각은 양수여야 합니다." }
-        val properties = Properties()
-        if (stateFile.isFile) stateFile.inputStream().use(properties::load)
+        val properties = loadPropertiesStrict()
         val stored = properties.getProperty(sourceId)
         val previous = stored?.toLongOrNull()
-            ?: if (stored == null) 0L else throw IllegalStateException("저장된 manifest 시각 데이터가 손상되었습니다.")
+            ?: if (stored == null) 0L else throw IllegalStateException(
+                "저장된 manifest 시각 데이터가 손상되었습니다."
+            )
         require(generatedAt > previous) { "이전 manifest보다 오래되었거나 동일한 버전입니다." }
         properties.setProperty(sourceId, generatedAt.toString())
-        val parent = stateFile.absoluteFile.parentFile
-            ?: throw IllegalStateException("manifest 상태 저장 경로가 올바르지 않습니다.")
-        check(parent.exists() || parent.mkdirs()) { "manifest 상태 디렉터리를 만들 수 없습니다." }
-        val temporary = File(parent, stateFile.name + ".tmp")
-        try {
-            FileOutputStream(temporary).use { output ->
-                properties.store(output, "Guardian accepted filter manifest timestamps")
-                output.fd.sync()
-            }
-            replaceStateFile(temporary)
-        } finally {
-            temporary.delete()
-        }
+        writeProperties(properties)
     }
 
     fun restore(sourceId: String, generatedAt: Long) = synchronized(processLock) {
         validateSourceId(sourceId)
         require(generatedAt >= 0L) { "manifest 복구 시각은 음수일 수 없습니다." }
-        val properties = Properties()
-        if (stateFile.isFile) stateFile.inputStream().use(properties::load)
+        // Properties.load throws IllegalArgumentException for malformed Unicode escapes.
+        // During recovery, salvage the simple ASCII key/value records written by this class,
+        // preserving every unaffected source while allowing the damaged source to be repaired.
+        val properties = loadPropertiesForRestore()
         if (generatedAt == 0L) properties.remove(sourceId)
         else properties.setProperty(sourceId, generatedAt.toString())
+        writeProperties(properties)
+    }
+
+    private fun loadPropertiesStrict(): Properties {
+        val properties = Properties()
+        if (!stateFile.isFile) return properties
+        try {
+            stateFile.inputStream().use(properties::load)
+        } catch (error: IllegalArgumentException) {
+            throw IllegalStateException("저장된 manifest 시각 파일의 형식이 손상되었습니다.", error)
+        }
+        return properties
+    }
+
+    private fun loadPropertiesForRestore(): Properties {
+        return try {
+            loadPropertiesStrict()
+        } catch (_: IllegalStateException) {
+            val recovered = Properties()
+            if (!stateFile.isFile) return recovered
+            stateFile.forEachLine(StandardCharsets.ISO_8859_1) { rawLine ->
+                val line = rawLine.trimStart()
+                if (line.isBlank() || line.startsWith("#") || line.startsWith("!")) return@forEachLine
+                val separator = line.indexOfFirst { it == '=' || it == ':' || it.isWhitespace() }
+                if (separator <= 0) return@forEachLine
+                val key = line.substring(0, separator).trim()
+                if (!key.matches(SOURCE_ID_PATTERN)) return@forEachLine
+                val value = line.substring(separator)
+                    .dropWhile { it == '=' || it == ':' || it.isWhitespace() }
+                    .trim()
+                if (value.matches(Regex("[0-9]{1,16}"))) {
+                    recovered.setProperty(key, value)
+                }
+            }
+            recovered
+        }
+    }
+
+    private fun writeProperties(properties: Properties) {
         val parent = stateFile.absoluteFile.parentFile
             ?: throw IllegalStateException("manifest 상태 저장 경로가 올바르지 않습니다.")
         check(parent.exists() || parent.mkdirs()) { "manifest 상태 디렉터리를 만들 수 없습니다." }
@@ -75,20 +105,23 @@ internal class ManifestTimestampStore(private val stateFile: File) {
 
     private fun replaceStateFile(temporary: File) {
         try {
-            Files.move(temporary.toPath(), stateFile.toPath(),
-                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            Files.move(
+                temporary.toPath(), stateFile.toPath(),
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE
+            )
         } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
             Files.move(temporary.toPath(), stateFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 
     private fun validateSourceId(sourceId: String) {
-        require(sourceId.matches(Regex("[a-zA-Z0-9_-]{1,64}"))) {
+        require(sourceId.matches(SOURCE_ID_PATTERN)) {
             "manifest sourceId 형식이 올바르지 않습니다."
         }
     }
 
     private companion object {
+        val SOURCE_ID_PATTERN = Regex("[a-zA-Z0-9_-]{1,64}")
         /** Synchronizes read-modify-atomic-replace across independently constructed stores. */
         val processLock = Any()
     }
