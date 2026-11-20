@@ -1348,16 +1348,10 @@ class MainActivity : Activity() {
                     .format(Date(entitlement.expiresAt * 1000L))
                 addView(text("라이선스 유효 기간 · $expiry 까지", 11f, muted, false).withTop(6))
             }
-            addView(Button(this@MainActivity).apply {
-                text = "설정에서 라이선스 관리"
-                isAllCaps = false
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor(bg)
-                background = shape(accent, 12)
-                setOnClickListener {
-                    showTab("settings", focusLicenseActivation = true)
-                }
-            }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
+            addView(text(
+                "라이선스 키 입력과 활성화는 설정 화면의 라이선스 관리에서만 진행할 수 있습니다.",
+                11f, muted, false
+            ).withTop(14))
         }.withTop(16))
 
         body.addView(text("멤버십 상태", 18f, white, true).withTop(22))
@@ -2100,7 +2094,7 @@ class MainActivity : Activity() {
             "설정의 앱 제외에서 앱 이름 또는 패키지명을 검색하고 선택한 뒤 변경사항 저장을 누르세요. 저장 후 VPN에 적용된 앱 수와 실패 수를 확인하세요.",
             "앱별 트래픽 제외와 기기 전체 VPN 연결 해제는 다릅니다. 금융 앱이 VPN 연결 자체를 감지하면 자동 일시중지 호환성 설정을 사용해야 할 수 있으며, 일시중지 중에는 다른 앱도 VPN DNS 보호를 받지 못합니다.",
             "필터 규칙 또는 보호 설정에서 필터 업데이트를 실행하세요. 자동 업데이트는 설정한 주기에 따라 동작합니다.",
-            "프리미엄 화면에서 발급받은 라이선스 키를 입력하고 활성화하세요. 활성화에는 운영 라이선스 서버 연결이 필요합니다.",
+            "설정 화면의 라이선스 관리에서 발급받은 라이선스 키를 입력하고 활성화하세요. 활성화에는 운영 라이선스 서버 연결이 필요합니다.",
             "라이선스 관리자는 등록 기기를 해제할 수 있습니다. 만료·정지된 키는 관리자에게 갱신 또는 상태 확인을 요청하세요."
         )
         AlertDialog.Builder(this)
