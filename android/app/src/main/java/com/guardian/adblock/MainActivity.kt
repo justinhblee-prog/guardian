@@ -1786,6 +1786,42 @@ class MainActivity : Activity() {
                 }
             }
             addView(activateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
+            if (verifiedLicense != null || releasableLicense != null) {
+                val statusButton = Button(this@MainActivity).apply {
+                    text = "서버 라이선스 상태 확인"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(panel2, 12)
+                    setOnClickListener {
+                        isEnabled = false
+                        licenseFeedback.text = "서버에서 현재 라이선스와 기기 등록 상태를 확인하고 있습니다."
+                        thread {
+                            try {
+                                val response = LicenseApiClient.status(this@MainActivity)
+                                runOnUiThread {
+                                    if (response.optString("status").equals("active", ignoreCase = true)) {
+                                        val expiry = response.optString("expiresAt")
+                                        licenseFeedback.text = if (expiry.isNotBlank()) {
+                                            "서버 확인 완료 · 활성 PRO · 만료 시각 $expiry"
+                                        } else {
+                                            "서버 확인 완료 · 활성 PRO 라이선스입니다."
+                                        }
+                                        statusButton.isEnabled = true
+                                    } else {
+                                        showTab("settings")
+                                    }
+                                }
+                            } catch (error: Exception) {
+                                runOnUiThread {
+                                    licenseFeedback.text = error.message ?: "서버 라이선스 상태 확인에 실패했습니다."
+                                    statusButton.isEnabled = true
+                                }
+                            }
+                        }
+                    }
+                }
+                addView(statusButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            }
             if (releasableLicense != null) {
                 val refreshButton = Button(this@MainActivity).apply {
                     text = "라이선스 상태 갱신"
