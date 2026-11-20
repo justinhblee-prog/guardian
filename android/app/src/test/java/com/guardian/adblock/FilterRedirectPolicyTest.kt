@@ -33,6 +33,11 @@ class FilterRedirectPolicyTest {
         assertNull(FilterRedirectPolicy.resolve(base, 304, "https://example.com/filter.txt", 0))
     }
 
+    @Test fun rejectsRedirectsWithInvalidPortsOrFragments() {
+        assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com:99999/filter.txt", 0))
+        assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/filter.txt#fragment", 0))
+    }
+
     @Test fun capsRedirectChainAtFiveHops() {
         assertNotNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/next", 4))
         assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/next", 5))
