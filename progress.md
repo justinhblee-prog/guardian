@@ -398,3 +398,11 @@
 - Redirect policy 회귀 케이스에 IPv6 HTTPS + percent-encoded path 허용, raw newline/control character 차단을 추가했습니다. 테스트 입력은 실제 제어문자 escape를 사용하도록 정정했습니다.
 - Kotlin/JVM 독립 harness에서 동일한 URL 검증 규칙으로 11개 시나리오 PASS: 일반 HTTPS, IPv6/encoded path, 범위 밖 포트, fragment, raw 공백/역슬래시, 상대 redirect, 역슬래시·newline·제어문자 redirect, 5-hop 제한.
 - harness는 Android 모듈/JUnit 실행이 아니며 Android Gradle compile/lint/APK는 미실행입니다. 테스트 소스는 원격 재조회로 확인했습니다.
+
+
+## 2026-11-20 — License API readiness schema completeness
+
+- /ready가 활성화 요청 멱등성 migration 005의 `activation_requests` 테이블을 확인하지 않아, 해당 테이블이 누락된 운영 DB도 준비 완료로 오인할 수 있는 결함을 수정했습니다.
+- 필수 스키마 조회와 검사 목록에 `activation_requests`를 추가했습니다. PostgreSQL 통합 테스트는 migration 005 재적용 확인과 함께, 테이블 제거 시 /ready가 503을 반환하고 migration 복구 후 200을 반환하는 회귀 시나리오를 추가했습니다.
+- 운영 README의 준비 상태 설명도 실제 검사 대상과 일치시켰습니다.
+- 이 변경은 소스/테스트/문서 반영이며, 현재 세션에서는 PostgreSQL 연결 및 통합 테스트를 실행하지 않았습니다.
