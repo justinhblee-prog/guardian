@@ -62,6 +62,28 @@ class FilterUpdatePolicyTest {
     }
 
     @Test
+    fun previousRefreshErrorForcesRetryDespiteFreshTrustedCache() {
+        assertTrue(FilterUpdatePolicy.isDue(
+            hasValidCache = true,
+            lastUpdatedAt = 50_000L,
+            intervalMs = 24L * 60L * 60L * 1000L,
+            now = 51_000L,
+            hasRefreshError = true
+        ))
+    }
+
+    @Test
+    fun noRefreshErrorKeepsFreshTrustedCacheOnConfiguredSchedule() {
+        assertFalse(FilterUpdatePolicy.isDue(
+            hasValidCache = true,
+            lastUpdatedAt = 50_000L,
+            intervalMs = 24L * 60L * 60L * 1000L,
+            now = 51_000L,
+            hasRefreshError = false
+        ))
+    }
+
+    @Test
     fun optionalFilterIsDisabledOnlyWhenFirstDownloadFailsWithoutTrustedCache() {
         assertTrue(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hadValidCache = false))
         assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hadValidCache = true))
