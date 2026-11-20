@@ -469,3 +469,8 @@ Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신
 - 수동 업데이트와 WorkManager 업데이트가 공유하는 `FilterUpdateExecutionLock.withLock { ... }` 안에서 `return Result.success()` 및 `return try`를 사용하던 비지역 return 구문을 수정했습니다. 해당 람다는 inline이 아니므로 비지역 return은 Kotlin 컴파일 오류가 됩니다.
 - early return을 `return@withLock Result.success()`로 바꾸고, 나머지 `try/catch`를 람다의 최종 표현식으로 유지해 모든 분기에서 `Result`를 반환하도록 정리했습니다.
 - 원격 소스를 재조회해 비지역 return 잔존 여부와 Result 반환 구조를 정적 확인했습니다. Android Gradle compile/JUnit은 실행하지 않았습니다.
+
+## 2026-11-20 고객 지원 폼 입력 검증
+
+- 문의 이메일과 접수 번호의 서버 계약을 앱에서 요청 전에 검증합니다. 접수 이메일은 선택 사항이며, 입력한 경우 최대 254자 및 기본 주소 형식을 확인합니다. 조회 번호는 서버 발급 형식 `GDN-XXXXXXXXXXXX`(12자리 16진수)에 맞춰 대문자 정규화합니다.
+- 단위 테스트를 추가하고 독립 Kotlin/JVM 하네스에서 핵심 검증을 실행했습니다. Android Gradle/JUnit 및 실제 고객 지원 API 호출은 미실행입니다.
