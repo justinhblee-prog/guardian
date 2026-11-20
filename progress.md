@@ -228,3 +228,11 @@
 
 - 추가 반영: Windows 운영 migration runner가 005를 002~004 뒤에 적용하고 `activation_requests` 테이블 존재까지 검증하도록 수정했습니다. README의 기존 DB 적용 절차도 002~005 순서로 바로잡았습니다.
 - GitHub 소스 재조회 결과 서버 멱등성 로직, Android pending request ID 보존, PostgreSQL replay 테스트, migration 및 운영 runner가 브랜치에 존재함을 확인했습니다. 실행 검증은 여전히 수행하지 않았습니다.
+
+## 2026-11-20 — 활성화 멱등성 재시도와 해제 상태 일관성 보강
+
+- 동일 requestId로 저장된 활성화 응답을 재생할 때도 현재 라이선스 상태, 상품 활성 상태, 해당 기기의 활성화 슬롯이 모두 유효한지 DB에서 다시 확인하도록 보강했습니다. 해제·정지된 슬롯의 오래된 캐시 응답이 새 활성화처럼 재사용되는 경로를 차단합니다(HTTP 409).
+- PostgreSQL 통합 테스트에 정상 응답 재생, 중복 활성화/감사 이벤트 1건 유지, 요청 ID의 다른 키 재사용 거부, 기기 해제 후 동일 요청 재생 거부를 추가했습니다. migration 통합 테스트도 005를 반복 적용하고 activation_requests 테이블을 검증하도록 확장했습니다.
+- Android은 저장된 pending activation ID가 서버와 동일한 UUID v4 형식인지 확인합니다. 토큰 저장 성공 뒤 pending 기록 정리 실패가 이미 저장된 entitlement의 활성화 성공을 예외로 바꾸지 않도록 정리 동작을 비차단으로 변경했습니다. 명시적 기기 해제 성공 후에는 entitlement와 pending 요청 기록을 함께 정리합니다.
+- Windows 운영 README에 기존 DB migration 002~005 적용 스크립트, 백업/검증 단계, 005의 보존·정리 주의사항을 추가했습니다.
+- 원격 GitHub 소스 재조회와 정적 조건 확인은 통과했습니다. PostgreSQL 통합 테스트, 실제 migration, Android Gradle/JUnit, 네트워크 응답 유실 재현, APK 설치 및 Samsung 실기기 검증은 실행하지 않았습니다. activation_requests 자동 TTL 정리는 아직 없으며, 재시도 복구를 깨뜨리지 않는 보존 정책이 결정되기 전 임의 삭제하지 않습니다.
