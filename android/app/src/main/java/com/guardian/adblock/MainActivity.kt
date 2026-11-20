@@ -2149,7 +2149,7 @@ class MainActivity : Activity() {
             }
         }
         val subject = field("제목 (3~120자)")
-        val email = field("답변 받을 이메일 (선택)")
+        val email = field("연락 이메일 (선택)")
         val message = field("문의 또는 의견을 자세히 입력하세요 (10~5,000자)", true)
         form.addView(text("문의 유형", 11f, muted, true))
         form.addView(category, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(5) })
