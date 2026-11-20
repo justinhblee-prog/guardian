@@ -2268,8 +2268,23 @@ class MainActivity : Activity() {
                     runOnUiThread {
                         result.onSuccess { response ->
                             val ticket = response.optJSONObject("ticket")
+                            val statusLabel = when (ticket?.optString("status")) {
+                                "open" -> "접수됨"
+                                "in_progress" -> "처리 중"
+                                "answered" -> "답변 완료"
+                                "closed" -> "종료"
+                                else -> "상태 확인 필요"
+                            }
+                            val categoryLabel = when (ticket?.optString("category")) {
+                                "question" -> "질문 / Q&A"
+                                "bug" -> "오류 신고"
+                                "suggestion" -> "기능 제안 / 의견"
+                                "billing" -> "결제 문의"
+                                "license" -> "라이선스 문의"
+                                else -> "기타"
+                            }
                             val details = if (ticket == null) "문의 정보를 읽을 수 없습니다." else
-                                "상태: ${ticket.optString("status")}\n유형: ${ticket.optString("category")}\n제목: ${ticket.optString("subject")}\n\n접수 내용:\n${ticket.optString("message")}\n\n답변:\n${ticket.optString("admin_reply").ifBlank { "아직 답변이 등록되지 않았습니다." }}"
+                                "상태: $statusLabel\n유형: $categoryLabel\n제목: \${ticket.optString("subject")}\n\n접수 내용:\n\${ticket.optString("message")}\n\n답변:\n\${ticket.optString("admin_reply").ifBlank { "아직 답변이 등록되지 않았습니다." }}"
                             dialog.dismiss()
                             AlertDialog.Builder(this@MainActivity)
                                 .setTitle("문의 처리 현황")
