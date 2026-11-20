@@ -309,3 +309,9 @@
 ## 2026-11-20 병렬 구현 — 라이선스 설정 탐색 수정
 - Track C/UI에서 `설정 → 라이선스 및 프리미엄` 화면의 `‹ 설정` 행이 자기 화면(`settings-license`)을 다시 여는 self-loop를 확인했습니다.
 - 해당 뒤로가기 행을 실제 설정 카테고리(`settings`)로 이동하도록 수정했습니다. Android UI instrumentation은 실행하지 않았으며, 수정된 callback source를 원격 재조회해 확인합니다.
+
+ 
+## 2026-11-20 병렬 구현 — 고객지원 비동기 화면 수명주기
+- Track UI/Support에서 문의 접수·조회 HTTP 요청이 끝나기 전에 Activity가 종료될 경우, 늦게 도착한 callback이 종료된 Activity에서 새 Dialog/Toast를 띄우거나 뷰를 갱신할 수 있는 경로를 확인했습니다.
+- 두 callback 모두 `isFinishing`/`isDestroyed`를 확인하고 종료된 Activity에서는 UI 처리를 중단하도록 수정했습니다.
+- 검증: 원격 소스 재조회 및 두 callback guard 정적 확인. 실제 Android UI instrumentation은 실행하지 않았습니다.
