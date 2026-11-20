@@ -1,4 +1,4 @@
- GPL-3.0 | GPL-3.0 | GPL-3.0 | GPL-3.0 | GPL-3.0 | MPL-2.0 | GPL-3.0 |# Guardian Signed Filter Distribution
+# Guardian Signed Filter Distribution
 
 Node.js 22 기반의 서명 manifest 및 버전 고정 필터 배포 서버입니다. 앱의 `SignedManifestHttpClient`가 기대하는 `X-Guardian-Signature` 응답 헤더와 manifest 형식을 그대로 제공합니다.
 
