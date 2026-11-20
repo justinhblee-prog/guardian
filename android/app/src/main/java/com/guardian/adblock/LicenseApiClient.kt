@@ -158,7 +158,9 @@ internal object LicenseApiClient {
             val licenseRef = response.optString("licenseRef")
             if (isSafeLicenseRefForActivationCleanup(licenseRef)) {
                 runCatching {
-                    LicenseEntitlementStore.clear(context)
+                    check(LicenseEntitlementStore.clear(context)) {
+                        "부분 저장된 라이선스 정보를 정리하지 못했습니다."
+                    }
                     post(
                         context,
                         "/v1/licenses/deactivate",
