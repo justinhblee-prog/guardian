@@ -356,6 +356,38 @@ if (!databaseUrl) {
     assert.equal(overflow.status, 409);
   });
 
+  test('activation request replay returns the original signed response after a lost HTTP response', async () => {
+    const created = await issue(1);
+    const requestId = 'b5d9c8d4-0b25-4d55-9a66-6c2d9a4c8e21';
+    const device = '9'.repeat(64);
+    const body = {
+      requestId, licenseKey: created.licenseKey,
+      deviceBinding: device, appVersion: 'idempotency-test'
+    };
+    const first = await post('/v1/licenses/activate', body);
+    assert.equal(first.status, 200);
+    const firstToken = await first.json();
+    const replay = await post('/v1/licenses/activate', body);
+    assert.equal(replay.status, 200);
+    assert.deepEqual(await replay.json(), firstToken);
+
+    const activationCount = await pool.query(
+      'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL',
+      [created.license.id, device]
+    );
+    assert.equal(activationCount.rows[0].n, 1);
+    const eventCount = await pool.query(
+      "SELECT count(*)::int AS n FROM license_events WHERE license_id=$1 AND event_type='activated'",
+      [created.license.id]
+    );
+    assert.equal(eventCount.rows[0].n, 1);
+
+    const reused = await post('/v1/licenses/activate', {
+      ...body, licenseKey: (await issue(1)).licenseKey
+    });
+    assert.equal(reused.status, 409);
+  });
+
   test('status, refresh and deactivation are scoped to the activated device and license', async () => {
     const rows = await pool.query(
       'SELECT l.license_ref FROM licenses l JOIN activations a ON a.license_id=l.id WHERE a.device_binding=$1 AND a.deactivated_at IS NULL LIMIT 1',
