@@ -136,6 +136,13 @@ internal object LicenseApiClient {
         return try {
             persistToken(context, response)
         } catch (activationSaveError: Exception) {
+            // A failed SharedPreferences commit can still leave an in-memory value.
+            // Remove any partially saved token before attempting remote compensation.
+            try {
+                LicenseEntitlementStore.clear(context)
+            } catch (clearError: Exception) {
+                activationSaveError.addSuppressed(clearError)
+            }
             // The server has already allocated a device slot. If local signature
             // verification or durable storage fails, compensate by releasing that
             // exact slot so a later attempt with a different key cannot strand it.
