@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 INSERT INTO products(code, name, entitlement)
-VALUES ('guardian-android-pro', 'Guardian Android Pro', 'pro')
+VALUES
+  ('guardian-pro', 'Guardian Pro', 'pro'),
+  ('guardian-android-pro', 'Guardian Android Pro (legacy)', 'pro')
 ON CONFLICT (code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS customers (
