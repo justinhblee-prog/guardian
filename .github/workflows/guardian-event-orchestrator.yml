@@ -236,7 +236,7 @@ jobs:
           [[ "$version_code" =~ ^[0-9]+$ ]]
           test "$package_name" = "com.guardian.adblock"
 
-          source_name="Guardian-AdBlock-Source-v${version_name}.zip"
+          source_name="Guardian-AdBlock-Source-${version_name}.zip"
           source_zip="$(find audit/input -type f -name "$source_name" -print -quit)"
           test -n "$source_zip" && test -s "$source_zip"
 
