@@ -1127,47 +1127,23 @@ texts={node.attrib.get("text","") for node in nodes}
 selected_settings=any(node.attrib.get("content-desc")=="설정"
                       and node.attrib.get("selected")=="true"
                       for node in nodes)
-if "Guardian 앱 정보와 보호 정책" not in texts or not selected_settings:
+if "Guardian의 보호와 앱 환경을 관리합니다." not in texts or not selected_settings:
     raise SystemExit("Guardian Settings tab did not open after tapping its clickable navigation parent.")' <<<"$settings_tab_xml"
 
-# Verify the customer-facing support center is reachable and its FAQ/form UI
-# renders. Do not submit a real ticket from the emulator fixture.
-# The preceding VPN auto-pause acceptance test may leave Settings scrolled well below
-# the support card. Reset the Settings ScrollView to its top before searching for
-# the support entry; otherwise a downward-only search can never find a card above
-# the retained scroll position.
-for attempt in $(seq 1 20); do
-  adb_cmd shell input swipe 540 500 540 1550 250
-  sleep 0.15
-done
-adb_cmd shell uiautomator dump /sdcard/guardian-support-top.xml >/dev/null 2>&1
-support_top_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-top.xml | tr -d '\r')"
-if ! grep -Fq "Guardian 앱 정보와 보호 정책" <<<"$support_top_xml"; then
-  echo "Could not confirm Settings returned to its top before support-center verification."
-  echo "$support_top_xml"
-  exit 1
-fi
-
-# The support card is intentionally the first content card in Settings.
-# Verify it at the top immediately; scrolling down would move it out of view.
+# Customer support is now a dedicated Settings subpage. Open it through
+# the clickable Settings section card and verify its FAQ/forms without submitting.
+tap_text_in_clickable_parent "고객 지원"
+sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
 support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
-if ! python3 -c 'import sys, xml.etree.ElementTree as ET
-root = ET.fromstring(sys.stdin.read())
-texts = [node.attrib.get("text", "") for node in root.iter("node")]
-required = (
-    "고객지원 센터",
-    "자주 묻는 질문 (Q&A)",
-    "문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다",
-)
-missing = [item for item in required if not any(item in text for text in texts)]
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+texts=[node.attrib.get("text","") for node in root.iter("node")]
+required=("고객지원 센터","자주 묻는 질문 (Q&A)","문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다")
+missing=[item for item in required if not any(item in text for text in texts)]
 if missing:
-    raise SystemExit("Customer support Settings text missing: " + ", ".join(missing))' <<<"$support_settings_xml"; then
-  echo "Customer support center card is missing from the top of Settings."
-  echo "$support_settings_xml"
-  exit 1
-fi
-echo "Customer support center found at the top of Settings."
+    raise SystemExit("Customer support subpage text missing: "+", ".join(missing))' <<<"$support_settings_xml"
+echo "Customer support subpage found."
 
 tap_text "자주 묻는 질문 (Q&A)"
 sleep 1
@@ -1197,7 +1173,7 @@ root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
 fields=[n for n in nodes if n.attrib.get("class")=="android.widget.EditText"]
 if len(fields)<3:
-    raise SystemExit("Support submission form must expose subject, optional email, and message fields.")
+    raise SystemExit("Support form must expose subject, optional email, and message fields.")
 if not any("문의 및 의견 보내기" in n.attrib.get("text","") for n in nodes):
     raise SystemExit("Support submission dialog title is missing.")' <<<"$support_form_xml"
 tap_text "취소"
@@ -1211,8 +1187,21 @@ fields=[n for n in root.iter("node") if n.attrib.get("class")=="android.widget.E
 if len(fields)<2:
     raise SystemExit("Support ticket lookup must expose ticket reference and private access-code fields.")' <<<"$support_lookup_xml"
 tap_text "취소"
-echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
+echo "Customer support subpage FAQ, inquiry submission form, and private lookup UI passed."
 
+# Foreground-app VPN compatibility controls live in the preserved Advanced
+# Settings page, not the new Settings category root.
+adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
+tap_text "고급 설정 및 서버 구성"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-advanced-settings.xml >/dev/null 2>&1
+advanced_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-advanced-settings.xml | tr -d '\r')"
+grep -Fq 'Guardian 앱 정보와 보호 정책' <<<"$advanced_settings_xml" || {
+  echo "Advanced Settings page did not open."
+  echo "$advanced_settings_xml"
+  exit 1
+}
 
 auto_pause_picker_visible=0
 # The Settings tab opens at its top after the app is relaunched. Scroll down
