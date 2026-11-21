@@ -104,7 +104,7 @@ if (-not $runnerFullPath.StartsWith([IO.Path]::GetFullPath($env:LOCALAPPDATA), [
     throw '보안상 RunnerRoot는 현재 사용자의 LOCALAPPDATA 아래에만 설치할 수 있습니다.'
 }
 
-Write-Host '로컬 Python, Aider, Ollama 및 runner 환경을 확인합니다.'
+Write-Host '로컬 Python, Ollama 및 runner 환경을 확인합니다.'
 $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
 $pyCommand = Get-Command py -ErrorAction SilentlyContinue
 if (-not $pythonCommand -and -not $pyCommand) {
@@ -125,17 +125,7 @@ if ($repoAdmin -ne 'true') {
     throw '현재 gh 인증 계정에 이 저장소의 runner 관리 권한이 없습니다. Repository Administration 권한이 필요합니다.'
 }
 
-$aiderCommand = Get-Command aider -ErrorAction SilentlyContinue
-if (-not $aiderCommand -and $pythonCommand) {
-    $aiderVersion = & $pythonCommand.Source -m aider --version 2>&1
-    if ($LASTEXITCODE -ne 0) { throw 'Aider가 현재 Windows 사용자 환경에 설치되어 있지 않습니다.' }
-} elseif (-not $aiderCommand -and $pyCommand) {
-    $aiderVersion = & $pyCommand.Source -3 -m aider --version 2>&1
-    if ($LASTEXITCODE -ne 0) { throw 'Python launcher 환경에서 Aider를 찾을 수 없습니다.' }
-} else {
-    $aiderVersion = & $aiderCommand.Source --version 2>&1
-    if ($LASTEXITCODE -ne 0) { throw 'Aider 버전 확인에 실패했습니다.' }
-}
+# The multi-flow worker calls the local Ollama HTTP API directly; Aider is not required.
 Test-OllamaModel -Model $OllamaModel
 
 $taskName = 'GuardianLocalOllamaRunner'
@@ -211,7 +201,7 @@ if (-not $NoAutoStart) {
 }
 
 Write-Host ''
-Write-Host 'Guardian local runner 설정이 완료되었습니다.'
+Write-Host 'Guardian local Ollama runner 설정이 완료되었습니다.'
 Write-Host "저장 위치: $runnerFullPath"
 Write-Host "Runner 이름: $RunnerName"
 Write-Host 'Runner labels: self-hosted, Windows, X64, guardian-windows, ollama'
