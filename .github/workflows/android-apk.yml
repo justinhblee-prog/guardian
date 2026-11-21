@@ -57,12 +57,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Preserve a low version-code range so production releases can supersede
-          # development sideloads without a large version-code jump.
-          COMMIT_COUNT="$(git rev-list --count HEAD)"
-          VERSION_CODE=$((47 + COMMIT_COUNT))
-          VERSION_NAME="0.8.${COMMIT_COUNT}-dev"
-          if (( VERSION_CODE <= 47 || VERSION_CODE > 2100000000 )); then
+          # Use this workflow's repository-wide monotonic run number, not the
+          # branch-local commit count. Parallel PR branches otherwise regress.
+          VERSION_CODE=$((1000000 + GITHUB_RUN_NUMBER))
+          VERSION_NAME="0.8.${GITHUB_RUN_NUMBER}-dev"
+          if (( VERSION_CODE <= 1000000 || VERSION_CODE >= 2000000 )); then
             echo "Calculated development versionCode is outside the supported range."
             exit 1
           fi
