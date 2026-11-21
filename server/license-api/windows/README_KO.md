@@ -39,6 +39,12 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\Setup-GuardianServer.ps1
 ```
 
+운영 키와 외부 데이터 경로만 먼저 준비하고 Docker 실행은 나중으로 미루려면 다음처럼 실행할 수 있습니다. 이 모드는 OpenSSL만 필요하며 Docker Desktop을 검사하거나 컨테이너/예약 작업을 시작하지 않습니다. 나중에 Docker Desktop을 실행한 뒤 `Start-All-GuardianServices.ps1` 및 `Register-GuardianStartupTask.ps1`을 별도로 실행합니다.
+
+```powershell
+./Setup-GuardianServer.ps1 -SkipAutoStart
+```
+
 설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 외부 데이터 경로에 ACL을 적용하고 기존 `.env`는 덮어쓰지 않습니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `%LOCALAPPDATA%\Guardian\secrets\guardian-filter-private.dpapi`에 보관하고 평문 PEM 임시 파일은 삭제합니다. Docker 환경 파일, 필터 설정·dist·로그와 백업도 외부 경로에 저장합니다.
 
 ## 노트북에서 공개키를 포함한 Android APK 다시 빌드
