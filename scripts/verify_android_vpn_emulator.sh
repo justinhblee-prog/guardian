@@ -1193,6 +1193,11 @@ echo "Customer support subpage FAQ, inquiry submission form, and private lookup 
 # Settings page, not the new Settings category root.
 adb_cmd shell input keyevent KEYCODE_BACK || true
 sleep 1
+# The Advanced Settings entry is below the category cards on smaller screens.
+for attempt in $(seq 1 6); do
+  adb_cmd shell input swipe 540 1500 540 650 250
+  sleep 0.2
+done
 tap_text "고급 설정 및 서버 구성"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-advanced-settings.xml >/dev/null 2>&1
