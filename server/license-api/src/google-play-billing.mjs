@@ -94,7 +94,7 @@ export function createGooglePlayBillingVerifier({
   if (typeof fetchImpl !== 'function') {
     throw new GooglePlayBillingError('billing_transport_unavailable', 'Google Play 결제 검증 네트워크 기능을 사용할 수 없습니다.');
   }
-  if (typeof packageName !== 'string' || !/^[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)+$/.test(packageName)) {
+  if (typeof packageName !== 'string' || !/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(packageName)) {
     throw new GooglePlayBillingError('billing_package_invalid', 'Google Play 앱 패키지 설정이 올바르지 않습니다.');
   }
   const account = readServiceAccount(serviceAccountJson);
