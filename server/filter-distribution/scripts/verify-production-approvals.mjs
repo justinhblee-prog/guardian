@@ -37,9 +37,8 @@ export function verifyProductionRedistributionApprovals(config) {
       errors.push(id + ': redistributionApproved must be explicitly true after rights review.');
     }
     if (typeof source.redistributionApprovalRef !== 'string' ||
-        !source.redistributionApprovalRef.trim() ||
-        source.redistributionApprovalRef.length > 128) {
-      errors.push(id + ': redistributionApprovalRef must identify a traceable approval record.');
+        !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(source.redistributionApprovalRef)) {
+      errors.push(id + ': redistributionApprovalRef must be a 1-128 character traceable reference using letters, digits, dot, underscore, colon, slash or hyphen.');
     }
   }
 

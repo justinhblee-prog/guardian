@@ -67,3 +67,19 @@ test('production approval gate rejects empty or malformed source configuration',
   assert.throws(() => verifyProductionRedistributionApprovals({ sources: [] }), /non-empty sources array/);
   assert.throws(() => verifyProductionRedistributionApprovals(null), /non-empty sources array/);
 });
+
+test('production approval gate rejects ambiguous or malformed approval references', () => {
+  for (const reference of [' LEGAL-1', 'LEGAL 1', 'LEGAL-1\nforged', 'LEGAL-1\t', 'x'.repeat(129)]) {
+    assert.throws(
+      () => verifyProductionRedistributionApprovals({
+        sources: [{
+          id: 'malformed_reference',
+          licenseId: 'MIT',
+          redistributionApproved: true,
+          redistributionApprovalRef: reference
+        }]
+      }),
+      /redistributionApprovalRef/
+    );
+  }
+});
