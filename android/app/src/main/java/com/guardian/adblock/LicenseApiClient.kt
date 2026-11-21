@@ -208,15 +208,20 @@ internal object LicenseApiClient {
             "Google Play 구독 상품 정보가 올바르지 않습니다."
         }
         validateLicensePublicKeyConfiguration(BuildConfig.LICENSE_PUBLIC_KEY)
-        val response = post(
-            context,
-            "/v1/billing/google-play/verify",
-            JSONObject()
-                .put("purchaseToken", purchaseToken)
-                .put("productId", productId)
-                .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
-                .put("appVersion", appVersion.take(40))
-        )
+        val response = try {
+            post(
+                context,
+                "/v1/billing/google-play/verify",
+                JSONObject()
+                    .put("purchaseToken", purchaseToken)
+                    .put("productId", productId)
+                    .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
+                    .put("appVersion", appVersion.take(40))
+            )
+        } catch (error: LicenseApiException) {
+            if (error.invalidatesEntitlement) LicenseEntitlementStore.clear(context)
+            throw error
+        }
         if (response.optBoolean("entitled", false)) {
             persistToken(context, response)
         } else {
