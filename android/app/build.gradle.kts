@@ -1,4 +1,7 @@
+import java.io.FileInputStream
 import java.net.URI
+import java.security.KeyStore
+import java.security.PrivateKey
 import java.security.KeyFactory
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.X509EncodedKeySpec
@@ -54,8 +57,48 @@ val validateGuardianReleaseSigning by tasks.registering {
         check(guardianReleaseSigningConfigured) {
             "Release APK/AAB requires GUARDIAN_RELEASE_STORE_FILE, GUARDIAN_RELEASE_STORE_PASSWORD, GUARDIAN_RELEASE_KEY_ALIAS and GUARDIAN_RELEASE_KEY_PASSWORD."
         }
-        check(file(guardianReleaseStoreFile!!).isFile) {
+        val keystoreFile = file(guardianReleaseStoreFile!!)
+        check(keystoreFile.isFile) {
             "Configured Guardian release keystore file does not exist."
+        }
+
+        // Validate the actual signer entry, not just the presence of four non-empty
+        // environment variables. Accept the two standard Android keystore formats.
+        val storePassword = guardianReleaseStorePassword!!.toCharArray()
+        val keyPassword = guardianReleaseKeyPassword!!.toCharArray()
+        try {
+            var loadedKeyStore: KeyStore? = null
+            for (type in listOf("PKCS12", "JKS")) {
+                try {
+                    val candidate = KeyStore.getInstance(type)
+                    FileInputStream(keystoreFile).use { input ->
+                        candidate.load(input, storePassword)
+                    }
+                    loadedKeyStore = candidate
+                    break
+                } catch (_: Exception) {
+                    // Try the other supported keystore format without logging secrets.
+                }
+            }
+            val keyStore = loadedKeyStore
+                ?: throw GradleException(
+                    "Configured Guardian release keystore is unreadable with the supplied password or is not JKS/PKCS12."
+                )
+            check(keyStore.containsAlias(guardianReleaseKeyAlias!!)) {
+                "Configured Guardian release key alias does not exist in the keystore."
+            }
+            check(keyStore.isKeyEntry(guardianReleaseKeyAlias!!)) {
+                "Configured Guardian release key alias is not a private-key entry."
+            }
+            check(keyStore.getKey(guardianReleaseKeyAlias!!, keyPassword) is PrivateKey) {
+                "Configured Guardian release key alias does not contain an accessible private key."
+            }
+            check(keyStore.getCertificate(guardianReleaseKeyAlias!!) != null) {
+                "Configured Guardian release key alias has no signing certificate."
+            }
+        } finally {
+            storePassword.fill('\u0000')
+            keyPassword.fill('\u0000')
         }
     }
 }
