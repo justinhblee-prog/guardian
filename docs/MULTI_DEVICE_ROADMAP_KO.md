@@ -71,7 +71,7 @@ Android APK를 Windows에 그대로 설치하거나 Android VPN 코드를 Window
 
 1. **Android 공통 앱·라이선스:** 스마트폰·태블릿 공통 APK, 반응형 UI, DNS VPN 엔진, entitlement 및 기기 등록/해제 코드/CI 완료. 실기기 수용 시험은 개발 완료 후 진행한다.
 2. **서명 필터 연동:** manifest 서명/해시/anti-rollback 검증기와 다운로드·캐시 교체 경로, publisher/updater 및 distribution CI 완료. 운영 개인키 생성과 공개 HTTPS 게시 검증은 남아 있다.
-3. **License API·관리자 화면:** Node.js/PostgreSQL API, signed entitlement, 기기 관리, 발급·검색·정지·감사 로그 대시보드 코드/CI 완료. 운영 DB·키·HTTPS/Tailscale 배포 검증은 남아 있다.
+3. **License API·관리자 화면:** Node.js/PostgreSQL API, 플랫폼 공통 `guardian-pro`, signed entitlement, Android/Windows 클라이언트 활성화·갱신·기기 해제, 기기 관리 및 감사 로그 대시보드 구현. 공통 계약 테스트/CI와 Windows 클라이언트 단위 테스트가 필요하며 운영 DB·키·HTTPS/Tailscale 및 실제 두 플랫폼 E2E 검증은 남아 있다.
 4. **Android production signing:** release 설정 검증과 임시 키 smoke test 완료. 운영 keystore/secrets가 없어 production APK/AAB 서명은 대기.
 5. **실기기/운영 수용 시험:** Android VPN/DNS, 광고 차단, 네트워크 전환, 운영 서버 E2E는 개발 항목 완료 후 수행한다.
 6. **Windows 후순위:** Android와 공통 기능 완료 후 Windows EXE/설치 프로그램, 설치/제거, DNS 복구, 재부팅 및 실기기 검증을 마지막에 수행한다.
