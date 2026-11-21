@@ -40,7 +40,8 @@ try {
         'migrations/002_shared_rate_limit_buckets.sql',
         'migrations/003_support_tickets.sql',
         'migrations/004_customers.sql',
-        'migrations/005_shared_guardian_product.sql'
+        'migrations/005_shared_guardian_product.sql',
+        'migrations/006_google_play_billing.sql'
     )
     $OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
     foreach ($relativePath in $migrationFiles) {
@@ -57,13 +58,13 @@ try {
     }
 
     Write-Host '4/5 필수 테이블 존재 검증'
-    $verificationSql = "SELECT COALESCE(to_regclass('public.api_rate_limit_buckets')::text, ''), COALESCE(to_regclass('public.support_tickets')::text, ''), COALESCE(to_regclass('public.customers')::text, ''), (SELECT code FROM products WHERE code='guardian-pro' AND active=true LIMIT 1);"
+    $verificationSql = "SELECT COALESCE(to_regclass('public.api_rate_limit_buckets')::text, ''), COALESCE(to_regclass('public.support_tickets')::text, ''), COALESCE(to_regclass('public.customers')::text, ''), COALESCE(to_regclass('public.google_play_purchases')::text, ''), COALESCE(to_regclass('public.google_play_rtdn_events')::text, ''), (SELECT code FROM products WHERE code='guardian-pro' AND active=true LIMIT 1);"
     $verification = & $docker compose --env-file $paths.LicenseEnv exec -T db psql -X -A -t -U guardian -d guardian -c $verificationSql
     if ($LASTEXITCODE -ne 0) {
         throw 'Migration 결과 조회 실패'
     }
     $verified = ($verification -join '').Trim()
-    if ($verified -ne 'api_rate_limit_buckets|support_tickets|customers|guardian-pro') {
+    if ($verified -ne 'api_rate_limit_buckets|support_tickets|customers|google_play_purchases|google_play_rtdn_events|guardian-pro') {
         throw "필수 테이블 검증 실패: $verified"
     }
 
