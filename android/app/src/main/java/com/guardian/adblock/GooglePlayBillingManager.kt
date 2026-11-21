@@ -75,7 +75,7 @@ internal class GooglePlayBillingManager(
         }
         ensureConnected { connectionError ->
             if (connectionError != null) {
-                callback(emptyList(), "Google Play 결제 서비스에 연결할 수 없습니다. (\${connectionError.responseCode})")
+                callback(emptyList(), "Google Play 결제 서비스에 연결할 수 없습니다. (${connectionError.responseCode})")
                 return@ensureConnected
             }
             val products = productIds.map { productId ->
@@ -89,7 +89,7 @@ internal class GooglePlayBillingManager(
                 .build()
             billingClient.queryProductDetailsAsync(params) { result, detailsResult ->
                 if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                    callback(emptyList(), "Google Play 상품 정보를 불러오지 못했습니다. (\${result.responseCode})")
+                    callback(emptyList(), "Google Play 상품 정보를 불러오지 못했습니다. (${result.responseCode})")
                     return@queryProductDetailsAsync
                 }
                 val available = detailsResult.productDetailsList.mapNotNull { details ->
@@ -123,7 +123,7 @@ internal class GooglePlayBillingManager(
                 .build()
             billingClient.queryPurchasesAsync(params) { result, purchases ->
                 if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-                    onPurchaseOutcome(GuardianBillingOutcome(false, "구매 복원에 실패했습니다. (\${result.responseCode})"))
+                    onPurchaseOutcome(GuardianBillingOutcome(false, "구매 복원에 실패했습니다. (${result.responseCode})"))
                     return@queryPurchasesAsync
                 }
                 if (purchases.isEmpty()) {
@@ -159,7 +159,7 @@ internal class GooglePlayBillingManager(
             val result = billingClient.launchBillingFlow(activity, flow)
             if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                 onPurchaseOutcome(
-                    GuardianBillingOutcome(false, "Google Play 결제 화면을 열지 못했습니다. (\${result.responseCode})")
+                    GuardianBillingOutcome(false, "Google Play 결제 화면을 열지 못했습니다. (${result.responseCode})")
                 )
             }
         }
@@ -205,7 +205,7 @@ internal class GooglePlayBillingManager(
             BillingClient.BillingResponseCode.USER_CANCELED ->
                 onPurchaseOutcome(GuardianBillingOutcome(false, "Google Play 결제를 취소했습니다."))
             else -> onPurchaseOutcome(
-                GuardianBillingOutcome(false, "Google Play 결제 처리에 실패했습니다. (\${result.responseCode})")
+                GuardianBillingOutcome(false, "Google Play 결제 처리에 실패했습니다. (${result.responseCode})")
             )
         }
     }
@@ -277,7 +277,7 @@ internal class GooglePlayBillingManager(
             } catch (error: Exception) {
                 mainHandler.post {
                     onPurchaseOutcome(
-                        GuardianBillingOutcome(false, "구독 서버 검증에 실패했습니다: \${SafeFailureSummary.describe(error)}")
+                        GuardianBillingOutcome(false, "구독 서버 검증에 실패했습니다: ${SafeFailureSummary.describe(error)}")
                     )
                 }
             } finally {
