@@ -534,3 +534,11 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Windows 공통 라이선스 개발 EXE/설치 패키지 빌드 및 설치 smoke test는 [44887248268](https://github.com/justinhblee-prog/guardian/actions/runs/44887248268)에서 통과했고, Windows 라이선스 테스트는 [44887248317](https://github.com/justinhblee-prog/guardian/actions/runs/44887248317)에서 통과했습니다. 개발 패키지는 Authenticode 서명본이 아닙니다.
 - 공통 라이선스 제품 코드 `guardian-pro`와 Android/Windows 클라이언트 구현은 저장소에 반영됐지만, 실제 운영 RSA 키·Android production keystore·GitHub secrets/variables 등록, License API/PostgreSQL/TLS 배포 및 양 플랫폼 실제 기기 활성화 E2E는 아직 완료로 판정할 수 없습니다. Production workflow [44888522131](https://github.com/justinhblee-prog/guardian/actions/runs/44888522131)은 설정 검증 성공, production signing job skipped입니다.
 - 정식 1.0.0 릴리스는 아직 아닙니다. 운영 키/서비스 배포, 승인된 서명 필터 게시, production signing, Android 실기기 VPN/DNS 수용 테스트, Windows 실제 PC DNS 설치·복구 테스트 및 두 플랫폼 공통 라이선스 E2E가 남아 있습니다.
+
+
+### 2026-11-21 19:12 KST 추가 확인 — 0.7.40-dev 에뮬레이터 최종 성공
+
+- 앞 절의 “에뮬레이터 runtime stage 진행 중” 상태는 완료 후 정정합니다.
+- Android run [44892153515](https://github.com/justinhblee-prog/guardian/actions/runs/44892153515) 전체 성공. `Install and launch APK on Android emulator`, `Write final runtime verification result`, `Upload final verification report`, `Publish development APK update release` 모두 성공했습니다.
+- 최종 검증 artifact ID `14703101227`의 `FINAL_VERIFICATION_KO.md`에서 API 35 emulator upgrade 및 VPN DNS E2E `success`를 확인했습니다.
+- APK 및 source ZIP의 SHA-256은 앞 절에 기록한 값과 일치합니다. APK는 개발 Debug 서명본이며 실기기 수용 테스트 및 production 서명과는 별개입니다.
