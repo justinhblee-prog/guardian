@@ -27,7 +27,7 @@ test('entitlement payload uses the shared Guardian product claim and is RSA sign
   const token = issueEntitlementToken({ licenseRef: '12345678-abcd', deviceBinding: device, expiresAt, privateKey });
   const payload = Buffer.from(token.payload, 'utf8');
   assert.equal(verify('RSA-SHA256', payload, publicKey, Buffer.from(token.signature, 'base64')), true);
-  assert.match(token.payload, /^tokenVersion=1\nproduct=guardian-android\nentitlement=pro\n/);
+  assert.match(token.payload, /^tokenVersion=1\nproduct=guardian\nentitlement=pro\n/);
   assert.match(token.payload, new RegExp(`deviceBinding=${device}$`));
 });
 
