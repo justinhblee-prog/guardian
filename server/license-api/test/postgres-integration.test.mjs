@@ -525,11 +525,11 @@ if (!databaseUrl) {
         }]
       });
     };
-    const verifyPurchase = (deviceBinding = 'a'.repeat(64)) => nativeFetch(`${baseUrl}/v1/billing/google-play/verify`, {
+    const verifyPurchase = (deviceBinding = 'a'.repeat(64), token = purchaseToken) => nativeFetch(`${baseUrl}/v1/billing/google-play/verify`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        purchaseToken, productId: 'guardian_pro_monthly',
+        purchaseToken: token, productId: 'guardian_pro_monthly',
         deviceBinding, appVersion: 'billing-integration'
       })
     });
@@ -614,6 +614,19 @@ if (!databaseUrl) {
       const duplicateRtdn = await sendRtdn();
       assert.equal(duplicateRtdn.status, 200);
       assert.equal((await duplicateRtdn.json()).duplicate, true);
+
+      // A revoke notification can arrive before the app's first purchase
+      // verification. Persist the token hash so a later client request cannot
+      // create a fresh Pro license from the same revoked purchase.
+      const preRevokedToken = 'pre-revoked-play-purchase-' + randomUUID();
+      rtdnNotification.subscriptionNotification.purchaseToken = preRevokedToken;
+      rtdnBody.message.messageId = 'guardian-rtdn-pre-revoke-' + randomUUID();
+      rtdnBody.message.data = Buffer.from(JSON.stringify(rtdnNotification)).toString('base64');
+      const preRevokeEvent = await sendRtdn();
+      assert.equal(preRevokeEvent.status, 200);
+      assert.equal((await preRevokeEvent.json()).processed, true);
+      const preRevokedPurchase = await verifyPurchase('d'.repeat(64), preRevokedToken);
+      assert.equal(preRevokedPurchase.status, 403);
 
       const revokedPurchase = await verifyPurchase();
       assert.equal(revokedPurchase.status, 403);
