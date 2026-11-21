@@ -126,3 +126,9 @@ Android v0.7.14-dev APK와 전체 소스 ZIP, API 35 에뮬레이터 VPN/DNS E2E
 - Local runner bootstrap workflow [44892153506](https://github.com/justinhblee-prog/guardian/actions/runs/44892153506) only parses the PowerShell installer and checks safety guards; it does not register or prove a persistent self-hosted runner.
 - The privacy fix now stores safe filter-update error codes rather than raw exception messages; the UI maps those codes to safe Korean descriptions.
 - Do not label the project 1.0.0 complete until production signing, signed filter distribution, Android physical-device VPN/DNS, Windows physical-PC DNS install/recovery, and shared cross-platform license activation/refresh/deactivation E2E have passed.
+
+
+### 2026-11-21 19:12 KST 검증 상태 정정
+
+- Android [run 44892153515](https://github.com/justinhblee-prog/guardian/actions/runs/44892153515) 최종 완료 상태는 **success**입니다. API 35 emulator upgrade/install/launch 및 VPN DNS E2E가 성공했고 최종 검증 보고서 artifact ID는 `14703101227`입니다.
+- 이 결과는 에뮬레이터 검증입니다. 실제 Android 스마트폰/태블릿에서의 VPN 라우팅·네트워크 전환·광고 제거 수용 테스트는 여전히 별도입니다.
