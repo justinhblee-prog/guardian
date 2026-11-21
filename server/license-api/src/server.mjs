@@ -396,7 +396,7 @@ async function createLicense(body) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const product = await client.query("SELECT id FROM products WHERE code='guardian-android-pro' AND active=true");
+    const product = await client.query("SELECT id FROM products WHERE code='guardian-pro' AND active=true");
     if (!product.rowCount) throw new Error('활성 제품을 찾을 수 없습니다.');
     let customerId = null;
     if (customer) {
