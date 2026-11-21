@@ -10,7 +10,7 @@
 - APK SHA-256: `6171c2354c3007c82f51dd63b619b42b1520188f274e3eb1f6d3b45116aa8c07`.
 - Source ZIP SHA-256: `c569d3b480f04ec09350e408e4e1b0172ffc96be8dae3b5ace529ecb06f78303`.
 - 이 APK는 development 서명 채널이며 Production 서명 또는 실기기 수용 테스트 완료를 의미하지 않습니다.
-- Windows: `0.1.0-dev` 개발 EXE/설치 패키지 빌드 및 설치 smoke test 통과. [Windows build run 44887248268](https://github.com/justinhblee-prog/guardian/actions/runs/44887248268). Authenticode 서명은 없는 개발 패키지입니다.
+- Windows: `0.1.0-dev` 개발 EXE/설치 패키지 build 및 install smoke test 통과. [Windows build run 44887248268](https://github.com/justinhblee-prog/guardian/actions/runs/44887248268), artifact 49,637,167 bytes. Installer SHA-256: `130157181e9f7203d309c227cf06d305a88f21cd1e617cdb13261e50b0274856`; package ZIP SHA-256: `5874e1c329b668ac708d4cd0860712c48e90e289a0cddcc3dbf4247f15b9d559`. Authenticode 서명은 없는 개발 패키지입니다.
 
 ## 공통 라이선스 구현 상태
 
