@@ -178,7 +178,7 @@ grep -Fq 'Override size: 1512x1600' <<<"$boundary_display"
 # Navigate Home -> Settings at the final tablet width so the assertion observes
 # the Activity's actual resources.configuration.screenWidthDp.
 adb_cmd shell uiautomator dump /sdcard/guardian-tablet-boundary-nav.xml >/dev/null 2>&1
-nav_xml="$(adb_cmd exec-out cat /sdcard/guardian-tablet-boundary-nav.xml | tr -d '\\r')"
+nav_xml="$(adb_cmd exec-out cat /sdcard/guardian-tablet-boundary-nav.xml | tr -d '\r')"
 home_point="$(python3 - "$nav_xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
@@ -199,7 +199,7 @@ read -r home_x home_y <<<"$home_point"
 adb_cmd shell input tap "$home_x" "$home_y"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-tablet-boundary-nav.xml >/dev/null 2>&1
-nav_xml="$(adb_cmd exec-out cat /sdcard/guardian-tablet-boundary-nav.xml | tr -d '\\r')"
+nav_xml="$(adb_cmd exec-out cat /sdcard/guardian-tablet-boundary-nav.xml | tr -d '\r')"
 settings_point="$(python3 - "$nav_xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
