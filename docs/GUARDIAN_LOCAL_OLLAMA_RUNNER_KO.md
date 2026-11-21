@@ -40,6 +40,8 @@ Runner 바이너리와 작업 디렉터리는 기본적으로 `%LOCALAPPDATA%\Gu
 
 ## 연결 확인
 
+설치 스크립트는 GitHub runner와 기존 Git CLI agent의 예약 작업을 모두 설치합니다. Git CLI agent는 사용자의 로그인 세션에서 local Ollama worker를 호출하므로, GitHub self-hosted runner가 잠시 오프라인이어도 로컬 작업 루프 자체는 계속 동작할 수 있습니다. GitHub runner는 Aider/Qwen workflow의 실제 추론 검증에 별도로 사용됩니다.
+
 GitHub 저장소의 **Settings → Actions → Runners**에서 다음 상태를 확인합니다.
 
 - Runner name: `<컴퓨터이름>-Guardian`
