@@ -47,6 +47,7 @@ jobs:
           node --check src/server.mjs
           node --check src/license-core.mjs
           node --check src/rate-limit.mjs
+          node --check src/google-play-billing.mjs
           node --check admin/admin.js
           node --check test/postgres-integration.test.mjs
       - name: Validate Docker Compose deployment configuration
