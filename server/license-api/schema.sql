@@ -100,7 +100,7 @@ CREATE INDEX IF NOT EXISTS support_tickets_status_time_idx
 -- Raw purchase tokens and Pub/Sub payloads are never persisted.
 CREATE TABLE IF NOT EXISTS google_play_purchases (
   purchase_token_hash char(64) PRIMARY KEY CHECK (purchase_token_hash ~ '^[0-9a-f]{64}$'),
-  product_id text NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id uuid NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   license_id uuid NOT NULL UNIQUE REFERENCES licenses(id) ON DELETE RESTRICT,
   product_sku varchar(120) NOT NULL,
   subscription_state varchar(64) NOT NULL,
