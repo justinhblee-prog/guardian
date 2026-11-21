@@ -34,7 +34,16 @@ jobs:
         with:
           script: |
             const marker = '<!-- GUARDIAN_PARALLEL_STATUS -->';
-            const targets = [237, 230];
+            const activePullRequests = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const targets = activePullRequests
+              .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+              .slice(0, 12)
+              .map(pr => pr.number);
             const sections = [];
             for (const number of targets) {
               const response = await github.rest.pulls.get({
