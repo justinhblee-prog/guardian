@@ -187,7 +187,7 @@ jobs:
 
           DEVELOPMENT_VERSION_CODE="$((1000000 + $(git rev-list --count HEAD)))"
           test -n "$DEVELOPMENT_VERSION_CODE"
-          RELEASE_VERSION_CODE="$((DEVELOPMENT_VERSION_CODE + 1))"
+          RELEASE_VERSION_CODE=2000000
           echo "Validating the actual Guardian 1.0.0 release metadata: versionCode=$RELEASE_VERSION_CODE (development=$DEVELOPMENT_VERSION_CODE)."
 
           gradle -p android --no-daemon \
