@@ -33,6 +33,24 @@ export function verifyProductionRedistributionApprovals(config) {
         !/^[A-Za-z0-9.+-]{1,64}$/.test(source.licenseId)) {
       errors.push(id + ': licenseId is missing or malformed.');
     }
+    let sourceUrl;
+    try {
+      sourceUrl = new URL(source.url);
+    } catch {
+      errors.push(id + ': source url must be a valid HTTPS URL.');
+    }
+    if (sourceUrl && (
+      sourceUrl.protocol !== 'https:' ||
+      !sourceUrl.hostname ||
+      sourceUrl.username ||
+      sourceUrl.password ||
+      sourceUrl.hash
+    )) {
+      errors.push(id + ': source url must use HTTPS and must not contain credentials or a fragment.');
+    }
+    if (!Number.isSafeInteger(source.minimumRules) || source.minimumRules < 1) {
+      errors.push(id + ': minimumRules must be a positive safe integer.');
+    }
     if (source.redistributionApproved !== true) {
       errors.push(id + ': redistributionApproved must be explicitly true after rights review.');
     }
