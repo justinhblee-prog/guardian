@@ -869,19 +869,27 @@ class MainActivity : Activity() {
             setTextColor(white)
             background = shape(panel2, 12)
             setOnClickListener {
-                prefs.edit()
-                    .putLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
-                    .putLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)
-                    .putLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)
-                    .putLong(GuardianVpnService.KEY_DNS_FAILED, 0L)
-                    .putLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)
-                    .putLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
-                    .putLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
-                    .putLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
-                    .putString(GuardianVpnService.KEY_DNS_RECENT, "")
-                    .putString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "")
-                    .apply()
-                refreshStatus()
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("차단 기록을 초기화할까요?")
+                    .setMessage("DNS 질의·차단 통계와 최근 요청 기록이 이 기기에서 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("초기화") { _, _ ->
+                        prefs.edit()
+                            .putLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_FAILED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
+                            .putString(GuardianVpnService.KEY_DNS_RECENT, "")
+                            .putString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "")
+                            .apply()
+                        refreshStatus()
+                        Toast.makeText(this@MainActivity, "DNS 기록을 초기화했습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                    .show()
             }
         }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
         body.addView(text("최근 DNS 요청", 18f, white, true).withTop(24))
@@ -2380,7 +2388,6 @@ class MainActivity : Activity() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val autoUpdateCheck = CheckBox(this).apply {
             applyToggleTint(this)
-            applyToggleTint(this)
             text = "백그라운드에서 필터 자동 업데이트"
             textSize = 12f
             setTextColor(white)
@@ -2428,7 +2435,6 @@ class MainActivity : Activity() {
         ).withTop(3))
         val securityCheck = CheckBox(this).apply {
             applyToggleTint(this)
-            applyToggleTint(this)
             text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence · 전체 사용자)"
             textSize = 12f
             setTextColor(white)
@@ -2450,7 +2456,6 @@ class MainActivity : Activity() {
         securityFilterCheckBox = securityCheck
         options.addView(securityCheck)
         val androidAdsCheck = CheckBox(this).apply {
-            applyToggleTint(this)
             applyToggleTint(this)
             text = "Android 앱 광고 SDK 차단 (AWAvenue Ads Rule)"
             textSize = 12f
@@ -2481,7 +2486,6 @@ class MainActivity : Activity() {
             10f, muted, false
         ).withTop(2))
         val directDnsCheck = CheckBox(this).apply {
-            applyToggleTint(this)
             applyToggleTint(this)
             text = "공용 DNS 직접 질의 포착 (고급 · 일부 비DNS 연결 영향 가능)"
             textSize = 12f
