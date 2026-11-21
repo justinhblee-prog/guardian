@@ -44,7 +44,7 @@ class ProtectionRestoreReceiver : BroadcastReceiver() {
             }
             Log.i("GuardianProtection", "Requested VPN restore after system event: $action")
         } catch (error: Exception) {
-            Log.e("GuardianProtection", "Could not request VPN restore after system event: $action", error)
+            Log.e("GuardianProtection", "Could not request VPN restore after system event: $action (${SafeFailureSummary.codeFor(error)})")
             prefs.edit()
                 .putBoolean(GuardianVpnService.KEY_ACTIVE, false)
                 .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
