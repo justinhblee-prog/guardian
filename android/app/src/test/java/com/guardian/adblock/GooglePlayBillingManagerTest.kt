@@ -6,6 +6,19 @@ import org.junit.Test
 
 class GooglePlayBillingManagerTest {
     @Test
+    fun supportsOnlyRecurringSubscriptionOffers() {
+        assertTrue(isSupportedGuardianSubscriptionRecurrenceMode(
+            com.android.billingclient.api.ProductDetails.RecurrenceMode.INFINITE_RECURRING
+        ))
+        assertTrue(isSupportedGuardianSubscriptionRecurrenceMode(
+            com.android.billingclient.api.ProductDetails.RecurrenceMode.FINITE_RECURRING
+        ))
+        assertFalse(isSupportedGuardianSubscriptionRecurrenceMode(
+            com.android.billingclient.api.ProductDetails.RecurrenceMode.NON_RECURRING
+        ))
+    }
+
+    @Test
     fun parsesConfiguredProductIdsAndTrimsWhitespace() {
         assertEquals(
             listOf("guardian_pro_monthly", "guardian_pro_annual"),
