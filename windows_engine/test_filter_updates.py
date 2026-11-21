@@ -1,4 +1,4 @@
-import base64,hashlib
+import base64,hashlib,time
 import pytest
 from cryptography.hazmat.primitives import hashes,serialization
 from cryptography.hazmat.primitives.asymmetric import padding,rsa
@@ -57,3 +57,28 @@ def test_filter_url_must_stay_on_pinned_origin(tmp_path):
         if url.endswith(".manifest"): return bad,{"X-Guardian-Signature":bad_signature}
         return body,{}
     with pytest.raises(FilterUpdateError): FilterUpdater("https://filters.example.com","adguard",public,tmp_path/"state",tmp_path/"rules",bad_fetch).update()
+
+
+def test_manifest_rejects_timestamp_more_than_ten_minutes_in_future(tmp_path):
+    public,private,body,manifest,signature,fetcher=signed_fixture()
+    future=int(time.time())+601
+    forged_time=manifest.replace(b"generatedAt=1700000001",f"generatedAt={future}".encode("ascii"))
+    future_signature=base64.b64encode(private.sign(forged_time,padding.PKCS1v15(),hashes.SHA256())).decode("ascii")
+    def future_fetch(url,limit):
+        if url.endswith(".manifest"): return forged_time,{"X-Guardian-Signature":future_signature}
+        return body,{}
+    with pytest.raises(FilterUpdateError,match="too far in the future"):
+        FilterUpdater("https://filters.example.com","adguard",public,tmp_path/"state.json",tmp_path/"rules.txt",future_fetch).update()
+    assert not (tmp_path/"rules.txt").exists()
+
+
+@pytest.mark.parametrize("value",["+1700000001","1700000001_0"," 1700000001"])
+def test_manifest_rejects_noncanonical_generated_at(value,tmp_path):
+    public,private,body,manifest,signature,fetcher=signed_fixture()
+    malformed=manifest.replace(b"generatedAt=1700000001",f"generatedAt={value}".encode("ascii"))
+    malformed_signature=base64.b64encode(private.sign(malformed,padding.PKCS1v15(),hashes.SHA256())).decode("ascii")
+    def malformed_fetch(url,limit):
+        if url.endswith(".manifest"): return malformed,{"X-Guardian-Signature":malformed_signature}
+        return body,{}
+    with pytest.raises(FilterUpdateError,match="Invalid manifest timestamp"):
+        FilterUpdater("https://filters.example.com","adguard",public,tmp_path/"state.json",tmp_path/"rules.txt",malformed_fetch).update()
