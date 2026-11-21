@@ -53,6 +53,19 @@ if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$multiFlowScript = Join-Path $repoRoot 'scripts\guardian-multiflow.ps1'
+$multiFlowWorker = Join-Path $repoRoot 'scripts\guardian_multiflow.py'
+$legacyWorker = Join-Path $repoRoot 'scripts\guardian-copilot-worker.ps1'
+$gitAgent = Join-Path $repoRoot 'scripts\guardian-git-agent.ps1'
+foreach ($requiredPath in @($multiFlowScript, $multiFlowWorker, $legacyWorker, $gitAgent)) {
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+        throw "Local Ollama multi-flow files are missing. Merge the guarded multi-flow integration before installing: $requiredPath"
+    }
+}
+$legacyWorkerContent = Get-Content -LiteralPath $legacyWorker -Raw
+if ($legacyWorkerContent -match 'copilot\.Source|winget install --id GitHub\.Copilot|--autopilot') {
+    throw 'Refusing to install a scheduled local agent while a Copilot/remote fallback is still present.'
+}
 $runnerFullPath = [IO.Path]::GetFullPath($RunnerRoot)
 if ($runnerFullPath.StartsWith($repoRoot, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'RunnerRoot는 Git 저장소 바깥에 있어야 합니다.'
@@ -177,4 +190,8 @@ Write-Host "Runner 이름: $RunnerName"
 Write-Host 'Runner labels: self-hosted, Windows, X64, guardian-windows, ollama'
 Write-Host "자동 시작 작업: $taskName (현재 사용자 로그인 시 실행)"
 Write-Host '현재 GitHub runner 상태는 GitHub Actions > Runners에서 Online으로 확인해야 합니다.'
+Write-Host '기존 Git CLI scheduled agent를 설치해 local Ollama 작업을 15분 주기로 실행합니다.'
+& $gitAgent -InstallScheduledTask
+if (-not $?) { throw 'Guardian local Git CLI scheduled agent installation failed.' }
+Write-Host 'Local agent: maximum 3 independent Ollama workstreams; blocked tasks remain safely idle.'
 Write-Host '주의: PC가 절전/종료되거나 Ollama가 중지되면 로컬 AI 작업도 대기합니다.'
