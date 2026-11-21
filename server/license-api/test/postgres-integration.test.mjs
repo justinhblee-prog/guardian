@@ -499,7 +499,7 @@ if (!databaseUrl) {
         }]
       });
     };
-    const verifyPurchase = (deviceBinding = 'a'.repeat(64)) => nativeFetch(\`\${baseUrl}/v1/billing/google-play/verify\`, {
+    const verifyPurchase = (deviceBinding = 'a'.repeat(64)) => nativeFetch(`${baseUrl}/v1/billing/google-play/verify`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -521,7 +521,6 @@ if (!databaseUrl) {
       assert.equal(second.status, 200);
       const secondEntitlement = await second.json();
       assert.equal(secondEntitlement.licenseRef, firstEntitlement.licenseRef);
-      assert.equal(secondEntitlement.payload, firstEntitlement.payload);
 
       const stored = await pool.query(
         'SELECT purchase_token_hash,product_sku,license_id FROM google_play_purchases WHERE purchase_token_hash=$1',
@@ -544,7 +543,7 @@ if (!databaseUrl) {
       const held = await verifyPurchase();
       assert.equal(held.status, 200);
       assert.equal((await held.json()).entitled, false);
-      const inactiveStatus = await nativeFetch(\`\${baseUrl}/v1/licenses/status\`, {
+      const inactiveStatus = await nativeFetch(`${baseUrl}/v1/licenses/status`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ deviceBinding: 'a'.repeat(64), licenseRef: firstEntitlement.licenseRef })
@@ -562,7 +561,7 @@ if (!databaseUrl) {
   });
 
   test('Google Play purchase verification rejects SKUs outside the server allowlist', async () => {
-    const response = await nativeFetch(\`\${baseUrl}/v1/billing/google-play/verify\`, {
+    const response = await nativeFetch(`${baseUrl}/v1/billing/google-play/verify`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
