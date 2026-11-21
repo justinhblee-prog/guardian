@@ -599,8 +599,7 @@ class GuardianVpnService : VpnService() {
                     staleExclusions.add(excludedPackage)
                     android.util.Log.w(
                         "GuardianProtection",
-                        "Android rejected VPN exclusion for $excludedPackage",
-                        error
+                        "Android rejected a VPN app exclusion: ${SafeFailureSummary.codeFor(error)}"
                     )
                 }
             }
@@ -986,13 +985,13 @@ class GuardianVpnService : VpnService() {
                     !DnsUpstreamProbe.isRetryableResolverError(response)
                 }
                 if (usable) return response
-                lastUpstreamFailure = transport.uppercase() + " " + address +
-                    ": resolver returned an unusable response (RCODE=" +
+                lastUpstreamFailure = transport.uppercase() +
+                    ": resolver returned an unusable response (RCODE="
                     DnsUpstreamProbe.responseCode(response) + ")"
                 continue
             }
             if (lastUpstreamFailure == null) {
-                lastUpstreamFailure = transport.uppercase() + " " + address + ": DNS 응답 없음 또는 검증 실패"
+                lastUpstreamFailure = transport.uppercase() + ": DNS 응답 없음 또는 검증 실패"
             }
         }
         return null
