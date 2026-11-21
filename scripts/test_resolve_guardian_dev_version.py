@@ -54,6 +54,12 @@ class GuardianDevVersionTests(unittest.TestCase):
         result = resolve_next_version(self.releases, "e" * 40, "0.7.34-dev", 1001804)
         self.assertEqual(result["version_code"], 1001805)
 
+    def test_rejects_reserved_production_version_range(self):
+        releases = [{"tag_name": "guardian-dev-v1999999", "name": "Guardian AdBlock 0.7.99-dev",
+                     "draft": False, "prerelease": True, "body": ""}]
+        with self.assertRaisesRegex(ValueError, "reserved production range"):
+            resolve_next_version(releases, "9" * 40, "0.7.34-dev", 1001804)
+
     def test_rolls_patch_into_minor(self):
         releases = [{"tag_name": "guardian-dev-v1001880", "name": "Guardian AdBlock 0.7.99-dev",
                      "draft": False, "prerelease": True, "body": ""}]
