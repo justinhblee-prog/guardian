@@ -20,7 +20,7 @@ git pull --ff-only origin main
 .\scripts\guardian-git-agent.ps1 -InstallScheduledTask
 ```
 
-설치 시 현재 Windows 사용자 계정으로 작업 스케줄러 작업 Guardian-Git-Automation을 등록합니다. 작업은 먼저 별도 bootstrap 스크립트를 실행해 깨끗한 로컬 main만 origin/main으로 fast-forward 동기화한 뒤 현재 버전의 Git agent를 시작합니다. 로그인 시 한 번 실행하고, 이후 15분 간격으로 반복합니다. 작업 스케줄러 권한이 거부되면 Startup 폴더의 VBS가 같은 bootstrap을 실행하고 agent의 15분 RunLoop를 시작합니다. 별도의 서버, 유료 API, GitHub Actions runner를 상시 실행하지 않습니다.
+설치 시 현재 Windows 사용자 계정으로 작업 스케줄러 작업 Guardian-Git-Automation을 등록합니다. 작업은 먼저 별도 bootstrap 스크립트를 실행해 깨끗한 로컬 main만 origin/main으로 fast-forward 동기화한 뒤 현재 버전의 Git agent를 시작합니다. 로그인 시 한 번 실행하고, 이후 15분 간격으로 반복합니다. 작업 스케줄러 권한이 거부되면 Startup 폴더의 VBS가 같은 bootstrap을 실행하고 agent의 15분 RunLoop를 시작합니다. local Git agent 자체는 별도 서버나 유료 AI API에 의존하지 않습니다. Aider/Qwen 검증을 위한 GitHub self-hosted runner는 별도 현재 사용자 예약 작업으로 실행됩니다.
 
 필수 사전 조건:
 - Git CLI 설치 및 PATH 등록
@@ -94,7 +94,7 @@ PR별 최종 상태는 UPDATED, already based, BLOCKED, skipped, ERROR로 기록
 
 - `.guardian/automation/tasks.json`: Android 진단, 필터 재배포 승인, Production 서명 게이트의 범위·우선순위·완료 조건·검증 프로필을 명시합니다. 현재 3개 작업은 모두 외부 증거가 없어 `blocked`이며, worker는 ready task가 없으면 안전하게 idle합니다.
 - `scripts/guardian_multiflow.py`: 작업 선택, 로컬 Ollama 호출, patch 검증, lease, worktree, allowlist 검증, commit/push 및 Draft PR을 수행합니다.
-- `scripts/guardian-multiflow.ps1`: 기존 Windows Git agent와 같은 Windows 사용자 환경에서 Python worker를 실행하는 진입점입니다. Runner 서비스 계정과 Windows 예약 Agent는 동일한 Windows 사용자 계정을 사용해야 로컬 lease/state 및 Ollama slot을 공유합니다.
+- `scripts/guardian-multiflow.ps1`: 기존 Windows Git agent와 같은 Windows 사용자 환경에서 Python worker를 실행하는 진입점입니다. GitHub runner 예약 작업과 Windows local Git Agent 예약 작업은 같은 현재 사용자 계정으로 실행되어 로컬 lease/state 및 Ollama slot을 공유합니다. Runner는 Windows 서비스(LocalSystem)가 아닙니다.
 - `.github/workflows/guardian-windows-multiflow.yml`: 전용 Windows runner label을 요구하며 현재는 수동 dispatch만 허용합니다. runner가 등록되기 전 자동 schedule로 대기 작업을 쌓지 않습니다.
 - `.github/workflows/aider-qwen-local.yml`: 기존 파일 경로를 유지하되 이제 Aider가 아니라 실제 localhost Ollama inference를 검증합니다.
 
