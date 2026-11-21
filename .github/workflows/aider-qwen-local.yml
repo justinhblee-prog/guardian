@@ -11,6 +11,11 @@ on:
       - "scripts/guardian_multiflow.py"
       - "scripts/guardian-multiflow.ps1"
       - "scripts/guardian-copilot-worker.ps1"
+      # Exercise the local Ollama runner whenever the independent multi-flow automation changes.
+      - ".guardian/automation/tasks.json"
+      - "scripts/guardian_multiflow.py"
+      - "scripts/guardian-multiflow.ps1"
+      - ".github/workflows/guardian-windows-multiflow.yml"
       - "scripts/guardian-git-agent.ps1"
       - "scripts/guardian-git-agent-bootstrap.ps1"
   pull_request:
@@ -23,6 +28,11 @@ on:
       - "scripts/guardian_multiflow.py"
       - "scripts/guardian-multiflow.ps1"
       - "scripts/guardian-copilot-worker.ps1"
+      # Exercise the local Ollama runner whenever the independent multi-flow automation changes.
+      - ".guardian/automation/tasks.json"
+      - "scripts/guardian_multiflow.py"
+      - "scripts/guardian-multiflow.ps1"
+      - ".github/workflows/guardian-windows-multiflow.yml"
       - "scripts/guardian-git-agent.ps1"
       - "scripts/guardian-git-agent-bootstrap.ps1"
   workflow_dispatch:
