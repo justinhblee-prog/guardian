@@ -531,7 +531,11 @@ jobs:
           if timeout --signal=TERM --kill-after=3s 15s adb exec-out cat /sdcard/guardian-window.xml > emulator-diagnostics/ui-hierarchy.xml 2>&1; then :; fi
           if timeout --signal=TERM --kill-after=3s 15s adb exec-out screencap -p > emulator-diagnostics/screen.png 2>/dev/null; then :; fi
           capture package adb shell dumpsys package com.guardian.adblock
+          capture app-preferences adb shell run-as com.guardian.adblock cat /data/user/0/com.guardian.adblock/shared_prefs/guardian_settings.xml
+          capture app-services adb shell dumpsys activity services com.guardian.adblock
+          capture connectivity adb shell dumpsys connectivity
           capture vpn adb shell dumpsys vpn
+          capture network-routes adb shell ip route show table all
           capture emulator-version "$ANDROID_HOME/emulator/emulator" -version
           capture emulator-processes ps -ef
           if [ -e /dev/kvm ]; then ls -l /dev/kvm > emulator-diagnostics/kvm.txt 2>&1; else echo '/dev/kvm absent' > emulator-diagnostics/kvm.txt; fi
