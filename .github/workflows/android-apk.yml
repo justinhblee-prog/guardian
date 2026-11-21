@@ -277,7 +277,6 @@ jobs:
           EOF
 
       - name: Create development update manifest
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         shell: bash
         run: |
           set -euo pipefail
@@ -295,6 +294,23 @@ jobs:
           }
           EOF
           python3 -m json.tool release/guardian-android-dev.json >/dev/null
+
+      - name: Verify development update manifest matches APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, pathlib, re
+          apk = pathlib.Path("android/app/build/outputs/apk/debug/app-debug.apk")
+          manifest = json.loads(pathlib.Path("release/guardian-android-dev.json").read_text())
+          assert manifest["packageName"] == "com.guardian.adblock"
+          assert manifest["versionCode"] == int("${{ env.GUARDIAN_VERSION_CODE }}")
+          assert manifest["versionName"] == "${{ env.GUARDIAN_VERSION_NAME }}"
+          assert re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+-dev", manifest["versionName"])
+          assert manifest["sha256"] == hashlib.sha256(apk.read_bytes()).hexdigest()
+          assert manifest["signerSha256"] == "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
+          print("Development update manifest exactly matches the built APK.")
+          PY
 
       - name: Upload verified Android debug and source package
         uses: actions/upload-artifact@v4
