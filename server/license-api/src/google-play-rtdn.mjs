@@ -69,7 +69,7 @@ export function createGooglePlayRtdnVerifier({
         throw new GooglePlayRtdnAuthError('rtdn_certificates_invalid', 'Google 알림 서명 인증서 응답이 올바르지 않습니다.', 503);
       }
       for (const [kid, pem] of Object.entries(body)) {
-        if (!/^[A-Za-z0-9_-]{1,128}$/.test(kid) || typeof pem !== 'string' || !pem.includes('BEGIN CERTIFICATE')) {
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(kid) || typeof pem !== 'string' || (!pem.includes('BEGIN CERTIFICATE') && !pem.includes('BEGIN PUBLIC KEY'))) {
           throw new GooglePlayRtdnAuthError('rtdn_certificates_invalid', 'Google 알림 서명 인증서 응답이 올바르지 않습니다.', 503);
         }
       }
