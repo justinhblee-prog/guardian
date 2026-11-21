@@ -57,7 +57,7 @@ jobs:
           if (-not $script.Contains('param([switch]$SkipAutoStart)')) {
             throw 'Setup script must retain the explicit SkipAutoStart mode.'
           }
-          if (-not $script.Contains("if (-not $SkipAutoStart) {")) {
+          if (-not $script.Contains('if (-not $SkipAutoStart) {')) {
             throw 'Docker availability checks must be conditional on automatic service startup.'
           }
           if (-not $script.Contains("if (-not (Get-Command 'openssl'")) {
@@ -68,7 +68,7 @@ jobs:
           if ($dockerCheck -lt $skipGuard -or $skipGuard -lt 0) {
             throw 'Docker check is not protected by SkipAutoStart.'
           }
-          if (-not $script.Contains("if (-not $SkipAutoStart) {`n  & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1')")) {
+          if (-not $script -match 'if \(-not \$SkipAutoStart\) \{\s*& \(Join-Path \$PSScriptRoot ''Start-All-GuardianServices\.ps1''\)') {
             throw 'SkipAutoStart must prevent automatic container startup.'
           }
           Write-Host 'Offline key bootstrap policy passed.'
