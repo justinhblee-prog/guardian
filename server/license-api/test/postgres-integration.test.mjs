@@ -629,7 +629,10 @@ if (!databaseUrl) {
       assert.equal(preRevokedPurchase.status, 403);
 
       const revokedPurchase = await verifyPurchase();
-      assert.equal(revokedPurchase.status, 403);
+      assert.equal(revokedPurchase.status, 200);
+      const revokedPurchaseBody = await revokedPurchase.json();
+      assert.equal(revokedPurchaseBody.entitled, false);
+      assert.equal(revokedPurchaseBody.licenseRef, firstEntitlement.licenseRef);
       const revokedMarker = await pool.query(
         'SELECT revoked_by_rtdn FROM google_play_purchases WHERE purchase_token_hash=$1',
         [tokenHash]
