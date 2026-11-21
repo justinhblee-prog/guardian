@@ -75,3 +75,20 @@
 | 실기기 최종 원인 | 미확정 |
 | PR #230 Ollama job 미배정 | 확인 (`pending`, `jobs=[]`) |
 | 미배정의 세부 원인(오프라인/라벨/그룹) | runner 관리자 증거 미확보 |
+
+
+## 추가 검증 증거 — 2026-11-21, workflow run 44862401410
+
+PR #231의 분석 문서 커밋 `d94e64dd5c80309e1c6eb44f64a99198892d045e`를 포함한 GitHub Actions merge test ref `92b51b434cf739e07e731a742922d0f5b27ebc55`에서 Android API 35 에뮬레이터 E2E가 완료되어 성공했다.
+
+- 워크플로: [Guardian AdBlock Android APK #1766](https://github.com/justinhblee-prog/guardian/actions/runs/44862401410)
+- 모든 주요 단계 성공: Android unit tests, lint, 이전 버전 설치, 현재 APK 조립, APK assets 검증, APK identity/version, checksum, 에뮬레이터 설치 및 실행.
+- APK: `com.guardian.adblock`, `0.7.34-dev`, versionCode `47`; 크기 약 3.1 MiB; SHA-256 `793737332bf146834d3b52008e73a4df1c64faa3ce970c05ddea0b335f40af78`.
+- APK 안에 `assets/filter_rules.txt`가 존재하고, 추출한 바이트가 `shared/filter_rules.txt`와 `cmp`로 동일함을 확인했다.
+- 에뮬레이터에서 DNS 광고 도메인 조회 후 저장된 상태에 `dns_ad_blocked=1`, `dns_blocked=2`가 기록됐다. 실행 상태는 `protection_active=true`, `dns_failed=0`였다.
+- 앱 업데이트 후 VPN 자동 복구, DNS 조회 재개 및 테스트 광고 도메인 차단이 통과했다. 포그라운드 앱 호환성 pause/resume 및 홈 보호 시작/중지도 통과했다.
+- 최종 검증 보고서에는 에뮬레이터 VPN DNS E2E 성공과 실기기 검증 별도 필요가 명시됐다.
+
+### 해석 및 한계
+
+이 결과는 현재 빌드의 assets 누락이나 일반적인 보호 시작/차단 흐름을 재현하지 못한다는 기존 판단을 강화한다. 또한 CI 에뮬레이터에서는 실제 DNS 차단이 동작했음을 입증한다. 그러나 사용자 실기기의 오류 당시 APK 버전/서명/설치 상태 및 해당 기기 진단 trace는 수집되지 않았다. 그러므로 실기기에서 발생한 `Library file not found`의 개별 원인을 구버전 설치, 기기별 AssetManager 문제, 또는 파서/초기화 문제 중 하나로 확정하지 않는다. 실기기 진단 보고서 없이는 그 오류의 최종 원인 확정과 수정 완료 선언은 불가능하다.
