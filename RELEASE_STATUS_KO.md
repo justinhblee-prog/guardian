@@ -5,6 +5,7 @@
 ## 검증된 개발 산출물
 
 - Android: `0.7.39-dev`, versionCode `52`, commit `1da247e0eef04d0ea3d4f4a764d9dd2f1e9a7c01`.
+- Production target: versionName `1.0.0`, versionCode `2,000,000` (fixed production release gate; it is not calculated as development versionCode + 1).
 - [Android APK 빌드 및 검증 run 44890022912](https://github.com/justinhblee-prog/guardian/actions/runs/44890022912): 단위 테스트, lint, assemble, API 35 에뮬레이터 업그레이드 및 VPN/DNS E2E 통과.
 - APK SHA-256: `6171c2354c3007c82f51dd63b619b42b1520188f274e3eb1f6d3b45116aa8c07`.
 - Source ZIP SHA-256: `c569d3b480f04ec09350e408e4e1b0172ffc96be8dae3b5ace529ecb06f78303`.
