@@ -71,7 +71,7 @@ class FilterUpdateWorker(
                     optionalFailure = optionalFailure || androidAdsCacheReady
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
-                        e.message ?: e.javaClass.simpleName
+                        SafeFailureSummary.codeFor(e)
                     )
                     if (FilterUpdatePolicy.shouldDisableOptionalFilter(androidAdsEnabled, androidAdsCacheReady)) {
                         editor.putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
@@ -97,7 +97,7 @@ class FilterUpdateWorker(
         } catch (e: Exception) {
             prefs.edit().putString(
                 FilterListManager.KEY_LAST_ERROR,
-                e.message ?: e.javaClass.simpleName
+                SafeFailureSummary.codeFor(e)
             ).apply()
             applicationContext.sendBroadcast(
                 Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
