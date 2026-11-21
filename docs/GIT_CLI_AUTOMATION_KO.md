@@ -13,7 +13,7 @@ Windows PC에 설치된 Git CLI와 GitHub CLI만으로 다음 작업을 반복 �
 
 ## 1회 설치 (Windows PowerShell)
 
-저장소를 최신 main으로 동기화한 뒤 저장소 루트에서 실행합니다.
+저장소를 최신 main으로 동기화한 뒤 저장소 루트에서 실행합니다. 또는 통합 bootstrap `scripts/Install-GuardianLocalOllamaRunner.cmd`를 한 번 실행하면 runner와 local agent 설치를 함께 처리합니다.
 
 ```powershell
 git pull --ff-only origin main
@@ -88,14 +88,14 @@ PR별 최종 상태는 UPDATED, already based, BLOCKED, skipped, ERROR로 기록
 
 ## 로컬 Ollama 멀티플로우 구현 트랙 (유료 AI API 미사용)
 
-기존 Git agent의 Copilot/Aider 혼합 단일 worker를 Guardian 전용 작업 명세 기반 멀티플로우로 교체했습니다. 모델 추론은 Windows PC의 `127.0.0.1:11434` Ollama만 사용합니다. 원격 AI API, Copilot CLI fallback, WinGet Copilot 자동 설치는 이 경로에 존재하지 않습니다.
+기존 Git agent의 Copilot/원격 AI 경로를 제거하고 Guardian 전용 작업 명세 기반 local Ollama 멀티플로우로 교체했습니다. 모델 추론은 Windows PC의 `127.0.0.1:11434` Ollama만 사용합니다. 원격 AI API, Copilot CLI fallback, WinGet Copilot 자동 설치는 이 경로에 존재하지 않습니다.
 
 ### 구성 파일
 
-- `.guardian/automation/tasks.json`: Issue #142 Android 진단, #143 필터 승인 fail-closed, #144 Production 서명 게이트의 범위·우선순위·완료 조건·검증 프로필을 명시합니다.
+- `.guardian/automation/tasks.json`: Android 진단, 필터 재배포 승인, Production 서명 게이트의 범위·우선순위·완료 조건·검증 프로필을 명시합니다. 현재 3개 작업은 모두 외부 증거가 없어 `blocked`이며, worker는 ready task가 없으면 안전하게 idle합니다.
 - `scripts/guardian_multiflow.py`: 작업 선택, 로컬 Ollama 호출, patch 검증, lease, worktree, allowlist 검증, commit/push 및 Draft PR을 수행합니다.
 - `scripts/guardian-multiflow.ps1`: 기존 Windows Git agent와 같은 Windows 사용자 환경에서 Python worker를 실행하는 진입점입니다. Runner 서비스 계정과 Windows 예약 Agent는 동일한 Windows 사용자 계정을 사용해야 로컬 lease/state 및 Ollama slot을 공유합니다.
-- `.github/workflows/guardian-windows-multiflow.yml`: Windows self-hosted runner에서 매시간 또는 수동으로 최대 1~3개 독립 작업을 처리합니다.
+- `.github/workflows/guardian-windows-multiflow.yml`: 전용 Windows runner label을 요구하며 현재는 수동 dispatch만 허용합니다. runner가 등록되기 전 자동 schedule로 대기 작업을 쌓지 않습니다.
 - `.github/workflows/aider-qwen-local.yml`: 기존 파일 경로를 유지하되 이제 Aider가 아니라 실제 localhost Ollama inference를 검증합니다.
 
 ### Windows 사전 조건
@@ -126,9 +126,9 @@ gh auth setup-git
 
 ### GitHub self-hosted runner 연결
 
-`.github/workflows/guardian-windows-multiflow.yml`의 `runs-on`은 기존 Guardian runner와 동일하게 `[self-hosted, Windows]`입니다. GitHub 저장소의 Windows Runner가 Online이어야 하며, Runner 서비스 계정에서 Python·Git·GitHub CLI·Ollama 모델을 볼 수 있어야 합니다.
+`.github/workflows/guardian-windows-multiflow.yml`의 `runs-on`은 `[self-hosted, Windows, guardian-windows, ollama]`입니다. Runner는 LocalSystem 서비스가 아니라 현재 Windows 사용자 로그인 세션에서 실행되어 해당 사용자의 Python·Git·GitHub CLI·Ollama 모델 환경을 사용합니다.
 
-Actions workflow는 main의 관련 변경 push, `workflow_dispatch` 및 매시간 schedule로 실행됩니다. 수동 실행 입력은 다음과 같습니다.
+GitHub multi-flow workflow는 현재 `workflow_dispatch`로만 실행됩니다. 실제 15분 주기 자동화는 Windows의 `Guardian-Git-Automation` 예약 작업이 담당합니다. 수동 실행 입력은 다음과 같습니다.
 
 - `max_tasks`: 기본값 3. 서로 파일 범위가 겹치지 않는 독립 작업을 최대 3개까지 동시에 실행하며, `--max-tasks 1`로 직렬 실행도 선택 가능
 - `task_id`: manifest의 특정 작업 ID. 비워 두면 우선순위 순서로 선택
@@ -168,7 +168,7 @@ Workflow는 `contents: write`와 `pull-requests: write` 권한으로 task branch
 # 별도 실행 경로: GitHub Actions → Guardian Windows Local Ollama Multi-Flow
 ```
 
-기존 `Guardian-Git-Automation` 15분 예약 루프도 새 `guardian-multiflow.ps1 -MaxTasks 1` worker를 호출하도록 연결했습니다. 기존 Copilot worker 파일은 호환용 진입점만 남기고 local Ollama wrapper로 전환했습니다.
+기존 `Guardian-Git-Automation` 15분 예약 루프는 새 `guardian-multiflow.ps1 -MaxTasks 3` worker를 호출하도록 연결했습니다. 기존 Copilot worker 파일은 호환용 진입점만 남기고 local Ollama wrapper로 전환했습니다. `scripts/Install-GuardianLocalOllamaRunner.cmd`를 한 번 실행하면 dedicated GitHub runner와 이 local Git agent 예약 작업을 함께 설치합니다.
 
 ### 완료 판정의 경계
 
