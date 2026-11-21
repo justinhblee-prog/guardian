@@ -53,13 +53,43 @@ if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+Write-Host 'Guardian 저장소와 로컬 Ollama runner 사전 점검을 시작합니다.'
+Assert-Command -Name 'git'
+Assert-Command -Name 'gh'
+
+$currentBranch = (& git -C $repoRoot branch --show-current 2>&1 | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $currentBranch -ne 'main') {
+    throw "저장소 main branch에서 실행해야 합니다. 현재 branch: $currentBranch"
+}
+$originUrl = (& git -C $repoRoot remote get-url origin 2>&1 | Out-String).Trim()
+$expectedRemotePattern = 'github\.com[:/]' + [regex]::Escape($Repository) + '(\.git)?$'
+if ($LASTEXITCODE -ne 0 -or $originUrl -notmatch $expectedRemotePattern) {
+    throw "origin remote가 요청한 저장소와 일치하지 않습니다: $originUrl"
+}
+$workingTree = & git -C $repoRoot status --porcelain
+if ($LASTEXITCODE -ne 0) { throw 'Git working tree 상태를 확인할 수 없습니다.' }
+if (-not [string]::IsNullOrWhiteSpace(($workingTree | Out-String))) {
+    throw '로컬 변경사항이 있습니다. 먼저 commit 또는 stash한 뒤 다시 실행하세요. 설치 스크립트는 로컬 변경사항을 덮어쓰지 않습니다.'
+}
+$null = Invoke-GhText -Arguments @('auth', 'status', '--hostname', 'github.com')
+$null = Invoke-GhText -Arguments @('auth', 'setup-git')
+& git -C $repoRoot fetch origin main --prune
+if ($LASTEXITCODE -ne 0) { throw 'origin/main을 안전하게 fetch하지 못했습니다.' }
+& git -C $repoRoot merge --ff-only origin/main
+if ($LASTEXITCODE -ne 0) { throw '현재 main branch를 origin/main으로 fast-forward할 수 없습니다. 로컬 commit을 보존하고 수동 확인이 필요합니다.' }
+$localHead = (& git -C $repoRoot rev-parse HEAD).Trim()
+$remoteHead = (& git -C $repoRoot rev-parse origin/main).Trim()
+if ($LASTEXITCODE -ne 0 -or $localHead -ne $remoteHead) {
+    throw '로컬 main이 origin/main과 일치하지 않습니다.'
+}
+
 $multiFlowScript = Join-Path $repoRoot 'scripts\guardian-multiflow.ps1'
 $multiFlowWorker = Join-Path $repoRoot 'scripts\guardian_multiflow.py'
 $legacyWorker = Join-Path $repoRoot 'scripts\guardian-copilot-worker.ps1'
 $gitAgent = Join-Path $repoRoot 'scripts\guardian-git-agent.ps1'
 foreach ($requiredPath in @($multiFlowScript, $multiFlowWorker, $legacyWorker, $gitAgent)) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
-        throw "Local Ollama multi-flow files are missing. Merge the guarded multi-flow integration before installing: $requiredPath"
+        throw "Local Ollama multi-flow files are missing: $requiredPath"
     }
 }
 $legacyWorkerContent = Get-Content -LiteralPath $legacyWorker -Raw
