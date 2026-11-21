@@ -672,7 +672,7 @@ def main() -> int:
     parser.add_argument("--manifest", default=".guardian/automation/tasks.json")
     parser.add_argument("--model", default=os.environ.get("GUARDIAN_OLLAMA_MODEL", DEFAULT_MODEL))
     parser.add_argument("--ollama-url", default=os.environ.get("GUARDIAN_OLLAMA_URL", DEFAULT_OLLAMA_URL))
-    parser.add_argument("--max-tasks", type=int, default=1)
+    parser.add_argument("--max-tasks", type=int, default=3)
     parser.add_argument("--task-id")
     parser.add_argument("--validate-only", action="store_true")
     parser.add_argument("--smoke-test", action="store_true")
