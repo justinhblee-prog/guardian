@@ -101,7 +101,7 @@ internal object LicenseEntitlementVerifier {
             deviceBinding = deviceBinding
         )
         require(tokenVersion == 1) { "지원하지 않는 라이선스 토큰 버전입니다." }
-        require(entitlement.product == "guardian-android" && entitlement.entitlement == "pro") {
+        require(entitlement.product in setOf("guardian", "guardian-android") && entitlement.entitlement == "pro") {
             "이 앱에서 사용할 수 없는 라이선스 권한입니다."
         }
         require(issuedAt > 0L && expiresAt > issuedAt) { "라이선스 유효 기간이 올바르지 않습니다." }
