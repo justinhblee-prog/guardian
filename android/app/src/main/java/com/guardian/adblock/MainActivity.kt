@@ -296,6 +296,10 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        if (currentTab.startsWith("settings-")) {
+            showTab("settings")
+            return
+        }
         if (currentTab != "home") {
             showTab("home")
             return
@@ -525,7 +529,12 @@ class MainActivity : Activity() {
             "protection" -> buildProtection(body)
             "rules" -> buildRules(body)
             "activity" -> buildActivity(body)
-            "premium", "settings-premium" -> buildPremium(body)
+            "premium", "settings-premium", "settings-license" -> buildPremium(body)
+            "settings-filtering" -> buildSettingsFiltering(body)
+            "settings-support" -> buildSettingsSupport(body)
+            "settings-about" -> buildSettingsAbout(body)
+            "settings-general" -> buildSettingsGeneral(body)
+            "settings-advanced" -> buildSettingsAdvanced(body)
             "app-exclusions" -> {
                 body.addView(text("앱 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
@@ -1449,6 +1458,125 @@ class MainActivity : Activity() {
     }
 
     private fun buildSettings(body: LinearLayout) {
+        body.addView(text("설정", 26f, white, true))
+        body.addView(text("Guardian의 보호와 앱 환경을 관리합니다.", 13f, muted, false).withTop(5))
+        val sections = listOf(
+            Triple("일반", "앱 환경, 업데이트 및 기본 구성", "settings-general"),
+            Triple("필터링", "광고·추적·보안 필터와 사용자 규칙", "settings-filtering"),
+            Triple("라이선스 및 프리미엄", "Free / Pro 상태와 라이선스 관리", "settings-license"),
+            Triple("고객 지원", "도움말, 문의 등록 및 문의 조회", "settings-support"),
+            Triple("정보", "앱 버전, 개발사 및 개인정보 안내", "settings-about")
+        )
+        sections.forEach { (name, description, destination) ->
+            body.addView(card(panel, 16).apply {
+                setPadding(dp(16), dp(15), dp(16), dp(15))
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                val labels = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+                labels.addView(text(name, 15f, white, true))
+                labels.addView(text(description, 11f, muted, false).withTop(5))
+                addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(text("›", 25f, accent, true))
+                setOnClickListener { showTab(destination) }
+            }.withTop(10))
+        }
+        body.addView(Button(this).apply {
+            text = "고급 설정 및 서버 구성"
+            isAllCaps = false
+            setTextColor(accent)
+            background = shape(panel2, 12)
+            setOnClickListener { showTab("settings-advanced") }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(16) })
+        body.addView(Button(this).apply {
+            text = "앱 종료"
+            isAllCaps = false
+            setTextColor(red)
+            background = shape(panel2, 12)
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Guardian 종료")
+                    .setMessage("앱을 종료하시겠습니까?")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("종료") { _, _ -> finish() }
+                    .show()
+            }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+    }
+
+    private fun settingsSubpage(body: LinearLayout, title: String, subtitle: String) {
+        body.addView(Button(this).apply {
+            text = "‹ 설정으로 돌아가기"
+            isAllCaps = false
+            setTextColor(accent)
+            background = shape(panel2, 10)
+            setOnClickListener { showTab("settings") }
+        }, LinearLayout.LayoutParams(-1, dp(42)))
+        body.addView(text(title, 24f, white, true).withTop(16))
+        body.addView(text(subtitle, 12f, muted, false).withTop(5))
+    }
+
+    private fun buildSettingsGeneral(body: LinearLayout) {
+        settingsSubpage(body, "일반", "앱 환경과 업데이트, 서버 구성을 관리합니다.")
+        body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
+        body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
+        body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
+        body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        body.addView(Button(this).apply {
+            text = "업데이트·서버·DNS 상세 설정 열기"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 10)
+            setOnClickListener { showTab("settings-advanced") }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(12) })
+    }
+
+    private fun buildSettingsFiltering(body: LinearLayout) {
+        settingsSubpage(body, "필터링", "보호 엔진과 규칙을 세부 관리합니다.")
+        val links = listOf(
+            Triple("보호 및 필터 소스", "보호 시작, 필터 목록과 자동 업데이트", "protection"),
+            Triple("사용자 차단·허용 규칙", "도메인 차단 및 허용 목록", "rules"),
+            Triple("앱별 제외", "선택 앱을 DNS 필터링에서 제외", "app-exclusions")
+        )
+        links.forEach { (name, description, destination) ->
+            body.addView(card(panel, 14).apply {
+                setPadding(dp(15), dp(14), dp(15), dp(14))
+                addView(text(name, 14f, white, true))
+                addView(text(description, 11f, muted, false).withTop(5))
+                addView(Button(this@MainActivity).apply {
+                    text = "관리 화면 열기"
+                    isAllCaps = false
+                    setTextColor(bg)
+                    background = shape(accent, 10)
+                    setOnClickListener { showTab(destination) }
+                }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(10) })
+            }.withTop(10))
+        }
+    }
+
+    private fun buildSettingsSupport(body: LinearLayout) {
+        settingsSubpage(body, "고객 지원", "도움말과 문의 내역을 확인합니다.")
+        body.addView(buildSupportCenterCard().withTop(12))
+    }
+
+    private fun buildSettingsAbout(body: LinearLayout) {
+        settingsSubpage(body, "정보", "Guardian 앱과 개발 정보를 확인합니다.")
+        body.addView(infoRow("앱 버전", "현재 설치 버전", BuildConfig.VERSION_NAME, accent))
+        body.addView(infoRow("버전 코드", "빌드 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
+        body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("제작자 및 개발사", 14f, white, true))
+            addView(text("(주)유진컨설팅", 13f, accent, true).withTop(8))
+            addView(text("제작자: 이학범", 12f, muted, false).withTop(4))
+        }.withTop(12))
+    }
+
+    private fun buildSettingsAdvanced(body: LinearLayout) {
+        settingsSubpage(body, "고급 설정", "업데이트·서버·DNS의 기존 상세 설정을 유지합니다.")
+        buildSettingsLegacy(body)
+    }
+
+    private fun buildSettingsLegacy(body: LinearLayout) {
         body.addView(text("설정", 25f, white, true))
         body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
         body.addView(card(panel, 14).apply {
@@ -2336,7 +2464,7 @@ class MainActivity : Activity() {
             Triple("settings", "⚙", "설정")
         )
         items.forEach { (id, icon, label) ->
-            val active = selected == id || (selected == "settings-premium" && id == "settings")
+            val active = selected == id || (selected.startsWith("settings-") && id == "settings")
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
