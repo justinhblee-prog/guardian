@@ -617,5 +617,5 @@ jobs:
               --target "$GITHUB_SHA" \
               --prerelease \
               --title "Guardian AdBlock ${GUARDIAN_VERSION_NAME} (개발 업데이트)" \
-              --notes "사전 출시 개발 업데이트입니다. 앱 내 업데이트 확인 기능으로 배포됩니다. 설치 전 APK SHA-256 및 기존 개발 서명 인증서를 검증합니다. Android 설치 승인은 사용자에게 요청됩니다.\n\nGuardian-Source-Commit: $GITHUB_SHA"
+              --notes "Guardian-Source-Commit: $GITHUB_SHA"
           fi
