@@ -18,12 +18,6 @@ def bump_patch(version: str) -> str:
         raise ValueError(f"Invalid development versionName: {version}")
     major, minor, patch = map(int, match.groups())
     patch += 1
-    if patch > 99:
-        patch = 0
-        minor += 1
-    if minor > 99:
-        minor = 0
-        major += 1
     return f"{major}.{minor}.{patch}-dev"
 
 
@@ -80,7 +74,7 @@ def main() -> int:
     parser.add_argument("--releases-json", required=True)
     parser.add_argument("--commit", required=True)
     parser.add_argument("--baseline-version", default="0.7.34-dev")
-    parser.add_argument("--baseline-code", type=int, default=1001804)
+    parser.add_argument("--baseline-code", type=int, default=47)
     parser.add_argument("--github-env", required=True)
     parser.add_argument("--github-output", required=True)
     args = parser.parse_args()
