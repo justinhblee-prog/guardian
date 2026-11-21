@@ -18,6 +18,11 @@ internal object ResponsiveLayoutPolicy {
     fun usesTwoColumnDashboard(screenWidthDp: Int): Boolean =
         screenWidthDp >= WIDE_DASHBOARD_BREAKPOINT_DP
 
+    /** Settings categories use paired columns only when the content area can
+     * retain comfortable card widths after the navigation rail is allocated. */
+    fun usesTwoColumnSettings(screenWidthDp: Int): Boolean =
+        screenWidthDp >= WIDE_DASHBOARD_BREAKPOINT_DP
+
     fun contentAreaWidthDp(screenWidthDp: Int): Int {
         require(screenWidthDp > 0) { "screenWidthDp must be positive" }
         val railWidth = if (usesNavigationRail(screenWidthDp)) NAVIGATION_RAIL_WIDTH_DP else 0
