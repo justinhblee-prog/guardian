@@ -518,3 +518,19 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Main CI run [44282676162](https://github.com/justinhblee-prog/guardian/actions/runs/44282676162) completed success: unit tests, lint, APK build/checksum, previous-version upgrade, emulator install/launch, VPN DNS runtime verification and prerelease publication passed.
 - CI/emulator verification only. Real handset download/install has not yet been observed; bootstrap v28 must be installed once over existing v27, without uninstalling Guardian.
 
+
+
+## 2026-11-21 19:10 KST — Android 0.7.40-dev 및 공통 라이선스 최신 확인
+
+- 최신 Android 소스 커밋: `dcf4ed4bc70a6edbbd766f118a9d8f5df98fbf06`.
+- Android workflow [44892153515](https://github.com/justinhblee-prog/guardian/actions/runs/44892153515)에서 unit tests, lintDebug, assembleDebug 및 패키지/소스 ZIP 검증을 통과하고 artifact `guardian-android-debug` (ID `14702312109`)를 생성했습니다.
+- APK: `com.guardian.adblock`, versionCode `53`, versionName `0.7.40-dev`, 3,213,935 bytes, SHA-256 `8634e59d73baa59cb103c3534afe027b877eac3e610e6cb0d1edb17c94e99fa4`.
+- Source ZIP: `Guardian-AdBlock-Source-0.7.40-dev.zip`, 724,342 bytes, SHA-256 `9a1c6f71f6b97f47bd0804e8c076b234b0546b06a7118a37f5ce5a2ef229cfce`.
+- Emulator runtime stage `Install and launch APK on Android emulator`는 문서 갱신 시점에 진행 중입니다. 따라서 VPN/DNS E2E 최종 결과와 런타임 검증 완료 판정은 보류합니다. Debug APK는 production 서명본이 아닙니다.
+- Android workflow [44888566506](https://github.com/justinhblee-prog/guardian/actions/runs/44888566506)은 별도 실행에서 성공했습니다. 후속 커밋의 최신 run과 혼동하지 않습니다.
+- Engineering Orchestrator [44892153570](https://github.com/justinhblee-prog/guardian/actions/runs/44892153570)은 repository integrity, Android build/unit tests/lint, backend/API/deployment configuration 및 verification decision 모두 성공했습니다.
+- Local runner bootstrap validation [44892153506](https://github.com/justinhblee-prog/guardian/actions/runs/44892153506)은 PowerShell 구문·보안 정책 검사만 수행해 성공했습니다. 실제 노트북 runner 등록/연결 또는 Ollama 실행을 검증한 결과가 아닙니다.
+- Android 필터 업데이트 오류 저장 경로에서 예외 원문 대신 안정된 오류 코드만 저장하고 UI에는 안전한 한국어 설명을 표시하도록 수정했습니다(커밋 `14064d2772fa3f0224bad7d7ead7079687674ec4`).
+- Windows 공통 라이선스 개발 EXE/설치 패키지 빌드 및 설치 smoke test는 [44887248268](https://github.com/justinhblee-prog/guardian/actions/runs/44887248268)에서 통과했고, Windows 라이선스 테스트는 [44887248317](https://github.com/justinhblee-prog/guardian/actions/runs/44887248317)에서 통과했습니다. 개발 패키지는 Authenticode 서명본이 아닙니다.
+- 공통 라이선스 제품 코드 `guardian-pro`와 Android/Windows 클라이언트 구현은 저장소에 반영됐지만, 실제 운영 RSA 키·Android production keystore·GitHub secrets/variables 등록, License API/PostgreSQL/TLS 배포 및 양 플랫폼 실제 기기 활성화 E2E는 아직 완료로 판정할 수 없습니다. Production workflow [44888522131](https://github.com/justinhblee-prog/guardian/actions/runs/44888522131)은 설정 검증 성공, production signing job skipped입니다.
+- 정식 1.0.0 릴리스는 아직 아닙니다. 운영 키/서비스 배포, 승인된 서명 필터 게시, production signing, Android 실기기 VPN/DNS 수용 테스트, Windows 실제 PC DNS 설치·복구 테스트 및 두 플랫폼 공통 라이선스 E2E가 남아 있습니다.
