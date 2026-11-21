@@ -58,7 +58,7 @@ Guardian AdBlock은 Android `VpnService` 기반 DNS 필터링 앱입니다. Andr
 
 ## 멀티 디바이스 지원 계획
 
-Windows PC, Android 스마트폰·태블릿을 하나의 필터/라이선스 체계로 제공하는 설계입니다. Android 태블릿은 동일 APK의 반응형 UI로 지원하고, Windows는 별도 DNS 기반 설치형 개발 클라이언트가 구현되었습니다. Windows 설치 패키지 검증, 태블릿 실기기 최적화, 운영 서버/공개키 및 관리 콘솔은 계속 검증·구축해야 합니다.
+Windows PC, Android 스마트폰·태블릿은 공통 `guardian-pro` 제품과 RSA 서명 entitlement/License API를 사용합니다. Windows·Android 클라이언트의 공통 토큰 검증 및 기기 활성화 경로가 구현되었으며 운영 서버/키 등록과 양 플랫폼 실기기 E2E는 별도 출시 게이트입니다. Android 태블릿은 동일 APK의 반응형 UI로 지원하고, Windows는 별도 DNS 기반 설치형 개발 클라이언트가 구현되었습니다. Windows 설치 패키지 검증, 태블릿 실기기 최적화, 운영 서버/공개키 및 관리 콘솔은 계속 검증·구축해야 합니다.
 
 상세 설계: [멀티 디바이스 로드맵](docs/MULTI_DEVICE_ROADMAP_KO.md)
 
