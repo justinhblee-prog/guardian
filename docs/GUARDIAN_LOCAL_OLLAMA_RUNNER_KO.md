@@ -24,6 +24,11 @@ GitHub CLI 로그인은 사용자 본인이 직접 완료해야 합니다. 개�
 
 ```powershell
 gh auth login
+```
+
+그 다음 저장소의 `scripts\Install-GuardianLocalOllamaRunner.cmd`를 더블클릭합니다. 또는 PowerShell에서 직접 실행할 수 있습니다.
+
+```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-GuardianLocalOllamaRunner.ps1
 ```
 
