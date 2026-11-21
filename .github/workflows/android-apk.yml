@@ -29,10 +29,10 @@ on:
 
 # Each PR has its own concurrency group, so a new commit only supersedes
 # an older run for that same PR; unrelated PRs never cancel one another.
-# Main commits likewise supersede stale main runs.
+# New commits supersede stale runs for both PRs and main.
 concurrency:
   group: ${{ github.ref == 'refs/heads/main' && 'guardian-android-dev-release' || format('guardian-android-{0}', github.event.pull_request.number || github.ref) }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
