@@ -128,3 +128,69 @@ if max(left) >= min(right) or min(right) - max(left) < 200:
 print("PASS: Settings remains visible and two-column after tablet landscape resize.")
 print("Landscape category centers:", centers)
 PY
+
+# Exercise the responsive breakpoint on the same live Settings Activity. A
+# 1498px viewport at 240dpi is 998.7dp and must use one column; 1500px is
+# exactly 1000dp and must switch back to two columns.
+adb_cmd shell wm size 1498x1600
+sleep 2
+narrow_display="$(adb_cmd shell wm size | tr -d '\\r')"
+grep -Fq 'Override size: 1498x1600' <<<"$narrow_display"
+adb_cmd shell uiautomator dump /sdcard/guardian-settings-999dp.xml >/dev/null 2>&1
+narrow_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-999dp.xml | tr -d '\\r')"
+python3 - "$narrow_xml" <<'PY'
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+root = ET.fromstring(sys.argv[1])
+expected = ["일반", "필터링", "라이선스 및 프리미엄", "고객 지원", "정보"]
+centers = {}
+for node in root.iter("node"):
+    label = node.attrib.get("text", "").strip()
+    if label in expected:
+        match = re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]", node.attrib.get("bounds", ""))
+        if match:
+            x1, y1, x2, y2 = map(int, match.groups())
+            centers[label] = ((x1 + x2) // 2, (y1 + y2) // 2)
+missing = [label for label in expected if label not in centers]
+if missing:
+    raise SystemExit("Settings categories missing at 999dp: " + ", ".join(missing))
+xs = [point[0] for point in centers.values()]
+if max(xs) - min(xs) >= 100:
+    raise SystemExit("Settings should use one column below the 1000dp breakpoint.")
+print("PASS: all five Settings categories use one column at 998.7dp.")
+print("999dp category centers:", centers)
+PY
+
+adb_cmd shell wm size 1500x1600
+sleep 2
+boundary_display="$(adb_cmd shell wm size | tr -d '\\r')"
+grep -Fq 'Override size: 1500x1600' <<<"$boundary_display"
+adb_cmd shell uiautomator dump /sdcard/guardian-settings-1000dp.xml >/dev/null 2>&1
+boundary_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-1000dp.xml | tr -d '\\r')"
+python3 - "$boundary_xml" <<'PY'
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+root = ET.fromstring(sys.argv[1])
+expected = ["일반", "필터링", "라이선스 및 프리미엄", "고객 지원", "정보"]
+centers = {}
+for node in root.iter("node"):
+    label = node.attrib.get("text", "").strip()
+    if label in expected:
+        match = re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]", node.attrib.get("bounds", ""))
+        if match:
+            x1, y1, x2, y2 = map(int, match.groups())
+            centers[label] = ((x1 + x2) // 2, (y1 + y2) // 2)
+missing = [label for label in expected if label not in centers]
+if missing:
+    raise SystemExit("Settings categories missing at 1000dp: " + ", ".join(missing))
+left = [centers[label][0] for label in expected[:3]]
+right = [centers[label][0] for label in expected[3:]]
+if max(left) >= min(right) or min(right) - max(left) < 200:
+    raise SystemExit("Settings did not switch to two columns at exactly 1000dp.")
+print("PASS: Settings switches to two columns at exactly 1000dp.")
+print("1000dp category centers:", centers)
+PY
