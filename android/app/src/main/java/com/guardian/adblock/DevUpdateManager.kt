@@ -38,6 +38,9 @@ internal object DevUpdateManager {
         val notes: String
     )
 
+    internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
+        tagVersion > installedVersionCode && manifestVersionCode == tagVersion
+
     fun checkForUpdate(): GuardianDevUpdate? {
         val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
         val candidates = ArrayList<ReleaseCandidate>()
@@ -79,17 +82,18 @@ internal object DevUpdateManager {
             val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
             if (manifest.optString("packageName") != PACKAGE_NAME) continue
             val versionCode = manifest.optInt("versionCode", 0)
-            // Do not stop at the first older release: GitHub release ordering can
-            // differ from the numeric Guardian development version sequence.
-            if (versionCode <= BuildConfig.VERSION_CODE) continue
-            if (versionCode < candidate.tagVersion) continue
+            // The release tag and signed-off manifest must identify the same build,
+            // and that build must be newer than the installed application.
+            if (!isNewerMatchingRelease(BuildConfig.VERSION_CODE, candidate.tagVersion, versionCode)) continue
+            val versionName = manifest.optString("versionName")
+            if (!versionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+-dev"))) continue
 
             val digest = manifest.optString("sha256").lowercase()
             val signer = manifest.optString("signerSha256").lowercase()
             require(digest.matches(Regex("[a-f0-9]{64}"))) { "업데이트 SHA-256 형식이 올바르지 않습니다." }
             require(signer.matches(Regex("[a-f0-9]{64}"))) { "업데이트 서명 지문 형식이 올바르지 않습니다." }
             return GuardianDevUpdate(
-                manifest.optString("versionName"),
+                versionName,
                 versionCode,
                 digest,
                 signer,
