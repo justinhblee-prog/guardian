@@ -1,0 +1,73 @@
+name: Guardian Local Runner Bootstrap Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/Install-GuardianLocalOllamaRunner.ps1"
+      - "scripts/Install-GuardianLocalOllamaRunner.cmd"
+      - "docs/GUARDIAN_LOCAL_OLLAMA_RUNNER_KO.md"
+      - ".github/workflows/guardian-local-runner-bootstrap-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/Install-GuardianLocalOllamaRunner.ps1"
+      - "docs/GUARDIAN_LOCAL_OLLAMA_RUNNER_KO.md"
+      - ".github/workflows/guardian-local-runner-bootstrap-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  parse-and-policy-check:
+    name: Parse PowerShell bootstrap and verify safety policy
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Parse PowerShell without executing installation
+        shell: pwsh
+        run: |
+          $path = Resolve-Path 'scripts/Install-GuardianLocalOllamaRunner.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Error
+            exit 1
+          }
+          Write-Host 'PowerShell syntax parse passed.'
+
+      - name: Verify dedicated runner and credential safety guards
+        shell: pwsh
+        run: |
+          $script = Get-Content 'scripts/Install-GuardianLocalOllamaRunner.ps1' -Raw
+          $required = @(
+            'guardian-windows,ollama',
+            'registration-token',
+            'remove-token',
+            'actions/runner/releases/latest',
+            'Get-FileHash',
+            'LOCALAPPDATA',
+            'New-ScheduledTaskTrigger',
+            'guardian-multiflow.ps1',
+            'guardian_multiflow.py',
+            'guardian-git-agent.ps1',
+            '-InstallScheduledTask'
+          )
+          foreach ($item in $required) {
+            if (-not $script.Contains($item)) { throw "Missing required safety feature: $item" }
+          }
+          if ($script -match '(?i)--runasservice|svc\.cmd\s+install') {
+            throw 'Runner must stay in the current interactive user session.'
+          }
+          if ($script -match '(?i)ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}') {
+            throw 'A long-lived GitHub credential must never be embedded in the script.'
+          }
+          $launcher = Get-Content 'scripts/Install-GuardianLocalOllamaRunner.cmd' -Raw
+          if (-not $launcher.Contains('Install-GuardianLocalOllamaRunner.ps1') -or -not $launcher.Contains('pwsh.exe')) {
+            throw 'Double-click launcher must invoke the PowerShell 7 bootstrap script.'
+          }
+          Write-Host 'Runner policy checks passed.'
