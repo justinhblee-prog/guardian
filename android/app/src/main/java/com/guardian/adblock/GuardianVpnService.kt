@@ -986,7 +986,7 @@ class GuardianVpnService : VpnService() {
                 }
                 if (usable) return response
                 lastUpstreamFailure = transport.uppercase() +
-                    ": resolver returned an unusable response (RCODE="
+                    ": resolver returned an unusable response (RCODE=" +
                     DnsUpstreamProbe.responseCode(response) + ")"
                 continue
             }
