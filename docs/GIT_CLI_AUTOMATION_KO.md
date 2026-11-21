@@ -130,7 +130,7 @@ gh auth setup-git
 
 Actions workflow는 main의 관련 변경 push, `workflow_dispatch` 및 매시간 schedule로 실행됩니다. 수동 실행 입력은 다음과 같습니다.
 
-- `max_tasks`: 최초에는 1, 이후 실제 PC의 RAM/VRAM 여유 및 안정성 확인 후 2 또는 3
+- `max_tasks`: 기본값 3. 서로 파일 범위가 겹치지 않는 독립 작업을 최대 3개까지 동시에 실행하며, `--max-tasks 1`로 직렬 실행도 선택 가능
 - `task_id`: manifest의 특정 작업 ID. 비워 두면 우선순위 순서로 선택
 
 Workflow는 `contents: write`와 `pull-requests: write` 권한으로 task branch를 push하고 Draft PR만 생성합니다. PR 자동 병합·Production 배포·Repository settings/Actions billing 변경은 하지 않습니다. Fork PR 코드는 Windows self-hosted runner에서 실행하지 않습니다.
@@ -175,7 +175,7 @@ Workflow는 `contents: write`와 `pull-requests: write` 권한으로 task branch
 - manifest 검사 성공: 작업 명세와 allowlist가 유효함
 - smoke test 성공: Windows runner 계정이 localhost Ollama의 지정 모델에 실제 추론 요청을 보냄
 - Draft PR 생성: 모델 변경이 scope·테스트를 통과하고 branch push/PR 생성까지 완료됨
-- 멀티플로우 운영 완료: 2~3개 작업이 실제 독립 worktree/lease에서 충돌 없이 완료되고 각 PR CI까지 검증된 상태
+- 멀티플로우 운영 완료: 3개 작업이 실제 독립 worktree/lease에서 동시에 실행되고 각 PR CI까지 검증된 상태
 
 이 단계들은 서로 다릅니다. 현재 CI workflow가 저장소에 병합됐다는 사실만으로 사용자의 Windows PC에서 Runner Online, Ollama model inference, 실제 branch push 또는 Draft PR 생성이 성공했다고 주장하지 않습니다. 해당 증거는 Windows workflow run 및 생성 PR에서 별도로 확인합니다.
 
