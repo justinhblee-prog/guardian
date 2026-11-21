@@ -34,12 +34,14 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-GuardianLocalOll
 
 설치 스크립트는 다음 작업을 자동 수행합니다.
 
-1. Windows, Python, Git, GitHub CLI, Aider, Ollama 및 지정 모델을 사전 점검합니다.
-2. 현재 GitHub CLI 계정에 저장소 runner 관리 권한이 있는지 확인합니다.
-3. GitHub 공식 Actions runner release의 Windows x64 ZIP을 내려받고 API가 제공하는 SHA-256 digest와 대조합니다.
-4. 일회용 runner 등록 토큰을 요청해 이 저장소 전용 runner로 등록합니다.
-5. `guardian-windows`, `ollama` 라벨을 설정합니다.
-6. 현재 Windows 사용자 권한으로 실행되는 로그인 예약 작업을 등록하고 즉시 시작합니다.
+1. Git 저장소가 올바른 `main` branch인지, 원격 URL이 Guardian 저장소인지, working tree가 깨끗한지 확인하고 `origin/main`으로 안전하게 fast-forward 동기화
+2. Windows, Python, Git, GitHub CLI, Aider, Ollama 및 지정 모델을 사전 점검합니다.
+3. 현재 GitHub CLI 계정에 저장소 runner 관리 권한이 있는지 확인합니다.
+4. GitHub 공식 Actions runner release의 Windows x64 ZIP을 내려받고 API가 제공하는 SHA-256 digest와 대조합니다.
+5. 일회용 runner 등록 토큰을 요청해 이 저장소 전용 runner로 등록합니다.
+6. `guardian-windows`, `ollama` 라벨을 설정합니다.
+7. 현재 Windows 사용자 권한으로 실행되는 로그인 예약 작업을 등록하고 즉시 시작합니다.
+8. local-only Git CLI agent의 15분 예약 작업도 설치하고 즉시 실행합니다. 최대 3개의 독립 Ollama 작업을 처리하며, blocked task는 임의로 실행하지 않습니다.
 
 Runner 바이너리와 작업 디렉터리는 기본적으로 `%LOCALAPPDATA%\Guardian\actions-runner` 아래에 둡니다. LocalSystem 서비스로 설치하지 않습니다. 현재 사용자의 Ollama/Aider 설치와 모델 환경을 그대로 사용하기 위해서입니다.
 
