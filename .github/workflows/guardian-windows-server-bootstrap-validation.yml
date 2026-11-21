@@ -1,0 +1,74 @@
+name: Guardian Windows Server Bootstrap Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "server/license-api/windows/Setup-GuardianServer.ps1"
+      - "server/license-api/windows/Guardian-Paths.ps1"
+      - "server/license-api/windows/Start-All-GuardianServices.ps1"
+      - "server/license-api/windows/README_KO.md"
+      - ".github/workflows/guardian-windows-server-bootstrap-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "server/license-api/windows/Setup-GuardianServer.ps1"
+      - "server/license-api/windows/Guardian-Paths.ps1"
+      - "server/license-api/windows/Start-All-GuardianServices.ps1"
+      - "server/license-api/windows/README_KO.md"
+      - ".github/workflows/guardian-windows-server-bootstrap-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  parse-and-policy-check:
+    name: Parse server bootstrap scripts and verify offline key setup
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Parse PowerShell scripts without executing setup
+        shell: pwsh
+        run: |
+          $paths = @(
+            'server/license-api/windows/Setup-GuardianServer.ps1',
+            'server/license-api/windows/Guardian-Paths.ps1',
+            'server/license-api/windows/Start-All-GuardianServices.ps1'
+          )
+          foreach ($item in $paths) {
+            $resolved = Resolve-Path $item
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($resolved, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | Format-List | Out-String | Write-Error
+              exit 1
+            }
+          }
+          Write-Host 'Guardian Windows server PowerShell syntax passed.'
+
+      - name: Verify offline key setup does not require Docker
+        shell: pwsh
+        run: |
+          $script = Get-Content 'server/license-api/windows/Setup-GuardianServer.ps1' -Raw
+          if (-not $script.Contains('param([switch]$SkipAutoStart)')) {
+            throw 'Setup script must retain the explicit SkipAutoStart mode.'
+          }
+          if (-not $script.Contains("if (-not $SkipAutoStart) {")) {
+            throw 'Docker availability checks must be conditional on automatic service startup.'
+          }
+          if (-not $script.Contains("if (-not (Get-Command 'openssl'")) {
+            throw 'OpenSSL remains required for offline RSA key generation.'
+          }
+          $dockerCheck = $script.IndexOf("if (-not (Get-Command 'docker'")
+          $skipGuard = $script.IndexOf('if (-not $SkipAutoStart) {')
+          if ($dockerCheck -lt $skipGuard -or $skipGuard -lt 0) {
+            throw 'Docker check is not protected by SkipAutoStart.'
+          }
+          if (-not $script.Contains("if (-not $SkipAutoStart) {`n  & (Join-Path $PSScriptRoot 'Start-All-GuardianServices.ps1')")) {
+            throw 'SkipAutoStart must prevent automatic container startup.'
+          }
+          Write-Host 'Offline key bootstrap policy passed.'
