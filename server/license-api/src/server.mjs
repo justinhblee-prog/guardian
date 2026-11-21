@@ -511,8 +511,10 @@ async function receiveGooglePlayRtdn(body, req) {
 
   const allowedProducts = String(process.env.GOOGLE_PLAY_PRODUCT_IDS || '')
     .split(',').map(value => value.trim()).filter(Boolean);
-  const productId = existingPurchase?.product_sku ||
-    (typeof subscription.subscriptionId === 'string' ? subscription.subscriptionId : '');
+  const notifiedProductId = typeof subscription?.subscriptionId === 'string'
+    ? subscription.subscriptionId : '';
+  const productId = allowedProducts.includes(notifiedProductId)
+    ? notifiedProductId : existingPurchase?.product_sku || '';
   if (!productId || !allowedProducts.includes(productId)) {
     // A notification can arrive before the app's first verification. Record it
     // idempotently; the client verification endpoint will create the entitlement.
@@ -562,11 +564,11 @@ async function receiveGooglePlayRtdn(body, req) {
         );
       }
       await db.query(
-        "UPDATE google_play_purchases SET subscription_state=$2,expires_at=COALESCE($3,expires_at), " +
+        "UPDATE google_play_purchases SET product_sku=$7,subscription_state=$2,expires_at=COALESCE($3,expires_at), " +
         "latest_order_id=COALESCE($4,latest_order_id),acknowledgement_state=$5," +
         "revoked_by_rtdn=$6,last_verified_at=now(),updated_at=now() WHERE purchase_token_hash=$1",
         [purchaseHash, verified.subscriptionState, verified.expiryTime, verified.orderId,
-          verified.acknowledgementState, permanentlyRevoked]
+          verified.acknowledgementState, permanentlyRevoked, verified.productId]
       );
       await recordEvent(db, row.license_id,
         entitled && !permanentlyRevoked ? 'google_play_rtdn_entitlement_refreshed' : 'google_play_rtdn_entitlement_revoked',
