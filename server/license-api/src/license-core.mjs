@@ -58,7 +58,7 @@ export function issueEntitlementToken({
   }
   const payload = [
     'tokenVersion=1',
-    'product=guardian-android',
+    'product=guardian',
     'entitlement=pro',
     `issuedAt=${issued}`,
     `expiresAt=${expiry}`,
