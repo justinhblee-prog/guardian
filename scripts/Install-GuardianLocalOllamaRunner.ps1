@@ -104,9 +104,7 @@ if (-not $runnerFullPath.StartsWith([IO.Path]::GetFullPath($env:LOCALAPPDATA), [
     throw '보안상 RunnerRoot는 현재 사용자의 LOCALAPPDATA 아래에만 설치할 수 있습니다.'
 }
 
-Write-Host 'Guardian 로컬 Ollama runner 사전 점검을 시작합니다.'
-Assert-Command -Name 'git'
-Assert-Command -Name 'gh'
+Write-Host '로컬 Python, Aider, Ollama 및 runner 환경을 확인합니다.'
 $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
 $pyCommand = Get-Command py -ErrorAction SilentlyContinue
 if (-not $pythonCommand -and -not $pyCommand) {
@@ -122,7 +120,6 @@ if ($pythonCommand) {
 if ($LASTEXITCODE -ne 0 -or $pythonVersionText -notmatch 'Python 3\.(1[0-9]|[2-9][0-9])') {
     throw "Python 3.10 이상이 필요합니다: $pythonVersionText"
 }
-$null = Invoke-GhText -Arguments @('auth', 'status', '--hostname', 'github.com')
 $repoAdmin = Invoke-GhText -Arguments @('api', "repos/$Repository", '--jq', '.permissions.admin')
 if ($repoAdmin -ne 'true') {
     throw '현재 gh 인증 계정에 이 저장소의 runner 관리 권한이 없습니다. Repository Administration 권한이 필요합니다.'
