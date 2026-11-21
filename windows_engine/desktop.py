@@ -6,6 +6,7 @@ from tkinter import messagebox
 from dns_engine import DomainRules,DnsProxy
 from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin
 from windows_engine.filter_updates import FilterUpdater
+from windows_engine.license_client import LicenseClientError,WindowsLicenseClient
 from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_is_running
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
 CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"
@@ -19,6 +20,8 @@ def ensure_config():
     data.setdefault("manifest_base_url","")
     data.setdefault("manifest_public_key","")
     data.setdefault("filter_source_id","adguard")
+    data.setdefault("license_api_base_url","")
+    data.setdefault("license_public_key","")
     CONFIG.write_text(json.dumps(data,indent=2),encoding="utf-8")
 def elevate():
     try:
@@ -118,6 +121,9 @@ class GuardianDesktop:
         actions=tk.Frame(root,bg="#101820"); actions.pack(pady=4)
         tk.Button(actions,text="필터 업데이트",command=self.update_filters,width=16,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=6)
         tk.Button(actions,text="필터 서버 설정",command=self.open_filter_settings,width=16,bg="#33404c",fg="white",relief="flat").pack(side="left",padx=6)
+        tk.Button(actions,text="라이선스",command=self.open_license_settings,width=12,bg="#5946a8",fg="white",relief="flat").pack(side="left",padx=6)
+        self.license_status=tk.Label(root,text="라이선스: 무료",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.license_status.pack(pady=2)
+        self.refresh_license_status()
         self.filter_status=tk.Label(root,text="필터 업데이트: 서버 미설정",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.filter_status.pack(pady=3)
         tk.Label(root,text="백그라운드 DNS 보호 · IPv4/IPv6 · 기존 DNS 자동 복구",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820").pack(pady=6)
         tk.Label(root,text="보호 시작 시 어댑터 DNS를 로컬 필터로 전환합니다. 앱 창을 닫아도 백그라운드 보호는 유지되며, 보호 중지는 원래 DNS 설정을 복구합니다.",wraplength=540,font=("Segoe UI",9),fg="#aab8c4",bg="#101820").pack(pady=12)
@@ -194,6 +200,67 @@ class GuardianDesktop:
             tmp=CONFIG.with_suffix(".tmp"); tmp.write_text(json.dumps(data,indent=2),encoding="utf-8"); os.replace(tmp,CONFIG)
             dialog.destroy(); messagebox.showinfo("필터 서버 설정","설정이 저장되었습니다. 공개키는 배포 서버의 오프라인 서명 공개키와 정확히 일치해야 합니다.")
         tk.Button(dialog,text="저장",command=save,bg="#197a57",fg="white",relief="flat").pack(pady=10)
+    def _license_client(self,data):
+        base=data.get("license_api_base_url","").strip()
+        public_key=data.get("license_public_key","").strip()
+        if not base or not public_key:
+            raise LicenseClientError("라이선스 API HTTPS 주소와 RSA 공개키를 먼저 설정하세요.")
+        return WindowsLicenseClient(base,public_key,APP_DIR,app_version="1.0.0")
+    def refresh_license_status(self):
+        try:
+            data=json.loads(CONFIG.read_text(encoding="utf-8")) if CONFIG.exists() else {}
+            client=self._license_client(data)
+            entitlement=client.current_entitlement()
+            if entitlement:
+                self.license_status.configure(text=f"라이선스: Guardian Pro · 만료 {time.strftime('%Y-%m-%d',time.localtime(entitlement['expiresAt']))}",fg="#54d69b")
+            else:
+                self.license_status.configure(text="라이선스: 무료",fg="#9fb2c3")
+        except Exception:
+            self.license_status.configure(text="라이선스: 설정 필요",fg="#f3b64a")
+    def open_license_settings(self):
+        try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
+        except Exception as exc: messagebox.showerror("Guardian 라이선스",str(exc)); return
+        dialog=tk.Toplevel(self.root); dialog.title("Guardian 공통 라이선스"); dialog.geometry("620x520"); dialog.configure(bg="#101820")
+        tk.Label(dialog,text="공통 라이선스 API HTTPS 주소",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(14,2))
+        base=tk.Entry(dialog); base.insert(0,data.get("license_api_base_url","")); base.pack(fill="x",padx=16)
+        tk.Label(dialog,text="RSA 공개키 (X.509 SPKI Base64)",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(10,2))
+        public=tk.Text(dialog,height=4,wrap="word"); public.insert("1.0",data.get("license_public_key","")); public.pack(fill="x",padx=16)
+        tk.Label(dialog,text="Guardian Pro 라이선스 키 (발급받은 키를 입력)",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(10,2))
+        license_key=tk.Entry(dialog); license_key.pack(fill="x",padx=16)
+        tk.Label(dialog,text="Windows와 Android는 같은 라이선스를 사용하며 기기 활성화 한도를 공유합니다.",fg="#9fb2c3",bg="#101820",wraplength=560,justify="left").pack(anchor="w",padx=16,pady=10)
+        status=tk.StringVar(value="서버 주소와 공개키를 저장한 뒤 라이선스를 활성화하세요.")
+        tk.Label(dialog,textvariable=status,fg="#9fb2c3",bg="#101820",wraplength=560,justify="left").pack(anchor="w",padx=16,pady=6)
+        def save_config():
+            data["license_api_base_url"]=base.get().strip()
+            data["license_public_key"]=public.get("1.0","end").strip()
+            tmp=CONFIG.with_suffix(".tmp"); tmp.write_text(json.dumps(data,indent=2),encoding="utf-8"); os.replace(tmp,CONFIG)
+            return data
+        def activate():
+            try:
+                saved=save_config()
+                entitlement=self._license_client(saved).activate(license_key.get())
+                status.set("Guardian Pro 활성화 완료 · 만료 "+time.strftime("%Y-%m-%d",time.localtime(entitlement["expiresAt"])))
+                self.refresh_license_status()
+            except Exception as exc: status.set("활성화 실패: "+str(exc))
+        def refresh():
+            try:
+                saved=save_config()
+                entitlement=self._license_client(saved).refresh()
+                status.set("라이선스 갱신 완료 · 만료 "+time.strftime("%Y-%m-%d",time.localtime(entitlement["expiresAt"])))
+                self.refresh_license_status()
+            except Exception as exc: status.set("갱신 실패: "+str(exc))
+        def deactivate():
+            try:
+                saved=save_config()
+                self._license_client(saved).deactivate()
+                status.set("이 Windows 기기의 라이선스 등록을 해제했습니다.")
+                self.refresh_license_status()
+            except Exception as exc: status.set("기기 해제 실패: "+str(exc))
+        buttons=tk.Frame(dialog,bg="#101820"); buttons.pack(pady=12)
+        tk.Button(buttons,text="설정 저장",command=lambda: (save_config(),status.set("설정 저장 완료")),bg="#33404c",fg="white",relief="flat").pack(side="left",padx=5)
+        tk.Button(buttons,text="라이선스 활성화",command=activate,bg="#197a57",fg="white",relief="flat").pack(side="left",padx=5)
+        tk.Button(buttons,text="갱신",command=refresh,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=5)
+        tk.Button(buttons,text="이 기기 해제",command=deactivate,bg="#8b3940",fg="white",relief="flat").pack(side="left",padx=5)
     def update_filters(self):
         try:
             data=json.loads(CONFIG.read_text(encoding="utf-8"))
