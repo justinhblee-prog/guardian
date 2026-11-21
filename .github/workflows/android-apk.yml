@@ -249,7 +249,7 @@ jobs:
           # SHA256SUMS.txt remains available for simple APK-only checks.
           sha256sum "$APK" "$SOURCE_ZIP" > release/SHA256SUMS.txt
           APK_SHA256="$(awk '$2 ~ /app-debug[.]apk$/ {print $1; exit}' release/SHA256SUMS.txt)"
-          SOURCE_SHA256="$(awk '$2 ~ /Guardian-AdBlock-Source-v0[.]7[.]34-dev[.]zip$/ {print $1; exit}' release/SHA256SUMS.txt)"
+          SOURCE_SHA256="$(awk -v source="$SOURCE_ZIP" '$2 == source {print $1; exit}' release/SHA256SUMS.txt)"
           SOURCE_BYTES="$(wc -c < "$SOURCE_ZIP" | tr -d ' ')"
           test "${#APK_SHA256}" -eq 64
           test "${#SOURCE_SHA256}" -eq 64
@@ -319,7 +319,7 @@ jobs:
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/debug/SHA256SUMS.txt
-            release/Guardian-AdBlock-Source-${GUARDIAN_VERSION_NAME}.zip
+            release/Guardian-AdBlock-Source-${{ env.GUARDIAN_VERSION_NAME }}.zip
             release/SHA256SUMS.txt
             release/VERIFICATION_SUMMARY_KO.md
             release/guardian-android-dev.json
