@@ -18,10 +18,11 @@ class LicenseEntitlementVerifierTest {
     private fun payload(
         issuedAt: Long = now - 60,
         expiresAt: Long = now + 86400,
-        deviceBinding: String = device
+        deviceBinding: String = device,
+        product: String = "guardian-android"
     ): ByteArray = listOf(
         "tokenVersion=1",
-        "product=guardian-android",
+        "product=$product",
         "entitlement=pro",
         "issuedAt=$issuedAt",
         "expiresAt=$expiresAt",
@@ -49,6 +50,13 @@ class LicenseEntitlementVerifierTest {
         assertEquals("pro", entitlement.entitlement)
         assertEquals("lic_test_0001", entitlement.licenseRef)
         assertEquals(device, entitlement.deviceBinding)
+    }
+
+    @Test fun acceptsSharedCrossPlatformGuardianProEntitlement() {
+        val pair = keyPair()
+        val entitlement = verify(payload(product = "guardian"), pair)
+        assertEquals("guardian", entitlement.product)
+        assertEquals("pro", entitlement.entitlement)
     }
 
     @Test fun rejectsPayloadChangedAfterSigning() {
