@@ -71,20 +71,25 @@ jobs:
               --releases-json release/guardian-releases.json \
               --commit "$GITHUB_SHA" \
               --baseline-version "0.7.34-dev" \
-              --baseline-code 47 \
+              --baseline-code "$GITHUB_RUN_NUMBER" \
               --github-env "$GITHUB_ENV" \
               --github-output "$GITHUB_OUTPUT"
           else
-            # PR validation builds are non-published and never consume a release number.
+            # PR builds get a unique, monotonically increasing install version
+            # from this workflow's run number. They do not publish release tags.
+            # The same workflow rerun keeps the same version for reproducibility.
+            dev_code=$((GITHUB_RUN_NUMBER + 1))
+            dev_name="0.7.34-dev-ci\${GITHUB_RUN_NUMBER}"
             {
-              echo "GUARDIAN_VERSION_NAME=0.7.34-dev"
-              echo "GUARDIAN_VERSION_CODE=47"
+              echo "GUARDIAN_VERSION_NAME=$dev_name"
+              echo "GUARDIAN_VERSION_CODE=$dev_code"
               echo "GUARDIAN_RELEASE_TAG="
             } >> "$GITHUB_ENV"
             {
-              echo "version_name=0.7.34-dev"
-              echo "version_code=47"
-            } >> "$GITHUB_OUTPUT"
+              echo "version_name=$dev_name"
+              echo "version_code=$dev_code"
+              echo "reused=false"
+            } >> "$GITHUB_OUTPUT
           fi
           echo "Version resolution completed."
 
