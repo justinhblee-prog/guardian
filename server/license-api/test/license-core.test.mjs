@@ -23,7 +23,7 @@ test('license key hashes verify without storing plaintext', async () => {
   assert.equal(hashed.hashHex.includes(key), false);
 });
 
-test('entitlement payload matches Android verifier schema and is RSA signed', async () => {
+test('entitlement payload uses the shared Guardian product claim and is RSA signed', async () => {
   const token = issueEntitlementToken({ licenseRef: '12345678-abcd', deviceBinding: device, expiresAt, privateKey });
   const payload = Buffer.from(token.payload, 'utf8');
   assert.equal(verify('RSA-SHA256', payload, publicKey, Buffer.from(token.signature, 'base64')), true);
