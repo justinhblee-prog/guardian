@@ -30,42 +30,44 @@ class GuardianDevVersionTests(unittest.TestCase):
             "draft": False, "prerelease": True,
             "body": "Guardian-Source-Commit: " + "b" * 40
         })
-        result = resolve_next_version(self.releases, "b" * 40, "0.7.34-dev", 1001804)
-        self.assertEqual(result["version_code"], 48)
+        result = resolve_next_version(self.releases, "b" * 40, "0.7.34-dev", 47)
+        self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
+                         ("0.7.35-dev", 48, "guardian-dev-v48"))
         self.assertTrue(result["reused"])
 
     def test_older_commit_cannot_republish_after_newer_release(self):
         self.releases.extend([
-            {"tag_name": "guardian-dev-v1001805", "name": "Guardian AdBlock 0.7.35-dev",
+            {"tag_name": "guardian-dev-v48", "name": "Guardian AdBlock 0.7.35-dev",
              "draft": False, "prerelease": True, "body": "Guardian-Source-Commit: " + "c" * 40},
             {"tag_name": "guardian-dev-v49", "name": "Guardian AdBlock 0.7.36-dev",
              "draft": False, "prerelease": True, "body": "Guardian-Source-Commit: " + "d" * 40}
         ])
         with self.assertRaisesRegex(ValueError, "older release"):
-            resolve_next_version(self.releases, "c" * 40, "0.7.34-dev", 1001804)
+            resolve_next_version(self.releases, "c" * 40, "0.7.34-dev", 47)
 
     def test_ignores_drafts_and_stable_releases(self):
         self.releases.extend([
-            {"tag_name": "guardian-dev-v999", "name": "Guardian AdBlock 0.7.99-dev",
+            {"tag_name": "guardian-dev-v48", "name": "Guardian AdBlock 0.7.35-dev",
              "draft": True, "prerelease": True},
-            {"tag_name": "guardian-dev-v1000", "name": "Guardian AdBlock 0.7.100",
+            {"tag_name": "guardian-dev-v49", "name": "Guardian AdBlock 0.7.36",
              "draft": False, "prerelease": False}
         ])
-        result = resolve_next_version(self.releases, "e" * 40, "0.7.34-dev", 1001804)
-        self.assertEqual(result["version_code"], 1001805)
+        result = resolve_next_version(self.releases, "e" * 40, "0.7.34-dev", 47)
+        self.assertEqual((result["version_name"], result["version_code"]),
+                         ("0.7.35-dev", 48))
 
-    def test_version_code_is_monotonic_without_arbitrary_production_reservation(self):
-        releases = [{"tag_name": "guardian-dev-v1999999", "name": "Guardian AdBlock 0.7.99-dev",
+    def test_rejects_android_version_code_overflow(self):
+        releases = [{"tag_name": "guardian-dev-v2100000000", "name": "Guardian AdBlock 0.7.99-dev",
                      "draft": False, "prerelease": True, "body": ""}]
-        with self.assertRaisesRegex(ValueError, "reserved production range"):
-            resolve_next_version(releases, "9" * 40, "0.7.34-dev", 1001804)
+        with self.assertRaisesRegex(ValueError, "Android"):
+            resolve_next_version(releases, "9" * 40, "0.7.34-dev", 47)
 
-    def test_rolls_patch_into_minor(self):
+    def test_patch_increments_past_99_without_resetting_minor(self):
         releases = [{"tag_name": "guardian-dev-v99", "name": "Guardian AdBlock 0.7.99-dev",
                      "draft": False, "prerelease": True, "body": ""}]
-        result = resolve_next_version(releases, "f" * 40, "0.7.34-dev", 1001804)
-        self.assertEqual(result["version_name"], "0.7.100-dev")
-        self.assertEqual(result["version_code"], 100)
+        result = resolve_next_version(releases, "f" * 40, "0.7.34-dev", 47)
+        self.assertEqual((result["version_name"], result["version_code"]),
+                         ("0.7.100-dev", 100))
 
 
 if __name__ == "__main__":
