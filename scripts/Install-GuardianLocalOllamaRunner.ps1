@@ -64,10 +64,18 @@ if (-not $runnerFullPath.StartsWith([IO.Path]::GetFullPath($env:LOCALAPPDATA), [
 Write-Host 'Guardian 로컬 Ollama runner 사전 점검을 시작합니다.'
 Assert-Command -Name 'git'
 Assert-Command -Name 'gh'
-Assert-Command -Name 'python'
+$pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+$pyCommand = Get-Command py -ErrorAction SilentlyContinue
+if (-not $pythonCommand -and -not $pyCommand) {
+    throw 'Python 3.10 이상이 필요합니다. python.exe 또는 py.exe를 PATH에 등록하세요.'
+}
 Assert-Command -Name 'ollama'
 
-$pythonVersionText = (& python --version 2>&1 | Out-String).Trim()
+if ($pythonCommand) {
+    $pythonVersionText = (& $pythonCommand.Source --version 2>&1 | Out-String).Trim()
+} else {
+    $pythonVersionText = (& $pyCommand.Source -3 --version 2>&1 | Out-String).Trim()
+}
 if ($LASTEXITCODE -ne 0 -or $pythonVersionText -notmatch 'Python 3\.(1[0-9]|[2-9][0-9])') {
     throw "Python 3.10 이상이 필요합니다: $pythonVersionText"
 }
@@ -78,9 +86,12 @@ if ($repoAdmin -ne 'true') {
 }
 
 $aiderCommand = Get-Command aider -ErrorAction SilentlyContinue
-if (-not $aiderCommand) {
-    $aiderVersion = & python -m aider --version 2>&1
+if (-not $aiderCommand -and $pythonCommand) {
+    $aiderVersion = & $pythonCommand.Source -m aider --version 2>&1
     if ($LASTEXITCODE -ne 0) { throw 'Aider가 현재 Windows 사용자 환경에 설치되어 있지 않습니다.' }
+} elseif (-not $aiderCommand -and $pyCommand) {
+    $aiderVersion = & $pyCommand.Source -3 -m aider --version 2>&1
+    if ($LASTEXITCODE -ne 0) { throw 'Python launcher 환경에서 Aider를 찾을 수 없습니다.' }
 } else {
     $aiderVersion = & $aiderCommand.Source --version 2>&1
     if ($LASTEXITCODE -ne 0) { throw 'Aider 버전 확인에 실패했습니다.' }
