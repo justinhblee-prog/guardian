@@ -59,6 +59,14 @@ class LicenseEntitlementVerifierTest {
         assertEquals("pro", entitlement.entitlement)
     }
 
+    @Test fun rejectsUnknownCrossPlatformProductClaim() {
+        val pair = keyPair()
+        try {
+            verify(payload(product = "guardian-windows-unknown"), pair)
+            fail("unknown product claims must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun rejectsPayloadChangedAfterSigning() {
         val pair = keyPair()
         val original = payload()
