@@ -218,16 +218,16 @@ internal object LicenseApiClient {
                     .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
                     .put("appVersion", appVersion.take(40))
             )
-        } catch (error: LicenseApiException) {
-            if (error.invalidatesEntitlement) LicenseEntitlementStore.clear(context)
-            throw error
-        }
+        )
         if (response.optBoolean("entitled", false)) {
             persistToken(context, response)
         } else {
-            // A server-confirmed non-entitled state must revoke cached local Pro
-            // immediately; pending purchases never grant local entitlement.
-            LicenseEntitlementStore.clear(context)
+            // Do not clear an unrelated manually issued license. The server
+            // identifies the exact Play licenseRef whose entitlement was revoked.
+            val revokedLicenseRef = response.optString("licenseRef")
+            if (revokedLicenseRef.isNotBlank()) {
+                LicenseEntitlementStore.clearIfLicenseRef(context, revokedLicenseRef)
+            }
         }
         return response
     }
