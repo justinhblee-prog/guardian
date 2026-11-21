@@ -49,7 +49,7 @@ class FilterUpdateWorker(
                     optionalFailure = securityCacheReady
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_SECURITY_LAST_ERROR,
-                        e.message ?: e.javaClass.simpleName
+                        SafeFailureSummary.codeFor(e)
                     )
                     if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityEnabled, securityCacheReady)) {
                         editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
