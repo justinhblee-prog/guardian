@@ -437,14 +437,14 @@ if (!databaseUrl) {
     assert.equal(activation.status, 200);
     const licenseRef = created.license.license_ref;
     try {
-      await pool.query("UPDATE products SET active=false WHERE code='guardian-android-pro'");
+      await pool.query("UPDATE products SET active=false WHERE code='guardian-pro'");
       const status = await post('/v1/licenses/status', { deviceBinding: device, licenseRef });
       assert.equal(status.status, 200);
       assert.equal((await status.json()).status, 'free');
       const refresh = await post('/v1/licenses/refresh', { deviceBinding: device, licenseRef });
       assert.equal(refresh.status, 403);
     } finally {
-      await pool.query("UPDATE products SET active=true WHERE code='guardian-android-pro'");
+      await pool.query("UPDATE products SET active=true WHERE code='guardian-pro'");
     }
   });
 
@@ -454,18 +454,20 @@ if (!databaseUrl) {
     for (const migrationPath of [
       new URL('../migrations/002_shared_rate_limit_buckets.sql', import.meta.url),
       new URL('../migrations/003_support_tickets.sql', import.meta.url),
-      new URL('../migrations/004_customers.sql', import.meta.url)
+      new URL('../migrations/004_customers.sql', import.meta.url),
+      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url)
     ]) {
       const sql = readFileSync(migrationPath, 'utf8');
       await pool.query(sql);
       await pool.query(sql);
     }
     const tables = await pool.query(
-      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets, to_regclass('public.customers') AS customers"
+      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets, to_regclass('public.customers') AS customers, (SELECT code FROM products WHERE code='guardian-pro' AND active=true LIMIT 1) AS shared_product"
     );
     assert.equal(tables.rows[0].rate_limits, 'api_rate_limit_buckets');
     assert.equal(tables.rows[0].support_tickets, 'support_tickets');
     assert.equal(tables.rows[0].customers, 'customers');
+    assert.equal(tables.rows[0].shared_product, 'guardian-pro');
   });
 
   test('admin license issuance enforces plan duration and records the selected plan', async () => {
