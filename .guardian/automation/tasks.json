@@ -29,9 +29,9 @@
       "id": "filter-redistribution-gate",
       "title": "Harden the filter redistribution approval gate",
       "priority": 20,
-      "status": "ready",
+      "status": "blocked",
       "dependencies": [],
-      "scope": "Review the existing production redistribution approval verifier and its tests. Improve fail-closed validation for malformed or ambiguous approval records only. Never approve a source, invent a legal decision, or weaken existing release gating.",
+      "scope": "Equivalent strict approval-reference validation and regression coverage already exist in Draft PR #232 (branch fix/guardian-filter-approval-reference-format). Do not create duplicate changes or a competing PR. Resume only after PR #232 is integrated and a distinct remaining gap is identified; then verify the integrated implementation rather than duplicating it. No upstream filter source is approved by this task.",
       "allowed_files": [
         "server/filter-distribution/scripts/verify-production-approvals.mjs",
         "server/filter-distribution/test/production-approval-gate.test.mjs"
