@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "scripts/Install-GuardianLocalOllamaRunner.ps1"
+      - "scripts/Install-GuardianLocalOllamaRunner.cmd"
       - "docs/GUARDIAN_LOCAL_OLLAMA_RUNNER_KO.md"
       - ".github/workflows/guardian-local-runner-bootstrap-validation.yml"
   push:
@@ -64,5 +65,9 @@ jobs:
           }
           if ($script -match '(?i)ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}') {
             throw 'A long-lived GitHub credential must never be embedded in the script.'
+          }
+          $launcher = Get-Content 'scripts/Install-GuardianLocalOllamaRunner.cmd' -Raw
+          if (-not $launcher.Contains('Install-GuardianLocalOllamaRunner.ps1') -or -not $launcher.Contains('pwsh.exe')) {
+            throw 'Double-click launcher must invoke the PowerShell 7 bootstrap script.'
           }
           Write-Host 'Runner policy checks passed.'
