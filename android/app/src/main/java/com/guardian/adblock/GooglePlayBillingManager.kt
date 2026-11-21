@@ -111,7 +111,7 @@ internal class GooglePlayBillingManager(
     }
 
     /** Query current subscriptions on app resume/restore; never trusts cached local purchases. */
-    fun restorePurchases() {
+    fun restorePurchases(silentIfEmpty: Boolean = false) {
         ensureConnected { connectionError ->
             if (connectionError != null) {
                 onPurchaseOutcome(GuardianBillingOutcome(false, "Google Play 구매 내역을 조회할 수 없습니다."))
@@ -127,7 +127,9 @@ internal class GooglePlayBillingManager(
                     return@queryPurchasesAsync
                 }
                 if (purchases.isEmpty()) {
-                    onPurchaseOutcome(GuardianBillingOutcome(false, "복원할 Google Play 구독이 없습니다."))
+                    if (!silentIfEmpty) {
+                        onPurchaseOutcome(GuardianBillingOutcome(false, "복원할 Google Play 구독이 없습니다."))
+                    }
                 } else {
                     processPurchases(purchases)
                 }
