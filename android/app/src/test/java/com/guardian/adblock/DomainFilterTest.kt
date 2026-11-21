@@ -237,4 +237,30 @@ class DomainFilterTest {
     @Test fun truncatedReplyRejectsMalformedDnsQuery() {
         assertNull(DomainFilter.makeTruncatedResponse(byteArrayOf(0, 1, 2)))
     }
+
+    @Test fun appliesPersistedUserBlockAndAllowRulesAlongsideDownloadedSources() {
+        DomainFilter.loadParsedRuleSources(
+            sources = listOf({ FilterRuleParser.parse("block=feed-ads.example") }),
+            minimumRuleCounts = listOf(1),
+            userBlockDomains = listOf("CUSTOM.Block.Example."),
+            userAllowDomains = listOf("trusted.feed-ads.example")
+        )
+
+        assertTrue(DomainFilter.isBlocked("cdn.custom.block.example"))
+        assertTrue(DomainFilter.isBlocked("feed-ads.example"))
+        assertFalse(DomainFilter.isBlocked("trusted.feed-ads.example"))
+        assertFalse(DomainFilter.isBlocked("cdn.trusted.feed-ads.example"))
+    }
+
+    @Test fun importantDownloadedRulesCannotBeOverriddenByUserAllowRules() {
+        DomainFilter.loadParsedRuleSources(
+            sources = listOf({ FilterRuleParser.parse("block-important=critical.example") }),
+            minimumRuleCounts = listOf(1),
+            userAllowDomains = listOf("critical.example")
+        )
+
+        assertTrue(DomainFilter.isBlocked("critical.example"))
+        assertTrue(DomainFilter.isBlocked("sub.critical.example"))
+    }
+
 }
