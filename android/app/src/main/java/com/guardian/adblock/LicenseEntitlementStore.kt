@@ -101,6 +101,14 @@ internal object LicenseEntitlementStore {
     }
 
     @Synchronized
+    fun clearIfLicenseRef(context: Context, expectedLicenseRef: String): Boolean {
+        if (expectedLicenseRef.isBlank()) return false
+        val current = currentForRefresh(context) ?: return false
+        if (current.licenseRef != expectedLicenseRef) return false
+        return clear(context)
+    }
+
+    @Synchronized
     fun clear(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return prefs.edit().remove(KEY_PAYLOAD).remove(KEY_SIGNATURE).commit()
