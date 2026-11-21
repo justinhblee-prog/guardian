@@ -132,8 +132,9 @@ PY
 # Exercise the responsive breakpoint on the same live Settings Activity. A
 # 1498px viewport at 240dpi is 998.7dp and must use one column. The nominal
 # 1500px/1000dp display reports only 999dp to this Activity because Android's
-# app window excludes a 1dp system inset. Use 1502px so the Activity receives
-# at least 1000dp; keep the product breakpoint itself at exactly 1000dp.
+# app window excludes a 1dp system inset. Give the Activity a clear margin above
+# the breakpoint (1512px at 240dpi) and assert its own reported width; the exact
+# 999/1000dp policy boundary remains covered by the responsive-width unit test.
 adb_cmd shell wm size 1498x1600
 sleep 2
 narrow_display="$(adb_cmd shell wm size | tr -d '\r')"
@@ -166,18 +167,18 @@ print("999dp category centers:", centers)
 PY
 
 adb_cmd logcat -c
-adb_cmd shell wm size 1502x1600
+adb_cmd shell wm size 1512x1600
 sleep 3
 boundary_display="$(adb_cmd shell wm size | tr -d '\r')"
 echo "$boundary_display"
-grep -Fq 'Override size: 1502x1600' <<<"$boundary_display"
-echo "Android Activity/window configuration at 1001.3dp display / 1000dp minimum app width:"
+grep -Fq 'Override size: 1512x1600' <<<"$boundary_display"
+echo "Android Activity/window configuration at 1008dp display / 1000dp minimum app width:"
 adb_cmd shell dumpsys activity activities | grep -E 'mLastReportedConfiguration|screenWidthDp|mOverrideConfig|mCurrentConfig' | tail -20 || true
 echo "Guardian responsive width diagnostics:"
 responsive_log="$(adb_cmd logcat -d -s GuardianUI:I)"
 echo "$responsive_log"
 grep -Eq 'Settings responsive widthDp=10[0-9][0-9] twoColumns=true' <<<"$responsive_log" || {
-  echo "Guardian Activity did not receive at least 1000dp at the 1502px test size." >&2
+  echo "Guardian Activity did not receive at least 1000dp at the 1512px test size." >&2
   exit 1
 }
 adb_cmd shell uiautomator dump /sdcard/guardian-settings-1000dp.xml >/dev/null 2>&1
