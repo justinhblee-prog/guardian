@@ -20,6 +20,11 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - `GUARDIAN_ADMIN_TOKEN`: 최소 32자 이상의 무작위 관리자 bearer token
 - `GUARDIAN_LICENSE_LOOKUP_SECRET`: 최소 32자 이상의 별도 무작위 HMAC 비밀값
 - `GUARDIAN_LICENSE_PRIVATE_KEY`: RSA 2048비트 이상 개인키 PEM. Secret Manager에서 주입하고 Git/앱에 넣지 않습니다. 환경 변수의 줄바꿈은 `\n` 형태를 지원합니다.
+- `GOOGLE_PLAY_PACKAGE_NAME`: 기본 `com.guardian.adblock`
+- `GOOGLE_PLAY_PRODUCT_IDS`: Publisher API 검증 허용 SKU 목록. 앱 빌드의 `GUARDIAN_PLAY_PRODUCT_IDS`와 정확히 일치해야 합니다.
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`: Android Publisher API 읽기 권한이 있는 서비스 계정 JSON. 운영에서는 Secret Manager로 주입하고 Git/로그/Android 앱에 넣지 않습니다.
+- `GOOGLE_PLAY_RTDN_AUDIENCE`: 인증된 Pub/Sub push subscription에 설정한 audience 문자열
+- `GOOGLE_PLAY_RTDN_SERVICE_ACCOUNT_EMAIL`: Pub/Sub push 인증에 지정한 사용자 관리 서비스 계정 이메일
 - `PORT`: 기본 8787
 - `PGSSLMODE=require`: PostgreSQL TLS 사용 시 설정
 
