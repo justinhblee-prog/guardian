@@ -1,3 +1,42 @@
+# 최신 검증 상태 — 2026-11-21
+
+> 이 섹션이 이전 기록보다 우선하는 현재 상태입니다. 개발용 검증 통과와 Production 1.0 출시 가능 상태를 구분합니다.
+
+## 검증된 개발 산출물
+
+- Android: `0.7.39-dev`, versionCode `52`, commit `1da247e0eef04d0ea3d4f4a764d9dd2f1e9a7c01`.
+- [Android APK 빌드 및 검증 run 44890022912](https://github.com/justinhblee-prog/guardian/actions/runs/44890022912): 단위 테스트, lint, assemble, API 35 에뮬레이터 업그레이드 및 VPN/DNS E2E 통과.
+- APK SHA-256: `6171c2354c3007c82f51dd63b619b42b1520188f274e3eb1f6d3b45116aa8c07`.
+- Source ZIP SHA-256: `c569d3b480f04ec09350e408e4e1b0172ffc96be8dae3b5ace529ecb06f78303`.
+- 이 APK는 development 서명 채널이며 Production 서명 또는 실기기 수용 테스트 완료를 의미하지 않습니다.
+- Windows: `0.1.0-dev` 개발 EXE/설치 패키지 빌드 및 설치 smoke test 통과. [Windows build run 44887248268](https://github.com/justinhblee-prog/guardian/actions/runs/44887248268). Authenticode 서명은 없는 개발 패키지입니다.
+
+## 공통 라이선스 구현 상태
+
+- Android와 Windows 공통 제품 식별자는 `guardian-pro`이며, Android 기존 `guardian-android` 토큰은 하위 호환으로 계속 허용합니다.
+- 공유 DB migration `005_shared_guardian_product.sql`, Windows HTTPS license client 및 활성화/갱신/기기 비활성화 UI가 구현되어 있습니다.
+- [License API CI run 44886969350](https://github.com/justinhblee-prog/guardian/actions/runs/44886969350) 및 [Windows DNS/license CI run 44887248317](https://github.com/justinhblee-prog/guardian/actions/runs/44887248317) 통과.
+- 구현 및 테스트 통과는 Production API 배포, Production private key 생성, GitHub production secrets 등록을 의미하지 않습니다.
+
+## 로컬 Ollama 멀티플로우
+
+- PR #241: self-hosted runner에서 PR이 변경한 workflow/code를 실행하지 않도록 trust boundary 강화.
+- PR #243: local Ollama 전용 멀티플로우, 격리 worktree, 고정 테스트 프로필, 최대 3개 독립 작업, Draft PR만 생성하는 흐름 통합. Windows 자동화 테스트 30개 통과.
+- PR #242 및 #244: Windows one-click bootstrap, runner SHA-256 검증, 저장소 main 안전 fast-forward, 현재 사용자 세션 예약 작업, local Git agent 15분 주기 설치.
+- 설치 진입점: `scripts/Install-GuardianLocalOllamaRunner.cmd`. 사용자의 Windows clone에서 한 번 실행해야 실제 runner/예약 작업이 등록됩니다. 이 세션에서 사용자의 노트북에 원격 설치하거나 GitHub runner를 Online으로 만들었다고 주장하지 않습니다.
+- Task manifest의 세 항목은 현재 모두 `blocked`입니다. 오류 재발 증거, upstream filter 권리 승인, Production signing material/API provisioning이 없으므로 local worker는 임의 작업을 만들지 않고 idle해야 합니다.
+
+## Production 1.0 출시 차단 항목
+
+1. **Production signing**: 실제 Android keystore와 Windows Authenticode signing material, Production license/filter signing private keys가 안전한 사용자 호스트에 생성·보관되어야 합니다. GitHub secrets/variables 및 운영 endpoint가 등록되지 않았습니다.
+2. **License API 운영 배포**: Production PostgreSQL/API, TLS/Tailscale private endpoint 및 공개키 배포 설정이 실제로 배포·검증되어야 합니다.
+3. **Filter source 권리 승인**: 설정된 7개 upstream filter source가 모두 명시적 재배포 승인 증빙 없이 미승인 상태입니다. 공개 LICENSE 식별자만으로 자동 승인하지 않습니다.
+4. **실기기 수용 테스트**: API 35 에뮬레이터 E2E는 통과했지만 Android 실기기 VPN 시작, 실제 광고/추적 차단 및 업데이트 수용 테스트는 별도입니다.
+
+[Production release configuration run 44889767841](https://github.com/justinhblee-prog/guardian/actions/runs/44889767841)은 설정 검증만 통과했고 `production-release` job은 필요한 Production secrets 부재로 skip되었습니다. 따라서 현재 상태는 **검증된 개발 빌드 + Production 1.0 출시 전**이며, 1.0 완료로 표시하지 않습니다.
+
+---
+
 ## 2026-11-18 정식 출시 준비 최신 보충 (PR #155 / #156)
 - Main code commit: `794f98f7a5e2acc8443658b599e6ff00eb8a128f`.
 - PR #155 merged: production GitHub Actions now rechecks source-level license ID, explicit redistribution approval and traceable reference from `GUARDIAN_FILTER_APPROVALS_JSON`; it requires the signed static origin branch `guardian-filter-data` before production signing.
