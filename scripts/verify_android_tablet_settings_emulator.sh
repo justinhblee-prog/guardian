@@ -172,6 +172,53 @@ sleep 3
 boundary_display="$(adb_cmd shell wm size | tr -d '\r')"
 echo "$boundary_display"
 grep -Fq 'Override size: 1512x1600' <<<"$boundary_display"
+# Rebuild the Settings destination after the resize. The responsive-width log is
+# emitted by buildSettings(), not by every configuration callback; merely
+# resizing an already-rendered Settings screen does not guarantee a fresh log.
+# Navigate Home -> Settings at the final tablet width so the assertion observes
+# the Activity's actual resources.configuration.screenWidthDp.
+adb_cmd shell uiautomator dump /sdcard/guardian-tablet-boundary-nav.xml >/dev/null 2>&1
+nav_xml="$(adb_cmd exec-out cat /sdcard/guardian-tablet-boundary-nav.xml | tr -d '\\r')"
+home_point="$(python3 - "$nav_xml" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+root = ET.fromstring(sys.argv[1])
+for node in root.iter("node"):
+    if node.attrib.get("content-desc") == "홈" and node.attrib.get("clickable") == "true" and node.attrib.get("enabled") == "true":
+        bounds = node.attrib.get("bounds", "").strip("[]").split("][")
+        if len(bounds) == 2:
+            x1, y1 = map(int, bounds[0].split(","))
+            x2, y2 = map(int, bounds[1].split(","))
+            print((x1+x2)//2, (y1+y2)//2)
+            break
+else:
+    raise SystemExit("Could not locate Home navigation item at tablet boundary.")
+PY
+)"
+read -r home_x home_y <<<"$home_point"
+adb_cmd shell input tap "$home_x" "$home_y"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-tablet-boundary-nav.xml >/dev/null 2>&1
+nav_xml="$(adb_cmd exec-out cat /sdcard/guardian-tablet-boundary-nav.xml | tr -d '\\r')"
+settings_point="$(python3 - "$nav_xml" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+root = ET.fromstring(sys.argv[1])
+for node in root.iter("node"):
+    if node.attrib.get("content-desc") == "설정" and node.attrib.get("clickable") == "true" and node.attrib.get("enabled") == "true":
+        bounds = node.attrib.get("bounds", "").strip("[]").split("][")
+        if len(bounds) == 2:
+            x1, y1 = map(int, bounds[0].split(","))
+            x2, y2 = map(int, bounds[1].split(","))
+            print((x1+x2)//2, (y1+y2)//2)
+            break
+else:
+    raise SystemExit("Could not locate Settings navigation item at tablet boundary.")
+PY
+)"
+read -r settings_x settings_y <<<"$settings_point"
+adb_cmd shell input tap "$settings_x" "$settings_y"
+sleep 2
 echo "Android Activity/window configuration at 1008dp display / 1000dp minimum app width:"
 adb_cmd shell dumpsys activity activities | grep -E 'mLastReportedConfiguration|screenWidthDp|mOverrideConfig|mCurrentConfig' | tail -20 || true
 echo "Guardian responsive width diagnostics:"
