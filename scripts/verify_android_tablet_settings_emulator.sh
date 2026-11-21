@@ -24,9 +24,9 @@ grep -Fq 'Override size: 1600x2560' <<<"$display"
 grep -Fq 'Override density: 240' <<<"$density"
 
 # 1600px / (240dpi / 160) = 1066dp, above the 1000dp two-column breakpoint.
-width_dp="$(adb_cmd shell dumpsys window displays | sed -n 's/.*cur=\\([0-9]*\\)x\\([0-9]*\\).*/\\1/p' | head -1)"
+width_dp="$(adb_cmd shell dumpsys window displays | sed -n 's/.*cur=\([0-9]*\)x\([0-9]*\).*/\1/p' | head -1)"
 if [[ -z "$width_dp" ]]; then
-  width_dp="$(adb_cmd shell wm size | sed -n 's/.*Override size: \\([0-9]*\\)x.*/\\1/p')"
+  width_dp="$(adb_cmd shell wm size | sed -n 's/.*Override size: \([0-9]*\)x.*/\1/p')"
 fi
 test -n "$width_dp"
 python3 - "$width_dp" <<'PY'
@@ -75,7 +75,7 @@ for i, node in enumerate(nodes):
                 parent = next((p for p in root.iter() if parent in list(p)), None)
         if bounds:
             import re
-            m = re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]", bounds)
+            m = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
             if m:
                 x1,y1,x2,y2 = map(int,m.groups())
                 print(f"{(x1+x2)//2} {(y1+y2)//2}")
@@ -99,7 +99,7 @@ centers = {}
 for node in root.iter("node"):
     label = node.attrib.get("text", "").strip()
     if label in expected:
-        match = re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]", node.attrib.get("bounds", ""))
+        match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
         if match:
             x1, y1, x2, y2 = map(int, match.groups())
             centers[label] = ((x1 + x2) // 2, (y1 + y2) // 2)
