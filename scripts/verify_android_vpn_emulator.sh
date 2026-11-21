@@ -136,6 +136,39 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
+# Settings section cards expose their click listener on the parent LinearLayout,
+# while the visible section title is a non-clickable TextView. Resolve the nearest
+# clickable ancestor so navigation tests follow the current Settings IA.
+tap_text_in_clickable_parent() {
+  local wanted="$1"
+  local xml bounds
+  xml="$(dump_ui_hierarchy /sdcard/guardian-window.xml)"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+parents={child: parent for parent in root.iter() for child in parent}
+for node in root.iter("node"):
+    if node.attrib.get("text","").strip() != sys.argv[1]:
+        continue
+    current=node
+    while current is not None:
+        a=current.attrib
+        if (a.get("visible-to-user","true")=="true"
+            and a.get("clickable")=="true" and a.get("enabled")=="true"):
+            parts=a.get("bounds","").strip("[]").split("][")
+            if len(parts)==2:
+                x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+                print((x1+x2)//2,(y1+y2)//2)
+                raise SystemExit(0)
+        current=parents.get(current)
+raise SystemExit(1)' "$wanted" <<<"$xml")" || {
+    echo "Could not locate clickable Settings card for section: $wanted"
+    echo "$xml"
+    return 1
+  }
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 # Android AlertDialog ListView row TextViews are intentionally non-clickable
 # in UIAutomator's accessibility tree; ListView itself dispatches row taps.
 # Resolve only an exact child of android:id/select_dialog_listview, leaving
@@ -201,9 +234,11 @@ cache_ready() {
   return 0
 }
 
-echo "Verifying the dedicated Guardian Premium menu and license activation focus."
+echo "Verifying the Settings > License and Premium route and license activation focus."
 dismiss_dev_update_prompt
-tap_content_description "프리미엄"
+tap_content_description "설정"
+sleep 1
+tap_text_in_clickable_parent "라이선스 및 프리미엄"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -241,11 +276,16 @@ if not any(node.attrib.get("class")=="android.widget.EditText"
     raise SystemExit("Premium CTA did not focus the PRO license activation input.")' <<<"$premium_license_xml"
 adb_cmd shell input keyevent KEYCODE_BACK || true
 
-# The PRO feature cards are below the membership details on a phone-sized
-# viewport. Return to Premium, scroll the actual page, and verify the feature
-# card only after it enters the visible UI hierarchy.
-tap_content_description "프리미엄"
-sleep 1
+# Back returns directly to the Premium detail screen inside Settings. Verify
+# that screen before scrolling to the feature cards; there is no Premium bottom tab.
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+premium_return_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+grep -Fq 'Guardian Premium' <<<"$premium_return_xml" || {
+  echo "Back navigation did not return to the Premium detail screen."
+  echo "$premium_return_xml"
+  exit 1
+}
+
 premium_features_visible=0
 for attempt in $(seq 1 8); do
   adb_cmd shell input swipe 540 1500 540 650 450
