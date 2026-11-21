@@ -35,7 +35,7 @@ jobs:
   run-local-multiflow:
     name: Run isolated local Ollama tasks on Guardian Windows PC
     if: github.repository == 'justinhblee-prog/guardian'
-    runs-on: [self-hosted, Windows]
+    runs-on: [self-hosted, Windows, guardian-windows, ollama]
     timeout-minutes: 60
     steps:
       - name: Checkout Guardian main
