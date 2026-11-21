@@ -501,9 +501,15 @@ jobs:
             exit 1
           fi
           echo "Android emulator boot completed on emulator-5554."
+          echo "install_upgrade=running" >> "$GITHUB_OUTPUT"
           bash scripts/verify_android_emulator.sh
+          echo "install_upgrade=passed" >> "$GITHUB_OUTPUT"
+          echo "vpn_app_e2e=running" >> "$GITHUB_OUTPUT"
           bash scripts/verify_android_vpn_emulator.sh
+          echo "vpn_app_e2e=passed" >> "$GITHUB_OUTPUT"
+          echo "tablet_layout=running" >> "$GITHUB_OUTPUT"
           bash scripts/verify_android_tablet_settings_emulator.sh
+          echo "tablet_layout=passed" >> "$GITHUB_OUTPUT"
 
       - name: Capture emulator diagnostics on failure
         if: steps.android_emulator.outcome == 'failure'
@@ -579,8 +585,11 @@ jobs:
           - APK 생성 상태: ${APK_STATUS}
           - APK SHA-256: ${APK_SHA256}
           - 테스트 및 빌드 단계의 실제 결과는 위 GitHub Actions 단계 결과를 기준으로 확인합니다.
-          - 에뮬레이터 업그레이드 및 VPN DNS E2E: ${{ steps.android_emulator.outcome }}
-          - VPN E2E가 실패한 경우 APK는 빌드 검증 산출물일 뿐, 차단 기능 검증 완료로 간주하지 않습니다.
+          - 에뮬레이터 설치/업그레이드: ${{ steps.android_emulator.outputs.install_upgrade || 'not_run' }}
+          - VPN 및 앱 기능 E2E: ${{ steps.android_emulator.outputs.vpn_app_e2e || 'not_run' }}
+          - 태블릿 반응형 UI: ${{ steps.android_emulator.outputs.tablet_layout || 'not_run' }}
+          - 전체 에뮬레이터 단계 결과: ${{ steps.android_emulator.outcome }}
+          - 실패한 개별 단계만 미통과로 분류하며, 앞서 통과한 기능 검증을 전체 실패로 덮어쓰지 않습니다.
           - 실기기 검증은 별도입니다.
           EOF
 
@@ -596,7 +605,7 @@ jobs:
       - name: Fail workflow when Android VPN runtime verification fails
         if: steps.android_emulator.outcome == 'failure'
         run: |
-          echo "Android emulator VPN/DNS runtime verification failed. APK build artifacts and the failure report were preserved."
+          echo "Android emulator verification failed. install_upgrade=${{ steps.android_emulator.outputs.install_upgrade || 'not_run' }}, vpn_app_e2e=${{ steps.android_emulator.outputs.vpn_app_e2e || 'not_run' }}, tablet_layout=${{ steps.android_emulator.outputs.tablet_layout || 'not_run' }}. APK artifacts and phase-specific report were preserved."
           exit 1
 
       - name: Publish development APK update release

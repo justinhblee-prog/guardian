@@ -166,7 +166,12 @@ PY
 adb_cmd shell wm size 1500x1600
 sleep 2
 boundary_display="$(adb_cmd shell wm size | tr -d '\r')"
+echo "$boundary_display"
 grep -Fq 'Override size: 1500x1600' <<<"$boundary_display"
+echo "Android Activity/window configuration at nominal 1000dp:"
+adb_cmd shell dumpsys activity activities | grep -E 'mLastReportedConfiguration|screenWidthDp|mOverrideConfig|mCurrentConfig' | tail -20 || true
+echo "Guardian responsive width diagnostics:"
+adb_cmd logcat -d -s GuardianUI:I | tail -20 || true
 adb_cmd shell uiautomator dump /sdcard/guardian-settings-1000dp.xml >/dev/null 2>&1
 boundary_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-1000dp.xml | tr -d '\r')"
 python3 - "$boundary_xml" <<'PY'
@@ -189,8 +194,9 @@ if missing:
     raise SystemExit("Settings categories missing at 1000dp: " + ", ".join(missing))
 left = [centers[label][0] for label in expected[:3]]
 right = [centers[label][0] for label in expected[3:]]
+print("Nominal 1000dp Settings category centers:", centers)
+print("Observed column center spread:", min(right) - max(left))
 if max(left) >= min(right) or min(right) - max(left) < 200:
-    raise SystemExit("Settings did not switch to two columns at exactly 1000dp.")
-print("PASS: Settings switches to two columns at exactly 1000dp.")
-print("1000dp category centers:", centers)
+    raise SystemExit("Settings did not switch to two columns at nominal 1000dp; inspect the logged app screenWidthDp before changing the responsive policy.")
+print("PASS: Settings switches to two columns at the nominal 1000dp display size.")
 PY

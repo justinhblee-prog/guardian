@@ -1468,7 +1468,9 @@ class MainActivity : Activity() {
             Triple("고객 지원", "도움말, 문의 등록 및 문의 조회", "settings-support"),
             Triple("정보", "앱 버전, 개발사 및 개인정보 안내", "settings-about")
         )
-        val useTwoColumns = ResponsiveLayoutPolicy.usesTwoColumnSettings(resources.configuration.screenWidthDp)
+        val settingsWidthDp = resources.configuration.screenWidthDp
+        val useTwoColumns = ResponsiveLayoutPolicy.usesTwoColumnSettings(settingsWidthDp)
+        android.util.Log.i("GuardianUI", "Settings responsive widthDp=$settingsWidthDp twoColumns=$useTwoColumns")
         val destinations = if (useTwoColumns) {
             val columns = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
