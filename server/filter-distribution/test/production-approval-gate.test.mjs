@@ -83,3 +83,46 @@ test('production approval gate rejects ambiguous or malformed approval reference
     );
   }
 });
+
+
+test('production approval gate requires HTTPS upstream URLs without credentials or fragments', () => {
+  for (const url of [
+    'http://filters.example/filter.txt',
+    'file:///etc/passwd',
+    'https://user:password@filters.example/filter.txt',
+    'https://filters.example/filter.txt#fragment',
+    'not a url'
+  ]) {
+    assert.throws(
+      () => verifyProductionRedistributionApprovals({
+        sources: [{
+          id: 'unsafe_url',
+          url,
+          minimumRules: 1,
+          licenseId: 'MIT',
+          redistributionApproved: true,
+          redistributionApprovalRef: 'LEGAL-URL-1'
+        }]
+      }),
+      /source url/
+    );
+  }
+});
+
+test('production approval gate requires a positive integer minimum rule count', () => {
+  for (const minimumRules of [0, -1, 1.5, '100', Number.MAX_SAFE_INTEGER + 1, null]) {
+    assert.throws(
+      () => verifyProductionRedistributionApprovals({
+        sources: [{
+          id: 'invalid_threshold',
+          url: 'https://filters.example/filter.txt',
+          minimumRules,
+          licenseId: 'MIT',
+          redistributionApproved: true,
+          redistributionApprovalRef: 'LEGAL-RULES-1'
+        }]
+      }),
+      /minimumRules/
+    );
+  }
+});
