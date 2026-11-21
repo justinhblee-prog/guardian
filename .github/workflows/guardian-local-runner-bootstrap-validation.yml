@@ -55,7 +55,7 @@ jobs:
           foreach ($item in $required) {
             if (-not $script.Contains($item)) { throw "Missing required safety feature: $item" }
           }
-          if ($script -match '(?i)--runasservice|LocalSystem') {
+          if ($script -match '(?i)--runasservice|svc\.cmd\s+install') {
             throw 'Runner must stay in the current interactive user session.'
           }
           if ($script -match '(?i)ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}') {
