@@ -274,10 +274,15 @@ if not any(node.attrib.get("class")=="android.widget.EditText"
     and node.attrib.get("focused")=="true"
     for node in root.iter("node")):
     raise SystemExit("Premium CTA did not focus the PRO license activation input.")' <<<"$premium_license_xml"
+# The license editor is a dedicated Premium subpage. Hide the soft keyboard,
+# then use its explicit back-to-Premium control so the test validates the same
+# navigation path a user sees.
 adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
+tap_text "‹ 프리미엄으로 돌아가기"
+sleep 1
 
-# Back returns directly to the Premium detail screen inside Settings. Verify
-# that screen before scrolling to the feature cards; there is no Premium bottom tab.
+# Verify return to the Premium detail screen before scrolling to feature cards.
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_return_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 grep -Fq 'Guardian Premium' <<<"$premium_return_xml" || {
