@@ -136,7 +136,28 @@ $principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interact
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Guardian repository-scoped Windows runner for local Ollama tasks.' -Force | Out-Null
 
-if (-not $NoAutoStart) { Start-ScheduledTask -TaskName $taskName }
+if (-not $NoAutoStart) {
+    Start-ScheduledTask -TaskName $taskName
+    $runnerOnline = $false
+    $runnerStatusQuery = '.runners[] | select(.name == "' + $RunnerName + '") | .status'
+    for ($attempt = 1; $attempt -le 12; $attempt++) {
+        try {
+            $status = Invoke-GhText -Arguments @('api', "repos/$Repository/actions/runners", '--jq', $runnerStatusQuery)
+            if ($status -eq 'online') {
+                $runnerOnline = $true
+                break
+            }
+        } catch {
+            Write-Verbose "Runner status check attempt $attempt did not return a status."
+        }
+        Start-Sleep -Seconds 5
+    }
+    if ($runnerOnline) {
+        Write-Host 'GitHub reports this Guardian runner as Online.'
+    } else {
+        Write-Warning 'Runner is registered, but GitHub has not reported it Online within 60 seconds. Check Ollama, the scheduled task and GitHub Settings > Actions > Runners.'
+    }
+}
 
 Write-Host ''
 Write-Host 'Guardian local runner 설정이 완료되었습니다.'
