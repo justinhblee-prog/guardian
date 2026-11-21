@@ -1556,7 +1556,7 @@ class MainActivity : Activity() {
                             "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '업데이트 설치'를 다시 누르세요."
                         }
                     } catch (error: Exception) {
-                        updateStatus.text = error.message ?: "설치 화면을 열지 못했습니다."
+                        updateStatus.text = "설치 화면을 열지 못했습니다: ${SafeFailureSummary.describe(error)}"
                     }
                 }
             }
@@ -3232,7 +3232,7 @@ class MainActivity : Activity() {
                         )
                     }.onFailure { error ->
                         apps = emptyList()
-                        inventoryMessage = "설치 앱 조회 실패: ${error.message ?: error.javaClass.simpleName}"
+                        inventoryMessage = "설치 앱 조회 실패: ${SafeFailureSummary.describe(error)}"
                         inventorySummary.text = inventoryMessage
                         android.util.Log.e("GuardianApps", "Could not load app exclusion inventory", error)
                     }
