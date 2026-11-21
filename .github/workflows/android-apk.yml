@@ -275,7 +275,8 @@ jobs:
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
           # Guardian AdBlock ${GUARDIAN_VERSION_NAME} — 빌드 및 소스 패키지 검증 결과
 
-          - 저장소 커밋: ${GITHUB_SHA}
+          - 빌드 소스 커밋: ${GITHUB_SHA}
+          - PR head 커밋: ${{ github.event.pull_request.head.sha || github.sha }}
           - GitHub Actions 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
           - versionCode: ${GUARDIAN_VERSION_CODE}
@@ -456,7 +457,7 @@ jobs:
           test -s "$ANDROID_AVD_HOME/$AVD_NAME.avd/config.ini"
           "$EMULATOR_BIN" -list-avds | grep -Fx "$AVD_NAME"
           adb start-server
-          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -netfast -dns-server 8.8.8.8,1.1.1.1 > "$AVD_LOG" 2>&1 &
+          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -netfast > "$AVD_LOG" 2>&1 &
           EMULATOR_PID=$!
           echo "Started emulator PID=$EMULATOR_PID, log=$AVD_LOG"
           ready=0
@@ -558,7 +559,8 @@ jobs:
           cat > release/FINAL_VERIFICATION_KO.md <<EOF
           # Guardian AdBlock ${GUARDIAN_VERSION_NAME} — 최종 검증 상태
 
-          - 커밋: ${GITHUB_SHA}
+          - 빌드 소스 커밋: ${GITHUB_SHA}
+          - PR head 커밋: ${{ github.event.pull_request.head.sha || github.sha }}
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
           - 버전: ${GUARDIAN_VERSION_NAME} (${GUARDIAN_VERSION_CODE})
