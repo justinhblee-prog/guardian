@@ -2355,7 +2355,7 @@ class MainActivity : Activity() {
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    selfTestText?.text = "실패 · ${e.message ?: e.javaClass.simpleName}"
+                    selfTestText?.text = "실패 · ${FilterUpdateErrorPolicy.codeFor(e)}"
                     selfTestText?.setTextColor(red)
                 }
             }
@@ -3272,9 +3272,9 @@ class MainActivity : Activity() {
         return listOfNotNull(
             summary,
             signedManifestStatus,
-            lastError?.takeIf { it.isNotBlank() }?.let { "광고 필터 업데이트 실패(이전 목록 유지): $it" },
-            securityError?.takeIf { it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): $it" },
-            androidAdsError?.takeIf { it.isNotBlank() }?.let { "Android 앱 광고 필터 업데이트 실패(이전 목록 유지): $it" }
+            lastError?.takeIf { it.isNotBlank() }?.let { "광고 필터 업데이트 실패(이전 목록 유지): ${FilterUpdateErrorPolicy.displayMessage(it)}" },
+            securityError?.takeIf { it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): ${FilterUpdateErrorPolicy.displayMessage(it)}" },
+            androidAdsError?.takeIf { it.isNotBlank() }?.let { "Android 앱 광고 필터 업데이트 실패(이전 목록 유지): ${FilterUpdateErrorPolicy.displayMessage(it)}" }
         ).joinToString(" · ")
     }
 
@@ -3320,10 +3320,10 @@ class MainActivity : Activity() {
                             prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("Guardian", "Security filter download failed", e)
+                        android.util.Log.e("Guardian", "Security filter download failed: ${FilterUpdateErrorPolicy.codeFor(e)}")
                         val editor = prefs.edit().putString(
                             FilterListManager.KEY_SECURITY_LAST_ERROR,
-                            e.message ?: e.javaClass.simpleName
+                            FilterUpdateErrorPolicy.codeFor(e)
                         )
                         if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityWasEnabled, securityWasCached)) {
                             editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
@@ -3338,10 +3338,10 @@ class MainActivity : Activity() {
                             prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("Guardian", "Android ads filter download failed", e)
+                        android.util.Log.e("Guardian", "Android ads filter download failed: ${FilterUpdateErrorPolicy.codeFor(e)}")
                         prefs.edit().putString(
                             FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
-                            e.message ?: e.javaClass.simpleName
+                            FilterUpdateErrorPolicy.codeFor(e)
                         ).apply()
                         if (!androidAdsWasCached) prefs.edit()
                             .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
@@ -3391,17 +3391,17 @@ class MainActivity : Activity() {
                     androidAdsFilterCheckBox?.isEnabled = true
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Guardian", "Base filter update failed", e)
+                android.util.Log.e("Guardian", "Base filter update failed: ${FilterUpdateErrorPolicy.codeFor(e)}")
                 filterUpdateRunning.set(false)
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
-                    .putString(FilterListManager.KEY_LAST_ERROR, e.message ?: e.javaClass.simpleName).apply()
+                    .putString(FilterListManager.KEY_LAST_ERROR, FilterUpdateErrorPolicy.codeFor(e)).apply()
                 runOnUiThread {
                     val cacheMessage = if (hadPreviousMainCache) {
                         "이전 정상 필터를 계속 사용합니다."
                     } else {
                         "앱 내 기본 DNS 규칙으로 보호를 시작할 수 있지만, 추가 광고·추적 필터는 다운로드 후 적용됩니다."
                     }
-                    setFilterUpdateStatus("업데이트 실패: ${e.message ?: e.javaClass.simpleName} · $cacheMessage")
+                    setFilterUpdateStatus("업데이트 실패: ${FilterUpdateErrorPolicy.codeFor(e)} · $cacheMessage")
                     filterUpdateButton?.text = "다시 시도"
                     filterUpdateButton?.isEnabled = true
                     homeFilterUpdateButton?.text = "다시 시도"
