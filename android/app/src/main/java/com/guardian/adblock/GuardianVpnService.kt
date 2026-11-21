@@ -391,6 +391,14 @@ class GuardianVpnService : VpnService() {
      */
     private fun reconfigureExcludedApplications(startId: Int) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        android.util.Log.i(
+            "GuardianProtection",
+            "Exclusion reconfigure requested: startId=" + startId +
+                " requested=" + prefs.getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty().size +
+                " restore=" + prefs.getBoolean(KEY_RESTORE_REQUESTED, false) +
+                " active=" + prefs.getBoolean(KEY_ACTIVE, false) +
+                " tunnel=" + tunnelActive
+        )
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) {
             publishState(false, "앱별 보호 제외 설정을 저장했습니다. 보호를 다시 시작하면 적용됩니다.")
             return
@@ -417,11 +425,17 @@ class GuardianVpnService : VpnService() {
             return
         }
         if (packetWorker?.isAlive == true) {
+            android.util.Log.e("GuardianProtection", "Exclusion reconfigure aborted: old DNS worker did not exit within 5 seconds")
             publishState(false, "이전 VPN 패킷 처리가 종료되지 않아 제외 설정을 재적용하지 못했습니다. 보호 상태를 확인해 주세요.")
             return
         }
         prefs.edit().putBoolean(KEY_ACTIVE, false).commit()
         val generation = startCancellation.onStartRequested()
+        android.util.Log.i(
+            "GuardianProtection",
+            "Exclusion reconfigure restarting VPN: generation=" + generation +
+                " requested=" + prefs.getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty().sorted()
+        )
         startProtection(generation, startId)
     }
 
@@ -499,6 +513,7 @@ class GuardianVpnService : VpnService() {
         try {
             // Parsing a large downloaded filter list must not block the service main thread.
             loadConfiguredRules()
+            android.util.Log.i("GuardianProtection", "VPN rules load completed for generation=" + requestGeneration)
         } catch (e: Exception) {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(e)).apply()
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
@@ -521,7 +536,16 @@ class GuardianVpnService : VpnService() {
         // unreachable, leaving the device's normal network untouched is safer
         // than activating a tunnel that makes every website appear offline.
         val preflightQuery = DnsUpstreamProbe.query()
+        val preflightStartedAt = System.nanoTime()
+        android.util.Log.i("GuardianProtection", "VPN upstream preflight started: generation=" + requestGeneration)
         val preflightResponse = forwardDns(preflightQuery, requireSuccessfulResolution = true)
+        android.util.Log.i(
+            "GuardianProtection",
+            "VPN upstream preflight finished: generation=" + requestGeneration +
+                " success=" + DnsUpstreamProbe.isSuccessfulResolution(preflightQuery, preflightResponse) +
+                " elapsedMs=" + ((System.nanoTime() - preflightStartedAt) / 1_000_000L) +
+                " failure=" + (lastUpstreamFailure ?: "none")
+        )
         if (!startCancellation.isCurrent(requestGeneration)) {
             val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
                 .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
@@ -571,6 +595,10 @@ class GuardianVpnService : VpnService() {
                 if (!resolverAlreadyRouted) builder.addRoute(selectedResolver, selectedResolverPrefix)
             }
             val requestedExclusions = prefs.getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty()
+            android.util.Log.i(
+                "GuardianProtection",
+                "Building VPN with " + requestedExclusions.size + " requested app exclusions: " + requestedExclusions.sorted()
+            )
             val appliedExclusions = linkedSetOf<String>()
             val staleExclusions = linkedSetOf<String>()
             requestedExclusions.sorted().forEach { excludedPackage ->
@@ -605,6 +633,11 @@ class GuardianVpnService : VpnService() {
             }
             val established = builder.setBlocking(true).establish()
             if (established != null) {
+                android.util.Log.i(
+                    "GuardianProtection",
+                    "VPN TUN established with " + appliedExclusions.size + "/" + requestedExclusions.size +
+                        " app exclusions; rejected=" + staleExclusions.sorted()
+                )
                 prefs.edit()
                     .putStringSet(KEY_EXCLUDED_APPS_APPLIED, appliedExclusions)
                     .putStringSet(KEY_EXCLUDED_APPS_ERROR, staleExclusions)
