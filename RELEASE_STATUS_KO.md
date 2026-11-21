@@ -554,3 +554,12 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Signed filter distribution 및 CI [run 44893626225](https://github.com/justinhblee-prog/guardian/actions/runs/44893626225), [run 44893626235](https://github.com/justinhblee-prog/guardian/actions/runs/44893626235) 성공. License API CI [run 44893767261](https://github.com/justinhblee-prog/guardian/actions/runs/44893767261) 성공.
 - Production release validation [run 44893767289](https://github.com/justinhblee-prog/guardian/actions/runs/44893767289) 성공: 설정·보안 게이트, 임시 키 기반 Direct APK/AAB 빌드 및 source archive 검증 통과. 운영 release keystore/secrets가 없어서 실제 production signing job은 skipped이며 정식 배포 파일은 생성되지 않았습니다.
 - 남은 정식 1.0 차단 조건: 운영 RSA/Android keystore 생성 및 안전한 등록, License API/PostgreSQL/TLS 실제 배포, 필터 7종의 재배포 승인 증빙, Android/Windows 실운영 라이선스 E2E, 스마트폰·태블릿 및 Windows PC 실기기 수용 테스트, production 서명본 생성·설치 검증.
+
+
+### 2026-11-21 통합 버전 수정 검증 완료
+
+- Engineering Orchestrator [run 44894398239](https://github.com/justinhblee-prog/guardian/actions/runs/44894398239): **success**. Android unit tests, lint, APK assemble, backend/API/Compose tests, repository integrity 및 최종 fail-closed decision 모두 통과.
+- APK metadata: package `com.guardian.adblock`, versionName `0.7.41-dev`, versionCode `54`; source commit `fd97b1bedb0a8cefd7917c8bd3d26c0379ca9aa1`.
+- APK: 3,213,347 bytes, SHA-256 `510ef2a0cdef626e8d393f284483b1d6ecec06512820c8e263afb2a46f7ec685`. Artifact ID `14703292854` (`orchestrator-android-evidence`).
+- 이 0.7.41-dev artifact는 통합 빌드의 버전 정합성·단위 테스트·lint·패키징 확인용 Debug 서명본입니다. 이 run에는 Android emulator VPN/DNS E2E가 포함되지 않으며, 0.7.40-dev에서 별도로 성공한 emulator E2E를 새 0.7.41-dev 빌드의 실기기/에뮬레이터 수용 테스트로 간주하지 않습니다.
+- 직전 0.7.34-dev artifact는 versionCode rollback 위험 때문에 최신 업데이트 패키지로 사용하지 않습니다.
