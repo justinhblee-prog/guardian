@@ -14,6 +14,8 @@ on:
       - 'VERIFY_ANDROID_CORE.sh'
       - 'android/core-checks/**'
       - 'scripts/verify_apk_metadata.py'
+      - 'scripts/resolve_guardian_dev_version.py'
+      - 'scripts/test_resolve_guardian_dev_version.py'
       - 'scripts/verify_android_emulator.sh'
       - 'scripts/verify_android_vpn_emulator.sh'
       - 'scripts/verify_guardian_crash_log.py'
@@ -29,8 +31,8 @@ on:
 # an older run for that same PR; unrelated PRs never cancel one another.
 # Main commits likewise supersede stale main runs.
 concurrency:
-  group: guardian-android-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.ref == 'refs/heads/main' && 'guardian-android-dev-release' || format('guardian-android-{0}', github.event.pull_request.number || github.ref) }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: write
@@ -52,24 +54,35 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Calculate monotonic development release version
+      - name: Resolve the next published development version
         id: dev_version
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Use this workflow's repository-wide monotonic run number, not the
-          # branch-local commit count. Parallel PR branches otherwise regress.
-          VERSION_CODE=$((1000000 + GITHUB_RUN_NUMBER))
-          VERSION_NAME="0.8.${GITHUB_RUN_NUMBER}-dev"
-          if (( VERSION_CODE <= 1000000 || VERSION_CODE >= 2000000 )); then
-            echo "Calculated development versionCode is outside the supported range."
-            exit 1
+          mkdir -p release
+          if [[ "$GITHUB_REF" == "refs/heads/main" && ( "$GITHUB_EVENT_NAME" == "push" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ) ]]; then
+            gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
+            python3 scripts/resolve_guardian_dev_version.py \
+              --releases-json release/guardian-releases.json \
+              --commit "$GITHUB_SHA" \
+              --baseline-version "0.7.34-dev" \
+              --baseline-code 47 \
+              --github-env "$GITHUB_ENV" \
+              --github-output "$GITHUB_OUTPUT"
+          else
+            {
+              echo "GUARDIAN_VERSION_NAME=0.7.34-dev"
+              echo "GUARDIAN_VERSION_CODE=47"
+              echo "GUARDIAN_RELEASE_TAG="
+            } >> "$GITHUB_ENV"
+            {
+              echo "version_name=0.7.34-dev"
+              echo "version_code=47"
+            } >> "$GITHUB_OUTPUT"
           fi
-          echo "GUARDIAN_VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
-          echo "GUARDIAN_VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
-          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
-          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
-          echo "Development release version: ${VERSION_NAME} (${VERSION_CODE})"
+          echo "Version resolution completed."
 
       - name: Verify shared DNS filter rules
         run: test -s shared/filter_rules.txt
@@ -575,7 +588,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="guardian-dev-v${GUARDIAN_VERSION_CODE}"
+          TAG="$GUARDIAN_RELEASE_TAG"
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           MANIFEST="release/guardian-android-dev.json"
           cp "$APK" "release/guardian-android-dev.apk"
