@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "description": "Guardian Android-first implementation tracks. Each ready task has disjoint exact file scope and a code-owned fixed test profile.",
+  "max_parallel_tasks": 3,
+  "tasks": [
+    {
+      "id": "android-diagnostic-trace",
+      "title": "Reproduce Library file not found only if it recurs",
+      "priority": 10,
+      "status": "blocked",
+      "dependencies": [],
+      "scope": "The user confirmed on 2026-11-21 that Library file not found has not recurred. Repository inspection and APK packaging checks already confirm shared/filter_rules.txt is packaged; PR #231 addresses bounded startup diagnostics. Do not repeat static investigation or make speculative changes. Resume only if a new physical-device occurrence is reproduced with a contemporaneous sanitized diagnostic bundle. Then trace MainActivity.requestProtection through GuardianVpnService and the exact APK asset/native-library lookup; change only defects supported by that evidence. Never mark a physical-device failure resolved without its diagnostic bundle.",
+      "allowed_files": [
+        "android/app/src/main/java/com/guardian/adblock/MainActivity.kt",
+        "android/app/src/main/java/com/guardian/adblock/GuardianVpnService.kt",
+        "android/app/src/main/java/com/guardian/adblock/ProtectionDiagnostics.kt",
+        "android/app/src/test/java/com/guardian/adblock/ProtectionDiagnosticsTest.kt"
+      ],
+      "test_profile": "android-unit-lint",
+      "acceptance_criteria": [
+        "Do not perform duplicate static investigation while the failure is not recurring.",
+        "If a new occurrence is captured, identify the exact failing asset/native-library/runtime operation from its diagnostic bundle.",
+        "Private messages, paths, URLs and credentials never enter the support report.",
+        "Regression tests cover any evidence-based changed behavior.",
+        "No physical-device issue is marked resolved without a device diagnostic bundle."
+      ]
+    },
+    {
+      "id": "filter-redistribution-gate",
+      "title": "Harden the filter redistribution approval gate",
+      "priority": 20,
+      "status": "blocked",
+      "dependencies": [],
+      "scope": "Equivalent strict approval-reference validation and regression coverage already exist in Draft PR #232 (branch fix/guardian-filter-approval-reference-format). Do not create duplicate changes or a competing PR. Resume only after PR #232 is integrated and a distinct remaining gap is identified; then verify the integrated implementation rather than duplicating it. No upstream filter source is approved by this task.",
+      "allowed_files": [
+        "server/filter-distribution/scripts/verify-production-approvals.mjs",
+        "server/filter-distribution/test/production-approval-gate.test.mjs"
+      ],
+      "test_profile": "filter-node",
+      "acceptance_criteria": [
+        "An empty source list, missing license identifier, duplicate source ID or missing approval reference remains blocked.",
+        "Only explicitly approved and traceably referenced records can pass the contract test.",
+        "Example upstream filter sources remain unapproved; no live source approval is fabricated.",
+        "All filter-distribution Node tests pass."
+      ]
+    },
+    {
+      "id": "release-signing-contract",
+      "title": "Strengthen Android production signing and distribution policy",
+      "priority": 30,
+      "status": "blocked",
+      "dependencies": [],
+      "scope": "Equivalent production signing validation, including actual JKS/PKCS12 keystore loading, alias/private-key/certificate checks and HTTPS/RSA service validation, is already implemented in Draft PR #233 (branch hardening/release-keystore-entry-validation). Do not create a duplicate or competing change. Resume only after PR #233 is integrated and a distinct remaining gap is identified. Never add production secrets or fabricated endpoints.",
+      "allowed_files": [
+        "android/app/build.gradle.kts",
+        "android/app/src/test/java/com/guardian/adblock/DistributionBuildTypePolicyTest.kt"
+      ],
+      "test_profile": "android-unit-lint",
+      "acceptance_criteria": [
+        "Release and direct-install variants remain blocked without the real production keystore and required HTTPS service configuration.",
+        "Google Play and direct-install permission/updater boundaries remain distinct.",
+        "No secret, private key, keystore or fabricated production endpoint is added.",
+        "Android unit tests and lint pass."
+      ]
+    }
+  ]
+}
