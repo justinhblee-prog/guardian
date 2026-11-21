@@ -11,7 +11,7 @@ if (-not (Test-Path -LiteralPath $worker -PathType Leaf)) {
     throw "Guardian local Ollama multi-flow worker is missing: $worker"
 }
 Write-Host 'Legacy worker entry point redirected to local Ollama multi-flow; no Copilot fallback.'
-& $worker -MaxTasks 1
+& $worker -MaxTasks 3
 if ($LASTEXITCODE -ne 0) {
     throw "Guardian local Ollama multi-flow failed with exit code $LASTEXITCODE."
 }
