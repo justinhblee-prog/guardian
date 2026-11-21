@@ -208,9 +208,9 @@ class MainActivity : Activity() {
         // initial filter download request.
         thread(name = "guardian-background-scheduler-sync") {
             runCatching { LicenseRefreshScheduler.sync(applicationContext) }
-                .onFailure { android.util.Log.e("Guardian", "License refresh scheduling failed", it) }
+                .onFailure { android.util.Log.e("Guardian", "License refresh scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
             runCatching { FilterUpdateScheduler.sync(applicationContext) }
-                .onFailure { android.util.Log.e("Guardian", "Filter refresh scheduling failed", it) }
+                .onFailure { android.util.Log.e("Guardian", "Filter refresh scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
         }
     }
 
@@ -271,7 +271,7 @@ class MainActivity : Activity() {
                 }
             } catch (error: Exception) {
                 startupFilterCheckStarted.set(false)
-                android.util.Log.e("Guardian", "Startup filter readiness check failed", error)
+                android.util.Log.e("Guardian", "Startup filter readiness check failed: ${SafeFailureSummary.codeFor(error)}")
             }
         }
     }
@@ -381,7 +381,7 @@ class MainActivity : Activity() {
                 startService(service)
             }
         } catch (error: Exception) {
-            android.util.Log.e("GuardianProtection", "UI fallback could not restart protection after update", error)
+            android.util.Log.e("GuardianProtection", "UI fallback could not restart protection after update: ${SafeFailureSummary.codeFor(error)}")
             prefs.edit()
                 .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
                 .putString(GuardianVpnService.KEY_STATUS, "업데이트 후 VPN 자동 복구 요청에 실패했습니다. 다시 시도합니다.")
@@ -2355,7 +2355,7 @@ class MainActivity : Activity() {
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    selfTestText?.text = "실패 · ${e.message ?: e.javaClass.simpleName}"
+                    selfTestText?.text = "실패 · ${SafeFailureSummary.codeFor(e)}"
                     selfTestText?.setTextColor(red)
                 }
             }
@@ -2891,7 +2891,7 @@ class MainActivity : Activity() {
                         apps = emptyList()
                         inventoryMessage = "설치 앱 조회 실패: ${SafeFailureSummary.describe(error)}"
                         inventorySummary.text = inventoryMessage
-                        android.util.Log.e("GuardianApps", "Could not load compatibility app inventory", error)
+                        android.util.Log.e("GuardianApps", "Could not load compatibility app inventory: ${SafeFailureSummary.codeFor(error)}")
                     }
                     retryButton.text = if (apps.isEmpty()) "다시 조회" else "목록 새로고침"
                     retryButton.isEnabled = true
@@ -3234,7 +3234,7 @@ class MainActivity : Activity() {
                         apps = emptyList()
                         inventoryMessage = "설치 앱 조회 실패: ${SafeFailureSummary.describe(error)}"
                         inventorySummary.text = inventoryMessage
-                        android.util.Log.e("GuardianApps", "Could not load app exclusion inventory", error)
+                        android.util.Log.e("GuardianApps", "Could not load app exclusion inventory: ${SafeFailureSummary.codeFor(error)}")
                     }
                     inventoryRetryButton.text = if (apps.isEmpty()) "다시 조회" else "목록 새로고침"
                     inventoryRetryButton.isEnabled = true
@@ -3320,10 +3320,10 @@ class MainActivity : Activity() {
                             prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("Guardian", "Security filter download failed", e)
+                        android.util.Log.e("Guardian", "Security filter download failed: ${SafeFailureSummary.codeFor(e)}")
                         val editor = prefs.edit().putString(
                             FilterListManager.KEY_SECURITY_LAST_ERROR,
-                            e.message ?: e.javaClass.simpleName
+                            SafeFailureSummary.codeFor(e)
                         )
                         if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityWasEnabled, securityWasCached)) {
                             editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
@@ -3338,10 +3338,10 @@ class MainActivity : Activity() {
                             prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("Guardian", "Android ads filter download failed", e)
+                        android.util.Log.e("Guardian", "Android ads filter download failed: ${SafeFailureSummary.codeFor(e)}")
                         prefs.edit().putString(
                             FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
-                            e.message ?: e.javaClass.simpleName
+                            SafeFailureSummary.codeFor(e)
                         ).apply()
                         if (!androidAdsWasCached) prefs.edit()
                             .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
@@ -3391,17 +3391,17 @@ class MainActivity : Activity() {
                     androidAdsFilterCheckBox?.isEnabled = true
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Guardian", "Base filter update failed", e)
+                android.util.Log.e("Guardian", "Base filter update failed: ${SafeFailureSummary.codeFor(e)}")
                 filterUpdateRunning.set(false)
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
-                    .putString(FilterListManager.KEY_LAST_ERROR, e.message ?: e.javaClass.simpleName).apply()
+                    .putString(FilterListManager.KEY_LAST_ERROR, SafeFailureSummary.codeFor(e)).apply()
                 runOnUiThread {
                     val cacheMessage = if (hadPreviousMainCache) {
                         "이전 정상 필터를 계속 사용합니다."
                     } else {
                         "앱 내 기본 DNS 규칙으로 보호를 시작할 수 있지만, 추가 광고·추적 필터는 다운로드 후 적용됩니다."
                     }
-                    setFilterUpdateStatus("업데이트 실패: ${e.message ?: e.javaClass.simpleName} · $cacheMessage")
+                    setFilterUpdateStatus("업데이트 실패: ${SafeFailureSummary.describe(e)} · $cacheMessage")
                     filterUpdateButton?.text = "다시 시도"
                     filterUpdateButton?.isEnabled = true
                     homeFilterUpdateButton?.text = "다시 시도"
@@ -3429,7 +3429,7 @@ class MainActivity : Activity() {
                         .setAction(GuardianVpnService.ACTION_STOP)
                 )
             } catch (error: Exception) {
-                android.util.Log.e("GuardianProtection", "Could not stop protection from the home toggle", error)
+                android.util.Log.e("GuardianProtection", "Could not stop protection from the home toggle: ${SafeFailureSummary.codeFor(error)}")
                 status.text = "보호 중지 요청 실패: ${SafeFailureSummary.describe(error)}"
             }
             return
@@ -3480,11 +3480,11 @@ class MainActivity : Activity() {
                 )
                 baselineReady to if (baselineReady) notice else "앱 내 기본 DNS 규칙이 비어 있어 보호를 시작할 수 없습니다."
             } catch (error: Exception) {
-                android.util.Log.e("GuardianProtection", "Bundled filter asset could not be loaded", error)
+                android.util.Log.e("GuardianProtection", "Bundled filter asset could not be loaded: ${SafeFailureSummary.codeFor(error)}")
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
                 false to "앱 내 기본 필터 라이브러리를 읽지 못했습니다. 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
             } catch (error: LinkageError) {
-                android.util.Log.e("GuardianProtection", "Bundled filter component could not be loaded", error)
+                android.util.Log.e("GuardianProtection", "Bundled filter component could not be loaded: ${SafeFailureSummary.codeFor(error)}")
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
                 false to "필터 구성요소를 불러오지 못했습니다. 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
             }
@@ -3535,7 +3535,7 @@ class MainActivity : Activity() {
     }
 
     private fun reportProtectionStartRequestFailure(error: Throwable) {
-        android.util.Log.e("GuardianProtection", "Could not dispatch GuardianVpnService start request", error)
+        android.util.Log.e("GuardianProtection", "Could not dispatch GuardianVpnService start request: ${SafeFailureSummary.codeFor(error)}")
         val message = "보호 시작 중 예기치 않은 오류가 발생했습니다 " +
             "(${ProtectionDiagnostics.exceptionTypeChain(error)}): " +
             SafeFailureSummary.describe(error)
