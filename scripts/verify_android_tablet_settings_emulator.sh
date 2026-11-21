@@ -130,8 +130,10 @@ print("Landscape category centers:", centers)
 PY
 
 # Exercise the responsive breakpoint on the same live Settings Activity. A
-# 1498px viewport at 240dpi is 998.7dp and must use one column; 1500px is
-# exactly 1000dp and must switch back to two columns.
+# 1498px viewport at 240dpi is 998.7dp and must use one column. The nominal
+# 1500px/1000dp display reports only 999dp to this Activity because Android's
+# app window excludes a 1dp system inset. Use 1502px so the Activity receives
+# at least 1000dp; keep the product breakpoint itself at exactly 1000dp.
 adb_cmd shell wm size 1498x1600
 sleep 2
 narrow_display="$(adb_cmd shell wm size | tr -d '\r')"
@@ -163,15 +165,21 @@ print("PASS: all five Settings categories use one column at 998.7dp.")
 print("999dp category centers:", centers)
 PY
 
-adb_cmd shell wm size 1500x1600
-sleep 2
+adb_cmd logcat -c
+adb_cmd shell wm size 1502x1600
+sleep 3
 boundary_display="$(adb_cmd shell wm size | tr -d '\r')"
 echo "$boundary_display"
-grep -Fq 'Override size: 1500x1600' <<<"$boundary_display"
-echo "Android Activity/window configuration at nominal 1000dp:"
+grep -Fq 'Override size: 1502x1600' <<<"$boundary_display"
+echo "Android Activity/window configuration at 1001.3dp display / 1000dp minimum app width:"
 adb_cmd shell dumpsys activity activities | grep -E 'mLastReportedConfiguration|screenWidthDp|mOverrideConfig|mCurrentConfig' | tail -20 || true
 echo "Guardian responsive width diagnostics:"
-adb_cmd logcat -d -s GuardianUI:I | tail -20 || true
+responsive_log="$(adb_cmd logcat -d -s GuardianUI:I)"
+echo "$responsive_log"
+grep -Eq 'Settings responsive widthDp=10[0-9][0-9] twoColumns=true' <<<"$responsive_log" || {
+  echo "Guardian Activity did not receive at least 1000dp at the 1502px test size." >&2
+  exit 1
+}
 adb_cmd shell uiautomator dump /sdcard/guardian-settings-1000dp.xml >/dev/null 2>&1
 boundary_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-1000dp.xml | tr -d '\r')"
 python3 - "$boundary_xml" <<'PY'
@@ -197,6 +205,6 @@ right = [centers[label][0] for label in expected[3:]]
 print("Nominal 1000dp Settings category centers:", centers)
 print("Observed column center spread:", min(right) - max(left))
 if max(left) >= min(right) or min(right) - max(left) < 200:
-    raise SystemExit("Settings did not switch to two columns at nominal 1000dp; inspect the logged app screenWidthDp before changing the responsive policy.")
-print("PASS: Settings switches to two columns at the nominal 1000dp display size.")
+    raise SystemExit("Settings did not switch to two columns when the Activity received at least 1000dp.")
+print("PASS: Settings switches to two columns when the Activity receives at least 1000dp.")
 PY
