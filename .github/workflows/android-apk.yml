@@ -306,7 +306,7 @@ jobs:
           assert manifest["packageName"] == "com.guardian.adblock"
           assert manifest["versionCode"] == int("${{ env.GUARDIAN_VERSION_CODE }}")
           assert manifest["versionName"] == "${{ env.GUARDIAN_VERSION_NAME }}"
-          assert re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+-dev", manifest["versionName"])
+          assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-dev", manifest["versionName"])
           assert manifest["sha256"] == hashlib.sha256(apk.read_bytes()).hexdigest()
           assert manifest["signerSha256"] == "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
           print("Development update manifest exactly matches the built APK.")
