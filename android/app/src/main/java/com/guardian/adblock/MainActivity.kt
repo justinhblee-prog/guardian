@@ -1440,7 +1440,7 @@ class MainActivity : Activity() {
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
         if (BuildConfig.DEBUG) {
             val updateStatus = text(
-                "자동 업데이트 확인: 꺼짐 · 현재 개발 버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                "설정 화면 진입 시 주기 확인 · 현재 개발 버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 11f, muted, false
             ).withTop(8) as TextView
             var downloadedUpdate: File? = null
@@ -1471,7 +1471,7 @@ class MainActivity : Activity() {
                 setPadding(dp(15), dp(15), dp(15), dp(15))
                 addView(text("개발 버전 업데이트 (수동)", 15f, white, true))
                 addView(text(
-                    "자동 확인 및 다운로드는 실행하지 않습니다. 아래 버튼을 직접 누른 경우에만 새 APK를 확인하고 다운로드합니다. SHA-256과 서명을 검증한 뒤 설치를 진행합니다.",
+                    "설정 화면을 열 때 정해진 간격으로 업데이트를 확인하며, 아래 버튼으로 언제든 수동 재확인할 수 있습니다. 새 APK는 SHA-256과 서명을 검증한 뒤 설치를 진행합니다.",
                     11f, muted, false
                 ).withTop(5))
                 addView(updateStatus)
@@ -1533,7 +1533,7 @@ class MainActivity : Activity() {
             }.withTop(12))
         } else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED) {
             val updateStatus = text(
-                "현재 정식 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 자동 업데이트 확인 꺼짐",
+                "현재 정식 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 설정 화면 진입 시 주기 확인",
                 11f, muted, false
             ).withTop(8) as TextView
             var downloadedUpdate: File? = null
@@ -1564,7 +1564,7 @@ class MainActivity : Activity() {
                 setPadding(dp(15), dp(15), dp(15), dp(15))
                 addView(text("정식 버전 업데이트 (수동)", 15f, white, true))
                 addView(text(
-                    "자동 확인 및 다운로드는 실행하지 않습니다. 아래 버튼을 직접 누른 경우에만 Guardian 공식 정식 Release를 확인하고 APK를 다운로드합니다. SHA-256, 패키지 ID, 버전 및 설치된 운영 서명 인증서를 검증한 후 Android의 설치 확인 화면을 엽니다.",
+                    "설정 화면을 열 때 정해진 간격으로 Guardian 공식 정식 Release를 확인하며, 아래 버튼으로 언제든 수동 재확인할 수 있습니다. APK의 SHA-256, 패키지 ID, 버전 및 설치된 운영 서명 인증서를 검증한 후 Android의 설치 확인 화면을 엽니다.",
                     11f, muted, false
                 ).withTop(5))
                 addView(updateStatus)
