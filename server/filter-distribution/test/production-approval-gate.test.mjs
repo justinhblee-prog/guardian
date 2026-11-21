@@ -91,6 +91,7 @@ test('production approval gate requires HTTPS upstream URLs without credentials 
     'file:///etc/passwd',
     'https://user:password@filters.example/filter.txt',
     'https://filters.example/filter.txt#fragment',
+    'https://filters.example/filter.txt?token=secret',
     'not a url'
   ]) {
     assert.throws(
