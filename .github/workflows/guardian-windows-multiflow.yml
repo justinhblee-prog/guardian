@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       max_tasks:
-        description: Maximum number of independent tasks (start with 1; raise to 2 or 3 after verification)
+        description: Maximum number of independent isolated tasks to run concurrently
         required: true
         type: choice
         options: ['1', '2', '3']
-        default: '1'
+        default: '3'
       task_id:
         description: Optional exact task ID from .guardian/automation/tasks.json
         required: false
@@ -104,7 +104,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $maxTasks = 1
+          $maxTasks = 3
           if ($env:EVENT_NAME -eq 'workflow_dispatch' -and $env:MAX_TASKS_INPUT) {
             $maxTasks = [int]$env:MAX_TASKS_INPUT
           }
