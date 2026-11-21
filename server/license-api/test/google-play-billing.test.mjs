@@ -56,7 +56,7 @@ test('verifies a subscription through the authenticated Publisher API and return
   assert.equal(result.subscriptionState, 'SUBSCRIPTION_STATE_ACTIVE');
   assert.equal(result.expiryTime, '2026-12-21T12:00:00.000Z');
   assert.equal(result.orderId, 'GPA.1234-5678-9012-34567');
-  assert.match(calls[1].url, /purchaseToken/);
+  assert.ok(calls[1].url.includes(encodeURIComponent('purchase/token+with=special')));
   assert.equal(calls.length, 2);
 });
 
