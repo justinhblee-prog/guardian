@@ -47,40 +47,18 @@ tap_point="$(python3 - "$nav_xml" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 root = ET.fromstring(sys.argv[1])
-nodes = list(root.iter("node"))
-for i, node in enumerate(nodes):
-    if node.attrib.get("text") == "설정" or node.attrib.get("content-desc") == "설정":
-        current = node
-        # Prefer the clickable navigation parent, not its label child.
-        if node.attrib.get("clickable") == "true":
-            bounds = node.attrib.get("bounds", "")
-        else:
-            bounds = ""
-        if not bounds:
-            # UIAutomator XML preserves nesting, so find the nearest clickable
-            # ancestor by walking the tree recursively.
-            def walk(parent):
-                for child in list(parent):
-                    if child is node:
-                        return parent
-                    found = walk(child)
-                    if found is not None:
-                        return found
-                return None
-            parent = walk(root)
-            while parent is not None:
-                if parent.attrib.get("clickable") == "true":
-                    bounds = parent.attrib.get("bounds", "")
-                    break
-                parent = next((p for p in root.iter() if parent in list(p)), None)
-        if bounds:
-            import re
-            m = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
-            if m:
-                x1,y1,x2,y2 = map(int,m.groups())
-                print(f"{(x1+x2)//2} {(y1+y2)//2}")
-                raise SystemExit(0)
-raise SystemExit("Could not locate the clickable Settings navigation item.")
+for node in root.iter("node"):
+    if (node.attrib.get("content-desc") == "설정"
+        and node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("clickable") == "true"
+        and node.attrib.get("enabled") == "true"):
+        parts = node.attrib.get("bounds", "").strip("[]").split("][")
+        if len(parts) == 2:
+            x1, y1 = map(int, parts[0].split(","))
+            x2, y2 = map(int, parts[1].split(","))
+            print((x1+x2)//2, (y1+y2)//2)
+            raise SystemExit(0)
+raise SystemExit("Could not locate visible clickable Settings navigation item.")
 PY
 )"
 read -r nav_x nav_y <<<"$tap_point"
