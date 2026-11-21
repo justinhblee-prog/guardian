@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DEVELOPMENT_VERSION_CODE="$((47 + $(git rev-list --count HEAD)))"
+          DEVELOPMENT_VERSION_CODE="$((1000000 + $(git rev-list --count HEAD)))"
           DEFAULT_PRODUCTION_VERSION_CODE="$(grep -oE '\$VersionCode=[0-9]+' server/license-api/windows/Prepare-GuardianProductionRelease.ps1 | grep -oE '[0-9]+')"
           test -n "$DEVELOPMENT_VERSION_CODE"
           test "$DEFAULT_PRODUCTION_VERSION_CODE" = "0"
