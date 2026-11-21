@@ -186,15 +186,18 @@ function Invoke-Agent {
         }
     }
     Invoke-Git $Repo @('worktree', 'prune') -AllowFailure | Out-Null
-    $copilotWorker = Join-Path $PSScriptRoot 'guardian-copilot-worker.ps1'
-    if (Test-Path -LiteralPath $copilotWorker) {
+    $multiFlowWorker = Join-Path $PSScriptRoot 'guardian-multiflow.ps1'
+    if (Test-Path -LiteralPath $multiFlowWorker) {
         try {
-            & $copilotWorker -RepoRoot $Repo -LogRoot $LogRoot
+            & $multiFlowWorker -MaxTasks 3
+            if ($LASTEXITCODE -ne 0) {
+                Write-Log "Local Ollama multi-flow worker returned exit code $LASTEXITCODE; no remote AI fallback was attempted."
+            }
         } catch {
-            Write-Log "Copilot implementation worker failed safely: $($_.Exception.Message)"
+            Write-Log "Local Ollama multi-flow worker stopped safely: $($_.Exception.Message)"
         }
     } else {
-        Write-Log 'Copilot implementation worker is not present in this checkout; PR maintenance remains active.'
+        Write-Log 'Guardian local Ollama multi-flow worker is not present; PR maintenance remains active.'
     }
     Write-Log 'Automation cycle finished. See log for updated, skipped, and blocked PRs.'
 }

@@ -8,6 +8,12 @@ on:
     paths:
       - 'scripts/guardian-git-agent.ps1'
       - 'scripts/guardian-copilot-worker.ps1'
+      - 'scripts/guardian-multiflow.ps1'
+      - 'scripts/guardian_multiflow.py'
+      - 'scripts/test_guardian_multiflow.py'
+      - '.guardian/automation/tasks.json'
+      - '.github/workflows/guardian-windows-multiflow.yml'
+      - '.github/workflows/aider-qwen-local.yml'
       - 'docs/GIT_CLI_AUTOMATION_KO.md'
       - '.github/workflows/guardian.yml'
   workflow_dispatch:
@@ -31,23 +37,34 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
+      - name: Set up Python for Guardian safety tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Parse PowerShell and verify safe Git operations
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $paths = @('scripts/guardian-git-agent.ps1', 'scripts/guardian-copilot-worker.ps1')
+          $paths = @(
+            'scripts/guardian-git-agent.ps1',
+            'scripts/guardian-git-agent-bootstrap.ps1',
+            'scripts/guardian-copilot-worker.ps1',
+            'scripts/guardian-multiflow.ps1'
+          )
           foreach ($path in $paths) {
-            if (-not (Test-Path -LiteralPath $path)) { throw "Required PowerShell agent is missing: $path" }
+            if (-not (Test-Path -LiteralPath $path)) { throw "Required PowerShell automation file is missing: $path" }
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
             if ($errors.Count -gt 0) {
-              $errors | ForEach-Object { Write-Error $_.Message }
+              $errors | ForEach-Object { Write-Error ('{0}: {1}' -f $path, $_.Message) }
               throw "PowerShell syntax validation failed: $path"
             }
           }
           $source = Get-Content -Raw -LiteralPath 'scripts/guardian-git-agent.ps1'
-          $worker = Get-Content -Raw -LiteralPath 'scripts/guardian-copilot-worker.ps1'
+          $worker = Get-Content -Raw -LiteralPath 'scripts/guardian_multiflow.py'
+          $legacy = Get-Content -Raw -LiteralPath 'scripts/guardian-copilot-worker.ps1'
           $required = @(
             'gh auth status',
             'gh pr list',
@@ -56,51 +73,56 @@ jobs:
             '--rebase-merges',
             '--force-with-lease',
             'merge-base',
-            'status',
             'Register-ScheduledTask',
             'Unregister-ScheduledTask',
             'Invoke-AgentWithLock',
-            'guardian-copilot-worker.ps1'
+            'guardian-multiflow.ps1'
           )
           foreach ($token in $required) {
             if (-not $source.Contains($token)) { throw "Required operation or safety guard missing: $token" }
           }
-          if ($source -match 'push\s+--force(?!-with-lease)') {
-            throw 'Unsafe unleased force push detected.'
+          if ($source -match 'push\s+--force(?!-with-lease)' -or $source -match 'git\s+reset\s+--hard') {
+            throw 'Unsafe force push or destructive hard reset detected.'
           }
-          if ($source -match 'git\s+reset\s+--hard') {
-            throw 'Destructive hard reset detected.'
+          $workerRequired = @(
+            '127.0.0.1',
+            '/api/tags',
+            '/api/chat',
+            'FileLease',
+            'ollama_slot',
+            'worktree',
+            'validate_unified_patch',
+            'TEST_PROFILES',
+            'gh',
+            '--draft'
+          )
+          foreach ($token in $workerRequired) {
+            if (-not $worker.Contains($token)) { throw "Local Ollama worker is missing required operation or safety guard: $token" }
+          }
+          if ($legacy -match 'copilot\.Source|winget install --id GitHub\.Copilot|--autopilot') {
+            throw 'Legacy entry point must not invoke Copilot or a remote AI fallback.'
+          }
+          if ($worker -match 'api\.openai\.com|api\.anthropic\.com|copilot\s+--autopilot') {
+            throw 'Local Ollama worker contains an unexpected remote AI provider path.'
+          }
+          if (-not (Test-Path '.guardian/automation/tasks.json')) {
+            throw 'Guardian task manifest is missing.'
           }
           if (-not (Test-Path 'docs/GIT_CLI_AUTOMATION_KO.md')) {
             throw 'Git CLI automation operating guide is missing.'
           }
-          $workerRequired = @(
-            '--autopilot',
-            '--no-ask-user',
-            '--assisted-approval',
-            '--max-ai-credits',
-            '--max-autopilot-continues',
-            '--deny-tool',
-            '--available-tools',
-            'GitHub.Copilot',
-            'winget install',
-            'shell(git reset)',
-            'shell(git clean)',
-            'origin/main',
-            'gh auth status',
-            'worktree'
-          )
-          foreach ($token in $workerRequired) {
-            if (-not $worker.Contains($token)) { throw "Copilot worker is missing required safety/automation token: $token" }
+          if (-not (Test-Path '.github/workflows/guardian-windows-multiflow.yml')) {
+            throw 'Windows local Ollama multi-flow workflow is missing.'
           }
-          if ($worker -match '(?m)--yolo|--allow-all') {
-            throw 'Copilot worker must not grant blanket permissions.'
-          }
-          if ($worker -match '(?m)^\s*(?:&\s*)?git\s+reset\s+--hard' -or $worker -match '(?m)^\s*(?:&\s*)?gh\s+pr\s+merge') {
-            throw 'Copilot worker contains a prohibited destructive/merge command.'
-          }
-          Write-Host 'PASS: both PowerShell agents parse; Git and Copilot safety guards are present.'
-
+          Write-Host 'PASS: PowerShell automation syntax, local-only Ollama wiring and Git safety guards.'
+      - name: Test Guardian local multi-flow manifest and safety
+        shell: cmd
+        run: |
+          python -m py_compile scripts/guardian_multiflow.py scripts/test_guardian_multiflow.py
+          if errorlevel 1 exit /b 1
+          python scripts/test_guardian_multiflow.py
+          if errorlevel 1 exit /b 1
+          exit /b 0
       - name: Compare exact PR head against current main with Git CLI
         if: github.event_name == 'pull_request'
         shell: pwsh

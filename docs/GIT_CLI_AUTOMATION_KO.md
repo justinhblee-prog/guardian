@@ -13,14 +13,14 @@ Windows PC에 설치된 Git CLI와 GitHub CLI만으로 다음 작업을 반복 �
 
 ## 1회 설치 (Windows PowerShell)
 
-저장소를 최신 main으로 동기화한 뒤 저장소 루트에서 실행합니다.
+저장소를 최신 main으로 동기화한 뒤 저장소 루트에서 실행합니다. 또는 통합 bootstrap `scripts/Install-GuardianLocalOllamaRunner.cmd`를 한 번 실행하면 runner와 local agent 설치를 함께 처리합니다.
 
 ```powershell
 git pull --ff-only origin main
 .\scripts\guardian-git-agent.ps1 -InstallScheduledTask
 ```
 
-설치 시 현재 Windows 사용자 계정으로 작업 스케줄러 작업 Guardian-Git-Automation을 등록합니다. 작업은 먼저 별도 bootstrap 스크립트를 실행해 깨끗한 로컬 main만 origin/main으로 fast-forward 동기화한 뒤 현재 버전의 Git agent를 시작합니다. 로그인 시 한 번 실행하고, 이후 15분 간격으로 반복합니다. 작업 스케줄러 권한이 거부되면 Startup 폴더의 VBS가 같은 bootstrap을 실행하고 agent의 15분 RunLoop를 시작합니다. 별도의 서버, 유료 API, GitHub Actions runner를 상시 실행하지 않습니다.
+설치 시 현재 Windows 사용자 계정으로 작업 스케줄러 작업 Guardian-Git-Automation을 등록합니다. 작업은 먼저 별도 bootstrap 스크립트를 실행해 깨끗한 로컬 main만 origin/main으로 fast-forward 동기화한 뒤 현재 버전의 Git agent를 시작합니다. 로그인 시 한 번 실행하고, 이후 15분 간격으로 반복합니다. 작업 스케줄러 권한이 거부되면 Startup 폴더의 VBS가 같은 bootstrap을 실행하고 agent의 15분 RunLoop를 시작합니다. local Git agent 자체는 별도 서버나 유료 AI API에 의존하지 않습니다. Aider/Qwen 검증을 위한 GitHub self-hosted runner는 별도 현재 사용자 예약 작업으로 실행됩니다.
 
 필수 사전 조건:
 - Git CLI 설치 및 PATH 등록
@@ -86,38 +86,97 @@ PR별 최종 상태는 UPDATED, already based, BLOCKED, skipped, ERROR로 기록
 - Samsung 실기기, 운영 서명키, 사용자 노트북 DB 및 실제 결제처럼 외부 증거가 필요한 작업은 이 Git CLI 에이전트가 완료 처리하지 않습니다.
 
 
-## 로컬 AI 코드 구현 트랙 (Aider/Qwen 우선, Copilot CLI 보조)
+## 로컬 Ollama 멀티플로우 구현 트랙 (유료 AI API 미사용)
 
-PR/브랜치 동기화만 하던 Git agent 뒤에 로컬 AI 코드 구현 트랙을 연결합니다. 새 트랙은 기존 15분 Git 유지보수 cycle 마지막에 실행되며, Aider + Ollama Qwen 로컬 추론을 우선 사용하고, 별도 격리 worktree에서 하루 최대 1회 구현 작업을 시도합니다. 로컬 모델을 사용할 수 없을 때만 GitHub Copilot CLI 보조 경로를 확인합니다.
+기존 Git agent의 Copilot/원격 AI 경로를 제거하고 Guardian 전용 작업 명세 기반 local Ollama 멀티플로우로 교체했습니다. 모델 추론은 Windows PC의 `127.0.0.1:11434` Ollama만 사용합니다. 원격 AI API, Copilot CLI fallback, WinGet Copilot 자동 설치는 이 경로에 존재하지 않습니다.
 
-실행 경로:
-1. GitHub CLI 인증 상태를 비대화형으로 확인하고 `http://127.0.0.1:11434`의 Ollama에서 `qwen2.5-coder:7b` 모델을 찾습니다. 모델이 있고 Aider를 실행할 수 있으면 로컬 추론을 우선합니다.
-2. 최신 origin/main을 기준으로 `automation/copilot-guardian-YYYYMMDD` worktree를 만듭니다.
-3. Issue #141~#144와 실제 소스/테스트를 읽고, 물리 기기·승인·운영키·실제 서버가 필요 없는 미완료 코드 작업 하나를 선택합니다.
-4. Aider가 로컬 Qwen으로 구현·회귀 테스트를 수행합니다. Aider/Ollama가 준비되지 않은 경우 Copilot Autopilot 보조 경로를 사용할 수 있으며, 질문·continuation·AI credit 한도를 제한합니다.
-5. 보호 경로·비밀 파일·운영 필터 승인 파일 변경을 차단합니다. 검증을 통과한 변경만 새 draft PR로 push합니다.
-6. 자동 병합하지 않습니다. Android 실기기, production, 법적 재배포 승인 등 외부 증거는 완료 처리하지 않습니다.
+### 구성 파일
 
-로컬 의존성:
-- GitHub CLI 인증: `gh auth status`가 성공해야 합니다.
-- GitHub Copilot CLI: `copilot --version`으로 설치 여부를 확인합니다.
-- Copilot CLI는 저장된 Copilot 로그인을 사용하거나, 별도 환경 토큰이 없을 때 인증된 GitHub CLI 토큰을 fallback으로 사용할 수 있습니다.
-- Copilot 구독/조직 정책이 허용하지 않으면 AI 호출은 실패하고 로컬 로그에 사유를 남깁니다. 이 자동화는 별도 API 키나 Vercel secret을 만들지 않습니다.
+- `.guardian/automation/tasks.json`: Android 진단, 필터 재배포 승인, Production 서명 게이트의 범위·우선순위·완료 조건·검증 프로필을 명시합니다. 현재 3개 작업은 모두 외부 증거가 없어 `blocked`이며, worker는 ready task가 없으면 안전하게 idle합니다.
+- `scripts/guardian_multiflow.py`: 작업 선택, 로컬 Ollama 호출, patch 검증, lease, worktree, allowlist 검증, commit/push 및 Draft PR을 수행합니다.
+- `scripts/guardian-multiflow.ps1`: 기존 Windows Git agent와 같은 Windows 사용자 환경에서 Python worker를 실행하는 진입점입니다. GitHub runner 예약 작업과 Windows local Git Agent 예약 작업은 같은 현재 사용자 계정으로 실행되어 로컬 lease/state 및 Ollama slot을 공유합니다. Runner는 Windows 서비스(LocalSystem)가 아닙니다.
+- `.github/workflows/guardian-windows-multiflow.yml`: 전용 Windows runner label을 요구하며 현재는 수동 dispatch만 허용합니다. runner가 등록되기 전 자동 schedule로 대기 작업을 쌓지 않습니다.
+- `.github/workflows/aider-qwen-local.yml`: 기존 파일 경로를 유지하되 이제 Aider가 아니라 실제 localhost Ollama inference를 검증합니다.
 
-AI 사용 제한:
-- 실행 횟수: 로컬 날짜 기준 하루 최대 1회.
-- `--max-ai-credits 1`: 응답당 soft limit입니다. 서비스의 hard billing cap이나 무료 사용 보증으로 해석하지 않습니다.
-- `--max-autopilot-continues 3`: 자동 연속 응답을 제한합니다.
-- blanket `--yolo` / `--allow-all`은 사용하지 않습니다. PowerShell/file 도구 목록을 제한하고 commit/push/PR 생성/merge/issue close는 모델 도구에서 금지합니다. 최종 commit·push·draft PR 생성은 검증 가드가 있는 로컬 wrapper가 수행합니다.
-- 하루 1회 트리거는 반복 호출을 방지합니다. Copilot CLI가 없으면 WinGet이 설치를 시도합니다. 설치/인증 단계에서는 AI credit을 소비하지 않습니다. Copilot CLI가 없거나 인증/라이선스가 없으면 6시간 간격으로 설치·인증 상태만 재확인합니다.
+### Windows 사전 조건
 
-로그:
-- `%LOCALAPPDATA%\\GuardianGitAgent\\copilot-worker-state.json`: 하루 실행 중복 방지 및 마지막 PR 상태
-- `%LOCALAPPDATA%\\GuardianGitAgent\\copilot-YYYYMMDD-HHMMSS.log`: Copilot CLI의 실행 결과
-- Android/백엔드 검증 로그는 같은 GuardianGitAgent 로그 폴더에 기록합니다.
+- Git for Windows 및 GitHub CLI(`gh`)
+- Python 3.10 이상
+- Ollama for Windows와 `qwen2.5-coder:7b`
+- Guardian 저장소 push 및 Draft PR 생성 권한
+- Android 작업은 JDK 17, Android SDK Platform 35, Gradle 8.9가 추가로 필요합니다.
+- 필터 배포 작업은 Node.js 22 이상이 필요합니다.
 
-## 로컬 Qwen 연결 검증 워크플로
+최초 설정/검증:
 
-`.github/workflows/aider-qwen-local.yml`은 Windows self-hosted runner에서 Ollama 모델과 Aider를 확인하고 `QWEN_OLLAMA_CONNECTION_OK` 실제 응답 토큰을 검증합니다. MainActivity 또는 코딩 worker가 main에 반영되면 push로 실행되며, 동일 저장소 PR에서 해당 경로가 변경된 경우에도 검사하도록 구성했습니다. PR 설정 변경은 base 브랜치의 워크플로가 적용되므로 최초 연결 검증은 통합 PR이 main에 반영된 뒤의 main push 실행으로 판정합니다. workflow가 queued로 남거나 runner가 없어 실패하면 PC 자동 연결이 확인된 것으로 보지 않습니다.
+```powershell
+ollama pull qwen2.5-coder:7b
+Invoke-RestMethod http://127.0.0.1:11434/api/tags
+gh auth login
+gh auth setup-git
 
-중요한 구분: GitHub Actions의 병렬 테스트/빌드 워크플로가 통과해도 이 로컬 코딩 agent가 설치·인증되어 실제 코드를 작성했다는 뜻은 아닙니다. Copilot CLI가 현재 PC에 있고 인증된 뒤 실행 로그와 draft PR이 생성되어야 AI 구현 트랙의 작동이 확인됩니다.
+# manifest 및 검증 명령 allowlist 검사
+.\scripts\guardian-multiflow.ps1 -ValidateOnly
+
+# 지정 모델이 실제 응답하는지 로컬 추론 검사
+.\scripts\guardian-multiflow.ps1 -SmokeTest
+```
+
+`/api/tags` 확인만으로 Agent 연결 성공으로 판정하지 않습니다. `-SmokeTest`가 실제 `/api/chat` 호출을 보내고 기대 응답 토큰을 확인해야 합니다.
+
+### GitHub self-hosted runner 연결
+
+`.github/workflows/guardian-windows-multiflow.yml`의 `runs-on`은 `[self-hosted, Windows, guardian-windows, ollama]`입니다. Runner는 LocalSystem 서비스가 아니라 현재 Windows 사용자 로그인 세션에서 실행되어 해당 사용자의 Python·Git·GitHub CLI·Ollama 모델 환경을 사용합니다.
+
+GitHub multi-flow workflow는 현재 `workflow_dispatch`로만 실행됩니다. 실제 15분 주기 자동화는 Windows의 `Guardian-Git-Automation` 예약 작업이 담당합니다. 수동 실행 입력은 다음과 같습니다.
+
+- `max_tasks`: 기본값 3. 서로 파일 범위가 겹치지 않는 독립 작업을 최대 3개까지 동시에 실행하며, `--max-tasks 1`로 직렬 실행도 선택 가능
+- `task_id`: manifest의 특정 작업 ID. 비워 두면 우선순위 순서로 선택
+
+Workflow는 `contents: write`와 `pull-requests: write` 권한으로 task branch를 push하고 Draft PR만 생성합니다. PR 자동 병합·Production 배포·Repository settings/Actions billing 변경은 하지 않습니다. Fork PR 코드는 Windows self-hosted runner에서 실행하지 않습니다.
+
+### 멀티 작업 격리와 lease
+
+1. Manifest에서 `status=ready`이고 모든 선행 작업의 PR이 main에 통합된 것으로 확인된 작업만 선택합니다.
+2. 각 작업은 고정된 task ID별 lease를 획득하고 독립 Git branch/worktree를 만듭니다.
+3. 같은 PC의 Windows 예약 Agent와 GitHub workflow가 겹쳐도 같은 task lease를 동시에 획득할 수 없습니다.
+4. Ollama는 공용 3-slot semaphore를 사용하므로 두 실행 경로가 겹쳐도 로컬 모델 동시 호출이 3개를 넘지 않습니다.
+5. 모델은 shell/PowerShell을 실행하지 않습니다. 작업 범위에 포함된 파일 내용만 받고 unified diff만 반환합니다.
+6. wrapper는 diff 경로·scope·보호 파일·심볼릭 링크·binary patch·파일 수/크기를 검증한 뒤 적용합니다.
+7. manifest에 명시된 고정 allowlist 검증 명령만 실행합니다. 검증이 모두 통과한 경우에만 commit/push/Draft PR을 수행합니다.
+8. 실패한 worktree는 자동 삭제하지 않고 진단용으로 보존합니다. 사용자 작업 트리의 reset/clean/stash는 실행하지 않습니다.
+
+상태 파일·lease·worktree·검증 로그 위치:
+
+```text
+%LOCALAPPDATA%\GuardianAutomation\
+  leases\
+  ollama-slots\
+  worktrees\
+  logs\
+  multiflow-state.json
+```
+
+### 최초 운영 순서
+
+```powershell
+# 1개 작업으로 manifest / 실제 모델 / branch·PR 흐름 검증
+.\scripts\guardian-multiflow.ps1 -ValidateOnly
+.\scripts\guardian-multiflow.ps1 -SmokeTest
+.\scripts\guardian-multiflow.ps1 -MaxTasks 1
+
+# 별도 실행 경로: GitHub Actions → Guardian Windows Local Ollama Multi-Flow
+```
+
+기존 `Guardian-Git-Automation` 15분 예약 루프는 새 `guardian-multiflow.ps1 -MaxTasks 3` worker를 호출하도록 연결했습니다. 기존 Copilot worker 파일은 호환용 진입점만 남기고 local Ollama wrapper로 전환했습니다. `scripts/Install-GuardianLocalOllamaRunner.cmd`를 한 번 실행하면 dedicated GitHub runner와 이 local Git agent 예약 작업을 함께 설치합니다.
+
+### 완료 판정의 경계
+
+- manifest 검사 성공: 작업 명세와 allowlist가 유효함
+- smoke test 성공: Windows runner 계정이 localhost Ollama의 지정 모델에 실제 추론 요청을 보냄
+- Draft PR 생성: 모델 변경이 scope·테스트를 통과하고 branch push/PR 생성까지 완료됨
+- 멀티플로우 운영 완료: 3개 작업이 실제 독립 worktree/lease에서 동시에 실행되고 각 PR CI까지 검증된 상태
+
+이 단계들은 서로 다릅니다. 현재 CI workflow가 저장소에 병합됐다는 사실만으로 사용자의 Windows PC에서 Runner Online, Ollama model inference, 실제 branch push 또는 Draft PR 생성이 성공했다고 주장하지 않습니다. 해당 증거는 Windows workflow run 및 생성 PR에서 별도로 확인합니다.
+
+실기기 Samsung 오류, 원본 재배포 권리 승인, 운영 서명키, 실제 고객/운영 서버처럼 외부 증거가 필요한 항목은 manifest에서 임의로 완료하지 않습니다.

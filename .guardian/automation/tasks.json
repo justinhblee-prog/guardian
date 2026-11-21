@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "description": "Guardian Android-first implementation tracks. No task is marked ready while completion depends on physical-device evidence, upstream redistribution rights, or locally held production signing material. The local multi-flow worker must idle safely rather than invent work.",
+  "max_parallel_tasks": 3,
+  "tasks": [
+    {
+      "id": "android-diagnostic-trace",
+      "title": "Reproduce Library file not found only if it recurs",
+      "priority": 10,
+      "status": "blocked",
+      "dependencies": [],
+      "scope": "The user confirmed on 2026-11-21 that Library file not found has not recurred. APK packaging checks confirm shared/filter_rules.txt is packaged, and PR #231 is merged with bounded startup diagnostics. Do not repeat static investigation or make speculative changes. Resume only if a new physical-device occurrence is reproduced with a contemporaneous sanitized diagnostic bundle. Trace the exact failing asset/native-library/runtime operation and change only defects supported by that evidence.",
+      "allowed_files": [
+        "android/app/src/main/java/com/guardian/adblock/MainActivity.kt",
+        "android/app/src/main/java/com/guardian/adblock/GuardianVpnService.kt",
+        "android/app/src/main/java/com/guardian/adblock/ProtectionDiagnostics.kt",
+        "android/app/src/test/java/com/guardian/adblock/ProtectionDiagnosticsTest.kt"
+      ],
+      "test_profile": "android-unit-lint",
+      "acceptance_criteria": [
+        "Do not repeat static investigation while the failure is not recurring.",
+        "If a new occurrence is captured, identify the exact failing operation from its diagnostic bundle.",
+        "Private messages, paths, URLs and credentials never enter the support report.",
+        "Regression tests cover any evidence-based changed behavior.",
+        "No physical-device issue is marked resolved without a device diagnostic bundle."
+      ]
+    },
+    {
+      "id": "filter-redistribution-gate",
+      "title": "Review filter-source redistribution rights before production approval",
+      "priority": 20,
+      "status": "blocked",
+      "dependencies": [],
+      "scope": "Strict approval-reference validation and regression coverage were integrated by PR #232. The seven configured upstream sources remain unapproved. This task cannot grant legal rights or infer permission from a repository license identifier alone. Resume only after a rights-holder/legal review produces a source-specific written decision and an authorized maintainer records the exact approval reference. Do not set redistributionApproved=true or publish filter data without that evidence.",
+      "allowed_files": [
+        "server/filter-distribution/scripts/verify-production-approvals.mjs",
+        "server/filter-distribution/test/production-approval-gate.test.mjs"
+      ],
+      "test_profile": "filter-node",
+      "acceptance_criteria": [
+        "Missing license identifier, duplicate source ID or missing approval reference remains blocked.",
+        "Only explicitly approved and traceably referenced records can pass the contract test.",
+        "No upstream filter source is auto-approved or represented as legally cleared without evidence.",
+        "All filter-distribution Node tests pass."
+      ]
+    },
+    {
+      "id": "release-signing-contract",
+      "title": "Complete production signing only after local key and server provisioning",
+      "priority": 30,
+      "status": "blocked",
+      "dependencies": [],
+      "scope": "JKS/PKCS12 keystore loading, alias/private-key/certificate validation and HTTPS/RSA configuration checks were integrated by PR #233. Production signing secrets, the production license private key, deployed API endpoint and production filter approvals are not available in this repository context. Never generate or fabricate private keys, secrets, endpoints or release credentials in a cloud workflow. Resume after the authorized Windows host provisions and securely stores the production keys and the private API is deployed.",
+      "allowed_files": [
+        "android/app/build.gradle.kts",
+        "android/app/src/test/java/com/guardian/adblock/DistributionBuildTypePolicyTest.kt"
+      ],
+      "test_profile": "android-unit-lint",
+      "acceptance_criteria": [
+        "Release and direct-install variants remain blocked without the real production keystore and required HTTPS service configuration.",
+        "Google Play and direct-install permission/updater boundaries remain distinct.",
+        "No secret, private key, keystore or fabricated production endpoint is added.",
+        "Android unit tests and lint pass."
+      ]
+    }
+  ]
+}
