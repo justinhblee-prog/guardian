@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateRange(1,3)][int]$MaxTasks = 1,
+    [ValidateRange(1,3)][int]$MaxTasks = 3,
     [string]$TaskId = '',
     [switch]$ValidateOnly,
     [switch]$SmokeTest
