@@ -40,7 +40,7 @@ if (!databaseUrl) {
       publicKey,
       Buffer.from(token.signature, 'base64')
     ), true);
-    assert.match(token.payload, /product=guardian\\nentitlement=pro/);
+    assert.match(token.payload, /product=guardian\nentitlement=pro/);
     const issuedAt = Number(/^issuedAt=(\d+)$/m.exec(token.payload)?.[1]);
     const expiresAt = Number(/^expiresAt=(\d+)$/m.exec(token.payload)?.[1]);
     assert.equal(token.expiresIn, expiresAt - issuedAt);
