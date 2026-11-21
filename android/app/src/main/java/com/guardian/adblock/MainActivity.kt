@@ -525,7 +525,7 @@ class MainActivity : Activity() {
             "protection" -> buildProtection(body)
             "rules" -> buildRules(body)
             "activity" -> buildActivity(body)
-            "premium" -> buildPremium(body)
+            "premium", "settings-premium" -> buildPremium(body)
             "app-exclusions" -> {
                 body.addView(text("앱 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
@@ -1451,6 +1451,18 @@ class MainActivity : Activity() {
     private fun buildSettings(body: LinearLayout) {
         body.addView(text("설정", 25f, white, true))
         body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("라이선스 및 프리미엄", 16f, white, true))
+            addView(text("Free / Pro 이용 상태, 기기 등록, 라이선스 활성화와 프리미엄 기능을 관리합니다.", 11f, muted, false).withTop(5))
+            addView(Button(this@MainActivity).apply {
+                text = "프리미엄 관리 열기"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 12)
+                setOnClickListener { showTab("settings-premium") }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+        }.withTop(12))
         body.addView(buildSupportCenterCard().withTop(12))
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
@@ -2320,12 +2332,11 @@ class MainActivity : Activity() {
             Triple("protection", "◈", "보호 설정"),
             Triple("app-exclusions", "◉", "앱 제외"),
             Triple("activity", "▤", "DNS 활동"),
-            Triple("premium", "✦", "프리미엄"),
             Triple("rules", "≡", "필터 규칙"),
             Triple("settings", "⚙", "설정")
         )
         items.forEach { (id, icon, label) ->
-            val active = selected == id
+            val active = selected == id || (selected == "settings-premium" && id == "settings")
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
