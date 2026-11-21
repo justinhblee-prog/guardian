@@ -71,7 +71,7 @@ Android APK를 Windows에 그대로 설치하거나 Android VPN 코드를 Window
 
 1. **Android 공통 앱·라이선스:** 스마트폰·태블릿 공통 APK, 반응형 UI, DNS VPN 엔진, entitlement 및 기기 등록/해제 코드/CI 완료. 실기기 수용 시험은 개발 완료 후 진행한다.
 2. **서명 필터 연동:** manifest 서명/해시/anti-rollback 검증기와 다운로드·캐시 교체 경로, publisher/updater 및 distribution CI 완료. 운영 개인키 생성과 공개 HTTPS 게시 검증은 남아 있다.
-3. **License API·관리자 화면:** Node.js/PostgreSQL API, 플랫폼 공통 `guardian-pro`, signed entitlement, Android/Windows 클라이언트 활성화·갱신·기기 해제, 기기 관리 및 감사 로그 대시보드 구현. 공통 계약 테스트/CI와 Windows 클라이언트 단위 테스트가 필요하며 운영 DB·키·HTTPS/Tailscale 및 실제 두 플랫폼 E2E 검증은 남아 있다.
+3. **License API·관리자 화면:** Node.js/PostgreSQL API, 플랫폼 공통 `guardian-pro`, signed entitlement, Android/Windows 클라이언트 활성화·갱신·기기 해제, 기기 관리 및 감사 로그 대시보드 구현. 공통 License API CI와 Windows 클라이언트 단위 테스트가 통과했다. Windows 개발 EXE/설치 프로그램 설치 smoke test도 통과했다. 운영 DB·키·HTTPS/Tailscale 및 실제 두 플랫폼 E2E 검증은 남아 있다.
 4. **Android production signing:** release 설정 검증과 임시 키 smoke test 완료. 운영 keystore/secrets가 없어 production APK/AAB 서명은 대기.
 5. **실기기/운영 수용 시험:** Android VPN/DNS, 광고 차단, 네트워크 전환, 운영 서버 E2E는 개발 항목 완료 후 수행한다.
 6. **Windows 후순위:** Android와 공통 기능 완료 후 Windows EXE/설치 프로그램, 설치/제거, DNS 복구, 재부팅 및 실기기 검증을 마지막에 수행한다.
@@ -104,3 +104,15 @@ Android v0.7.14-dev APK와 전체 소스 ZIP, API 35 에뮬레이터 VPN/DNS E2E
 6. Android 및 공통 기능이 끝난 뒤 Windows EXE/설치 프로그램의 빌드·설치·제거·DNS 복구·재부팅 검증을 마지막으로 진행합니다.
 
 **현재 확보된 개발 artifact:** [Guardian Android v0.7.14-dev APK + source ZIP](https://github.com/justinhblee-prog/guardian/actions/runs/44060999851). Debug 서명 개발 빌드이며 Play Store/정식 production 릴리스 파일이 아니다.
+
+
+## 2026-11-21 공통 라이선스 구현 업데이트
+
+- 신규 라이선스 제품 코드는 플랫폼 공통 `guardian-pro`이며 기존 `guardian-android-pro` 레코드는 삭제하지 않습니다. 기존 DB에는 idempotent migration `005_shared_guardian_product.sql`을 적용합니다.
+- 서버가 발급하는 신규 RSA-SHA256 entitlement는 `product=guardian` claim을 사용합니다. Android 검증기는 신규 공통 claim과 기존 `guardian-android` claim을 모두 수용합니다.
+- Windows `windows_engine/license_client.py`는 HTTPS activate/refresh/deactivate, 설치별 deviceBinding, RSA 서명·만료·기기 바인딩 검증 및 로컬 entitlement 저장을 구현했습니다. 데스크톱 UI의 라이선스 메뉴에서 API 주소/공개키 설정, 활성화, 갱신, 기기 해제를 제공합니다.
+- License API CI: [run 44886969350](https://github.com/justinhblee-prog/guardian/actions/runs/44886969350) 성공.
+- Windows Linux/Windows 2022 단위 테스트: [run 44886846462](https://github.com/justinhblee-prog/guardian/actions/runs/44886846462) 성공.
+- Windows 개발 EXE/설치 프로그램 빌드, 설치 smoke test 및 패키지 검사: [run 44886846472](https://github.com/justinhblee-prog/guardian/actions/runs/44886846472) 성공. Artifact는 unsigned 개발 패키지이며 정식 코드 서명본이 아닙니다.
+- Android verifier의 공통 claim 수용 테스트가 포함된 Android workflow [run 44886819129](https://github.com/justinhblee-prog/guardian/actions/runs/44886819129)는 현재 runner 대기 상태이며 성공으로 판정하지 않습니다.
+- 실제 운영 RSA 개인키/Android release keystore 생성·등록, License API/DB/TLS 배포, Windows와 Android 양쪽의 실제 라이선스 발급·활성화 E2E는 아직 검증되지 않았습니다.
