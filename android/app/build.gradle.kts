@@ -97,8 +97,8 @@ val validateGuardianReleaseSigning by tasks.registering {
                 "Configured Guardian release key alias has no signing certificate."
             }
         } finally {
-            storePassword.fill('\\u0000')
-            keyPassword.fill('\\u0000')
+            storePassword.fill('\u0000')
+            keyPassword.fill('\u0000')
         }
     }
 }
