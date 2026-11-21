@@ -59,8 +59,8 @@ def resolve_next_version(
         return {"version_name": name, "version_code": code, "tag": tag, "reused": True}
 
     next_code = latest_code + 1
-    if next_code > 2100000000:
-        raise ValueError("Guardian versionCode exceeds Android's supported maximum.")
+    if next_code >= 2000000:
+        raise ValueError("Development versionCode reached the reserved production range.")
     return {
         "version_name": bump_patch(latest_name),
         "version_code": next_code,
