@@ -79,7 +79,7 @@ jobs:
             # from this workflow's run number. They do not publish release tags.
             # The same workflow rerun keeps the same version for reproducibility.
             dev_code=$((GITHUB_RUN_NUMBER + 1))
-            dev_name="0.7.34-dev-ci\${GITHUB_RUN_NUMBER}"
+            dev_name="0.7.34-dev-ci${GITHUB_RUN_NUMBER}"
             {
               echo "GUARDIAN_VERSION_NAME=$dev_name"
               echo "GUARDIAN_VERSION_CODE=$dev_code"
@@ -89,7 +89,7 @@ jobs:
               echo "version_name=$dev_name"
               echo "version_code=$dev_code"
               echo "reused=false"
-            } >> "$GITHUB_OUTPUT
+            } >> "$GITHUB_OUTPUT"
           fi
           echo "Version resolution completed."
 
