@@ -65,7 +65,7 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 ./Apply-GuardianLicenseMigrations.ps1
 ```
 
-이 스크립트는 PostgreSQL 준비 상태 확인 → 외부 보호 경로에 DB 백업 생성 → `002_shared_rate_limit_buckets.sql`, `003_support_tickets.sql`, `004_customers.sql` 순차 적용 → 필수 테이블 존재 확인 → 최신 API 이미지 재빌드 → `/ready` 확인까지 수행합니다. SQL migration은 재실행해도 안전하도록 `IF NOT EXISTS`를 사용합니다. 자동 스크립트를 사용할 수 없는 환경에서는 `docker compose exec -T db psql -v ON_ERROR_STOP=1 -U guardian -d guardian`에 migration SQL을 순서대로 전달할 수 있지만, 반드시 먼저 백업하십시오. migration 실패 시 백업을 보존하고 원인을 확인한 뒤 재시도하며, 운영 DB를 임의로 삭제하거나 초기화하지 마십시오.
+이 스크립트는 PostgreSQL 준비 상태 확인 → 외부 보호 경로에 DB 백업 생성 → `002_shared_rate_limit_buckets.sql`, `003_support_tickets.sql`, `004_customers.sql`, `005_shared_guardian_product.sql`, `006_google_play_billing.sql` 순차 적용 → 필수 테이블 존재 확인 → 최신 API 이미지 재빌드 → `/ready` 확인까지 수행합니다. SQL migration은 재실행해도 안전하도록 `IF NOT EXISTS`를 사용합니다. 자동 스크립트를 사용할 수 없는 환경에서는 `docker compose exec -T db psql -v ON_ERROR_STOP=1 -U guardian -d guardian`에 migration SQL을 순서대로 전달할 수 있지만, 반드시 먼저 백업하십시오. migration 실패 시 백업을 보존하고 원인을 확인한 뒤 재시도하며, 운영 DB를 임의로 삭제하거나 초기화하지 마십시오.
 
 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
 
@@ -74,6 +74,8 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 - `POST /v1/licenses/refresh`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
 - `POST /v1/licenses/deactivate`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
 - `POST /v1/licenses/status`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
+- `POST /v1/billing/google-play/verify`: purchaseToken과 SKU를 받아 서버가 Google Play Publisher API에서 직접 구독을 검증한 후에만 서명된 Guardian Pro entitlement를 발급합니다.
+- `POST /v1/billing/google-play/rtdn`: 인증된 Pub/Sub OIDC push JWT를 검증하고 RTDN message ID를 중복 제거합니다. 알림은 상태 변경 신호로만 사용하며 Publisher API를 다시 조회합니다. 원문 purchaseToken은 저장하지 않습니다.
 - `GET /v1/admin/licenses`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>`
 - `GET /v1/admin/events`: 최근 발급/활성화/비활성화/정지 감사 기록 100건
 - `POST /v1/admin/licenses`: 관리자 인증 + `{ "validDays": 365, "maxDevices": 1 }`
@@ -89,7 +91,7 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 활성화/갱신 성공 시 `payload`, `signature`, `expiresIn`을 반환합니다. 서버는 `Bearer` 인증 스킴을 엄격히 요구하며, `expiresIn`은 서명된 `expiresAt - issuedAt`과 일치합니다. Windows와 Android 클라이언트에는 같은 RSA 키쌍의 X.509 공개키를 배포하고 개인키는 API 서버에만 보관합니다. 신규 토큰의 제품 claim은 플랫폼 중립적인 `guardian`이며, Android 검증기는 기존 `guardian-android` 토큰도 호환합니다. 각 클라이언트는 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증해야 합니다.
 
 ## 고객 디렉터리 DB 마이그레이션
-기존 데이터베이스에는 `migrations/004_customers.sql` 및 `migrations/005_shared_guardian_product.sql`을 한 번 적용해야 합니다. 005는 공통 `guardian-pro` 제품 레코드를 추가하며 기존 Android 라이선스와 제품 레코드를 삭제하거나 변환하지 않습니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
+기존 데이터베이스에는 `migrations/004_customers.sql`, `migrations/005_shared_guardian_product.sql`, `migrations/006_google_play_billing.sql`을 순서대로 적용해야 합니다. 005는 공통 `guardian-pro` 제품 레코드를 추가하며 기존 Android 라이선스와 제품 레코드를 삭제하거나 변환하지 않습니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
 
 ## 보안 및 출시 전 남은 작업
 - API 인스턴스 간 rate limiting은 PostgreSQL 공유 카운터로 구현했지만, 프록시/WAF의 신뢰 IP 기반 방어와 DDoS 완화는 별도 구성해야 합니다. 관리자 토큰은 Bearer 방식이며 브라우저 메모리에만 보관합니다. 공개 운영 전 MFA 또는 SSO, 관리자별 RBAC, 토큰 교체·폐기 절차, 접근 감사, 비밀값 저장소, WAF 및 침투 테스트를 추가해야 합니다. 관리자 다중 사용자/RBAC, 이메일/구매 복구, Google Play Billing 및 결제 webhook, 자동 환불/차지백 동기화도 공개 전 별도 구현이 필요합니다.
@@ -97,4 +99,5 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 - 기기 비활성화/라이선스 정지는 서버의 활성화 슬롯과 이후 refresh를 즉시 차단하지만, 이미 발급된 오프라인 서명 토큰을 원격에서 소급 폐기할 수는 없습니다. 기존 토큰은 서명된 expiresAt까지(최대 24시간) 검증될 수 있으므로 즉시 원격 차단이 필요한 제품 정책에는 더 짧은 토큰 TTL 또는 온라인 재검증이 필요합니다.
 - DB 스키마는 신규 설치용 초기 스키마입니다. 기존 DB에 적용할 경우 별도 migration 검토가 필요합니다.
 - 운영 RSA 개인키와 관리자/HMAC 비밀값, DATABASE_URL은 절대 저장소/앱/채팅에 커밋하지 않습니다.
-- 실제 결제 연결 전에는 수동 발급용 관리 도구이며, 실제 유료 판매/결제 완료를 주장하지 않습니다.
+- Google Play 구매 검증은 서버 전용 서비스 계정으로 Publisher API를 호출합니다. RTDN은 Pub/Sub OIDC JWT의 서명·audience·email·email_verified를 검증하고 Google 서명 인증서를 캐시합니다. 취소는 만료 시각까지 유지하며, 보류/일시중지/만료/철회는 서버 재조회 결과에 따라 entitlement를 회수합니다. RTDN 철회 이벤트는 `revoked_by_rtdn`에 기록해 동일 purchaseToken 재검증으로 권한이 되살아나지 않도록 합니다.
+- 실제 Play Console SKU, Google Cloud Pub/Sub topic/push subscription, Publisher API 서비스 계정 권한, audience/email, Secret Manager 및 HTTPS 공개 endpoint는 운영자가 배포 환경에서 설정해야 합니다. 이 저장소의 서버는 운영 결제 환경에 배포된 상태가 아닙니다.
