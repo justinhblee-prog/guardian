@@ -1,6 +1,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash, generateKeyPairSync, randomUUID, verify } from 'node:crypto';
+import { createHash, createSign, generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createPostgresRateLimiter } from '../src/rate-limit.mjs';
 
@@ -15,6 +15,27 @@ if (!databaseUrl) {
   process.env.GUARDIAN_LICENSE_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
   process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON = JSON.stringify({ type: 'service_account', client_email: 'guardian-billing-integration@example.iam.gserviceaccount.com', private_key: process.env.GUARDIAN_LICENSE_PRIVATE_KEY });
   process.env.GOOGLE_PLAY_PRODUCT_IDS = 'guardian_pro_monthly';
+  process.env.GOOGLE_PLAY_RTDN_AUDIENCE = 'https://guardian.example.test/v1/billing/google-play/rtdn';
+  process.env.GOOGLE_PLAY_RTDN_SERVICE_ACCOUNT_EMAIL = 'guardian-rtdn-push@example.iam.gserviceaccount.com';
+  const rtdnKeys = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const rtdnPublicPem = rtdnKeys.publicKey.export({ type: 'spki', format: 'pem' }).toString();
+  const rtdnBearerToken = (() => {
+    const b64 = value => Buffer.from(value).toString('base64url');
+    const header = b64(JSON.stringify({ alg: 'RS256', kid: 'guardian-rtdn-test-key', typ: 'JWT' }));
+    const claims = b64(JSON.stringify({
+      iss: 'https://accounts.google.com',
+      aud: process.env.GOOGLE_PLAY_RTDN_AUDIENCE,
+      email: process.env.GOOGLE_PLAY_RTDN_SERVICE_ACCOUNT_EMAIL,
+      email_verified: true,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 3600
+    }));
+    const unsigned = header + '.' + claims;
+    const signer = createSign('RSA-SHA256');
+    signer.update(unsigned);
+    signer.end();
+    return unsigned + '.' + signer.sign(rtdnKeys.privateKey).toString('base64url');
+  })();
   const nativeFetch = globalThis.fetch;
 
   const { default: pg } = await import('pg');
@@ -484,6 +505,11 @@ if (!databaseUrl) {
     let publisherLookups = 0;
     const expiryTime = '2027-01-21T12:00:00.000Z';
     globalThis.fetch = async (url, init = {}) => {
+      if (String(url) === 'https://www.googleapis.com/oauth2/v1/certs') {
+        return Response.json({ 'guardian-rtdn-test-key': rtdnPublicPem }, {
+          headers: { 'cache-control': 'public, max-age=300' }
+        });
+      }
       if (String(url) === 'https://oauth2.googleapis.com/token') {
         return Response.json({ access_token: 'integration-publisher-token', expires_in: 3600 });
       }
@@ -555,6 +581,47 @@ if (!databaseUrl) {
       assert.equal(recovered.status, 200);
       assert.equal((await recovered.json()).entitled, true);
       assert.ok(publisherLookups >= 5);
+
+      const rtdnNotification = {
+        version: '1.0',
+        packageName: 'com.guardian.adblock',
+        eventTimeMillis: String(Date.now()),
+        subscriptionNotification: {
+          version: '1.0',
+          notificationType: 12,
+          purchaseToken,
+          subscriptionId: 'guardian_pro_monthly'
+        }
+      };
+      const rtdnBody = {
+        message: {
+          messageId: 'guardian-rtdn-integration-' + randomUUID(),
+          data: Buffer.from(JSON.stringify(rtdnNotification)).toString('base64')
+        },
+        subscription: 'projects/guardian-test/subscriptions/play-rtdn'
+      };
+      const sendRtdn = () => nativeFetch(`${baseUrl}/v1/billing/google-play/rtdn`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + rtdnBearerToken },
+        body: JSON.stringify(rtdnBody)
+      });
+      const rtdn = await sendRtdn();
+      assert.equal(rtdn.status, 200);
+      const rtdnResult = await rtdn.json();
+      assert.equal(rtdnResult.processed, true);
+      assert.equal(rtdnResult.entitled, false);
+
+      const duplicateRtdn = await sendRtdn();
+      assert.equal(duplicateRtdn.status, 200);
+      assert.equal((await duplicateRtdn.json()).duplicate, true);
+
+      const revokedPurchase = await verifyPurchase();
+      assert.equal(revokedPurchase.status, 403);
+      const revokedMarker = await pool.query(
+        'SELECT revoked_by_rtdn FROM google_play_purchases WHERE purchase_token_hash=$1',
+        [tokenHash]
+      );
+      assert.equal(revokedMarker.rows[0].revoked_by_rtdn, true);
     } finally {
       globalThis.fetch = nativeFetch;
     }
