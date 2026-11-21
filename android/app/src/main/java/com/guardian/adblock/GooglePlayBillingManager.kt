@@ -18,6 +18,10 @@ import java.io.Closeable
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 
+internal fun isSupportedGuardianSubscriptionRecurrenceMode(mode: Int): Boolean =
+    mode == ProductDetails.RecurrenceMode.INFINITE_RECURRING ||
+        mode == ProductDetails.RecurrenceMode.FINITE_RECURRING
+
 internal fun parseGuardianPlayProductIds(value: String): List<String> {
     val values = value.split(',').map { it.trim() }.filter { it.isNotEmpty() }
     require(values.size <= 10) { "Google Play 구독 상품은 최대 10개까지 설정할 수 있습니다." }
@@ -93,7 +97,10 @@ internal class GooglePlayBillingManager(
                     return@queryProductDetailsAsync
                 }
                 val available = detailsResult.productDetailsList.mapNotNull { details ->
-                    val offer = details.subscriptionOfferDetails?.firstOrNull() ?: return@mapNotNull null
+                    val offer = details.subscriptionOfferDetails?.firstOrNull { candidate ->
+                        val recurrenceMode = candidate.pricingPhases.pricingPhaseList.lastOrNull()?.recurrenceMode
+                        recurrenceMode != null && isSupportedGuardianSubscriptionRecurrenceMode(recurrenceMode)
+                    } ?: return@mapNotNull null
                     val price = offer.pricingPhases.pricingPhaseList.lastOrNull()?.formattedPrice
                         ?: return@mapNotNull null
                     GuardianPlayProduct(
