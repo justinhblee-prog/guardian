@@ -68,7 +68,7 @@ jobs:
           if ($dockerCheck -lt $skipGuard -or $skipGuard -lt 0) {
             throw 'Docker check is not protected by SkipAutoStart.'
           }
-          if (-not $script -match 'if \(-not \$SkipAutoStart\) \{\s*& \(Join-Path \$PSScriptRoot ''Start-All-GuardianServices\.ps1''\)') {
+          if ($script -notmatch 'if \(-not \$SkipAutoStart\) \{\s*& \(Join-Path \$PSScriptRoot ''Start-All-GuardianServices\.ps1''\)') {
             throw 'SkipAutoStart must prevent automatic container startup.'
           }
           Write-Host 'Offline key bootstrap policy passed.'
