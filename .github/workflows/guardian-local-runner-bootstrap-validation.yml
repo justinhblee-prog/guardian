@@ -50,7 +50,11 @@ jobs:
             'actions/runner/releases/latest',
             'Get-FileHash',
             'LOCALAPPDATA',
-            'New-ScheduledTaskTrigger'
+            'New-ScheduledTaskTrigger',
+            'guardian-multiflow.ps1',
+            'guardian_multiflow.py',
+            'guardian-git-agent.ps1',
+            '-InstallScheduledTask'
           )
           foreach ($item in $required) {
             if (-not $script.Contains($item)) { throw "Missing required safety feature: $item" }
