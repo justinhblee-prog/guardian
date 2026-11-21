@@ -674,40 +674,50 @@ class MainActivity : Activity() {
 
         val hero = card(homeBg, 22).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(20), dp(18), dp(20))
+            setPadding(dp(20), dp(20), dp(20), dp(20))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(22, 38, 56), Color.rgb(34, 48, 64))
+            ).apply {
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), Color.rgb(65, 91, 116))
+            }
         }
         val brandRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        brandRow.addView(text("◆  GUARDIAN", 17f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
-        brandRow.addView(text("AD BLOCK", 10f, homeGreen, true))
+        brandRow.addView(text("GUARDIAN", 17f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
+        brandRow.addView(text("SYSTEM-WIDE DNS PROTECTION", 9f, homeGreen, true))
         hero.addView(brandRow)
 
-        statusDot = text("●  보호 꺼짐", 10f, homeOrange, true).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(10), dp(5), dp(10), dp(8))
+        statusDot = text("●  보호 꺼짐", 11f, homeOrange, true).apply {
+            gravity = Gravity.START
+            setPadding(0, dp(16), 0, dp(5))
         }
         hero.addView(statusDot)
-        statusTitle = text("보호 상태 확인 중", 23f, white, true).apply { gravity = Gravity.CENTER }
+        statusTitle = text("보호 상태 확인 중", 25f, white, true).apply { gravity = Gravity.START }
         hero.addView(statusTitle)
-        status = text("", 13f, muted, false).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(6), dp(8), dp(6), dp(18))
+        status = text("", 12f, Color.rgb(190, 203, 216), false).apply {
+            gravity = Gravity.START
+            setPadding(0, dp(7), 0, dp(18))
         }
         hero.addView(status)
 
         val power = Button(this).apply {
             text = "보호 시작"
             isAllCaps = false
-            textSize = 16f
+            textSize = 15f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
-            background = shape(homeOrange, 28)
-            minHeight = dp(62)
+            background = shape(homeOrange, 16)
+            minHeight = dp(58)
+            elevation = dp(2).toFloat()
+            contentDescription = "Guardian DNS 보호 시작 또는 중지"
             setOnClickListener { onHomeProtectionButtonTapped() }
         }
         startButton = power
-        hero.addView(power, LinearLayout.LayoutParams(dp(150), dp(62)).apply { gravity = Gravity.CENTER })
+        hero.addView(power, LinearLayout.LayoutParams(-1, dp(58)))
         body.addView(hero.withTop(18))
 
         val metrics = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
