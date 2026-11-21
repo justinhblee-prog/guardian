@@ -27,12 +27,17 @@ class FilterUpdateWorker(
 
             // A retry caused by an optional list failure must not download the
             // already successful base list again. Each source has its own age.
-            if (FilterUpdatePolicy.isDue(
-                    baseCacheReady, FilterListManager.lastUpdatedAt(applicationContext), interval, now
-                )) {
+            val baseUpdateDue = FilterUpdatePolicy.isDue(
+                baseCacheReady, FilterListManager.lastUpdatedAt(applicationContext), interval, now
+            )
+            var baseUpdateSucceeded = false
+            if (baseUpdateDue) {
                 FilterListManager.update(applicationContext)
+                baseUpdateSucceeded = true
             }
-            prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
+            if (FilterUpdatePolicy.shouldClearBaseError(baseUpdateDue, baseUpdateSucceeded)) {
+                prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
+            }
 
             var optionalFailure = false
             val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
@@ -116,6 +121,10 @@ internal object FilterUpdatePolicy {
     /** Disable an optional source only when its first download failed and no trusted cache exists. */
     fun shouldDisableOptionalFilter(wasEnabled: Boolean, hadValidCache: Boolean): Boolean =
         wasEnabled && !hadValidCache
+
+    /** Preserve the last failure until a due refresh actually succeeds. */
+    fun shouldClearBaseError(updateWasDue: Boolean, updateSucceeded: Boolean): Boolean =
+        updateWasDue && updateSucceeded
 
     fun isDue(hasValidCache: Boolean, lastUpdatedAt: Long, intervalMs: Long, now: Long): Boolean {
         if (!hasValidCache || lastUpdatedAt <= 0L) return true

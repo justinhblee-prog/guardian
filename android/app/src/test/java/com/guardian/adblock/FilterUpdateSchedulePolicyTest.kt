@@ -97,6 +97,13 @@ class FilterUpdateSchedulePolicyTest {
         assertEquals(2, FilterUpdateScheduler.selectionIndex(123L, intervals, 2))
     }
 
+    @Test fun clearsBaseErrorOnlyAfterASuccessfulDueRefresh() {
+        assertFalse(FilterUpdatePolicy.shouldClearBaseError(updateWasDue = false, updateSucceeded = false))
+        assertFalse(FilterUpdatePolicy.shouldClearBaseError(updateWasDue = false, updateSucceeded = true))
+        assertFalse(FilterUpdatePolicy.shouldClearBaseError(updateWasDue = true, updateSucceeded = false))
+        assertTrue(FilterUpdatePolicy.shouldClearBaseError(updateWasDue = true, updateSucceeded = true))
+    }
+
     @Test fun missingOrInvalidCacheIsAlwaysDue() {
         assertTrue(FilterUpdatePolicy.isDue(false, 0L, 6L * 60L * 60L * 1000L, 100_000L))
         assertTrue(FilterUpdatePolicy.isDue(true, 0L, 6L * 60L * 60L * 1000L, 100_000L))
