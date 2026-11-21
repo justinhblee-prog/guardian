@@ -75,11 +75,19 @@ jobs:
               throw new Error('Manifest fields are incomplete: ' + manifestPath);
             }
             const sourceId = path.basename(manifestPath, '.manifest');
+            const expectedUrl = 'https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data/filters/' +
+              sourceId + '/' + values.sourceVersion + '.txt';
+            const generatedAt = Number(values.generatedAt);
+            const minimumRules = Number(values.minimumRules);
+            const now = Math.floor(Date.now() / 1000);
             if (values.manifestVersion !== '1' || values.sourceId !== sourceId ||
                 !/^[A-Za-z0-9_.+-]{1,64}$/.test(values.sourceVersion) ||
                 !/^[1-9][0-9]{0,15}$/.test(values.generatedAt) ||
+                !Number.isSafeInteger(generatedAt) || generatedAt > now + 600 ||
                 !/^[a-f0-9]{64}$/.test(values.sha256) ||
-                !/^https:\/\/raw\.githubusercontent\.com\/justinhblee-prog\/guardian\/guardian-filter-data\/filters\//.test(values.url)) {
+                !/^[1-9][0-9]{0,8}$/.test(values.minimumRules) ||
+                !Number.isSafeInteger(minimumRules) ||
+                values.url !== expectedUrl) {
               throw new Error('Manifest metadata rejected: ' + manifestPath);
             }
             const signaturePath = sourceId + '.' + values.sourceVersion + '.' + values.generatedAt + '.sig';
@@ -94,7 +102,17 @@ jobs:
             const hash = createHash('sha256').update(filter).digest('hex');
             if (hash !== values.sha256) throw new Error('Filter SHA-256 mismatch: ' + sourceId);
             if (filter.length === 0 || filter.length > 10 * 1024 * 1024 || filter.includes(0)) throw new Error('Invalid filter content size/encoding: ' + sourceId);
-            console.log('Verified', sourceId, values.sourceVersion, filter.length, 'bytes');
+            const filterText = filter.toString('utf8');
+            if (!Buffer.from(filterText, 'utf8').equals(filter)) throw new Error('Filter is not valid UTF-8: ' + sourceId);
+            const ruleCount = filterText.split(/\\r?\\n/).filter(line => {
+              const trimmed = line.trim();
+              return trimmed && !trimmed.startsWith('!') && !trimmed.startsWith('#') &&
+                !trimmed.startsWith('[') && !trimmed.startsWith('//');
+            }).length;
+            if (ruleCount < minimumRules) {
+              throw new Error('Filter has ' + ruleCount + ' rules; minimumRules requires ' + minimumRules + ': ' + sourceId);
+            }
+            console.log('Verified', sourceId, values.sourceVersion, filter.length, 'bytes,', ruleCount, 'rules');
           }
           console.log('All', manifests.length, 'signed filter manifests passed cloud-origin verification.');
           NODE
