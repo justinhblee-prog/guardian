@@ -3297,10 +3297,6 @@ class MainActivity : Activity() {
             isEnabled = false
             setOnClickListener {
                 val snapshot = excluded.toSet()
-                android.util.Log.i(
-                    "GuardianApps",
-                    "Saving app exclusions: selected=" + snapshot.size + " packages=" + snapshot.sorted()
-                )
                 val saved = prefs.edit()
                     .putStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, snapshot)
                     .commit()
@@ -3311,11 +3307,6 @@ class MainActivity : Activity() {
                 }
                 savedExclusions.clear()
                 savedExclusions.addAll(snapshot)
-                android.util.Log.i(
-                    "GuardianApps",
-                    "App exclusions persisted: success=" + saved +
-                        " requested=" + prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty().sorted()
-                )
                 isEnabled = false
                 text = "저장 완료"
                 val protectionActive = ProtectionState.isActive(
