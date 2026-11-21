@@ -38,6 +38,9 @@ internal object DevUpdateManager {
         val notes: String
     )
 
+    internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
+        tagVersion > installedVersionCode && manifestVersionCode == tagVersion
+
     fun checkForUpdate(): GuardianDevUpdate? {
         val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
         val candidates = ArrayList<ReleaseCandidate>()
@@ -70,26 +73,27 @@ internal object DevUpdateManager {
         }
 
         for (candidate in candidates.sortedByDescending { it.tagVersion }) {
-            require(candidate.manifestUrl.startsWith("https://github.com/justinhblee-prog/guardian/releases/download/")) {
-                "개발 업데이트 manifest 주소가 허용된 GitHub 저장소가 아닙니다."
+            require(isGuardianReleaseAssetUrl(candidate.manifestUrl)) {
+                "개발 업데이트 manifest 주소가 허용된 GitHub Release가 아닙니다."
             }
-            require(candidate.apkUrl.startsWith("https://github.com/justinhblee-prog/guardian/releases/download/")) {
-                "개발 APK 주소가 허용된 GitHub 저장소가 아닙니다."
+            require(isGuardianReleaseAssetUrl(candidate.apkUrl)) {
+                "개발 APK 주소가 허용된 GitHub Release가 아닙니다."
             }
             val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
             if (manifest.optString("packageName") != PACKAGE_NAME) continue
             val versionCode = manifest.optInt("versionCode", 0)
-            // Do not stop at the first older release: GitHub release ordering can
-            // differ from the numeric Guardian development version sequence.
-            if (versionCode <= BuildConfig.VERSION_CODE) continue
-            if (versionCode < candidate.tagVersion) continue
+            // The release tag and signed-off manifest must identify the same build,
+            // and that build must be newer than the installed application.
+            if (!isNewerMatchingRelease(BuildConfig.VERSION_CODE, candidate.tagVersion, versionCode)) continue
+            val versionName = manifest.optString("versionName")
+            if (!versionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+-dev"))) continue
 
             val digest = manifest.optString("sha256").lowercase()
             val signer = manifest.optString("signerSha256").lowercase()
             require(digest.matches(Regex("[a-f0-9]{64}"))) { "업데이트 SHA-256 형식이 올바르지 않습니다." }
             require(signer.matches(Regex("[a-f0-9]{64}"))) { "업데이트 서명 지문 형식이 올바르지 않습니다." }
             return GuardianDevUpdate(
-                manifest.optString("versionName"),
+                versionName,
                 versionCode,
                 digest,
                 signer,
@@ -115,6 +119,7 @@ internal object DevUpdateManager {
         }
         try {
             connection.connect()
+            check(isAllowedReleaseDownloadHost(connection.url)) { "APK 다운로드가 허용되지 않은 서버로 리디렉션되었습니다." }
             check(connection.responseCode in 200..299) { "APK 다운로드 실패: HTTP ${connection.responseCode}" }
             val expectedLength = connection.contentLengthLong
             check(expectedLength in 1..MAX_APK_BYTES) { "APK 파일 크기가 허용 범위를 벗어났습니다." }
@@ -144,6 +149,7 @@ internal object DevUpdateManager {
             target.delete()
             error("다운로드한 APK의 SHA-256 검증에 실패했습니다.")
         }
+        verifyDownloadedPackage(context, target, update)
         return target
     }
 
@@ -165,6 +171,49 @@ internal object DevUpdateManager {
         }
         context.startActivity(intent)
         return true
+    }
+
+    internal fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
+        val uri = java.net.URI(address)
+        uri.scheme.equals("https", true) &&
+            uri.host.equals("github.com", true) &&
+            uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
+            uri.userInfo == null && uri.query == null && uri.fragment == null
+    }.getOrDefault(false)
+
+    private fun isAllowedHttpsHost(url: URL): Boolean =
+        url.protocol.equals("https", true) &&
+            (url.host.equals("api.github.com", true) ||
+                url.host.equals("github.com", true) ||
+                url.host.equals("release-assets.githubusercontent.com", true) ||
+                url.host.equals("objects.githubusercontent.com", true))
+
+    private fun isAllowedReleaseDownloadHost(url: URL): Boolean =
+        isAllowedHttpsHost(url) && !url.host.equals("api.github.com", true)
+
+    private fun verifyDownloadedPackage(context: Context, apk: File, update: GuardianDevUpdate) {
+        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else {
+            @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
+        }
+        val info = context.packageManager.getPackageArchiveInfo(apk.absolutePath, flags)
+            ?: error("다운로드한 파일이 유효한 Android APK가 아닙니다.")
+        check(info.packageName == PACKAGE_NAME) { "다운로드한 APK의 패키지 ID가 Guardian과 다릅니다." }
+        val archiveVersionCode = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else info.versionCode
+        check(archiveVersionCode == update.versionCode) { "다운로드한 APK의 versionCode가 manifest와 다릅니다." }
+        check(info.versionName == update.versionName) { "다운로드한 APK의 versionName이 manifest와 다릅니다." }
+        val signatures = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else {
+            @Suppress("DEPRECATION") info.signatures
+        } ?: error("다운로드한 APK의 서명 정보를 읽을 수 없습니다.")
+        val certificate = signatures.firstOrNull()?.toByteArray()
+            ?: error("다운로드한 APK의 서명 인증서가 없습니다.")
+        val actualSigner = MessageDigest.getInstance("SHA-256").digest(certificate)
+            .joinToString("") { "%02x".format(it) }
+        check(actualSigner.equals(update.signerSha256, true)) {
+            "다운로드한 APK의 서명 인증서가 manifest와 일치하지 않습니다."
+        }
+        check(actualSigner == installedSignerSha256(context)) {
+            "다운로드한 APK의 서명 인증서가 설치된 앱과 다릅니다."
+        }
     }
 
     private fun installedSignerSha256(context: Context): String {
@@ -218,6 +267,7 @@ internal object DevUpdateManager {
         }
         try {
             connection.connect()
+            check(isAllowedHttpsHost(connection.url)) { "업데이트 확인 요청이 허용되지 않은 서버로 리디렉션되었습니다." }
             check(connection.responseCode in 200..299) { "업데이트 확인 실패: HTTP ${connection.responseCode}" }
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()

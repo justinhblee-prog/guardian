@@ -295,13 +295,13 @@ class GuardianVpnService : VpnService() {
         try {
             oldTun?.close()
         } catch (error: Exception) {
-            android.util.Log.w("GuardianProtection", "Could not close TUN for app compatibility pause", error)
+            android.util.Log.w("GuardianProtection", "Could not close TUN for app compatibility pause: ${SafeFailureSummary.codeFor(error)}")
         }
         try {
             packetWorker?.join(5_000L)
         } catch (error: InterruptedException) {
             Thread.currentThread().interrupt()
-            android.util.Log.w("GuardianProtection", "Interrupted while waiting for DNS worker to pause", error)
+            android.util.Log.w("GuardianProtection", "Interrupted while waiting for DNS worker to pause: ${SafeFailureSummary.codeFor(error)}")
         }
 
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) return
@@ -335,7 +335,7 @@ class GuardianVpnService : VpnService() {
             createNotificationChannel()
             startForeground(41, buildNotification())
         } catch (error: Exception) {
-            android.util.Log.e("GuardianProtection", "Could not update compatibility pause notification", error)
+            android.util.Log.e("GuardianProtection", "Could not update compatibility pause notification: ${SafeFailureSummary.codeFor(error)}")
         }
         sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
     }
@@ -406,7 +406,7 @@ class GuardianVpnService : VpnService() {
         val oldTun = tun
         tun = null
         try { oldTun?.close() } catch (error: Exception) {
-            android.util.Log.w("GuardianProtection", "Could not close old TUN before exclusion refresh", error)
+            android.util.Log.w("GuardianProtection", "Could not close old TUN before exclusion refresh: ${SafeFailureSummary.codeFor(error)}")
         }
         // Wait for the previous blocking packet reader to exit before allowing a
         // new worker to set running=true; otherwise its finally block could stop
@@ -462,19 +462,19 @@ class GuardianVpnService : VpnService() {
         startId: Int,
         error: Throwable
     ) {
-        android.util.Log.e("GuardianProtection", "Unexpected VPN startup failure", error)
+        android.util.Log.e("GuardianProtection", "Unexpected VPN startup failure: ${SafeFailureSummary.codeFor(error)}")
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
         // A stale worker must not overwrite an explicit stop or a newer start request.
         if (!startCancellation.isCurrent(requestGeneration) || running.get()) return
         tunnelActive = false
         try { tun?.close() } catch (closeError: Exception) {
-            android.util.Log.w("GuardianProtection", "Failed to close partial VPN tunnel", closeError)
+            android.util.Log.w("GuardianProtection", "Failed to close partial VPN tunnel: ${SafeFailureSummary.codeFor(closeError)}")
         }
         tun = null
         try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (stopError: Exception) {
-            android.util.Log.w("GuardianProtection", "Failed to remove startup notification", stopError)
+            android.util.Log.w("GuardianProtection", "Failed to remove startup notification: ${SafeFailureSummary.codeFor(stopError)}")
         }
-        val detail = error.message?.takeIf { it.isNotBlank() } ?: "상세 오류 메시지가 없습니다."
+        val detail = SafeFailureSummary.describe(error)
         publishState(
             false,
             "보호 시작 중 예기치 않은 오류가 발생했습니다 (${ProtectionDiagnostics.exceptionTypeChain(error)}): $detail"
@@ -492,7 +492,7 @@ class GuardianVpnService : VpnService() {
         } catch (e: Exception) {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(e)).apply()
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            publishState(false, "포그라운드 서비스 시작 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${e.message ?: "권한 또는 Android 정책을 확인하세요."}")
+            publishState(false, "포그라운드 서비스 시작 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${SafeFailureSummary.describe(e)}")
             stopSelf(startId)
             return
         }
@@ -502,7 +502,7 @@ class GuardianVpnService : VpnService() {
         } catch (e: Exception) {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(e)).apply()
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            publishState(false, "필터 규칙 로드 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${e.message ?: "원인 정보 없음"}")
+            publishState(false, "필터 규칙 로드 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${SafeFailureSummary.describe(e)}")
             stopSelf(startId)
             return
         }
@@ -599,8 +599,7 @@ class GuardianVpnService : VpnService() {
                     staleExclusions.add(excludedPackage)
                     android.util.Log.w(
                         "GuardianProtection",
-                        "Android rejected VPN exclusion for $excludedPackage",
-                        error
+                        "Android rejected a VPN app exclusion: ${SafeFailureSummary.codeFor(error)}"
                     )
                 }
             }
@@ -618,7 +617,7 @@ class GuardianVpnService : VpnService() {
         }
         if (descriptor == null) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            val detail = establishError?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
+            val detail = establishError?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${SafeFailureSummary.describe(it)})" }.orEmpty()
             establishError?.let { error ->
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
             }
@@ -730,7 +729,7 @@ class GuardianVpnService : VpnService() {
                 try { descriptor.close() } catch (_: Exception) { }
                 if (tun === descriptor) tun = null
                 try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-                val detail = loopFailure?.let { " (${it.javaClass.simpleName}: ${it.message ?: "원인 정보 없음"})" }.orEmpty()
+                val detail = loopFailure?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${SafeFailureSummary.describe(it)})" }.orEmpty()
                 publishState(false, "DNS 패킷 처리 중단$detail. 보호를 다시 시작해 주세요.")
                 stopSelf()
             }
@@ -835,7 +834,7 @@ class GuardianVpnService : VpnService() {
                     load = { FilterListManager.parseCachedList(this, cacheName) },
                     onUnavailable = { error ->
                         unavailable.add(label)
-                        android.util.Log.w("Guardian", "Optional filter cache skipped: $label", error)
+                        android.util.Log.w("Guardian", "Optional filter cache skipped: $label (${SafeFailureSummary.codeFor(error)})")
                     }
                 )
             }
@@ -986,13 +985,13 @@ class GuardianVpnService : VpnService() {
                     !DnsUpstreamProbe.isRetryableResolverError(response)
                 }
                 if (usable) return response
-                lastUpstreamFailure = transport.uppercase() + " " + address +
+                lastUpstreamFailure = transport.uppercase() +
                     ": resolver returned an unusable response (RCODE=" +
                     DnsUpstreamProbe.responseCode(response) + ")"
                 continue
             }
             if (lastUpstreamFailure == null) {
-                lastUpstreamFailure = transport.uppercase() + " " + address + ": DNS 응답 없음 또는 검증 실패"
+                lastUpstreamFailure = transport.uppercase() + ": DNS 응답 없음 또는 검증 실패"
             }
         }
         return null
@@ -1024,7 +1023,7 @@ class GuardianVpnService : VpnService() {
                 null
             }
         } catch (error: Exception) {
-            lastUpstreamFailure = "UDP " + upstreamAddress + ": " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
+            lastUpstreamFailure = "UDP: ${SafeFailureSummary.describe(error)}"
             null
         } finally {
             socket?.close()
@@ -1058,7 +1057,7 @@ class GuardianVpnService : VpnService() {
                 null
             }
         } catch (error: Exception) {
-            lastUpstreamFailure = "TCP " + upstreamAddress + ": " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
+            lastUpstreamFailure = "TCP: ${SafeFailureSummary.describe(error)}"
             null
         } finally {
             try { socket?.close() } catch (_: Exception) { }
@@ -1129,7 +1128,7 @@ class GuardianVpnService : VpnService() {
             input.readFully(answer)
             if (DomainFilter.isMatchingResponse(query, answer)) answer else null
         } catch (error: Exception) {
-            lastUpstreamFailure = "DoT: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
+            lastUpstreamFailure = "DoT: ${SafeFailureSummary.describe(error)}"
             null
         } finally {
             try { socket?.close() } catch (_: Exception) { }
@@ -1162,7 +1161,7 @@ class GuardianVpnService : VpnService() {
             val answer = DnsDohHttpCodec.readResponse(socket.inputStream) ?: return null
             if (DomainFilter.isMatchingResponse(query, answer)) answer else null
         } catch (error: Exception) {
-            lastUpstreamFailure = "DoH: " + error.javaClass.simpleName + ": " + (error.message ?: "상세 메시지 없음")
+            lastUpstreamFailure = "DoH: ${SafeFailureSummary.describe(error)}"
             null
         } finally {
             try { socket?.close() } catch (_: Exception) { }

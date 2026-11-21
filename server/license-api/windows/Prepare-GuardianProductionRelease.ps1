@@ -14,9 +14,8 @@ $storePasswordPath=Join-Path $secretDir 'guardian-release-store-password.dpapi'
 $keyPasswordPath=Join-Path $secretDir 'guardian-release-key-password.dpapi'
 if($VersionName -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$' -or $VersionCode -lt 0){throw '정식 버전은 x.y.z 형식이고 versionCode는 0(자동 산정) 또는 양의 정수여야 합니다.'}
 $androidGradleConfig = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'android\app\build.gradle.kts')
-$developmentVersionMatch = [regex]::Match($androidGradleConfig, '(?s)val\s+guardianVersionCode\s*=.*?\.getOrElse\((\d+)\)')
-if(-not $developmentVersionMatch.Success){throw 'Android 개발 versionCode 기본값을 확인할 수 없습니다. Release 버전 코드 검사를 중단합니다.'}
-$minimumProductionVersionCode = [int]$developmentVersionMatch.Groups[1].Value + 1
+# Production uses a reserved versionCode range above all development releases.
+$minimumProductionVersionCode = 2000000
 if($VersionCode -eq 0){$VersionCode=$minimumProductionVersionCode}
 if($VersionCode -lt $minimumProductionVersionCode){throw "정식 versionCode는 현재 개발 빌드보다 커야 합니다. 현재 개발 versionCode: $($minimumProductionVersionCode - 1), 최소 정식 versionCode: $minimumProductionVersionCode"}
 foreach($path in @($licensePublicPath,$filterPublicPath)){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw "운영 공개키가 없습니다: $path. Setup-GuardianServer.ps1을 먼저 실행하세요."}}

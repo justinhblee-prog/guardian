@@ -208,9 +208,9 @@ class MainActivity : Activity() {
         // initial filter download request.
         thread(name = "guardian-background-scheduler-sync") {
             runCatching { LicenseRefreshScheduler.sync(applicationContext) }
-                .onFailure { android.util.Log.e("Guardian", "License refresh scheduling failed", it) }
+                .onFailure { android.util.Log.e("Guardian", "License refresh scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
             runCatching { FilterUpdateScheduler.sync(applicationContext) }
-                .onFailure { android.util.Log.e("Guardian", "Filter refresh scheduling failed", it) }
+                .onFailure { android.util.Log.e("Guardian", "Filter refresh scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
         }
     }
 
@@ -271,7 +271,7 @@ class MainActivity : Activity() {
                 }
             } catch (error: Exception) {
                 startupFilterCheckStarted.set(false)
-                android.util.Log.e("Guardian", "Startup filter readiness check failed", error)
+                android.util.Log.e("Guardian", "Startup filter readiness check failed: ${SafeFailureSummary.codeFor(error)}")
             }
         }
     }
@@ -381,7 +381,7 @@ class MainActivity : Activity() {
                 startService(service)
             }
         } catch (error: Exception) {
-            android.util.Log.e("GuardianProtection", "UI fallback could not restart protection after update", error)
+            android.util.Log.e("GuardianProtection", "UI fallback could not restart protection after update: ${SafeFailureSummary.codeFor(error)}")
             prefs.edit()
                 .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
                 .putString(GuardianVpnService.KEY_STATUS, "업데이트 후 VPN 자동 복구 요청에 실패했습니다. 다시 시도합니다.")
@@ -1440,7 +1440,7 @@ class MainActivity : Activity() {
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
         if (BuildConfig.DEBUG) {
             val updateStatus = text(
-                "자동 업데이트 확인: 꺼짐 · 현재 개발 버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                "설정 화면 진입 시 주기 확인 · 현재 개발 버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 11f, muted, false
             ).withTop(8) as TextView
             var downloadedUpdate: File? = null
@@ -1463,7 +1463,7 @@ class MainActivity : Activity() {
                             "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '업데이트 설치'를 다시 누르세요."
                         }
                     } catch (error: Exception) {
-                        updateStatus.text = error.message ?: "설치 화면을 열지 못했습니다."
+                        updateStatus.text = "설치 화면을 열지 못했습니다: ${SafeFailureSummary.describe(error)}"
                     }
                 }
             }
@@ -1471,7 +1471,7 @@ class MainActivity : Activity() {
                 setPadding(dp(15), dp(15), dp(15), dp(15))
                 addView(text("개발 버전 업데이트 (수동)", 15f, white, true))
                 addView(text(
-                    "자동 확인 및 다운로드는 실행하지 않습니다. 아래 버튼을 직접 누른 경우에만 새 APK를 확인하고 다운로드합니다. SHA-256과 서명을 검증한 뒤 설치를 진행합니다.",
+                    "설정 화면을 열 때 정해진 간격으로 업데이트를 확인하며, 아래 버튼으로 언제든 수동 재확인할 수 있습니다. 새 APK는 SHA-256과 서명을 검증한 뒤 설치를 진행합니다.",
                     11f, muted, false
                 ).withTop(5))
                 addView(updateStatus)
@@ -1511,7 +1511,7 @@ class MainActivity : Activity() {
                                 runOnUiThread {
                                     downloadedUpdate = null
                                     setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = false, hasVerifiedApk = false)
-                                    updateStatus.text = error.message ?: "업데이트 확인 또는 다운로드에 실패했습니다."
+                                    updateStatus.text = "업데이트 확인 또는 다운로드 실패: ${SafeFailureSummary.describe(error)}"
                                 }
                             } finally {
                                 runOnUiThread {
@@ -1533,7 +1533,7 @@ class MainActivity : Activity() {
             }.withTop(12))
         } else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED) {
             val updateStatus = text(
-                "현재 정식 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 자동 업데이트 확인 꺼짐",
+                "현재 정식 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 설정 화면 진입 시 주기 확인",
                 11f, muted, false
             ).withTop(8) as TextView
             var downloadedUpdate: File? = null
@@ -1556,7 +1556,7 @@ class MainActivity : Activity() {
                             "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '업데이트 설치'를 다시 누르세요."
                         }
                     } catch (error: Exception) {
-                        updateStatus.text = error.message ?: "설치 화면을 열지 못했습니다."
+                        updateStatus.text = "설치 화면을 열지 못했습니다: ${SafeFailureSummary.describe(error)}"
                     }
                 }
             }
@@ -1564,7 +1564,7 @@ class MainActivity : Activity() {
                 setPadding(dp(15), dp(15), dp(15), dp(15))
                 addView(text("정식 버전 업데이트 (수동)", 15f, white, true))
                 addView(text(
-                    "자동 확인 및 다운로드는 실행하지 않습니다. 아래 버튼을 직접 누른 경우에만 Guardian 공식 정식 Release를 확인하고 APK를 다운로드합니다. SHA-256, 패키지 ID, 버전 및 설치된 운영 서명 인증서를 검증한 후 Android의 설치 확인 화면을 엽니다.",
+                    "설정 화면을 열 때 정해진 간격으로 Guardian 공식 정식 Release를 확인하며, 아래 버튼으로 언제든 수동 재확인할 수 있습니다. APK의 SHA-256, 패키지 ID, 버전 및 설치된 운영 서명 인증서를 검증한 후 Android의 설치 확인 화면을 엽니다.",
                     11f, muted, false
                 ).withTop(5))
                 addView(updateStatus)
@@ -1604,7 +1604,7 @@ class MainActivity : Activity() {
                                 runOnUiThread {
                                     downloadedUpdate = null
                                     setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = false, hasVerifiedApk = false)
-                                    updateStatus.text = error.message ?: "정식 업데이트 확인 또는 다운로드에 실패했습니다."
+                                    updateStatus.text = "정식 업데이트 확인 또는 다운로드 실패: ${SafeFailureSummary.describe(error)}"
                                 }
                             } finally {
                                 runOnUiThread {
@@ -1662,7 +1662,7 @@ class MainActivity : Activity() {
                         LicenseRefreshScheduler.sync(this@MainActivity)
                         serverFeedback.text = "저장 완료 · 라이선스 자동 갱신 일정에 새 서버 주소를 반영했습니다."
                     } catch (error: Exception) {
-                        serverFeedback.text = error.message ?: "HTTPS 서버 주소를 확인하세요."
+                        serverFeedback.text = "운영 서버 설정 실패: ${SafeFailureSummary.describe(error)}"
                     }
                 }
             }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
@@ -1714,7 +1714,7 @@ class MainActivity : Activity() {
                         FilterDistributionSettings.saveBaseUrl(this@MainActivity, filterServerInput.text.toString())
                         filterServerFeedback.text = "저장 완료 · 다음 필터 업데이트부터 새 HTTPS 서버와 앱 내 서명 공개키를 사용합니다."
                     } catch (error: Exception) {
-                        filterServerFeedback.text = error.message ?: "HTTPS 서버 주소를 확인하세요."
+                        filterServerFeedback.text = "필터 서버 설정 실패: ${SafeFailureSummary.describe(error)}"
                     }
                 }
             }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
@@ -1797,7 +1797,7 @@ class MainActivity : Activity() {
                             runOnUiThread { showTab("settings") }
                         } catch (error: Exception) {
                             runOnUiThread {
-                                licenseFeedback.text = error.message ?: "라이선스 활성화에 실패했습니다."
+                                licenseFeedback.text = "라이선스 활성화 실패: ${SafeFailureSummary.describe(error)}"
                                 isEnabled = true
                             }
                         }
@@ -1824,7 +1824,7 @@ class MainActivity : Activity() {
                                         // Rebuild settings after the local signed token was cleared.
                                         showTab("settings")
                                     } else {
-                                        licenseFeedback.text = error.message ?: "라이선스 갱신에 실패했습니다."
+                                        licenseFeedback.text = "라이선스 갱신 실패: ${SafeFailureSummary.describe(error)}"
                                         isEnabled = true
                                     }
                                 }
@@ -1846,7 +1846,7 @@ class MainActivity : Activity() {
                                 runOnUiThread { showTab("settings") }
                             } catch (error: Exception) {
                                 runOnUiThread {
-                                    licenseFeedback.text = error.message ?: "기기 등록 해제에 실패했습니다."
+                                    licenseFeedback.text = "기기 등록 해제 실패: ${SafeFailureSummary.describe(error)}"
                                     isEnabled = true
                                 }
                             }
@@ -2214,7 +2214,7 @@ class MainActivity : Activity() {
                         }.onFailure { error ->
                             submit.isEnabled = true
                             submit.text = "접수"
-                            android.widget.Toast.makeText(this@MainActivity, error.message ?: "문의 접수에 실패했습니다.", Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(this@MainActivity, "문의 접수 실패: ${SafeFailureSummary.describe(error)}", Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -2274,7 +2274,7 @@ class MainActivity : Activity() {
                         }.onFailure { error ->
                             button.isEnabled = true
                             button.text = "조회"
-                            android.widget.Toast.makeText(this@MainActivity, error.message ?: "문의 조회에 실패했습니다.", Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(this@MainActivity, "문의 조회 실패: ${SafeFailureSummary.describe(error)}", Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -2355,7 +2355,7 @@ class MainActivity : Activity() {
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    selfTestText?.text = "실패 · ${e.message ?: e.javaClass.simpleName}"
+                    selfTestText?.text = "실패 · ${SafeFailureSummary.codeFor(e)}"
                     selfTestText?.setTextColor(red)
                 }
             }
@@ -2683,7 +2683,7 @@ class MainActivity : Activity() {
                     usageAccessSettingsOpened = false
                     android.widget.Toast.makeText(
                         this,
-                        "사용 정보 접근 설정을 열지 못했습니다: ${error.message ?: error.javaClass.simpleName}",
+                        "사용 정보 접근 설정을 열지 못했습니다: ${SafeFailureSummary.describe(error)}",
                         android.widget.Toast.LENGTH_LONG
                     ).show()
                 }
@@ -2889,9 +2889,9 @@ class MainActivity : Activity() {
                         )
                     }.onFailure { error ->
                         apps = emptyList()
-                        inventoryMessage = "설치 앱 조회 실패: ${error.message ?: error.javaClass.simpleName}"
+                        inventoryMessage = "설치 앱 조회 실패: ${SafeFailureSummary.describe(error)}"
                         inventorySummary.text = inventoryMessage
-                        android.util.Log.e("GuardianApps", "Could not load compatibility app inventory", error)
+                        android.util.Log.e("GuardianApps", "Could not load compatibility app inventory: ${SafeFailureSummary.codeFor(error)}")
                     }
                     retryButton.text = if (apps.isEmpty()) "다시 조회" else "목록 새로고침"
                     retryButton.isEnabled = true
@@ -2915,7 +2915,7 @@ class MainActivity : Activity() {
                 )
             } catch (error: Exception) {
                 compatibilityStatusText?.text =
-                    "자동 재연결 설정을 서비스에 전달하지 못했습니다: ${error.message ?: error.javaClass.simpleName}"
+                    "자동 재연결 설정 전달 실패: ${SafeFailureSummary.describe(error)}"
             }
         }
     }
@@ -3132,7 +3132,7 @@ class MainActivity : Activity() {
                         startService(Intent(this@MainActivity, GuardianVpnService::class.java)
                             .setAction(GuardianVpnService.ACTION_RECONFIGURE_EXCLUDED_APPS))
                     } catch (error: Exception) {
-                        appFilterFeedback?.text = "설정은 저장됐지만 VPN 재적용 요청에 실패했습니다: ${error.message ?: error.javaClass.simpleName}"
+                        appFilterFeedback?.text = "설정은 저장됐지만 VPN 재적용 요청 실패: ${SafeFailureSummary.describe(error)}"
                     }
                 } else {
                     appFilterFeedback?.text = "제외 설정 저장 완료 · 다음 보호 연결 때 적용됩니다."
@@ -3232,9 +3232,9 @@ class MainActivity : Activity() {
                         )
                     }.onFailure { error ->
                         apps = emptyList()
-                        inventoryMessage = "설치 앱 조회 실패: ${error.message ?: error.javaClass.simpleName}"
+                        inventoryMessage = "설치 앱 조회 실패: ${SafeFailureSummary.describe(error)}"
                         inventorySummary.text = inventoryMessage
-                        android.util.Log.e("GuardianApps", "Could not load app exclusion inventory", error)
+                        android.util.Log.e("GuardianApps", "Could not load app exclusion inventory: ${SafeFailureSummary.codeFor(error)}")
                     }
                     inventoryRetryButton.text = if (apps.isEmpty()) "다시 조회" else "목록 새로고침"
                     inventoryRetryButton.isEnabled = true
@@ -3320,10 +3320,10 @@ class MainActivity : Activity() {
                             prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("Guardian", "Security filter download failed", e)
+                        android.util.Log.e("Guardian", "Security filter download failed: ${SafeFailureSummary.codeFor(e)}")
                         val editor = prefs.edit().putString(
                             FilterListManager.KEY_SECURITY_LAST_ERROR,
-                            e.message ?: e.javaClass.simpleName
+                            SafeFailureSummary.codeFor(e)
                         )
                         if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityWasEnabled, securityWasCached)) {
                             editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
@@ -3338,10 +3338,10 @@ class MainActivity : Activity() {
                             prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("Guardian", "Android ads filter download failed", e)
+                        android.util.Log.e("Guardian", "Android ads filter download failed: ${SafeFailureSummary.codeFor(e)}")
                         prefs.edit().putString(
                             FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
-                            e.message ?: e.javaClass.simpleName
+                            SafeFailureSummary.codeFor(e)
                         ).apply()
                         if (!androidAdsWasCached) prefs.edit()
                             .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
@@ -3391,17 +3391,17 @@ class MainActivity : Activity() {
                     androidAdsFilterCheckBox?.isEnabled = true
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Guardian", "Base filter update failed", e)
+                android.util.Log.e("Guardian", "Base filter update failed: ${SafeFailureSummary.codeFor(e)}")
                 filterUpdateRunning.set(false)
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
-                    .putString(FilterListManager.KEY_LAST_ERROR, e.message ?: e.javaClass.simpleName).apply()
+                    .putString(FilterListManager.KEY_LAST_ERROR, SafeFailureSummary.codeFor(e)).apply()
                 runOnUiThread {
                     val cacheMessage = if (hadPreviousMainCache) {
                         "이전 정상 필터를 계속 사용합니다."
                     } else {
                         "앱 내 기본 DNS 규칙으로 보호를 시작할 수 있지만, 추가 광고·추적 필터는 다운로드 후 적용됩니다."
                     }
-                    setFilterUpdateStatus("업데이트 실패: ${e.message ?: e.javaClass.simpleName} · $cacheMessage")
+                    setFilterUpdateStatus("업데이트 실패: ${SafeFailureSummary.describe(e)} · $cacheMessage")
                     filterUpdateButton?.text = "다시 시도"
                     filterUpdateButton?.isEnabled = true
                     homeFilterUpdateButton?.text = "다시 시도"
@@ -3429,8 +3429,8 @@ class MainActivity : Activity() {
                         .setAction(GuardianVpnService.ACTION_STOP)
                 )
             } catch (error: Exception) {
-                android.util.Log.e("GuardianProtection", "Could not stop protection from the home toggle", error)
-                status.text = "보호 중지 요청 실패: ${error.message ?: error.javaClass.simpleName}"
+                android.util.Log.e("GuardianProtection", "Could not stop protection from the home toggle: ${SafeFailureSummary.codeFor(error)}")
+                status.text = "보호 중지 요청 실패: ${SafeFailureSummary.describe(error)}"
             }
             return
         }
@@ -3480,11 +3480,11 @@ class MainActivity : Activity() {
                 )
                 baselineReady to if (baselineReady) notice else "앱 내 기본 DNS 규칙이 비어 있어 보호를 시작할 수 없습니다."
             } catch (error: Exception) {
-                android.util.Log.e("GuardianProtection", "Bundled filter asset could not be loaded", error)
+                android.util.Log.e("GuardianProtection", "Bundled filter asset could not be loaded: ${SafeFailureSummary.codeFor(error)}")
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
                 false to "앱 내 기본 필터 라이브러리를 읽지 못했습니다. 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
             } catch (error: LinkageError) {
-                android.util.Log.e("GuardianProtection", "Bundled filter component could not be loaded", error)
+                android.util.Log.e("GuardianProtection", "Bundled filter component could not be loaded: ${SafeFailureSummary.codeFor(error)}")
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
                 false to "필터 구성요소를 불러오지 못했습니다. 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
             }
@@ -3535,10 +3535,10 @@ class MainActivity : Activity() {
     }
 
     private fun reportProtectionStartRequestFailure(error: Throwable) {
-        android.util.Log.e("GuardianProtection", "Could not dispatch GuardianVpnService start request", error)
+        android.util.Log.e("GuardianProtection", "Could not dispatch GuardianVpnService start request: ${SafeFailureSummary.codeFor(error)}")
         val message = "보호 시작 중 예기치 않은 오류가 발생했습니다 " +
             "(${ProtectionDiagnostics.exceptionTypeChain(error)}): " +
-            (error.message ?: "Android가 VPN 서비스를 시작하지 못했습니다.")
+            SafeFailureSummary.describe(error)
         getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
             .putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error, 16))
             .putString(GuardianVpnService.KEY_STATUS, message)

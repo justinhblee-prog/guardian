@@ -4,6 +4,8 @@ on:
   workflow_run:
     workflows: ["Guardian AdBlock Android APK"]
     types: [completed]
+  check_suite:
+    types: [completed]
   workflow_dispatch:
     inputs:
       run_id:
@@ -14,12 +16,104 @@ on:
 permissions:
   actions: read
   contents: read
+  issues: write
 
 concurrency:
-  group: guardian-event-audit-${{ github.event.workflow_run.id || inputs.run_id || github.run_id }}
+  group: guardian-event-audit-${{ github.event.workflow_run.id || github.event.check_suite.head_sha || inputs.run_id || github.run_id }}
   cancel-in-progress: false
 
 jobs:
+  publish-live-status:
+    name: Refresh Guardian parallel-work status board
+    if: github.event_name == 'check_suite'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Update the single live status comment on issue 141
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- GUARDIAN_PARALLEL_STATUS -->';
+            const targets = [237, 230];
+            const sections = [];
+            for (const number of targets) {
+              const response = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: number
+              });
+              const pr = response.data;
+              if (pr.state !== 'open') continue;
+              const checksResponse = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: pr.head.sha,
+                per_page: 100
+              });
+              const checks = checksResponse.data.check_runs || [];
+              const counts = { success: 0, failure: 0, in_progress: 0, queued: 0, skipped: 0, other: 0 };
+              for (const check of checks) {
+                if (check.status !== 'completed') counts[check.status === 'queued' ? 'queued' : 'in_progress']++;
+                else if (check.conclusion === 'success') counts.success++;
+                else if (['failure', 'timed_out', 'action_required'].includes(check.conclusion)) counts.failure++;
+                else if (['skipped', 'neutral'].includes(check.conclusion)) counts.skipped++;
+                else counts.other++;
+              }
+              const rows = checks.map(check => {
+                const state = check.status === 'completed' ? (check.conclusion || 'completed') : check.status;
+                return '| ' + check.name.replace(/\\|/g, '/') + ' | ' + state + ' |';
+              });
+              sections.push([
+                '### PR #' + number + ' — ' + pr.title,
+                '- Branch: `' + pr.head.ref + '`',
+                '- Commit: `' + pr.head.sha.slice(0, 12) + '`',
+                '- Checks: ' + checks.length + ' total · ' + counts.success + ' passed · ' + counts.in_progress + ' running · ' + counts.queued + ' queued · ' + counts.failure + ' failed · ' + counts.skipped + ' skipped',
+                '',
+                '| Track | Status |',
+                '|---|---|',
+                ...(rows.length ? rows : ['| Checks | No check runs reported |']),
+                ''
+              ].join('\\n'));
+            }
+            const body = [
+              marker,
+              '## Guardian 자동 병렬 작업 현황',
+              '',
+              '> GitHub Check Suite 완료 이벤트마다 자동 갱신됩니다. 실행 중이 아닌 작업을 실행 중이라고 표시하지 않습니다.',
+              '',
+              '- Updated: ' + new Date().toISOString(),
+              '- Trigger: check suite completed',
+              '',
+              ...sections,
+              '### 운영 원칙',
+              '- 독립 검증 트랙은 GitHub Actions에서 병렬 실행합니다.',
+              '- 완료 이벤트마다 상태판을 갱신합니다.',
+              '- 실패는 실패로 표시하며, 러너 미배정과 코드 오류를 구분합니다.',
+              '- 병합, 운영 릴리스, 유료 러너 설정은 자동 승인하지 않습니다.'
+            ].join('\\n');
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 141,
+              per_page: 100
+            });
+            const existing = comments.find(comment => comment.user.type === 'Bot' && comment.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: 141,
+                body
+              });
+            }
+
   audit-and-continue:
     name: Audit completed Android work and verify delivered artifacts
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_branch == 'main'
