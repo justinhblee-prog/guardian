@@ -10,6 +10,7 @@
 ## 최신 검증 결과 (2026-11-21)
 
 - 최신 기능 검증 Android 개발 빌드: `0.7.39-dev`, versionCode `52`, commit `1da247e0eef04d0ea3d4f4a764d9dd2f1e9a7c01`.
+- Production target은 versionName `1.0.0`, versionCode `2,000,000`입니다. 이는 고정 Production release gate이며 개발 versionCode + 1이 아닙니다.
 - [Android CI run 44890022912](https://github.com/justinhblee-prog/guardian/actions/runs/44890022912): 단위 테스트, lint, assemble 및 API 35 에뮬레이터 업그레이드/VPN/DNS E2E 통과.
 - APK SHA-256: `6171c2354c3007c82f51dd63b619b42b1520188f274e3eb1f6d3b45116aa8c07`.
 - 개발 빌드는 Production 서명이 아니며 실기기 VPN/광고 차단 수용 테스트를 대체하지 않습니다.
@@ -500,5 +501,5 @@ Android와 Windows가 동일한 `guardian-pro` 라이선스 체계로 동작하�
 - Settings 진입 시 업데이트 자동 확인을 추가했지만, 이미 설치된 `0.7.33-dev (46)`와 같은 versionCode는 인앱 업데이트가 새 빌드로 인식하지 못하는 점을 확인했습니다.
 - Gradle 기본 개발 버전을 `0.7.34-dev (47)`로 승급하고 APK 워크플로의 이전 설치 fixture를 `0.7.33-dev (46)`로 맞췄습니다.
 - APK package identity 검사, source ZIP 이름·경로·SHA-256 검사, 개발 업데이트 manifest, `guardian-dev-v47` prerelease 태그, 최종 검증 보고서가 모두 versionCode 47을 사용하도록 정렬했습니다.
-- Production 1.0 versionCode는 개발 versionCode보다 1 큰 값으로 계산되므로 이번 기준은 48입니다. 실제 운영키가 없으면 Production 서명 산출물은 계속 생성하지 않습니다.
+- Historical note: 이 시점의 문서에는 Production versionCode를 개발 versionCode + 1로 계산한다고 기록했지만, 이후 Production release contract를 고정 versionCode `2,000,000`으로 변경했습니다. 현재 기준은 상단의 2026-11-21 최신 상태와 `Prepare-GuardianProductionRelease.ps1` / production release workflow입니다.
 - 새 exact-head Android CI/E2E가 이 버전 전환과 업그레이드 경로를 확인해야 하며, 0.7.33-dev 빌드의 이전 CI 성공을 0.7.34-dev 검증으로 간주하지 않습니다.
