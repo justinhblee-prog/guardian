@@ -189,7 +189,7 @@ function Invoke-Agent {
     $multiFlowWorker = Join-Path $PSScriptRoot 'guardian-multiflow.ps1'
     if (Test-Path -LiteralPath $multiFlowWorker) {
         try {
-            & $multiFlowWorker -MaxTasks 1
+            & $multiFlowWorker -MaxTasks 3
             if ($LASTEXITCODE -ne 0) {
                 Write-Log "Local Ollama multi-flow worker returned exit code $LASTEXITCODE; no remote AI fallback was attempted."
             }
