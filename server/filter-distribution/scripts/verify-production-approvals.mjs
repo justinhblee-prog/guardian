@@ -44,9 +44,10 @@ export function verifyProductionRedistributionApprovals(config) {
       !sourceUrl.hostname ||
       sourceUrl.username ||
       sourceUrl.password ||
+      sourceUrl.search ||
       sourceUrl.hash
     )) {
-      errors.push(id + ': source url must use HTTPS and must not contain credentials or a fragment.');
+      errors.push(id + ': source url must use HTTPS and must not contain credentials, a query or a fragment.');
     }
     if (!Number.isSafeInteger(source.minimumRules) || source.minimumRules < 1) {
       errors.push(id + ': minimumRules must be a positive safe integer.');
