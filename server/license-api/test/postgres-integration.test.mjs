@@ -503,6 +503,7 @@ if (!databaseUrl) {
     const tokenHash = createHash('sha256').update(purchaseToken, 'utf8').digest('hex');
     let subscriptionState = 'SUBSCRIPTION_STATE_ACTIVE';
     let publisherLookups = 0;
+    let oauthRequests = 0;
     const expiryTime = '2027-01-21T12:00:00.000Z';
     globalThis.fetch = async (url, init = {}) => {
       if (String(url) === 'https://www.googleapis.com/oauth2/v1/certs') {
@@ -511,6 +512,7 @@ if (!databaseUrl) {
         });
       }
       if (String(url) === 'https://oauth2.googleapis.com/token') {
+        oauthRequests++;
         return Response.json({ access_token: 'integration-publisher-token', expires_in: 3600 });
       }
       publisherLookups++;
@@ -652,6 +654,7 @@ if (!databaseUrl) {
         [tokenHash]
       );
       assert.equal(revokedMarker.rows[0].revoked_by_rtdn, true);
+      assert.equal(oauthRequests, 1, 'Publisher OAuth access token should be reused across server requests');
     } finally {
       globalThis.fetch = nativeFetch;
     }
