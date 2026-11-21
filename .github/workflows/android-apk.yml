@@ -68,19 +68,19 @@ jobs:
               --releases-json release/guardian-releases.json \
               --commit "$GITHUB_SHA" \
               --baseline-version "0.7.34-dev" \
-              --baseline-code 47 \
+              --baseline-code 1001804 \
               --github-env "$GITHUB_ENV" \
               --github-output "$GITHUB_OUTPUT"
           else
             # PR validation builds are non-published and never consume a release number.
             {
               echo "GUARDIAN_VERSION_NAME=0.7.34-dev"
-              echo "GUARDIAN_VERSION_CODE=47"
+              echo "GUARDIAN_VERSION_CODE=1001804"
               echo "GUARDIAN_RELEASE_TAG="
             } >> "$GITHUB_ENV"
             {
               echo "version_name=0.7.34-dev"
-              echo "version_code=47"
+              echo "version_code=1001804"
             } >> "$GITHUB_OUTPUT"
           fi
           echo "Version resolution completed."
