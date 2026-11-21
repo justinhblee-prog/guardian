@@ -21,6 +21,7 @@ on:
       - 'scripts/verify_guardian_crash_log.py'
       - 'scripts/test_verify_guardian_crash_log.py'
       - '.github/workflows/android-apk.yml'
+      - '.github/workflows/guardian-engineering-orchestrator.yml'
   # PR verification is unconditional: the workflow definition on the base
   # branch controls PR events, so changing filters only inside a PR cannot fix
   # a missing check on that same PR.
