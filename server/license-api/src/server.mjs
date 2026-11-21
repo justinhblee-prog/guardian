@@ -284,12 +284,12 @@ async function verifyGooglePlayPurchase(body) {
       if (existing.rowCount) {
         const licenseId = existing.rows[0].license_id;
         await client.query(
-          "UPDATE licenses SET status='expired' WHERE id=$1 AND status='active' AND expires_at<=now()",
+          "UPDATE licenses SET status='expired',expires_at=LEAST(expires_at,now()) WHERE id=$1 AND status='active'",
           [licenseId]
         );
         await client.query(
           "UPDATE activations SET deactivated_at=now() WHERE license_id=$1 AND deactivated_at IS NULL " +
-          "AND EXISTS (SELECT 1 FROM licenses WHERE id=$1 AND (status='revoked' OR expires_at<=now()))",
+          "AND EXISTS (SELECT 1 FROM licenses WHERE id=$1 AND status='expired')",
           [licenseId]
         );
         await client.query(
