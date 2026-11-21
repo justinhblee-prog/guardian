@@ -334,6 +334,11 @@ class MainActivity : Activity() {
         // cache metadata whenever the screen becomes visible again.
         filterStatusText?.text = filterStatusDescription()
         upstreamTestText?.text = upstreamTestDescription()
+        if (currentTab == "settings-premium") {
+            // Re-query Play purchases after returning from the billing UI or
+            // after the app resumes, so interrupted callbacks are recoverable.
+            getGooglePlayBillingManager()?.restorePurchases(silentIfEmpty = true)
+        }
     }
 
     override fun onResume() {
