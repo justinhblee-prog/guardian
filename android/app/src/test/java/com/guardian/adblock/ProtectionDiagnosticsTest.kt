@@ -310,4 +310,15 @@ class ProtectionDiagnosticsTest {
         assertTrue(!report.contains("../../private"))
     }
 
+    @Test fun exceptionTypeChainBoundsTraversalEvenWhenWrapperTypesAreNotReported() {
+        var cause: Throwable = IllegalStateException("private root cause")
+        repeat(12) {
+            cause = Throwable("private wrapper").apply { initCause(cause) }
+        }
+
+        val summary = ProtectionDiagnostics.exceptionTypeChain(cause, maxDepth = 4)
+        assertTrue(summary == "UnknownError")
+        assertTrue(!summary.contains("private"))
+    }
+
 }

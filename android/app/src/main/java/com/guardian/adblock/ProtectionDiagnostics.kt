@@ -13,7 +13,11 @@ object ProtectionDiagnostics {
         )
         val names = mutableListOf<String>()
         var current: Throwable? = error
-        while (current != null && names.size < limit && seen.add(current)) {
+        var traversed = 0
+        // Bound traversal independently of accepted class names: arbitrary Throwable
+        // subclasses must not let an untrusted cause chain consume unbounded work.
+        while (current != null && traversed < limit && seen.add(current)) {
+            traversed += 1
             val throwable = current
             val name = throwable.javaClass.simpleName.ifBlank {
                 throwable.javaClass.name.substringAfterLast('.')
