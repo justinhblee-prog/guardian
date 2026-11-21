@@ -1195,9 +1195,18 @@ tap_text "취소"
 echo "Customer support subpage FAQ, inquiry submission form, and private lookup UI passed."
 
 # Foreground-app VPN compatibility controls live in the preserved Advanced
-# Settings page, not the new Settings category root.
-adb_cmd shell input keyevent KEYCODE_BACK || true
+# Settings page, not the new Settings category root. Return through the explicit
+# in-app navigation control: KEYCODE_BACK can leave nested settings routes open
+# on some emulator/IME states and caused the next selector to search the support
+# page instead of the Settings root.
+tap_text "‹ 설정으로 돌아가기"
 sleep 1
+settings_root_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-after-support.xml)"
+grep -Fq "Guardian의 보호와 앱 환경을 관리합니다." <<<"$settings_root_xml" || {
+  echo "Customer support back navigation did not return to the Settings root."
+  echo "$settings_root_xml"
+  exit 1
+}
 # The Advanced Settings entry is below the category cards on smaller screens.
 for attempt in $(seq 1 6); do
   adb_cmd shell input swipe 540 1500 540 650 250
