@@ -3272,9 +3272,9 @@ class MainActivity : Activity() {
         return listOfNotNull(
             summary,
             signedManifestStatus,
-            lastError?.takeIf { it.isNotBlank() }?.let { "광고 필터 업데이트 실패(이전 목록 유지): $it" },
-            securityError?.takeIf { it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): $it" },
-            androidAdsError?.takeIf { it.isNotBlank() }?.let { "Android 앱 광고 필터 업데이트 실패(이전 목록 유지): $it" }
+            lastError?.takeIf { it.isNotBlank() }?.let { "광고 필터 업데이트 실패(이전 목록 유지): ${SafeFailureSummary.describeCode(it)}" },
+            securityError?.takeIf { it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): ${SafeFailureSummary.describeCode(it)}" },
+            androidAdsError?.takeIf { it.isNotBlank() }?.let { "Android 앱 광고 필터 업데이트 실패(이전 목록 유지): ${SafeFailureSummary.describeCode(it)}" }
         ).joinToString(" · ")
     }
 
