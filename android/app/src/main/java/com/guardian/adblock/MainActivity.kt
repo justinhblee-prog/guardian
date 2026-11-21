@@ -3401,7 +3401,7 @@ class MainActivity : Activity() {
                     } else {
                         "앱 내 기본 DNS 규칙으로 보호를 시작할 수 있지만, 추가 광고·추적 필터는 다운로드 후 적용됩니다."
                     }
-                    setFilterUpdateStatus("업데이트 실패: ${FilterUpdateErrorPolicy.codeFor(e)} · $cacheMessage")
+                    setFilterUpdateStatus("업데이트 실패: ${FilterUpdateErrorPolicy.displayMessage(FilterUpdateErrorPolicy.codeFor(e))} · $cacheMessage")
                     filterUpdateButton?.text = "다시 시도"
                     filterUpdateButton?.isEnabled = true
                     homeFilterUpdateButton?.text = "다시 시도"
