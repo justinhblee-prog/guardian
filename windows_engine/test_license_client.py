@@ -86,7 +86,7 @@ def test_device_binding_is_stable_and_saved_entitlement_is_verified(tmp_path, si
 def test_malformed_saved_device_identity_is_not_replaced(tmp_path, signing_pair):
     _, public = signing_pair
     client = WindowsLicenseClient("https://license.example.com", public, tmp_path)
-    client.data_dir.mkdir(parents=True)
+    client.data_dir.mkdir(parents=True, exist_ok=True)
     client.device_path.write_text("not-a-valid-device-id", encoding="ascii")
     with pytest.raises(LicenseClientError):
         client.device_binding()
