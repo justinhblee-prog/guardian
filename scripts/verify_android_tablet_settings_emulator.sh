@@ -149,7 +149,7 @@ centers = {}
 for node in root.iter("node"):
     label = node.attrib.get("text", "").strip()
     if label in expected:
-        match = re.fullmatch(r"\[(\d+),(\d+)\]\\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
+        match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
         if match:
             x1, y1, x2, y2 = map(int, match.groups())
             centers[label] = ((x1 + x2) // 2, (y1 + y2) // 2)
@@ -180,7 +180,7 @@ centers = {}
 for node in root.iter("node"):
     label = node.attrib.get("text", "").strip()
     if label in expected:
-        match = re.fullmatch(r"\[(\d+),(\d+)\]\\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
+        match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
         if match:
             x1, y1, x2, y2 = map(int, match.groups())
             centers[label] = ((x1 + x2) // 2, (y1 + y2) // 2)
