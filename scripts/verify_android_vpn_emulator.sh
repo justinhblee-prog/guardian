@@ -1202,7 +1202,7 @@ tap_text "고급 설정 및 서버 구성"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-advanced-settings.xml >/dev/null 2>&1
 advanced_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-advanced-settings.xml | tr -d '\r')"
-grep -Fq 'Guardian 앱 정보와 보호 정책' <<<"$advanced_settings_xml" || {
+grep -Fq '업데이트·서버·DNS의 기존 상세 설정을 유지합니다.' <<<"$advanced_settings_xml" || {
   echo "Advanced Settings page did not open."
   echo "$advanced_settings_xml"
   exit 1
