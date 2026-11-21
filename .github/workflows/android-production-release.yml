@@ -74,7 +74,7 @@ jobs:
           test "$DEFAULT_PRODUCTION_VERSION_CODE" = "0"
           grep -F 'if($VersionCode -eq 0){$VersionCode=$minimumProductionVersionCode}' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
           grep -F 'GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE' .github/workflows/android-production-release.yml
-          grep -F 'VERSION_CODE=$((47 + COMMIT_COUNT))' .github/workflows/android-apk.yml
+          grep -F 'VERSION_CODE=$((1000000 + GITHUB_RUN_NUMBER))' .github/workflows/android-apk.yml
           grep -F '$VersionCode -lt $minimumProductionVersionCode' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
       - name: Guard production signing secrets from process arguments
         shell: bash
