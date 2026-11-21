@@ -19,4 +19,22 @@ class DevUpdateManagerTest {
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 49, 48))
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 48, 49))
     }
+    @Test fun acceptsOnlyOfficialHttpsReleaseAssetUrls() {
+        assertTrue(DevUpdateManager.isGuardianReleaseAssetUrl(
+            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        ))
+        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+            "http://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        ))
+        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+            "https://evil.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        ))
+        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+            "https://github.com.attacker.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        ))
+        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+            "https://user@github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        ))
+    }
+
 }
