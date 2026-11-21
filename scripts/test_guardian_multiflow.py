@@ -60,14 +60,14 @@ class GuardianMultiFlowValidationTests(unittest.TestCase):
         self.assertIn("PASS: manifest schema", stdout.getvalue())
         print("PASS: validate-only CLI returned exit code 0.")
 
-    def test_real_manifest_has_two_disjoint_ready_tracks_and_blocked_diagnostic(self):
+    def test_real_manifest_has_one_ready_track_and_two_evidence_blocked_tracks(self):
         root = Path(__file__).resolve().parents[1]
         manifest = json.loads((root / ".guardian/automation/tasks.json").read_text(encoding="utf-8"))
         tasks = validate_manifest(manifest)
         ready = [item for item in tasks if item["status"] == "ready"]
-        blocked = [item for item in tasks if item["id"] == "android-diagnostic-trace" and item["status"] == "blocked"]
-        self.assertGreaterEqual(len(ready), 2)
-        self.assertEqual(len(blocked), 1)
+        blocked_ids = {item["id"] for item in tasks if item["status"] == "blocked"}
+        self.assertEqual({item["id"] for item in ready}, {"release-signing-contract"})
+        self.assertEqual(blocked_ids, {"android-diagnostic-trace", "filter-redistribution-gate"})
         all_paths = [path for item in ready for path in item["allowed_files"]]
         self.assertEqual(len(all_paths), len(set(all_paths)))
 
