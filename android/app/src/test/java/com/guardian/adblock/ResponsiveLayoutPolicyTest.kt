@@ -53,6 +53,17 @@ class ResponsiveLayoutPolicyTest {
     }
 
     @Test
+    fun settingsRemainSingleColumnOnPhonesAndCompactTablets() {
+        assertEquals(false, ResponsiveLayoutPolicy.usesTwoColumnSettings(999))
+    }
+
+    @Test
+    fun settingsUsePairedColumnsOnExpandedWindows() {
+        assertEquals(true, ResponsiveLayoutPolicy.usesTwoColumnSettings(1000))
+        assertEquals(true, ResponsiveLayoutPolicy.usesTwoColumnSettings(1280))
+    }
+
+    @Test
     fun dashboardRemainsSingleColumnBelowWideTabletBreakpoint() {
         assertEquals(false, ResponsiveLayoutPolicy.usesTwoColumnDashboard(999))
     }
