@@ -194,6 +194,42 @@ internal object LicenseApiClient {
         return response
     }
 
+    @Synchronized
+    fun verifyGooglePlayPurchase(
+        context: Context,
+        purchaseToken: String,
+        productId: String,
+        appVersion: String
+    ): JSONObject {
+        require(purchaseToken.isNotBlank() && purchaseToken.length <= 4096) {
+            "Google Play 구매 확인 정보가 올바르지 않습니다."
+        }
+        require(productId.matches(Regex("[A-Za-z0-9_.-]{1,120}"))) {
+            "Google Play 구독 상품 정보가 올바르지 않습니다."
+        }
+        validateLicensePublicKeyConfiguration(BuildConfig.LICENSE_PUBLIC_KEY)
+        val response = post(
+            context,
+            "/v1/billing/google-play/verify",
+            JSONObject()
+                .put("purchaseToken", purchaseToken)
+                .put("productId", productId)
+                .put("deviceBinding", LicenseEntitlementStore.deviceBinding(context))
+                .put("appVersion", appVersion.take(40))
+        )
+        if (response.optBoolean("entitled", false)) {
+            persistToken(context, response)
+        } else {
+            // Do not clear an unrelated manually issued license. The server
+            // identifies the exact Play licenseRef whose entitlement was revoked.
+            val revokedLicenseRef = response.optString("licenseRef")
+            if (revokedLicenseRef.isNotBlank()) {
+                LicenseEntitlementStore.clearIfLicenseRef(context, revokedLicenseRef)
+            }
+        }
+        return response
+    }
+
     fun submitSupportTicket(
         context: Context,
         category: String,

@@ -10,6 +10,9 @@ import java.util.UUID
  * Expired but correctly signed tokens are retained only as renewal credentials;
  * they never grant Pro access.
  */
+internal fun shouldClearEntitlementForLicenseRef(currentLicenseRef: String?, revokedLicenseRef: String): Boolean =
+    !currentLicenseRef.isNullOrBlank() && revokedLicenseRef.isNotBlank() && currentLicenseRef == revokedLicenseRef
+
 internal object LicenseEntitlementStore {
     private const val PREFS = "guardian_license_v1"
     private const val KEY_INSTALL_ID = "install_id"
@@ -98,6 +101,14 @@ internal object LicenseEntitlementStore {
             prefs.edit().remove(KEY_PAYLOAD).remove(KEY_SIGNATURE).commit()
             null
         }
+    }
+
+    @Synchronized
+    fun clearIfLicenseRef(context: Context, expectedLicenseRef: String): Boolean {
+        if (expectedLicenseRef.isBlank()) return false
+        val current = currentForRefresh(context) ?: return false
+        if (!shouldClearEntitlementForLicenseRef(current.licenseRef, expectedLicenseRef)) return false
+        return clear(context)
     }
 
     @Synchronized
