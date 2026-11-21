@@ -1,8 +1,19 @@
 # Guardian AdBlock 멀티 디바이스 제품 설계
 
-기준일: 2026-11-17
+기준일: 2026-11-21
 
-## 2026-11-17 통합 상태 — main 기준
+## 2026-11-21 최신 통합 상태 — main 기준
+
+- Android 최신 기능 검증 빌드: `0.7.39-dev`, versionCode `52`, commit `1da247e0eef04d0ea3d4f4a764d9dd2f1e9a7c01`. [CI run 44890022912](https://github.com/justinhblee-prog/guardian/actions/runs/44890022912)에서 unit tests, lint, APK build 및 API 35 emulator VPN/DNS E2E 통과. 실기기 검증은 별도입니다.
+- Windows: `0.1.0-dev` EXE/설치 프로그램 build와 install smoke test 통과. [CI run 44887248268](https://github.com/justinhblee-prog/guardian/actions/runs/44887248268). Authenticode 서명은 없는 개발 패키지입니다.
+- Windows와 Android 공통 제품 ID는 `guardian-pro`입니다. Android는 기존 `guardian-android` 토큰도 하위 호환으로 허용합니다.
+- License API CI [44886969350](https://github.com/justinhblee-prog/guardian/actions/runs/44886969350), Windows DNS/license CI [44887248317](https://github.com/justinhblee-prog/guardian/actions/runs/44887248317) 통과. 실제 Production API/private key/secrets 배포는 미완료입니다.
+- 로컬 Ollama 멀티플로우와 Windows bootstrap이 main에 통합되었습니다. `scripts/Install-GuardianLocalOllamaRunner.cmd`는 현재 Windows 사용자 계정에서 GitHub runner와 15분 주기 local Git agent를 설치합니다. 사용자의 노트북에서 한 번 실행하고 GitHub runner Online 상태를 확인해야 합니다.
+- 7개 upstream filter source는 재배포 권리 승인 증빙이 없어 미승인 상태입니다. Production 배포 gate는 이를 차단합니다.
+- Production release configuration run [44889767841](https://github.com/justinhblee-prog/guardian/actions/runs/44889767841)은 설정 검증만 통과했고 실제 `production-release` job은 Production secrets 부재로 skip되었습니다.
+- 따라서 현재는 Android/Windows 개발 패키지와 공통 라이선스 구현이 검증된 상태이며, Production 1.0 출시 완료 상태가 아닙니다.
+
+## 2026-11-17 통합 상태 — historical snapshot
 
 - Android: `com.guardian.adblock`, versionCode `27`, versionName `0.7.14-dev`, main commit `28abc77342f34898dd03c198fef942c0b49a7fe0`.
 - PR #78 운영자 라이선스 대시보드 개선 및 PR #79 APK/source ZIP artifact 검증 자동화가 main에 병합되었습니다.
@@ -13,7 +24,7 @@
 - License API/PostgreSQL CI [44059072829](https://github.com/justinhblee-prog/guardian/actions/runs/44059072829), signed filter distribution CI [44052664109](https://github.com/justinhblee-prog/guardian/actions/runs/44052664109) 및 [44052665884](https://github.com/justinhblee-prog/guardian/actions/runs/44052665884) 성공.
 - Production release 설정 검증 [44052664040](https://github.com/justinhblee-prog/guardian/actions/runs/44052664040) 성공. 운영 keystore/secrets가 없어 production 서명 작업은 skipped이며 정식 production APK/AAB는 없습니다.
 - 실제 스마트폰/태블릿 VPN/TUN, 광고 제거 효과, Wi-Fi↔모바일 전환, 운영 HTTPS/TLS 및 License API 서버 배포는 미검증입니다.
-- Android 모바일·태블릿과 공통 필터/라이선스 기능을 우선하며 Windows EXE/설치 프로그램은 마지막 단계로 보류합니다.
+- Android와 Windows 개발 패키지 및 공통 `guardian-pro` 라이선스 경로가 구현되었습니다. 두 플랫폼의 Production release는 동일한 운영 라이선스/API/서명 체계를 사용하며, 운영키·서버 배포·필터 권리 승인·실기기 수용 테스트가 완료될 때까지 Production 1.0은 보류합니다.
 ## 제품 목표
 
 Guardian AdBlock을 Windows PC, Android 스마트폰, Android 태블릿에서 사용할 수 있게 한다. 각 기기에서 동일한 필터 정책과 계정/라이선스 상태를 사용하고, 사용자는 모바일 브라우저에서도 중앙 관리 화면에 접속할 수 있어야 한다.
@@ -22,10 +33,10 @@ Guardian AdBlock을 Windows PC, Android 스마트폰, Android 태블릿에서 �
 
 | 플랫폼 | 제공 형태 | 네트워크 차단 방식 | 현재 상태 |
 |---|---|---|---|
-| Android 스마트폰 | 네이티브 APK | Android VpnService 기반 DNS 필터 | v0.7.14-dev 빌드·API 35 에뮬레이터 VPN/DNS E2E 성공, 실기기 수용 테스트 필요 |
+| Android 스마트폰 | 네이티브 APK | Android VpnService 기반 DNS 필터 | v0.7.39-dev 빌드 및 API 35 에뮬레이터 VPN/DNS E2E 성공, 실기기 수용 테스트 필요 |
 | Android 태블릿 | 동일 APK, 반응형 레이아웃 | Android VpnService 기반 DNS 필터 | 반응형 레이아웃 구현, 회전/화면 크기별 실기기 검증 필요 |
-| Windows 10/11 PC | 별도 설치형 데스크톱 앱/서비스 | Windows DNS 기반 필터 프록시 | 엔진·UI·설치/복구 스크립트 소스 존재, EXE/설치 프로그램은 마지막 단계 |
-| 모바일/PC 관리 | 반응형 웹 관리자 화면/API | HTTPS 관리 API | License API 및 발급·기기관리 대시보드 코드/CI 완료, 실제 운영 배포 대기 |
+| Windows 10/11 PC | 별도 설치형 데스크톱 앱/서비스 | Windows DNS 기반 필터 프록시 | 0.1.0-dev EXE/설치 프로그램 build·install smoke test 성공, Authenticode/Production signing 필요 |
+| 모바일/PC 관리 | 반응형 웹 관리자 화면/API | HTTPS 관리 API | `guardian-pro` 공통 라이선스 구현 및 CI 통과, Production API/TLS/private key 배포 대기 |
 | iPhone/iPad | 추후 별도 검토 | Network Extension 및 Apple 승인 요건 필요 | 범위 미확정 |
 
 Android APK를 Windows에 그대로 설치하거나 Android VPN 코드를 Windows에서 재사용할 수 있다고 가정하지 않는다. Windows는 별도 네트워크 서비스와 설치/업데이트/복구 경로가 필요하다.
