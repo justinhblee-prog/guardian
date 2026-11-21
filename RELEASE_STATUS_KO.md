@@ -542,3 +542,15 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Android run [44892153515](https://github.com/justinhblee-prog/guardian/actions/runs/44892153515) 전체 성공. `Install and launch APK on Android emulator`, `Write final runtime verification result`, `Upload final verification report`, `Publish development APK update release` 모두 성공했습니다.
 - 최종 검증 artifact ID `14703101227`의 `FINAL_VERIFICATION_KO.md`에서 API 35 emulator upgrade 및 VPN DNS E2E `success`를 확인했습니다.
 - APK 및 source ZIP의 SHA-256은 앞 절에 기록한 값과 일치합니다. APK는 개발 Debug 서명본이며 실기기 수용 테스트 및 production 서명과는 별개입니다.
+
+
+## 2026-11-21 최신 통합 검증 및 버전 정합성 보충
+
+- Android 기준 개발 릴리스: `0.7.40-dev`, versionCode `53`, source commit `dcf4ed4bc70a6edbbd766f118a9d8f5df98fbf06` (GitHub prerelease `guardian-dev-v53`).
+- 직전 Engineering Orchestrator run `44893925847`은 unit tests/lint/assemble 및 backend/API·Compose 검사 모두 성공했지만, APK가 Gradle 기본값 `0.7.34-dev / 47`로 빌드되는 버전 불일치를 확인했습니다. 해당 run의 APK는 최신 설치 업데이트용으로 사용하지 않습니다.
+- 이 문제를 수정해 Engineering Orchestrator가 GitHub 개발 릴리스 기록에서 다음 단조 증가 버전을 계산하고, APK 내부 package/versionName/versionCode가 계산값과 일치하지 않으면 실패하도록 했습니다. 변경 commit: `fd97b1bedb0a8cefd7917c8bd3d26c0379ca9aa1`.
+- 수정 후 통합 검증 run `44894398239`: version resolver 성공, Android unit tests 성공, backend/API/Compose tests 성공, repository integrity/automation safety 성공. Lint 및 APK 재빌드 결과는 해당 run 완료 후 별도 확인합니다.
+- Windows 운영 서버 bootstrap은 `Setup-GuardianServer.ps1 -SkipAutoStart`를 지원하도록 개선했습니다. PowerShell 구문 및 Docker 독립 키 준비 정책 검증 [run 44893924995](https://github.com/justinhblee-prog/guardian/actions/runs/44893924995) 성공. 실제 로컬 키 생성·서버 배포를 수행했다는 뜻은 아닙니다.
+- Signed filter distribution 및 CI [run 44893626225](https://github.com/justinhblee-prog/guardian/actions/runs/44893626225), [run 44893626235](https://github.com/justinhblee-prog/guardian/actions/runs/44893626235) 성공. License API CI [run 44893767261](https://github.com/justinhblee-prog/guardian/actions/runs/44893767261) 성공.
+- Production release validation [run 44893767289](https://github.com/justinhblee-prog/guardian/actions/runs/44893767289) 성공: 설정·보안 게이트, 임시 키 기반 Direct APK/AAB 빌드 및 source archive 검증 통과. 운영 release keystore/secrets가 없어서 실제 production signing job은 skipped이며 정식 배포 파일은 생성되지 않았습니다.
+- 남은 정식 1.0 차단 조건: 운영 RSA/Android keystore 생성 및 안전한 등록, License API/PostgreSQL/TLS 실제 배포, 필터 7종의 재배포 승인 증빙, Android/Windows 실운영 라이선스 E2E, 스마트폰·태블릿 및 Windows PC 실기기 수용 테스트, production 서명본 생성·설치 검증.
