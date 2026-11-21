@@ -93,3 +93,38 @@ if min(right) - max(left) < 200:
     raise SystemExit("Settings columns are too close; expected a clear horizontal separation.")
 print("PASS: all five Settings categories are visible in two distinct columns at tablet width.")
 PY
+
+# Change the same emulator to landscape without restarting the Activity. This
+# verifies that the Settings destination survives a configuration/size change
+# and remains a two-column tablet layout after the rotation.
+adb_cmd shell wm size 2560x1600
+sleep 3
+landscape_display="$(adb_cmd shell wm size | tr -d '\r')"
+grep -Fq 'Override size: 2560x1600' <<<"$landscape_display"
+adb_cmd shell uiautomator dump /sdcard/guardian-tablet-landscape.xml >/dev/null 2>&1
+landscape_xml="$(adb_cmd exec-out cat /sdcard/guardian-tablet-landscape.xml | tr -d '\r')"
+python3 - "$landscape_xml" <<'PY'
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+root = ET.fromstring(sys.argv[1])
+expected = ["일반", "필터링", "라이선스 및 프리미엄", "고객 지원", "정보"]
+centers = {}
+for node in root.iter("node"):
+    label = node.attrib.get("text", "").strip()
+    if label in expected:
+        match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
+        if match:
+            x1, y1, x2, y2 = map(int, match.groups())
+            centers[label] = ((x1 + x2) // 2, (y1 + y2) // 2)
+missing = [label for label in expected if label not in centers]
+if missing:
+    raise SystemExit("Settings destination/content was not preserved in landscape: " + ", ".join(missing))
+left = [centers[label][0] for label in expected[:3]]
+right = [centers[label][0] for label in expected[3:]]
+if max(left) >= min(right) or min(right) - max(left) < 200:
+    raise SystemExit("Settings did not retain two distinct columns in landscape.")
+print("PASS: Settings remains visible and two-column after tablet landscape resize.")
+print("Landscape category centers:", centers)
+PY
