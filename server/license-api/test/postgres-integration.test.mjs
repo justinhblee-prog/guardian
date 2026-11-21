@@ -1,6 +1,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPairSync, randomUUID, verify } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createPostgresRateLimiter } from '../src/rate-limit.mjs';
 
@@ -13,6 +13,9 @@ if (!databaseUrl) {
   process.env.GUARDIAN_LICENSE_LOOKUP_SECRET = 'integration-lookup-secret-at-least-32-characters';
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   process.env.GUARDIAN_LICENSE_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON = JSON.stringify({ type: 'service_account', client_email: 'guardian-billing-integration@example.iam.gserviceaccount.com', private_key: process.env.GUARDIAN_LICENSE_PRIVATE_KEY });
+  process.env.GOOGLE_PLAY_PRODUCT_IDS = 'guardian_pro_monthly';
+  const nativeFetch = globalThis.fetch;
 
   const { default: pg } = await import('pg');
   const pool = new pg.Pool({ connectionString: databaseUrl });
@@ -450,24 +453,125 @@ if (!databaseUrl) {
 
 
   test('existing license databases can apply migrations 002 through 005 repeatedly', async () => {
-    await pool.query('DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
+    await pool.query('DROP TABLE IF EXISTS google_play_rtdn_events; DROP TABLE IF EXISTS google_play_purchases; DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
     for (const migrationPath of [
       new URL('../migrations/002_shared_rate_limit_buckets.sql', import.meta.url),
       new URL('../migrations/003_support_tickets.sql', import.meta.url),
       new URL('../migrations/004_customers.sql', import.meta.url),
-      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url)
+      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url),
+      new URL('../migrations/006_google_play_billing.sql', import.meta.url)
     ]) {
       const sql = readFileSync(migrationPath, 'utf8');
       await pool.query(sql);
       await pool.query(sql);
     }
     const tables = await pool.query(
-      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets, to_regclass('public.customers') AS customers, (SELECT code FROM products WHERE code='guardian-pro' AND active=true LIMIT 1) AS shared_product"
+      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets, to_regclass('public.customers') AS customers, to_regclass('public.google_play_purchases') AS play_purchases, to_regclass('public.google_play_rtdn_events') AS play_rtdn, (SELECT code FROM products WHERE code='guardian-pro' AND active=true LIMIT 1) AS shared_product"
     );
     assert.equal(tables.rows[0].rate_limits, 'api_rate_limit_buckets');
     assert.equal(tables.rows[0].support_tickets, 'support_tickets');
     assert.equal(tables.rows[0].customers, 'customers');
     assert.equal(tables.rows[0].shared_product, 'guardian-pro');
+    assert.equal(tables.rows[0].play_purchases, 'google_play_purchases');
+    assert.equal(tables.rows[0].play_rtdn, 'google_play_rtdn_events');
+  });
+
+
+  test('Google Play verification issues one device-bound Pro entitlement and is idempotent for duplicate tokens', async () => {
+    const purchaseToken = 'integration-play-purchase-' + randomUUID();
+    const tokenHash = createHash('sha256').update(purchaseToken, 'utf8').digest('hex');
+    let subscriptionState = 'SUBSCRIPTION_STATE_ACTIVE';
+    let publisherLookups = 0;
+    const expiryTime = '2027-01-21T12:00:00.000Z';
+    globalThis.fetch = async (url, init = {}) => {
+      if (String(url) === 'https://oauth2.googleapis.com/token') {
+        return Response.json({ access_token: 'integration-publisher-token', expires_in: 3600 });
+      }
+      publisherLookups++;
+      assert.equal(init.headers.authorization, 'Bearer integration-publisher-token');
+      return Response.json({
+        subscriptionState,
+        acknowledgementState: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED',
+        lineItems: [{
+          productId: 'guardian_pro_monthly',
+          expiryTime,
+          latestSuccessfulOrderId: 'GPA.INTEGRATION-ORDER'
+        }]
+      });
+    };
+    const verifyPurchase = (deviceBinding = 'a'.repeat(64)) => nativeFetch(\`\${baseUrl}/v1/billing/google-play/verify\`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        purchaseToken, productId: 'guardian_pro_monthly',
+        deviceBinding, appVersion: 'billing-integration'
+      })
+    });
+    try {
+      const first = await verifyPurchase();
+      assert.equal(first.status, 200);
+      const firstEntitlement = await first.json();
+      assert.equal(firstEntitlement.verified, true);
+      assert.equal(firstEntitlement.entitled, true);
+      assert.equal(firstEntitlement.licenseStatus, 'pro');
+      assert.equal(firstEntitlement.expiresAt, expiryTime);
+      assertSignedToken(firstEntitlement);
+
+      const second = await verifyPurchase();
+      assert.equal(second.status, 200);
+      const secondEntitlement = await second.json();
+      assert.equal(secondEntitlement.licenseRef, firstEntitlement.licenseRef);
+      assert.equal(secondEntitlement.payload, firstEntitlement.payload);
+
+      const stored = await pool.query(
+        'SELECT purchase_token_hash,product_sku,license_id FROM google_play_purchases WHERE purchase_token_hash=$1',
+        [tokenHash]
+      );
+      assert.equal(stored.rowCount, 1);
+      assert.equal(stored.rows[0].purchase_token_hash, tokenHash);
+      assert.equal(stored.rows[0].product_sku, 'guardian_pro_monthly');
+      assert.notEqual(stored.rows[0].purchase_token_hash, purchaseToken);
+      const activations = await pool.query(
+        'SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND deactivated_at IS NULL',
+        [stored.rows[0].license_id]
+      );
+      assert.equal(activations.rows[0].n, 1);
+
+      const otherDevice = await verifyPurchase('b'.repeat(64));
+      assert.equal(otherDevice.status, 409);
+
+      subscriptionState = 'SUBSCRIPTION_STATE_ON_HOLD';
+      const held = await verifyPurchase();
+      assert.equal(held.status, 200);
+      assert.equal((await held.json()).entitled, false);
+      const inactiveStatus = await nativeFetch(\`\${baseUrl}/v1/licenses/status\`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ deviceBinding: 'a'.repeat(64), licenseRef: firstEntitlement.licenseRef })
+      });
+      assert.equal((await inactiveStatus.json()).status, 'free');
+
+      subscriptionState = 'SUBSCRIPTION_STATE_ACTIVE';
+      const recovered = await verifyPurchase();
+      assert.equal(recovered.status, 200);
+      assert.equal((await recovered.json()).entitled, true);
+      assert.ok(publisherLookups >= 5);
+    } finally {
+      globalThis.fetch = nativeFetch;
+    }
+  });
+
+  test('Google Play purchase verification rejects SKUs outside the server allowlist', async () => {
+    const response = await nativeFetch(\`\${baseUrl}/v1/billing/google-play/verify\`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        purchaseToken: 'untrusted-token',
+        productId: 'attacker-selected-sku',
+        deviceBinding: 'c'.repeat(64)
+      })
+    });
+    assert.equal(response.status, 400);
   });
 
   test('admin license issuance enforces plan duration and records the selected plan', async () => {
