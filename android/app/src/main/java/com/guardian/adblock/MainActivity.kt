@@ -1577,23 +1577,9 @@ class MainActivity : Activity() {
     }
 
     private fun buildSettingsLegacy(body: LinearLayout) {
-        body.addView(text("설정", 25f, white, true))
-        body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
-        body.addView(card(panel, 14).apply {
-            setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("라이선스 및 프리미엄", 16f, white, true))
-            addView(text("Free / Pro 이용 상태, 기기 등록, 라이선스 활성화와 프리미엄 기능을 관리합니다.", 11f, muted, false).withTop(5))
-            addView(Button(this@MainActivity).apply {
-                text = "프리미엄 관리 열기"
-                isAllCaps = false
-                setTextColor(bg)
-                background = shape(accent, 12)
-                setOnClickListener { showTab("settings-premium") }
-            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
-        }.withTop(12))
-        body.addView(buildSupportCenterCard().withTop(12))
-        body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
-        body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
+        // License/Premium, customer support, and app information have dedicated
+        // Settings subpages. Keep this legacy builder focused on advanced controls
+        // so those destinations are not duplicated inside Advanced Settings.
         if (BuildConfig.DEBUG) {
             val updateStatus = text(
                 "설정 화면 진입 시 주기 확인 · 현재 개발 버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
