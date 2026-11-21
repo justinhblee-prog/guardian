@@ -275,7 +275,7 @@ async function verifyGooglePlayPurchase(body) {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [purchaseHash]);
     const existing = await client.query(
-      "SELECT gp.purchase_token_hash,gp.license_id,l.license_ref,l.status,l.expires_at,l.product_id " +
+      "SELECT gp.purchase_token_hash,gp.license_id,gp.revoked_by_rtdn,l.license_ref,l.status,l.expires_at,l.product_id " +
       "FROM google_play_purchases gp JOIN licenses l ON l.id=gp.license_id " +
       "WHERE gp.purchase_token_hash=$1 FOR UPDATE OF gp,l",
       [purchaseHash]
