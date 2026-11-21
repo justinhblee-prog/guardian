@@ -134,10 +134,10 @@ PY
 # exactly 1000dp and must switch back to two columns.
 adb_cmd shell wm size 1498x1600
 sleep 2
-narrow_display="$(adb_cmd shell wm size | tr -d '\\r')"
+narrow_display="$(adb_cmd shell wm size | tr -d '\r')"
 grep -Fq 'Override size: 1498x1600' <<<"$narrow_display"
 adb_cmd shell uiautomator dump /sdcard/guardian-settings-999dp.xml >/dev/null 2>&1
-narrow_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-999dp.xml | tr -d '\\r')"
+narrow_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-999dp.xml | tr -d '\r')"
 python3 - "$narrow_xml" <<'PY'
 import re
 import sys
@@ -149,7 +149,7 @@ centers = {}
 for node in root.iter("node"):
     label = node.attrib.get("text", "").strip()
     if label in expected:
-        match = re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]", node.attrib.get("bounds", ""))
+        match = re.fullmatch(r"\[(\\d+),(\\d+)\]\\[(\\d+),(\\d+)\]", node.attrib.get("bounds", ""))
         if match:
             x1, y1, x2, y2 = map(int, match.groups())
             centers[label] = ((x1 + x2) // 2, (y1 + y2) // 2)
@@ -165,10 +165,10 @@ PY
 
 adb_cmd shell wm size 1500x1600
 sleep 2
-boundary_display="$(adb_cmd shell wm size | tr -d '\\r')"
+boundary_display="$(adb_cmd shell wm size | tr -d '\r')"
 grep -Fq 'Override size: 1500x1600' <<<"$boundary_display"
 adb_cmd shell uiautomator dump /sdcard/guardian-settings-1000dp.xml >/dev/null 2>&1
-boundary_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-1000dp.xml | tr -d '\\r')"
+boundary_xml="$(adb_cmd exec-out cat /sdcard/guardian-settings-1000dp.xml | tr -d '\r')"
 python3 - "$boundary_xml" <<'PY'
 import re
 import sys
@@ -180,7 +180,7 @@ centers = {}
 for node in root.iter("node"):
     label = node.attrib.get("text", "").strip()
     if label in expected:
-        match = re.fullmatch(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]", node.attrib.get("bounds", ""))
+        match = re.fullmatch(r"\[(\\d+),(\\d+)\]\\[(\\d+),(\\d+)\]", node.attrib.get("bounds", ""))
         if match:
             x1, y1, x2, y2 = map(int, match.groups())
             centers[label] = ((x1 + x2) // 2, (y1 + y2) // 2)
