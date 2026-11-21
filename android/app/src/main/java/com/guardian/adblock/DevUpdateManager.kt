@@ -181,11 +181,15 @@ internal object DevUpdateManager {
             uri.userInfo == null && uri.query == null && uri.fragment == null
     }.getOrDefault(false)
 
-    private fun isAllowedReleaseDownloadHost(url: URL): Boolean =
+    private fun isAllowedHttpsHost(url: URL): Boolean =
         url.protocol.equals("https", true) &&
-            (url.host.equals("github.com", true) ||
+            (url.host.equals("api.github.com", true) ||
+                url.host.equals("github.com", true) ||
                 url.host.equals("release-assets.githubusercontent.com", true) ||
                 url.host.equals("objects.githubusercontent.com", true))
+
+    private fun isAllowedReleaseDownloadHost(url: URL): Boolean =
+        isAllowedHttpsHost(url) && !url.host.equals("api.github.com", true)
 
     private fun verifyDownloadedPackage(context: Context, apk: File, update: GuardianDevUpdate) {
         val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else {
@@ -263,6 +267,7 @@ internal object DevUpdateManager {
         }
         try {
             connection.connect()
+            check(isAllowedHttpsHost(connection.url)) { "업데이트 확인 요청이 허용되지 않은 서버로 리디렉션되었습니다." }
             check(connection.responseCode in 200..299) { "업데이트 확인 실패: HTTP ${connection.responseCode}" }
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
