@@ -439,6 +439,9 @@ async function receiveGooglePlayRtdn(body, req) {
 
   const subscription = notification.subscriptionNotification;
   const notificationType = subscription?.notificationType;
+  if (subscription && (!Number.isInteger(notificationType) || notificationType < 1 || notificationType > 22)) {
+    throw Object.assign(new Error('Google Play 구독 알림 유형이 올바르지 않습니다.'), { status: 400 });
+  }
   const purchaseToken = subscription?.purchaseToken ||
     notification.voidedPurchaseNotification?.purchaseToken ||
     notification.pendingRefundReviewNotification?.purchaseToken;
@@ -491,7 +494,7 @@ async function receiveGooglePlayRtdn(body, req) {
   }
   if (isDuplicate) return { received: true, duplicate: true };
 
-  if (!purchaseHash || !subscription) {
+  if (!purchaseHash || (!subscription && !notification.voidedPurchaseNotification && !notification.pendingRefundReviewNotification)) {
     await pool.query(
       "UPDATE google_play_rtdn_events SET processed_at=now() WHERE message_id=$1",
       [messageId]
