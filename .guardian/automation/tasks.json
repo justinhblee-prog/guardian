@@ -5,17 +5,21 @@
   "tasks": [
     {
       "id": "android-diagnostic-trace",
-      "title": "Strengthen privacy-safe Android startup diagnostics",
+      "title": "Find the root cause of Library file not found and harden startup diagnostics",
       "priority": 10,
       "status": "ready",
       "dependencies": [],
-      "scope": "Review Guardian ProtectionDiagnostics exception-chain and startup failure summary behavior. Improve only correctness or coverage that is directly supported by the current implementation. Preserve privacy by excluding exception messages, filesystem paths, URLs, DNS history, credentials and device identifiers.",
+      "scope": "Trace the real Android protection-startup failure path from MainActivity.requestProtection through GuardianVpnService startup. Inspect the packaged filter_rules.txt asset and native-library diagnostics before concluding whether this is an asset packaging, runtime library, or other loader failure. Improve only defects supported by repository/build evidence. Preserve privacy by excluding exception messages, filesystem paths, URLs, DNS history, credentials and device identifiers. Do not mark a physical-device failure resolved without its diagnostic bundle.",
       "allowed_files": [
+        "android/app/src/main/java/com/guardian/adblock/MainActivity.kt",
+        "android/app/src/main/java/com/guardian/adblock/GuardianVpnService.kt",
         "android/app/src/main/java/com/guardian/adblock/ProtectionDiagnostics.kt",
         "android/app/src/test/java/com/guardian/adblock/ProtectionDiagnosticsTest.kt"
       ],
       "test_profile": "android-unit-lint",
       "acceptance_criteria": [
+        "Trace and document the startup asset/native-library loading path, including the exact APK asset lookup.",
+        "Confirm whether filter_rules.txt is present in the produced APK before attributing the failure to packaging.",
         "Exception cause-chain and stack-frame summaries remain bounded and cycle-safe.",
         "Private messages, paths, URLs and credentials never enter the support report.",
         "Regression tests cover any changed behavior, including long wrapper chains and root causes.",
