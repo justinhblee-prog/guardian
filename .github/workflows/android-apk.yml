@@ -52,24 +52,38 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Calculate monotonic development release version
+      - name: Resolve the next published development version
         id: dev_version
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Use this workflow's repository-wide monotonic run number, not the
-          # branch-local commit count. Parallel PR branches otherwise regress.
-          VERSION_CODE=$((1000000 + GITHUB_RUN_NUMBER))
-          VERSION_NAME="0.8.${GITHUB_RUN_NUMBER}-dev"
-          if (( VERSION_CODE <= 1000000 || VERSION_CODE >= 2000000 )); then
-            echo "Calculated development versionCode is outside the supported range."
-            exit 1
+          mkdir -p release
+          if [[ "$GITHUB_REF" == "refs/heads/main" && ( "$GITHUB_EVENT_NAME" == "push" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ) ]]; then
+            # Resolve from published releases, not branch commits or workflow run numbers.
+            # Re-running the same source commit reuses its version instead of consuming one.
+            gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
+            python3 scripts/resolve_guardian_dev_version.py \
+              --releases-json release/guardian-releases.json \
+              --commit "$GITHUB_SHA" \
+              --baseline-version "0.7.34-dev" \
+              --baseline-code 47 \
+              --github-env "$GITHUB_ENV" \
+              --github-output "$GITHUB_OUTPUT"
+          else
+            # PR validation builds are non-published and never consume a release number.
+            {
+              echo "GUARDIAN_VERSION_NAME=0.7.34-dev"
+              echo "GUARDIAN_VERSION_CODE=47"
+              echo "GUARDIAN_RELEASE_TAG="
+            } >> "$GITHUB_ENV"
+            {
+              echo "version_name=0.7.34-dev"
+              echo "version_code=47"
+            } >> "$GITHUB_OUTPUT"
           fi
-          echo "GUARDIAN_VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
-          echo "GUARDIAN_VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
-          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
-          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
-          echo "Development release version: ${VERSION_NAME} (${VERSION_CODE})"
+          echo "Version resolution completed."
 
       - name: Verify shared DNS filter rules
         run: test -s shared/filter_rules.txt
@@ -80,7 +94,7 @@ jobs:
           bash -n scripts/verify_android_emulator.sh
           bash -n scripts/verify_android_vpn_emulator.sh
           python3 -m py_compile scripts/verify_guardian_crash_log.py scripts/resolve_android_dialog_row.py
-          python3 -m unittest scripts/test_verify_guardian_crash_log.py scripts/test_resolve_android_dialog_row.py
+          python3 -m unittest scripts/test_verify_guardian_crash_log.py scripts/test_resolve_android_dialog_row.py scripts/test_resolve_guardian_dev_version.py
 
       - name: Verify VPN manifest and branded launcher assets
         run: |
@@ -575,7 +589,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="guardian-dev-v${GUARDIAN_VERSION_CODE}"
+          TAG="$GUARDIAN_RELEASE_TAG"
+          test -n "$TAG"
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           MANIFEST="release/guardian-android-dev.json"
           cp "$APK" "release/guardian-android-dev.apk"
@@ -602,5 +617,5 @@ jobs:
               --target "$GITHUB_SHA" \
               --prerelease \
               --title "Guardian AdBlock ${GUARDIAN_VERSION_NAME} (개발 업데이트)" \
-              --notes "사전 출시 개발 업데이트입니다. 앱 내 업데이트 확인 기능으로 배포됩니다. 설치 전 APK SHA-256 및 기존 개발 서명 인증서를 검증합니다. Android 설치 승인은 사용자에게 요청됩니다."
+              --notes "사전 출시 개발 업데이트입니다. 앱 내 업데이트 확인 기능으로 배포됩니다. 설치 전 APK SHA-256 및 기존 개발 서명 인증서를 검증합니다. Android 설치 승인은 사용자에게 요청됩니다.\n\nGuardian-Source-Commit: $GITHUB_SHA"
           fi
