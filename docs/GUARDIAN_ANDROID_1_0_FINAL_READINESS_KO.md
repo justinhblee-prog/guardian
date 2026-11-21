@@ -1,14 +1,26 @@
 # Guardian Android 1.0 — 출시 준비 및 검증 현황
 
-- 기준일: 2026-11-20 (KST)
+- 기준일: 2026-11-21 (KST)
 - 저장소: https://github.com/justinhblee-prog/guardian
-- 작업 브랜치: `feature/android-support-center-mainline`
-- 최종 판정: **출시 미완료 — 검증 및 외부 증거 필요**
-- 최신 브랜치 비교: `main`과 분기 상태이며, ahead/behind 수치는 변경이 잦으므로 최신 GitHub compare 결과를 기준으로 확인합니다.
+- 기준 브랜치: `main`
+- 최종 판정: **Production 1.0 출시 미완료 — 운영키/API 배포, 필터 재배포 권리 승인, 실기기 수용 테스트 필요**
+- 상세 산출물·CI 링크·미해결 차단 항목: [RELEASE_STATUS_KO.md](../RELEASE_STATUS_KO.md)
+
+
+## 최신 검증 결과 (2026-11-21)
+
+- 최신 기능 검증 Android 개발 빌드: `0.7.39-dev`, versionCode `52`, commit `1da247e0eef04d0ea3d4f4a764d9dd2f1e9a7c01`.
+- [Android CI run 44890022912](https://github.com/justinhblee-prog/guardian/actions/runs/44890022912): 단위 테스트, lint, assemble 및 API 35 에뮬레이터 업그레이드/VPN/DNS E2E 통과.
+- APK SHA-256: `6171c2354c3007c82f51dd63b619b42b1520188f274e3eb1f6d3b45116aa8c07`.
+- 개발 빌드는 Production 서명이 아니며 실기기 VPN/광고 차단 수용 테스트를 대체하지 않습니다.
+- Windows 개발 설치 패키지는 build 및 install smoke test를 통과했지만 Authenticode 서명은 없습니다. Windows/Android 공통 license product `guardian-pro`와 클라이언트/API 테스트는 구현·통과했으나 Production API 및 운영키는 배포되지 않았습니다.
+- 필터 배포 설정의 7개 upstream source는 모두 재배포 승인이 미확정입니다. 명시적 권리 승인 증빙 없이 승인 상태로 바꾸지 않습니다.
+- Production release configuration 검사는 통과했지만 [run 44889767841](https://github.com/justinhblee-prog/guardian/actions/runs/44889767841)에서 실제 `production-release` job은 필요한 secrets가 없어 skip되었습니다.
+- 로컬 Ollama multi-flow는 최대 3개 격리 작업, fixed test profile, Draft PR-only 흐름으로 main에 통합되었습니다. Windows bootstrap은 `scripts/Install-GuardianLocalOllamaRunner.cmd`이며 실제 사용자 PC에서 한 번 실행해야 runner와 local Git agent가 등록됩니다.
 
 ## 목표
 
-Android 1.0에서 VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신, 앱별 보호 제외, 라이선스 및 고객지원 기능을 안정적으로 제공하고, 사용자 소유 운영키로 서명한 설치 가능한 APK와 검증 자료를 확보한다. Android 완료 후 Windows 정식 버전을 진행한다.
+Android와 Windows가 동일한 `guardian-pro` 라이선스 체계로 동작하도록 하며, VPN/DNS 보호, 광고·추적 필터, 필터 무결성/갱신, 앱별 보호 제외 및 고객지원 기능을 안정적으로 제공한다. 사용자 소유 Production signing material과 실제 배포된 license/filter API를 사용한 설치 패키지 및 검증 자료를 확보한다.
 
 ## 확인된 소스 변경
 
