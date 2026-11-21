@@ -68,7 +68,14 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python scripts/guardian_multiflow.py --validate-only --repo-root .
+          $python = Get-Command python -ErrorAction SilentlyContinue
+          if ($python) {
+            & $python.Source scripts/guardian_multiflow.py --validate-only --repo-root .
+          } else {
+            $py = Get-Command py -ErrorAction SilentlyContinue
+            if (-not $py) { throw 'Python 3.10+ is required; neither python.exe nor py.exe is available.' }
+            & $py.Source -3 scripts/guardian_multiflow.py --validate-only --repo-root .
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Guardian task manifest validation failed.' }
 
       - name: Verify real local Ollama inference
@@ -77,7 +84,14 @@ jobs:
           GUARDIAN_OLLAMA_MODEL: qwen2.5-coder:7b
         run: |
           $ErrorActionPreference = 'Stop'
-          python scripts/guardian_multiflow.py --smoke-test --repo-root .
+          $python = Get-Command python -ErrorAction SilentlyContinue
+          if ($python) {
+            & $python.Source scripts/guardian_multiflow.py --smoke-test --repo-root .
+          } else {
+            $py = Get-Command py -ErrorAction SilentlyContinue
+            if (-not $py) { throw 'Python 3.10+ is required; neither python.exe nor py.exe is available.' }
+            & $py.Source -3 scripts/guardian_multiflow.py --smoke-test --repo-root .
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Local Ollama model inference verification failed.' }
 
       - name: Execute isolated task branches and create Draft PRs
@@ -99,7 +113,14 @@ jobs:
           if ($env:EVENT_NAME -eq 'workflow_dispatch' -and $env:TASK_ID_INPUT) {
             $arguments += @('--task-id', $env:TASK_ID_INPUT)
           }
-          python @arguments
+          $python = Get-Command python -ErrorAction SilentlyContinue
+          if ($python) {
+            & $python.Source @arguments
+          } else {
+            $py = Get-Command py -ErrorAction SilentlyContinue
+            if (-not $py) { throw 'Python 3.10+ is required; neither python.exe nor py.exe is available.' }
+            & $py.Source -3 @arguments
+          }
           if ($LASTEXITCODE -ne 0) { throw "Guardian multi-flow returned exit code $LASTEXITCODE." }
 
       - name: Record non-secret runner outcome
