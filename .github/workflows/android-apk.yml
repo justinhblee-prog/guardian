@@ -49,6 +49,8 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Calculate monotonic development release version
         id: dev_version
@@ -57,9 +59,9 @@ jobs:
           set -euo pipefail
           # Preserve a low version-code range so production releases can supersede
           # development sideloads without a large version-code jump.
-          VERSION_CODE=$((47 + GITHUB_RUN_NUMBER))
-          VERSION_PATCH=$((34 + GITHUB_RUN_NUMBER))
-          VERSION_NAME="0.7.${VERSION_PATCH}-dev"
+          COMMIT_COUNT="$(git rev-list --count HEAD)"
+          VERSION_CODE=$((47 + COMMIT_COUNT))
+          VERSION_NAME="0.8.${COMMIT_COUNT}-dev"
           if (( VERSION_CODE <= 47 || VERSION_CODE > 2100000000 )); then
             echo "Calculated development versionCode is outside the supported range."
             exit 1
