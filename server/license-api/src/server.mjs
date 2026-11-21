@@ -274,6 +274,13 @@ async function verifyGooglePlayPurchase(body) {
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [purchaseHash]);
+    const priorRevocation = await client.query(
+      "SELECT 1 FROM google_play_rtdn_events WHERE purchase_token_hash=$1 AND event_type='SUBSCRIPTION_12' AND processed_at IS NOT NULL LIMIT 1",
+      [purchaseHash]
+    );
+    if (priorRevocation.rowCount) {
+      throw Object.assign(new Error('Google Play에서 철회된 구독 구매입니다.'), { status: 403 });
+    }
     const existing = await client.query(
       "SELECT gp.purchase_token_hash,gp.license_id,gp.revoked_by_rtdn,l.license_ref,l.status,l.expires_at,l.product_id " +
       "FROM google_play_purchases gp JOIN licenses l ON l.id=gp.license_id " +
