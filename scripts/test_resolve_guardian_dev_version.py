@@ -56,10 +56,10 @@ class GuardianDevVersionTests(unittest.TestCase):
         self.assertEqual((result["version_name"], result["version_code"]),
                          ("0.7.35-dev", 48))
 
-    def test_rejects_android_version_code_overflow(self):
-        releases = [{"tag_name": "guardian-dev-v2100000000", "name": "Guardian AdBlock 0.7.99-dev",
+    def test_development_version_code_cannot_enter_production_range(self):
+        releases = [{"tag_name": "guardian-dev-v1999999", "name": "Guardian AdBlock 0.7.99-dev",
                      "draft": False, "prerelease": True, "body": ""}]
-        with self.assertRaisesRegex(ValueError, "Android"):
+        with self.assertRaisesRegex(ValueError, "reserved production range"):
             resolve_next_version(releases, "9" * 40, "0.7.34-dev", 47)
 
     def test_patch_increments_past_99_without_resetting_minor(self):
