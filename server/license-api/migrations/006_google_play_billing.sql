@@ -26,3 +26,6 @@ CREATE TABLE IF NOT EXISTS google_play_rtdn_events (
 );
 CREATE INDEX IF NOT EXISTS google_play_rtdn_events_received_idx
   ON google_play_rtdn_events(received_at DESC);
+
+ALTER TABLE google_play_purchases
+  ADD COLUMN IF NOT EXISTS revoked_by_rtdn boolean NOT NULL DEFAULT false;
