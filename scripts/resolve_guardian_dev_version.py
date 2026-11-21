@@ -78,7 +78,7 @@ def main() -> int:
     parser.add_argument("--releases-json", required=True)
     parser.add_argument("--commit", required=True)
     parser.add_argument("--baseline-version", default="0.7.34-dev")
-    parser.add_argument("--baseline-code", type=int, default=47)
+    parser.add_argument("--baseline-code", type=int, default=1001804)
     parser.add_argument("--github-env", required=True)
     parser.add_argument("--github-output", required=True)
     args = parser.parse_args()
