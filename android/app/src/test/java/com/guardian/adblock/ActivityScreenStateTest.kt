@@ -5,7 +5,12 @@ import org.junit.Test
 
 class ActivityScreenStateTest {
     @Test fun restoresEverySupportedWorkspaceTab() {
-        listOf("home", "protection", "app-exclusions", "activity", "premium", "rules", "settings").forEach { tab ->
+        listOf(
+            "home", "protection", "app-exclusions", "activity", "premium", "rules", "settings",
+            "settings-premium", "settings-license", "settings-license-activation",
+            "settings-filtering", "settings-support", "settings-about",
+            "settings-general", "settings-advanced"
+        ).forEach { tab ->
             assertEquals(tab, ActivityScreenState.restoreTab(tab))
         }
     }
@@ -14,5 +19,6 @@ class ActivityScreenStateTest {
         assertEquals("home", ActivityScreenState.restoreTab(null))
         assertEquals("home", ActivityScreenState.restoreTab(""))
         assertEquals("home", ActivityScreenState.restoreTab("unknown"))
+        assertEquals("home", ActivityScreenState.restoreTab("settings-not-a-real-page"))
     }
 }
