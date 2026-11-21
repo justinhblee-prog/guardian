@@ -625,6 +625,14 @@ if (!databaseUrl) {
       const preRevokeEvent = await sendRtdn();
       assert.equal(preRevokeEvent.status, 200);
       assert.equal((await preRevokeEvent.json()).processed, true);
+      const preRevokedHash = createHash('sha256').update(preRevokedToken, 'utf8').digest('hex');
+      const preRevocationLedger = await pool.query(
+        'SELECT event_type,purchase_token_hash,processed_at FROM google_play_rtdn_events WHERE message_id=$1',
+        [rtdnBody.message.messageId]
+      );
+      assert.equal(preRevocationLedger.rows[0].event_type, 'SUBSCRIPTION_12');
+      assert.equal(preRevocationLedger.rows[0].purchase_token_hash, preRevokedHash);
+      assert.ok(preRevocationLedger.rows[0].processed_at);
       const preRevokedPurchase = await verifyPurchase('d'.repeat(64), preRevokedToken);
       assert.equal(preRevokedPurchase.status, 403);
 
