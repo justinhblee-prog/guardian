@@ -116,3 +116,13 @@ Android v0.7.14-dev APK와 전체 소스 ZIP, API 35 에뮬레이터 VPN/DNS E2E
 - Windows 개발 EXE/설치 프로그램 빌드, 설치 smoke test 및 패키지 검사: [run 44886846472](https://github.com/justinhblee-prog/guardian/actions/runs/44886846472) 성공. Artifact는 unsigned 개발 패키지이며 정식 코드 서명본이 아닙니다.
 - Android verifier의 공통 claim 수용 테스트가 포함된 Android workflow [run 44886819129](https://github.com/justinhblee-prog/guardian/actions/runs/44886819129)는 현재 runner 대기 상태이며 성공으로 판정하지 않습니다.
 - 실제 운영 RSA 개인키/Android release keystore 생성·등록, License API/DB/TLS 배포, Windows와 Android 양쪽의 실제 라이선스 발급·활성화 E2E는 아직 검증되지 않았습니다.
+
+
+## 2026-11-21 최신 구현/검증 상태 보충
+
+- Android main [workflow 44892153515](https://github.com/justinhblee-prog/guardian/actions/runs/44892153515): versionName `0.7.40-dev`, versionCode `53`, APK 3,213,935 bytes, SHA-256 `8634e59d73baa59cb103c3534afe027b877eac3e610e6cb0d1edb17c94e99fa4`; unit tests, lint, assemble 및 source ZIP 검증 통과. API 35 emulator VPN/DNS runtime stage는 진행 중이며 완료로 간주하지 않는다.
+- Shared license product `guardian-pro` is implemented for Android and Windows clients. License API CI [44886969350](https://github.com/justinhblee-prog/guardian/actions/runs/44886969350), Windows license tests [44887248317](https://github.com/justinhblee-prog/guardian/actions/runs/44887248317), and Windows development installer build/install smoke test [44887248268](https://github.com/justinhblee-prog/guardian/actions/runs/44887248268) passed.
+- Android/Windows production use is not yet enabled: production private keys and Android release keystore/secrets are not registered; License API/PostgreSQL/TLS has not been deployed and tested against real devices. Production signing job remains skipped.
+- Local runner bootstrap workflow [44892153506](https://github.com/justinhblee-prog/guardian/actions/runs/44892153506) only parses the PowerShell installer and checks safety guards; it does not register or prove a persistent self-hosted runner.
+- The privacy fix now stores safe filter-update error codes rather than raw exception messages; the UI maps those codes to safe Korean descriptions.
+- Do not label the project 1.0.0 complete until production signing, signed filter distribution, Android physical-device VPN/DNS, Windows physical-PC DNS install/recovery, and shared cross-platform license activation/refresh/deactivation E2E have passed.
