@@ -91,3 +91,44 @@ def test_malformed_saved_device_identity_is_not_replaced(tmp_path, signing_pair)
     with pytest.raises(LicenseClientError):
         client.device_binding()
     assert client.device_path.read_text(encoding="ascii") == "not-a-valid-device-id"
+
+class _Response:
+    status = 200
+    def __init__(self, body):
+        self.body = body
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        return False
+    def read(self, limit=-1):
+        return self.body[:limit]
+
+
+def test_activate_refresh_and_deactivate_use_shared_server_contract(tmp_path, signing_pair):
+    private, public = signing_pair
+    class FakeOpener:
+        def __init__(self):
+            self.paths = []
+        def open(self, request, timeout=10):
+            body = json.loads(request.data.decode("utf-8"))
+            path = request.full_url.split("https://license.example.com", 1)[1]
+            self.paths.append(path)
+            if path == "/v1/licenses/deactivate":
+                return _Response(json.dumps({"deactivated": 1}).encode("utf-8"))
+            device = body["deviceBinding"]
+            payload, signature = signed_token(private, device)
+            return _Response(json.dumps({
+                "payload": payload, "signature": signature, "licenseRef": "12345678-abcd"
+            }).encode("utf-8"))
+
+    opener = FakeOpener()
+    client = WindowsLicenseClient("https://license.example.com", public, tmp_path, opener=opener)
+    activated = client.activate("GDN-12345678-12345678-12345678-12345678-12345678-12345678")
+    assert activated["product"] == "guardian"
+    assert client.state_path.exists()
+    refreshed = client.refresh()
+    assert refreshed["licenseRef"] == "12345678-abcd"
+    assert client.deactivate() is True
+    assert not client.state_path.exists()
+    assert opener.paths == ["/v1/licenses/activate", "/v1/licenses/refresh", "/v1/licenses/deactivate"]
+
