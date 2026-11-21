@@ -48,9 +48,9 @@
       "id": "release-signing-contract",
       "title": "Strengthen Android production signing and distribution policy",
       "priority": 30,
-      "status": "ready",
+      "status": "blocked",
       "dependencies": [],
-      "scope": "Review the Android Gradle release configuration and distribution build-type policy tests. Improve validation or regression coverage without supplying production secrets, changing signer identity, inventing HTTPS endpoints, or making Release builds succeed when required production configuration is missing.",
+      "scope": "Equivalent production signing validation, including actual JKS/PKCS12 keystore loading, alias/private-key/certificate checks and HTTPS/RSA service validation, is already implemented in Draft PR #233 (branch hardening/release-keystore-entry-validation). Do not create a duplicate or competing change. Resume only after PR #233 is integrated and a distinct remaining gap is identified. Never add production secrets or fabricated endpoints.",
       "allowed_files": [
         "android/app/build.gradle.kts",
         "android/app/src/test/java/com/guardian/adblock/DistributionBuildTypePolicyTest.kt"
