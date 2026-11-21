@@ -69,7 +69,7 @@ test('production approval gate rejects empty or malformed source configuration',
 });
 
 test('production approval gate rejects ambiguous or malformed approval references', () => {
-  for (const reference of [' LEGAL-1', 'LEGAL 1', 'LEGAL-1\\nforged', 'LEGAL-1\\t', 'x'.repeat(129)]) {
+  for (const reference of [' LEGAL-1', 'LEGAL 1', 'LEGAL-1\nforged', 'LEGAL-1\t', 'x'.repeat(129)]) {
     assert.throws(
       () => verifyProductionRedistributionApprovals({
         sources: [{
