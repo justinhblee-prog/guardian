@@ -1,6 +1,7 @@
 name: Guardian Windows Local Ollama Multi-Flow
 
 on:
+  # Manual dispatch only until the dedicated Windows runner is registered and Online.
   workflow_dispatch:
     inputs:
       max_tasks:
@@ -13,15 +14,6 @@ on:
         description: Optional exact task ID from .guardian/automation/tasks.json
         required: false
         type: string
-  schedule:
-    - cron: '17 * * * *'
-  push:
-    branches: [main]
-    paths:
-      - '.guardian/automation/tasks.json'
-      - 'scripts/guardian_multiflow.py'
-      - 'scripts/guardian-multiflow.ps1'
-      - '.github/workflows/guardian-windows-multiflow.yml'
 
 permissions:
   contents: write
