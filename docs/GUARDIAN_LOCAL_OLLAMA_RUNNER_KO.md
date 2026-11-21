@@ -77,6 +77,7 @@ GitHub 저장소의 **Settings → Actions → Runners**에서 다음 상태를 
 예약 작업을 먼저 중지·삭제하고 runner 등록을 해제해야 합니다. 저장소 runner 관리 권한이 있는 PowerShell에서 아래 명령을 실행합니다.
 
 ```powershell
+& .\scripts\guardian-git-agent.ps1 -UninstallScheduledTask
 $root = Join-Path $env:LOCALAPPDATA 'Guardian\actions-runner'
 Unregister-ScheduledTask -TaskName 'GuardianLocalOllamaRunner' -Confirm:$false -ErrorAction SilentlyContinue
 $token = gh api --method POST repos/justinhblee-prog/guardian/actions/runners/remove-token --jq .token
