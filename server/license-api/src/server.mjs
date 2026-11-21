@@ -263,7 +263,7 @@ async function verifyGooglePlayPurchase(body) {
   }
 
   // Publisher API is authoritative; client-supplied purchase state is ignored.
-  const verifier = createGooglePlayBillingVerifier();
+  const verifier = getGooglePlayBillingVerifier();
   const verified = await verifier.verifySubscription({ purchaseToken, productId });
   const expiryMs = Date.parse(verified.expiryTime || '');
   if (verified.entitled && (!Number.isFinite(expiryMs) || expiryMs <= Date.now())) {
@@ -417,6 +417,18 @@ async function verifyGooglePlayPurchase(body) {
 }
 
 
+let googlePlayBillingVerifier = null;
+function getGooglePlayBillingVerifier() {
+  if (!googlePlayBillingVerifier) {
+    googlePlayBillingVerifier = createGooglePlayBillingVerifier({
+      // Keep one in-process OAuth token cache while resolving the fetch
+      // implementation dynamically for tests and controlled runtimes.
+      fetchImpl: (...args) => globalThis.fetch(...args)
+    });
+  }
+  return googlePlayBillingVerifier;
+}
+
 const googlePlayRtdnVerifier = createGooglePlayRtdnVerifier({
   // Resolve global fetch at request time so tests and controlled runtimes can
   // inject transport while this verifier retains its certificate cache.
@@ -534,7 +546,7 @@ async function receiveGooglePlayRtdn(body, req) {
 
   // RTDN is only a signal. Re-query the Publisher API for the authoritative
   // state, and never derive entitlement from notification fields alone.
-  const verified = await createGooglePlayBillingVerifier().verifySubscription({
+  const verified = await getGooglePlayBillingVerifier().verifySubscription({
     purchaseToken,
     productId
   });
