@@ -298,3 +298,12 @@ Android 설정에서 라이선스 API 주소와 서명 필터 배포 주소를 �
 - PR #93의 첫 실행 필터 갱신/WorkManager 경합 방지 수정이 main에 병합되었습니다.
 - 이 결과는 API 35 에뮬레이터 E2E입니다. Android 실기기 VPN·DNS·광고 차단 수용 테스트, 운영 HTTPS 필터 배포, 실제 라이선스 서버 연결 및 production 서명은 별도 미완료입니다.
 - 이 APK는 개발용 debug 서명본이며 production APK/AAB가 아닙니다.
+
+## 2026-11-21 Windows·Android 공통 라이선스 및 빌드 검증
+
+- 공통 라이선스 제품: `guardian-pro`. 신규 entitlement claim은 `product=guardian`; Android 검증기는 기존 `guardian-android` 토큰도 호환합니다.
+- License API 통합 테스트: [run 44886969350](https://github.com/justinhblee-prog/guardian/actions/runs/44886969350) 성공.
+- Windows 공통 라이선스 활성화/갱신/기기 해제 클라이언트 및 UI: `windows_engine/license_client.py`, Windows DNS CI [run 44887248317](https://github.com/justinhblee-prog/guardian/actions/runs/44887248317) 성공.
+- Windows 개발 설치 패키지: [build + install smoke test run 44887248268](https://github.com/justinhblee-prog/guardian/actions/runs/44887248268) 성공. [개발 설치 프로그램](https://github.com/justinhblee-prog/guardian/actions/runs/44887248268) artifact `Guardian-AdBlock-Windows-Dev-Package`, ZIP SHA-256 `5874e1c329b668ac708d4cd0860712c48e90e289a0cddcc3dbf4247f15b9d559`, installer SHA-256 `130157181e9f7203d309c227cf06d305a88f21cd1e617cdb13261e50b0274856`. Unsigned development build.
+- Android 0.7.36-dev: [run 44886390453](https://github.com/justinhblee-prog/guardian/actions/runs/44886390453) 성공. Unit tests, lint, API 35 emulator upgrade/VPN DNS E2E 성공. APK versionCode 49, 3,213,351 bytes, SHA-256 `aa19a6666ee5817598fb972cd505753412fa14fdffeda26936d5042733f437ef`. Debug 서명 개발판이며 Production APK가 아닙니다.
+- 운영 RSA 라이선스 개인키/Android release keystore 생성·등록, 실제 License API/DB/TLS 운영 배포 및 양 플랫폼 실기기 라이선스 E2E는 미완료입니다. Production release 설정 검증은 성공했으나 production signing job은 비밀키 부재로 실행되지 않았습니다.
