@@ -8,9 +8,14 @@ $paths = Get-GuardianPaths -RepositoryRoot $repoRoot
 Initialize-GuardianDataDirectories -Paths $paths
 $serverDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $filterDir = (Resolve-Path (Join-Path $serverDir '..\filter-distribution')).Path
-foreach ($name in @('docker','openssl')) { if (-not (Get-Command $name -ErrorAction SilentlyContinue)) { throw "$name 명령을 찾을 수 없습니다." } }
-docker info *> $null
-if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop을 먼저 시작하세요.' }
+if (-not (Get-Command 'openssl' -ErrorAction SilentlyContinue)) { throw 'openssl 명령을 찾을 수 없습니다.' }
+# Key generation and secure local configuration do not depend on Docker.
+# Require a running Docker Desktop only when this script will start services.
+if (-not $SkipAutoStart) {
+  if (-not (Get-Command 'docker' -ErrorAction SilentlyContinue)) { throw 'docker 명령을 찾을 수 없습니다.' }
+  docker info *> $null
+  if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop을 먼저 시작하세요.' }
+}
 if ((Test-Path -LiteralPath $paths.LicenseEnv) -or (Test-Path -LiteralPath $paths.FilterEnv)) { throw '외부 운영 .env가 이미 있습니다. 기존 비밀값 보호를 위해 중단합니다.' }
 $existingSecretFiles = @(Get-ChildItem -LiteralPath $paths.Secrets -File -Force -ErrorAction SilentlyContinue)
 if ($existingSecretFiles.Count -gt 0) { throw '외부 비밀 폴더에 기존 파일이 있습니다. 기존 키를 덮어쓰지 않습니다.' }
