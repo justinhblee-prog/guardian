@@ -40,7 +40,7 @@ if (!databaseUrl) {
       publicKey,
       Buffer.from(token.signature, 'base64')
     ), true);
-    assert.match(token.payload, /entitlement=pro/);
+    assert.match(token.payload, /product=guardian\\nentitlement=pro/);
     const issuedAt = Number(/^issuedAt=(\d+)$/m.exec(token.payload)?.[1]);
     const expiresAt = Number(/^expiresAt=(\d+)$/m.exec(token.payload)?.[1]);
     assert.equal(token.expiresIn, expiresAt - issuedAt);
@@ -449,7 +449,7 @@ if (!databaseUrl) {
   });
 
 
-  test('existing license databases can apply migrations 002 and 003 repeatedly', async () => {
+  test('existing license databases can apply migrations 002 through 005 repeatedly', async () => {
     await pool.query('DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
     for (const migrationPath of [
       new URL('../migrations/002_shared_rate_limit_buckets.sql', import.meta.url),
