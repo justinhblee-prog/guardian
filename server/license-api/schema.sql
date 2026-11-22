@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS licenses (
   key_hash text NOT NULL,
   key_lookup text NOT NULL UNIQUE,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked','expired')),
-  expires_at timestamptz NOT NULL,
+  expires_at timestamptz,
   max_devices integer NOT NULL DEFAULT 1 CHECK (max_devices BETWEEN 1 AND 20),
   created_at timestamptz NOT NULL DEFAULT now(),
   revoked_at timestamptz
