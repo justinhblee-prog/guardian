@@ -364,14 +364,12 @@ class GuardianDesktop:
         self._label(side,"WINDOWS SECURITY",8,self.MUTED,"bold",self.SIDE).pack(anchor="w",padx=24,pady=(0,30))
         self._label(side,"WORKSPACE",8,"#657891","bold",self.SIDE).pack(anchor="w",padx=22,pady=(0,10))
         self.nav={}
-        # Keep the same top-level information architecture as Android.
+        # Shared cross-platform primary navigation. Premium and filter rules are inside Settings.
         items=[
             ("home","⌂   홈",self.show_dashboard),
-            ("protection","◈   보호 설정",self.show_protection_page),
+            ("protection","◈   보호",self.show_protection_page),
             ("app-exclusions","◉   앱 제외",self.show_app_exclusions_page),
-            ("activity","▤   DNS 활동",self.show_activity_page),
-            ("premium","✦   프리미엄",self.show_license_page),
-            ("rules","≡   필터 규칙",self.show_filter_updates),
+            ("activity","▤   활동",self.show_activity_page),
             ("settings","⚙   설정",self.show_settings_page),
         ]
         for key,label,fn in items:
@@ -466,20 +464,48 @@ class GuardianDesktop:
 
     def show_settings_page(self):
         self._select_nav("settings"); self.page_title.configure(text="설정"); self._clear_page()
-        cards=[
-            ("필터 서버 설정","서명 manifest 주소, source ID, 검증 공개키를 관리합니다.",self.open_filter_settings,"열기"),
-            ("라이선스 설정","Windows와 Android에서 공유하는 Guardian 라이선스를 관리합니다.",self.open_license_settings,"열기"),
-            ("시스템 진단","DNS 응답, 백그라운드 데몬, 필터 및 네트워크 상태를 확인합니다.",self.show_diagnostics,"진단 보기"),
+        sections=[
+            ("일반","앱 동작 및 기본 설정",self.show_general_settings),
+            ("필터링","서명 필터, 필터 규칙과 DNS 필터 서버",self.show_filtering_settings),
+            ("라이선스 및 프리미엄","Guardian Pro 및 기기 라이선스 관리",self.show_license_page),
+            ("고객 지원","도움말과 문제 해결",self.show_support_page),
+            ("정보","앱 버전 및 제품 정보",self.show_about_page),
+            ("종료","Guardian 앱 종료",self.confirm_exit),
         ]
-        for title,detail,action,label in cards:
+        for title,detail,action in sections:
             card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=20,pady=16)
-            card.pack(fill="x",pady=(0,12))
+            card.pack(fill="x",pady=(0,10))
             self._label(card,title,13,self.TEXT,"bold").pack(anchor="w")
             self._label(card,detail,9,self.MUTED,wraplength=720,justify="left").pack(anchor="w",pady=(5,12))
-            self._button(card,label,action,"primary" if title=="시스템 진단" else "secondary").pack(anchor="w")
+            self._button(card,"열기",action,"secondary").pack(anchor="w")
+
+    def show_general_settings(self):
+        self._select_nav("settings"); self.page_title.configure(text="일반"); self._clear_page()
+        self._label(self.page,"Guardian Windows 기본 설정",12,self.TEXT,"bold").pack(anchor="w",pady=(0,12))
+        self._button(self.page,"필터 서버 및 배포 키 설정",self.open_filter_settings,"primary").pack(anchor="w")
+        self._button(self.page,"시스템 진단",self.show_diagnostics).pack(anchor="w",pady=(8,0))
+
+    def show_filtering_settings(self):
+        self.show_filter_updates()
+
+    def show_support_page(self):
+        self._select_nav("settings"); self.page_title.configure(text="고객 지원"); self._clear_page()
+        self._label(self.page,"도움말 및 문제 해결",14,self.TEXT,"bold").pack(anchor="w")
+        self._label(self.page,"Windows 고객지원 문의 접수 연동은 아직 제공되지 않습니다. 현재는 진단 정보와 시작 로그를 통해 문제를 확인할 수 있습니다.",10,self.MUTED,wraplength=720,justify="left").pack(anchor="w",pady=(8,14))
+        self._button(self.page,"시스템 진단 보기",self.show_diagnostics,"primary").pack(anchor="w")
+
+    def show_about_page(self):
+        self._select_nav("settings"); self.page_title.configure(text="정보"); self._clear_page()
+        self._label(self.page,"Guardian AdBlock for Windows",16,self.TEXT,"bold").pack(anchor="w")
+        self._label(self.page,"버전 0.1.0-dev · 개발 빌드",10,self.MUTED).pack(anchor="w",pady=(8,4))
+        self._label(self.page,"주식회사 유진컨설팅",10,self.MUTED).pack(anchor="w")
+
+    def confirm_exit(self):
+        if messagebox.askyesno("Guardian 종료","Guardian 앱 창을 종료하시겠습니까? 백그라운드 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다."):
+            self.close()
 
     def show_filter_updates(self):
-        self._select_nav("rules"); self.page_title.configure(text="필터 규칙"); self._clear_page()
+        self._select_nav("settings"); self.page_title.configure(text="필터링"); self._clear_page()
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
         except Exception: data={}
         try: status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
