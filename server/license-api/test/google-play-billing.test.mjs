@@ -121,3 +121,59 @@ test('reuses a short-lived OAuth access token across purchase lookups', async ()
   await verifier.verifySubscription({ purchaseToken: 'token-two', productId: 'guardian_pro_monthly' });
   assert.equal(calls.filter(call => call.url === 'https://oauth2.googleapis.com/token').length, 1);
 });
+
+test('grace-period subscriptions retain entitlement until their matching paid expiry', async () => {
+  const verifier = createGooglePlayBillingVerifier({
+    serviceAccountJson,
+    fetchImpl: mockFetch(activeSubscription({
+      subscriptionState: 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD'
+    })),
+    now
+  });
+  const result = await verifier.verifySubscription({
+    purchaseToken: 'grace-period-token',
+    productId: 'guardian_pro_monthly'
+  });
+  assert.equal(result.verified, true);
+  assert.equal(result.entitled, true);
+  assert.equal(result.subscriptionState, 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD');
+});
+
+test('canceled subscriptions lose entitlement at paid expiry', async () => {
+  const verifier = createGooglePlayBillingVerifier({
+    serviceAccountJson,
+    fetchImpl: mockFetch(activeSubscription({
+      subscriptionState: 'SUBSCRIPTION_STATE_CANCELED',
+      lineItems: [{
+        productId: 'guardian_pro_monthly',
+        expiryTime: '2026-11-21T11:59:59.999Z'
+      }]
+    })),
+    now
+  });
+  const result = await verifier.verifySubscription({
+    purchaseToken: 'expired-canceled-token',
+    productId: 'guardian_pro_monthly'
+  });
+  assert.equal(result.verified, true);
+  assert.equal(result.entitled, false);
+});
+
+test('does not borrow a different SKU expiry to grant entitlement', async () => {
+  const verifier = createGooglePlayBillingVerifier({
+    serviceAccountJson,
+    fetchImpl: mockFetch(activeSubscription({
+      lineItems: [
+        { productId: 'guardian_pro_monthly', expiryTime: '2026-11-20T12:00:00.000Z' },
+        { productId: 'unrelated_product', expiryTime: '2026-12-21T12:00:00.000Z' }
+      ]
+    })),
+    now
+  });
+  const result = await verifier.verifySubscription({
+    purchaseToken: 'mixed-product-token',
+    productId: 'guardian_pro_monthly'
+  });
+  assert.equal(result.entitled, false);
+  assert.equal(result.productId, 'guardian_pro_monthly');
+});
