@@ -59,6 +59,30 @@ def proxy_ready():
     except OSError: return False
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
+def daemon_startup_diagnostics():
+    details=[]
+    try:
+        task=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
+        output="\\n".join(part.strip() for part in (task.stdout,task.stderr) if part and part.strip())
+        if output: details.append("작업 스케줄러 상태:\\n"+output[-5000:])
+        else: details.append("작업 스케줄러 상태를 읽지 못했습니다.")
+    except Exception as exc:
+        details.append("작업 스케줄러 조회 실패: "+str(exc))
+    log_path=APP_DIR/"daemon-startup.log"
+    try:
+        if log_path.exists():
+            lines=log_path.read_text(encoding="utf-8",errors="replace").splitlines()
+            details.append("DNS 백그라운드 시작 로그:\\n"+"\\n".join(lines[-50:]))
+        else:
+            details.append("DNS 백그라운드 시작 로그가 없습니다: "+str(log_path))
+    except OSError as exc:
+        details.append("DNS 백그라운드 로그 읽기 실패: "+str(exc))
+    try:
+        health=json.loads(HEALTH.read_text(encoding="utf-8"))
+        details.append("최근 프로세스 상태: "+json.dumps(health,ensure_ascii=False))
+    except Exception:
+        details.append("유효한 DNS 백그라운드 생존 상태 파일이 없습니다.")
+    return "\\n\\n".join(details)
 def ensure_daemon_running():
     if proxy_ready(): return
     result=run_task("/Run","/TN",TASK_NAME)
@@ -67,7 +91,8 @@ def ensure_daemon_running():
     while time.monotonic()<deadline:
         if proxy_ready(): return
         time.sleep(.25)
-    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53")
+    diagnostics=daemon_startup_diagnostics()
+    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\\n\\n"+diagnostics)
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
