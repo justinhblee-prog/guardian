@@ -561,7 +561,15 @@ class GuardianDesktop:
             status={"state":"updated","sourceVersion":result["sourceVersion"],"checkedAt":time.time()}
             tmp=APP_DIR/"filter-update-status.tmp"; tmp.write_text(json.dumps(status),encoding="utf-8"); os.replace(tmp,APP_DIR/"filter-update-status.json")
             messagebox.showinfo("필터 업데이트 완료",f"서명 검증 및 SHA-256 확인 완료\n버전: {result['sourceVersion']}\n차단 규칙: {len(DomainRules.from_text(rules_path.read_text(encoding='utf-8')).blocked):,}개")
-        except Exception as exc: self.show_error("필터 업데이트 실패",str(exc))
+        except Exception as exc:
+            try:
+                status={"state":"error","message":str(exc),"checkedAt":time.time()}
+                tmp=APP_DIR/"filter-update-status.tmp"
+                tmp.write_text(json.dumps(status,ensure_ascii=False),encoding="utf-8")
+                os.replace(tmp,APP_DIR/"filter-update-status.json")
+            except OSError:
+                pass
+            self.show_error("필터 업데이트 실패",str(exc))
     def refresh(self):
         try:
             stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
