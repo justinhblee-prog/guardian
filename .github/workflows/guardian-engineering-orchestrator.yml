@@ -2,6 +2,9 @@ name: Guardian Engineering Orchestrator
 
 on:
   workflow_dispatch:
+  schedule:
+    # Re-check the latest integrated Android state every six hours (UTC).
+    - cron: '17 */6 * * *'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
@@ -55,10 +58,12 @@ jobs:
           python3 scripts/resolve_guardian_dev_version.py \
             --releases-json /tmp/guardian-releases.json \
             --commit "$GITHUB_SHA" \
-            --baseline-version "0.7.34-dev" \
-            --baseline-code 47 \
+            --baseline-version "0.7.42-dev" \
+            --baseline-code 55 \
             --github-env "$GITHUB_ENV" \
             --github-output "$GITHUB_OUTPUT"
+      - name: Validate development version resolver contract
+        run: python3 -m unittest scripts/test_resolve_guardian_dev_version.py
       - name: Unit tests
         run: gradle -p android --no-daemon clean testDebugUnitTest
       - name: Lint
@@ -188,10 +193,52 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  mobile-contracts:
+    name: Mobile feature and regression contract audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Android core and regression test coverage files
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            android/app/src/test/java/com/guardian/adblock/DnsProbeTest.kt
+            android/app/src/test/java/com/guardian/adblock/FilterManifestVerifierTest.kt
+            android/app/src/test/java/com/guardian/adblock/FilterCacheStoreTest.kt
+            android/app/src/test/java/com/guardian/adblock/ProtectionRestorePolicyTest.kt
+            android/app/src/test/java/com/guardian/adblock/ResponsiveLayoutPolicyTest.kt
+            android/app/src/test/java/com/guardian/adblock/LicenseEntitlementVerifierTest.kt
+            android/app/src/test/java/com/guardian/adblock/GuardianStableUpdatePolicyTest.kt
+            scripts/verify_android_vpn_emulator.sh
+          )
+          for file in "${required[@]}"; do
+            test -s "$file" || { echo "Required mobile regression asset missing: $file"; exit 1; }
+          done
+          bash -n scripts/verify_android_vpn_emulator.sh
+          bash -n scripts/verify_android_emulator.sh
+      - name: Run standalone automation regression tests
+        run: |
+          python3 -m unittest \
+            scripts/test_resolve_guardian_dev_version.py \
+            scripts/test_verify_guardian_crash_log.py \
+            scripts/test_resolve_android_dialog_row.py
+      - name: Record mobile contract evidence
+        if: always()
+        run: |
+          {
+            echo "## Mobile contract audit"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Trigger: $GITHUB_EVENT_NAME"
+            echo "- Required DNS/filter/restore/responsive/license/update/E2E assets checked."
+            echo "- This static contract audit does not replace Android emulator or physical-device tests."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   decision:
     name: Engineering verification decision
     if: always()
-    needs: [android, backend, repository-integrity]
+    needs: [android, backend, mobile-contracts, repository-integrity]
     runs-on: ubuntu-24.04
     steps:
       - name: Fail closed unless every required track passed
@@ -199,6 +246,7 @@ jobs:
           ANDROID_RESULT: ${{ needs.android.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
           INTEGRITY_RESULT: ${{ needs.repository-integrity.result }}
+          MOBILE_RESULT: ${{ needs.mobile-contracts.result }}
         run: |
           printf 'Android=%s Backend=%s Integrity=%s\n' "$ANDROID_RESULT" "$BACKEND_RESULT" "$INTEGRITY_RESULT"
           test "$ANDROID_RESULT" = success
