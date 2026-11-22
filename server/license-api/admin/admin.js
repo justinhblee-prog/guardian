@@ -241,7 +241,53 @@ function renderCustomers() {
     const last = document.createElement("span");
     last.textContent = `최근 발급: ${item.last_license_issued ? dateLabel(item.last_license_issued) : "-"}`;
     meta.append(email, active, last);
-    card.append(top, meta);
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const history = document.createElement("div");
+    history.className = "device-list";
+    history.hidden = true;
+    const historyButton = createButton("고객 라이선스 내역", "secondary", async () => {
+      history.hidden = !history.hidden;
+      if (history.hidden) return;
+      history.replaceChildren();
+      const loading = document.createElement("p");
+      loading.className = "muted";
+      loading.textContent = "고객의 라이선스 내역을 불러오는 중...";
+      history.append(loading);
+      try {
+        const data = await api(`/v1/admin/customers/${encodeURIComponent(item.id)}/licenses`);
+        history.replaceChildren();
+        if (!data.licenses?.length) {
+          const empty = document.createElement("p");
+          empty.className = "muted";
+          empty.textContent = "발급된 라이선스가 없습니다.";
+          history.append(empty);
+        } else {
+          for (const license of data.licenses) {
+            const row = document.createElement("div");
+            row.className = "device-row";
+            const info = document.createElement("div");
+            info.className = "device-info";
+            const title = document.createElement("strong");
+            title.textContent = license.license_ref || license.id;
+            const detail = document.createElement("div");
+            detail.className = "muted";
+            detail.textContent = `${statusLabel(effectiveLicenseStatus(license))} · 만료: ${dateLabel(license.expires_at)} · 기기: ${Number(license.active_devices) || 0}/${Number(license.max_devices) || 1}`;
+            info.append(title, detail);
+            row.append(info);
+            history.append(row);
+          }
+        }
+      } catch (error) {
+        history.replaceChildren();
+        const message = document.createElement("p");
+        message.className = "muted";
+        message.textContent = error.message;
+        history.append(message);
+      }
+    });
+    actions.append(historyButton);
+    card.append(top, meta, actions, history);
     root.append(card);
   }
 }
