@@ -128,14 +128,34 @@ def ensure_daemon_running():
     daemon_exe=daemon_executable_path()
     if not daemon_exe.is_file():
         raise NetworkConfigError(f"Guardian DNS 백그라운드 실행 파일을 찾을 수 없습니다: {daemon_exe}. 설치 파일이 누락되었거나 보안 프로그램에 의해 격리되었을 수 있습니다.")
+
+    # Do not issue a second Task Scheduler /Run while a previous daemon process
+    # is still alive. IgnoreNew task instances can otherwise report success
+    # while the original process remains unhealthy, obscuring the real failure.
+    if daemon_process_is_running(HEALTH):
+        deadline=time.monotonic()+12
+        while time.monotonic()<deadline:
+            if proxy_ready(): return
+            if not daemon_process_is_running(HEALTH): break
+            time.sleep(.25)
+        if daemon_process_is_running(HEALTH):
+            diagnostics=daemon_startup_diagnostics()
+            raise NetworkConfigError("Guardian DNS background process is already running but did not answer on IPv4 loopback port 53; a duplicate start was not requested.\\n\\n"+diagnostics)
+
     result=run_task("/Run","/TN",TASK_NAME)
-    if result.returncode: raise NetworkConfigError(result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")
+    if result.returncode:
+        task_state=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
+        diagnostics=daemon_startup_diagnostics()
+        detail=task_state.stdout.strip() or task_state.stderr.strip()
+        raise NetworkConfigError((result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")+"\\n"+detail+"\\n"+diagnostics)
     deadline=time.monotonic()+12
     while time.monotonic()<deadline:
         if proxy_ready(): return
         time.sleep(.25)
+    task_state=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
     diagnostics=daemon_startup_diagnostics()
-    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\\n\\n"+diagnostics)
+    detail=task_state.stdout.strip() or task_state.stderr.strip()
+    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\\n"+detail+"\\n"+diagnostics)
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
