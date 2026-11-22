@@ -22,7 +22,8 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Files]
 Source: "..\dist\GuardianAdBlock\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\\dist\\GuardianDnsProxy\\*"; DestDir: "{app}\\GuardianDnsProxy"; Flags: ignoreversion recursesubdirs createallsubdirs\nSource: "Register-GuardianDnsTask.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\GuardianDnsProxy\*"; DestDir: "{app}\GuardianDnsProxy"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "Register-GuardianDnsTask.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Guardian AdBlock"; Filename: "{app}\{#MyAppExeName}"
@@ -47,8 +48,8 @@ var
   Parameters: String;
 begin
   if CurStep = ssPostInstall then begin
-    Parameters := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\\Register-GuardianDnsTask.ps1') + '" -ExecutablePath "' + ExpandConstant('{app}\\GuardianDnsProxy\\GuardianDnsProxy.exe') + '"';
-    if (not Exec(ExpandConstant('{sys}\\WindowsPowerShell\\v1.0\\powershell.exe'), Parameters, ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then begin
+    Parameters := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\Register-GuardianDnsTask.ps1') + '" -ExecutablePath "' + ExpandConstant('{app}\GuardianDnsProxy\GuardianDnsProxy.exe') + '"';
+    if (not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Parameters, ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then begin
       MsgBox('Guardian could not register its boot-start DNS protection task with an explicit working directory. Setup will stop; no DNS settings have been changed.', mbError, MB_OK);
       Abort;
     end;
