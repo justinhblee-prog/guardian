@@ -56,6 +56,13 @@ public partial class MainWindow : Window
         catch (Exception ex) { ConnectionLabel.Text = "연결 실패"; StatusText.Text = ex.Message; }
     }
 
+    private void Updates_Click(object sender, RoutedEventArgs e)
+    {
+        if (_http.BaseAddress is null || string.IsNullOrWhiteSpace(_token))
+        { StatusText.Text = "제품 업데이트를 관리하려면 먼저 License API에 연결하세요."; return; }
+        new UpdateWindow(_http.BaseAddress, _token) { Owner = this }.ShowDialog();
+    }
+
     private void Disconnect_Click(object sender, RoutedEventArgs e)
     {
         _token = ""; TokenBox.Clear(); _http.DefaultRequestHeaders.Authorization = null;
