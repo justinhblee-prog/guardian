@@ -20,6 +20,17 @@ def _version_file() -> Path:
     return candidates[0]
 
 
+def get_product_build_number() -> int:
+    try:
+        lines = _version_file().read_text(encoding="utf-8").splitlines()
+        number = int(lines[1].strip())
+    except (OSError, IndexError, ValueError):
+        return 55
+    if number < 1:
+        raise ValueError("VERSION file contains an invalid build number.")
+    return number
+
+
 def get_product_version() -> str:
     override = os.environ.get("GUARDIAN_VERSION_NAME", "").strip()
     if override:
