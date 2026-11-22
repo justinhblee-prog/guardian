@@ -20,7 +20,13 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 
 class LicenseClientError(RuntimeError):
-    pass
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+    @property
+    def invalidates_entitlement(self) -> bool:
+        return self.status_code == 403
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -134,7 +140,10 @@ class WindowsLicenseClient:
                     raise LicenseClientError(f"License API returned HTTP {response.status}")
                 raw = response.read(8193)
         except urllib.error.HTTPError as exc:
-            raise LicenseClientError(f"License API rejected the request (HTTP {exc.code})") from exc
+            raise LicenseClientError(
+                f"License API rejected the request (HTTP {exc.code})",
+                status_code=exc.code
+            ) from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise LicenseClientError(f"License API connection failed: {exc}") from exc
         if len(raw) > 8192:
@@ -173,9 +182,36 @@ class WindowsLicenseClient:
             license_ref = record["licenseRef"]
         except Exception as exc:
             raise LicenseClientError("No saved Guardian license is available to refresh") from exc
-        return self._accept_response(self._post("/v1/licenses/refresh", {
-            "deviceBinding": self.device_binding(), "licenseRef": license_ref
-        }))
+        try:
+            response = self._post("/v1/licenses/refresh", {
+                "deviceBinding": self.device_binding(), "licenseRef": license_ref
+            })
+        except LicenseClientError as exc:
+            if exc.invalidates_entitlement:
+                self.state_path.unlink(missing_ok=True)
+            raise
+        return self._accept_response(response)
+
+    def status(self) -> dict:
+        """Check the server-side activation; a free response revokes local Pro access."""
+        try:
+            record = json.loads(self.state_path.read_text(encoding="utf-8"))
+            license_ref = record["licenseRef"]
+        except FileNotFoundError:
+            return {"status": "free"}
+        except Exception as exc:
+            raise LicenseClientError("Saved Guardian license state is malformed") from exc
+        try:
+            response = self._post("/v1/licenses/status", {
+                "deviceBinding": self.device_binding(), "licenseRef": license_ref
+            })
+        except LicenseClientError as exc:
+            if exc.invalidates_entitlement:
+                self.state_path.unlink(missing_ok=True)
+            raise
+        if str(response.get("status", "")).lower() != "active":
+            self.state_path.unlink(missing_ok=True)
+        return response
 
     def deactivate(self) -> bool:
         try:
