@@ -491,11 +491,13 @@ function validateRelease(body) {
   const sha256 = typeof body.sha256 === 'string' ? body.sha256.trim().toLowerCase() : '';
   const minSupportedVersion = typeof body.minSupportedVersion === 'string' ? body.minSupportedVersion.trim() : '';
   const releaseNotes = typeof body.releaseNotes === 'string' ? body.releaseNotes.trim() : '';
+  let parsedDownloadUrl = null;
+  try { parsedDownloadUrl = new URL(downloadUrl); } catch {}
   if (!platform || !channel || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version) ||
-      !/^https:\/\//i.test(downloadUrl) || downloadUrl.length > 2048 ||
+      !parsedDownloadUrl || parsedDownloadUrl.protocol !== 'https:' || !parsedDownloadUrl.hostname || parsedDownloadUrl.username || parsedDownloadUrl.password || downloadUrl.length > 2048 ||
       !/^[a-f0-9]{64}$/.test(sha256) ||
       (minSupportedVersion && !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(minSupportedVersion)) ||
-      releaseNotes.length > 8000) {
+      (body.mandatory === true && !minSupportedVersion) || releaseNotes.length > 8000) {
     throw Object.assign(new Error('플랫폼, 채널, 버전, HTTPS 다운로드 주소, SHA-256 및 릴리스 정보를 확인하세요.'), { status: 400 });
   }
   return { platform, channel, version, downloadUrl, sha256, minSupportedVersion: minSupportedVersion || null,
