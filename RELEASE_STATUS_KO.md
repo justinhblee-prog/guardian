@@ -1,3 +1,29 @@
+# 최신 검증 상태 — 2026-11-22
+
+> 2026-11-22 CI exact-head 결과로 이전 스냅샷을 갱신합니다. 개발 검증 통과와 Production 1.0 출시 승인은 별개입니다.
+
+## Android 설정·VPN·태블릿 재검증
+
+- 설정/프리미엄 PR #247, 태블릿 설정 PR #258, 태블릿 에뮬레이터 PR #259의 최신 커밋에서 Android unit tests, lintDebug, assembleDebug 및 APK emulator E2E가 모두 통과했습니다.
+- #247 run [44965026477](https://github.com/justinhblee-prog/guardian/actions/runs/44965026477), #258 run [44965023189](https://github.com/justinhblee-prog/guardian/actions/runs/44965023189), #259 run [44965018915](https://github.com/justinhblee-prog/guardian/actions/runs/44965018915).
+- #259 tablet UI: 1066.7dp에서 설정 5개 카테고리 2열, landscape 재배치, 999dp에서 1열 전환을 확인했습니다.
+- 세 run 모두 VPN 터널 시작, 허용 DNS, 기본 차단 규칙 및 사용자 지정 차단 규칙을 확인했습니다. 앱 업데이트 후 VPN 자동 복구, foreground-app 자동 일시중지/복귀도 통과했습니다.
+- #259 개발 APK: `0.7.34-dev-ci2007`, versionCode `2008`, commit `405e0f7ba61bae9e497fbd30090386ac0baf984e`, SHA-256 `c5d0ccfc88118388586e58d0b350852d06617a19aa703a044d1d36209d652f7e`. APK 3,220,083 bytes.
+- Source ZIP SHA-256: `b65dfaa1e83f84c3f2c0f67172a26f2e202f3f815549243ce6760d741d5e0d0f`; APK 및 source ZIP 내부 무결성 검증 통과.
+- Hosted emulator DNS 오류는 runner의 실제 DNS 서버를 emulator에 전달하도록 수정한 뒤 재검증에서 해소됐습니다. 이 수정은 emulator test harness에 대한 조치이며 Windows/실기기 DNS 수용을 의미하지 않습니다.
+
+## 여전히 Production 1.0을 막는 항목
+
+1. Samsung/실제 Android 휴대전화·태블릿에서 VPN 권한, 광고·추적 차단, IPv4/IPv6, 재부팅, 네트워크 전환, OEM 절전 및 VPN 공존 수용 테스트가 필요합니다.
+2. 7개 제3자 filter source는 라이선스·출처 검토 및 상용 재배포 승인 증빙이 없으므로 미승인 상태입니다.
+3. 실제 License API/Tailscale HTTPS `/ready` endpoint 및 Production PostgreSQL/API 운영 배포는 미검증입니다.
+4. 사용자 소유 Production Android keystore, Windows Authenticode key, filter/license signing private keys와 GitHub production secrets가 구성되지 않았습니다.
+5. Windows 물리 PC에서 DNS interception, 재부팅, VPN 공존, network change 및 rollback/restore 수용 테스트가 필요합니다.
+6. Google Play Billing 및 결제 webhook은 사용자의 우선순위에 따라 계속 보류합니다.
+
+PR은 병합하지 않았고 Production release도 실행하지 않았습니다. 위 항목이 해소되기 전까지 Guardian 1.0 완료/출시로 판정하지 않습니다.
+
+---
 # 최신 검증 상태 — 2026-11-21
 
 > 이 섹션이 이전 기록보다 우선하는 현재 상태입니다. 개발용 검증 통과와 Production 1.0 출시 가능 상태를 구분합니다.
