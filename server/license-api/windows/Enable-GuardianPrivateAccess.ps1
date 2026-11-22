@@ -109,6 +109,22 @@ if ($LASTEXITCODE -ne 0) {
 & $tailscale serve status
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 상태 확인 실패' }
 
+# Confirm the externally addressed private HTTPS route and readiness payload.
+$privateReadyUrl = 'https://' + $dnsName + '/ready'
+$privateReady = $null
+for ($attempt = 1; $attempt -le 5; $attempt++) {
+  try {
+    $privateReady = Invoke-RestMethod -Uri $privateReadyUrl -TimeoutSec 10
+    if ($privateReady.ok -and $privateReady.database -eq 'ready' -and $privateReady.signer -eq 'ready') { break }
+    throw 'API readiness payload did not confirm database and signer.'
+  } catch {
+    if ($attempt -eq 5) {
+      throw "Tailscale HTTPS /ready 검증에 실패했습니다. Serve, MagicDNS, TLS 및 API 준비 상태를 확인하세요. ($($_.Exception.Message))"
+    }
+    Start-Sleep -Seconds 2
+  }
+}
+
 # The first signed cloud publication is now live. Register recurring refresh
 # only after the source URL and signing-key pairing have passed the full publish.
 & (Join-Path $PSScriptRoot 'Register-GuardianFilterUpdateTask.ps1') -DailyAt $DailyAt
