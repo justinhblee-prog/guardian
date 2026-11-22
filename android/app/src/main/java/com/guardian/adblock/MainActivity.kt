@@ -1219,7 +1219,7 @@ class MainActivity : Activity() {
             addView(text(profile.label, 15f, white, true).withTop(6))
             addView(text(filterStatusDescription(), 11f, muted, false).withTop(6))
             addView(text(
-                "필터 규칙과 앱별 보호 제외는 하단 메뉴에서 각각 관리합니다.",
+                "필터 규칙은 설정의 필터링에서, 앱별 보호 제외는 앱 제외 메뉴에서 관리합니다.",
                 11f, muted, false
             ).withTop(12))
         }.withTop(18))
@@ -1497,9 +1497,6 @@ class MainActivity : Activity() {
     private fun buildSettings(body: LinearLayout) {
         body.addView(text("일반", 25f, white, true))
         body.addView(text("앱 동작과 네트워크 연결의 기본 설정을 관리합니다.", 13f, muted, false).withTop(5))
-        body.addView(buildSupportCenterCard().withTop(12))
-        body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
-        body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
         if (BuildConfig.DEBUG) {
             val updateStatus = text(
                 "설정 화면 진입 시 주기 확인 · 현재 개발 버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
