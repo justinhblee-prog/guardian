@@ -148,7 +148,7 @@ class GuardianDesktop:
         tk.Button(self.pages['filters'],text='필터 업데이트 실행',command=self.update_filters,width=22,height=2,bg='#197a57',fg='white',relief='flat').pack(anchor='w',pady=8)
         tk.Button(self.pages['filters'],text='필터 서버 설정',command=self.open_filter_settings,width=22,height=2,bg='#33404c',fg='white',relief='flat').pack(anchor='w',pady=8)
         self._section('exclusions','앱 제외 관리','DNS 필터링에서 제외할 앱 정책을 설정합니다.')
-        tk.Label(self.pages['exclusions'],text='Windows 앱 제외 정책 UI는 현재 엔진 연결 구현이 필요합니다. 미구현 기능을 동작하는 것처럼 표시하지 않습니다.',wraplength=700,fg='#f0c477',bg='#101820',justify='left').pack(anchor='w',pady=10)
+        tk.Label(self.pages['exclusions'],text='현재 Windows DNS 프록시는 DNS 요청의 도메인만 처리하며 요청을 보낸 Windows 프로세스 정보를 제공하지 않습니다. 따라서 앱별 제외를 임의로 적용하지 않습니다. 앱별 정책을 안전하게 지원하려면 Windows Filtering Platform 기반 프로세스 식별·정책 계층과 관리자 권한 설치/제거, IPv4·IPv6 회귀 테스트가 먼저 필요합니다. 현재는 미지원 상태입니다.',wraplength=700,fg='#f0c477',bg='#101820',justify='left').pack(anchor='w',pady=10)
         self._section('activity','활동 및 기록','DNS 요청·차단 통계와 진단 기록을 확인합니다.')
         tk.Label(self.pages['activity'],text='백그라운드 DNS 엔진이 기록한 누적 요청 통계입니다.',fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=(0,14))
         self.activity_stats=tk.Label(self.pages['activity'],text='차단 0건  |  정상 전달 0건  |  오류 0건',font=('Segoe UI',16,'bold'),fg='#d7e0e8',bg='#101820')
