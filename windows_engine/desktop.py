@@ -1,5 +1,5 @@
 """Tkinter desktop control panel for Guardian Windows DNS protection."""
-import json,os,sys,socket,struct,subprocess,time
+import json,os,sys,socket,struct,subprocess,time,threading
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
@@ -57,6 +57,9 @@ def proxy_ready():
             client.settimeout(.8); client.sendto(query,("127.0.0.1",53)); response,_=client.recvfrom(512)
         return is_dns_probe_response(query,response)
     except OSError: return False
+def license_status_poll_due(last_checked, now, interval=300):
+    return now - last_checked >= interval
+
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
 def ensure_daemon_running():
@@ -110,6 +113,7 @@ def self_test():
 class GuardianDesktop:
     def __init__(self,root):
         self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False
+        self._license_status_checking=False; self._last_license_status_check=0.0
         self.status=tk.StringVar(value="보호 꺼짐"); root.title("Guardian AdBlock"); root.geometry("620x440"); root.minsize(560,400); root.configure(bg="#101820")
         tk.Label(root,text="GUARDIAN",font=("Segoe UI",24,"bold"),fg="#f2f6fa",bg="#101820").pack(pady=(24,2))
         tk.Label(root,text="Windows DNS Protection",font=("Segoe UI",10),fg="#9fb2c3",bg="#101820").pack()
@@ -217,6 +221,38 @@ class GuardianDesktop:
                 self.license_status.configure(text="라이선스: 무료",fg="#9fb2c3")
         except Exception:
             self.license_status.configure(text="라이선스: 설정 필요",fg="#f3b64a")
+    def schedule_license_status_check(self):
+        now=time.monotonic()
+        if self._license_status_checking or not license_status_poll_due(self._last_license_status_check,now):
+            return
+        try:
+            data=json.loads(CONFIG.read_text(encoding="utf-8")) if CONFIG.exists() else {}
+            client=self._license_client(data)
+            if not client.state_path.is_file():
+                self._last_license_status_check=now
+                return
+        except Exception:
+            return
+        self._last_license_status_check=now
+        self._license_status_checking=True
+        def worker():
+            try:
+                result=client.revalidate()
+                error=None
+            except Exception as exc:
+                result=None
+                error=exc
+            def complete():
+                self._license_status_checking=False
+                if error is not None and client.current_entitlement() is not None:
+                    self.license_status.configure(text="라이선스: Guardian Pro · 서버 확인 대기",fg="#f3b64a")
+                else:
+                    self.refresh_license_status()
+            try:
+                self.root.after(0,complete)
+            except tk.TclError:
+                self._license_status_checking=False
+        threading.Thread(target=worker,name="GuardianLicenseStatus",daemon=True).start()
     def open_license_settings(self):
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
         except Exception as exc: messagebox.showerror("Guardian 라이선스",str(exc)); return
@@ -296,6 +332,7 @@ class GuardianDesktop:
             version=status.get("sourceVersion","")
             self.filter_status.configure(text=f"{label} {version}".strip(),fg="#54d69b" if status.get("state") in ("updated","current") else "#ff9b85")
         except (OSError,ValueError,TypeError): pass
+        self.schedule_license_status_check()
         self.root.after(1000,self.refresh)
     def close(self):
         self.root.destroy()  # Background DNS task intentionally continues until explicit Stop.

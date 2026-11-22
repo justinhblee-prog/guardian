@@ -194,3 +194,72 @@ def test_status_active_keeps_cached_entitlement(tmp_path, signing_pair):
     assert client.status() == {"status": "active"}
     assert client.state_path.exists()
     assert client.current_entitlement() is not None
+
+
+def test_revalidate_renews_token_inside_refresh_window(tmp_path, signing_pair):
+    private, public = signing_pair
+    class FakeOpener:
+        def __init__(self):
+            self.paths = []
+        def open(self, request, timeout=10):
+            path = request.full_url.split("https://license.example.com", 1)[1]
+            self.paths.append(path)
+            if path == "/v1/licenses/status":
+                return _Response(b'{"status":"active"}')
+            if path == "/v1/licenses/refresh":
+                device = json.loads(request.data.decode("utf-8"))["deviceBinding"]
+                payload, signature = signed_token(private, device, expires=int(time.time()) + 3600)
+                return _Response(json.dumps({"payload": payload, "signature": signature}).encode())
+            raise AssertionError(path)
+    opener = FakeOpener()
+    client = WindowsLicenseClient("https://license.example.com", public, tmp_path, opener=opener)
+    device = client.device_binding()
+    payload, signature = signed_token(private, device, expires=int(time.time()) + 120)
+    client.state_path.write_text(json.dumps({
+        "payload": payload, "signature": signature, "licenseRef": "12345678-abcd"
+    }), encoding="utf-8")
+    result = client.revalidate(refresh_before_seconds=600)
+    assert result["status"] == "active"
+    assert result["refreshed"] is True
+    assert result["expiresAt"] > int(time.time()) + 3000
+    assert opener.paths == ["/v1/licenses/status", "/v1/licenses/refresh"]
+    assert client.current_entitlement() is not None
+
+
+def test_revalidate_does_not_refresh_revoked_or_unexpired_license(tmp_path, signing_pair):
+    private, public = signing_pair
+    class FakeOpener:
+        def __init__(self, status):
+            self.status = status
+            self.paths = []
+        def open(self, request, timeout=10):
+            path = request.full_url.split("https://license.example.com", 1)[1]
+            self.paths.append(path)
+            return _Response(json.dumps({"status": self.status}).encode())
+    opener = FakeOpener("free")
+    client = WindowsLicenseClient("https://license.example.com", public, tmp_path, opener=opener)
+    _save_signed_state(client, private, client.device_binding())
+    assert client.revalidate()["status"] == "free"
+    assert opener.paths == ["/v1/licenses/status"]
+    assert not client.state_path.exists()
+
+    opener = FakeOpener("active")
+    client.opener = opener
+    _save_signed_state(client, private, client.device_binding())
+    result = client.revalidate(refresh_before_seconds=600)
+    assert result["refreshed"] is False
+    assert opener.paths == ["/v1/licenses/status"]
+
+
+def test_revalidate_preserves_entitlement_on_temporary_server_failure(tmp_path, signing_pair):
+    private, public = signing_pair
+    class FakeOpener:
+        def open(self, request, timeout=10):
+            raise urllib.error.HTTPError(request.full_url, 503, "unavailable", {}, BytesIO(b"{}"))
+    client = WindowsLicenseClient("https://license.example.com", public, tmp_path, opener=FakeOpener())
+    _save_signed_state(client, private, client.device_binding())
+    with pytest.raises(LicenseClientError) as error:
+        client.revalidate()
+    assert error.value.status_code == 503
+    assert client.state_path.exists()
+    assert client.current_entitlement() is not None
