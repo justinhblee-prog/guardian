@@ -27,7 +27,7 @@ const rateLimitOptions = {
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers', '/v1/admin/updates', '/v1/updates/latest',
+  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers', '/v1/admin/updates', '/v1/admin/token/rotate', '/v1/updates/latest',
   '/v1/support/tickets', '/v1/admin/support/tickets', '/v1/support/tickets/lookup'
 ]);
 const pool = DATABASE_URL ? new Pool({
@@ -95,19 +95,9 @@ async function initializeAdminAuth({ configuredToken = ADMIN_TOKEN, logToken = t
   console.warn('\n[GUARDIAN ADMIN INITIAL TOKEN] Save this token in a password manager. It is shown only once.\n' + token + '\n');
 } } = {}) {
   if (!pool) throw new Error('관리자 인증 자동 초기화에는 PostgreSQL이 필요합니다.');
-  if (typeof configuredToken === 'string' && configuredToken.length >= 32) {
-    const tokenHash = hashAdminToken(configuredToken);
-    await pool.query(
-      `INSERT INTO admin_credentials(singleton_id, token_hash)
-       VALUES(1,$1)
-       ON CONFLICT(singleton_id) DO UPDATE SET token_hash=EXCLUDED.token_hash, updated_at=now()`,
-      [tokenHash]
-    );
-    ACTIVE_ADMIN_TOKEN_HASH = tokenHash;
-    ADMIN_AUTH_READY = true;
-    return { generated: false, tokenHash };
-  }
 
+  // A database credential always wins over an environment override. This
+  // keeps deliberate token rotation persistent across restarts.
   const existing = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
   if (existing.rowCount) {
     ACTIVE_ADMIN_TOKEN_HASH = existing.rows[0].token_hash;
@@ -115,7 +105,8 @@ async function initializeAdminAuth({ configuredToken = ADMIN_TOKEN, logToken = t
     return { generated: false, tokenHash: ACTIVE_ADMIN_TOKEN_HASH };
   }
 
-  const token = randomBytes(32).toString('base64url');
+  const generated = !(typeof configuredToken === 'string' && configuredToken.length >= 32);
+  const token = generated ? randomBytes(32).toString('base64url') : configuredToken;
   const tokenHash = hashAdminToken(token);
   const inserted = await pool.query(
     `INSERT INTO admin_credentials(singleton_id, token_hash)
@@ -125,8 +116,8 @@ async function initializeAdminAuth({ configuredToken = ADMIN_TOKEN, logToken = t
   if (inserted.rowCount) {
     ACTIVE_ADMIN_TOKEN_HASH = inserted.rows[0].token_hash;
     ADMIN_AUTH_READY = true;
-    logToken(token);
-    return { generated: true, tokenHash: ACTIVE_ADMIN_TOKEN_HASH };
+    if (generated) logToken(token);
+    return { generated, tokenHash: ACTIVE_ADMIN_TOKEN_HASH };
   }
 
   const winner = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
@@ -135,22 +126,46 @@ async function initializeAdminAuth({ configuredToken = ADMIN_TOKEN, logToken = t
   ADMIN_AUTH_READY = true;
   return { generated: false, tokenHash: ACTIVE_ADMIN_TOKEN_HASH };
 }
-
 function requireEnv() {
   if (!pool) throw Object.assign(new Error('서버 데이터베이스가 구성되지 않았습니다.'), { status: 503 });
   if (!LOOKUP_SECRET || LOOKUP_SECRET.length < 32) throw Object.assign(new Error('라이선스 조회용 서버 비밀값이 구성되지 않았습니다.'), { status: 503 });
   if (!ADMIN_AUTH_READY) throw Object.assign(new Error('관리자 인증 초기화가 완료되지 않았습니다.'), { status: 503 });
 }
-function requireAdmin(req) {
+async function requireAdmin(req) {
   const authorization = req.headers.authorization || '';
   const match = /^Bearer\s+([^\s]+)$/i.exec(authorization);
   const supplied = match?.[1] || '';
-  const valid = ACTIVE_ADMIN_TOKEN_HASH
-    ? adminTokenMatches(hashAdminToken(supplied), ACTIVE_ADMIN_TOKEN_HASH)
-    : ADMIN_TOKEN && ADMIN_TOKEN.length >= 32 && adminTokenMatches(supplied, ADMIN_TOKEN);
-  if (!valid) {
+  const current = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
+  const expectedHash = current.rows[0]?.token_hash;
+  if (!expectedHash) throw Object.assign(new Error('관리자 인증 정보가 초기화되지 않았습니다.'), { status: 503 });
+  ACTIVE_ADMIN_TOKEN_HASH = expectedHash;
+  if (!adminTokenMatches(hashAdminToken(supplied), expectedHash)) {
     throw Object.assign(new Error('관리자 인증에 실패했습니다.'), { status: 401 });
   }
+}
+
+async function rotateAdminToken(req) {
+  requireEnv();
+  await await requireAdmin(req);
+  const authorization = req.headers.authorization || '';
+  const supplied = /^Bearer\s+([^\s]+)$/i.exec(authorization)?.[1] || '';
+  const previousHash = hashAdminToken(supplied);
+  const nextToken = randomBytes(32).toString('base64url');
+  const nextHash = hashAdminToken(nextToken);
+  const result = await pool.query(
+    `UPDATE admin_credentials SET token_hash=$1, updated_at=now()
+     WHERE singleton_id=1 AND token_hash=$2 RETURNING updated_at`,
+    [nextHash, previousHash]
+  );
+  if (!result.rowCount) {
+    throw Object.assign(new Error('관리자 토큰이 이미 변경되었습니다. 새 토큰으로 다시 인증하세요.'), { status: 409 });
+  }
+  ACTIVE_ADMIN_TOKEN_HASH = nextHash;
+  await pool.query(
+    "INSERT INTO license_events(event_type,actor,metadata) VALUES('admin_token_rotated','admin',$1::jsonb)",
+    [JSON.stringify({ rotatedAt: result.rows[0].updated_at })]
+  );
+  return { adminToken: nextToken, rotatedAt: result.rows[0].updated_at };
 }
 function validateUuid(value, label) {
   if (typeof value !== 'string' ||
@@ -720,6 +735,7 @@ const server = http.createServer(async (req, res) => {
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
     } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
     else if (url.pathname === '/v1/admin/updates') result = await publishUpdate(body, req);
+    else if (url.pathname === '/v1/admin/token/rotate') result = await rotateAdminToken(req);
     else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
       const id = url.pathname.split('/')[4];
       result = await revokeLicense(id, req);
