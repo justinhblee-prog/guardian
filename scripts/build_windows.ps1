@@ -5,12 +5,23 @@ $VersionLines = Get-Content (Join-Path $Root 'VERSION')
 if ($VersionLines.Count -lt 2) { throw 'VERSION must contain product version and monotonically increasing build number.' }
 $ProductVersion = $VersionLines[0].Trim()
 $BuildNumber = [int]$VersionLines[1].Trim()
-if ($ProductVersion -notmatch '^\\d+\\.\\d+\\.\\d+(-[A-Za-z0-9.-]+)?python -m pytest -q dns_engine windows_engine
+if ($ProductVersion -notmatch '^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$' -or $BuildNumber -lt 1) { throw 'VERSION metadata is invalid.' }
+$env:GUARDIAN_VERSION_NAME = $ProductVersion
+$env:GUARDIAN_BUILD_NUMBER = [string]$BuildNumber
+Write-Host "Building Guardian $ProductVersion (Build $BuildNumber)"
+python -m pip install -r requirements-dev.txt -r requirements-windows-build.txt
+python -m pytest -q dns_engine windows_engine
+if ($LASTEXITCODE -ne 0) { throw 'Guardian Windows tests failed.' }
 python -m compileall -q dns_engine windows_engine
+if ($LASTEXITCODE -ne 0) { throw 'Guardian Windows Python compilation failed.' }
 python -m PyInstaller --noconfirm --clean --windowed --name GuardianAdBlock --add-data "VERSION;." windows_engine/desktop.py
+if ($LASTEXITCODE -ne 0) { throw 'Guardian desktop packaging failed.' }
 python -m PyInstaller --noconfirm --clean --windowed --name GuardianDnsProxy --distpath dist --workpath build/daemon windows_engine/proxy_daemon.py
+if ($LASTEXITCODE -ne 0) { throw 'Guardian DNS proxy packaging failed.' }
 python -m PyInstaller --noconfirm --clean --console --name GuardianSelfTest --distpath dist --workpath build/selftest windows_engine/self_test.py
+if ($LASTEXITCODE -ne 0) { throw 'Guardian DNS self-test packaging failed.' }
 python -m PyInstaller --noconfirm --clean --console --name GuardianMaintenance --distpath dist --workpath build/maintenance windows_engine/maintenance.py
+if ($LASTEXITCODE -ne 0) { throw 'Guardian maintenance packaging failed.' }
 $SigningCertificate = $null
 $SigningCertificatePath = Join-Path $env:RUNNER_TEMP 'guardian-code-signing.pfx'
 if (-not [string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64)) {
