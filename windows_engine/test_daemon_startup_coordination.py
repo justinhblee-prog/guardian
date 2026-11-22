@@ -23,7 +23,7 @@ def test_existing_live_dns_daemon_is_not_started_twice(monkeypatch, tmp_path):
     with pytest.raises(desktop.NetworkConfigError, match="already running") as error:
         desktop.ensure_daemon_running()
 
-    assert "\\n\\n" in str(error.value)
+    assert "\n\n" in str(error.value)
     assert run_calls == []
 
 
