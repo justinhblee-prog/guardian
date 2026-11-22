@@ -183,12 +183,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          git diff --quiet HEAD^ HEAD -- VERSION
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host 'Shared product version did not change; no new Windows release is published.'
-            exit 0
-          }
-          if ($LASTEXITCODE -ne 1) { throw 'Could not inspect the shared product version change.' }
           $VersionLines = Get-Content VERSION
           $VersionName = $VersionLines[0].Trim()
           $BuildNumber = [int]$VersionLines[1].Trim()
@@ -205,6 +199,7 @@ jobs:
             versionName = $VersionName
             buildNumber = $BuildNumber
             tagName = $Tag
+            sourceCommit = $env:GITHUB_SHA
             installerName = $InstallerName
             installerUrl = $InstallerUrl
             sha256 = $Hash
@@ -213,8 +208,9 @@ jobs:
           [System.IO.File]::WriteAllText((Join-Path (Get-Location) $ManifestPath), $Manifest + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
           gh release view $Tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $Tag $Installer.FullName $ManifestPath --repo $env:GITHUB_REPOSITORY --clobber
-          } else {
-            gh release create $Tag $Installer.FullName $ManifestPath --repo $env:GITHUB_REPOSITORY --prerelease --title "Guardian AdBlock $VersionName (Windows)" --notes "Windows x64 development update. Build $BuildNumber. Installer SHA-256: $Hash" --target $env:GITHUB_SHA
+            Write-Warning "Windows build $BuildNumber is already published. Bump VERSION before publishing changed code; existing release assets were not overwritten."
+            exit 0
           }
+          if ($LASTEXITCODE -ne 1) { throw 'Could not determine whether the Windows update release already exists.' }
+          gh release create $Tag $Installer.FullName $ManifestPath --repo $env:GITHUB_REPOSITORY --prerelease --title "Guardian AdBlock $VersionName (Windows)" --notes "Windows x64 development update. Build $BuildNumber. Source commit: $env:GITHUB_SHA. Installer SHA-256: $Hash. This development installer may be unsigned and may show a SmartScreen warning." --target $env:GITHUB_SHA
           if ($LASTEXITCODE -ne 0) { throw 'Publishing the versioned Windows update release failed.' }
