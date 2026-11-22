@@ -472,9 +472,9 @@ $("publishUpdate").addEventListener("click", async () => {
     mandatory: $("updateMandatory").checked,
     releaseNotes: $("updateNotes").value.trim()
   };
-  if (!/^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(payload.version) ||
-      (payload.minSupportedVersion && !/^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(payload.minSupportedVersion)) ||
-      !/^https:\\/\\//i.test(payload.downloadUrl) || !/^[a-f0-9]{64}$/.test(payload.sha256)) {
+  if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(payload.version) ||
+      (payload.minSupportedVersion && !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(payload.minSupportedVersion)) ||
+      !/^https:\/\//i.test(payload.downloadUrl) || !/^[a-f0-9]{64}$/.test(payload.sha256)) {
     statusText("버전, HTTPS 다운로드 주소, 64자리 SHA-256을 확인하세요.", "error"); return;
   }
   setBusy(true);
@@ -494,7 +494,8 @@ $("refreshUpdates").addEventListener("click", async () => {
   try { const result = await api("/v1/admin/updates"); updateItems = result.updates || []; renderUpdates(); statusText("업데이트 목록을 새로고침했습니다.", "ok"); }
   catch (error) { statusText(error.message, "error"); }
 });
-\n$("refresh").addEventListener("click", async () => {
+
+$("refresh").addEventListener("click", async () => {
   try { await load(); }
   catch { /* The status line already contains the API error. */ }
 });
