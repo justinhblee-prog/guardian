@@ -21,26 +21,33 @@ class _TcpHandler(socketserver.StreamRequestHandler):
     def handle(self):
         self.request.settimeout(self.server.proxy.timeout)
         packet=None
+        stage="read request length"
         try:
             header=self._read_exact(self.rfile,2)
             length=struct.unpack("!H",header)[0]
-            if length<12 or length>4096: return
+            if length<12 or length>4096:
+                self.server.proxy.record_tcp_error(ValueError("invalid DNS TCP frame length"),"validate request length")
+                return
+            stage="read request body"
             packet=self._read_exact(self.rfile,length)
+            stage="process DNS request"
             response=self.server.proxy.process_query(packet)
+            stage="write DNS response"
             self.wfile.write(struct.pack("!H",len(response))+response)
-        except (OSError,DnsFormatError,ValueError):
-            return
         except Exception as exc:
-            # An unexpected rule/handler exception must not silently close a
-            # valid DNS-over-TCP request. Record only the exception type (never
-            # the queried hostname) and return a protocol-level SERVFAIL.
-            self.server.proxy.record_tcp_error(exc)
-            if packet is not None:
+            # Record expected socket/protocol failures too: a readiness probe
+            # that sees EOF needs the daemon-side stage to identify why the
+            # handler closed. Never record the queried hostname or packet.
+            self.server.proxy.record_tcp_error(exc,stage)
+            # Once a complete, valid query is available, prefer a DNS SERVFAIL
+            # frame over silently closing the connection. Do not retry a failed
+            # socket write, since the peer may already have disconnected.
+            if packet is not None and stage != "write DNS response":
                 try:
                     response=make_servfail(packet)
                     self.wfile.write(struct.pack("!H",len(response))+response)
-                except (OSError,ValueError):
-                    return
+                except Exception as response_error:
+                    self.server.proxy.record_tcp_error(response_error,"write SERVFAIL response")
 
 class _UdpServer(socketserver.ThreadingUDPServer):
     allow_reuse_address=True; daemon_threads=True
@@ -59,11 +66,12 @@ class DnsProxy:
         self.rules=rules; self.upstreams=tuple(upstreams); self.timeout=timeout
         self.listeners=(listen,) if len(listen)==2 and isinstance(listen[0],str) else tuple(listen)
         self.blocked_count=0; self.forwarded_count=0; self.failed_count=0
-        self.tcp_error_count=0; self.last_tcp_error_type=""
+        self.tcp_error_count=0; self.last_tcp_error_type=""; self.last_tcp_error_stage=""
         self._udp_servers=[]; self._tcp_servers=[]; self._servers=[]; self._threads=[]
-    def record_tcp_error(self,error):
+    def record_tcp_error(self,error,stage="unknown"):
         self.tcp_error_count+=1
         self.last_tcp_error_type=type(error).__name__
+        self.last_tcp_error_stage=str(stage)[:64]
 
     @staticmethod
     def _recv_exact(sock,length):
