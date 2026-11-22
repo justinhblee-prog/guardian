@@ -112,7 +112,9 @@ jobs:
           # Launch the actual desktop GUI from the installed package. The runner starts
           # with no active Guardian protection state, so this smoke test does not
           # alter host DNS settings; it verifies the packaged Tkinter app stays alive.
-          $desktop = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -PassThru
+          $desktopPath = Join-Path $installDir "GuardianAdBlock.exe"
+          if (-not (Test-Path -LiteralPath $desktopPath)) { throw "Installed desktop executable is missing: $desktopPath" }
+          $desktop = Start-Process -FilePath $desktopPath -WorkingDirectory $installDir -PassThru
           Start-Sleep -Seconds 6
           $desktop.Refresh()
           if ($desktop.HasExited) { throw "Installed Guardian desktop UI exited during startup (code $($desktop.ExitCode))." }
