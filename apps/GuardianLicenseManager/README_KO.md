@@ -15,7 +15,8 @@ GitHub Actions에서 `guardian-license-manager-installer-win-x64` 산출물로 W
 - 관리자 앱 창 900×650, 최소 680×520
 - Guardian 방패-G 주 아이콘 적용
 - HTTPS License API 연결, 메모리 내 관리자 토큰
-- 라이선스 현황, 발급, 키 복사, 정지, 목록 새로고침
+- 라이선스 현황, 7/30/90/365일 및 영구(PERMANENT) 발급, 키 복사, 정지, 목록 새로고침
+- 영구 라이선스도 허용 기기 수 제한과 관리자 정지/회수 적용
 - 모바일 관리자 화면은 별도 반응형 PWA(`/admin`) 제공
 
 ## 보안 및 운영 제한
