@@ -474,7 +474,7 @@ $("publishUpdate").addEventListener("click", async () => {
   };
   if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(payload.version) ||
       (payload.minSupportedVersion && !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(payload.minSupportedVersion)) ||
-      !/^https:\/\//i.test(payload.downloadUrl) || !/^[a-f0-9]{64}$/.test(payload.sha256)) {
+      !/^https:\/\//i.test(payload.downloadUrl) || !/^[a-f0-9]{64}$/.test(payload.sha256) || (payload.mandatory && !payload.minSupportedVersion)) {
     statusText("버전, HTTPS 다운로드 주소, 64자리 SHA-256을 확인하세요.", "error"); return;
   }
   setBusy(true);
