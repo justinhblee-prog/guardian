@@ -217,7 +217,7 @@ class GuardianDesktop:
                 else:
                     try: self.manager.restore(); write_state(False)
                     except Exception: pass
-                self.start_button.configure(state="disabled")
+                [button.configure(state="disabled") for button in self.start_buttons]
                 messagebox.showerror("Guardian DNS 복구",f"이전 보호 상태를 자동 복구하지 못했습니다. DNS 백업을 보존했습니다.\n\n{exc}")
         elif STATE.exists():
             write_state(False)
@@ -234,7 +234,7 @@ class GuardianDesktop:
             if BACKUP.exists():
                 # A partial rollback leaves DNS on loopback; keep the daemon alive.
                 if proxy_ready(): self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
-                else: self.start_button.configure(state="disabled")
+                else: [button.configure(state="disabled") for button in self.start_buttons]
             else:
                 write_state(False)
                 try: stop_daemon()
