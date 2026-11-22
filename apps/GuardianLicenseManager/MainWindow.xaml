@@ -7,7 +7,7 @@
 </DockPanel>
 <Border Grid.Row="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="14" Padding="14" Margin="0,0,0,12">
 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="1.2*"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-<StackPanel><TextBlock Text="API 서버 주소" Foreground="{StaticResource MutedBrush}" FontSize="11"/><TextBox x:Name="ApiUrlBox" Text="https://licenses.example.com" Margin="0,5,16,0"/></StackPanel>
+<StackPanel><TextBlock Text="API 서버 주소" Foreground="{StaticResource MutedBrush}" FontSize="11"/><TextBox x:Name="ApiUrlBox" Text="" ToolTip="실제 운영 License API의 HTTPS 주소를 입력하세요. licenses.example.com은 예시 주소이며 실제 서버가 아닙니다." Margin="0,5,16,0"/></StackPanel>
 <StackPanel Grid.Column="1"><TextBlock Text="관리자 토큰" Foreground="{StaticResource MutedBrush}" FontSize="11"/><PasswordBox x:Name="TokenBox" Background="#0C1728" Foreground="White" BorderBrush="#344966" Padding="11,9" Margin="0,5,16,0"/></StackPanel>
 <StackPanel Grid.Column="2" VerticalAlignment="Bottom"><TextBlock Text="토큰은 앱 메모리에만 보관됩니다." Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,0,0,8"/><Button Content="연결 해제" Background="#293A56" Click="Disconnect_Click"/></StackPanel>
 </Grid></Border>
