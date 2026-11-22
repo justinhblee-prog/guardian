@@ -11,14 +11,19 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+val sharedGuardianVersion = rootProject.file("../VERSION").readLines(Charsets.UTF_8)
+require(sharedGuardianVersion.size >= 2) { "Repository VERSION must contain product version and build number." }
+val sharedGuardianVersionName = sharedGuardianVersion[0].trim()
+val sharedGuardianVersionCode = sharedGuardianVersion[1].trim().toIntOrNull()
+    ?.takeIf { it > 0 } ?: error("Repository VERSION build number must be a positive integer.")
 val guardianVersionName = providers.gradleProperty("guardianVersionName")
-    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse("0.7.34-dev")
+    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse(sharedGuardianVersionName)
 val guardianVersionCode = providers.gradleProperty("guardianVersionCode")
     .orElse(providers.environmentVariable("GUARDIAN_VERSION_CODE"))
     .map { raw ->
         raw.toIntOrNull()?.takeIf { it > 0 }
             ?: error("GUARDIAN_VERSION_CODE must be a positive integer.")
-    }.getOrElse(47)
+    }.getOrElse(sharedGuardianVersionCode)
 require(guardianVersionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.-]+)?"))) {
     "GUARDIAN_VERSION_NAME must be a semantic version such as 0.7.8 or 0.7.8-rc1."
 }
