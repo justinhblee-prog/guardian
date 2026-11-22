@@ -8,7 +8,7 @@
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel Grid.Row="0" Margin="0,0,0,16">
       <TextBlock Text="제품 업데이트 관리" FontSize="22" FontWeight="Bold"/>
-      <TextBlock Text="Android / Windows 배포 버전, 다운로드 주소, SHA-256 및 강제 업데이트 정책을 관리합니다." Foreground="#9FB0C8" Margin="0,5,0,0" TextWrapping="Wrap"/>
+      <TextBlock Text="Android / Windows 배포 버전과 SHA-256을 관리합니다. 설치 파일은 HTTPS 배포 저장소에 먼저 올린 뒤 다운로드 주소를 등록하세요." Foreground="#9FB0C8" Margin="0,5,0,0" TextWrapping="Wrap"/>
     </StackPanel>
     <Border Grid.Row="1" Background="#142238" BorderBrush="#30445F" BorderThickness="1" CornerRadius="12" Padding="14" Margin="0,0,0,14">
       <Grid>
