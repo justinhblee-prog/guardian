@@ -1518,193 +1518,22 @@ class MainActivity : Activity() {
         body.addView(buildSupportCenterCard().withTop(12))
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
-        if (BuildConfig.DEBUG) {
-            val updateStatus = text(
-                "설정 화면 진입 시 주기 확인 · 현재 개발 버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("프로그램 업데이트", 15f, white, true))
+            addView(text(
+                "앱 업데이트는 전용 메뉴에서 확인합니다. 필터 목록 업데이트와는 별도로 관리됩니다.",
                 11f, muted, false
-            ).withTop(8) as TextView
-            var downloadedUpdate: File? = null
-            var updateCheckButton: Button? = null
-            val installUpdateButton = Button(this).apply {
-                text = "업데이트 설치"
+            ).withTop(5))
+            addView(infoRow("설치 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent).withTop(8))
+            addView(Button(this@MainActivity).apply {
+                text = "프로그램 업데이트 열기"
                 isAllCaps = false
-                typeface = Typeface.DEFAULT_BOLD
-                setUpdateInstallButtonReady(this, false)
-                setOnClickListener {
-                    val apk = downloadedUpdate ?: run {
-                        updateStatus.text = "먼저 '업데이트 확인'을 눌러 APK 다운로드를 완료하세요."
-                        return@setOnClickListener
-                    }
-                    try {
-                        val launched = DevUpdateManager.install(this@MainActivity, apk)
-                        updateStatus.text = if (launched) {
-                            "Android 설치 확인 화면을 열었습니다. 업데이트가 끝나면 Guardian이 이전 보호 설정을 확인해 VPN 보호를 자동으로 다시 연결합니다."
-                        } else {
-                            "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '업데이트 설치'를 다시 누르세요."
-                        }
-                    } catch (error: Exception) {
-                        updateStatus.text = "설치 화면을 열지 못했습니다: ${SafeFailureSummary.describe(error)}"
-                    }
-                }
-            }
-            body.addView(card(panel, 14).apply {
-                setPadding(dp(15), dp(15), dp(15), dp(15))
-                addView(text("개발 버전 업데이트 (수동)", 15f, white, true))
-                addView(text(
-                    "설정 화면을 열 때 정해진 간격으로 업데이트를 확인하며, 아래 버튼으로 언제든 수동 재확인할 수 있습니다. 새 APK는 SHA-256과 서명을 검증한 뒤 설치를 진행합니다.",
-                    11f, muted, false
-                ).withTop(5))
-                addView(updateStatus)
-                val checkButton = Button(this@MainActivity).apply {
-                    updateCheckButton = this
-                    text = "업데이트 확인"
-                    isAllCaps = false
-                    setTextColor(bg)
-                    background = shape(accent, 12)
-                    setOnClickListener {
-                        recordSettingsUpdateCheck("development")
-                        isEnabled = false
-                        downloadedUpdate = null
-                        setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = true, hasVerifiedApk = false)
-                        updateStatus.text = "개발 업데이트를 확인하고 있습니다…"
-                        thread(name = "guardian-dev-update-manual") {
-                            try {
-                                val update = DevUpdateManager.checkForUpdate()
-                                if (update == null) {
-                                    runOnUiThread {
-                                        updateStatus.text = "현재 설치된 버전이 최신 개발 버전입니다."
-                                        setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = false, hasVerifiedApk = false)
-                                        isEnabled = true
-                                    }
-                                } else {
-                                    runOnUiThread {
-                                        updateStatus.text = "새 버전 발견: ${update.versionName} (${update.versionCode}) · APK 다운로드 중…"
-                                    }
-                                    val apk = DevUpdateManager.download(this@MainActivity, update)
-                                    runOnUiThread {
-                                        downloadedUpdate = apk
-                                        setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = false, hasVerifiedApk = true)
-                                        updateStatus.text = "다운로드 및 SHA-256/서명 지문 확인 완료: ${update.versionName}. '업데이트 설치'를 누르세요."
-                                    }
-                                }
-                            } catch (error: Exception) {
-                                runOnUiThread {
-                                    downloadedUpdate = null
-                                    setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = false, hasVerifiedApk = false)
-                                    updateStatus.text = "업데이트 확인 또는 다운로드 실패: ${SafeFailureSummary.describe(error)}"
-                                }
-                            } finally {
-                                runOnUiThread {
-                                    setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = false, hasVerifiedApk = downloadedUpdate != null)
-                                }
-                            }
-                        }
-                    }
-                }
-                addView(checkButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
-                // Check automatically when Settings is opened; keep manual retry available.
-                postSettingsUpdateCheck(
-                    "development",
-                    GuardianAutoUpdateCheckPolicy.DEVELOPMENT_INTERVAL_MILLIS,
-                    checkButton,
-                    updateStatus
-                )
-                addView(installUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-            }.withTop(12))
-        } else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED) {
-            val updateStatus = text(
-                "현재 정식 버전: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · 설정 화면 진입 시 주기 확인",
-                11f, muted, false
-            ).withTop(8) as TextView
-            var downloadedUpdate: File? = null
-            var updateCheckButton: Button? = null
-            val installUpdateButton = Button(this).apply {
-                text = "업데이트 설치"
-                isAllCaps = false
-                typeface = Typeface.DEFAULT_BOLD
-                setUpdateInstallButtonReady(this, false)
-                setOnClickListener {
-                    val apk = downloadedUpdate ?: run {
-                        updateStatus.text = "먼저 '업데이트 확인'을 눌러 APK 다운로드를 완료하세요."
-                        return@setOnClickListener
-                    }
-                    try {
-                        val launched = GuardianStableUpdateManager.install(this@MainActivity, apk)
-                        updateStatus.text = if (launched) {
-                            "Android 설치 확인 화면을 열었습니다. 업데이트가 끝나면 Guardian이 이전 보호 설정을 확인해 VPN 보호를 자동으로 다시 연결합니다."
-                        } else {
-                            "설정에서 Guardian의 알 수 없는 앱 설치를 허용한 뒤 앱으로 돌아와 '업데이트 설치'를 다시 누르세요."
-                        }
-                    } catch (error: Exception) {
-                        updateStatus.text = "설치 화면을 열지 못했습니다: ${SafeFailureSummary.describe(error)}"
-                    }
-                }
-            }
-            body.addView(card(panel, 14).apply {
-                setPadding(dp(15), dp(15), dp(15), dp(15))
-                addView(text("정식 버전 업데이트 (수동)", 15f, white, true))
-                addView(text(
-                    "설정 화면을 열 때 정해진 간격으로 Guardian 공식 정식 Release를 확인하며, 아래 버튼으로 언제든 수동 재확인할 수 있습니다. APK의 SHA-256, 패키지 ID, 버전 및 설치된 운영 서명 인증서를 검증한 후 Android의 설치 확인 화면을 엽니다.",
-                    11f, muted, false
-                ).withTop(5))
-                addView(updateStatus)
-                val checkButton = Button(this@MainActivity).apply {
-                    updateCheckButton = this
-                    text = "업데이트 확인"
-                    isAllCaps = false
-                    setTextColor(bg)
-                    background = shape(accent, 12)
-                    setOnClickListener {
-                        recordSettingsUpdateCheck("stable")
-                        isEnabled = false
-                        downloadedUpdate = null
-                        setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = true, hasVerifiedApk = false)
-                        updateStatus.text = "정식 업데이트를 확인하고 있습니다…"
-                        thread(name = "guardian-stable-update-manual") {
-                            try {
-                                val update = GuardianStableUpdateManager.checkForUpdate()
-                                if (update == null) {
-                                    runOnUiThread {
-                                        updateStatus.text = "현재 설치된 정식 버전이 최신입니다."
-                                        setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = false, hasVerifiedApk = false)
-                                        isEnabled = true
-                                    }
-                                } else {
-                                    runOnUiThread {
-                                        updateStatus.text = "새 정식 버전 발견: ${update.versionName} (${update.versionCode}) · APK 다운로드 중…"
-                                    }
-                                    val apk = GuardianStableUpdateManager.download(this@MainActivity, update)
-                                    runOnUiThread {
-                                        downloadedUpdate = apk
-                                        setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = false, hasVerifiedApk = true)
-                                        updateStatus.text = "다운로드 및 SHA-256/패키지/서명 검증 완료: ${update.versionName}. '업데이트 설치'를 누르세요."
-                                    }
-                                }
-                            } catch (error: Exception) {
-                                runOnUiThread {
-                                    downloadedUpdate = null
-                                    setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = false, hasVerifiedApk = false)
-                                    updateStatus.text = "정식 업데이트 확인 또는 다운로드 실패: ${SafeFailureSummary.describe(error)}"
-                                }
-                            } finally {
-                                runOnUiThread {
-                                    setUpdateActionButtons(updateCheckButton, installUpdateButton, checking = false, hasVerifiedApk = downloadedUpdate != null)
-                                }
-                            }
-                        }
-                    }
-                }
-                addView(checkButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
-                // Check automatically when Settings is opened; keep manual retry available.
-                postSettingsUpdateCheck(
-                    "stable",
-                    GuardianAutoUpdateCheckPolicy.STABLE_INTERVAL_MILLIS,
-                    checkButton,
-                    updateStatus
-                )
-                addView(installUpdateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-            }.withTop(12))
-        }
+                setTextColor(bg)
+                background = shape(accent, 12)
+                setOnClickListener { showTab("updates") }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+        }.withTop(12))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
         body.addView(card(panel, 14).apply {
