@@ -213,6 +213,27 @@ class WindowsLicenseClient:
             self.state_path.unlink(missing_ok=True)
         return response
 
+    def revalidate(self, refresh_before_seconds: int = 6 * 60 * 60,
+                   now: int | None = None) -> dict:
+        """Check server authorization and renew signed tokens before local expiry."""
+        if not isinstance(refresh_before_seconds, int) or not 0 <= refresh_before_seconds <= 24 * 60 * 60:
+            raise LicenseClientError("License refresh window is invalid")
+        status = self.status()
+        if str(status.get("status", "")).lower() != "active":
+            return status
+        current = self.current_entitlement(now=now)
+        current_time = int(time.time()) if now is None else int(now)
+        if current is None or current["expiresAt"] <= current_time + refresh_before_seconds:
+            renewed = self.refresh()
+            return {
+                "status": "active",
+                "refreshed": True,
+                "expiresAt": renewed["expiresAt"],
+                "licenseRef": renewed["licenseRef"]
+            }
+        return {"status": "active", "refreshed": False,
+                "expiresAt": current["expiresAt"], "licenseRef": current["licenseRef"]}
+
     def deactivate(self) -> bool:
         try:
             record = json.loads(self.state_path.read_text(encoding="utf-8"))
