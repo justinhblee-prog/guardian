@@ -513,11 +513,33 @@ if (!databaseUrl) {
     const expected = new Date(new Date(before.rows[0].expires_at).getTime() + 30 * 24 * 60 * 60 * 1000);
     assert.ok(Math.abs(new Date(extendedBody.expiresAt).getTime() - expected.getTime()) < 2000);
 
+    const deviceBinding = 'e'.repeat(64);
+    const activated = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding, appVersion: 'renewal-lifecycle-test'
+    });
+    assert.equal(activated.status, 200);
+    assertSignedToken(await activated.json());
+
     await pool.query("UPDATE licenses SET expires_at=now()-interval '2 days' WHERE id=$1", [created.license.id]);
+    const expiredRefresh = await post('/v1/licenses/refresh', {
+      deviceBinding, licenseRef: created.license.license_ref
+    });
+    assert.equal(expiredRefresh.status, 403);
+
     const revived = await post(path, { validDays: 14 }, adminHeaders);
     assert.equal(revived.status, 200);
     const revivedBody = await revived.json();
     assert.ok(new Date(revivedBody.expiresAt).getTime() > Date.now() + 13 * 24 * 60 * 60 * 1000);
+    const restoredRefresh = await post('/v1/licenses/refresh', {
+      deviceBinding, licenseRef: created.license.license_ref
+    });
+    assert.equal(restoredRefresh.status, 200);
+    assertSignedToken(await restoredRefresh.json());
+    const restoredStatus = await post('/v1/licenses/status', {
+      deviceBinding, licenseRef: created.license.license_ref
+    });
+    assert.equal(restoredStatus.status, 200);
+    assert.equal((await restoredStatus.json()).status, 'active');
 
     const audit = await pool.query(
       "SELECT metadata FROM license_events WHERE license_id=$1 AND event_type='extended' ORDER BY created_at",
