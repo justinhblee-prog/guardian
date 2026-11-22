@@ -1,11 +1,27 @@
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
+$VersionLines = Get-Content (Join-Path $Root 'VERSION')
+if ($VersionLines.Count -lt 2) { throw 'VERSION must contain product version and monotonically increasing build number.' }
+$ProductVersion = $VersionLines[0].Trim()
+$BuildNumber = [int]$VersionLines[1].Trim()
+if ($ProductVersion -notmatch '^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$' -or $BuildNumber -lt 1) { throw 'VERSION metadata is invalid.' }
+$env:GUARDIAN_VERSION_NAME = $ProductVersion
+$env:GUARDIAN_BUILD_NUMBER = [string]$BuildNumber
+Write-Host "Building Guardian $ProductVersion (Build $BuildNumber)"
 python -m pip install -r requirements-dev.txt -r requirements-windows-build.txt
 python -m pytest -q dns_engine windows_engine
+if ($LASTEXITCODE -ne 0) { throw 'Guardian Windows tests failed.' }
 python -m compileall -q dns_engine windows_engine
-python -m PyInstaller --noconfirm --clean --windowed --name GuardianAdBlock windows_engine/desktop.py
+if ($LASTEXITCODE -ne 0) { throw 'Guardian Windows Python compilation failed.' }
+python -m PyInstaller --noconfirm --clean --windowed --name GuardianAdBlock --add-data "VERSION;." windows_engine/desktop.py
+if ($LASTEXITCODE -ne 0) { throw 'Guardian desktop packaging failed.' }
 python -m PyInstaller --noconfirm --clean --windowed --name GuardianDnsProxy --distpath dist --workpath build/daemon windows_engine/proxy_daemon.py
+if ($LASTEXITCODE -ne 0) { throw 'Guardian DNS proxy packaging failed.' }
+python -m PyInstaller --noconfirm --clean --console --name GuardianSelfTest --distpath dist --workpath build/selftest windows_engine/self_test.py
+if ($LASTEXITCODE -ne 0) { throw 'Guardian DNS self-test packaging failed.' }
+python -m PyInstaller --noconfirm --clean --console --name GuardianMaintenance --distpath dist --workpath build/maintenance windows_engine/maintenance.py
+if ($LASTEXITCODE -ne 0) { throw 'Guardian maintenance packaging failed.' }
 $SigningCertificate = $null
 $SigningCertificatePath = Join-Path $env:RUNNER_TEMP 'guardian-code-signing.pfx'
 if (-not [string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64)) {
@@ -25,6 +41,8 @@ if (-not [string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64)) {
     }
     Sign-GuardianBinary (Join-Path $Root 'dist/GuardianAdBlock/GuardianAdBlock.exe')
     Sign-GuardianBinary (Join-Path $Root 'dist/GuardianDnsProxy/GuardianDnsProxy.exe')
+    Sign-GuardianBinary (Join-Path $Root 'dist/GuardianSelfTest/GuardianSelfTest.exe')
+    Sign-GuardianBinary (Join-Path $Root 'dist/GuardianMaintenance/GuardianMaintenance.exe')
     Write-Host "Guardian binaries signed with: $($SigningCertificate.Subject)"
 } else {
     Write-Warning 'No trusted code-signing certificate configured. This development installer will be unsigned and may trigger SmartScreen/Defender reputation warnings.'
@@ -32,11 +50,13 @@ if (-not [string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64)) {
 $ProgramFilesX86 = [Environment]::GetFolderPath('ProgramFilesX86')
 $Iscc = Join-Path $ProgramFilesX86 'Inno Setup 6\ISCC.exe'
 if (-not (Test-Path $Iscc)) { throw 'Inno Setup 6 is required to build the Windows installer.' }
-& $Iscc installer\guardian.iss
+$InstallerOutput = Join-Path $Root "dist/installer/Guardian-AdBlock-Windows-Setup-$ProductVersion-b$BuildNumber.exe"
+if (Test-Path $InstallerOutput) { Remove-Item -LiteralPath $InstallerOutput -Force }
+& $Iscc "/DMyAppVersion=$ProductVersion" "/DMyAppBuildNumber=$BuildNumber" installer\guardian.iss
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compilation failed.' }
 
-$InstallerPath = Get-ChildItem (Join-Path $Root 'dist/installer/Guardian-AdBlock-Windows-Setup-*.exe') | Select-Object -First 1
-if (-not $InstallerPath) { throw 'Compiled Windows installer was not found.' }
+$InstallerPath = Get-Item -LiteralPath $InstallerOutput -ErrorAction SilentlyContinue
+if (-not $InstallerPath) { throw "Expected versioned Windows installer was not found: $InstallerOutput" }
 if ($SigningCertificate) {
     Sign-GuardianBinary $InstallerPath.FullName
     $InstallerSignature = Get-AuthenticodeSignature -FilePath $InstallerPath.FullName

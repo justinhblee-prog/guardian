@@ -2,11 +2,14 @@
 import json
 import math
 import os
+import csv
+import io
+import subprocess
 import tempfile
 import time
 from pathlib import Path
 
-HEALTH_MAX_AGE_SECONDS = 4.0
+HEALTH_MAX_AGE_SECONDS = 10.0
 FUTURE_CLOCK_SKEW_SECONDS = 2.0
 
 
@@ -34,13 +37,28 @@ def process_is_running(pid: int) -> bool:
     kernel32.CloseHandle.restype = wintypes.BOOL
 
     handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
-    if not handle:
-        return False
+    if handle:
+        try:
+            exit_code = wintypes.DWORD()
+            if kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+                return exit_code.value == 259
+        finally:
+            kernel32.CloseHandle(handle)
+
+    # Some Windows security contexts deny PROCESS_QUERY_LIMITED_INFORMATION
+    # even though the SYSTEM-owned daemon is alive. Confirm the PID with the
+    # built-in process table rather than treating access denial as process exit.
     try:
-        exit_code = wintypes.DWORD()
-        return bool(kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))) and exit_code.value == 259
-    finally:
-        kernel32.CloseHandle(handle)
+        result = subprocess.run(
+            ["tasklist.exe", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+            capture_output=True, text=True, timeout=3, check=False,
+        )
+        for row in csv.reader(io.StringIO(result.stdout)):
+            if len(row) >= 2 and row[1].strip() == str(pid):
+                return True
+    except (OSError, subprocess.SubprocessError, csv.Error):
+        pass
+    return False
 
 
 def read_daemon_pid(path: Path):

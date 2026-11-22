@@ -1,5 +1,5 @@
 """Boot-startable DNS proxy daemon managed by the Guardian desktop UI."""
-import json,os,socket,struct,sys,threading,time
+import json,os,socket,struct,sys,threading,time,traceback
 from pathlib import Path
 from dns_engine import DnsProxy,DomainRules
 from windows_engine.filter_updates import FilterUpdater,FilterUpdateError
@@ -36,13 +36,27 @@ def main():
     write_daemon_health(HEALTH)
     def heartbeat_tasks():
         while not stop.wait(1):
-            write_daemon_health(HEALTH)
+            try:
+                write_daemon_health(HEALTH)
+            except Exception:
+                # A transient ProgramData/AV/file-system error must not silently
+                # kill the heartbeat thread while the DNS proxy keeps running.
+                try:
+                    with (APP_DIR / "daemon-startup.log").open("a", encoding="utf-8") as log:
+                        log.write(
+                            f"\\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
+                            f"daemon heartbeat write failed pid={os.getpid()}\\n"
+                        )
+                        log.write(traceback.format_exc())
+                        log.flush()
+                except Exception:
+                    pass
     def background_tasks():
         last_mtime=rules_path.stat().st_mtime_ns; last_update_check=0
         while not stop.wait(1):
             tmp=STATS.with_suffix(".tmp")
             try:
-                tmp.write_text(json.dumps({"blocked":proxy.blocked_count,"forwarded":proxy.forwarded_count}),encoding="utf-8")
+                tmp.write_text(json.dumps({"blocked":proxy.blocked_count,"forwarded":proxy.forwarded_count,"tcpErrorCount":proxy.tcp_error_count,"lastTcpErrorType":proxy.last_tcp_error_type,"lastTcpErrorStage":proxy.last_tcp_error_stage}),encoding="utf-8")
                 os.replace(tmp,STATS)
             except OSError: pass
             try:
@@ -76,4 +90,25 @@ def main():
     finally:
         stop.set(); writer.join(timeout=2); heartbeat.join(timeout=2); remove_daemon_health(HEALTH,os.getpid())
     return 0
-if __name__=="__main__": raise SystemExit(main())
+def run_with_startup_logging():
+    try:
+        APP_DIR.mkdir(parents=True, exist_ok=True)
+        with (APP_DIR / "daemon-startup.log").open("a", encoding="utf-8") as log:
+            log.write(f"\\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] Guardian DNS daemon launch pid={os.getpid()}\\n")
+        return main()
+    except BaseException:
+        try:
+            APP_DIR.mkdir(parents=True, exist_ok=True)
+            with (APP_DIR / "daemon-startup.log").open("a", encoding="utf-8") as log:
+                log.write(traceback.format_exc())
+                log.flush()
+        except Exception:
+            fallback = Path(os.environ.get("TEMP", ".")) / "GuardianDnsProxy-startup.log"
+            try:
+                with fallback.open("a", encoding="utf-8") as log:
+                    log.write(traceback.format_exc())
+            except Exception:
+                pass
+        raise
+
+if __name__=="__main__": raise SystemExit(run_with_startup_logging())

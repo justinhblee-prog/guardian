@@ -6,10 +6,12 @@ on:
     paths:
       - "dns_engine/**"
       - "windows_engine/**"
+      - "VERSION"
       - "installer/**"
       - "requirements-dev.txt"
       - "requirements-windows-build.txt"
       - "scripts/build_windows.ps1"
+      - "VERSION"
       - ".github/workflows/windows-build.yml"
   pull_request:
     paths:
@@ -19,16 +21,20 @@ on:
       - "requirements-dev.txt"
       - "requirements-windows-build.txt"
       - "scripts/build_windows.ps1"
+      - "VERSION"
       - ".github/workflows/windows-build.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     runs-on: windows-2022
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -48,6 +54,8 @@ jobs:
           $files = @(
             'dist/GuardianAdBlock/GuardianAdBlock.exe',
             'dist/GuardianDnsProxy/GuardianDnsProxy.exe',
+            'dist/GuardianSelfTest/GuardianSelfTest.exe',
+            'dist/GuardianMaintenance/GuardianMaintenance.exe',
             (Get-ChildItem 'dist/installer/Guardian-AdBlock-Windows-Setup-*.exe' | Select-Object -First 1).FullName
           )
           foreach ($file in $files) {
@@ -61,34 +69,94 @@ jobs:
             Write-Warning 'Unsigned development package: Windows SmartScreen may block or warn. CI installation success does not establish publisher reputation.'
           }
       - name: Install and smoke-test packaged Windows app
+        timeout-minutes: 15
         shell: pwsh
         run: |
+          function Invoke-GuardianProcess {
+            param(
+              [Parameter(Mandatory=$true)][string]$FilePath,
+              [AllowEmptyCollection()][string[]]$ArgumentList = @(),
+              [int]$TimeoutSeconds = 120,
+              [string]$Label = "Guardian process"
+            )
+            $runId = [guid]::NewGuid().ToString("N")
+            $stdoutPath = Join-Path $env:RUNNER_TEMP "guardian-$runId.stdout.log"
+            $stderrPath = Join-Path $env:RUNNER_TEMP "guardian-$runId.stderr.log"
+            Write-Host "Starting $Label (timeout: $TimeoutSeconds seconds): $FilePath"
+            $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+            if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+              Write-Error "$Label exceeded its $TimeoutSeconds-second timeout; terminating process tree."
+              & taskkill.exe /PID $process.Id /T /F | Out-Host
+              if ($Label -eq "Packaged DNS self-test") {
+                $selfTestLog = Join-Path $env:TEMP "GuardianDnsSelfTest.log"
+                if (Test-Path $selfTestLog) { Write-Host "=== Guardian DNS package self-test stage log ==="; Get-Content $selfTestLog -Tail 100 | Out-Host }
+              }
+              if (Test-Path $stdoutPath) { Get-Content $stdoutPath -Tail 100 | Out-Host }
+              if (Test-Path $stderrPath) { Get-Content $stderrPath -Tail 100 | Out-Host }
+              throw "$Label timed out"
+            }
+            $process.Refresh()
+            Write-Host "$Label exited with code $($process.ExitCode)"
+            if (Test-Path $stdoutPath) { Get-Content $stdoutPath -Tail 100 | Out-Host }
+            if (Test-Path $stderrPath) { Get-Content $stderrPath -Tail 100 | Out-Host }
+            return $process
+          }
           $installer = Get-ChildItem dist/installer/Guardian-AdBlock-Windows-Setup-*.exe | Select-Object -First 1
           if (-not $installer) { throw "Installer not found" }
           $installDir = Join-Path $env:RUNNER_TEMP "GuardianInstall"
           $installLog = Join-Path $env:RUNNER_TEMP "guardian-install.log"
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir", "/LOG=$installLog") -Wait -PassThru
+          $process = Invoke-GuardianProcess -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir", "/LOG=$installLog") -TimeoutSeconds 180 -Label "First silent install"
           if ($process.ExitCode -ne 0) {
             if (Test-Path $installLog) { Get-Content $installLog -Tail 80 }
             throw "Silent installation failed with exit code $($process.ExitCode)"
           }
-          $desktopTest = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList "--self-test" -Wait -PassThru
-          if ($desktopTest.ExitCode -ne 0) {
-            $selfTestLog = Join-Path $env:TEMP "GuardianDesktopSelfTest.log"
-            if (Test-Path $selfTestLog) { Get-Content $selfTestLog }
-            throw "Installed desktop executable self-test failed with exit code $($desktopTest.ExitCode)"
+          # Launch the actual desktop GUI from the installed package. The runner starts
+          # with no active Guardian protection state, so this smoke test does not
+          # alter host DNS settings; it verifies the packaged Tkinter app stays alive.
+          $desktopPath = Join-Path $installDir "GuardianAdBlock.exe"
+          if (-not (Test-Path -LiteralPath $desktopPath)) { throw "Installed desktop executable is missing: $desktopPath" }
+          $desktop = Start-Process -FilePath $desktopPath -WorkingDirectory $installDir -PassThru
+          Start-Sleep -Seconds 6
+          $desktop.Refresh()
+          if ($desktop.HasExited) { throw "Installed Guardian desktop UI exited during startup (code $($desktop.ExitCode))." }
+          # Keep the packaged GUI running while setup upgrades the same installation.
+          # This reproduces the user's python3.dll file-lock scenario instead of
+          # validating only a clean first install.
+          $upgradeLog = Join-Path $env:RUNNER_TEMP "guardian-upgrade.log"
+          $upgrade = Invoke-GuardianProcess -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir", "/LOG=$upgradeLog") -TimeoutSeconds 180 -Label "In-place upgrade while desktop is running"
+          if ($upgrade.ExitCode -ne 0) {
+            if (Test-Path $upgradeLog) { Get-Content $upgradeLog -Tail 100 }
+            throw "In-place upgrade with Guardian desktop running failed with exit code $($upgrade.ExitCode)"
           }
-          $daemonTest = Start-Process -FilePath "$installDir\GuardianDnsProxy\GuardianDnsProxy.exe" -ArgumentList "--self-test" -Wait -PassThru
+          $desktop.Refresh()
+          if (-not $desktop.HasExited) {
+            Stop-Process -Id $desktop.Id -Force -ErrorAction SilentlyContinue
+            throw "In-place upgrade completed but the previous Guardian desktop process remained alive."
+          }
+          if (-not (Test-Path -LiteralPath $desktopPath)) { throw "Desktop executable is missing after in-place upgrade: $desktopPath" }
+          $upgradedDesktop = Start-Process -FilePath $desktopPath -WorkingDirectory $installDir -PassThru
+          Start-Sleep -Seconds 6
+          $upgradedDesktop.Refresh()
+          if ($upgradedDesktop.HasExited) { throw "Guardian desktop UI failed to restart after in-place upgrade (code $($upgradedDesktop.ExitCode))." }
+          Stop-Process -Id $upgradedDesktop.Id -Force
+          Write-Host "In-place upgrade while Guardian desktop was running passed; the updated desktop relaunched successfully."
+          $dnsPackageTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianSelfTest\GuardianSelfTest.exe" -ArgumentList @() -TimeoutSeconds 30 -Label "Packaged DNS self-test"
+          if ($dnsPackageTest.ExitCode -ne 0) {
+            $selfTestLog = Join-Path $env:TEMP "GuardianDnsSelfTest.log"
+            if (Test-Path $selfTestLog) { Get-Content $selfTestLog -Tail 100 }
+            throw "Installed DNS package self-test failed with exit code $($dnsPackageTest.ExitCode)"
+          }
+          $daemonTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianDnsProxy\GuardianDnsProxy.exe" -ArgumentList @("--self-test") -TimeoutSeconds 60 -Label "DNS daemon self-test"
           if ($daemonTest.ExitCode -ne 0) { throw "Installed background DNS daemon self-test failed with exit code $($daemonTest.ExitCode)" }
           if (-not (Test-Path "$installDir\GuardianDnsProxy\_internal")) { throw "Installed DNS daemon runtime dependencies are missing" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if (-not $task) { throw "Boot-start DNS task was not registered" }
-          $restoreTest = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList "--restore-dns" -Wait -PassThru
+          $restoreTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianMaintenance\GuardianMaintenance.exe" -ArgumentList @("--restore-dns") -TimeoutSeconds 90 -Label "DNS restore test"
           if ($restoreTest.ExitCode -ne 0) { throw "DNS restore and task cleanup command failed with exit code $($restoreTest.ExitCode)" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if ($task) { throw "Guardian restore command left the boot task registered" }
           $uninstallLog = Join-Path $env:RUNNER_TEMP "guardian-uninstall.log"
-          $uninstall = Start-Process -FilePath "$installDir\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog") -Wait -PassThru
+          $uninstall = Invoke-GuardianProcess -FilePath "$installDir\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog") -TimeoutSeconds 180 -Label "First silent uninstall"
           if ($uninstall.ExitCode -ne 0) {
             if (Test-Path $uninstallLog) { Get-Content $uninstallLog -Tail 100 }
             throw "Silent uninstall failed with exit code $($uninstall.ExitCode)"
@@ -100,7 +168,7 @@ jobs:
           # This second installation deliberately skips --restore-dns before uninstall.
           $installDir2 = Join-Path $env:RUNNER_TEMP "GuardianDirectUninstall"
           $installLog2 = Join-Path $env:RUNNER_TEMP "guardian-direct-install.log"
-          $process2 = Start-Process -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir2", "/LOG=$installLog2") -Wait -PassThru
+          $process2 = Invoke-GuardianProcess -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir2", "/LOG=$installLog2") -TimeoutSeconds 180 -Label "Second silent install"
           if ($process2.ExitCode -ne 0) {
             if (Test-Path $installLog2) { Get-Content $installLog2 -Tail 80 }
             throw "Second silent installation failed with exit code $($process2.ExitCode)"
@@ -108,7 +176,7 @@ jobs:
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if (-not $task) { throw "Second installation did not register the boot-start DNS task" }
           $uninstallLog2 = Join-Path $env:RUNNER_TEMP "guardian-direct-uninstall.log"
-          $uninstall2 = Start-Process -FilePath "$installDir2\\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog2") -Wait -PassThru
+          $uninstall2 = Invoke-GuardianProcess -FilePath "$installDir2\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog2") -TimeoutSeconds 180 -Label "Direct silent uninstall"
           if ($uninstall2.ExitCode -ne 0) {
             if (Test-Path $uninstallLog2) { Get-Content $uninstallLog2 -Tail 100 }
             throw "Direct uninstall failed with exit code $($uninstall2.ExitCode)"
@@ -119,17 +187,61 @@ jobs:
         shell: pwsh
         run: |
           $exe = Get-Item dist/GuardianAdBlock/GuardianAdBlock.exe
+          $dnsSelfTest = Get-Item dist/GuardianSelfTest/GuardianSelfTest.exe
+          $maintenance = Get-Item dist/GuardianMaintenance/GuardianMaintenance.exe
           $installer = Get-ChildItem dist/installer/Guardian-AdBlock-Windows-Setup-*.exe | Select-Object -First 1
           if (-not $installer) { throw "Installer not found" }
           Get-FileHash $exe.FullName -Algorithm SHA256
+          Get-FileHash $dnsSelfTest.FullName -Algorithm SHA256
+          Get-FileHash $maintenance.FullName -Algorithm SHA256
           Get-FileHash $installer.FullName -Algorithm SHA256
-          Get-Item $exe.FullName, $installer.FullName | Select-Object FullName, Length
+          Get-Item $exe.FullName, $dnsSelfTest.FullName, $maintenance.FullName, $installer.FullName | Select-Object FullName, Length
       - uses: actions/upload-artifact@v4
         with:
           name: Guardian-AdBlock-Windows-Dev-Package
           path: |
             dist/GuardianAdBlock/
             dist/GuardianDnsProxy/
+            dist/GuardianSelfTest/
+            dist/GuardianMaintenance/
             dist/installer/Guardian-AdBlock-Windows-Setup-*.exe
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish versioned Windows development update
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $VersionLines = Get-Content VERSION
+          $VersionName = $VersionLines[0].Trim()
+          $BuildNumber = [int]$VersionLines[1].Trim()
+          $Tag = "guardian-windows-dev-v$BuildNumber"
+          $Installer = Get-ChildItem "dist/installer/Guardian-AdBlock-Windows-Setup-$VersionName-b$BuildNumber.exe" | Select-Object -First 1
+          if (-not $Installer) { throw 'Versioned Windows installer was not produced.' }
+          $Hash = (Get-FileHash $Installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $InstallerName = $Installer.Name
+          $InstallerUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$Tag/$InstallerName"
+          $Manifest = @{
+            schemaVersion = 1
+            product = 'Guardian AdBlock'
+            platform = 'windows-x64'
+            versionName = $VersionName
+            buildNumber = $BuildNumber
+            tagName = $Tag
+            sourceCommit = $env:GITHUB_SHA
+            installerName = $InstallerName
+            installerUrl = $InstallerUrl
+            sha256 = $Hash
+          } | ConvertTo-Json -Depth 4
+          $ManifestPath = 'dist/guardian-windows-update.json'
+          [System.IO.File]::WriteAllText((Join-Path (Get-Location) $ManifestPath), $Manifest + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+          gh release view $Tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Warning "Windows build $BuildNumber is already published. Bump VERSION before publishing changed code; existing release assets were not overwritten."
+            exit 0
+          }
+          if ($LASTEXITCODE -ne 1) { throw 'Could not determine whether the Windows update release already exists.' }
+          gh release create $Tag $Installer.FullName $ManifestPath --repo $env:GITHUB_REPOSITORY --prerelease --title "Guardian AdBlock $VersionName (Windows)" --notes "Windows x64 development update. Build $BuildNumber. Source commit: $env:GITHUB_SHA. Installer SHA-256: $Hash. This development installer may be unsigned and may show a SmartScreen warning." --target $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing the versioned Windows update release failed.' }

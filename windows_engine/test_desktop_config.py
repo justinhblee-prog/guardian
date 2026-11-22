@@ -42,3 +42,134 @@ def test_proxy_readiness_rejects_unowned_loopback_dns(tmp_path, monkeypatch):
         raise AssertionError("must not trust an arbitrary loopback DNS responder")
     monkeypatch.setattr(desktop.socket, "socket", unexpected_socket)
     assert not desktop.proxy_ready()
+
+def test_proxy_readiness_uses_tcp_listener_and_valid_dns_response(monkeypatch):
+    import struct
+    import windows_engine.desktop as desktop
+
+    monkeypatch.setattr(desktop, "daemon_health_is_fresh", lambda path: True)
+    monkeypatch.setattr(desktop, "configured_probe_domain", lambda: "doubleclick.net")
+    query = desktop.blocked_probe_query()
+    response = bytearray(query)
+    response[2] = 0x81
+    response[3] = 0x83
+    framed = struct.pack("!H", len(response)) + bytes(response)
+
+    class FakeTcpSocket:
+        def __init__(self, family, kind):
+            assert family == desktop.socket.AF_INET
+            assert kind == desktop.socket.SOCK_STREAM
+            self.received = bytearray(framed)
+            self.sent = b""
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def settimeout(self, value): assert value == 3.0
+        def connect(self, address): assert address == ("127.0.0.1", 53)
+        def sendall(self, payload):
+            self.sent = payload
+            assert payload == struct.pack("!H", len(query)) + query
+        def recv(self, size):
+            chunk = bytes(self.received[:size])
+            del self.received[:size]
+            return chunk
+
+    monkeypatch.setattr(desktop.socket, "socket", FakeTcpSocket)
+    assert desktop.proxy_ready()
+
+
+def test_proxy_readiness_rejects_tcp_listener_with_invalid_response(monkeypatch):
+    import struct
+    import windows_engine.desktop as desktop
+
+    monkeypatch.setattr(desktop, "daemon_health_is_fresh", lambda path: True)
+    query = desktop.blocked_probe_query()
+    wrong = bytearray(query)
+    wrong[0] ^= 0xFF
+    wrong[2] = 0x81
+    wrong[3] = 0x83
+    framed = struct.pack("!H", len(wrong)) + bytes(wrong)
+
+    class FakeTcpSocket:
+        def __init__(self, family, kind): self.received = bytearray(framed)
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def settimeout(self, value): pass
+        def connect(self, address): pass
+        def sendall(self, payload): pass
+        def recv(self, size):
+            chunk = bytes(self.received[:size])
+            del self.received[:size]
+            return chunk
+
+    monkeypatch.setattr(desktop.socket, "socket", FakeTcpSocket)
+    assert not desktop.proxy_ready()
+
+
+def test_windows_primary_navigation_matches_shared_five_item_menu():
+    import inspect
+    from windows_engine.desktop import GuardianDesktop
+
+    shell = inspect.getsource(GuardianDesktop._build_shell)
+    expected = [
+        ("home", "홈", "show_dashboard"),
+        ("protection", "보호", "show_protection_page"),
+        ("app-exclusions", "앱 제외", "show_app_exclusions_page"),
+        ("activity", "활동", "show_activity_page"),
+        ("settings", "설정", "show_settings_page"),
+    ]
+    for key, label, handler in expected:
+        assert f'"{key}"' in shell
+        assert label in shell
+        assert callable(getattr(GuardianDesktop, handler))
+    assert '"premium"' not in shell
+    assert '"rules"' not in shell
+
+def test_windows_protection_ui_refresh_is_safe_off_dashboard():
+    import inspect
+    from windows_engine.desktop import GuardianDesktop
+
+    source = inspect.getsource(GuardianDesktop.set_active_ui)
+    page_source = inspect.getsource(GuardianDesktop.show_protection_page)
+    button_source = inspect.getsource(GuardianDesktop._button)
+    assert 'self.hero_status.winfo_exists()' in source
+    assert 'getattr(self,start_name,None)' in source
+    assert 'getattr(self,stop_name,None)' in source
+    assert 'protection_start_button' in page_source
+    assert 'protection_stop_button' in page_source
+    assert 'protection_status_label' in page_source
+    assert '"#16A34A"' in button_source
+    assert '"#DC2626"' in button_source
+    assert '"#FFFFFF"' in button_source
+
+
+def test_windows_settings_exposes_the_six_shared_subsections():
+    import inspect
+    from windows_engine.desktop import GuardianDesktop
+
+    source = inspect.getsource(GuardianDesktop.show_settings_page)
+    for label in ("일반", "필터링", "라이선스 및 프리미엄", "고객 지원", "정보", "종료"):
+        assert label in source
+
+
+
+def test_windows_about_page_exposes_real_versioned_update_actions():
+    import inspect
+    from windows_engine.desktop import GuardianDesktop
+
+    source = inspect.getsource(GuardianDesktop.show_about_page)
+    assert "get_product_version()" in source
+    assert "get_product_build_number()" in source
+    assert "check_for_update(" in source
+    assert "download_update(" in source
+    assert "업데이트 확인" in source
+    assert "설치 파일 다운로드" in source
+    assert "설치 프로그램 실행" in source
+
+
+def test_windows_license_client_receives_shared_product_version():
+    import inspect
+    from windows_engine.desktop import GuardianDesktop
+
+    source = inspect.getsource(GuardianDesktop._license_client)
+    assert "app_version=get_product_version()" in source
+    assert "0.1.0-dev" not in source

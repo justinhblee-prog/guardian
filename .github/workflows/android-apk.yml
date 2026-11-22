@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'android/**'
+      - 'VERSION'
       - 'shared/**'
       - 'README.md'
       - 'docs/**'
@@ -75,17 +76,29 @@ jobs:
               --github-env "$GITHUB_ENV" \
               --github-output "$GITHUB_OUTPUT"
           else
-            # PR validation builds are non-published and never consume a release number.
+            # PR validation builds use the same checked-in product version as Windows.
+            # They do not publish a release or consume a new development version.
+            GUARDIAN_VERSION_NAME="$(sed -n '1p' VERSION | tr -d '\r')"
+            GUARDIAN_VERSION_CODE="$(sed -n '2p' VERSION | tr -d '\r')"
+            [[ "$GUARDIAN_VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+-dev$ ]]
+            [[ "$GUARDIAN_VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
             {
-              echo "GUARDIAN_VERSION_NAME=0.7.34-dev"
-              echo "GUARDIAN_VERSION_CODE=47"
+              echo "GUARDIAN_VERSION_NAME=$GUARDIAN_VERSION_NAME"
+              echo "GUARDIAN_VERSION_CODE=$GUARDIAN_VERSION_CODE"
               echo "GUARDIAN_RELEASE_TAG="
             } >> "$GITHUB_ENV"
             {
-              echo "version_name=0.7.34-dev"
-              echo "version_code=47"
+              echo "version_name=$GUARDIAN_VERSION_NAME"
+              echo "version_code=$GUARDIAN_VERSION_CODE"
             } >> "$GITHUB_OUTPUT"
           fi
+          SHARED_VERSION="$(sed -n '1p' VERSION | tr -d '\r')"
+          SHARED_BUILD="$(sed -n '2p' VERSION | tr -d '\r')"
+          if [[ "$GUARDIAN_VERSION_NAME" != "$SHARED_VERSION" || "$GUARDIAN_VERSION_CODE" != "$SHARED_BUILD" ]]; then
+            echo "Android and Windows product versions differ: Android=$GUARDIAN_VERSION_NAME/$GUARDIAN_VERSION_CODE shared=$SHARED_VERSION/$SHARED_BUILD"
+            exit 1
+          fi
+          echo "Shared Guardian version verified: $SHARED_VERSION (Build $SHARED_BUILD)."
           echo "Version resolution completed."
 
       - name: Verify shared DNS filter rules

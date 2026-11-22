@@ -10,18 +10,44 @@ class _UdpHandler(socketserver.BaseRequestHandler):
         except (DnsFormatError,ValueError): return
 
 class _TcpHandler(socketserver.StreamRequestHandler):
+    @staticmethod
+    def _read_exact(stream,length):
+        chunks=[]; remaining=length
+        while remaining:
+            chunk=stream.read(remaining)
+            if not chunk: raise OSError("TCP DNS request ended before its frame was complete")
+            chunks.append(chunk); remaining-=len(chunk)
+        return b"".join(chunks)
     def handle(self):
         self.request.settimeout(self.server.proxy.timeout)
+        packet=None
+        stage="read request length"
         try:
-            header=self.rfile.read(2)
-            if len(header)!=2: return
+            header=self._read_exact(self.rfile,2)
             length=struct.unpack("!H",header)[0]
-            if length<12 or length>4096: return
-            packet=self.rfile.read(length)
-            if len(packet)!=length: return
+            if length<12 or length>4096:
+                self.server.proxy.record_tcp_error(ValueError("invalid DNS TCP frame length"),"validate request length")
+                return
+            stage="read request body"
+            packet=self._read_exact(self.rfile,length)
+            stage="process DNS request"
             response=self.server.proxy.process_query(packet)
+            stage="write DNS response"
             self.wfile.write(struct.pack("!H",len(response))+response)
-        except (OSError,DnsFormatError,ValueError): return
+        except Exception as exc:
+            # Record expected socket/protocol failures too: a readiness probe
+            # that sees EOF needs the daemon-side stage to identify why the
+            # handler closed. Never record the queried hostname or packet.
+            self.server.proxy.record_tcp_error(exc,stage)
+            # Once a complete, valid query is available, prefer a DNS SERVFAIL
+            # frame over silently closing the connection. Do not retry a failed
+            # socket write, since the peer may already have disconnected.
+            if packet is not None and stage != "write DNS response":
+                try:
+                    response=make_servfail(packet)
+                    self.wfile.write(struct.pack("!H",len(response))+response)
+                except Exception as response_error:
+                    self.server.proxy.record_tcp_error(response_error,"write SERVFAIL response")
 
 class _UdpServer(socketserver.ThreadingUDPServer):
     allow_reuse_address=True; daemon_threads=True
@@ -40,7 +66,13 @@ class DnsProxy:
         self.rules=rules; self.upstreams=tuple(upstreams); self.timeout=timeout
         self.listeners=(listen,) if len(listen)==2 and isinstance(listen[0],str) else tuple(listen)
         self.blocked_count=0; self.forwarded_count=0; self.failed_count=0
+        self.tcp_error_count=0; self.last_tcp_error_type=""; self.last_tcp_error_stage=""
         self._udp_servers=[]; self._tcp_servers=[]; self._servers=[]; self._threads=[]
+    def record_tcp_error(self,error,stage="unknown"):
+        self.tcp_error_count+=1
+        self.last_tcp_error_type=type(error).__name__
+        self.last_tcp_error_stage=str(stage)[:64]
+
     @staticmethod
     def _recv_exact(sock,length):
         chunks=[]; remaining=length
@@ -99,8 +131,16 @@ class DnsProxy:
         finally: self.stop()
     def stop(self):
         servers=self._servers; threads=self._threads
-        for server in servers: server.shutdown()
-        for thread in threads: thread.join(timeout=3)
-        for server in servers: server.server_close()
+        # socketserver.shutdown() waits for serve_forever() to set its internal
+        # completion event. If a listener thread exited during startup, calling
+        # shutdown() on that server can wait forever. Only signal live workers.
+        for index,server in enumerate(servers):
+            thread=threads[index] if index < len(threads) else None
+            if thread is not None and thread.is_alive():
+                server.shutdown()
+        for thread in threads:
+            if thread.is_alive(): thread.join(timeout=3)
+        for server in servers:
+            server.server_close()
         self._servers=[]; self._udp_servers=[]; self._tcp_servers=[]; self._threads=[]
     def shutdown(self): self.stop()

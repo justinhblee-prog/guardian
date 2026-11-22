@@ -1,19 +1,24 @@
 #define MyAppName "Guardian AdBlock"
-#define MyAppVersion "0.1.0-dev"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.7.42-dev"
+#endif
+#ifndef MyAppBuildNumber
+  #define MyAppBuildNumber "55"
+#endif
 #define MyAppPublisher "Eugene Consulting"
 #define MyAppExeName "GuardianAdBlock.exe"
 
 [Setup]
 AppId={{A2C3E5A4-5C62-4C3F-9B7E-2D8E5D8A0F11}
 AppName={#MyAppName}
-AppVersion={#MyAppVersion}
+AppVersion={#MyAppVersion} (Build {#MyAppBuildNumber})
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\Guardian AdBlock
 DefaultGroupName=Guardian AdBlock
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 OutputDir=..\dist\installer
-OutputBaseFilename=Guardian-AdBlock-Windows-Setup-{#MyAppVersion}
+OutputBaseFilename=Guardian-AdBlock-Windows-Setup-{#MyAppVersion}-b{#MyAppBuildNumber}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -22,7 +27,11 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Files]
 Source: "..\dist\GuardianAdBlock\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\\dist\\GuardianDnsProxy\\*"; DestDir: "{app}\\GuardianDnsProxy"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\GuardianDnsProxy\*"; DestDir: "{app}\GuardianDnsProxy"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\GuardianSelfTest\*"; DestDir: "{app}\GuardianSelfTest"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\GuardianMaintenance\*"; DestDir: "{app}\GuardianMaintenance"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "Register-GuardianDnsTask.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\\VERSION"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Guardian AdBlock"; Filename: "{app}\{#MyAppExeName}"
@@ -35,21 +44,52 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch Guardian AdBlock"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--restore-dns"; RunOnceId: "GuardianRestoreDns"; Flags: runhidden waituntilterminated
+Filename: "{app}\GuardianMaintenance\GuardianMaintenance.exe"; Parameters: "--restore-dns"; RunOnceId: "GuardianRestoreDns"; Flags: runhidden waituntilterminated
 Filename: "{sys}\schtasks.exe"; Parameters: "/End /TN GuardianDnsProxy"; RunOnceId: "GuardianEndDnsTask"; Flags: runhidden waituntilterminated
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN GuardianDnsProxy /F"; RunOnceId: "GuardianDeleteDnsTask"; Flags: runhidden waituntilterminated
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ""Unregister-ScheduledTask -TaskName 'GuardianDnsProxy' -Confirm:$false -ErrorAction SilentlyContinue"""; RunOnceId: "GuardianUnregisterDnsTask"; Flags: runhidden waituntilterminated
 
 [Code]
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+  MaintenancePath: String;
+  StopUiCommand: String;
+begin
+  Result := '';
+  MaintenancePath := ExpandConstant('{app}\\GuardianMaintenance\\GuardianMaintenance.exe');
+
+  { PrepareToInstall runs after the destination directory is initialized,
+    but before Inno Setup replaces any installed files. }
+  if FileExists(ExpandConstant('{app}\\GuardianAdBlock.exe')) then begin
+    if not FileExists(MaintenancePath) then begin
+      Result := 'The existing Guardian installation is incomplete: its maintenance tool is missing. Setup has stopped to avoid leaving DNS redirected.';
+      exit;
+    end;
+    if (not Exec(MaintenancePath, '--restore-dns', '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then begin
+      Result := 'Guardian could not safely restore DNS and stop its background task. Setup has not replaced any application files.';
+      exit;
+    end;
+  end;
+
+  { Close the desktop process so Windows releases python3.dll and other
+    PyInstaller runtime files before Inno Setup copies the new package. }
+  StopUiCommand := '$ErrorActionPreference=''Stop''; Get-Process -Name GuardianAdBlock -ErrorAction SilentlyContinue | Stop-Process -Force; $deadline=(Get-Date).AddSeconds(10); while ((Get-Process -Name GuardianAdBlock -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }; if (Get-Process -Name GuardianAdBlock -ErrorAction SilentlyContinue) { exit 1 }';
+  if (not Exec(ExpandConstant('{sys}\\WindowsPowerShell\\v1.0\\powershell.exe'), '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' + StopUiCommand + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then begin
+    Result := 'Guardian is still running and Windows has not released its application files. Restart Windows and run setup again.';
+    exit;
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
   Parameters: String;
 begin
   if CurStep = ssPostInstall then begin
-    Parameters := '/Create /TN GuardianDnsProxy /SC ONSTART /RU SYSTEM /RL HIGHEST /TR "' + ExpandConstant('{app}\GuardianDnsProxy\GuardianDnsProxy.exe') + '" /F';
-    if (not Exec(ExpandConstant('{sys}\schtasks.exe'), Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then begin
-      MsgBox('Guardian could not register its boot-start DNS protection task. Setup will stop; no DNS settings have been changed.', mbError, MB_OK);
+    Parameters := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\Register-GuardianDnsTask.ps1') + '" -ExecutablePath "' + ExpandConstant('{app}\GuardianDnsProxy\GuardianDnsProxy.exe') + '"';
+    if (not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Parameters, ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then begin
+      MsgBox('Guardian could not register its boot-start DNS protection task with an explicit working directory. Setup will stop; no DNS settings have been changed.', mbError, MB_OK);
       Abort;
     end;
   end;
@@ -59,7 +99,7 @@ function InitializeUninstall(): Boolean;
 var
   ResultCode: Integer;
 begin
-  Result := Exec(ExpandConstant('{app}\GuardianAdBlock.exe'), '--restore-dns', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := Exec(ExpandConstant('{app}\GuardianMaintenance\GuardianMaintenance.exe'), '--restore-dns', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   if (not Result) or (ResultCode <> 0) then begin
     MsgBox('Guardian could not restore the original DNS settings. Uninstall is cancelled to avoid leaving network settings changed.', mbError, MB_OK);
     Result := False;

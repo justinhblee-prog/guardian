@@ -1,16 +1,107 @@
 """Tkinter desktop control panel for Guardian Windows DNS protection."""
-import json,os,sys,socket,struct,subprocess,time
+import json,os,sys,socket,struct,subprocess,time,threading
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 from dns_engine import DomainRules,DnsProxy
+from dns_engine.wire import make_query
 from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin
 from windows_engine.filter_updates import FilterUpdater
+from windows_engine.version import get_product_build_number, get_product_version
+from windows_engine.update_client import check_for_update, download_update
 from windows_engine.license_client import LicenseClientError,WindowsLicenseClient
 from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_is_running
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
 CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"
 TASK_NAME="GuardianDnsProxy"
+def daemon_executable_path():
+    if getattr(sys,"frozen",False):
+        return Path(sys.executable).resolve().parent / "GuardianDnsProxy" / "GuardianDnsProxy.exe"
+    return Path(__file__).resolve().parents[1] / "dist" / "GuardianDnsProxy" / "GuardianDnsProxy.exe"
+def daemon_startup_diagnostics():
+    details=[]
+    daemon_exe=daemon_executable_path()
+    details.append(f"DNS 백그라운드 실행 파일: {daemon_exe} (파일 존재: {daemon_exe.is_file()})")
+    try:
+        task=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
+        output="\n".join(part.strip() for part in (task.stdout,task.stderr) if part and part.strip())
+        if output: details.append("작업 스케줄러 상태:\n"+output[-5000:])
+        else: details.append("작업 스케줄러 상태를 읽지 못했습니다.")
+    except Exception as exc:
+        details.append("작업 스케줄러 조회 실패: "+str(exc))
+    log_path=APP_DIR/"daemon-startup.log"
+    try:
+        if log_path.exists():
+            lines=log_path.read_text(encoding="utf-8",errors="replace").splitlines()
+            details.append("DNS 백그라운드 시작 로그:\n"+"\n".join(lines[-50:]))
+        else:
+            details.append("DNS 백그라운드 시작 로그가 없습니다: "+str(log_path))
+    except OSError as exc:
+        details.append("DNS 백그라운드 로그 읽기 실패: "+str(exc))
+    try:
+        health=json.loads(HEALTH.read_text(encoding="utf-8"))
+        heartbeat=float(health.get("heartbeatAt",0))
+        age=max(0.0,time.time()-heartbeat)
+        pid=health.get("pid")
+        pid_running=daemon_process_is_running(HEALTH)
+        details.append(
+            "최근 프로세스 상태: "+json.dumps(
+                {"pid":pid,"heartbeatAt":heartbeat,"heartbeatAgeSeconds":round(age,2),
+                 "pidProcessTableAlive":pid_running},
+                ensure_ascii=False,
+            )
+        )
+    except Exception:
+        details.append("유효한 DNS 백그라운드 생존 상태 파일이 없습니다.")
+    try:
+        stats=json.loads(STATS.read_text(encoding="utf-8"))
+        details.append(
+            "DNS TCP 처리 진단: "+json.dumps(
+                {"tcpErrorCount":int(stats.get("tcpErrorCount",0)),
+                 "lastTcpErrorType":str(stats.get("lastTcpErrorType","")),
+                 "lastTcpErrorStage":str(stats.get("lastTcpErrorStage",""))},
+                ensure_ascii=False,
+            )
+        )
+    except (OSError,ValueError,TypeError):
+        details.append("DNS TCP 처리 진단: 아직 기록된 통계가 없습니다.")
+    details.extend(dns_port_53_diagnostics())
+    return "\n\n".join(details)
+
+def dns_port_53_diagnostics():
+    """Identify processes that may prevent Guardian from binding its DNS listeners."""
+    details = ["DNS 포트 53 점유 상태:"]
+    for protocol in ("udp", "tcp"):
+        try:
+            result = subprocess.run(
+                ["netstat.exe", "-ano", "-p", protocol],
+                capture_output=True, text=True, timeout=8,
+            )
+            matches = []
+            for line in result.stdout.splitlines():
+                parts = line.split()
+                if len(parts) < 4 or not parts[1].endswith(":53"):
+                    continue
+                pid = parts[-1]
+                if not pid.isdigit():
+                    continue
+                matches.append((parts[1], pid))
+            if not matches:
+                details.append(f"{protocol.upper()} 53: 점유 프로세스가 확인되지 않았습니다.")
+                continue
+            for endpoint, pid in matches:
+                process = subprocess.run(
+                    ["tasklist.exe", "/SVC", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                    capture_output=True, text=True, timeout=8,
+                )
+                owner = process.stdout.strip() or "프로세스/서비스 이름 확인 불가"
+                details.append(f"{protocol.upper()} {endpoint} PID {pid}: {owner}")
+                if endpoint == "0.0.0.0:53" and protocol == "udp":
+                    details.append("주의: UDP 와일드카드 0.0.0.0:53 점유가 loopback DNS 확인과 충돌할 수 있습니다.")
+        except (OSError, subprocess.SubprocessError) as exc:
+            details.append(f"{protocol.upper()} 포트 조회 실패: {exc}")
+    return details
+
 DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndication.com^\n||googleadservices.com^\n||adservice.google.com^\n||adnxs.com^\n||criteo.com^\n||taboola.com^\n||outbrain.com^\n||scorecardresearch.com^\n||quantserve.com^\n||mixpanel.com^\n||hotjar.com\n"
 def ensure_config():
     APP_DIR.mkdir(parents=True,exist_ok=True); rules=APP_DIR/"rules.txt"
@@ -38,9 +129,17 @@ def write_state(enabled):
     APP_DIR.mkdir(parents=True,exist_ok=True); tmp=STATE.with_suffix(".tmp")
     tmp.write_text(json.dumps({"enabled":bool(enabled),"updatedAt":time.time()}),encoding="utf-8")
     os.replace(tmp,STATE)
-def blocked_probe_query():
-    labels=b"".join(bytes([len(p)])+p.encode("ascii") for p in "doubleclick.net".split("."))+b"\0"
-    return struct.pack("!HHHHHH",0x6a31,0x0100,1,0,0,0)+labels+struct.pack("!HH",1,1)
+def configured_probe_domain():
+    """Choose a domain that the currently installed rules definitely block."""
+    data=json.loads(CONFIG.read_text(encoding="utf-8"))
+    rules_path=APP_DIR/data.get("rules_file","rules.txt")
+    rules=DomainRules.from_text(rules_path.read_text(encoding="utf-8"))
+    return next((domain for domain in sorted(rules.blocked) if rules.is_blocked(domain)),None)
+
+def blocked_probe_query(domain="doubleclick.net"):
+    """Build the same valid DNS wire query used by real clients."""
+    return make_query(domain,0x6a31)
+
 def is_dns_probe_response(query,response):
     # Readiness means the DNS listener answered, not that a particular
     # domain is blocked. User filter lists and allowlists are configurable.
@@ -48,26 +147,93 @@ def is_dns_probe_response(query,response):
             and response[:2]==query[:2]
             and bool(response[2]&0x80)
             and struct.unpack("!H",response[4:6])[0]==1)
-def proxy_ready():
-    # A generic DNS response on loopback is not proof that Guardian owns the port.
-    if not daemon_health_is_fresh(HEALTH): return False
+def recv_exact(sock,length):
+    """Read a complete TCP DNS frame field; recv(n) may return fewer than n bytes."""
+    chunks=[]; remaining=length
+    while remaining:
+        chunk=sock.recv(remaining)
+        if not chunk: raise OSError("DNS TCP response ended early")
+        chunks.append(chunk); remaining-=len(chunk)
+    return b"".join(chunks)
+def proxy_readiness_status():
+    """Return a stage-specific reason when the local TCP DNS probe is not ready."""
+    # The daemon publishes its heartbeat only after all UDP/TCP listeners bind.
+    # Probe TCP because Windows SharedAccess may own wildcard UDP port 53.
+    if not daemon_health_is_fresh(HEALTH):
+        return False,"DNS daemon heartbeat is missing, stale, or its PID is no longer running"
+    stage="load blocked-domain probe"
     try:
-        query=blocked_probe_query()
-        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
-            client.settimeout(.8); client.sendto(query,("127.0.0.1",53)); response,_=client.recvfrom(512)
-        return is_dns_probe_response(query,response)
-    except OSError: return False
+        domain=configured_probe_domain()
+        if not domain:
+            return False,"no active blocked domain is available for the DNS readiness probe"
+        query=blocked_probe_query(domain)
+        stage="connect to 127.0.0.1:53"
+        with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as client:
+            # A one-second timeout is too aggressive on a busy Windows desktop
+            # immediately after Task Scheduler starts the daemon.
+            client.settimeout(3.0)
+            client.connect(("127.0.0.1",53))
+            stage="send framed TCP DNS query"
+            client.sendall(struct.pack("!H",len(query))+query)
+            stage="read TCP DNS response length"
+            header=recv_exact(client,2)
+            length=struct.unpack("!H",header)[0]
+            if length<12 or length>4096:
+                return False,f"local TCP DNS listener returned invalid response length {length}"
+            stage="read TCP DNS response body"
+            response=recv_exact(client,length)
+        stage="validate TCP DNS response"
+        if not is_dns_probe_response(query,response):
+            return False,"local TCP DNS listener responded, but the DNS response failed validation"
+        return True,"local TCP DNS response validated"
+    except OSError as exc:
+        code=getattr(exc,"winerror",None) or exc.errno
+        error_type=type(exc).__name__
+        return False,f"local TCP DNS probe failed during {stage} ({error_type}, errno={code if code is not None else 'unknown'}): {exc}"
+    except (ValueError,TypeError) as exc:
+        return False,f"DNS readiness probe failed during {stage} ({type(exc).__name__}): {exc}"
+
+
+def proxy_ready():
+    ready,_reason=proxy_readiness_status()
+    return ready
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
 def ensure_daemon_running():
     if proxy_ready(): return
+    daemon_exe=daemon_executable_path()
+    if not daemon_exe.is_file():
+        raise NetworkConfigError(f"Guardian DNS 백그라운드 실행 파일을 찾을 수 없습니다: {daemon_exe}. 설치 파일이 누락되었거나 보안 프로그램에 의해 격리되었을 수 있습니다.")
+
+    # Do not issue a second Task Scheduler /Run while a previous daemon process
+    # is still alive. IgnoreNew task instances can otherwise report success
+    # while the original process remains unhealthy, obscuring the real failure.
+    if daemon_process_is_running(HEALTH):
+        deadline=time.monotonic()+12
+        while time.monotonic()<deadline:
+            if proxy_ready(): return
+            if not daemon_process_is_running(HEALTH): break
+            time.sleep(.25)
+        if daemon_process_is_running(HEALTH):
+            _ready,reason=proxy_readiness_status()
+            diagnostics=daemon_startup_diagnostics()
+            raise NetworkConfigError("Guardian DNS background process is already running but did not answer on IPv4 loopback port 53; a duplicate start was not requested.\nReadiness diagnosis: "+reason+"\n\n"+diagnostics)
+
     result=run_task("/Run","/TN",TASK_NAME)
-    if result.returncode: raise NetworkConfigError(result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")
+    if result.returncode:
+        task_state=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
+        diagnostics=daemon_startup_diagnostics()
+        detail=task_state.stdout.strip() or task_state.stderr.strip()
+        raise NetworkConfigError((result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")+"\n"+detail+"\n"+diagnostics)
     deadline=time.monotonic()+12
     while time.monotonic()<deadline:
         if proxy_ready(): return
         time.sleep(.25)
-    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53")
+    task_state=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
+    _ready,reason=proxy_readiness_status()
+    diagnostics=daemon_startup_diagnostics()
+    detail=task_state.stdout.strip() or task_state.stderr.strip()
+    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\nReadiness diagnosis: "+reason+"\n"+detail+"\n"+diagnostics)
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
@@ -92,46 +258,503 @@ def restore_and_remove_task():
     manager=DnsAdapterManager(BACKUP); manager.restore(); write_state(False); stop_daemon(delete=True)
 def self_test():
     import traceback,tempfile
-    rules=DomainRules.from_text(DEFAULT_RULES); proxy=DnsProxy(rules,listen=(("127.0.0.1",0),("::1",0))); proxy.start()
+    log_path=Path(tempfile.gettempdir(),"GuardianDesktopSelfTest.log")
+    log_path.write_text("",encoding="utf-8")
+    def log(message):
+        with log_path.open("a",encoding="utf-8") as handle:
+            handle.write(message+"\n")
+        if sys.stdout: print(message,flush=True)
+    proxy=None
     try:
-        port=proxy._udp_servers[0].server_address[1]; query=blocked_probe_query()
+        log("Guardian self-test: loading built-in block rules")
+        rules=DomainRules.from_text(DEFAULT_RULES)
+        proxy=DnsProxy(rules,listen=(("127.0.0.1",0),("::1",0)))
+        proxy.start()
+        log("Guardian self-test: IPv4 and IPv6 UDP/TCP listeners started")
+        query=blocked_probe_query()
+        port=proxy._udp_servers[0].server_address[1]
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
-            client.settimeout(2); client.sendto(query,("127.0.0.1",port)); response,_=client.recvfrom(512)
+            client.settimeout(4)
+            client.sendto(query,("127.0.0.1",port))
+            response,_=client.recvfrom(512)
         if response[3]&15!=3: raise RuntimeError("IPv4 blocked domain did not return NXDOMAIN")
+        log("Guardian self-test: IPv4 blocked DNS query passed")
         v6port=proxy._udp_servers[1].server_address[1]
         with socket.socket(socket.AF_INET6,socket.SOCK_DGRAM) as client:
-            client.settimeout(2); client.sendto(query,("::1",v6port,0,0)); response6,_=client.recvfrom(512)
+            client.settimeout(4)
+            client.sendto(query,("::1",v6port,0,0))
+            response6,_=client.recvfrom(512)
         if response6[3]&15!=3: raise RuntimeError("IPv6 blocked domain did not return NXDOMAIN")
-        proxy.stop()
-        if sys.stdout: print("Guardian Windows IPv4/IPv6 executable self-test passed")
+        log("Guardian self-test: IPv6 blocked DNS query passed")
     except Exception:
-        Path(tempfile.gettempdir(),"GuardianDesktopSelfTest.log").write_text(traceback.format_exc(),encoding="utf-8")
+        with log_path.open("a",encoding="utf-8") as handle:
+            handle.write(traceback.format_exc())
         raise
+    finally:
+        if proxy is not None:
+            log("Guardian self-test: stopping temporary DNS listeners")
+            proxy.stop()
+            log("Guardian self-test: temporary DNS listeners stopped")
+    log("Guardian Windows IPv4/IPv6 executable self-test passed")
 class GuardianDesktop:
+    BG="#0B1220"; SIDE="#101A2B"; PANEL="#151F32"; ALT="#1B2940"; BORDER="#263650"
+    TEXT="#F4F7FB"; MUTED="#93A4BA"; TEAL="#2DD4BF"; GREEN="#34D399"; AMBER="#FBBF24"; BLUE="#60A5FA"
     def __init__(self,root):
-        self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False
-        self.status=tk.StringVar(value="보호 꺼짐"); root.title("Guardian AdBlock"); root.geometry("620x440"); root.minsize(560,400); root.configure(bg="#101820")
-        tk.Label(root,text="GUARDIAN",font=("Segoe UI",24,"bold"),fg="#f2f6fa",bg="#101820").pack(pady=(24,2))
-        tk.Label(root,text="Windows DNS Protection",font=("Segoe UI",10),fg="#9fb2c3",bg="#101820").pack()
-        self.status_label=tk.Label(root,textvariable=self.status,font=("Segoe UI",15,"bold"),fg="#f3b64a",bg="#101820"); self.status_label.pack(pady=26)
-        row=tk.Frame(root,bg="#101820"); row.pack()
-        self.start_button=tk.Button(row,text="보호 시작",command=self.start_protection,width=16,height=2,bg="#197a57",fg="white",font=("Segoe UI",11,"bold"),relief="flat"); self.start_button.pack(side="left",padx=8)
-        self.stop_button=tk.Button(row,text="보호 중지",command=self.stop_protection,width=16,height=2,bg="#8b3940",fg="white",font=("Segoe UI",11,"bold"),relief="flat",state="disabled"); self.stop_button.pack(side="left",padx=8)
-        self.stats=tk.Label(root,text="차단 0건  |  전달 0건",font=("Segoe UI",12),fg="#d7e0e8",bg="#101820"); self.stats.pack(pady=20)
-        actions=tk.Frame(root,bg="#101820"); actions.pack(pady=4)
-        tk.Button(actions,text="필터 업데이트",command=self.update_filters,width=16,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=6)
-        tk.Button(actions,text="필터 서버 설정",command=self.open_filter_settings,width=16,bg="#33404c",fg="white",relief="flat").pack(side="left",padx=6)
-        tk.Button(actions,text="라이선스",command=self.open_license_settings,width=12,bg="#5946a8",fg="white",relief="flat").pack(side="left",padx=6)
-        self.license_status=tk.Label(root,text="라이선스: 무료",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.license_status.pack(pady=2)
-        self.refresh_license_status()
-        self.filter_status=tk.Label(root,text="필터 업데이트: 서버 미설정",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.filter_status.pack(pady=3)
-        tk.Label(root,text="백그라운드 DNS 보호 · IPv4/IPv6 · 기존 DNS 자동 복구",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820").pack(pady=6)
-        tk.Label(root,text="보호 시작 시 어댑터 DNS를 로컬 필터로 전환합니다. 앱 창을 닫아도 백그라운드 보호는 유지되며, 보호 중지는 원래 DNS 설정을 복구합니다.",wraplength=540,font=("Segoe UI",9),fg="#aab8c4",bg="#101820").pack(pady=12)
+        self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False; self.status=tk.StringVar(value="보호 꺼짐")
+        root.title("Guardian | Windows Security"); root.geometry("1120x760"); root.minsize(900,650); root.configure(bg=self.BG)
+        root.option_add("*Font",("Segoe UI",10)); self._build_shell(); self.refresh_license_status()
         root.protocol("WM_DELETE_WINDOW",self.close); self.recover_previous_state(); self.refresh()
+    def _label(self,p,t,s=10,c=None,w="normal",bg=None,**kw):
+        return tk.Label(p,text=t,font=("Segoe UI",s,w),fg=c or self.TEXT,bg=bg or self.PANEL,**kw)
+    def show_error(self, title, message):
+        """Show a selectable error report with one-click copy for support/debugging."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title(title)
+        dialog.configure(bg=self.BG)
+        dialog.geometry("760x520")
+        dialog.minsize(560, 360)
+        dialog.transient(self.root)
+
+        header = tk.Frame(dialog, bg=self.PANEL, padx=18, pady=14)
+        header.pack(fill="x")
+        self._label(header, title, 13, self.TEXT, "bold").pack(anchor="w")
+        self._label(header, "오류 내용을 복사해 지원 요청이나 진단에 첨부할 수 있습니다.", 9, self.MUTED).pack(anchor="w", pady=(5, 0))
+
+        body = tk.Frame(dialog, bg=self.BG, padx=14, pady=12)
+        body.pack(fill="both", expand=True)
+        report = tk.Text(body, wrap="word", undo=False, bg="#0A1020", fg=self.TEXT,
+                         insertbackground=self.TEXT, selectbackground="#245B70",
+                         relief="flat", padx=12, pady=10, font=("Consolas", 9))
+        scroll = tk.Scrollbar(body, command=report.yview)
+        report.configure(yscrollcommand=scroll.set)
+        scroll.pack(side="right", fill="y")
+        report.pack(side="left", fill="both", expand=True)
+        report.insert("1.0", str(message))
+        report.configure(state="disabled")
+
+        footer = tk.Frame(dialog, bg=self.BG, padx=14, pady=(0, 14))
+        footer.pack(fill="x")
+
+        def copy_report():
+            try:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(str(message))
+                self.root.update_idletasks()
+                copy_button.configure(text="복사 완료")
+                dialog.after(1800, lambda: copy_button.configure(text="오류 내용 복사"))
+            except tk.TclError as exc:
+                copy_button.configure(text="복사 실패")
+                messagebox.showwarning("클립보드 오류", str(exc), parent=dialog)
+
+        copy_button = self._button(footer, "오류 내용 복사", copy_report, "primary")
+        copy_button.pack(side="left")
+        self._button(footer, "전체 선택", lambda: (report.configure(state="normal"), report.tag_add("sel", "1.0", "end"), report.configure(state="disabled"), report.focus_set())).pack(side="left", padx=(8, 0))
+        self._button(footer, "닫기", dialog.destroy).pack(side="right")
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+        dialog.bind("<Control-c>", lambda _event: copy_report())
+        dialog.bind("<Control-C>", lambda _event: copy_report())
+        dialog.grab_set()
+        dialog.focus_set()
+
+    def _button(self,p,t,cmd,tone="secondary"):
+        # Protection actions must remain unmistakable on dark and high-contrast displays.
+        palette={
+            "primary":("#16A34A","#FFFFFF","#15803D"),
+            "danger":("#DC2626","#FFFFFF","#B91C1C"),
+            "secondary":("#26364B","#F4F7FB","#334B68"),
+        }
+        bg,fg,active_bg=palette[tone]
+        return tk.Button(
+            p,text=t,command=cmd,bg=bg,fg=fg,
+            activebackground=active_bg,activeforeground="#FFFFFF",
+            disabledforeground="#D1D5DB",relief="flat",bd=0,
+            highlightthickness=1,highlightbackground=self.BORDER,
+            cursor="hand2",padx=18,pady=11,
+            font=("Segoe UI",10,"bold")
+        )
+    def _build_shell(self):
+        shell=tk.Frame(self.root,bg=self.BG); shell.pack(fill="both",expand=True)
+        side=tk.Frame(shell,bg=self.SIDE,width=224); side.pack(side="left",fill="y"); side.pack_propagate(False)
+        self._label(side,"◈  GUARDIAN",19,self.TEXT,"bold",self.SIDE).pack(anchor="w",padx=22,pady=(27,3))
+        self._label(side,"WINDOWS SECURITY",8,self.MUTED,"bold",self.SIDE).pack(anchor="w",padx=24,pady=(0,30))
+        self._label(side,"WORKSPACE",8,"#657891","bold",self.SIDE).pack(anchor="w",padx=22,pady=(0,10))
+        self.nav={}
+        # Shared cross-platform primary navigation. Premium and filter rules are inside Settings.
+        items=[
+            ("home","⌂   홈",self.show_dashboard),
+            ("protection","◈   보호",self.show_protection_page),
+            ("app-exclusions","◉   앱 제외",self.show_app_exclusions_page),
+            ("activity","▤   활동",self.show_activity_page),
+            ("settings","⚙   설정",self.show_settings_page),
+        ]
+        for key,label,fn in items:
+            b=tk.Button(side,text=label,command=lambda k=key,f=fn:(self._select_nav(k),f()),anchor="w",bg=self.SIDE,fg=self.MUTED,activebackground=self.ALT,activeforeground=self.TEXT,relief="flat",bd=0,padx=22,pady=13,cursor="hand2",font=("Segoe UI",10,"bold")); b.pack(fill="x",padx=10,pady=2); self.nav[key]=b
+        tk.Frame(side,bg=self.SIDE).pack(fill="both",expand=True)
+        self._label(side,"GUARDIAN WINDOWS",8,"#657891","bold",self.SIDE).pack(anchor="w",padx=22)
+        self._label(side,"Development build  •  0.1.0-dev",8,self.MUTED,bg=self.SIDE).pack(anchor="w",padx=22,pady=(5,20))
+        body=tk.Frame(shell,bg=self.BG); body.pack(side="left",fill="both",expand=True)
+        head=tk.Frame(body,bg=self.BG); head.pack(fill="x",padx=34,pady=(25,18))
+        self.page_title=self._label(head,"대시보드",21,self.TEXT,"bold",self.BG); self.page_title.pack(side="left")
+        self.top_status=self._label(head,"●  보호 꺼짐",9,self.AMBER,"bold",self.BG); self.top_status.pack(side="right",pady=8)
+        self.page=tk.Frame(body,bg=self.BG); self.page.pack(fill="both",expand=True,padx=34,pady=(0,28)); self.show_dashboard()
+    def _select_nav(self,key):
+        for k,b in self.nav.items(): b.configure(bg=self.ALT if k==key else self.SIDE,fg=self.TEAL if k==key else self.MUTED)
+    def _clear_page(self):
+        for w in self.page.winfo_children(): w.destroy()
+    def _metric(self,p,title,sub,color):
+        f=tk.Frame(p,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=18,pady=15)
+        self._label(f,title,9,self.MUTED,"bold").pack(anchor="w"); v=self._label(f,"0",23,color,"bold"); v.pack(anchor="w",pady=(8,2)); self._label(f,sub,9,self.MUTED).pack(anchor="w"); return f,v
+    def show_dashboard(self):
+        self._select_nav("home"); self.page_title.configure(text="대시보드"); self._clear_page()
+        hero=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=26,pady=23); hero.pack(fill="x",pady=(0,18))
+        left=tk.Frame(hero,bg=self.PANEL); left.pack(side="left",fill="x",expand=True)
+        self._label(left,"REAL-TIME NETWORK PROTECTION",9,self.TEAL,"bold").pack(anchor="w")
+        self.hero_status=self._label(left,"보호가 꺼져 있습니다",22,self.TEXT,"bold"); self.hero_status.pack(anchor="w",pady=(8,4))
+        self.hero_description=self._label(left,"DNS 요청을 검사하고 광고·추적 도메인을 차단합니다.",10,self.MUTED); self.hero_description.pack(anchor="w")
+        ctl=tk.Frame(hero,bg=self.PANEL); ctl.pack(side="right",padx=(20,0))
+        self.start_button=self._button(ctl,"보호 시작",self.start_protection,"primary"); self.start_button.pack(fill="x",pady=(0,8))
+        self.stop_button=self._button(ctl,"보호 중지",self.stop_protection,"danger"); self.stop_button.pack(fill="x")
+        metrics=tk.Frame(self.page,bg=self.BG); metrics.pack(fill="x",pady=(0,18))
+        for i in range(3): metrics.columnconfigure(i,weight=1,uniform="metric")
+        self.blocked_value=self._metric(metrics,"차단된 요청","광고 및 추적 도메인",self.TEAL); self.forwarded_value=self._metric(metrics,"정상 전달","업스트림 DNS 응답",self.BLUE); self.adapters_value=self._metric(metrics,"보호 상태","네트워크 어댑터",self.TEXT)
+        for i,item in enumerate((self.blocked_value,self.forwarded_value,self.adapters_value)): item[0].grid(row=0,column=i,sticky="nsew",padx=(0 if i==0 else 8,0 if i==2 else 8))
+        lower=tk.Frame(self.page,bg=self.BG); lower.pack(fill="both",expand=True); lower.columnconfigure((0,1),weight=1,uniform="cards")
+        for col,title,eyebrow,accent,button,fn in [(0,"필터 상태","FILTER INTELLIGENCE",self.TEAL,"필터 업데이트",self.show_filter_updates),(1,"라이선스","GUARDIAN ACCOUNT",self.BLUE,"라이선스 관리",self.show_license_page)]:
+            card=tk.Frame(lower,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=18,pady=16); card.grid(row=0,column=col,sticky="nsew",padx=(0,9) if col==0 else (9,0))
+            self._label(card,eyebrow,8,accent,"bold").pack(anchor="w"); self._label(card,title,14,self.TEXT,"bold").pack(anchor="w",pady=(9,8))
+            if col==0: self.filter_status=self._label(card,"서버 미설정",10,self.AMBER)
+            else: self.license_status=self._label(card,"무료 버전",10,self.MUTED)
+            (self.filter_status if col==0 else self.license_status).pack(anchor="w"); self._button(card,button,fn).pack(anchor="w",pady=(16,0))
+        self._label(self.page,"앱 창을 닫아도 백그라운드 DNS 보호는 유지됩니다.",9,self.MUTED,bg=self.BG).pack(anchor="w",pady=(14,0))
+        self.set_active_ui(self.active,self.status.get())
+    def show_protection_page(self):
+        self._select_nav("protection"); self.page_title.configure(text="보호 설정"); self._clear_page()
+        ready,reason=proxy_readiness_status()
+        card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=20)
+        card.pack(fill="x",pady=(0,14))
+        self._label(card,"GUARDIAN PROTECTION",9,self.TEAL,"bold").pack(anchor="w")
+        self._label(card,"실시간 DNS 보호",18,self.TEXT,"bold").pack(anchor="w",pady=(8,10))
+        self.protection_status_label=self._label(
+            card,"● 보호 중" if self.active and ready else "● 보호 꺼짐" if not self.active else "● 상태 확인 필요",
+            13,self.GREEN if self.active and ready else self.AMBER,"bold")
+        self.protection_status_label.pack(anchor="w")
+        self._label(card,"DNS 응답: "+("정상" if ready else reason),10,self.GREEN if ready else self.AMBER,wraplength=760,justify="left").pack(anchor="w",pady=(6,0))
+        actions=tk.Frame(card,bg=self.PANEL); actions.pack(anchor="w",pady=(16,0))
+        self.protection_start_button=self._button(actions,"보호 시작",self.start_protection,"primary")
+        self.protection_start_button.pack(side="left")
+        self.protection_stop_button=self._button(actions,"보호 중지",self.stop_protection,"danger")
+        self.protection_stop_button.pack(side="left",padx=(8,0))
+        self.set_active_ui(self.active,self.status.get())
+        features=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=18)
+        features.pack(fill="x")
+        self._label(features,"보호 엔진 구성",14,self.TEXT,"bold").pack(anchor="w")
+        for title,detail in [
+            ("광고·추적 도메인 차단","설치된 DNS 필터 규칙을 DNS 질의에 적용합니다."),
+            ("서명 필터 업데이트","검증된 manifest와 공개키를 사용해 규칙을 갱신합니다."),
+            ("백그라운드 보호","앱 창을 닫아도 명시적으로 보호를 중지하기 전까지 DNS 데몬이 유지됩니다."),
+        ]:
+            row=tk.Frame(features,bg=self.PANEL); row.pack(fill="x",pady=(12,0))
+            self._label(row,title,10,self.TEXT,"bold").pack(anchor="w")
+            self._label(row,detail,9,self.MUTED,wraplength=760,justify="left").pack(anchor="w",pady=(3,0))
+
+    def show_app_exclusions_page(self):
+        self._select_nav("app-exclusions"); self.page_title.configure(text="앱 제외"); self._clear_page()
+        card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=20)
+        card.pack(fill="x")
+        self._label(card,"APP EXCLUSIONS",9,self.TEAL,"bold").pack(anchor="w")
+        self._label(card,"Windows 앱별 제외",18,self.TEXT,"bold").pack(anchor="w",pady=(8,10))
+        self._label(card,"현재 Windows 버전은 운영체제 DNS 프록시 방식으로 기기 전체의 DNS 요청을 처리하므로 Android VPN처럼 앱별 트래픽을 식별해 제외하는 기능은 아직 지원하지 않습니다.",11,self.AMBER,wraplength=760,justify="left").pack(anchor="w")
+        self._label(card,"앱별 제외를 지원하는 것처럼 표시하거나 실제로 적용되지 않는 설정을 제공하지 않습니다. Windows Filtering Platform 기반 앱 식별·제외 엔진이 구현되고 검증되면 이 메뉴에 연결합니다.",10,self.MUTED,wraplength=760,justify="left").pack(anchor="w",pady=(10,0))
+
+    def show_activity_page(self):
+        self._select_nav("activity"); self.page_title.configure(text="DNS 활동"); self._clear_page()
+        try: stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
+        except (OSError,ValueError): stats={}
+        values=[
+            ("차단된 DNS 요청",int(stats.get("blocked",0))),
+            ("정상 전달 요청",int(stats.get("forwarded",0))),
+            ("TCP 처리 오류",int(stats.get("tcpErrorCount",0))),
+        ]
+        for title,value in values:
+            card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=18,pady=15)
+            card.pack(fill="x",pady=(0,10))
+            self._label(card,title,10,self.MUTED,"bold").pack(anchor="w")
+            self._label(card,f"{value:,}",23,self.TEAL if "차단" in title else self.TEXT,"bold").pack(anchor="w",pady=(6,0))
+        self._label(self.page,"이 통계는 Windows DNS 데몬이 기록한 실제 처리 카운터입니다. 도메인별 상세 기록은 개인정보 보호를 위해 수집하지 않습니다.",9,self.MUTED,bg=self.BG,wraplength=760,justify="left").pack(anchor="w",pady=(4,0))
+        self._button(self.page,"통계 새로고침",self.show_activity_page).pack(anchor="w",pady=(14,0))
+
+    def show_settings_page(self):
+        self._select_nav("settings"); self.page_title.configure(text="설정"); self._clear_page()
+        sections=[
+            ("일반","앱 동작 및 기본 설정",self.show_general_settings),
+            ("필터링","서명 필터, 필터 규칙과 DNS 필터 서버",self.show_filtering_settings),
+            ("라이선스 및 프리미엄","Guardian Pro 및 기기 라이선스 관리",self.show_license_page),
+            ("고객 지원","도움말과 문제 해결",self.show_support_page),
+            ("정보","앱 버전 및 제품 정보",self.show_about_page),
+            ("종료","Guardian 앱 종료",self.confirm_exit),
+        ]
+        for title,detail,action in sections:
+            card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=20,pady=16)
+            card.pack(fill="x",pady=(0,10))
+            self._label(card,title,13,self.TEXT,"bold").pack(anchor="w")
+            self._label(card,detail,9,self.MUTED,wraplength=720,justify="left").pack(anchor="w",pady=(5,12))
+            self._button(card,"열기",action,"secondary").pack(anchor="w")
+
+    def show_general_settings(self):
+        self._select_nav("settings"); self.page_title.configure(text="일반"); self._clear_page()
+        self._label(self.page,"Guardian Windows 기본 동작",12,self.TEXT,"bold").pack(anchor="w",pady=(0,8))
+        self._label(self.page,"앱 창을 닫아도 DNS 보호 데몬은 백그라운드에서 계속 실행됩니다. 보호를 해제하려면 보호 화면에서 명시적으로 중지하세요.",10,self.MUTED,wraplength=720,justify="left").pack(anchor="w",pady=(0,14))
+        self._button(self.page,"시스템 진단",self.show_diagnostics,"primary").pack(anchor="w")
+
+    def show_filtering_settings(self):
+        self.show_filter_updates()
+
+    def show_support_page(self):
+        self._select_nav("settings"); self.page_title.configure(text="고객 지원"); self._clear_page()
+        self._label(self.page,"도움말 및 문제 해결",14,self.TEXT,"bold").pack(anchor="w")
+        self._label(self.page,"Windows 고객지원 문의 접수 연동은 아직 제공되지 않습니다. 현재는 진단 정보와 시작 로그를 통해 문제를 확인할 수 있습니다.",10,self.MUTED,wraplength=720,justify="left").pack(anchor="w",pady=(8,14))
+        self._button(self.page,"시스템 진단 보기",self.show_diagnostics,"primary").pack(anchor="w")
+
+    def show_about_page(self):
+        self._select_nav("settings"); self.page_title.configure(text="정보"); self._clear_page()
+        self._label(self.page,"Guardian AdBlock for Windows",16,self.TEXT,"bold").pack(anchor="w")
+        self._label(self.page,f"버전 {get_product_version()} · Build {get_product_build_number()} · 개발 빌드",10,self.MUTED).pack(anchor="w",pady=(8,4))
+        self._label(self.page,"주식회사 유진컨설팅",10,self.MUTED).pack(anchor="w")
+        tk.Frame(self.page,bg=self.BORDER,height=1).pack(fill="x",pady=16)
+        self._label(self.page,"Windows 프로그램 업데이트",14,self.TEXT,"bold").pack(anchor="w")
+        self._label(
+            self.page,
+            "공식 Guardian 개발 릴리스에서 새 설치 파일을 확인하고 SHA-256을 검증합니다. 다운로드한 설치 파일을 실행하면 업데이트를 진행할 수 있습니다.",
+            9,self.MUTED,wraplength=740,justify="left"
+        ).pack(anchor="w",pady=(6,10))
+        status=self._label(self.page,"업데이트 확인 전",10,self.MUTED,wraplength=740,justify="left")
+        status.pack(anchor="w",pady=(0,10))
+        state={"update":None,"path":None}
+        actions=tk.Frame(self.page,bg=self.BG); actions.pack(anchor="w")
+        check_button=self._button(actions,"업데이트 확인",lambda:check_update(),"primary")
+        check_button.pack(side="left")
+        download_button=self._button(actions,"설치 파일 다운로드",lambda:download_latest(),"secondary")
+        download_button.configure(state="disabled")
+        download_button.pack(side="left",padx=(8,0))
+        folder_button=self._button(actions,"다운로드 폴더 열기",lambda:open_download_folder(),"secondary")
+        folder_button.configure(state="disabled")
+        folder_button.pack(side="left",padx=(8,0))
+        install_button=self._button(actions,"설치 프로그램 실행",lambda:run_installer(),"primary")
+        install_button.configure(state="disabled")
+        install_button.pack(side="left",padx=(8,0))
+        def check_update():
+            state["update"]=None
+            state["path"]=None
+            check_button.configure(state="disabled")
+            download_button.configure(state="disabled")
+            folder_button.configure(state="disabled")
+            install_button.configure(state="disabled")
+            status.configure(text="공식 Windows 업데이트를 확인하고 있습니다…",fg=self.MUTED)
+            def worker():
+                try:
+                    result=check_for_update(get_product_build_number())
+                    error=None
+                except Exception as exc:
+                    result=None; error=str(exc)
+                def finish():
+                    if not status.winfo_exists(): return
+                    check_button.configure(state="normal")
+                    state["update"]=result
+                    if error:
+                        status.configure(text="업데이트 확인 실패: "+error,fg=self.AMBER)
+                    elif result is None:
+                        status.configure(text="새 Windows 개발 업데이트가 없거나 현재 버전이 최신입니다.",fg=self.MUTED)
+                    else:
+                        status.configure(text=f"새 버전 발견: {result.version_name} · Build {result.build_number}",fg=self.GREEN)
+                        download_button.configure(state="normal")
+                self.root.after(0,finish)
+            threading.Thread(target=worker,name="guardian-windows-update-check",daemon=True).start()
+        def download_latest():
+            update=state.get("update")
+            if update is None: return
+            download_button.configure(state="disabled")
+            status.configure(text="설치 파일 다운로드 및 SHA-256 검증 중…",fg=self.MUTED)
+            def worker():
+                try:
+                    path=download_update(update)
+                    error=None
+                except Exception as exc:
+                    path=None; error=str(exc)
+                def finish():
+                    if not status.winfo_exists(): return
+                    download_button.configure(state="normal" if error else "disabled")
+                    if error:
+                        status.configure(text="업데이트 다운로드 실패: "+error,fg=self.AMBER)
+                    else:
+                        state["path"]=path
+                        folder_button.configure(state="normal")
+                        install_button.configure(state="normal")
+                        status.configure(text=f"다운로드 및 무결성 검증 완료: {path.name}\n설치 프로그램 실행을 누르면 Windows 설치 확인이 시작됩니다.",fg=self.GREEN)
+                self.root.after(0,finish)
+            threading.Thread(target=worker,name="guardian-windows-update-download",daemon=True).start()
+        def open_download_folder():
+            path=state.get("path")
+            if path and path.parent.exists():
+                os.startfile(str(path.parent))
+        def run_installer():
+            path=state.get("path")
+            if path and path.is_file():
+                os.startfile(str(path))
+        tk.Frame(self.page,bg=self.BORDER,height=1).pack(fill="x",pady=16)
+        self._label(self.page,"업데이트 설치 안내",11,self.TEXT,"bold").pack(anchor="w")
+        self._label(
+            self.page,
+            "다운로드한 설치 프로그램은 SHA-256 검증을 통과한 파일입니다. 개발 빌드는 코드 서명이 없을 수 있어 Windows SmartScreen 경고가 표시될 수 있습니다. 설치 전 게시자와 파일 정보를 확인하세요.",
+            9,self.MUTED,wraplength=740,justify="left"
+        ).pack(anchor="w",pady=(5,0))
+
+    def confirm_exit(self):
+        if messagebox.askyesno("Guardian 종료","Guardian 앱 창을 종료하시겠습니까? 백그라운드 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다."):
+            self.close()
+
+    def show_filter_updates(self):
+        self._select_nav("settings"); self.page_title.configure(text="필터링"); self._clear_page()
+        try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
+        except Exception: data={}
+        try: status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
+        except Exception: status={}
+        rules_path=APP_DIR/data.get("rules_file","rules.txt")
+        try: rule_count=len(DomainRules.from_text(rules_path.read_text(encoding="utf-8")).blocked)
+        except Exception: rule_count=0
+        configured=bool(str(data.get("manifest_base_url") or "").strip() and str(data.get("manifest_public_key") or "").strip())
+        card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=20)
+        card.pack(fill="x",pady=(0,14))
+        self._label(card,"FILTER INTELLIGENCE",9,self.TEAL,"bold").pack(anchor="w")
+        self._label(card,"서명 필터 상태",18,self.TEXT,"bold").pack(anchor="w",pady=(8,12))
+        values=[
+            ("필터 서버","설정 완료" if configured else "미설정 · HTTPS 주소와 RSA 공개키 필요"),
+            ("필터 source",str(data.get("filter_source_id") or "adguard")),
+            ("설치된 차단 규칙",f"{rule_count:,}개"),
+            ("마지막 업데이트",time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(status.get("checkedAt",0))) if status.get("checkedAt") else "기록 없음"),
+            ("업데이트 상태",str(status.get("state","not_configured"))),
+        ]
+        for label,value in values:
+            row=tk.Frame(card,bg=self.PANEL); row.pack(fill="x",pady=6)
+            self._label(row,label,9,self.MUTED).pack(anchor="w")
+            self._label(row,value,10,self.GREEN if label=="필터 서버" and configured else (self.AMBER if label=="필터 서버" else self.TEXT),wraplength=760,justify="left").pack(anchor="w",pady=(2,0))
+        actions=tk.Frame(card,bg=self.PANEL); actions.pack(anchor="w",pady=(16,0))
+        self._button(actions,"지금 업데이트",self.update_filters,"primary").pack(side="left")
+        self._button(actions,"필터 서버 설정",self.open_filter_settings).pack(side="left",padx=(8,0))
+        if not configured:
+            self._label(self.page,"현재는 내장 기본 규칙으로 동작합니다. 서명 manifest 서버 주소와 공개키가 등록되기 전까지 원격 필터 업데이트는 실행할 수 없습니다.",9,self.MUTED,bg=self.BG,wraplength=760,justify="left").pack(anchor="w",pady=(4,0))
+
+    def show_license_page(self):
+        self._select_nav("settings"); self.page_title.configure(text="라이선스 및 프리미엄"); self._clear_page()
+        try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
+        except Exception: data={}
+        configured=bool(str(data.get("license_api_base_url") or "").strip() and str(data.get("license_public_key") or "").strip())
+        entitlement=None; error=None
+        if configured:
+            try: entitlement=self._license_client(data).current_entitlement()
+            except Exception as exc: error=str(exc)
+        card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=20)
+        card.pack(fill="x",pady=(0,14))
+        self._label(card,"GUARDIAN ACCOUNT",9,self.BLUE,"bold").pack(anchor="w")
+        self._label(card,"Guardian Pro 라이선스",18,self.TEXT,"bold").pack(anchor="w",pady=(8,12))
+        if entitlement:
+            status="Guardian Pro 활성"
+            detail="만료: "+time.strftime("%Y-%m-%d",time.localtime(entitlement["expiresAt"]))
+            color=self.GREEN
+        elif error:
+            status="라이선스 서버 확인 실패"
+            detail=error
+            color=self.AMBER
+        elif configured:
+            status="무료 버전"
+            detail="이 기기에 활성화된 Pro 라이선스가 없습니다."
+            color=self.MUTED
+        else:
+            status="서버 설정 필요"
+            detail="공통 라이선스 API HTTPS 주소와 RSA 공개키를 등록해야 발급 키 활성화·갱신·기기 해제가 가능합니다."
+            color=self.AMBER
+        self._label(card,status,14,color,"bold").pack(anchor="w")
+        self._label(card,detail,10,self.MUTED,wraplength=760,justify="left").pack(anchor="w",pady=(6,0))
+        actions=tk.Frame(card,bg=self.PANEL); actions.pack(anchor="w",pady=(16,0))
+        self._button(actions,"라이선스 설정 및 활성화",self.open_license_settings,"primary").pack(side="left")
+        self._button(actions,"상태 새로고침",self.show_license_page).pack(side="left",padx=(8,0))
+        self._label(self.page,"Windows와 Android는 동일한 라이선스 계정과 기기 활성화 한도를 공유하도록 설계되어 있습니다.",9,self.MUTED,bg=self.BG,wraplength=760,justify="left").pack(anchor="w",pady=(4,0))
+
+    def show_diagnostics(self):
+        self._select_nav("settings"); self.page_title.configure(text="시스템 진단"); self._clear_page()
+        panel=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=20,pady=18); panel.pack(fill="both",expand=True)
+        header=tk.Frame(panel,bg=self.PANEL); header.pack(fill="x")
+        self._label(header,"시스템 진단",16,self.TEXT,"bold").pack(side="left")
+        self._button(header,"진단 새로고침",self.show_diagnostics).pack(side="right")
+        ready,reason=proxy_readiness_status()
+        health_data={}
+        try: health_data=json.loads(HEALTH.read_text(encoding="utf-8"))
+        except Exception: pass
+        try: config_data=json.loads(CONFIG.read_text(encoding="utf-8"))
+        except Exception: config_data={}
+        heartbeat_age=max(0.0,time.time()-float(health_data.get("heartbeatAt",0) or 0))
+        pid_running=daemon_process_is_running(HEALTH)
+        filter_configured=bool(config_data.get("manifest_base_url","").strip() and config_data.get("manifest_public_key","").strip())
+        license_configured=bool(config_data.get("license_api_base_url","").strip() and config_data.get("license_public_key","").strip())
+        rules_path=APP_DIR/config_data.get("rules_file","rules.txt")
+        try: rule_count=len(DomainRules.from_text(rules_path.read_text(encoding="utf-8")).blocked)
+        except Exception: rule_count=0
+        rows=[
+            ("DNS 응답", "정상" if ready else "실패 · "+reason),
+            ("백그라운드 PID",str(health_data.get("pid","확인 불가"))+" · "+("실행 중" if pid_running else "확인 실패")),
+            ("Heartbeat 경과",f"{heartbeat_age:.1f}초"),
+            ("필터 서버", "연결 설정 완료" if filter_configured else "HTTPS 주소/서명 공개키 설정 필요"),
+            ("라이선스 서버", "연결 설정 완료" if license_configured else "HTTPS 주소/공개키 설정 필요"),
+            ("로컬 차단 규칙",f"{rule_count:,}개"),
+            ("애플리케이션 데이터",str(APP_DIR)),
+            ("DNS 백업","보존됨" if BACKUP.exists() else "없음"),
+            ("보호 상태 파일","존재" if STATE.exists() else "없음"),
+            ("DNS 작업 이름",TASK_NAME),
+            ("시작 로그",str(APP_DIR/"daemon-startup.log")),
+        ]
+        for label,value in rows:
+            row=tk.Frame(panel,bg=self.PANEL); row.pack(fill="x",pady=6)
+            self._label(row,label,9,self.MUTED).pack(anchor="w")
+            self._label(row,value,9,self.GREEN if label=="DNS 응답" and ready else (self.AMBER if label=="DNS 응답" else self.TEXT),wraplength=760,justify="left").pack(anchor="w",pady=(3,0))
+        def copy_diagnostics():
+            report=daemon_startup_diagnostics()+"\\n\\nDNS readiness: "+reason
+            self.root.clipboard_clear(); self.root.clipboard_append(report); self.root.update_idletasks()
+            messagebox.showinfo("진단 정보","진단 내용을 클립보드에 복사했습니다.")
+        actions=tk.Frame(panel,bg=self.PANEL); actions.pack(fill="x",pady=(14,0))
+        self._button(actions,"진단 내용 복사",copy_diagnostics).pack(side="left")
+        self._button(actions,"시작 로그 폴더 열기",lambda:os.startfile(str(APP_DIR))).pack(side="left",padx=(8,0))
     def set_active_ui(self,active,label=None):
-        self.active=active; self.status.set(label or ("보호 실행 중" if active else "보호 꺼짐"))
-        self.status_label.configure(fg="#54d69b" if active else "#f3b64a")
-        self.start_button.configure(state="disabled" if active else "normal"); self.stop_button.configure(state="normal" if active else "disabled")
+        self.active=active
+        current=label or ("보호 중" if active else "보호 꺼짐")
+        self.status.set(current)
+        if hasattr(self,"top_status") and self.top_status.winfo_exists():
+            self.top_status.configure(text=("●  보호 중 · " if active else "●  보호 꺼짐 · ")+current,
+                                      fg=self.GREEN if active else self.AMBER)
+        if hasattr(self,"hero_status") and self.hero_status.winfo_exists():
+            self.hero_status.configure(text=current,fg=self.GREEN if active else self.AMBER)
+        if hasattr(self,"hero_description") and self.hero_description.winfo_exists():
+            self.hero_description.configure(
+                text="DNS 보호 엔진이 실행 중입니다. 광고·추적 도메인을 차단하고 있습니다."
+                if active else "보호가 꺼져 있습니다. 시작 버튼을 눌러 DNS 보호를 활성화하세요.",
+                fg=self.GREEN if active else self.MUTED)
+        if hasattr(self,"protection_status_label") and self.protection_status_label.winfo_exists():
+            self.protection_status_label.configure(
+                text=("● 보호 중" if active else "● 보호 꺼짐"),
+                fg=self.GREEN if active else self.AMBER)
+        for start_name,stop_name in (
+            ("start_button","stop_button"),
+            ("protection_start_button","protection_stop_button")
+        ):
+            start=getattr(self,start_name,None); stop=getattr(self,stop_name,None)
+            if start is not None and start.winfo_exists():
+                start.configure(state="disabled" if active else "normal",
+                                bg="#334155" if active else "#16A34A",
+                                fg="#D1D5DB" if active else "#FFFFFF",
+                                disabledforeground="#D1D5DB")
+            if stop is not None and stop.winfo_exists():
+                stop.configure(state="normal" if active else "disabled",
+                               bg="#DC2626" if active else "#334155",
+                               fg="#FFFFFF" if active else "#D1D5DB",
+                               disabledforeground="#D1D5DB")
     def recover_previous_state(self):
         if BACKUP.exists():
             try:
@@ -146,13 +769,13 @@ class GuardianDesktop:
                     try: self.manager.restore(); write_state(False)
                     except Exception: pass
                 self.start_button.configure(state="disabled")
-                messagebox.showerror("Guardian DNS 복구",f"이전 보호 상태를 자동 복구하지 못했습니다. DNS 백업을 보존했습니다.\n\n{exc}")
+                self.show_error("Guardian DNS 복구",f"이전 보호 상태를 자동 복구하지 못했습니다. DNS 백업을 보존했습니다.\n\n{exc}")
         elif STATE.exists():
             write_state(False)
             try: stop_daemon()
             except Exception as exc:
                 self.set_active_ui(False,"보호 꺼짐 · 백그라운드 종료 확인 필요")
-                messagebox.showerror("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
+                self.show_error("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\n\n{exc}")
     def start_protection(self):
         if self.active: return
         try:
@@ -168,26 +791,26 @@ class GuardianDesktop:
                 try: stop_daemon()
                 except Exception as stop_error:
                     self.set_active_ui(False,"보호 시작 실패 · 백그라운드 종료 확인 필요")
-                    messagebox.showerror("Guardian 보호 시작 실패",f"{exc}\\n\\n백그라운드 종료 실패: {stop_error}")
+                    self.show_error("Guardian 보호 시작 실패",f"{exc}\n\n백그라운드 종료 실패: {stop_error}")
                     return
                 self.set_active_ui(False,"보호 시작 실패")
-            messagebox.showerror("Guardian 보호 시작 실패",str(exc))
+            self.show_error("Guardian 보호 시작 실패",str(exc))
     def stop_protection(self):
         if not self.active and not BACKUP.exists(): return
         try: self.manager.restore()
         except Exception as exc:
             self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
-            messagebox.showerror("DNS 복구 실패",f"백그라운드 DNS 프록시를 계속 유지하고 백업을 보존했습니다.\n\n{exc}"); return
+            self.show_error("DNS 복구 실패",f"백그라운드 DNS 프록시를 계속 유지하고 백업을 보존했습니다.\n\n{exc}"); return
         write_state(False)
         try: stop_daemon()
         except Exception as exc:
             self.set_active_ui(False,"DNS 복구 완료 · 백그라운드 종료 확인 필요")
-            messagebox.showerror("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
+            self.show_error("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\n\n{exc}")
             return
         self.set_active_ui(False)
     def open_filter_settings(self):
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
-        except Exception as exc: messagebox.showerror("필터 서버 설정",str(exc)); return
+        except Exception as exc: self.show_error("필터 서버 설정",str(exc)); return
         dialog=tk.Toplevel(self.root); dialog.title("서명 필터 서버 설정"); dialog.geometry("560x360"); dialog.configure(bg="#101820")
         tk.Label(dialog,text="HTTPS manifest 기본 주소",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(14,2))
         base=tk.Entry(dialog,width=72); base.insert(0,data.get("manifest_base_url","")); base.pack(fill="x",padx=16)
@@ -205,7 +828,7 @@ class GuardianDesktop:
         public_key=data.get("license_public_key","").strip()
         if not base or not public_key:
             raise LicenseClientError("라이선스 API HTTPS 주소와 RSA 공개키를 먼저 설정하세요.")
-        return WindowsLicenseClient(base,public_key,APP_DIR,app_version="0.1.0-dev")
+        return WindowsLicenseClient(base,public_key,APP_DIR,app_version=get_product_version())
     def refresh_license_status(self):
         try:
             data=json.loads(CONFIG.read_text(encoding="utf-8")) if CONFIG.exists() else {}
@@ -219,7 +842,7 @@ class GuardianDesktop:
             self.license_status.configure(text="라이선스: 설정 필요",fg="#f3b64a")
     def open_license_settings(self):
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
-        except Exception as exc: messagebox.showerror("Guardian 라이선스",str(exc)); return
+        except Exception as exc: self.show_error("Guardian 라이선스",str(exc)); return
         dialog=tk.Toplevel(self.root); dialog.title("Guardian 공통 라이선스"); dialog.geometry("620x520"); dialog.configure(bg="#101820")
         tk.Label(dialog,text="공통 라이선스 API HTTPS 주소",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(14,2))
         base=tk.Entry(dialog); base.insert(0,data.get("license_api_base_url","")); base.pack(fill="x",padx=16)
@@ -272,18 +895,29 @@ class GuardianDesktop:
             status={"state":"updated","sourceVersion":result["sourceVersion"],"checkedAt":time.time()}
             tmp=APP_DIR/"filter-update-status.tmp"; tmp.write_text(json.dumps(status),encoding="utf-8"); os.replace(tmp,APP_DIR/"filter-update-status.json")
             messagebox.showinfo("필터 업데이트 완료",f"서명 검증 및 SHA-256 확인 완료\n버전: {result['sourceVersion']}\n차단 규칙: {len(DomainRules.from_text(rules_path.read_text(encoding='utf-8')).blocked):,}개")
-        except Exception as exc: messagebox.showerror("필터 업데이트 실패",str(exc))
+        except Exception as exc:
+            try:
+                status={"state":"error","message":str(exc),"checkedAt":time.time()}
+                tmp=APP_DIR/"filter-update-status.tmp"
+                tmp.write_text(json.dumps(status,ensure_ascii=False),encoding="utf-8")
+                os.replace(tmp,APP_DIR/"filter-update-status.json")
+            except OSError:
+                pass
+            self.show_error("필터 업데이트 실패",str(exc))
     def refresh(self):
         try:
             stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
-            self.stats.configure(text=f"광고/추적 차단 {int(stats.get('blocked',0)):,}건  |  정상 전달 {int(stats.get('forwarded',0)):,}건")
-        except (OSError,ValueError,TypeError): pass
+            if hasattr(self,"blocked_value"): self.blocked_value[1].configure(text=f"{int(stats.get('blocked',0)):,}")
+            if hasattr(self,"forwarded_value"): self.forwarded_value[1].configure(text=f"{int(stats.get('forwarded',0)):,}")
+            if hasattr(self,"adapters_value"): self.adapters_value[1].configure(text="보호 중" if self.active else "대기 중")
+        except (OSError,ValueError,TypeError,KeyError): pass
         try:
             status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
-            label={"updated":"서명 필터 업데이트 완료","current":"최신 필터 사용 중","error":"필터 업데이트 오류"}.get(status.get("state"),"필터 업데이트 상태 확인 필요")
-            version=status.get("sourceVersion","")
-            self.filter_status.configure(text=f"{label} {version}".strip(),fg="#54d69b" if status.get("state") in ("updated","current") else "#ff9b85")
+            label={"updated":"서명 필터 업데이트 완료","current":"최신 필터 사용 중","error":"필터 업데이트 오류"}.get(status.get("state"),"필터 상태 확인 필요")
+            if hasattr(self,"filter_status"):
+                self.filter_status.configure(text=f"{label} {status.get('sourceVersion','')}".strip(),fg=self.GREEN if status.get("state") in ("updated","current") else self.AMBER)
         except (OSError,ValueError,TypeError): pass
+        if hasattr(self,"top_status"): self.set_active_ui(self.active,self.status.get())
         self.root.after(1000,self.refresh)
     def close(self):
         self.root.destroy()  # Background DNS task intentionally continues until explicit Stop.

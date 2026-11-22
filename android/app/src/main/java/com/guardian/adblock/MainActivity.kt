@@ -143,7 +143,7 @@ class MainActivity : Activity() {
         }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
         showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
-        if (restoredTab == "rules") {
+        if (restoredTab == "settings-filtering") {
             retainedRuleDraft?.let { draft ->
                 blockRulesInput.setText(draft.blockRules)
                 allowRulesInput.setText(draft.allowRules)
@@ -154,7 +154,7 @@ class MainActivity : Activity() {
                 scroll.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
                     override fun onGlobalLayout() {
                         scroll.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                        if (restoredTab == "rules" && retainedRuleDraft != null) {
+                        if (restoredTab == "settings-filtering" && retainedRuleDraft != null) {
                             val editorBounds = android.graphics.Rect()
                             blockRulesInput.getDrawingRect(editorBounds)
                             scroll.offsetDescendantRectToMyCoords(blockRulesInput, editorBounds)
@@ -288,7 +288,7 @@ class MainActivity : Activity() {
     private data class RuleEditorDraft(val blockRules: String, val allowRules: String)
 
     override fun onRetainNonConfigurationInstance(): Any? {
-        if (currentTab != "rules" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
+        if (currentTab != "settings-filtering" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
         val draft = RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
         android.util.Log.i("GuardianUI", "Retaining rule editor draft; blockChars=${draft.blockRules.length} allowChars=${draft.allowRules.length}")
         return draft
@@ -339,8 +339,8 @@ class MainActivity : Activity() {
         checkStartupFilterReadiness()
         if (usageAccessSettingsOpened) {
             usageAccessSettingsOpened = false
-            if (currentTab == "settings") {
-                showTab("settings")
+            if (currentTab.startsWith("settings")) {
+                showTab("settings-general")
                 refreshStatus()
             }
         }
@@ -462,8 +462,8 @@ class MainActivity : Activity() {
         focusAppExclusions: Boolean = false
     ) {
         currentTab = tab
-        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings"
-        focusAppExclusionsOnBuild = focusAppExclusions && tab == "settings"
+        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings-general"
+        focusAppExclusionsOnBuild = focusAppExclusions && tab == "app-exclusions"
         licenseKeyInput = null
         startButton = null
         protectionStatusText = null
@@ -523,16 +523,39 @@ class MainActivity : Activity() {
         when (tab) {
             "home" -> buildHome(body)
             "protection" -> buildProtection(body)
-            "rules" -> buildRules(body)
             "activity" -> buildActivity(body)
-            "premium" -> buildPremium(body)
+            "settings-general" -> buildSettings(body)
+            "settings-filtering" -> {
+                body.addView(text("필터링", 25f, white, true))
+                body.addView(text("보호 정책과 필터 규칙을 함께 관리합니다.", 13f, muted, false).withTop(5))
+                buildProtection(body)
+                buildRules(body)
+            }
+            "settings-premium" -> buildPremium(body)
+            "settings-support" -> {
+                body.addView(text("고객 지원", 25f, white, true))
+                body.addView(buildSupportCenterCard().withTop(12))
+            }
+            "settings-about" -> {
+                body.addView(text("정보", 25f, white, true))
+                body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent).withTop(12))
+                body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
+            }
+            "settings-exit" -> {
+                buildSettingsLanding(body)
+                AlertDialog.Builder(this).setTitle("Guardian 종료")
+                    .setMessage("앱을 종료하시겠습니까? 실행 중인 DNS 보호는 종료 후에도 유지됩니다.")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("종료") { _, _ -> finish() }.show()
+            }
             "app-exclusions" -> {
                 body.addView(text("앱 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
                 buildAppExclusions(body)
             }
-            else -> buildSettings(body)
+            else -> buildSettingsLanding(body)
         }
+        val navSelection = if (tab.startsWith("settings-")) "settings" else tab
         val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
         val contentWidth = ResponsiveLayoutPolicy.contentWidthPx(
             ResponsiveLayoutPolicy.contentAreaWidthDp(screenWidthDp),
@@ -546,7 +569,7 @@ class MainActivity : Activity() {
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL
             )
         )
-        if (focusLicenseActivationOnBuild && tab == "settings") {
+        if (focusLicenseActivationOnBuild && tab == "settings-general") {
             scroll.post {
                 licenseKeyInput?.let { input ->
                     val bounds = android.graphics.Rect()
@@ -563,7 +586,7 @@ class MainActivity : Activity() {
             }
         }
 
-        if (focusAppExclusionsOnBuild && tab == "settings") {
+        if (focusAppExclusionsOnBuild && tab == "app-exclusions") {
             window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
             scroll.post {
                 appExclusionsSearchInput?.let { input ->
@@ -585,12 +608,12 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
                 setBackgroundColor(bg)
             }
-            workspace.addView(bottomNav(tab, asRail = true), LinearLayout.LayoutParams(dp(88), -1))
+            workspace.addView(bottomNav(navSelection, asRail = true), LinearLayout.LayoutParams(dp(88), -1))
             workspace.addView(scroll, LinearLayout.LayoutParams(0, -1, 1f))
             root.addView(workspace, LinearLayout.LayoutParams(-1, 0, 1f))
         } else {
             root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-            root.addView(bottomNav(tab))
+            root.addView(bottomNav(navSelection))
         }
         setContentView(root)
         root.requestApplyInsets()
@@ -1196,7 +1219,7 @@ class MainActivity : Activity() {
             addView(text(profile.label, 15f, white, true).withTop(6))
             addView(text(filterStatusDescription(), 11f, muted, false).withTop(6))
             addView(text(
-                "필터 규칙과 앱별 보호 제외는 하단 메뉴에서 각각 관리합니다.",
+                "필터 규칙은 설정의 필터링에서, 앱별 보호 제외는 앱 제외 메뉴에서 관리합니다.",
                 11f, muted, false
             ).withTop(12))
         }.withTop(18))
@@ -1372,7 +1395,7 @@ class MainActivity : Activity() {
                 setTextColor(bg)
                 background = shape(accent, 12)
                 setOnClickListener {
-                    showTab("settings", focusLicenseActivation = true)
+                    showTab("settings-general", focusLicenseActivation = true)
                 }
             }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
         }.withTop(16))
@@ -1448,12 +1471,33 @@ class MainActivity : Activity() {
         ).withTop(14))
     }
 
-    private fun buildSettings(body: LinearLayout) {
+    private fun buildSettingsLanding(body: LinearLayout) {
         body.addView(text("설정", 25f, white, true))
-        body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
-        body.addView(buildSupportCenterCard().withTop(12))
-        body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
-        body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
+        body.addView(text("Guardian의 세부 기능과 계정, 지원 정보를 관리합니다.", 13f, muted, false).withTop(5))
+        val sections = listOf(
+            Triple("일반", "앱 동작, DNS 서버 및 기본 설정", "settings-general"),
+            Triple("필터링", "보호 정책, 필터 목록과 사용자 규칙", "settings-filtering"),
+            Triple("라이선스 및 프리미엄", "Guardian Pro, 라이선스 활성화와 기기 관리", "settings-premium"),
+            Triple("고객 지원", "FAQ, 문의 접수 및 답변 확인", "settings-support"),
+            Triple("정보", "앱 버전, 업데이트 및 제품 정보", "settings-about"),
+            Triple("종료", "Guardian 앱 종료", "settings-exit")
+        )
+        sections.forEach { (title, detail, target) ->
+            body.addView(card(panel, 14).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(15), dp(14), dp(15), dp(14))
+                addView(text(title, 15f, white, true))
+                addView(text(detail, 11f, muted, false).withTop(5))
+                contentDescription = title
+                isClickable = true
+                setOnClickListener { showTab(target) }
+            }.withTop(9))
+        }
+    }
+
+    private fun buildSettings(body: LinearLayout) {
+        body.addView(text("일반", 25f, white, true))
+        body.addView(text("앱 동작과 네트워크 연결의 기본 설정을 관리합니다.", 13f, muted, false).withTop(5))
         if (BuildConfig.DEBUG) {
             val updateStatus = text(
                 "설정 화면 진입 시 주기 확인 · 현재 개발 버전 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
@@ -2317,11 +2361,9 @@ class MainActivity : Activity() {
         }
         val items = listOf(
             Triple("home", "⌂", "홈"),
-            Triple("protection", "◈", "보호 설정"),
+            Triple("protection", "◈", "보호"),
             Triple("app-exclusions", "◉", "앱 제외"),
-            Triple("activity", "▤", "DNS 활동"),
-            Triple("premium", "✦", "프리미엄"),
-            Triple("rules", "≡", "필터 규칙"),
+            Triple("activity", "▤", "활동"),
             Triple("settings", "⚙", "설정")
         )
         items.forEach { (id, icon, label) ->

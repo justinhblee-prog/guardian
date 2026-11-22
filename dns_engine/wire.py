@@ -38,6 +38,25 @@ def parse_question(packet: bytes):
     if qclass!=1: raise DnsFormatError("only IN class supported")
     return name,qtype,qclass,end+4
 
+def make_query(name: str, ident: int = 0x6A31):
+    """Build a standards-compliant single-question IN/A DNS query."""
+    normalized=name.rstrip(".").lower()
+    labels=normalized.split(".")
+    if not normalized or any(not label for label in labels):
+        raise DnsFormatError("invalid DNS query name")
+    encoded=[]
+    total=1
+    for label in labels:
+        try: raw=label.encode("ascii")
+        except UnicodeEncodeError as exc: raise DnsFormatError("non-ASCII DNS label") from exc
+        if len(raw)>63: raise DnsFormatError("DNS label too long")
+        total+=len(raw)+1
+        if total>255: raise DnsFormatError("DNS name too long")
+        encoded.append(bytes((len(raw),))+raw)
+    qname=b"".join(encoded)+b"\0"
+    return struct.pack("!HHHHHH",ident&0xFFFF,0x0100,1,0,0,0)+qname+struct.pack("!HH",1,1)
+
+
 def make_nxdomain(query: bytes):
     parse_question(query)
     ident,flags,qdcount,_,_,_=struct.unpack("!HHHHHH",query[:12])
