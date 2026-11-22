@@ -171,6 +171,27 @@ function renderLicenses() {
       if (!devicePanel.hidden) await loadActivations(item, devicePanel);
     });
     actions.append(deviceButton);
+    if (status !== "revoked") {
+      const extendButton = createButton("기간 연장", "secondary", async () => {
+        const raw = prompt("연장할 기간을 일 단위로 입력하세요. (1~36500일)", "30");
+        if (raw === null) return;
+        const days = Number(raw.trim());
+        if (!Number.isInteger(days) || days < 1 || days > 36500) {
+          statusText("연장 기간은 1~36500일의 정수여야 합니다.", "error");
+          return;
+        }
+        if (!confirm(`${days}일 연장할까요? 만료된 라이선스는 오늘부터 연장됩니다.`)) return;
+        extendButton.disabled = true;
+        const succeeded = await mutateAndReload(
+          () => api(`/v1/admin/licenses/${encodeURIComponent(item.id)}/extend`, {
+            method: "POST", body: JSON.stringify({ validDays: days })
+          }),
+          `라이선스를 ${days}일 연장했습니다.`
+        );
+        if (!succeeded) extendButton.disabled = false;
+      });
+      actions.append(extendButton);
+    }
     if (status === "active") {
       const revokeButton = createButton("라이선스 정지", "danger", async () => {
         if (!confirm("이 라이선스를 정지하고 활성 기기를 모두 해제할까요?")) return;
