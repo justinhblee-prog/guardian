@@ -261,7 +261,8 @@ function renderEvents() {
     activated: ["기기 활성화", "A"],
     deactivated: ["기기 비활성화", "−"],
     admin_device_deactivated: ["관리자 기기 해제", "−"],
-    revoked: ["라이선스 정지", "!"]
+    revoked: ["라이선스 정지", "!"],
+    extended: ["기간 연장", "↻"]
   };
   for (const item of eventItems) {
     const row = document.createElement("div");
