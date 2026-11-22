@@ -248,7 +248,7 @@ jobs:
           INTEGRITY_RESULT: ${{ needs.repository-integrity.result }}
           MOBILE_RESULT: ${{ needs.mobile-contracts.result }}
         run: |
-          printf 'Android=%s Backend=%s MobileContracts=%s Integrity=%s\\n' "$ANDROID_RESULT" "$BACKEND_RESULT" "$MOBILE_RESULT" "$INTEGRITY_RESULT"
+          printf 'Android=%s Backend=%s MobileContracts=%s Integrity=%s\n' "$ANDROID_RESULT" "$BACKEND_RESULT" "$MOBILE_RESULT" "$INTEGRITY_RESULT"
           {
             echo "## Guardian engineering decision"
             echo "- Android build/tests/lint: $ANDROID_RESULT"
