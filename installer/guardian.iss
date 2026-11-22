@@ -38,7 +38,7 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch Guardian AdBlock"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--restore-dns"; RunOnceId: "GuardianRestoreDns"; Flags: runhidden waituntilterminated
+Filename: "{app}\GuardianMaintenance\GuardianMaintenance.exe"; Parameters: "--restore-dns"; RunOnceId: "GuardianRestoreDns"; Flags: runhidden waituntilterminated
 Filename: "{sys}\schtasks.exe"; Parameters: "/End /TN GuardianDnsProxy"; RunOnceId: "GuardianEndDnsTask"; Flags: runhidden waituntilterminated
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN GuardianDnsProxy /F"; RunOnceId: "GuardianDeleteDnsTask"; Flags: runhidden waituntilterminated
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ""Unregister-ScheduledTask -TaskName 'GuardianDnsProxy' -Confirm:$false -ErrorAction SilentlyContinue"""; RunOnceId: "GuardianUnregisterDnsTask"; Flags: runhidden waituntilterminated
@@ -62,7 +62,7 @@ function InitializeUninstall(): Boolean;
 var
   ResultCode: Integer;
 begin
-  Result := Exec(ExpandConstant('{app}\GuardianAdBlock.exe'), '--restore-dns', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := Exec(ExpandConstant('{app}\GuardianMaintenance\GuardianMaintenance.exe'), '--restore-dns', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   if (not Result) or (ResultCode <> 0) then begin
     MsgBox('Guardian could not restore the original DNS settings. Uninstall is cancelled to avoid leaving network settings changed.', mbError, MB_OK);
     Result := False;
