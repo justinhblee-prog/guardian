@@ -7,6 +7,7 @@ let licenseItems = [];
 let eventItems = [];
 let customerItems = [];
 let supportItems = [];
+let updateItems = [];
 let loading = false;
 const $ = id => document.getElementById(id);
 
@@ -38,7 +39,7 @@ async function api(path, options = {}) {
 
 function setBusy(value) {
   loading = value;
-  for (const id of ["connect", "issue", "refresh", "disconnect"]) $(id).disabled = value;
+  for (const id of ["connect", "issue", "refresh", "disconnect", "publishUpdate", "refreshUpdates"]) $(id).disabled = value;
 }
 
 function renderSummary() {
@@ -265,6 +266,31 @@ function renderEvents() {
   }
 }
 
+function renderUpdates() {
+  const root = $("updates");
+  root.replaceChildren();
+  if (!updateItems.length) {
+    const empty = document.createElement("div"); empty.className = "empty";
+    empty.textContent = "게시된 제품 업데이트가 없습니다."; root.append(empty); return;
+  }
+  for (const item of updateItems) {
+    const card = document.createElement("article"); card.className = "license-card";
+    const top = document.createElement("div"); top.className = "license-top";
+    const title = document.createElement("strong");
+    title.textContent = `${item.platform === "android" ? "Android" : "Windows"} · ${item.version}`;
+    const pill = document.createElement("span"); pill.className = "pill active";
+    pill.textContent = `${item.channel === "stable" ? "정식" : "베타"}${item.mandatory ? " · 필수" : ""}`;
+    top.append(title, pill);
+    const meta = document.createElement("div"); meta.className = "license-meta";
+    const min = document.createElement("span"); min.textContent = `최소 지원: ${item.min_supported_version || "제한 없음"}`;
+    const date = document.createElement("span"); date.textContent = `게시: ${dateLabel(item.published_at)}`;
+    const hash = document.createElement("span"); hash.textContent = `SHA-256: ${item.sha256}`;
+    const url = document.createElement("span"); url.textContent = item.download_url;
+    const notes = document.createElement("p"); notes.className = "notice"; notes.textContent = item.release_notes || "릴리스 노트 없음";
+    meta.append(min, date, hash, url); card.append(top, meta, notes); root.append(card);
+  }
+}
+
 function renderSupportTickets() {
   const root = $("supportTickets");
   root.replaceChildren();
@@ -328,17 +354,20 @@ async function load() {
       api("/v1/admin/licenses"),
       api("/v1/admin/events"),
       api("/v1/admin/customers"),
-      api("/v1/admin/support/tickets")
+      api("/v1/admin/support/tickets"),
+      api("/v1/admin/updates")
     ]);
     licenseItems = licenses.licenses || [];
     eventItems = audit.events || [];
     customerItems = customers.customers || [];
     supportItems = support.tickets || [];
+    updateItems = updates.updates || [];
     renderSummary();
     renderLicenses();
     renderEvents();
     renderCustomers();
     renderSupportTickets();
+    renderUpdates();
     $("dashboard").hidden = false;
     $("authPanel").hidden = true;
     setStatus("관리자 인증 성공", "ok");
@@ -430,7 +459,42 @@ $("copy").addEventListener("click", async () => {
   }
 });
 
-$("refresh").addEventListener("click", async () => {
+
+$("publishUpdate").addEventListener("click", async () => {
+  if (!adminToken || loading) { statusText("먼저 관리자 인증을 진행하세요.", "error"); return; }
+  const payload = {
+    platform: $("updatePlatform").value,
+    channel: $("updateChannel").value,
+    version: $("updateVersion").value.trim(),
+    minSupportedVersion: $("updateMinVersion").value.trim(),
+    downloadUrl: $("updateDownloadUrl").value.trim(),
+    sha256: $("updateSha256").value.trim().toLowerCase(),
+    mandatory: $("updateMandatory").checked,
+    releaseNotes: $("updateNotes").value.trim()
+  };
+  if (!/^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(payload.version) ||
+      (payload.minSupportedVersion && !/^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(payload.minSupportedVersion)) ||
+      !/^https:\\/\\//i.test(payload.downloadUrl) || !/^[a-f0-9]{64}$/.test(payload.sha256)) {
+    statusText("버전, HTTPS 다운로드 주소, 64자리 SHA-256을 확인하세요.", "error"); return;
+  }
+  setBusy(true);
+  try {
+    await api("/v1/admin/updates", { method: "POST", body: JSON.stringify(payload) });
+    statusText("제품 업데이트를 게시했습니다.", "ok");
+    $("updateVersion").value = ""; $("updateDownloadUrl").value = ""; $("updateSha256").value = "";
+    $("updateNotes").value = ""; $("updateMandatory").checked = false;
+  } catch (error) { statusText(error.message, "error"); }
+  finally { setBusy(false); }
+  try {
+    const result = await api("/v1/admin/updates");
+    updateItems = result.updates || []; renderUpdates();
+  } catch (error) { statusText(error.message, "error"); }
+});
+$("refreshUpdates").addEventListener("click", async () => {
+  try { const result = await api("/v1/admin/updates"); updateItems = result.updates || []; renderUpdates(); statusText("업데이트 목록을 새로고침했습니다.", "ok"); }
+  catch (error) { statusText(error.message, "error"); }
+});
+\n$("refresh").addEventListener("click", async () => {
   try { await load(); }
   catch { /* The status line already contains the API error. */ }
 });
