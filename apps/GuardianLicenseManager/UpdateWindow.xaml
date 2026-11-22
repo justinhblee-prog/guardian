@@ -5,7 +5,7 @@
         MinHeight="600" MinWidth="760" WindowStartupLocation="CenterOwner"
         Background="#0B1424" Foreground="#F1F6FF">
   <Grid Margin="18">
-    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel Grid.Row="0" Margin="0,0,0,16">
       <TextBlock Text="제품 업데이트 관리" FontSize="22" FontWeight="Bold"/>
       <TextBlock Text="Android / Windows 배포 버전, 다운로드 주소, SHA-256 및 강제 업데이트 정책을 관리합니다." Foreground="#9FB0C8" Margin="0,5,0,0" TextWrapping="Wrap"/>
