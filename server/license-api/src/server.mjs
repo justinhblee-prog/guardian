@@ -15,6 +15,8 @@ const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1';
 const DATABASE_URL = process.env.DATABASE_URL;
 const ADMIN_TOKEN = process.env.GUARDIAN_ADMIN_TOKEN;
+let ACTIVE_ADMIN_TOKEN_HASH = null;
+let ADMIN_AUTH_READY = typeof ADMIN_TOKEN === 'string' && ADMIN_TOKEN.length >= 32;
 const PRIVATE_KEY = process.env.GUARDIAN_LICENSE_PRIVATE_KEY;
 const LOOKUP_SECRET = process.env.GUARDIAN_LICENSE_LOOKUP_SECRET;
 const TOKEN_TTL_SECONDS = 24 * 60 * 60;
@@ -82,16 +84,71 @@ async function readBody(req) {
   }
   return parsed;
 }
+function hashAdminToken(token) {
+  return createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
+// The database stores only a SHA-256 verifier. The random bearer token is
+// printed once during first boot; replicas use INSERT ... ON CONFLICT to avoid
+// generating different credentials during concurrent startup.
+async function initializeAdminAuth({ configuredToken = ADMIN_TOKEN, logToken = token => {
+  console.warn('\n[GUARDIAN ADMIN INITIAL TOKEN] Save this token in a password manager. It is shown only once.\n' + token + '\n');
+} } = {}) {
+  if (!pool) throw new Error('관리자 인증 자동 초기화에는 PostgreSQL이 필요합니다.');
+  if (typeof configuredToken === 'string' && configuredToken.length >= 32) {
+    const tokenHash = hashAdminToken(configuredToken);
+    await pool.query(
+      `INSERT INTO admin_credentials(singleton_id, token_hash)
+       VALUES(1,$1)
+       ON CONFLICT(singleton_id) DO UPDATE SET token_hash=EXCLUDED.token_hash, updated_at=now()`,
+      [tokenHash]
+    );
+    ACTIVE_ADMIN_TOKEN_HASH = tokenHash;
+    ADMIN_AUTH_READY = true;
+    return { generated: false, tokenHash };
+  }
+
+  const existing = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
+  if (existing.rowCount) {
+    ACTIVE_ADMIN_TOKEN_HASH = existing.rows[0].token_hash;
+    ADMIN_AUTH_READY = true;
+    return { generated: false, tokenHash: ACTIVE_ADMIN_TOKEN_HASH };
+  }
+
+  const token = randomBytes(32).toString('base64url');
+  const tokenHash = hashAdminToken(token);
+  const inserted = await pool.query(
+    `INSERT INTO admin_credentials(singleton_id, token_hash)
+     VALUES(1,$1) ON CONFLICT(singleton_id) DO NOTHING RETURNING token_hash`,
+    [tokenHash]
+  );
+  if (inserted.rowCount) {
+    ACTIVE_ADMIN_TOKEN_HASH = inserted.rows[0].token_hash;
+    ADMIN_AUTH_READY = true;
+    logToken(token);
+    return { generated: true, tokenHash: ACTIVE_ADMIN_TOKEN_HASH };
+  }
+
+  const winner = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
+  if (!winner.rowCount) throw new Error('관리자 인증 초기화 결과를 확인할 수 없습니다.');
+  ACTIVE_ADMIN_TOKEN_HASH = winner.rows[0].token_hash;
+  ADMIN_AUTH_READY = true;
+  return { generated: false, tokenHash: ACTIVE_ADMIN_TOKEN_HASH };
+}
+
 function requireEnv() {
   if (!pool) throw Object.assign(new Error('서버 데이터베이스가 구성되지 않았습니다.'), { status: 503 });
   if (!LOOKUP_SECRET || LOOKUP_SECRET.length < 32) throw Object.assign(new Error('라이선스 조회용 서버 비밀값이 구성되지 않았습니다.'), { status: 503 });
-  if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 32) throw Object.assign(new Error('관리자 인증 토큰이 구성되지 않았습니다.'), { status: 503 });
+  if (!ADMIN_AUTH_READY) throw Object.assign(new Error('관리자 인증 초기화가 완료되지 않았습니다.'), { status: 503 });
 }
 function requireAdmin(req) {
   const authorization = req.headers.authorization || '';
-  const match = /^Bearer\s+([^\s]+)$/i.exec(authorization);
+  const match = /^Bearer\\s+([^\\s]+)$/i.exec(authorization);
   const supplied = match?.[1] || '';
-  if (!adminTokenMatches(supplied, ADMIN_TOKEN)) {
+  const valid = ADMIN_TOKEN && ADMIN_TOKEN.length >= 32
+    ? adminTokenMatches(supplied, ADMIN_TOKEN)
+    : ACTIVE_ADMIN_TOKEN_HASH && adminTokenMatches(hashAdminToken(supplied), ACTIVE_ADMIN_TOKEN_HASH);
+  if (!valid) {
     throw Object.assign(new Error('관리자 인증에 실패했습니다.'), { status: 401 });
   }
 }
@@ -590,9 +647,9 @@ const server = http.createServer(async (req, res) => {
              to_regclass('public.api_rate_limit_buckets') AS api_rate_limit_buckets,
              to_regclass('public.support_tickets') AS support_tickets,
              to_regclass('public.customers') AS customers,
-             to_regclass('public.guardian_updates') AS guardian_updates`
+             to_regclass('public.guardian_updates') AS guardian_updates,\n             to_regclass('public.admin_credentials') AS admin_credentials`
         );
-        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers', 'guardian_updates'];
+        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers', 'guardian_updates', 'admin_credentials'];
         if (requiredTables.some(table => !schema.rows[0]?.[table])) {
           throw new Error('license_database_schema_not_initialized');
         }
@@ -680,8 +737,13 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  server.listen(PORT, HOST, () => {
-    console.log(`Guardian License API listening on :${PORT}`);
+  initializeAdminAuth().then(() => {
+    server.listen(PORT, HOST, () => {
+      console.log(`Guardian License API listening on :${PORT}`);
+    });
+  }).catch(error => {
+    console.error('Guardian License API startup failed:', error.message);
+    process.exitCode = 1;
   });
 }
-export { server, pool };
+export { server, pool, initializeAdminAuth };
