@@ -1,6 +1,8 @@
 import base64
 import json
 import time
+import urllib.error
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -132,3 +134,63 @@ def test_activate_refresh_and_deactivate_use_shared_server_contract(tmp_path, si
     assert not client.state_path.exists()
     assert opener.paths == ["/v1/licenses/activate", "/v1/licenses/refresh", "/v1/licenses/deactivate"]
 
+
+
+
+def _save_signed_state(client, private, device):
+    payload, signature = signed_token(private, device)
+    client.data_dir.mkdir(parents=True, exist_ok=True)
+    client.state_path.write_text(json.dumps({
+        "payload": payload, "signature": signature, "licenseRef": "12345678-abcd"
+    }), encoding="utf-8")
+
+
+def test_server_status_free_clears_cached_pro_entitlement(tmp_path, signing_pair):
+    private, public = signing_pair
+    class FakeOpener:
+        def open(self, request, timeout=10):
+            assert request.full_url.endswith("/v1/licenses/status")
+            return _Response(b'{"status":"free"}')
+    client = WindowsLicenseClient("https://license.example.com", public, tmp_path, opener=FakeOpener())
+    _save_signed_state(client, private, client.device_binding())
+    assert client.current_entitlement() is not None
+    assert client.status() == {"status": "free"}
+    assert not client.state_path.exists()
+    assert client.current_entitlement() is None
+
+
+def test_refresh_http_403_clears_cached_pro_but_other_errors_preserve_it(tmp_path, signing_pair):
+    private, public = signing_pair
+    class FakeOpener:
+        def __init__(self, status_code):
+            self.status_code = status_code
+        def open(self, request, timeout=10):
+            raise urllib.error.HTTPError(request.full_url, self.status_code, "rejected", {}, BytesIO(b"{}"))
+    client = WindowsLicenseClient("https://license.example.com", public, tmp_path, opener=FakeOpener(403))
+    _save_signed_state(client, private, client.device_binding())
+    with pytest.raises(LicenseClientError) as error:
+        client.refresh()
+    assert error.value.status_code == 403
+    assert error.value.invalidates_entitlement is True
+    assert not client.state_path.exists()
+
+    client.opener = FakeOpener(503)
+    _save_signed_state(client, private, client.device_binding())
+    with pytest.raises(LicenseClientError) as error:
+        client.refresh()
+    assert error.value.status_code == 503
+    assert error.value.invalidates_entitlement is False
+    assert client.state_path.exists()
+
+
+def test_status_active_keeps_cached_entitlement(tmp_path, signing_pair):
+    private, public = signing_pair
+    class FakeOpener:
+        def open(self, request, timeout=10):
+            assert request.full_url.endswith("/v1/licenses/status")
+            return _Response(b'{"status":"active"}')
+    client = WindowsLicenseClient("https://license.example.com", public, tmp_path, opener=FakeOpener())
+    _save_signed_state(client, private, client.device_binding())
+    assert client.status() == {"status": "active"}
+    assert client.state_path.exists()
+    assert client.current_entitlement() is not None
