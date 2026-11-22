@@ -53,11 +53,17 @@ if (!databaseUrl) {
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
 
-  test('first-run admin token is generated once and only its hash persists across restarts', async () => {
-    let firstToken = '';
-    const first = await initializeAdminAuth({ configuredToken: null, logToken: token => { firstToken = token; } });
-    assert.equal(first.generated, true);
+  test('concurrent first-run admin startup creates one token and only its hash persists across restarts', async () => {
+    const emittedTokens = [];
+    const [first, concurrent] = await Promise.all([
+      initializeAdminAuth({ configuredToken: null, logToken: token => emittedTokens.push(token) }),
+      initializeAdminAuth({ configuredToken: null, logToken: token => emittedTokens.push(token) })
+    ]);
+    assert.equal(emittedTokens.length, 1);
+    const firstToken = emittedTokens[0];
     assert.match(firstToken, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(Number(first.generated) + Number(concurrent.generated), 1);
+    assert.equal(first.tokenHash, concurrent.tokenHash);
     assert.equal(first.tokenHash, (await import('node:crypto')).createHash('sha256').update(firstToken).digest('hex'));
     const stored = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
     assert.equal(stored.rows[0].token_hash, first.tokenHash);
