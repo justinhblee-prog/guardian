@@ -542,6 +542,21 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY', 'referrer-policy': 'no-referrer', 'permissions-policy': 'camera=(), microphone=(), geolocation=()' });
       return res.end(script);
     }
+    if (req.method === 'GET' && url.pathname === '/admin-manifest.webmanifest') {
+      const asset = await readFile(new URL('../admin/manifest.webmanifest', import.meta.url));
+      res.writeHead(200, { 'content-type': 'application/manifest+json; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' });
+      return res.end(asset);
+    }
+    if (req.method === 'GET' && url.pathname === '/guardian-icon.svg') {
+      const asset = await readFile(new URL('../admin/guardian-icon.svg', import.meta.url));
+      res.writeHead(200, { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
+      return res.end(asset);
+    }
+    if (req.method === 'GET' && url.pathname === '/admin-sw.js') {
+      const asset = await readFile(new URL('../admin/admin-sw.js', import.meta.url));
+      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'service-worker-allowed': '/', 'x-content-type-options': 'nosniff' });
+      return res.end(asset);
+    }
     if (req.method === 'GET' && url.pathname === '/admin') {
       const html = await readFile(new URL('../admin/index.html', import.meta.url));
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" });
