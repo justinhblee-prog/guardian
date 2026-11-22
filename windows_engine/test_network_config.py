@@ -41,15 +41,19 @@ def test_failed_change_rolls_back(tmp_path):
 def test_failed_rollback_keeps_backup_for_later_recovery(tmp_path):
     calls = []
     fail_ipv6_redirect = True
+    fail_ipv6_rollback = True
 
     def runner(script):
-        nonlocal fail_ipv6_redirect
+        nonlocal fail_ipv6_redirect, fail_ipv6_rollback
         calls.append(script)
         if "Get-NetAdapter" in script:
             return snapshot_runner(script)
         if fail_ipv6_redirect and "ServerAddresses '::1'" in script:
             fail_ipv6_redirect = False
             raise RuntimeError("simulated IPv6 redirect failure")
+        if fail_ipv6_rollback and "-ResetServerAddresses" in script:
+            fail_ipv6_rollback = False
+            raise RuntimeError("simulated IPv6 rollback failure")
         return ""
 
     backup = tmp_path / "dns-backup.json"
@@ -57,8 +61,8 @@ def test_failed_rollback_keeps_backup_for_later_recovery(tmp_path):
     with pytest.raises(NetworkConfigError, match="Could not enable local DNS"):
         manager.enable()
 
-    # IPv4 rollback succeeds, IPv6 rollback is attempted and fails; retain
-    # the original snapshot so a later explicit restore can recover both.
+    # The IPv6 redirect fails, then its rollback also fails; retain the
+    # original snapshot so a later explicit restore can recover both.
     assert backup.exists()
     assert json.loads(backup.read_text(encoding="utf-8"))[0]["InterfaceIndex"] == 7
 
