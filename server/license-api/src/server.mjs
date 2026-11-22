@@ -571,7 +571,10 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (req.method === 'GET' && url.pathname === '/v1/updates/latest') {
-      const latest = await latestUpdate(url);\n      return json(res, 200, latest);\n    }\n    if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
+      const latest = await latestUpdate(url);
+      return json(res, 200, latest);
+    }
+    if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
     if (req.method === 'GET' && url.pathname === '/ready') {
       try {
         requireEnv();
