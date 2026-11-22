@@ -57,6 +57,36 @@ def proxy_ready():
             client.settimeout(.8); client.sendto(query,("127.0.0.1",53)); response,_=client.recvfrom(512)
         return is_dns_probe_response(query,response)
     except OSError: return False
+def daemon_readiness_diagnosis():
+    details=[]
+    try:
+        task=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
+        task_text=(task.stdout or task.stderr or "").strip()
+        details.append("Task Scheduler query: "+(task_text[:1800] if task_text else f"no output (exit {task.returncode})"))
+    except Exception as exc: details.append("Task Scheduler query failed: "+str(exc))
+    try:
+        health=json.loads(HEALTH.read_text(encoding="utf-8"))
+        pid=health.get("pid"); heartbeat=float(health.get("heartbeatAt",0)); age=time.time()-heartbeat
+        alive=daemon_process_is_running(HEALTH)
+        details.append(f"Daemon heartbeat: pid={pid}, age={age:.1f}s, process_alive={alive}")
+    except Exception as exc: details.append("Daemon heartbeat: unavailable ("+str(exc)+")")
+    try:
+        with socket.create_connection(("127.0.0.1",53),timeout=.7): details.append("IPv4 TCP 127.0.0.1:53: accepting connections")
+    except OSError as exc: details.append("IPv4 TCP 127.0.0.1:53: "+str(exc))
+    try:
+        query=blocked_probe_query()
+        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
+            client.settimeout(.7); client.sendto(query,("127.0.0.1",53)); response,_=client.recvfrom(512)
+        details.append("IPv4 UDP 127.0.0.1:53: "+("DNS response received" if is_dns_probe_response(query,response) else "invalid DNS response"))
+    except OSError as exc: details.append("IPv4 UDP 127.0.0.1:53: "+str(exc))
+    try:
+        if LOG_FILE.exists():
+            tail="\\n".join(LOG_FILE.read_text(encoding="utf-8",errors="replace").splitlines()[-18:])
+            details.append("Daemon log (last lines):\\n"+tail[:4500])
+        else: details.append("Daemon log: not created at "+str(LOG_FILE))
+    except Exception as exc: details.append("Daemon log could not be read: "+str(exc))
+    return "\\n".join(details)
+
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
 def ensure_daemon_running():
@@ -67,7 +97,7 @@ def ensure_daemon_running():
     while time.monotonic()<deadline:
         if proxy_ready(): return
         time.sleep(.25)
-    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53")
+    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\\n\\nStartup diagnosis:\\n"+daemon_readiness_diagnosis())
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
