@@ -128,7 +128,8 @@ def main():
             except OSError as exc:
                 last_error = str(exc)
             time.sleep(0.25)
-        raise RuntimeError("Scheduled DNS task did not become ready: " + last_error + "\n\n" + diagnostics())
+        if not success:
+            raise RuntimeError("Scheduled DNS task did not become ready: " + last_error + "\n\n" + diagnostics())
     except Exception as exc:
         failure = exc
     finally:
