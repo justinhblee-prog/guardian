@@ -256,3 +256,49 @@ if max(left) >= min(right) or min(right) - max(left) < 200:
     raise SystemExit("Settings did not switch to two columns when the Activity received at least 1000dp.")
 print("PASS: Settings switches to two columns when the Activity receives at least 1000dp.")
 PY
+
+# Persist the selected Premium destination across a full app-process restart.
+# This specifically exercises the SharedPreferences fallback (savedInstanceState
+# is not supplied after force-stop) instead of only testing rotation Bundles.
+premium_point="$(python3 - "$boundary_xml" <<'PY'
+import sys
+import re
+import xml.etree.ElementTree as ET
+root = ET.fromstring(sys.argv[1])
+for node in root.iter("node"):
+    if node.attrib.get("text", "").strip() == "라이선스 및 프리미엄":
+        match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
+        if match:
+            x1, y1, x2, y2 = map(int, match.groups())
+            print((x1+x2)//2, (y1+y2)//2)
+            break
+else:
+    raise SystemExit("Could not locate Settings > 라이선스 및 프리미엄 card.")
+PY
+)"
+read -r premium_x premium_y <<<"$premium_point"
+adb_cmd shell input tap "$premium_x" "$premium_y"
+sleep 2
+adb_cmd shell uiautomator dump /sdcard/guardian-premium-before-restart.xml >/dev/null 2>&1
+premium_xml="$(adb_cmd exec-out cat /sdcard/guardian-premium-before-restart.xml | tr -d '\r')"
+python3 - "$premium_xml" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+root = ET.fromstring(sys.argv[1])
+if not any("Guardian Premium" in n.attrib.get("text", "") for n in root.iter("node")):
+    raise SystemExit("Settings > Premium destination did not open before process restart.")
+print("PASS: Settings > Premium destination opened.")
+PY
+adb_cmd shell am force-stop com.guardian.adblock
+adb_cmd shell am start -n com.guardian.adblock/.MainActivity >/dev/null
+sleep 3
+adb_cmd shell uiautomator dump /sdcard/guardian-premium-after-restart.xml >/dev/null 2>&1
+premium_restart_xml="$(adb_cmd exec-out cat /sdcard/guardian-premium-after-restart.xml | tr -d '\r')"
+python3 - "$premium_restart_xml" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+root = ET.fromstring(sys.argv[1])
+if not any("Guardian Premium" in n.attrib.get("text", "") for n in root.iter("node")):
+    raise SystemExit("Selected Premium destination was not restored after a full app-process restart.")
+print("PASS: Settings > Premium selection survived app-process restart.")
+PY
