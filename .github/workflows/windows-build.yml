@@ -21,6 +21,7 @@ on:
       - "requirements-dev.txt"
       - "requirements-windows-build.txt"
       - "scripts/build_windows.ps1"
+      - "VERSION"
       - ".github/workflows/windows-build.yml"
 
 permissions:
