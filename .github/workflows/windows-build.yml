@@ -92,23 +92,23 @@ jobs:
             if (Test-Path $installLog) { Get-Content $installLog -Tail 80 }
             throw "Silent installation failed with exit code $($process.ExitCode)"
           }
-          $desktopTest = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList "--self-test" -Wait -PassThru
+          $desktopTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList @("--self-test") -TimeoutSeconds 60 -Label "Desktop self-test"
           if ($desktopTest.ExitCode -ne 0) {
             $selfTestLog = Join-Path $env:TEMP "GuardianDesktopSelfTest.log"
             if (Test-Path $selfTestLog) { Get-Content $selfTestLog }
             throw "Installed desktop executable self-test failed with exit code $($desktopTest.ExitCode)"
           }
-          $daemonTest = Start-Process -FilePath "$installDir\GuardianDnsProxy\GuardianDnsProxy.exe" -ArgumentList "--self-test" -Wait -PassThru
+          $daemonTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianDnsProxy\GuardianDnsProxy.exe" -ArgumentList @("--self-test") -TimeoutSeconds 60 -Label "DNS daemon self-test"
           if ($daemonTest.ExitCode -ne 0) { throw "Installed background DNS daemon self-test failed with exit code $($daemonTest.ExitCode)" }
           if (-not (Test-Path "$installDir\GuardianDnsProxy\_internal")) { throw "Installed DNS daemon runtime dependencies are missing" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if (-not $task) { throw "Boot-start DNS task was not registered" }
-          $restoreTest = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList "--restore-dns" -Wait -PassThru
+          $restoreTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList @("--restore-dns") -TimeoutSeconds 90 -Label "DNS restore test"
           if ($restoreTest.ExitCode -ne 0) { throw "DNS restore and task cleanup command failed with exit code $($restoreTest.ExitCode)" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if ($task) { throw "Guardian restore command left the boot task registered" }
           $uninstallLog = Join-Path $env:RUNNER_TEMP "guardian-uninstall.log"
-          $uninstall = Start-Process -FilePath "$installDir\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog") -Wait -PassThru
+          $uninstall = Invoke-GuardianProcess -FilePath "$installDir\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog") -TimeoutSeconds 180 -Label "First silent uninstall"
           if ($uninstall.ExitCode -ne 0) {
             if (Test-Path $uninstallLog) { Get-Content $uninstallLog -Tail 100 }
             throw "Silent uninstall failed with exit code $($uninstall.ExitCode)"
@@ -128,7 +128,7 @@ jobs:
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if (-not $task) { throw "Second installation did not register the boot-start DNS task" }
           $uninstallLog2 = Join-Path $env:RUNNER_TEMP "guardian-direct-uninstall.log"
-          $uninstall2 = Start-Process -FilePath "$installDir2\\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog2") -Wait -PassThru
+          $uninstall2 = Invoke-GuardianProcess -FilePath "$installDir2\unins000.exe" -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=$uninstallLog2") -TimeoutSeconds 180 -Label "Direct silent uninstall"
           if ($uninstall2.ExitCode -ne 0) {
             if (Test-Path $uninstallLog2) { Get-Content $uninstallLog2 -Tail 100 }
             throw "Direct uninstall failed with exit code $($uninstall2.ExitCode)"
