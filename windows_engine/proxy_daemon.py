@@ -1,5 +1,5 @@
 """Boot-startable DNS proxy daemon managed by the Guardian desktop UI."""
-import json,os,socket,struct,sys,threading,time
+import json,os,socket,struct,sys,threading,time,traceback
 from pathlib import Path
 from dns_engine import DnsProxy,DomainRules
 from windows_engine.filter_updates import FilterUpdater,FilterUpdateError
@@ -76,4 +76,25 @@ def main():
     finally:
         stop.set(); writer.join(timeout=2); heartbeat.join(timeout=2); remove_daemon_health(HEALTH,os.getpid())
     return 0
-if __name__=="__main__": raise SystemExit(main())
+def run_with_startup_logging():
+    try:
+        APP_DIR.mkdir(parents=True, exist_ok=True)
+        with (APP_DIR / "daemon-startup.log").open("a", encoding="utf-8") as log:
+            log.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] Guardian DNS daemon launch pid={os.getpid()}\n")
+        return main()
+    except BaseException:
+        try:
+            APP_DIR.mkdir(parents=True, exist_ok=True)
+            with (APP_DIR / "daemon-startup.log").open("a", encoding="utf-8") as log:
+                log.write(traceback.format_exc())
+                log.flush()
+        except Exception:
+            fallback = Path(os.environ.get("TEMP", ".")) / "GuardianDnsProxy-startup.log"
+            try:
+                with fallback.open("a", encoding="utf-8") as log:
+                    log.write(traceback.format_exc())
+            except Exception:
+                pass
+        raise
+
+if __name__=="__main__": raise SystemExit(run_with_startup_logging())
