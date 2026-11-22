@@ -536,7 +536,7 @@ class GuardianDesktop:
             self._label(self.page,"현재는 내장 기본 규칙으로 동작합니다. 서명 manifest 서버 주소와 공개키가 등록되기 전까지 원격 필터 업데이트는 실행할 수 없습니다.",9,self.MUTED,bg=self.BG,wraplength=760,justify="left").pack(anchor="w",pady=(4,0))
 
     def show_license_page(self):
-        self._select_nav("premium"); self.page_title.configure(text="프리미엄"); self._clear_page()
+        self._select_nav("settings"); self.page_title.configure(text="라이선스 및 프리미엄"); self._clear_page()
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
         except Exception: data={}
         configured=bool(str(data.get("license_api_base_url") or "").strip() and str(data.get("license_public_key") or "").strip())
