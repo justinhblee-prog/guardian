@@ -3,6 +3,7 @@ import socket
 import struct
 
 from dns_engine import DnsProxy, DomainRules
+from dns_engine.wire import make_query, parse_question
 
 
 def _query(domain="doubleclick.net"):
@@ -99,3 +100,26 @@ def test_tcp_listener_records_incomplete_request_without_leaking_query_data():
         assert proxy.last_tcp_error_stage=="read request length"
     finally:
         proxy.stop()
+
+def test_generated_readiness_query_is_valid_and_gets_complete_tcp_response():
+    query=make_query("doubleclick.net",0x6A31)
+    assert parse_question(query)==("doubleclick.net",1,1,len(query))
+    assert query[-5]==0  # QNAME root terminator precedes QTYPE/QCLASS.
+
+    rules=DomainRules()
+    rules.add_block("doubleclick.net")
+    proxy=DnsProxy(rules,listen=(("127.0.0.1",0),))
+    proxy.start()
+    try:
+        port=proxy._tcp_servers[0].server_address[1]
+        with socket.create_connection(("127.0.0.1",port),timeout=3) as client:
+            client.settimeout(3)
+            client.sendall(struct.pack("!H",len(query))+query)
+            length=struct.unpack("!H",_read_exact(client,2))[0]
+            response=_read_exact(client,length)
+        assert response[:2]==query[:2]
+        assert response[2]&0x80
+        assert response[3]&0x0F==3
+    finally:
+        proxy.stop()
+
