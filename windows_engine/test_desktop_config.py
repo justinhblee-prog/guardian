@@ -132,3 +132,12 @@ def test_windows_protection_ui_refresh_is_safe_off_dashboard():
     assert 'self.hero_status.winfo_exists()' in source
     assert 'self.start_button.winfo_exists()' in source
     assert 'self.stop_button.winfo_exists()' in source
+
+
+def test_windows_settings_exposes_the_six_shared_subsections():
+    import inspect
+    from windows_engine.desktop import GuardianDesktop
+
+    source = inspect.getsource(GuardianDesktop.show_settings_page)
+    for label in ("일반", "필터링", "라이선스 및 프리미엄", "고객 지원", "정보", "종료"):
+        assert label in source
