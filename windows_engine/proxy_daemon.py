@@ -42,7 +42,7 @@ def main():
         while not stop.wait(1):
             tmp=STATS.with_suffix(".tmp")
             try:
-                tmp.write_text(json.dumps({"blocked":proxy.blocked_count,"forwarded":proxy.forwarded_count}),encoding="utf-8")
+                tmp.write_text(json.dumps({"blocked":proxy.blocked_count,"forwarded":proxy.forwarded_count,"failed":proxy.failed_count}),encoding="utf-8")
                 os.replace(tmp,STATS)
             except OSError: pass
             try:
