@@ -90,7 +90,7 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 활성화/갱신 성공 시 `payload`, `signature`, `expiresIn`을 반환합니다. 서버는 `Bearer` 인증 스킴을 엄격히 요구하며, `expiresIn`은 서명된 `expiresAt - issuedAt`과 일치합니다. Windows와 Android 클라이언트에는 같은 RSA 키쌍의 X.509 공개키를 배포하고 개인키는 API 서버에만 보관합니다. 신규 토큰의 제품 claim은 플랫폼 중립적인 `guardian`이며, Android 검증기는 기존 `guardian-android` 토큰도 호환합니다. 각 클라이언트는 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증해야 합니다.
 
 ## 고객 디렉터리 DB 마이그레이션
-기존 데이터베이스에는 `migrations/004_customers.sql` 및 `migrations/005_shared_guardian_product.sql`을 한 번 적용해야 합니다. 005는 공통 `guardian-pro` 제품 레코드를 추가하며 기존 Android 라이선스와 제품 레코드를 삭제하거나 변환하지 않습니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
+기존 데이터베이스에는 `migrations/004_customers.sql`, `migrations/005_shared_guardian_product.sql` 및 `migrations/006_permanent_licenses.sql`을 한 번 적용해야 합니다. 005는 공통 `guardian-pro` 제품 레코드를 추가하며 기존 Android 라이선스와 제품 레코드를 삭제하거나 변환하지 않습니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
 
 ## 보안 및 출시 전 남은 작업
 - API 인스턴스 간 rate limiting은 PostgreSQL 공유 카운터로 구현했지만, 프록시/WAF의 신뢰 IP 기반 방어와 DDoS 완화는 별도 구성해야 합니다. 관리자 토큰은 Bearer 방식이며 브라우저 메모리에만 보관합니다. 공개 운영 전 MFA 또는 SSO, 관리자별 RBAC, 토큰 교체·폐기 절차, 접근 감사, 비밀값 저장소, WAF 및 침투 테스트를 추가해야 합니다. 관리자 다중 사용자/RBAC, 이메일/구매 복구, Google Play Billing 및 결제 webhook, 자동 환불/차지백 동기화도 공개 전 별도 구현이 필요합니다.
