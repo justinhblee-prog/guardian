@@ -4,7 +4,7 @@ Guardian 사용자 앱과 분리된 관리자 전용 Windows 데스크톱 앱입
 
 ## Windows 설치 프로그램
 GitHub Actions에서 `guardian-license-manager-installer-win-x64` 산출물로 Windows 10/11 x64용 설치 파일을 생성합니다.
-- 설치 파일: `Guardian-License-Manager-Setup-1.1.0-win-x64.exe`
+- 설치 파일: `Guardian-License-Manager-Setup-1.2.0-win-x64.exe`
 - 기본 설치 위치: `C:\Program Files\Guardian License Manager`
 - 시작 메뉴 바로 가기 및 선택형 바탕 화면 바로 가기
 - Windows 앱 목록에서 제거 지원
