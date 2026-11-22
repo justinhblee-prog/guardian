@@ -119,8 +119,27 @@ jobs:
           Start-Sleep -Seconds 6
           $desktop.Refresh()
           if ($desktop.HasExited) { throw "Installed Guardian desktop UI exited during startup (code $($desktop.ExitCode))." }
-          Stop-Process -Id $desktop.Id -Force
-          Write-Host "Installed Guardian desktop UI launch smoke test passed."
+          # Keep the packaged GUI running while setup upgrades the same installation.
+          # This reproduces the user's python3.dll file-lock scenario instead of
+          # validating only a clean first install.
+          $upgradeLog = Join-Path $env:RUNNER_TEMP "guardian-upgrade.log"
+          $upgrade = Invoke-GuardianProcess -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir", "/LOG=$upgradeLog") -TimeoutSeconds 180 -Label "In-place upgrade while desktop is running"
+          if ($upgrade.ExitCode -ne 0) {
+            if (Test-Path $upgradeLog) { Get-Content $upgradeLog -Tail 100 }
+            throw "In-place upgrade with Guardian desktop running failed with exit code $($upgrade.ExitCode)"
+          }
+          $desktop.Refresh()
+          if (-not $desktop.HasExited) {
+            Stop-Process -Id $desktop.Id -Force -ErrorAction SilentlyContinue
+            throw "In-place upgrade completed but the previous Guardian desktop process remained alive."
+          }
+          if (-not (Test-Path -LiteralPath $desktopPath)) { throw "Desktop executable is missing after in-place upgrade: $desktopPath" }
+          $upgradedDesktop = Start-Process -FilePath $desktopPath -WorkingDirectory $installDir -PassThru
+          Start-Sleep -Seconds 6
+          $upgradedDesktop.Refresh()
+          if ($upgradedDesktop.HasExited) { throw "Guardian desktop UI failed to restart after in-place upgrade (code $($upgradedDesktop.ExitCode))." }
+          Stop-Process -Id $upgradedDesktop.Id -Force
+          Write-Host "In-place upgrade while Guardian desktop was running passed; the updated desktop relaunched successfully."
           $dnsPackageTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianSelfTest\GuardianSelfTest.exe" -ArgumentList @() -TimeoutSeconds 30 -Label "Packaged DNS self-test"
           if ($dnsPackageTest.ExitCode -ne 0) {
             $selfTestLog = Join-Path $env:TEMP "GuardianDnsSelfTest.log"
