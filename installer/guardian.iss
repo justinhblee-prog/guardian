@@ -24,6 +24,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Source: "..\dist\GuardianAdBlock\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\GuardianDnsProxy\*"; DestDir: "{app}\GuardianDnsProxy"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\GuardianSelfTest\*"; DestDir: "{app}\GuardianSelfTest"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\GuardianMaintenance\*"; DestDir: "{app}\GuardianMaintenance"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "Register-GuardianDnsTask.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
