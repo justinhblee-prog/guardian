@@ -3,7 +3,7 @@
 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
 <DockPanel Grid.Row="0" Margin="0,0,0,14">
 <StackPanel Orientation="Horizontal"><Border Width="40" Height="40" CornerRadius="12" Background="#101C2C"><Image Source="{StaticResource GuardianWindowIcon}" Margin="2"/></Border><StackPanel Margin="14,0,0,0" VerticalAlignment="Center"><TextBlock Text="GUARDIAN" FontSize="18" FontWeight="Bold"/><TextBlock Text="LICENSE MANAGER  ·  ADMIN CONSOLE" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,3,0,0"/></StackPanel></StackPanel>
-<StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock x:Name="ConnectionLabel" Text="연결되지 않음" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/><Button x:Name="ConnectButton" Content="서버 연결" Click="Connect_Click"/></StackPanel>
+<StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"><Button Content="제품 업데이트" Background="#365B83" Click="Updates_Click" Margin="0,0,10,0"/><TextBlock x:Name="ConnectionLabel" Text="연결되지 않음" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/><Button x:Name="ConnectButton" Content="서버 연결" Click="Connect_Click"/></StackPanel>
 </DockPanel>
 <Border Grid.Row="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="14" Padding="14" Margin="0,0,0,12">
 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="1.2*"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
