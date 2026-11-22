@@ -77,7 +77,7 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 - `POST /v1/licenses/status`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
 - `GET /v1/admin/licenses`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>`
 - `GET /v1/admin/events`: 최근 발급/활성화/비활성화/정지 감사 기록 100건
-- `POST /v1/admin/licenses`: 관리자 인증 + `{ "validDays": 365, "maxDevices": 1 }`
+- `POST /v1/admin/licenses`: 관리자 인증 + `{ "planCode": "annual_365d", "validDays": 365, "maxDevices": 1 }`. 영구 발급은 `{ "planCode": "permanent", "validDays": null, "maxDevices": 1 }`
 - `POST /v1/admin/licenses/{uuid}/revoke`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>` 및 UUID 형식의 라이선스 ID 필요
 - `GET /v1/admin/licenses/{uuid}/activations`: 라이선스의 최근 활성화 기록 최대 50건 조회. 기기 식별자는 해시 마지막 8자리만 반환
 - `POST /v1/admin/licenses/{uuid}/activations/{activationUuid}/deactivate`: 지정한 기기 등록만 해제하고 감사 이벤트 기록. 다른 기기와 라이선스 상태는 유지
