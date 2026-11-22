@@ -91,7 +91,7 @@ def test_tcp_listener_records_incomplete_request_without_leaking_query_data():
         port=proxy._tcp_servers[0].server_address[1]
         with socket.create_connection(("127.0.0.1",port),timeout=3) as client:
             client.settimeout(3)
-            client.sendall(b"\\x00")
+            client.sendall(b"\x00")
             client.shutdown(socket.SHUT_WR)
             assert client.recv(1)==b""
         assert proxy.tcp_error_count==1
