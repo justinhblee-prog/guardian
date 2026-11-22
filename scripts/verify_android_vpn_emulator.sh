@@ -136,6 +136,17 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
+# The current Android navigation has five primary destinations. Filter and app
+# exclusion pages are opened from the "전체 메뉴" workspace rather than stale
+# standalone bottom-navigation items.
+open_settings_menu_item() {
+  local title="$1"
+  tap_content_description "전체 메뉴"
+  sleep 1
+  tap_text "$title"
+  sleep 1
+}
+
 # Android AlertDialog ListView row TextViews are intentionally non-clickable
 # in UIAutomator's accessibility tree; ListView itself dispatches row taps.
 # Resolve only an exact child of android:id/select_dialog_listview, leaving
@@ -203,7 +214,7 @@ cache_ready() {
 
 echo "Verifying the dedicated Guardian Premium menu and license activation focus."
 dismiss_dev_update_prompt
-tap_content_description "프리미엄"
+tap_content_description "Premium"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -244,7 +255,7 @@ adb_cmd shell input keyevent KEYCODE_BACK || true
 # The PRO feature cards are below the membership details on a phone-sized
 # viewport. Return to Premium, scroll the actual page, and verify the feature
 # card only after it enters the visible UI hierarchy.
-tap_content_description "프리미엄"
+tap_content_description "Premium"
 sleep 1
 premium_features_visible=0
 for attempt in $(seq 1 8); do
@@ -356,7 +367,7 @@ for node in root.iter("node"):
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
 # Protection diagnostics and app exclusions are separate destinations in bottom navigation.
-tap_content_description "보호 설정"
+tap_content_description "보호"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-protection-controls.xml >/dev/null 2>&1
 protection_controls_xml="$(adb_cmd shell cat /sdcard/guardian-protection-controls.xml | tr -d '\r')"
@@ -369,7 +380,7 @@ duplicate=[node.attrib.get("text","") for node in root.iter("node")
     and node.attrib.get("clickable")=="true"]
 if duplicate:
     raise SystemExit("Protection screen still exposes duplicate navigation or start/stop controls: "+repr(duplicate))' <<<"$protection_controls_xml"
-tap_content_description "앱 제외"
+open_settings_menu_item "앱 제외 관리"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 app_inventory_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -630,8 +641,8 @@ if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))' <<<"$home_controls_xml"
 echo "App-exclusion search, package filtering, Android Auto lookup, and single Home protection control passed."
 
-# Verify the simplified dashboard and all seven persistent bottom-navigation destinations.
-echo "Verifying the simplified home dashboard and all seven bottom-navigation destinations."
+# Verify the simplified dashboard and all five persistent bottom-navigation destinations.
+echo "Verifying the simplified home dashboard and all five bottom-navigation destinations."
 home_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-home-navigation.xml)"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -645,7 +656,7 @@ controls=[node.attrib.get("text","").strip() for node in nodes
     and node.attrib.get("clickable")=="true"]
 if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))
-expected={"홈","보호 설정","앱 제외","DNS 활동","프리미엄","필터 규칙","설정"}
+expected={"홈","보호","활동","Premium","전체 메뉴"}
 actual={node.attrib.get("content-desc") for node in nodes
         if node.attrib.get("class")=="android.widget.LinearLayout"
         and node.attrib.get("clickable")=="true"}
@@ -654,7 +665,7 @@ if not expected.issubset(actual):
 if not any(node.attrib.get("content-desc")=="홈" and node.attrib.get("selected")=="true"
            for node in nodes):
     raise SystemExit("Home is not the selected bottom-navigation destination.")' <<<"$home_navigation_xml"
-for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "프리미엄" "필터 규칙" "설정"; do
+for navigation_label in "보호" "활동" "Premium" "전체 메뉴"; do
   tap_content_description "$navigation_label"
   sleep 1
   navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-navigation.xml)"
@@ -671,12 +682,12 @@ if not any(node.attrib.get("content-desc")==sys.argv[1]
   fi
 done
 tap_content_description "홈"
-echo "Single home protection control and all seven bottom-navigation destinations passed."
+echo "Single home protection control and all five bottom-navigation destinations passed."
 
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
 echo "Verifying filter-screen and unsaved rule state survive device rotation."
-tap_content_description "필터 규칙"
+open_settings_menu_item "필터 관리"
 tap_first_edit_text
 adb_cmd shell input text 'rotation-preserved.example'
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
@@ -693,7 +704,7 @@ rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
-selected=any(node.attrib.get("content-desc")=="필터 규칙" and node.attrib.get("selected")=="true" for node in nodes)
+selected=any(node.attrib.get("content-desc")=="전체 메뉴" and node.attrib.get("selected")=="true" for node in nodes) and any(node.attrib.get("text","")=="필터 규칙" for node in nodes)
 draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
 if not (selected and draft):
     raise SystemExit("Activity rotation lost the selected filter tab, restored scroll position, or unsaved rule draft.")' <<<"$rotation_xml"
@@ -715,7 +726,7 @@ sleep 1
 tap_text "규칙 저장 및 적용"
 sleep 1
 adb_cmd shell input keyevent KEYCODE_BACK || true
-tap_text "홈"
+tap_content_description "홈"
 echo "Activity rotation state restoration and custom-rule save passed."
 
 prefs="$(read_prefs)"
@@ -780,7 +791,7 @@ if [[ "$active" -ne 1 ]]; then
 fi
 
 echo "Verifying live per-app VPN exclusion changes through the dedicated app-exclusions tab."
-tap_content_description "앱 제외"
+open_settings_menu_item "앱 제외 관리"
 sleep 1
 tap_content_description "앱별 보호 제외 검색 입력"
 sleep 1
@@ -1076,7 +1087,7 @@ sleep 2
 # The bottom-navigation label is a non-clickable child of the tab item.
 # Target the clickable parent via its accessibility content description, then
 # assert that the Settings page actually opened before scrolling its content.
-tap_content_description "설정"
+tap_content_description "전체 메뉴"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-settings-tab.xml >/dev/null 2>&1
 settings_tab_xml="$(adb_cmd shell cat /sdcard/guardian-settings-tab.xml | tr -d '\r')"
