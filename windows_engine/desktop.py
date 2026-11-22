@@ -355,8 +355,21 @@ class GuardianDesktop:
         dialog.focus_set()
 
     def _button(self,p,t,cmd,tone="secondary"):
-        bg,fg={"primary":(self.TEAL,"#062A2A"),"danger":("#3A1D2A","#FDA4AF"),"secondary":(self.ALT,self.TEXT)}[tone]
-        return tk.Button(p,text=t,command=cmd,bg=bg,fg=fg,activebackground=bg,activeforeground=fg,relief="flat",bd=0,cursor="hand2",padx=16,pady=10,font=("Segoe UI",10,"bold"))
+        # Protection actions must remain unmistakable on dark and high-contrast displays.
+        palette={
+            "primary":("#16A34A","#FFFFFF","#15803D"),
+            "danger":("#DC2626","#FFFFFF","#B91C1C"),
+            "secondary":("#26364B","#F4F7FB","#334B68"),
+        }
+        bg,fg,active_bg=palette[tone]
+        return tk.Button(
+            p,text=t,command=cmd,bg=bg,fg=fg,
+            activebackground=active_bg,activeforeground="#FFFFFF",
+            disabledforeground="#D1D5DB",relief="flat",bd=0,
+            highlightthickness=1,highlightbackground=self.BORDER,
+            cursor="hand2",padx=18,pady=11,
+            font=("Segoe UI",10,"bold")
+        )
     def _build_shell(self):
         shell=tk.Frame(self.root,bg=self.BG); shell.pack(fill="both",expand=True)
         side=tk.Frame(shell,bg=self.SIDE,width=224); side.pack(side="left",fill="y"); side.pack_propagate(False)
@@ -419,11 +432,17 @@ class GuardianDesktop:
         card.pack(fill="x",pady=(0,14))
         self._label(card,"GUARDIAN PROTECTION",9,self.TEAL,"bold").pack(anchor="w")
         self._label(card,"실시간 DNS 보호",18,self.TEXT,"bold").pack(anchor="w",pady=(8,10))
-        self._label(card,"보호 상태: "+("실행 중" if self.active and ready else "확인 필요" if self.active else "꺼짐"),12,self.GREEN if self.active and ready else self.AMBER if self.active else self.MUTED,"bold").pack(anchor="w")
+        self.protection_status_label=self._label(
+            card,"● 보호 중" if self.active and ready else "● 보호 꺼짐" if not self.active else "● 상태 확인 필요",
+            13,self.GREEN if self.active and ready else self.AMBER,"bold")
+        self.protection_status_label.pack(anchor="w")
         self._label(card,"DNS 응답: "+("정상" if ready else reason),10,self.GREEN if ready else self.AMBER,wraplength=760,justify="left").pack(anchor="w",pady=(6,0))
         actions=tk.Frame(card,bg=self.PANEL); actions.pack(anchor="w",pady=(16,0))
-        self._button(actions,"보호 시작",self.start_protection,"primary").pack(side="left")
-        self._button(actions,"보호 중지",self.stop_protection,"danger").pack(side="left",padx=(8,0))
+        self.protection_start_button=self._button(actions,"보호 시작",self.start_protection,"primary")
+        self.protection_start_button.pack(side="left")
+        self.protection_stop_button=self._button(actions,"보호 중지",self.stop_protection,"danger")
+        self.protection_stop_button.pack(side="left",padx=(8,0))
+        self.set_active_ui(self.active,self.status.get())
         features=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=18)
         features.pack(fill="x")
         self._label(features,"보호 엔진 구성",14,self.TEXT,"bold").pack(anchor="w")
@@ -615,17 +634,38 @@ class GuardianDesktop:
         self._button(actions,"진단 내용 복사",copy_diagnostics).pack(side="left")
         self._button(actions,"시작 로그 폴더 열기",lambda:os.startfile(str(APP_DIR))).pack(side="left",padx=(8,0))
     def set_active_ui(self,active,label=None):
-        self.active=active; current=label or ("보호 실행 중" if active else "보호 꺼짐"); self.status.set(current)
+        self.active=active
+        current=label or ("보호 중" if active else "보호 꺼짐")
+        self.status.set(current)
         if hasattr(self,"top_status") and self.top_status.winfo_exists():
-            self.top_status.configure(text="●  "+current,fg=self.GREEN if active else self.AMBER)
+            self.top_status.configure(text=("●  보호 중 · " if active else "●  보호 꺼짐 · ")+current,
+                                      fg=self.GREEN if active else self.AMBER)
         if hasattr(self,"hero_status") and self.hero_status.winfo_exists():
-            self.hero_status.configure(text=current,fg=self.GREEN if active else self.TEXT)
+            self.hero_status.configure(text=current,fg=self.GREEN if active else self.AMBER)
         if hasattr(self,"hero_description") and self.hero_description.winfo_exists():
-            self.hero_description.configure(text="DNS 요청을 검사하고 구성된 필터 규칙을 적용하고 있습니다." if active else "DNS 요청을 검사하고 광고·추적 도메인을 차단합니다.")
-        if hasattr(self,"start_button") and self.start_button.winfo_exists():
-            self.start_button.configure(state="disabled" if active else "normal")
-        if hasattr(self,"stop_button") and self.stop_button.winfo_exists():
-            self.stop_button.configure(state="normal" if active else "disabled")
+            self.hero_description.configure(
+                text="DNS 보호 엔진이 실행 중입니다. 광고·추적 도메인을 차단하고 있습니다."
+                if active else "보호가 꺼져 있습니다. 시작 버튼을 눌러 DNS 보호를 활성화하세요.",
+                fg=self.GREEN if active else self.MUTED)
+        if hasattr(self,"protection_status_label") and self.protection_status_label.winfo_exists():
+            self.protection_status_label.configure(
+                text=("● 보호 중" if active else "● 보호 꺼짐"),
+                fg=self.GREEN if active else self.AMBER)
+        for start_name,stop_name in (
+            ("start_button","stop_button"),
+            ("protection_start_button","protection_stop_button")
+        ):
+            start=getattr(self,start_name,None); stop=getattr(self,stop_name,None)
+            if start is not None and start.winfo_exists():
+                start.configure(state="disabled" if active else "normal",
+                                bg="#334155" if active else "#16A34A",
+                                fg="#D1D5DB" if active else "#FFFFFF",
+                                disabledforeground="#D1D5DB")
+            if stop is not None and stop.winfo_exists():
+                stop.configure(state="normal" if active else "disabled",
+                               bg="#DC2626" if active else "#334155",
+                               fg="#FFFFFF" if active else "#D1D5DB",
+                               disabledforeground="#D1D5DB")
     def recover_previous_state(self):
         if BACKUP.exists():
             try:
