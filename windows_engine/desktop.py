@@ -206,21 +206,36 @@ def restore_and_remove_task():
     manager=DnsAdapterManager(BACKUP); manager.restore(); write_state(False); stop_daemon(delete=True)
 def self_test():
     import traceback,tempfile
-    rules=DomainRules.from_text(DEFAULT_RULES); proxy=DnsProxy(rules,listen=(("127.0.0.1",0),("::1",0))); proxy.start()
+    proxy=None
     try:
-        port=proxy._udp_servers[0].server_address[1]; query=blocked_probe_query()
+        print("Guardian self-test: loading built-in block rules",flush=True)
+        rules=DomainRules.from_text(DEFAULT_RULES)
+        proxy=DnsProxy(rules,listen=(("127.0.0.1",0),("::1",0)))
+        proxy.start()
+        print("Guardian self-test: IPv4 and IPv6 UDP/TCP listeners started",flush=True)
+        query=blocked_probe_query()
+        port=proxy._udp_servers[0].server_address[1]
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
-            client.settimeout(2); client.sendto(query,("127.0.0.1",port)); response,_=client.recvfrom(512)
+            client.settimeout(4)
+            client.sendto(query,("127.0.0.1",port))
+            response,_=client.recvfrom(512)
         if response[3]&15!=3: raise RuntimeError("IPv4 blocked domain did not return NXDOMAIN")
+        print("Guardian self-test: IPv4 blocked DNS query passed",flush=True)
         v6port=proxy._udp_servers[1].server_address[1]
         with socket.socket(socket.AF_INET6,socket.SOCK_DGRAM) as client:
-            client.settimeout(2); client.sendto(query,("::1",v6port,0,0)); response6,_=client.recvfrom(512)
+            client.settimeout(4)
+            client.sendto(query,("::1",v6port,0,0))
+            response6,_=client.recvfrom(512)
         if response6[3]&15!=3: raise RuntimeError("IPv6 blocked domain did not return NXDOMAIN")
-        proxy.stop()
-        if sys.stdout: print("Guardian Windows IPv4/IPv6 executable self-test passed")
+        print("Guardian self-test: IPv6 blocked DNS query passed",flush=True)
     except Exception:
         Path(tempfile.gettempdir(),"GuardianDesktopSelfTest.log").write_text(traceback.format_exc(),encoding="utf-8")
         raise
+    finally:
+        if proxy is not None:
+            print("Guardian self-test: stopping temporary DNS listeners",flush=True)
+            proxy.stop()
+    if sys.stdout: print("Guardian Windows IPv4/IPv6 executable self-test passed",flush=True)
 class GuardianDesktop:
     BG="#0B1220"; SIDE="#101A2B"; PANEL="#151F32"; ALT="#1B2940"; BORDER="#263650"
     TEXT="#F4F7FB"; MUTED="#93A4BA"; TEAL="#2DD4BF"; GREEN="#34D399"; AMBER="#FBBF24"; BLUE="#60A5FA"
