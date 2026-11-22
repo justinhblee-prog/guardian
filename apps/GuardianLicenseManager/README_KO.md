@@ -28,3 +28,11 @@ dotnet publish apps/GuardianLicenseManager/GuardianLicenseManager.csproj -c Rele
 - 이 첫 구현은 API 연동형 발급·조회·정지 데스크톱 MVP입니다.
 - 고객 검색/편집, 상세 기기 목록과 개별 기기 해제, 감사 로그, 관리자 RBAC/MFA, 자동 업데이트, 코드 서명 및 설치 프로그램은 후속 단계입니다.
 - 실제 고객 발급은 운영 DB, HTTPS, 운영 RSA 키 및 구매 확인 절차를 검증한 뒤에만 활성화해야 합니다.
+
+
+## 모바일 관리자 앱
+
+- 운영 API의 `/admin` 화면은 반응형 모바일 레이아웃을 제공합니다.
+- Android Chrome 또는 iOS Safari에서 HTTPS로 접속한 뒤 브라우저 메뉴의 `홈 화면에 추가`를 선택하면 앱처럼 실행할 수 있습니다.
+- Guardian 주 아이콘(방패/G 심볼)을 관리자 웹앱 아이콘과 화면 헤더에 사용합니다.
+- 관리자 토큰과 발급 키는 브라우저 저장소 및 서비스 워커 캐시에 저장하지 않습니다. 서비스 워커는 네트워크 전용입니다.
