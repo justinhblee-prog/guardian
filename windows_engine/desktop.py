@@ -210,7 +210,7 @@ def self_test():
     log_path.write_text("",encoding="utf-8")
     def log(message):
         with log_path.open("a",encoding="utf-8") as handle:
-            handle.write(message+"\\n")
+            handle.write(message+"\n")
         if sys.stdout: print(message,flush=True)
     proxy=None
     try:
