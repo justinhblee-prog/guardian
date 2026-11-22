@@ -103,3 +103,33 @@ def test_proxy_readiness_rejects_tcp_listener_with_invalid_response(monkeypatch)
 
     monkeypatch.setattr(desktop.socket, "socket", FakeTcpSocket)
     assert not desktop.proxy_ready()
+
+
+def test_windows_primary_navigation_matches_android_menu_categories():
+    import inspect
+    from windows_engine.desktop import GuardianDesktop
+
+    shell = inspect.getsource(GuardianDesktop._build_shell)
+    expected = [
+        ("home", "홈", "show_dashboard"),
+        ("protection", "보호 설정", "show_protection_page"),
+        ("app-exclusions", "앱 제외", "show_app_exclusions_page"),
+        ("activity", "DNS 활동", "show_activity_page"),
+        ("premium", "프리미엄", "show_license_page"),
+        ("rules", "필터 규칙", "show_filter_updates"),
+        ("settings", "설정", "show_settings_page"),
+    ]
+    for key, label, handler in expected:
+        assert f'"{key}"' in shell
+        assert label in shell
+        assert callable(getattr(GuardianDesktop, handler))
+
+
+def test_windows_protection_ui_refresh_is_safe_off_dashboard():
+    import inspect
+    from windows_engine.desktop import GuardianDesktop
+
+    source = inspect.getsource(GuardianDesktop.set_active_ui)
+    assert 'self.hero_status.winfo_exists()' in source
+    assert 'self.start_button.winfo_exists()' in source
+    assert 'self.stop_button.winfo_exists()' in source
