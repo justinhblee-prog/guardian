@@ -6,7 +6,7 @@ import re
 import sys
 from pathlib import Path
 
-_VERSION_PATTERN = re.compile(r"^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.-]+)?$")
+_VERSION_PATTERN = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?$")
 
 
 def _version_file() -> Path:
