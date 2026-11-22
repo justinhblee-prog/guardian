@@ -106,6 +106,7 @@ def main():
     HEALTH.unlink(missing_ok=True)
     query = query_packet()
     failure = None
+    success = False
     try:
         started = subprocess.run(
             ["schtasks.exe", "/Run", "/TN", TASK_NAME],
@@ -121,7 +122,8 @@ def main():
             try:
                 if probe_udp(query) and probe_tcp(query):
                     print("Installed Guardian SYSTEM task answered blocked DNS over IPv4 UDP and TCP port 53.")
-                    return 0
+                    success = True
+                    break
                 last_error = "UDP or TCP probe did not return the expected NXDOMAIN response"
             except OSError as exc:
                 last_error = str(exc)
