@@ -154,7 +154,7 @@ function renderLicenses() {
     const meta = document.createElement("div");
     meta.className = "license-meta";
     const expiry = document.createElement("span");
-    expiry.textContent = `만료: ${dateLabel(item.expires_at)}`;
+    expiry.textContent = `이용 기간: ${item.expires_at == null ? "영구 (PERMANENT)" : dateLabel(item.expires_at)}`;
     const devices = document.createElement("span");
     devices.textContent = `활성 기기: ${Number(item.active_devices) || 0}/${Number(item.max_devices) || 1}`;
     const created = document.createElement("span");
@@ -367,9 +367,16 @@ $("connect").addEventListener("click", async () => {
   }
 });
 
-$("planPreset").addEventListener("change", () => {
-  if ($("planPreset").value !== "custom") $("days").value = ({ annual_365d: 365, monthly_30d: 30, quarterly_90d: 90, short_7d: 7 })[$("planPreset").value];
-});
+function syncPlanDuration() {
+  const plan = $("planPreset").value;
+  const permanent = plan === "permanent";
+  $("days").disabled = permanent;
+  $("days").value = permanent ? "" : (plan === "custom" ? $("days").value || "365" : ({ annual_365d: 365, monthly_30d: 30, quarterly_90d: 90, short_7d: 7 })[plan]);
+  $("days").placeholder = permanent ? "만료일 없음" : "일수";
+  $("days").setAttribute("aria-label", permanent ? "영구 라이선스는 만료일이 없습니다" : "유효 기간 (일)");
+}
+$("planPreset").addEventListener("change", syncPlanDuration);
+syncPlanDuration();
 
 $("issue").addEventListener("click", async () => {
   if (!adminToken || loading) {
