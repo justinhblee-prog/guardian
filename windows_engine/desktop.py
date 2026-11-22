@@ -481,9 +481,9 @@ class GuardianDesktop:
 
     def show_general_settings(self):
         self._select_nav("settings"); self.page_title.configure(text="일반"); self._clear_page()
-        self._label(self.page,"Guardian Windows 기본 설정",12,self.TEXT,"bold").pack(anchor="w",pady=(0,12))
-        self._button(self.page,"필터 서버 및 배포 키 설정",self.open_filter_settings,"primary").pack(anchor="w")
-        self._button(self.page,"시스템 진단",self.show_diagnostics).pack(anchor="w",pady=(8,0))
+        self._label(self.page,"Guardian Windows 기본 동작",12,self.TEXT,"bold").pack(anchor="w",pady=(0,8))
+        self._label(self.page,"앱 창을 닫아도 DNS 보호 데몬은 백그라운드에서 계속 실행됩니다. 보호를 해제하려면 보호 화면에서 명시적으로 중지하세요.",10,self.MUTED,wraplength=720,justify="left").pack(anchor="w",pady=(0,14))
+        self._button(self.page,"시스템 진단",self.show_diagnostics,"primary").pack(anchor="w")
 
     def show_filtering_settings(self):
         self.show_filter_updates()
