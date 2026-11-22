@@ -70,7 +70,7 @@ jobs:
           function Invoke-GuardianProcess {
             param(
               [Parameter(Mandatory=$true)][string]$FilePath,
-              [Parameter(Mandatory=$true)][string[]]$ArgumentList,
+              [AllowEmptyCollection()][string[]]$ArgumentList = @(),
               [int]$TimeoutSeconds = 120,
               [string]$Label = "Guardian process"
             )
