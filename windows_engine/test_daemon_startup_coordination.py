@@ -20,9 +20,10 @@ def test_existing_live_dns_daemon_is_not_started_twice(monkeypatch, tmp_path):
     monkeypatch.setattr(desktop.time, "monotonic", lambda: next(clock))
     monkeypatch.setattr(desktop.time, "sleep", lambda _seconds: None)
 
-    with pytest.raises(desktop.NetworkConfigError, match="already running"):
+    with pytest.raises(desktop.NetworkConfigError, match="already running") as error:
         desktop.ensure_daemon_running()
 
+    assert "\\n\\n" in str(error.value)
     assert run_calls == []
 
 
