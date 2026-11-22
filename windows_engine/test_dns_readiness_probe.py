@@ -10,12 +10,12 @@ class FragmentedSocket:
 
 
 def test_recv_exact_reassembles_fragmented_tcp_header():
-    assert desktop.recv_exact(FragmentedSocket([b"\\x00", b"\\x2a"]), 2) == b"\\x00\\x2a"
+    assert desktop.recv_exact(FragmentedSocket([bytes([0]), bytes([42])]), 2) == bytes([0, 42])
 
 
 def test_recv_exact_fails_on_truncated_tcp_frame():
     try:
-        desktop.recv_exact(FragmentedSocket([b"\\x00"]), 2)
+        desktop.recv_exact(FragmentedSocket([bytes([0])]), 2)
     except OSError as exc:
         assert "ended early" in str(exc)
     else:
