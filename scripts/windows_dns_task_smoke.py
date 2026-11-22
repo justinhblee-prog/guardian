@@ -8,14 +8,14 @@ import sys
 import time
 from pathlib import Path
 
-APP_DIR = Path(os.environ.get("PROGRAMDATA", r"C:\\ProgramData")) / "Guardian"
+APP_DIR = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "Guardian"
 TASK_NAME = "GuardianDnsProxy"
 HEALTH = APP_DIR / "daemon-health.json"
 LOG_FILE = APP_DIR / "logs" / "proxy-daemon.log"
 
 
 def query_packet():
-    labels = b"".join(bytes((len(part),)) + part.encode("ascii") for part in "doubleclick.net".split(".")) + b"\\0"
+    labels = b"".join(bytes((len(part),)) + part.encode("ascii") for part in "doubleclick.net".split(".")) + b"\0"
     return struct.pack("!HHHHHH", 0x6A31, 0x0100, 1, 0, 0, 0) + labels + struct.pack("!HH", 1, 1)
 
 
@@ -66,7 +66,7 @@ def diagnostics():
         text=True,
         timeout=10,
     )
-    lines.append("Task Scheduler:\\n" + (task.stdout or task.stderr or f"exit={task.returncode}"))
+    lines.append("Task Scheduler:\n" + (task.stdout or task.stderr or f"exit={task.returncode}"))
     for protocol in ("udp", "tcp"):
         result = subprocess.run(
             ["netstat.exe", "-ano", "-p", protocol],
@@ -77,10 +77,10 @@ def diagnostics():
         matches = [line.strip() for line in (result.stdout or "").splitlines() if ":53" in line]
         lines.append(f"Port 53 {protocol.upper()}: " + (" | ".join(matches[:12]) if matches else "no endpoint"))
     if LOG_FILE.exists():
-        lines.append("Daemon log:\\n" + "\\n".join(LOG_FILE.read_text(encoding="utf-8", errors="replace").splitlines()[-40:]))
+        lines.append("Daemon log:\n" + "\n".join(LOG_FILE.read_text(encoding="utf-8", errors="replace").splitlines()[-40:]))
     else:
         lines.append("Daemon log was not created: " + str(LOG_FILE))
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def main():
@@ -88,7 +88,7 @@ def main():
         raise SystemExit("This integration test requires Windows.")
     APP_DIR.mkdir(parents=True, exist_ok=True)
     (APP_DIR / "rules.txt").write_text(
-        "||doubleclick.net^\\n||googlesyndication.com^\\n", encoding="utf-8"
+        "||doubleclick.net^\n||googlesyndication.com^\n", encoding="utf-8"
     )
     (APP_DIR / "guardian.json").write_text(
         json.dumps(
@@ -124,7 +124,7 @@ def main():
             except OSError as exc:
                 last_error = str(exc)
             time.sleep(0.25)
-        raise RuntimeError("Scheduled DNS task did not become ready: " + last_error + "\\n\\n" + diagnostics())
+        raise RuntimeError("Scheduled DNS task did not become ready: " + last_error + "\n\n" + diagnostics())
     except Exception as exc:
         failure = exc
     finally:
