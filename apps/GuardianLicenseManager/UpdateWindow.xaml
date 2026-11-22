@@ -13,7 +13,7 @@
     <Border Grid.Row="1" Background="#142238" BorderBrush="#30445F" BorderThickness="1" CornerRadius="12" Padding="14" Margin="0,0,0,14">
       <Grid>
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,8"><TextBlock Text="플랫폼" Foreground="#A9B8CC"/><ComboBox x:Name="PlatformBox" SelectedIndex="0" Margin="0,4,0,0"><ComboBoxItem Content="Android" Tag="android"/><ComboBoxItem Content="Windows" Tag="windows"/></ComboBox></StackPanel>
         <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8"><TextBlock Text="배포 채널" Foreground="#A9B8CC"/><ComboBox x:Name="ChannelBox" SelectedIndex="0" Margin="0,4,0,0"><ComboBoxItem Content="정식 (Stable)" Tag="stable"/><ComboBoxItem Content="베타 (Beta)" Tag="beta"/></ComboBox></StackPanel>
         <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,10,8"><TextBlock Text="버전 (예: 1.2.0)" Foreground="#A9B8CC"/><TextBox x:Name="VersionBox" Margin="0,4,0,0"/></StackPanel>
