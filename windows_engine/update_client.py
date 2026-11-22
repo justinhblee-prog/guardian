@@ -63,7 +63,7 @@ def _validate_manifest(payload: bytes, tag: str, release_url: str) -> WindowsUpd
         raise WindowsUpdateError("Windows update manifest is not valid UTF-8 JSON.") from exc
     required = {
         "schemaVersion", "product", "platform", "versionName", "buildNumber",
-        "tagName", "installerName", "installerUrl", "sha256",
+        "tagName", "sourceCommit", "installerName", "installerUrl", "sha256",
     }
     if not isinstance(data, dict) or set(data) != required:
         raise WindowsUpdateError("Windows update manifest fields do not match the supported schema.")
@@ -81,6 +81,8 @@ def _validate_manifest(payload: bytes, tag: str, release_url: str) -> WindowsUpd
         or not isinstance(data["versionName"], str)
         or not VERSION_PATTERN.fullmatch(data["versionName"])
         or build != int(match.group(1))
+        or not isinstance(data["sourceCommit"], str)
+        or not re.fullmatch(r"[0-9a-f]{40}", data["sourceCommit"])
         or not isinstance(data["installerName"], str)
         or not re.fullmatch(r"Guardian-AdBlock-Windows-Setup-[A-Za-z0-9.-]+\.exe", data["installerName"])
         or not isinstance(data["sha256"], str)
