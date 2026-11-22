@@ -61,7 +61,7 @@ def test_filter_url_must_stay_on_pinned_origin(tmp_path):
 
 def test_corrupt_anti_rollback_state_fails_closed_and_preserves_rules(tmp_path):
     public,private,body,manifest,signature,fetcher=signed_fixture()
-    rules=tmp_path/"rules.txt"; old=b"||known-good.example^\\n"; rules.write_bytes(old)
+    rules=tmp_path/"rules.txt"; old=b"||known-good.example^\n"; rules.write_bytes(old)
     state=tmp_path/"state.json"; state.write_text("{broken",encoding="utf-8")
     updater=FilterUpdater("https://filters.example.com","adguard",public,state,rules,fetcher)
     with pytest.raises(FilterUpdateError,match="anti-rollback state is corrupt"):
@@ -72,11 +72,11 @@ def test_corrupt_anti_rollback_state_fails_closed_and_preserves_rules(tmp_path):
 
 def test_filter_checksum_mismatch_does_not_replace_existing_cache(tmp_path):
     public,private,body,manifest,signature,fetcher=signed_fixture()
-    rules=tmp_path/"rules.txt"; old=b"||known-good.example^\\n"; rules.write_bytes(old)
+    rules=tmp_path/"rules.txt"; old=b"||known-good.example^\n"; rules.write_bytes(old)
     def tampered(url,limit):
         if url.endswith(".manifest"):
             return manifest,{"X-Guardian-Signature":signature}
-        return b"||tampered.example^\\n",{}
+        return b"||tampered.example^\n",{}
     updater=FilterUpdater("https://filters.example.com","adguard",public,tmp_path/"state.json",rules,tampered)
     with pytest.raises(FilterUpdateError,match="SHA-256"):
         updater.update()
@@ -92,7 +92,7 @@ def test_signed_manifest_minimum_rule_count_is_enforced(tmp_path):
         if url.endswith(".manifest"):
             return too_many,{"X-Guardian-Signature":signed}
         return body,{}
-    rules=tmp_path/"rules.txt"; old=b"||known-good.example^\\n"; rules.write_bytes(old)
+    rules=tmp_path/"rules.txt"; old=b"||known-good.example^\n"; rules.write_bytes(old)
     updater=FilterUpdater("https://filters.example.com","adguard",public,tmp_path/"state.json",rules,underfilled)
     with pytest.raises(FilterUpdateError,match="fewer valid blocking rules"):
         updater.update()
@@ -102,7 +102,7 @@ def test_signed_manifest_minimum_rule_count_is_enforced(tmp_path):
 
 def test_filter_download_failure_preserves_last_known_good_cache(tmp_path):
     public,private,body,manifest,signature,fetcher=signed_fixture()
-    rules=tmp_path/"rules.txt"; old=b"||known-good.example^\\n"; rules.write_bytes(old)
+    rules=tmp_path/"rules.txt"; old=b"||known-good.example^\n"; rules.write_bytes(old)
     def unavailable(url,limit):
         if url.endswith(".manifest"):
             return manifest,{"X-Guardian-Signature":signature}
