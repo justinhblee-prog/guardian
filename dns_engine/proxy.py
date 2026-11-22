@@ -10,15 +10,21 @@ class _UdpHandler(socketserver.BaseRequestHandler):
         except (DnsFormatError,ValueError): return
 
 class _TcpHandler(socketserver.StreamRequestHandler):
+    @staticmethod
+    def _read_exact(stream,length):
+        chunks=[]; remaining=length
+        while remaining:
+            chunk=stream.read(remaining)
+            if not chunk: raise OSError("TCP DNS request ended before its frame was complete")
+            chunks.append(chunk); remaining-=len(chunk)
+        return b"".join(chunks)
     def handle(self):
         self.request.settimeout(self.server.proxy.timeout)
         try:
-            header=self.rfile.read(2)
-            if len(header)!=2: return
+            header=self._read_exact(self.rfile,2)
             length=struct.unpack("!H",header)[0]
             if length<12 or length>4096: return
-            packet=self.rfile.read(length)
-            if len(packet)!=length: return
+            packet=self._read_exact(self.rfile,length)
             response=self.server.proxy.process_query(packet)
             self.wfile.write(struct.pack("!H",len(response))+response)
         except (OSError,DnsFormatError,ValueError): return

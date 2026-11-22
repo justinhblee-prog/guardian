@@ -140,32 +140,42 @@ def recv_exact(sock,length):
         chunks.append(chunk); remaining-=len(chunk)
     return b"".join(chunks)
 def proxy_readiness_status():
-    """Return a safe, actionable reason when the local TCP DNS probe is not ready."""
+    """Return a stage-specific reason when the local TCP DNS probe is not ready."""
     # The daemon publishes its heartbeat only after all UDP/TCP listeners bind.
     # Probe TCP because Windows SharedAccess may own wildcard UDP port 53.
     if not daemon_health_is_fresh(HEALTH):
         return False,"DNS daemon heartbeat is missing, stale, or its PID is no longer running"
+    stage="load blocked-domain probe"
     try:
         domain=configured_probe_domain()
         if not domain:
             return False,"no active blocked domain is available for the DNS readiness probe"
         query=blocked_probe_query(domain)
+        stage="connect to 127.0.0.1:53"
         with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as client:
-            client.settimeout(1.0)
+            # A one-second timeout is too aggressive on a busy Windows desktop
+            # immediately after Task Scheduler starts the daemon.
+            client.settimeout(3.0)
             client.connect(("127.0.0.1",53))
+            stage="send framed TCP DNS query"
             client.sendall(struct.pack("!H",len(query))+query)
+            stage="read TCP DNS response length"
             header=recv_exact(client,2)
             length=struct.unpack("!H",header)[0]
             if length<12 or length>4096:
-                return False,"local TCP DNS listener returned an invalid response length"
+                return False,f"local TCP DNS listener returned invalid response length {length}"
+            stage="read TCP DNS response body"
             response=recv_exact(client,length)
+        stage="validate TCP DNS response"
         if not is_dns_probe_response(query,response):
             return False,"local TCP DNS listener responded, but the DNS response failed validation"
         return True,"local TCP DNS response validated"
     except OSError as exc:
-        return False,f"local TCP DNS connection/read failed (errno={getattr(exc,'winerror',None) or exc.errno or 'unknown'})"
-    except (ValueError,TypeError):
-        return False,"DNS readiness probe could not load or construct a valid blocked-domain query"
+        code=getattr(exc,"winerror",None) or exc.errno
+        error_type=type(exc).__name__
+        return False,f"local TCP DNS probe failed during {stage} ({error_type}, errno={code if code is not None else 'unknown'}): {exc}"
+    except (ValueError,TypeError) as exc:
+        return False,f"DNS readiness probe failed during {stage} ({type(exc).__name__}): {exc}"
 
 
 def proxy_ready():
