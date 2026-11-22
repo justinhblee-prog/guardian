@@ -143,7 +143,7 @@ function requireEnv() {
 }
 function requireAdmin(req) {
   const authorization = req.headers.authorization || '';
-  const match = /^Bearer\\s+([^\\s]+)$/i.exec(authorization);
+  const match = /^Bearer\s+([^\s]+)$/i.exec(authorization);
   const supplied = match?.[1] || '';
   const valid = ADMIN_TOKEN && ADMIN_TOKEN.length >= 32
     ? adminTokenMatches(supplied, ADMIN_TOKEN)
