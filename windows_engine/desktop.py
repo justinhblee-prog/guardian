@@ -1,5 +1,5 @@
 """Tkinter desktop control panel for Guardian Windows DNS protection."""
-import json,os,sys,socket,struct,subprocess,time
+import json,os,sys,socket,struct,subprocess,time,urllib.request,webbrowser
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
@@ -110,7 +110,7 @@ def self_test():
 class GuardianDesktop:
     def __init__(self,root):
         self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False
-        self.status=tk.StringVar(value="보호 꺼짐"); root.title("Guardian AdBlock"); root.geometry("620x440"); root.minsize(560,400); root.configure(bg="#101820")
+        self.status=tk.StringVar(value="보호 꺼짐"); root.title("Guardian AdBlock"); root.geometry("920x640"); root.minsize(820,580); root.configure(bg="#101820")
         tk.Label(root,text="GUARDIAN",font=("Segoe UI",24,"bold"),fg="#f2f6fa",bg="#101820").pack(pady=(24,2))
         tk.Label(root,text="Windows DNS Protection",font=("Segoe UI",10),fg="#9fb2c3",bg="#101820").pack()
         self.status_label=tk.Label(root,textvariable=self.status,font=("Segoe UI",15,"bold"),fg="#f3b64a",bg="#101820"); self.status_label.pack(pady=26)
@@ -119,6 +119,7 @@ class GuardianDesktop:
         self.stop_button=tk.Button(row,text="보호 중지",command=self.stop_protection,width=16,height=2,bg="#8b3940",fg="white",font=("Segoe UI",11,"bold"),relief="flat",state="disabled"); self.stop_button.pack(side="left",padx=8)
         self.stats=tk.Label(root,text="차단 0건  |  전달 0건",font=("Segoe UI",12),fg="#d7e0e8",bg="#101820"); self.stats.pack(pady=20)
         actions=tk.Frame(root,bg="#101820"); actions.pack(pady=4)
+        tk.Button(actions,text="프로그램 업데이트",command=self.check_program_updates,width=18,bg="#197a57",fg="white",relief="flat").pack(side="left",padx=6)
         tk.Button(actions,text="필터 업데이트",command=self.update_filters,width=16,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=6)
         tk.Button(actions,text="필터 서버 설정",command=self.open_filter_settings,width=16,bg="#33404c",fg="white",relief="flat").pack(side="left",padx=6)
         tk.Button(actions,text="라이선스",command=self.open_license_settings,width=12,bg="#5946a8",fg="white",relief="flat").pack(side="left",padx=6)
@@ -261,6 +262,22 @@ class GuardianDesktop:
         tk.Button(buttons,text="라이선스 활성화",command=activate,bg="#197a57",fg="white",relief="flat").pack(side="left",padx=5)
         tk.Button(buttons,text="갱신",command=refresh,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=5)
         tk.Button(buttons,text="이 기기 해제",command=deactivate,bg="#8b3940",fg="white",relief="flat").pack(side="left",padx=5)
+    def check_program_updates(self):
+        try:
+            request=urllib.request.Request('https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=20',headers={'Accept':'application/vnd.github+json','User-Agent':'GuardianAdBlock-Windows'})
+            with urllib.request.urlopen(request,timeout=12) as response: releases=json.loads(response.read(1024*1024).decode('utf-8'))
+            release=next((item for item in releases if not item.get('draft')),None)
+            if not release: raise RuntimeError('공식 릴리스가 아직 게시되지 않았습니다.')
+            self.latest_release_url=release.get('html_url','')
+            tag=release.get('tag_name','버전 정보 없음')
+            assets=release.get('assets',[])
+            installer=next((item for item in assets if item.get('name','').lower().endswith('.exe') and 'windows' in item.get('name','').lower()),None)
+            detail='Windows 설치 파일: '+installer.get('name') if installer else 'Windows 설치 파일이 릴리스 자산에 없습니다.'
+            dialog=tk.Toplevel(self.root); dialog.title('Guardian 프로그램 업데이트'); dialog.geometry('560x240'); dialog.configure(bg='#101820')
+            tk.Label(dialog,text='프로그램 업데이트',font=('Segoe UI',18,'bold'),fg='white',bg='#101820').pack(anchor='w',padx=20,pady=(20,12))
+            tk.Label(dialog,text='최신 릴리스: '+tag+'\\n'+detail,wraplength=500,justify='left',font=('Segoe UI',10),fg='#d7e0e8',bg='#101820').pack(anchor='w',padx=20,pady=8)
+            if self.latest_release_url: tk.Button(dialog,text='공식 릴리스 페이지 열기',command=lambda: webbrowser.open(self.latest_release_url),bg='#197a57',fg='white',relief='flat').pack(anchor='w',padx=20,pady=12)
+        except Exception as exc: messagebox.showerror('프로그램 업데이트 확인 실패',str(exc))
     def update_filters(self):
         try:
             data=json.loads(CONFIG.read_text(encoding="utf-8"))
