@@ -449,6 +449,25 @@ async function listCustomers(req, search = '') {
   );
   return { customers: result.rows };
 }
+async function listCustomerLicenses(customerId, req) {
+  requireEnv();
+  requireAdmin(req);
+  const id = validateUuid(customerId, '고객 ID');
+  const result = await pool.query(
+    `SELECT l.id,l.license_ref,l.status,l.expires_at,l.max_devices,l.created_at,
+       count(a.id) FILTER (WHERE a.deactivated_at IS NULL)::int AS active_devices
+     FROM licenses l
+     JOIN customers c ON c.id=l.customer_id
+     LEFT JOIN activations a ON a.license_id=l.id
+     WHERE c.id=$1
+     GROUP BY l.id
+     ORDER BY l.created_at DESC
+     LIMIT 100`,
+    [id]
+  );
+  return { licenses: result.rows };
+}
+
 async function listAuditEvents(req) {
   requireEnv();
   requireAdmin(req);
@@ -587,6 +606,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/v1/admin/support/tickets') return json(res, 200, await listSupportTickets(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/customers') return json(res, 200, await listCustomers(req, url.searchParams.get('q') || ''));
+    const customerLicensesMatch = /^\/v1\/admin\/customers\/([^/]+)\/licenses$/.exec(url.pathname);
+    if (req.method === 'GET' && customerLicensesMatch) {
+      return json(res, 200, await listCustomerLicenses(customerLicensesMatch[1], req));
+    }
     const activationListMatch = /^\/v1\/admin\/licenses\/([^/]+)\/activations$/.exec(url.pathname);
     if (req.method === 'GET' && activationListMatch) {
       return json(res, 200, await listActivations(activationListMatch[1], req));
