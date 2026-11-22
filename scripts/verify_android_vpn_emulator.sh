@@ -1167,6 +1167,10 @@ echo "Customer support center FAQ, inquiry submission form, and private lookup U
 # checking the foreground-app compatibility controls.
 tap_content_description "설정"
 sleep 1
+# The Settings navigation item opens the settings landing page; foreground-app
+# compatibility controls live under its General submenu.
+tap_content_description "일반"
+sleep 1
 
 auto_pause_picker_visible=0
 # The Settings tab opens at its top after the app is relaunched. Scroll down
