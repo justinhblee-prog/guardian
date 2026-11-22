@@ -771,10 +771,12 @@ rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
-selected=any(node.attrib.get("content-desc")=="전체 메뉴" and node.attrib.get("selected")=="true" for node in nodes) and any(node.attrib.get("text","")=="허용 도메인" for node in nodes)
+selected=any(node.attrib.get("content-desc") in {"전체 메뉴","필터 규칙"}
+             and node.attrib.get("selected")=="true" for node in nodes)
+filter_editor=any(node.attrib.get("text","")=="허용 도메인" for node in nodes)
 draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
-if not (selected and draft):
-    raise SystemExit("Activity rotation lost the selected filter tab, restored scroll position, or unsaved rule draft.")' <<<"$rotation_xml"
+if not (selected and filter_editor and draft):
+    raise SystemExit("Activity rotation lost the selected filter destination, filter editor, or unsaved rule draft.")' <<<"$rotation_xml"
 if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Activity restored after configuration change; tab=rules scrollY=[1-9][0-9]* hasRuleDraft=true"; then
   echo "Activity did not retain the unsaved rule editor draft across rotation."
   adb_cmd logcat -d -s GuardianUI:I | tail -80
