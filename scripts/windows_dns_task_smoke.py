@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from windows_engine.daemon_health import daemon_process_is_running
 
 APP_DIR = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "Guardian"
 TASK_NAME = "GuardianDnsProxy"
@@ -137,10 +138,12 @@ def main():
             timeout=15,
         )
         deadline = time.monotonic() + 5
-        while HEALTH.exists() and time.monotonic() < deadline:
+        while daemon_process_is_running(HEALTH) and time.monotonic() < deadline:
             time.sleep(0.2)
-        if HEALTH.exists() and failure is None:
-            failure = RuntimeError("Guardian DNS daemon did not stop after schtasks /End; health file remains present")
+        if daemon_process_is_running(HEALTH) and failure is None:
+            failure = RuntimeError("Guardian DNS daemon process did not stop after schtasks /End")
+        if not daemon_process_is_running(HEALTH):
+            HEALTH.unlink(missing_ok=True)
     if failure:
         print(str(failure), file=sys.stderr)
         return 1
