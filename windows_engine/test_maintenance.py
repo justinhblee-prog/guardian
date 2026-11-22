@@ -34,7 +34,7 @@ def test_stop_daemon_removes_task_only_after_process_is_stopped(monkeypatch):
     maintenance.stop_daemon(delete=True)
 
     assert calls[0] == ("/End", "/TN", maintenance.TASK_NAME)
-    assert ("remove-health",) in calls
+    assert "remove-health" in calls
     assert ("/Delete", "/TN", maintenance.TASK_NAME, "/F") in calls
 
 
