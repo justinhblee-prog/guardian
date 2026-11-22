@@ -143,7 +143,7 @@ class MainActivity : Activity() {
         }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
         showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
-        if (restoredTab == "rules") {
+        if (restoredTab == "settings-filtering") {
             retainedRuleDraft?.let { draft ->
                 blockRulesInput.setText(draft.blockRules)
                 allowRulesInput.setText(draft.allowRules)
@@ -154,7 +154,7 @@ class MainActivity : Activity() {
                 scroll.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
                     override fun onGlobalLayout() {
                         scroll.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                        if (restoredTab == "rules" && retainedRuleDraft != null) {
+                        if (restoredTab == "settings-filtering" && retainedRuleDraft != null) {
                             val editorBounds = android.graphics.Rect()
                             blockRulesInput.getDrawingRect(editorBounds)
                             scroll.offsetDescendantRectToMyCoords(blockRulesInput, editorBounds)
@@ -339,7 +339,7 @@ class MainActivity : Activity() {
         checkStartupFilterReadiness()
         if (usageAccessSettingsOpened) {
             usageAccessSettingsOpened = false
-            if (currentTab == "settings") {
+            if (currentTab.startsWith("settings")) {
                 showTab("settings-general")
                 refreshStatus()
             }
