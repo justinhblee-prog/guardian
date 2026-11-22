@@ -1488,6 +1488,7 @@ class MainActivity : Activity() {
                 setPadding(dp(15), dp(14), dp(15), dp(14))
                 addView(text(title, 15f, white, true))
                 addView(text(detail, 11f, muted, false).withTop(5))
+                contentDescription = title
                 isClickable = true
                 setOnClickListener { showTab(target) }
             }.withTop(9))
