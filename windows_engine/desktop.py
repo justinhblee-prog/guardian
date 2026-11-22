@@ -340,7 +340,7 @@ class GuardianDesktop:
         self._label(side,"WINDOWS SECURITY",8,self.MUTED,"bold",self.SIDE).pack(anchor="w",padx=24,pady=(0,30))
         self._label(side,"WORKSPACE",8,"#657891","bold",self.SIDE).pack(anchor="w",padx=22,pady=(0,10))
         self.nav={}
-        items=[("home","▦   대시보드",self.show_dashboard),("filters","◉   필터 업데이트",self.update_filters),("network","⌁   필터 서버 설정",self.open_filter_settings),("license","◇   라이선스",self.open_license_settings),("diagnostics","≋   진단 정보",self.show_diagnostics)]
+        items=[("home","▦   대시보드",self.show_dashboard),("filters","◉   필터 업데이트",self.show_filter_updates),("network","⌁   필터 서버 설정",self.open_filter_settings),("license","◇   라이선스",self.show_license_page),("diagnostics","≋   진단 정보",self.show_diagnostics)]
         for key,label,fn in items:
             b=tk.Button(side,text=label,command=lambda k=key,f=fn:(self._select_nav(k),f()),anchor="w",bg=self.SIDE,fg=self.MUTED,activebackground=self.ALT,activeforeground=self.TEXT,relief="flat",bd=0,padx=22,pady=13,cursor="hand2",font=("Segoe UI",10,"bold")); b.pack(fill="x",padx=10,pady=2); self.nav[key]=b
         tk.Frame(side,bg=self.SIDE).pack(fill="both",expand=True)
@@ -373,7 +373,7 @@ class GuardianDesktop:
         self.blocked_value=self._metric(metrics,"차단된 요청","광고 및 추적 도메인",self.TEAL); self.forwarded_value=self._metric(metrics,"정상 전달","업스트림 DNS 응답",self.BLUE); self.adapters_value=self._metric(metrics,"보호 상태","네트워크 어댑터",self.TEXT)
         for i,item in enumerate((self.blocked_value,self.forwarded_value,self.adapters_value)): item[0].grid(row=0,column=i,sticky="nsew",padx=(0 if i==0 else 8,0 if i==2 else 8))
         lower=tk.Frame(self.page,bg=self.BG); lower.pack(fill="both",expand=True); lower.columnconfigure((0,1),weight=1,uniform="cards")
-        for col,title,eyebrow,accent,button,fn in [(0,"필터 상태","FILTER INTELLIGENCE",self.TEAL,"필터 업데이트",self.update_filters),(1,"라이선스","GUARDIAN ACCOUNT",self.BLUE,"라이선스 관리",self.open_license_settings)]:
+        for col,title,eyebrow,accent,button,fn in [(0,"필터 상태","FILTER INTELLIGENCE",self.TEAL,"필터 업데이트",self.show_filter_updates),(1,"라이선스","GUARDIAN ACCOUNT",self.BLUE,"라이선스 관리",self.show_license_page)]:
             card=tk.Frame(lower,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=18,pady=16); card.grid(row=0,column=col,sticky="nsew",padx=(0,9) if col==0 else (9,0))
             self._label(card,eyebrow,8,accent,"bold").pack(anchor="w"); self._label(card,title,14,self.TEXT,"bold").pack(anchor="w",pady=(9,8))
             if col==0: self.filter_status=self._label(card,"서버 미설정",10,self.AMBER)
@@ -381,6 +381,73 @@ class GuardianDesktop:
             (self.filter_status if col==0 else self.license_status).pack(anchor="w"); self._button(card,button,fn).pack(anchor="w",pady=(16,0))
         self._label(self.page,"앱 창을 닫아도 백그라운드 DNS 보호는 유지됩니다.",9,self.MUTED,bg=self.BG).pack(anchor="w",pady=(14,0))
         self.set_active_ui(self.active,self.status.get())
+    def show_filter_updates(self):
+        self._select_nav("filters"); self.page_title.configure(text="필터 업데이트"); self._clear_page()
+        try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
+        except Exception: data={}
+        try: status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
+        except Exception: status={}
+        rules_path=APP_DIR/data.get("rules_file","rules.txt")
+        try: rule_count=len(DomainRules.from_text(rules_path.read_text(encoding="utf-8")).blocked)
+        except Exception: rule_count=0
+        configured=bool(str(data.get("manifest_base_url") or "").strip() and str(data.get("manifest_public_key") or "").strip())
+        card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=20)
+        card.pack(fill="x",pady=(0,14))
+        self._label(card,"FILTER INTELLIGENCE",9,self.TEAL,"bold").pack(anchor="w")
+        self._label(card,"서명 필터 상태",18,self.TEXT,"bold").pack(anchor="w",pady=(8,12))
+        values=[
+            ("필터 서버","설정 완료" if configured else "미설정 · HTTPS 주소와 RSA 공개키 필요"),
+            ("필터 source",str(data.get("filter_source_id") or "adguard")),
+            ("설치된 차단 규칙",f"{rule_count:,}개"),
+            ("마지막 업데이트",time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(status.get("checkedAt",0))) if status.get("checkedAt") else "기록 없음"),
+            ("업데이트 상태",str(status.get("state","not_configured"))),
+        ]
+        for label,value in values:
+            row=tk.Frame(card,bg=self.PANEL); row.pack(fill="x",pady=6)
+            self._label(row,label,9,self.MUTED).pack(anchor="w")
+            self._label(row,value,10,self.GREEN if label=="필터 서버" and configured else (self.AMBER if label=="필터 서버" else self.TEXT),wraplength=760,justify="left").pack(anchor="w",pady=(2,0))
+        actions=tk.Frame(card,bg=self.PANEL); actions.pack(anchor="w",pady=(16,0))
+        self._button(actions,"지금 업데이트",self.update_filters,"primary").pack(side="left")
+        self._button(actions,"필터 서버 설정",self.open_filter_settings).pack(side="left",padx=(8,0))
+        if not configured:
+            self._label(self.page,"현재는 내장 기본 규칙으로 동작합니다. 서명 manifest 서버 주소와 공개키가 등록되기 전까지 원격 필터 업데이트는 실행할 수 없습니다.",9,self.MUTED,bg=self.BG,wraplength=760,justify="left").pack(anchor="w",pady=(4,0))
+
+    def show_license_page(self):
+        self._select_nav("license"); self.page_title.configure(text="라이선스"); self._clear_page()
+        try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
+        except Exception: data={}
+        configured=bool(str(data.get("license_api_base_url") or "").strip() and str(data.get("license_public_key") or "").strip())
+        entitlement=None; error=None
+        if configured:
+            try: entitlement=self._license_client(data).current_entitlement()
+            except Exception as exc: error=str(exc)
+        card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=20)
+        card.pack(fill="x",pady=(0,14))
+        self._label(card,"GUARDIAN ACCOUNT",9,self.BLUE,"bold").pack(anchor="w")
+        self._label(card,"Guardian Pro 라이선스",18,self.TEXT,"bold").pack(anchor="w",pady=(8,12))
+        if entitlement:
+            status="Guardian Pro 활성"
+            detail="만료: "+time.strftime("%Y-%m-%d",time.localtime(entitlement["expiresAt"]))
+            color=self.GREEN
+        elif error:
+            status="라이선스 서버 확인 실패"
+            detail=error
+            color=self.AMBER
+        elif configured:
+            status="무료 버전"
+            detail="이 기기에 활성화된 Pro 라이선스가 없습니다."
+            color=self.MUTED
+        else:
+            status="서버 설정 필요"
+            detail="공통 라이선스 API HTTPS 주소와 RSA 공개키를 등록해야 발급 키 활성화·갱신·기기 해제가 가능합니다."
+            color=self.AMBER
+        self._label(card,status,14,color,"bold").pack(anchor="w")
+        self._label(card,detail,10,self.MUTED,wraplength=760,justify="left").pack(anchor="w",pady=(6,0))
+        actions=tk.Frame(card,bg=self.PANEL); actions.pack(anchor="w",pady=(16,0))
+        self._button(actions,"라이선스 설정 및 활성화",self.open_license_settings,"primary").pack(side="left")
+        self._button(actions,"상태 새로고침",self.show_license_page).pack(side="left",padx=(8,0))
+        self._label(self.page,"Windows와 Android는 동일한 라이선스 계정과 기기 활성화 한도를 공유하도록 설계되어 있습니다.",9,self.MUTED,bg=self.BG,wraplength=760,justify="left").pack(anchor="w",pady=(4,0))
+
     def show_diagnostics(self):
         self._select_nav("diagnostics"); self.page_title.configure(text="진단 정보"); self._clear_page()
         panel=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=20,pady=18); panel.pack(fill="both",expand=True)
