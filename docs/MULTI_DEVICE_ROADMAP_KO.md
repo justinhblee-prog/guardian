@@ -1,5 +1,14 @@
 # Guardian AdBlock 멀티 디바이스 제품 설계
 
+## 최신 검증 결과 — 2026-11-22
+
+- Android 설정·프리미엄 #247, 태블릿 설정 #258, 태블릿 에뮬레이터 #259의 최신 Android unit/lint/APK emulator E2E가 통과했습니다.
+- #259 에뮬레이터에서 1066.7dp 설정 2열, landscape 재배치, 999dp 1열 전환을 확인했습니다.
+- 세 run에서 VPN/DNS 차단, 사용자 규칙, 앱 업데이트 복구 및 foreground-app 자동 일시중지/재개가 통과했습니다.
+- 개발 APK `0.7.34-dev-ci2007`, versionCode `2008`, SHA-256 `c5d0ccfc88118388586e58d0b350852d06617a19aa703a044d1d36209d652f7e`.
+- 실기기 acceptance, Windows 물리 PC acceptance, 실제 License API 배포, filter source 상용 재배포 승인 및 Production signing은 아직 미완료입니다.
+
+
 기준일: 2026-11-21
 
 ## 2026-11-21 최신 통합 상태 — main 기준
