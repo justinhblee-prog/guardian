@@ -63,29 +63,17 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          if [[ "$GITHUB_REF" == "refs/heads/main" && ( "$GITHUB_EVENT_NAME" == "push" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ) ]]; then
-            # Resolve from published releases, not branch commits or workflow run numbers.
-            # Re-running the same source commit reuses its version instead of consuming one.
-            gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
-            python3 scripts/resolve_guardian_dev_version.py \
-              --releases-json release/guardian-releases.json \
-              --commit "$GITHUB_SHA" \
-              --baseline-version "0.7.34-dev" \
-              --baseline-code 47 \
-              --github-env "$GITHUB_ENV" \
-              --github-output "$GITHUB_OUTPUT"
-          else
-            # PR validation builds are non-published and never consume a release number.
-            {
-              echo "GUARDIAN_VERSION_NAME=0.7.34-dev"
-              echo "GUARDIAN_VERSION_CODE=47"
-              echo "GUARDIAN_RELEASE_TAG="
-            } >> "$GITHUB_ENV"
-            {
-              echo "version_name=0.7.34-dev"
-              echo "version_code=47"
-            } >> "$GITHUB_OUTPUT"
-          fi
+          # Every build, including PR validation, must be newer than the latest
+          # published APK so the emulator can perform a real in-place upgrade.
+          # Main reruns reuse the release version for the same source commit.
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
+          python3 scripts/resolve_guardian_dev_version.py \
+            --releases-json release/guardian-releases.json \
+            --commit "$GITHUB_SHA" \
+            --baseline-version "0.7.34-dev" \
+            --baseline-code 47 \
+            --github-env "$GITHUB_ENV" \
+            --github-output "$GITHUB_OUTPUT"
           echo "Version resolution completed."
 
       - name: Verify shared DNS filter rules
@@ -183,10 +171,72 @@ jobs:
         run: |
           test -s android/guardian-dev.keystore
           keytool -list -v -keystore android/guardian-dev.keystore -storepass android -alias androiddebugkey | grep -F 'ED:AE:EC:C9:E4:A2:7E:64:F0:7D:92:64:3F:B8:51:40:72:50:83:AB:ED:55:3F:91:2A:0D:EE:03:87:FB:D8:2C'
-      - name: Assemble previous dev version for upgrade test
+      - name: Download and verify the actual previous published APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          gradle -p android --no-daemon -PguardianVersionCode=46 -PguardianVersionName=0.7.33-dev assembleDebug
-          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/guardian-0.7.33-dev.apk
+          set -euo pipefail
+          # Select the newest immutable published development release whose
+          # versionCode is lower than this build. Never rebuild the baseline
+          # from current source: that would hide signing-key regressions.
+          PREVIOUS_TAG="$(python3 - "release/guardian-releases.json" "$GUARDIAN_VERSION_CODE" <<'PY'
+          import json, re, sys
+          releases = json.load(open(sys.argv[1], encoding="utf-8"))
+          current = int(sys.argv[2])
+          candidates = []
+          for release in releases:
+              if release.get("draft") or not release.get("prerelease"):
+                  continue
+              match = re.fullmatch(r"guardian-dev-v([0-9]+)", release.get("tag_name", ""))
+              if not match:
+                  continue
+              code = int(match.group(1))
+              assets = {asset.get("name") for asset in release.get("assets", [])}
+              if code < current and {"guardian-android-dev.apk", "guardian-android-dev.json"} <= assets:
+                  candidates.append((code, release["tag_name"]))
+          if not candidates:
+              raise SystemExit(f"No published Guardian predecessor APK exists below versionCode {current}.")
+          print(max(candidates)[1])
+          PY
+          )"
+          mkdir -p /tmp/guardian-previous-release
+          gh release download "$PREVIOUS_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern guardian-android-dev.apk \
+            --pattern guardian-android-dev.json \
+            --dir /tmp/guardian-previous-release
+          PREVIOUS_APK="/tmp/guardian-previous-release/guardian-android-dev.apk"
+          PREVIOUS_MANIFEST="/tmp/guardian-previous-release/guardian-android-dev.json"
+          test -s "$PREVIOUS_APK"
+          test -s "$PREVIOUS_MANIFEST"
+
+          python3 - "$PREVIOUS_MANIFEST" "$PREVIOUS_APK" "$GUARDIAN_VERSION_CODE" <<'PY'
+          import hashlib, json, pathlib, sys
+          manifest_path, apk_path, current_code = sys.argv[1:]
+          manifest = json.loads(pathlib.Path(manifest_path).read_text(encoding="utf-8"))
+          assert manifest.get("packageName") == "com.guardian.adblock", "Previous release package name mismatch."
+          assert int(manifest.get("versionCode", 0)) < int(current_code), "Previous APK is not older than the current build."
+          assert manifest.get("versionName"), "Previous release versionName is missing."
+          assert manifest.get("signerSha256") == "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c", "Published predecessor has an unexpected signer."
+          digest = hashlib.sha256(pathlib.Path(apk_path).read_bytes()).hexdigest()
+          assert manifest.get("sha256") == digest, "Published predecessor APK SHA-256 does not match its release manifest."
+          print(f"Verified actual published predecessor: {manifest['versionName']} ({manifest['versionCode']}), SHA-256 {digest}")
+          with open(__import__("os").environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"GUARDIAN_PREVIOUS_APK={apk_path}\\n")
+              env.write(f"GUARDIAN_PREVIOUS_VERSION_CODE={manifest['versionCode']}\\n")
+              env.write(f"GUARDIAN_PREVIOUS_VERSION_NAME={manifest['versionName']}\\n")
+          PY
+
+          # Independently inspect the APK itself. Do not trust its sidecar JSON
+          # as proof of package identity or signer identity.
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$PREVIOUS_APK")"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock'"
+          ACTUAL_SIGNER="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$PREVIOUS_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          test "$ACTUAL_SIGNER" = "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
+          echo "Previous release APK package and signing certificate independently verified."
+          echo "Upgrade baseline: $GUARDIAN_PREVIOUS_VERSION_NAME ($GUARDIAN_PREVIOUS_VERSION_CODE)"
+          echo "Upgrade baseline APK: $PREVIOUS_APK"
 
       - name: Assemble current debug APK for build verification
         shell: bash
