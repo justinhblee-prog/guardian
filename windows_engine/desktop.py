@@ -80,6 +80,12 @@ def daemon_readiness_diagnosis():
         details.append("IPv4 UDP 127.0.0.1:53: "+("DNS response received" if is_dns_probe_response(query,response) else "invalid DNS response"))
     except OSError as exc: details.append("IPv4 UDP 127.0.0.1:53: "+str(exc))
     try:
+        for protocol in ("udp","tcp"):
+            result=subprocess.run(["netstat.exe","-ano","-p",protocol],capture_output=True,text=True,timeout=5)
+            matches=[line.strip() for line in (result.stdout or "").splitlines() if ":53" in line]
+            details.append(f"Port 53 {protocol.upper()} endpoints: "+(" | ".join(matches[:8]) if matches else "no matching endpoint reported"))
+    except Exception as exc: details.append("Port 53 ownership query failed: "+str(exc))
+    try:
         if LOG_FILE.exists():
             tail="\n".join(LOG_FILE.read_text(encoding="utf-8",errors="replace").splitlines()[-18:])
             details.append("Daemon log (last lines):\n"+tail[:4500])
