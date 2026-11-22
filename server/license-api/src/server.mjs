@@ -624,7 +624,8 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" });
       return res.end(html);
     }
-    if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));\n    if (req.method === 'GET' && url.pathname === '/v1/admin/updates') return json(res, 200, await listAdminUpdates(req));
+    if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
+    if (req.method === 'GET' && url.pathname === '/v1/admin/updates') return json(res, 200, await listAdminUpdates(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/support/tickets') return json(res, 200, await listSupportTickets(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/customers') return json(res, 200, await listCustomers(req, url.searchParams.get('q') || ''));
@@ -656,7 +657,8 @@ const server = http.createServer(async (req, res) => {
            AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>now())
          LIMIT 1`, [device, licenseRef]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
-    } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });\n    else if (url.pathname === '/v1/admin/updates') result = await publishUpdate(body, req);
+    } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
+    else if (url.pathname === '/v1/admin/updates') result = await publishUpdate(body, req);
     else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
       const id = url.pathname.split('/')[4];
       result = await revokeLicense(id, req);
