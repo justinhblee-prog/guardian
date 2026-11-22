@@ -63,7 +63,7 @@ def test_proxy_readiness_uses_tcp_listener_and_valid_dns_response(monkeypatch):
             self.sent = b""
         def __enter__(self): return self
         def __exit__(self, *args): return False
-        def settimeout(self, value): assert value == 1.0
+        def settimeout(self, value): assert value == 3.0
         def connect(self, address): assert address == ("127.0.0.1", 53)
         def sendall(self, payload):
             self.sent = payload
