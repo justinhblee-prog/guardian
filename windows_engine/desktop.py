@@ -12,7 +12,35 @@ APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
 CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"
 TASK_NAME="GuardianDnsProxy"
 def daemon_executable_path():
+    if getattr(sys,"frozen",False):
+        return Path(sys.executable).resolve().parent / "GuardianDnsProxy" / "GuardianDnsProxy.exe"
+    return Path(__file__).resolve().parents[1] / "dist" / "GuardianDnsProxy" / "GuardianDnsProxy.exe"
 def daemon_startup_diagnostics():
+    details=[]
+    daemon_exe=daemon_executable_path()
+    details.append(f"DNS 백그라운드 실행 파일: {daemon_exe} (파일 존재: {daemon_exe.is_file()})")
+    try:
+        task=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
+        output="\\n".join(part.strip() for part in (task.stdout,task.stderr) if part and part.strip())
+        if output: details.append("작업 스케줄러 상태:\\n"+output[-5000:])
+        else: details.append("작업 스케줄러 상태를 읽지 못했습니다.")
+    except Exception as exc:
+        details.append("작업 스케줄러 조회 실패: "+str(exc))
+    log_path=APP_DIR/"daemon-startup.log"
+    try:
+        if log_path.exists():
+            lines=log_path.read_text(encoding="utf-8",errors="replace").splitlines()
+            details.append("DNS 백그라운드 시작 로그:\\n"+"\\n".join(lines[-50:]))
+        else:
+            details.append("DNS 백그라운드 시작 로그가 없습니다: "+str(log_path))
+    except OSError as exc:
+        details.append("DNS 백그라운드 로그 읽기 실패: "+str(exc))
+    try:
+        health=json.loads(HEALTH.read_text(encoding="utf-8"))
+        details.append("최근 프로세스 상태: "+json.dumps(health,ensure_ascii=False))
+    except Exception:
+        details.append("유효한 DNS 백그라운드 생존 상태 파일이 없습니다.")
+    return "\\n\\n".join(details)
 DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndication.com^\n||googleadservices.com^\n||adservice.google.com^\n||adnxs.com^\n||criteo.com^\n||taboola.com^\n||outbrain.com^\n||scorecardresearch.com^\n||quantserve.com^\n||mixpanel.com^\n||hotjar.com\n"
 def ensure_config():
     APP_DIR.mkdir(parents=True,exist_ok=True); rules=APP_DIR/"rules.txt"
