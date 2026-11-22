@@ -76,9 +76,32 @@ def test_loopback_proxy_returns_servfail_on_upstream_failure():
 def test_truncated_udp_upstream_retries_over_tcp():
     import socket,threading
     from dns_engine.proxy import DnsProxy
-    tcp=socket.socket(socket.AF_INET,socket.SOCK_STREAM); tcp.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1); tcp.bind(("127.0.0.1",0)); tcp.listen(1)
-    port=tcp.getsockname()[1]
-    udp=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); udp.bind(("127.0.0.1",port)); udp.settimeout(2)
+
+    # Windows can reserve a subset of dynamic ports for system services. A TCP
+    # ephemeral port is not guaranteed to be bindable by UDP on the same number.
+    # Retry the pair allocation rather than turning a reserved-port collision
+    # into a false DNS regression.
+    tcp=udp=None
+    last_bind_error=None
+    for _ in range(32):
+        candidate_tcp=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        candidate_udp=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        try:
+            candidate_tcp.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+            candidate_tcp.bind(("127.0.0.1",0))
+            port=candidate_tcp.getsockname()[1]
+            candidate_udp.bind(("127.0.0.1",port))
+            candidate_tcp.listen(1)
+            candidate_udp.settimeout(2)
+            tcp,udp=candidate_tcp,candidate_udp
+            break
+        except OSError as exc:
+            last_bind_error=exc
+            candidate_tcp.close()
+            candidate_udp.close()
+    if tcp is None or udp is None:
+        raise OSError("Unable to reserve a shared loopback TCP/UDP port after 32 attempts.") from last_bind_error
+
     def udp_reply():
         packet,address=udp.recvfrom(4096); truncated=bytearray(packet); truncated[2]=0x83; truncated[3]=0x80; udp.sendto(truncated,address)
     def tcp_reply():
@@ -87,7 +110,7 @@ def test_truncated_udp_upstream_retries_over_tcp():
             size=struct.unpack("!H",recv_exact(conn,2))[0]; packet=recv_exact(conn,size)
             answer=bytearray(packet); answer[2]=0x81; answer[3]=0x80
             conn.sendall(struct.pack("!H",len(answer))+answer)
-    threads=[threading.Thread(target=udp_reply),threading.Thread(target=tcp_reply)]
+    threads=[threading.Thread(target=udp_reply,daemon=True),threading.Thread(target=tcp_reply,daemon=True)]
     for thread in threads: thread.start()
     try:
         proxy=DnsProxy(DomainRules(),upstreams=(("127.0.0.1",port),),listen=("127.0.0.1",0))

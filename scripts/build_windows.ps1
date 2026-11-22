@@ -2,10 +2,15 @@ $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 python -m pip install -r requirements-dev.txt -r requirements-windows-build.txt
+if ($LASTEXITCODE -ne 0) { throw "Python dependency installation failed with exit code $LASTEXITCODE." }
 python -m pytest -q dns_engine windows_engine
+if ($LASTEXITCODE -ne 0) { throw "DNS and Windows test suite failed with exit code $LASTEXITCODE." }
 python -m compileall -q dns_engine windows_engine
+if ($LASTEXITCODE -ne 0) { throw "Python compilation failed with exit code $LASTEXITCODE." }
 python -m PyInstaller --noconfirm --clean --windowed --name GuardianAdBlock windows_engine/desktop.py
+if ($LASTEXITCODE -ne 0) { throw "Guardian desktop packaging failed with exit code $LASTEXITCODE." }
 python -m PyInstaller --noconfirm --clean --windowed --name GuardianDnsProxy --distpath dist --workpath build/daemon windows_engine/proxy_daemon.py
+if ($LASTEXITCODE -ne 0) { throw "Guardian DNS daemon packaging failed with exit code $LASTEXITCODE." }
 $SigningCertificate = $null
 $SigningCertificatePath = Join-Path $env:RUNNER_TEMP 'guardian-code-signing.pfx'
 if (-not [string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64)) {
