@@ -20,6 +20,7 @@ class _TcpHandler(socketserver.StreamRequestHandler):
         return b"".join(chunks)
     def handle(self):
         self.request.settimeout(self.server.proxy.timeout)
+        packet=None
         try:
             header=self._read_exact(self.rfile,2)
             length=struct.unpack("!H",header)[0]
@@ -27,7 +28,19 @@ class _TcpHandler(socketserver.StreamRequestHandler):
             packet=self._read_exact(self.rfile,length)
             response=self.server.proxy.process_query(packet)
             self.wfile.write(struct.pack("!H",len(response))+response)
-        except (OSError,DnsFormatError,ValueError): return
+        except (OSError,DnsFormatError,ValueError):
+            return
+        except Exception as exc:
+            # An unexpected rule/handler exception must not silently close a
+            # valid DNS-over-TCP request. Record only the exception type (never
+            # the queried hostname) and return a protocol-level SERVFAIL.
+            self.server.proxy.record_tcp_error(exc)
+            if packet is not None:
+                try:
+                    response=make_servfail(packet)
+                    self.wfile.write(struct.pack("!H",len(response))+response)
+                except (OSError,ValueError):
+                    return
 
 class _UdpServer(socketserver.ThreadingUDPServer):
     allow_reuse_address=True; daemon_threads=True
@@ -46,7 +59,12 @@ class DnsProxy:
         self.rules=rules; self.upstreams=tuple(upstreams); self.timeout=timeout
         self.listeners=(listen,) if len(listen)==2 and isinstance(listen[0],str) else tuple(listen)
         self.blocked_count=0; self.forwarded_count=0; self.failed_count=0
+        self.tcp_error_count=0; self.last_tcp_error_type=""
         self._udp_servers=[]; self._tcp_servers=[]; self._servers=[]; self._threads=[]
+    def record_tcp_error(self,error):
+        self.tcp_error_count+=1
+        self.last_tcp_error_type=type(error).__name__
+
     @staticmethod
     def _recv_exact(sock,length):
         chunks=[]; remaining=length
