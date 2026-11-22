@@ -80,6 +80,20 @@ if (!databaseUrl) {
     assert.equal(accepted.status, 200);
     const rejectedLegacy = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: { authorization: `Bearer ${process.env.GUARDIAN_ADMIN_TOKEN}` } });
     assert.equal(rejectedLegacy.status, 401);
+
+    const rotated = await post('/v1/admin/token/rotate', {}, adminHeaders);
+    assert.equal(rotated.status, 200);
+    const rotatedData = await rotated.json();
+    assert.match(rotatedData.adminToken, /^[A-Za-z0-9_-]{43}$/);
+    const oldTokenAfterRotation = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: { authorization: `Bearer ${firstToken}` } });
+    assert.equal(oldTokenAfterRotation.status, 401);
+    adminHeaders.authorization = `Bearer ${rotatedData.adminToken}`;
+    const newTokenAfterRotation = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: adminHeaders });
+    assert.equal(newTokenAfterRotation.status, 200);
+
+    const afterRestart = await initializeAdminAuth({ configuredToken: null, logToken: () => { throw new Error('persisted token must not be reissued'); } });
+    assert.equal(afterRestart.generated, false);
+    assert.equal(afterRestart.tokenHash, (await import('node:crypto')).createHash('sha256').update(rotatedData.adminToken).digest('hex'));
   });
 
   test('PostgreSQL rate limiter prunes expired buckets during bounded cleanup', async () => {
