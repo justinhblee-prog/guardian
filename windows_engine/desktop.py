@@ -48,6 +48,23 @@ def is_dns_probe_response(query,response):
             and response[:2]==query[:2]
             and bool(response[2]&0x80)
             and struct.unpack("!H",response[4:6])[0]==1)
+def probe_tcp_dns(query):
+    with socket.create_connection(("127.0.0.1",53),timeout=.8) as client:
+        client.settimeout(.8); client.sendall(struct.pack("!H",len(query))+query)
+        header=b""
+        while len(header)<2:
+            chunk=client.recv(2-len(header))
+            if not chunk: return False
+            header+=chunk
+        length=struct.unpack("!H",header)[0]
+        if length<12 or length>4096: return False
+        response=b""
+        while len(response)<length:
+            chunk=client.recv(length-len(response))
+            if not chunk: return False
+            response+=chunk
+        return is_dns_probe_response(query,response)
+
 def proxy_ready():
     # A generic DNS response on loopback is not proof that Guardian owns the port.
     if not daemon_health_is_fresh(HEALTH): return False
@@ -55,7 +72,8 @@ def proxy_ready():
         query=blocked_probe_query()
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
             client.settimeout(.8); client.sendto(query,("127.0.0.1",53)); response,_=client.recvfrom(512)
-        return is_dns_probe_response(query,response)
+        if not is_dns_probe_response(query,response): return False
+        return probe_tcp_dns(query)
     except OSError: return False
 def daemon_readiness_diagnosis():
     details=[]
@@ -71,7 +89,8 @@ def daemon_readiness_diagnosis():
         details.append(f"Daemon heartbeat: pid={pid}, age={age:.1f}s, process_alive={alive}")
     except Exception as exc: details.append("Daemon heartbeat: unavailable ("+str(exc)+")")
     try:
-        with socket.create_connection(("127.0.0.1",53),timeout=.7): details.append("IPv4 TCP 127.0.0.1:53: accepting connections")
+        query=blocked_probe_query()
+        details.append("IPv4 TCP 127.0.0.1:53: "+("valid DNS response" if probe_tcp_dns(query) else "invalid or incomplete DNS response"))
     except OSError as exc: details.append("IPv4 TCP 127.0.0.1:53: "+str(exc))
     try:
         query=blocked_probe_query()
