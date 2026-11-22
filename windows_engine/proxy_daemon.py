@@ -36,7 +36,21 @@ def main():
     write_daemon_health(HEALTH)
     def heartbeat_tasks():
         while not stop.wait(1):
-            write_daemon_health(HEALTH)
+            try:
+                write_daemon_health(HEALTH)
+            except Exception:
+                # A transient ProgramData/AV/file-system error must not silently
+                # kill the heartbeat thread while the DNS proxy keeps running.
+                try:
+                    with (APP_DIR / "daemon-startup.log").open("a", encoding="utf-8") as log:
+                        log.write(
+                            f"\\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
+                            f"daemon heartbeat write failed pid={os.getpid()}\\n"
+                        )
+                        log.write(traceback.format_exc())
+                        log.flush()
+                except Exception:
+                    pass
     def background_tasks():
         last_mtime=rules_path.stat().st_mtime_ns; last_update_check=0
         while not stop.wait(1):
