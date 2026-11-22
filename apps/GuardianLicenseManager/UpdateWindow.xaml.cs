@@ -55,7 +55,7 @@ public partial class UpdateWindow : Window
         var url = DownloadUrlBox.Text.Trim();
         var hash = Sha256Box.Text.Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(version) || !Uri.TryCreate(url, UriKind.Absolute, out var download) ||
-            download.Scheme != Uri.UriSchemeHttps || hash.Length != 64 || hash.Any(c => !Uri.IsHexDigit(c)))
+            download.Scheme != Uri.UriSchemeHttps || string.IsNullOrWhiteSpace(download.Host) || hash.Length != 64 || hash.Any(c => !Uri.IsHexDigit(c)) || (MandatoryBox.IsChecked == true && string.IsNullOrWhiteSpace(MinVersionBox.Text.Trim())))
         { StatusText.Text = "버전, HTTPS 다운로드 주소, 64자리 SHA-256을 확인하세요."; return; }
 
         var payload = new
