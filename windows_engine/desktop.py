@@ -104,8 +104,15 @@ def write_state(enabled):
     APP_DIR.mkdir(parents=True,exist_ok=True); tmp=STATE.with_suffix(".tmp")
     tmp.write_text(json.dumps({"enabled":bool(enabled),"updatedAt":time.time()}),encoding="utf-8")
     os.replace(tmp,STATE)
-def blocked_probe_query():
-    labels=b"".join(bytes([len(p)])+p.encode("ascii") for p in "doubleclick.net".split("."))+b"\0"
+def configured_probe_domain():
+    """Choose a domain that the currently installed rules definitely block."""
+    data=json.loads(CONFIG.read_text(encoding="utf-8"))
+    rules_path=APP_DIR/data.get("rules_file","rules.txt")
+    rules=DomainRules.from_text(rules_path.read_text(encoding="utf-8"))
+    return next((domain for domain in sorted(rules.blocked) if rules.is_blocked(domain)),None)
+
+def blocked_probe_query(domain="doubleclick.net"):
+    labels=b"".join(bytes([len(p)])+p.encode("ascii") for p in domain.split("."))+b"\\0"
     return struct.pack("!HHHHHH",0x6a31,0x0100,1,0,0,0)+labels+struct.pack("!HH",1,1)
 def is_dns_probe_response(query,response):
     # Readiness means the DNS listener answered, not that a particular
@@ -114,28 +121,32 @@ def is_dns_probe_response(query,response):
             and response[:2]==query[:2]
             and bool(response[2]&0x80)
             and struct.unpack("!H",response[4:6])[0]==1)
+def recv_exact(sock,length):
+    """Read a complete TCP DNS frame field; recv(n) may return fewer than n bytes."""
+    chunks=[]; remaining=length
+    while remaining:
+        chunk=sock.recv(remaining)
+        if not chunk: raise OSError("DNS TCP response ended early")
+        chunks.append(chunk); remaining-=len(chunk)
+    return b"".join(chunks)
 def proxy_ready():
     # The daemon publishes its heartbeat only after all UDP/TCP listeners bind.
-    # Probe TCP here because Windows services may also own wildcard UDP 0.0.0.0:53,
-    # making a UDP loopback probe ambiguous even while Guardian owns 127.0.0.1:53.
+    # Probe TCP because Windows SharedAccess may own wildcard UDP port 53.
     if not daemon_health_is_fresh(HEALTH): return False
     try:
-        query=blocked_probe_query()
+        domain=configured_probe_domain()
+        if not domain: return False
+        query=blocked_probe_query(domain)
         with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as client:
             client.settimeout(1.0)
             client.connect(("127.0.0.1",53))
             client.sendall(struct.pack("!H",len(query))+query)
-            header=client.recv(2)
-            if len(header)!=2: return False
+            header=recv_exact(client,2)
             length=struct.unpack("!H",header)[0]
             if length<12 or length>4096: return False
-            chunks=[]; remaining=length
-            while remaining:
-                chunk=client.recv(remaining)
-                if not chunk: return False
-                chunks.append(chunk); remaining-=len(chunk)
-        return is_dns_probe_response(query,b"".join(chunks))
-    except OSError: return False
+            response=recv_exact(client,length)
+        return is_dns_probe_response(query,response)
+    except (OSError,ValueError,TypeError): return False
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
 def ensure_daemon_running():
