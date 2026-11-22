@@ -1093,8 +1093,8 @@ texts={node.attrib.get("text","") for node in nodes}
 selected_settings=any(node.attrib.get("content-desc")=="설정"
                       and node.attrib.get("selected")=="true"
                       for node in nodes)
-if "Guardian 앱 정보와 보호 정책" not in texts or not selected_settings:
-    raise SystemExit("Guardian Settings tab did not open after tapping its clickable navigation parent.")' <<<"$settings_tab_xml"
+if "설정" not in texts or "Guardian의 세부 기능과 계정, 지원 정보를 관리합니다." not in texts or not selected_settings:
+    raise SystemExit("Guardian Settings page heading, description, or selected navigation state is missing after tapping its clickable navigation parent.")' <<<"$settings_tab_xml"
 
 # Verify the customer-facing support center is reachable and its FAQ/form UI
 # renders. Do not submit a real ticket from the emulator fixture.
