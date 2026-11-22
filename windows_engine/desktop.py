@@ -40,7 +40,41 @@ def daemon_startup_diagnostics():
         details.append("최근 프로세스 상태: "+json.dumps(health,ensure_ascii=False))
     except Exception:
         details.append("유효한 DNS 백그라운드 생존 상태 파일이 없습니다.")
+    details.extend(dns_port_53_diagnostics())
     return "\\n\\n".join(details)
+
+def dns_port_53_diagnostics():
+    """Identify processes that may prevent Guardian from binding its DNS listeners."""
+    details = ["DNS 포트 53 점유 상태:"]
+    for protocol in ("udp", "tcp"):
+        try:
+            result = subprocess.run(
+                ["netstat.exe", "-ano", "-p", protocol],
+                capture_output=True, text=True, timeout=8,
+            )
+            matches = []
+            for line in result.stdout.splitlines():
+                parts = line.split()
+                if len(parts) < 4 or not parts[1].endswith(":53"):
+                    continue
+                pid = parts[-1]
+                if not pid.isdigit():
+                    continue
+                matches.append((parts[1], pid))
+            if not matches:
+                details.append(f"{protocol.upper()} 53: 점유 프로세스가 확인되지 않았습니다.")
+                continue
+            for endpoint, pid in matches:
+                process = subprocess.run(
+                    ["tasklist.exe", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                    capture_output=True, text=True, timeout=8,
+                )
+                owner = process.stdout.strip() or "프로세스 이름 확인 불가"
+                details.append(f"{protocol.upper()} {endpoint} PID {pid}: {owner}")
+        except (OSError, subprocess.SubprocessError) as exc:
+            details.append(f"{protocol.upper()} 포트 조회 실패: {exc}")
+    return details
+
 DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndication.com^\n||googleadservices.com^\n||adservice.google.com^\n||adnxs.com^\n||criteo.com^\n||taboola.com^\n||outbrain.com^\n||scorecardresearch.com^\n||quantserve.com^\n||mixpanel.com^\n||hotjar.com\n"
 def ensure_config():
     APP_DIR.mkdir(parents=True,exist_ok=True); rules=APP_DIR/"rules.txt"
