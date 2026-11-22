@@ -188,7 +188,7 @@ jobs:
             -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
             -dname "CN=Guardian CI Distribution Validation, OU=Temporary, O=Guardian, C=US"
 
-          DEVELOPMENT_VERSION_CODE=47
+          DEVELOPMENT_VERSION_CODE="$(sed -n '2p' VERSION | tr -d '\r')"
           test -n "$DEVELOPMENT_VERSION_CODE"
           RELEASE_VERSION_CODE=2000000
           echo "Validating the actual Guardian 1.0.0 release metadata: versionCode=$RELEASE_VERSION_CODE (development=$DEVELOPMENT_VERSION_CODE)."
@@ -349,7 +349,7 @@ jobs:
             echo "Production versionCode must be at least 2000000 to remain above all development builds."
             exit 1
           fi
-          DEVELOPMENT_VERSION_CODE=47
+          DEVELOPMENT_VERSION_CODE="$(sed -n '2p' VERSION | tr -d '\r')"
           test -n "$DEVELOPMENT_VERSION_CODE"
           if (( GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE )); then
             echo "Production versionCode must exceed the current development versionCode ($DEVELOPMENT_VERSION_CODE)."
