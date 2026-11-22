@@ -53,7 +53,7 @@ def make_query(name: str, ident: int = 0x6A31):
         total+=len(raw)+1
         if total>255: raise DnsFormatError("DNS name too long")
         encoded.append(bytes((len(raw),))+raw)
-    qname=b"".join(encoded)+b"\\0"
+    qname=b"".join(encoded)+b"\0"
     return struct.pack("!HHHHHH",ident&0xFFFF,0x0100,1,0,0,0)+qname+struct.pack("!HH",1,1)
 
 
