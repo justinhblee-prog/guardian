@@ -66,11 +66,13 @@ def dns_port_53_diagnostics():
                 continue
             for endpoint, pid in matches:
                 process = subprocess.run(
-                    ["tasklist.exe", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                    ["tasklist.exe", "/SVC", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
                     capture_output=True, text=True, timeout=8,
                 )
-                owner = process.stdout.strip() or "프로세스 이름 확인 불가"
+                owner = process.stdout.strip() or "프로세스/서비스 이름 확인 불가"
                 details.append(f"{protocol.upper()} {endpoint} PID {pid}: {owner}")
+                if endpoint == "0.0.0.0:53" and protocol == "udp":
+                    details.append("주의: UDP 와일드카드 0.0.0.0:53 점유가 loopback DNS 확인과 충돌할 수 있습니다.")
         except (OSError, subprocess.SubprocessError) as exc:
             details.append(f"{protocol.upper()} 포트 조회 실패: {exc}")
     return details
@@ -113,13 +115,26 @@ def is_dns_probe_response(query,response):
             and bool(response[2]&0x80)
             and struct.unpack("!H",response[4:6])[0]==1)
 def proxy_ready():
-    # A generic DNS response on loopback is not proof that Guardian owns the port.
+    # The daemon publishes its heartbeat only after all UDP/TCP listeners bind.
+    # Probe TCP here because Windows services may also own wildcard UDP 0.0.0.0:53,
+    # making a UDP loopback probe ambiguous even while Guardian owns 127.0.0.1:53.
     if not daemon_health_is_fresh(HEALTH): return False
     try:
         query=blocked_probe_query()
-        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
-            client.settimeout(.8); client.sendto(query,("127.0.0.1",53)); response,_=client.recvfrom(512)
-        return is_dns_probe_response(query,response)
+        with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as client:
+            client.settimeout(1.0)
+            client.connect(("127.0.0.1",53))
+            client.sendall(struct.pack("!H",len(query))+query)
+            header=client.recv(2)
+            if len(header)!=2: return False
+            length=struct.unpack("!H",header)[0]
+            if length<12 or length>4096: return False
+            chunks=[]; remaining=length
+            while remaining:
+                chunk=client.recv(remaining)
+                if not chunk: return False
+                chunks.append(chunk); remaining-=len(chunk)
+        return is_dns_probe_response(query,b"".join(chunks))
     except OSError: return False
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
