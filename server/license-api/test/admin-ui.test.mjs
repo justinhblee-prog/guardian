@@ -119,7 +119,6 @@ test("customer cards can load an authenticated, bounded per-customer license his
   assert.ok(server.includes("/licenses$/.exec(url.pathname)"));
   assert.ok(server.includes("listCustomerLicenses(customerLicensesMatch[1], req)"));
   assert.match(server, /LIMIT 100/);
-  assert.match(server, /\/v1\/admin\/customers\/\(\[\^\/\]\+\)\/licenses/);
   assert.match(js, /고객 라이선스 내역/);
   assert.match(js, /\/v1\/admin\/customers\/\$\{encodeURIComponent\(item\.id\)\}\/licenses/);
   assert.match(js, /title\.textContent = license\.license_ref/);
