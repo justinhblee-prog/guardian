@@ -45,11 +45,15 @@ jobs:
           if (-not $source.Contains('[switch]$RegisterGitHubVariable')) {
             throw 'Optional GitHub variable registration switch is missing.'
           }
-          $healthNeedle = "Invoke-WebRequest -Uri (" + '$licenseApiUrl' + " + '/ready')"
-          $healthIndex = $source.IndexOf($healthNeedle)
+          $healthIndex = $source.IndexOf('$privateReadyUrl = $licenseApiUrl + ''/ready''')
+          $payloadIndex = $source.IndexOf('$privateHealth.database -eq ''ready''')
+          $signerIndex = $source.IndexOf('$privateHealth.signer -eq ''ready''')
           $setIndex = $source.IndexOf('variable set GUARDIAN_LICENSE_API_BASE_URL')
-          if ($healthIndex -lt 0 -or $setIndex -lt $healthIndex) {
-            throw 'The tailnet HTTPS /ready check must precede GitHub variable registration.'
+          if ($healthIndex -lt 0 -or $payloadIndex -lt $healthIndex -or $signerIndex -lt $payloadIndex -or $setIndex -lt $signerIndex) {
+            throw 'The external HTTPS readiness payload (database + signer) must pass before GitHub variable registration.'
+          }
+          if (-not $source.Contains('for ($attempt = 1; $attempt -le 5; $attempt++)')) {
+            throw 'Bounded retries for Tailscale HTTPS certificate and route propagation are required.'
           }
           if ($source -match '(?im)^\s*&?\s*\$tailscale\s+funnel\b') {
             throw 'Tailscale Funnel must never be enabled by this script.'
