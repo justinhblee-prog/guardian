@@ -616,7 +616,7 @@ const server = http.createServer(async (req, res) => {
          LIMIT 1`, [device, licenseRef]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
     } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
-    else if (/^\\/v1\\/admin\\/licenses\\/[^/]+\\/extend$/.test(url.pathname)) {
+    else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/extend')) {
       const id = url.pathname.split('/')[4];
       result = await extendLicense(id, body, req);
     } else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
