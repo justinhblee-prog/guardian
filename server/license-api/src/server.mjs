@@ -25,7 +25,7 @@ const rateLimitOptions = {
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers', '/v1/admin/updates',
+  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers', '/v1/admin/updates', '/v1/updates/latest',
   '/v1/support/tickets', '/v1/admin/support/tickets', '/v1/support/tickets/lookup'
 ]);
 const pool = DATABASE_URL ? new Pool({
@@ -524,7 +524,7 @@ async function publishUpdate(body, req) {
   );
   return { update: result.rows[0] };
 }
-async function latestUpdate(url) {
+async function latestUpdate(url) {\n  requireEnv();
   const platform = url.searchParams.get('platform');
   const channel = url.searchParams.get('channel') || 'stable';
   if (!['android','windows'].includes(platform) || !['stable','beta'].includes(channel)) {
