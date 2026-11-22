@@ -42,12 +42,12 @@ export function issueEntitlementToken({
   maxTtlSeconds = 24 * 60 * 60
 }) {
   const device = validateDeviceBinding(deviceBinding);
-  const licenseExpiry = Math.floor(new Date(expiresAt).getTime() / 1000);
+  const licenseExpiry = expiresAt === null || expiresAt === undefined ? Number.POSITIVE_INFINITY : Math.floor(new Date(expiresAt).getTime() / 1000);
   const issued = Math.floor(now / 1000);
   if (!Number.isInteger(maxTtlSeconds) || maxTtlSeconds < 1) {
     throw new Error('토큰 최대 유효기간이 올바르지 않습니다.');
   }
-  if (!Number.isFinite(licenseExpiry) || licenseExpiry <= issued) {
+  if (Number.isNaN(licenseExpiry) || licenseExpiry <= issued) {
     throw new Error('라이선스 만료 시각이 올바르지 않습니다.');
   }
   // A signed offline entitlement must never outlive the short refresh window,
