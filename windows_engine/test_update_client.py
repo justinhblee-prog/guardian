@@ -101,3 +101,52 @@ def test_download_update_rejects_checksum_mismatch(tmp_path):
     with pytest.raises(WindowsUpdateError, match="SHA-256"):
         download_update(update, tmp_path, fetcher)
     assert list(tmp_path.iterdir()) == []
+
+
+class FakeResponse:
+    status = 200
+
+    def __init__(self, final_url, body=b"ok"):
+        self.final_url = final_url
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def geturl(self):
+        return self.final_url
+
+    def read(self, limit):
+        return self.body[:limit]
+
+
+def test_https_fetch_rejects_redirect_to_untrusted_host(monkeypatch):
+    import urllib.request
+    from windows_engine.update_client import _https_bytes
+
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: FakeResponse("https://attacker.example/payload"),
+    )
+    with pytest.raises(WindowsUpdateError, match="untrusted host"):
+        _https_bytes("https://github.com/justinhblee-prog/guardian/releases/latest", 1024)
+
+
+def test_https_fetch_allows_official_github_release_asset_redirect(monkeypatch):
+    import urllib.request
+    from windows_engine.update_client import _https_bytes
+
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: FakeResponse(
+            "https://release-assets.githubusercontent.com/guardian/asset", b"verified"
+        ),
+    )
+    assert _https_bytes(
+        "https://github.com/justinhblee-prog/guardian/releases/latest", 1024
+    ) == b"verified"
