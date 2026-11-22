@@ -288,7 +288,7 @@ class MainActivity : Activity() {
     private data class RuleEditorDraft(val blockRules: String, val allowRules: String)
 
     override fun onRetainNonConfigurationInstance(): Any? {
-        if (currentTab != "rules" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
+        if (currentTab != "settings-filtering" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
         val draft = RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
         android.util.Log.i("GuardianUI", "Retaining rule editor draft; blockChars=${draft.blockRules.length} allowChars=${draft.allowRules.length}")
         return draft
@@ -462,8 +462,8 @@ class MainActivity : Activity() {
         focusAppExclusions: Boolean = false
     ) {
         currentTab = tab
-        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings"
-        focusAppExclusionsOnBuild = focusAppExclusions && tab == "settings"
+        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings-general"
+        focusAppExclusionsOnBuild = focusAppExclusions && tab == "app-exclusions"
         licenseKeyInput = null
         startButton = null
         protectionStatusText = null
