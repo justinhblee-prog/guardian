@@ -49,6 +49,7 @@ jobs:
           $files = @(
             'dist/GuardianAdBlock/GuardianAdBlock.exe',
             'dist/GuardianDnsProxy/GuardianDnsProxy.exe',
+            'dist/GuardianSelfTest/GuardianSelfTest.exe',
             (Get-ChildItem 'dist/installer/Guardian-AdBlock-Windows-Setup-*.exe' | Select-Object -First 1).FullName
           )
           foreach ($file in $files) {
@@ -80,9 +81,9 @@ jobs:
             if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
               Write-Error "$Label exceeded its $TimeoutSeconds-second timeout; terminating process tree."
               & taskkill.exe /PID $process.Id /T /F | Out-Host
-              if ($Label -eq "Desktop self-test") {
-                $selfTestLog = Join-Path $env:TEMP "GuardianDesktopSelfTest.log"
-                if (Test-Path $selfTestLog) { Write-Host "=== Guardian desktop self-test stage log ==="; Get-Content $selfTestLog -Tail 100 | Out-Host }
+              if ($Label -eq "Packaged DNS self-test") {
+                $selfTestLog = Join-Path $env:TEMP "GuardianDnsSelfTest.log"
+                if (Test-Path $selfTestLog) { Write-Host "=== Guardian DNS package self-test stage log ==="; Get-Content $selfTestLog -Tail 100 | Out-Host }
               }
               if (Test-Path $stdoutPath) { Get-Content $stdoutPath -Tail 100 | Out-Host }
               if (Test-Path $stderrPath) { Get-Content $stderrPath -Tail 100 | Out-Host }
@@ -103,11 +104,11 @@ jobs:
             if (Test-Path $installLog) { Get-Content $installLog -Tail 80 }
             throw "Silent installation failed with exit code $($process.ExitCode)"
           }
-          $desktopTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList @("--self-test") -TimeoutSeconds 60 -Label "Desktop self-test"
-          if ($desktopTest.ExitCode -ne 0) {
-            $selfTestLog = Join-Path $env:TEMP "GuardianDesktopSelfTest.log"
-            if (Test-Path $selfTestLog) { Get-Content $selfTestLog }
-            throw "Installed desktop executable self-test failed with exit code $($desktopTest.ExitCode)"
+          $dnsPackageTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianSelfTest\GuardianSelfTest.exe" -ArgumentList @() -TimeoutSeconds 30 -Label "Packaged DNS self-test"
+          if ($dnsPackageTest.ExitCode -ne 0) {
+            $selfTestLog = Join-Path $env:TEMP "GuardianDnsSelfTest.log"
+            if (Test-Path $selfTestLog) { Get-Content $selfTestLog -Tail 100 }
+            throw "Installed DNS package self-test failed with exit code $($dnsPackageTest.ExitCode)"
           }
           $daemonTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianDnsProxy\GuardianDnsProxy.exe" -ArgumentList @("--self-test") -TimeoutSeconds 60 -Label "DNS daemon self-test"
           if ($daemonTest.ExitCode -ne 0) { throw "Installed background DNS daemon self-test failed with exit code $($daemonTest.ExitCode)" }
@@ -150,17 +151,20 @@ jobs:
         shell: pwsh
         run: |
           $exe = Get-Item dist/GuardianAdBlock/GuardianAdBlock.exe
+          $dnsSelfTest = Get-Item dist/GuardianSelfTest/GuardianSelfTest.exe
           $installer = Get-ChildItem dist/installer/Guardian-AdBlock-Windows-Setup-*.exe | Select-Object -First 1
           if (-not $installer) { throw "Installer not found" }
           Get-FileHash $exe.FullName -Algorithm SHA256
+          Get-FileHash $dnsSelfTest.FullName -Algorithm SHA256
           Get-FileHash $installer.FullName -Algorithm SHA256
-          Get-Item $exe.FullName, $installer.FullName | Select-Object FullName, Length
+          Get-Item $exe.FullName, $dnsSelfTest.FullName, $installer.FullName | Select-Object FullName, Length
       - uses: actions/upload-artifact@v4
         with:
           name: Guardian-AdBlock-Windows-Dev-Package
           path: |
             dist/GuardianAdBlock/
             dist/GuardianDnsProxy/
+            dist/GuardianSelfTest/
             dist/installer/Guardian-AdBlock-Windows-Setup-*.exe
           if-no-files-found: error
           retention-days: 30
