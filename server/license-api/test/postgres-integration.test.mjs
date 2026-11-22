@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createPostgresRateLimiter } from '../src/rate-limit.mjs';
-import { initializeAdminAuth } from '../src/server.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -17,7 +16,7 @@ if (!databaseUrl) {
 
   const { default: pg } = await import('pg');
   const pool = new pg.Pool({ connectionString: databaseUrl });
-  const { server, pool: apiPool } = await import('../src/server.mjs');
+  const { server, pool: apiPool, initializeAdminAuth } = await import('../src/server.mjs');
   let baseUrl;
   const adminHeaders = {
     'content-type': 'application/json',
@@ -49,7 +48,7 @@ if (!databaseUrl) {
   };
 
   before(async () => {
-    await pool.query('TRUNCATE guardian_updates, api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE admin_credentials, guardian_updates, api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
