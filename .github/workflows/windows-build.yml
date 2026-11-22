@@ -50,6 +50,7 @@ jobs:
             'dist/GuardianAdBlock/GuardianAdBlock.exe',
             'dist/GuardianDnsProxy/GuardianDnsProxy.exe',
             'dist/GuardianSelfTest/GuardianSelfTest.exe',
+            'dist/GuardianMaintenance/GuardianMaintenance.exe',
             (Get-ChildItem 'dist/installer/Guardian-AdBlock-Windows-Setup-*.exe' | Select-Object -First 1).FullName
           )
           foreach ($file in $files) {
@@ -115,7 +116,7 @@ jobs:
           if (-not (Test-Path "$installDir\GuardianDnsProxy\_internal")) { throw "Installed DNS daemon runtime dependencies are missing" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if (-not $task) { throw "Boot-start DNS task was not registered" }
-          $restoreTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList @("--restore-dns") -TimeoutSeconds 90 -Label "DNS restore test"
+          $restoreTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianMaintenance\GuardianMaintenance.exe" -ArgumentList @("--restore-dns") -TimeoutSeconds 90 -Label "DNS restore test"
           if ($restoreTest.ExitCode -ne 0) { throw "DNS restore and task cleanup command failed with exit code $($restoreTest.ExitCode)" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if ($task) { throw "Guardian restore command left the boot task registered" }
@@ -152,12 +153,14 @@ jobs:
         run: |
           $exe = Get-Item dist/GuardianAdBlock/GuardianAdBlock.exe
           $dnsSelfTest = Get-Item dist/GuardianSelfTest/GuardianSelfTest.exe
+          $maintenance = Get-Item dist/GuardianMaintenance/GuardianMaintenance.exe
           $installer = Get-ChildItem dist/installer/Guardian-AdBlock-Windows-Setup-*.exe | Select-Object -First 1
           if (-not $installer) { throw "Installer not found" }
           Get-FileHash $exe.FullName -Algorithm SHA256
           Get-FileHash $dnsSelfTest.FullName -Algorithm SHA256
+          Get-FileHash $maintenance.FullName -Algorithm SHA256
           Get-FileHash $installer.FullName -Algorithm SHA256
-          Get-Item $exe.FullName, $dnsSelfTest.FullName, $installer.FullName | Select-Object FullName, Length
+          Get-Item $exe.FullName, $dnsSelfTest.FullName, $maintenance.FullName, $installer.FullName | Select-Object FullName, Length
       - uses: actions/upload-artifact@v4
         with:
           name: Guardian-AdBlock-Windows-Dev-Package
@@ -165,6 +168,7 @@ jobs:
             dist/GuardianAdBlock/
             dist/GuardianDnsProxy/
             dist/GuardianSelfTest/
+            dist/GuardianMaintenance/
             dist/installer/Guardian-AdBlock-Windows-Setup-*.exe
           if-no-files-found: error
           retention-days: 30
