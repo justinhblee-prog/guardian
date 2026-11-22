@@ -27,6 +27,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -61,13 +62,32 @@ jobs:
             Write-Warning 'Unsigned development package: Windows SmartScreen may block or warn. CI installation success does not establish publisher reputation.'
           }
       - name: Install and smoke-test packaged Windows app
+        timeout-minutes: 15
         shell: pwsh
         run: |
+          function Invoke-GuardianProcess {
+            param(
+              [Parameter(Mandatory=$true)][string]$FilePath,
+              [Parameter(Mandatory=$true)][string[]]$ArgumentList,
+              [int]$TimeoutSeconds = 120,
+              [string]$Label = "Guardian process"
+            )
+            Write-Host "Starting $Label (timeout: $TimeoutSeconds seconds): $FilePath"
+            $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -PassThru
+            if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+              Write-Error "$Label exceeded its $TimeoutSeconds-second timeout; terminating process tree."
+              & taskkill.exe /PID $process.Id /T /F | Out-Host
+              throw "$Label timed out"
+            }
+            $process.Refresh()
+            Write-Host "$Label exited with code $($process.ExitCode)"
+            return $process
+          }
           $installer = Get-ChildItem dist/installer/Guardian-AdBlock-Windows-Setup-*.exe | Select-Object -First 1
           if (-not $installer) { throw "Installer not found" }
           $installDir = Join-Path $env:RUNNER_TEMP "GuardianInstall"
           $installLog = Join-Path $env:RUNNER_TEMP "guardian-install.log"
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir", "/LOG=$installLog") -Wait -PassThru
+          $process = Invoke-GuardianProcess -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir", "/LOG=$installLog") -TimeoutSeconds 180 -Label "First silent install"
           if ($process.ExitCode -ne 0) {
             if (Test-Path $installLog) { Get-Content $installLog -Tail 80 }
             throw "Silent installation failed with exit code $($process.ExitCode)"
@@ -100,7 +120,7 @@ jobs:
           # This second installation deliberately skips --restore-dns before uninstall.
           $installDir2 = Join-Path $env:RUNNER_TEMP "GuardianDirectUninstall"
           $installLog2 = Join-Path $env:RUNNER_TEMP "guardian-direct-install.log"
-          $process2 = Start-Process -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir2", "/LOG=$installLog2") -Wait -PassThru
+          $process2 = Invoke-GuardianProcess -FilePath $installer.FullName -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/DIR=$installDir2", "/LOG=$installLog2") -TimeoutSeconds 180 -Label "Second silent install"
           if ($process2.ExitCode -ne 0) {
             if (Test-Path $installLog2) { Get-Content $installLog2 -Tail 80 }
             throw "Second silent installation failed with exit code $($process2.ExitCode)"
