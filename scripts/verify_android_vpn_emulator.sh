@@ -401,8 +401,22 @@ for node in root.iter("node"):
 }
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
-# Protection diagnostics and app exclusions are separate destinations in bottom navigation.
-tap_content_description "보호"
+# The upgrade scenario starts on the previously published APK, whose
+# seven-item navigation still labels this destination "보호 설정". The
+# candidate APK uses the redesigned five-item navigation label "보호".
+# Detect the installed version instead of applying the candidate label to the
+# legacy APK before the in-place upgrade step.
+adb_cmd shell uiautomator dump /sdcard/guardian-navigation.xml >/dev/null 2>&1
+navigation_xml="$(adb_cmd shell cat /sdcard/guardian-navigation.xml | tr -d '\\r')"
+if grep -Fq 'content-desc="보호 설정"' <<<"$navigation_xml"; then
+  tap_content_description "보호 설정"
+elif grep -Fq 'content-desc="보호"' <<<"$navigation_xml"; then
+  tap_content_description "보호"
+else
+  echo "Neither legacy nor redesigned Guardian protection navigation item is visible."
+  echo "$navigation_xml"
+  exit 1
+fi
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-protection-controls.xml >/dev/null 2>&1
 protection_controls_xml="$(adb_cmd shell cat /sdcard/guardian-protection-controls.xml | tr -d '\r')"
