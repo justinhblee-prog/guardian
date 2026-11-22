@@ -647,7 +647,8 @@ const server = http.createServer(async (req, res) => {
              to_regclass('public.api_rate_limit_buckets') AS api_rate_limit_buckets,
              to_regclass('public.support_tickets') AS support_tickets,
              to_regclass('public.customers') AS customers,
-             to_regclass('public.guardian_updates') AS guardian_updates,\n             to_regclass('public.admin_credentials') AS admin_credentials`
+             to_regclass('public.guardian_updates') AS guardian_updates,
+             to_regclass('public.admin_credentials') AS admin_credentials`
         );
         const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers', 'guardian_updates', 'admin_credentials'];
         if (requiredTables.some(table => !schema.rows[0]?.[table])) {
