@@ -62,6 +62,18 @@ def proxy_ready():
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
 def ensure_daemon_running():
+    if proxy_ready(): return
+    daemon_exe=daemon_executable_path()
+    if not daemon_exe.is_file():
+        raise NetworkConfigError(f"Guardian DNS 백그라운드 실행 파일을 찾을 수 없습니다: {daemon_exe}. 설치 파일이 누락되었거나 보안 프로그램에 의해 격리되었을 수 있습니다.")
+    result=run_task("/Run","/TN",TASK_NAME)
+    if result.returncode: raise NetworkConfigError(result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")
+    deadline=time.monotonic()+12
+    while time.monotonic()<deadline:
+        if proxy_ready(): return
+        time.sleep(.25)
+    diagnostics=daemon_startup_diagnostics()
+    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\\n\\n"+diagnostics)
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
