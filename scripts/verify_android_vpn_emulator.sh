@@ -1163,6 +1163,10 @@ if len(fields)<2:
 tap_text "취소"
 echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
 
+# Return from the dedicated support submenu to the general Settings page before
+# checking the foreground-app compatibility controls.
+tap_content_description "설정"
+sleep 1
 
 auto_pause_picker_visible=0
 # The Settings tab opens at its top after the app is relaunched. Scroll down
