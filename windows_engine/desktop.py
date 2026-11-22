@@ -539,6 +539,9 @@ class GuardianDesktop:
         folder_button=self._button(actions,"다운로드 폴더 열기",lambda:open_download_folder(),"secondary")
         folder_button.configure(state="disabled")
         folder_button.pack(side="left",padx=(8,0))
+        install_button=self._button(actions,"설치 프로그램 실행",lambda:run_installer(),"primary")
+        install_button.configure(state="disabled")
+        install_button.pack(side="left",padx=(8,0))
         def check_update():
             check_button.configure(state="disabled")
             download_button.configure(state="disabled")
@@ -579,13 +582,18 @@ class GuardianDesktop:
                     else:
                         state["path"]=path
                         folder_button.configure(state="normal")
-                        status.configure(text=f"다운로드 및 무결성 검증 완료: {path.name}\n폴더를 열어 설치 프로그램을 실행하세요.",fg=self.GREEN)
+                        install_button.configure(state="normal")
+                        status.configure(text=f"다운로드 및 무결성 검증 완료: {path.name}\n설치 프로그램 실행을 누르면 Windows 설치 확인이 시작됩니다.",fg=self.GREEN)
                 self.root.after(0,finish)
             threading.Thread(target=worker,name="guardian-windows-update-download",daemon=True).start()
         def open_download_folder():
             path=state.get("path")
             if path and path.parent.exists():
                 os.startfile(str(path.parent))
+        def run_installer():
+            path=state.get("path")
+            if path and path.is_file():
+                os.startfile(str(path))
         tk.Frame(self.page,bg=self.BORDER,height=1).pack(fill="x",pady=16)
         self._label(self.page,"업데이트 설치 안내",11,self.TEXT,"bold").pack(anchor="w")
         self._label(
