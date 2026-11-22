@@ -105,25 +105,24 @@ def test_proxy_readiness_rejects_tcp_listener_with_invalid_response(monkeypatch)
     assert not desktop.proxy_ready()
 
 
-def test_windows_primary_navigation_matches_android_menu_categories():
+def test_windows_primary_navigation_matches_shared_five_item_menu():
     import inspect
     from windows_engine.desktop import GuardianDesktop
 
     shell = inspect.getsource(GuardianDesktop._build_shell)
     expected = [
         ("home", "홈", "show_dashboard"),
-        ("protection", "보호 설정", "show_protection_page"),
+        ("protection", "보호", "show_protection_page"),
         ("app-exclusions", "앱 제외", "show_app_exclusions_page"),
-        ("activity", "DNS 활동", "show_activity_page"),
-        ("premium", "프리미엄", "show_license_page"),
-        ("rules", "필터 규칙", "show_filter_updates"),
+        ("activity", "활동", "show_activity_page"),
         ("settings", "설정", "show_settings_page"),
     ]
     for key, label, handler in expected:
         assert f'"{key}"' in shell
         assert label in shell
         assert callable(getattr(GuardianDesktop, handler))
-
+    assert '"premium"' not in shell
+    assert '"rules"' not in shell
 
 def test_windows_protection_ui_refresh_is_safe_off_dashboard():
     import inspect
