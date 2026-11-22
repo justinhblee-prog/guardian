@@ -352,7 +352,8 @@ class GuardianDesktop:
             summary=f"광고/추적 차단 {blocked:,}건  |  정상 전달 {forwarded:,}건  |  오류 {failed:,}건"
             self.stats.configure(text=summary)
             self.activity_stats.configure(text=summary)
-            self.activity_updated.configure(text='마지막 갱신: '+time.strftime('%Y-%m-%d %H:%M:%S'))
+            updated_at=float(stats.get('updatedAt',0) or 0)
+            self.activity_updated.configure(text=('마지막 수집: '+time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(updated_at))) if updated_at>0 else 'DNS 엔진 통계 수집 대기 중')
         except (OSError,ValueError,TypeError): pass
         try:
             status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
