@@ -24,7 +24,7 @@ on:
       - ".github/workflows/windows-build.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -32,6 +32,8 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -174,3 +176,43 @@ jobs:
             dist/installer/Guardian-AdBlock-Windows-Setup-*.exe
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish versioned Windows development update
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if (git diff --quiet HEAD^ HEAD -- VERSION) {
+            Write-Host 'Shared product version did not change; no new Windows release is published.'
+            exit 0
+          }
+          $VersionLines = Get-Content VERSION
+          $VersionName = $VersionLines[0].Trim()
+          $BuildNumber = [int]$VersionLines[1].Trim()
+          $Tag = "guardian-windows-dev-v$BuildNumber"
+          $Installer = Get-ChildItem "dist/installer/Guardian-AdBlock-Windows-Setup-$VersionName-b$BuildNumber.exe" | Select-Object -First 1
+          if (-not $Installer) { throw 'Versioned Windows installer was not produced.' }
+          $Hash = (Get-FileHash $Installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $InstallerName = $Installer.Name
+          $InstallerUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$Tag/$InstallerName"
+          $Manifest = @{
+            schemaVersion = 1
+            product = 'Guardian AdBlock'
+            platform = 'windows-x64'
+            versionName = $VersionName
+            buildNumber = $BuildNumber
+            tagName = $Tag
+            installerName = $InstallerName
+            installerUrl = $InstallerUrl
+            sha256 = $Hash
+          } | ConvertTo-Json -Depth 4
+          $ManifestPath = 'dist/guardian-windows-update.json'
+          [System.IO.File]::WriteAllText((Join-Path (Get-Location) $ManifestPath), $Manifest + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+          gh release view $Tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $Tag $Installer.FullName $ManifestPath --repo $env:GITHUB_REPOSITORY --clobber
+          } else {
+            gh release create $Tag $Installer.FullName $ManifestPath --repo $env:GITHUB_REPOSITORY --prerelease --title "Guardian AdBlock $VersionName (Windows)" --notes "Windows x64 development update. Build $BuildNumber. Installer SHA-256: $Hash" --target $env:GITHUB_SHA
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Publishing the versioned Windows update release failed.' }
