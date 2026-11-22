@@ -526,6 +526,7 @@ class MainActivity : Activity() {
             "rules" -> buildRules(body)
             "activity" -> buildActivity(body)
             "premium" -> buildPremium(body)
+            "updates" -> buildUpdates(body)
             "app-exclusions" -> {
                 body.addView(text("앱 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
@@ -1314,6 +1315,43 @@ class MainActivity : Activity() {
         loadUserRulesIntoEditors()
     }
 
+    private fun buildUpdates(body: LinearLayout) {
+        body.addView(text("프로그램 업데이트", 25f, white, true))
+        body.addView(text("Guardian 앱 자체 업데이트입니다. 광고·보안 필터 목록 갱신과 별개입니다.", 13f, muted, false).withTop(5))
+        val versionName = try { packageManager.getPackageInfo(packageName, 0).versionName ?: "확인 불가" } catch (_: Exception) { "확인 불가" }
+        body.addView(infoRow("설치 버전", "Guardian AdBlock", versionName, accent).withTop(14))
+        val feedback = text("정식 업데이트 확인 전", 12f, muted, false).withTop(12) as TextView
+        body.addView(feedback)
+        var downloaded: File? = null
+        val installButton = Button(this).apply { text = "업데이트 설치"; isAllCaps = false; isEnabled = false; setTextColor(bg); background = shape(accent, 12) }
+        val checkButton = Button(this).apply {
+            text = "정식 업데이트 확인"; isAllCaps = false; setTextColor(bg); background = shape(accent, 12)
+            setOnClickListener {
+                isEnabled = false; installButton.isEnabled = false; downloaded = null; feedback.text = "공식 정식 릴리스 확인 중…"
+                thread(name = "guardian-stable-update-menu") {
+                    try {
+                        val update = GuardianStableUpdateManager.checkForUpdate()
+                        if (update == null) runOnUiThread { feedback.text = "현재 설치된 정식 버전이 최신입니다."; isEnabled = true }
+                        else {
+                            runOnUiThread { feedback.text = "새 정식 버전 " + update.versionName + " 발견 · APK 다운로드 및 검증 중…" }
+                            val apk = GuardianStableUpdateManager.download(this@MainActivity, update)
+                            runOnUiThread { downloaded = apk; feedback.text = update.versionName + " 다운로드 완료 · SHA-256, 패키지 및 서명 인증서 검증 통과."; installButton.isEnabled = true; isEnabled = true }
+                        }
+                    } catch (error: Exception) { runOnUiThread { feedback.text = "업데이트 확인 실패: " + SafeFailureSummary.describe(error); isEnabled = true } }
+                }
+            }
+        }
+        body.addView(checkButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(14) })
+        installButton.setOnClickListener {
+            val apk = downloaded ?: return@setOnClickListener
+            try {
+                val launched = GuardianStableUpdateManager.install(this@MainActivity, apk)
+                feedback.text = if (launched) "Android 시스템 설치 확인 화면을 열었습니다." else "알 수 없는 앱 설치 권한을 허용한 뒤 다시 설치를 누르세요."
+            } catch (error: Exception) { feedback.text = "설치 화면을 열지 못했습니다: " + SafeFailureSummary.describe(error) }
+        }
+        body.addView(installButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
+        body.addView(text("공식 HTTPS Release manifest, APK SHA-256, 패키지 ID, 버전 및 설치된 앱과 동일한 서명 인증서를 검증한 뒤 Android 설치 화면을 엽니다.", 11f, muted, false).withTop(14))
+    }
     private fun buildPremium(body: LinearLayout) {
         val entitlement = LicenseEntitlementStore.current(this)
         val retainedLicense = LicenseEntitlementStore.currentForRefresh(this)
@@ -1449,7 +1487,25 @@ class MainActivity : Activity() {
     }
 
     private fun buildSettings(body: LinearLayout) {
-        body.addView(text("설정", 25f, white, true))
+        body.addView(text("전체 메뉴", 25f, white, true))
+        body.addView(text("보호 정책, 필터, 앱 제외, 업데이트와 지원을 한곳에서 관리합니다.", 13f, muted, false).withTop(5))
+        val menuItems = listOf(
+            Triple("updates", "프로그램 업데이트", "Guardian 앱 업데이트 확인 및 설치"),
+            Triple("rules", "필터 관리", "필터 프로필과 사용자 차단·허용 규칙"),
+            Triple("app-exclusions", "앱 제외 관리", "DNS 필터링에서 제외할 앱 선택")
+        )
+        menuItems.forEach { (target, title, description) ->
+            body.addView(card(panel, 14).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(15), dp(13), dp(15), dp(13))
+                addView(text(title, 15f, white, true))
+                addView(text(description, 11f, muted, false).withTop(4))
+                setOnClickListener { showTab(target) }
+                isClickable = true
+                isFocusable = true
+            }.withTop(9))
+        }
+        body.addView(text("앱 정보 및 고객 지원", 18f, white, true).withTop(22))
         body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
         body.addView(buildSupportCenterCard().withTop(12))
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
@@ -2317,12 +2373,10 @@ class MainActivity : Activity() {
         }
         val items = listOf(
             Triple("home", "⌂", "홈"),
-            Triple("protection", "◈", "보호 설정"),
-            Triple("app-exclusions", "◉", "앱 제외"),
-            Triple("activity", "▤", "DNS 활동"),
-            Triple("premium", "✦", "프리미엄"),
-            Triple("rules", "≡", "필터 규칙"),
-            Triple("settings", "⚙", "설정")
+            Triple("protection", "◈", "보호"),
+            Triple("activity", "▤", "활동"),
+            Triple("premium", "✦", "Premium"),
+            Triple("settings", "⚙", "전체 메뉴")
         )
         items.forEach { (id, icon, label) ->
             val active = selected == id
