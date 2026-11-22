@@ -1,4 +1,4 @@
-<Window x:Class="GuardianLicenseManager.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Guardian License Manager" Height="650" Width="900" MinHeight="520" MinWidth="680" Background="{StaticResource PageBrush}" Foreground="{StaticResource TextBrush}" WindowStartupLocation="CenterScreen" Icon="{StaticResource GuardianWindowIcon}">
+<Window x:Class="GuardianLicenseManager.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Guardian License Manager" Height="620" Width="820" MinHeight="540" MinWidth="700" Background="{StaticResource PageBrush}" Foreground="{StaticResource TextBrush}" WindowStartupLocation="CenterScreen" Icon="{StaticResource GuardianWindowIcon}">
 <Grid Margin="14">
 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
 <DockPanel Grid.Row="0" Margin="0,0,0,14">
