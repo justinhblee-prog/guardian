@@ -129,9 +129,17 @@ def test_windows_protection_ui_refresh_is_safe_off_dashboard():
     from windows_engine.desktop import GuardianDesktop
 
     source = inspect.getsource(GuardianDesktop.set_active_ui)
+    page_source = inspect.getsource(GuardianDesktop.show_protection_page)
+    button_source = inspect.getsource(GuardianDesktop._button)
     assert 'self.hero_status.winfo_exists()' in source
-    assert 'self.start_button.winfo_exists()' in source
-    assert 'self.stop_button.winfo_exists()' in source
+    assert 'getattr(self,start_name,None)' in source
+    assert 'getattr(self,stop_name,None)' in source
+    assert 'protection_start_button' in page_source
+    assert 'protection_stop_button' in page_source
+    assert 'protection_status_label' in page_source
+    assert '"#16A34A"' in button_source
+    assert '"#DC2626"' in button_source
+    assert '"#FFFFFF"' in button_source
 
 
 def test_windows_settings_exposes_the_six_shared_subsections():
