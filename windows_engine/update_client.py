@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import json
 import re
 import tempfile
@@ -150,7 +151,7 @@ def download_update(update: WindowsUpdate, destination: Path | None = None, fetc
     target = target_dir / update.installer_name
     fd, temp_name = tempfile.mkstemp(prefix=target.name + ".", suffix=".tmp", dir=target_dir)
     try:
-        with open(fd, "wb", closefd=True) as stream:
+        with os.fdopen(fd, "wb") as stream:
             stream.write(data)
             stream.flush()
         Path(temp_name).replace(target)
