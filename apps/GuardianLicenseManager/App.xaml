@@ -1,5 +1,7 @@
 <Application x:Class="GuardianLicenseManager.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" StartupUri="MainWindow.xaml">
   <Application.Resources>
+    <DrawingImage x:Key="GuardianWindowIcon"><DrawingImage.Drawing><GeometryDrawing Brush="#48DCAE" Geometry="M32,2 L58,11 L56,36 C54,50 43,59 32,64 C21,59 10,50 8,36 L6,11 Z"/></DrawingImage.Drawing></DrawingImage>
+
     <SolidColorBrush x:Key="PageBrush" Color="#0B1220"/>
     <SolidColorBrush x:Key="PanelBrush" Color="#121E31"/>
     <SolidColorBrush x:Key="BorderBrush" Color="#263852"/>
