@@ -136,6 +136,39 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
+# Settings section cards expose their click listener on the parent LinearLayout,
+# while the visible section title is a non-clickable TextView. Resolve the nearest
+# clickable ancestor so navigation tests follow the current Settings IA.
+tap_text_in_clickable_parent() {
+  local wanted="$1"
+  local xml bounds
+  xml="$(dump_ui_hierarchy /sdcard/guardian-window.xml)"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+parents={child: parent for parent in root.iter() for child in parent}
+for node in root.iter("node"):
+    if node.attrib.get("text","").strip() != sys.argv[1]:
+        continue
+    current=node
+    while current is not None:
+        a=current.attrib
+        if (a.get("visible-to-user","true")=="true"
+            and a.get("clickable")=="true" and a.get("enabled")=="true"):
+            parts=a.get("bounds","").strip("[]").split("][")
+            if len(parts)==2:
+                x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+                print((x1+x2)//2,(y1+y2)//2)
+                raise SystemExit(0)
+        current=parents.get(current)
+raise SystemExit(1)' "$wanted" <<<"$xml")" || {
+    echo "Could not locate clickable Settings card for section: $wanted"
+    echo "$xml"
+    return 1
+  }
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 # Android AlertDialog ListView row TextViews are intentionally non-clickable
 # in UIAutomator's accessibility tree; ListView itself dispatches row taps.
 # Resolve only an exact child of android:id/select_dialog_listview, leaving
@@ -201,9 +234,11 @@ cache_ready() {
   return 0
 }
 
-echo "Verifying the dedicated Guardian Premium menu and license activation focus."
+echo "Verifying the Settings > License and Premium route and license activation focus."
 dismiss_dev_update_prompt
-tap_content_description "프리미엄"
+tap_content_description "설정"
+sleep 1
+tap_text_in_clickable_parent "라이선스 및 프리미엄"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -239,13 +274,23 @@ if not any(node.attrib.get("class")=="android.widget.EditText"
     and node.attrib.get("focused")=="true"
     for node in root.iter("node")):
     raise SystemExit("Premium CTA did not focus the PRO license activation input.")' <<<"$premium_license_xml"
+# The license editor is a dedicated Premium subpage. Hide the soft keyboard,
+# then use its explicit back-to-Premium control so the test validates the same
+# navigation path a user sees.
 adb_cmd shell input keyevent KEYCODE_BACK || true
-
-# The PRO feature cards are below the membership details on a phone-sized
-# viewport. Return to Premium, scroll the actual page, and verify the feature
-# card only after it enters the visible UI hierarchy.
-tap_content_description "프리미엄"
 sleep 1
+tap_text "‹ 프리미엄으로 돌아가기"
+sleep 1
+
+# Verify return to the Premium detail screen before scrolling to feature cards.
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+premium_return_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+grep -Fq 'Guardian Premium' <<<"$premium_return_xml" || {
+  echo "Back navigation did not return to the Premium detail screen."
+  echo "$premium_return_xml"
+  exit 1
+}
+
 premium_features_visible=0
 for attempt in $(seq 1 8); do
   adb_cmd shell input swipe 540 1500 540 650 450
@@ -630,8 +675,8 @@ if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))' <<<"$home_controls_xml"
 echo "App-exclusion search, package filtering, Android Auto lookup, and single Home protection control passed."
 
-# Verify the simplified dashboard and all seven persistent bottom-navigation destinations.
-echo "Verifying the simplified home dashboard and all seven bottom-navigation destinations."
+# Verify the simplified dashboard and all six persistent bottom-navigation destinations.
+echo "Verifying the simplified home dashboard and all six bottom-navigation destinations."
 home_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-home-navigation.xml)"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -645,7 +690,7 @@ controls=[node.attrib.get("text","").strip() for node in nodes
     and node.attrib.get("clickable")=="true"]
 if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))
-expected={"홈","보호 설정","앱 제외","DNS 활동","프리미엄","필터 규칙","설정"}
+expected={"홈","보호 설정","앱 제외","DNS 활동","필터 규칙","설정"}
 actual={node.attrib.get("content-desc") for node in nodes
         if node.attrib.get("class")=="android.widget.LinearLayout"
         and node.attrib.get("clickable")=="true"}
@@ -654,7 +699,7 @@ if not expected.issubset(actual):
 if not any(node.attrib.get("content-desc")=="홈" and node.attrib.get("selected")=="true"
            for node in nodes):
     raise SystemExit("Home is not the selected bottom-navigation destination.")' <<<"$home_navigation_xml"
-for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "프리미엄" "필터 규칙" "설정"; do
+for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "필터 규칙" "설정"; do
   tap_content_description "$navigation_label"
   sleep 1
   navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-navigation.xml)"
@@ -671,7 +716,7 @@ if not any(node.attrib.get("content-desc")==sys.argv[1]
   fi
 done
 tap_content_description "홈"
-echo "Single home protection control and all seven bottom-navigation destinations passed."
+echo "Single home protection control and all six bottom-navigation destinations passed."
 
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
@@ -1087,47 +1132,23 @@ texts={node.attrib.get("text","") for node in nodes}
 selected_settings=any(node.attrib.get("content-desc")=="설정"
                       and node.attrib.get("selected")=="true"
                       for node in nodes)
-if "Guardian 앱 정보와 보호 정책" not in texts or not selected_settings:
+if "Guardian의 보호와 앱 환경을 관리합니다." not in texts or not selected_settings:
     raise SystemExit("Guardian Settings tab did not open after tapping its clickable navigation parent.")' <<<"$settings_tab_xml"
 
-# Verify the customer-facing support center is reachable and its FAQ/form UI
-# renders. Do not submit a real ticket from the emulator fixture.
-# The preceding VPN auto-pause acceptance test may leave Settings scrolled well below
-# the support card. Reset the Settings ScrollView to its top before searching for
-# the support entry; otherwise a downward-only search can never find a card above
-# the retained scroll position.
-for attempt in $(seq 1 20); do
-  adb_cmd shell input swipe 540 500 540 1550 250
-  sleep 0.15
-done
-adb_cmd shell uiautomator dump /sdcard/guardian-support-top.xml >/dev/null 2>&1
-support_top_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-top.xml | tr -d '\r')"
-if ! grep -Fq "Guardian 앱 정보와 보호 정책" <<<"$support_top_xml"; then
-  echo "Could not confirm Settings returned to its top before support-center verification."
-  echo "$support_top_xml"
-  exit 1
-fi
-
-# The support card is intentionally the first content card in Settings.
-# Verify it at the top immediately; scrolling down would move it out of view.
+# Customer support is now a dedicated Settings subpage. Open it through
+# the clickable Settings section card and verify its FAQ/forms without submitting.
+tap_text_in_clickable_parent "고객 지원"
+sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
 support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
-if ! python3 -c 'import sys, xml.etree.ElementTree as ET
-root = ET.fromstring(sys.stdin.read())
-texts = [node.attrib.get("text", "") for node in root.iter("node")]
-required = (
-    "고객지원 센터",
-    "자주 묻는 질문 (Q&A)",
-    "문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다",
-)
-missing = [item for item in required if not any(item in text for text in texts)]
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+texts=[node.attrib.get("text","") for node in root.iter("node")]
+required=("고객지원 센터","자주 묻는 질문 (Q&A)","문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다")
+missing=[item for item in required if not any(item in text for text in texts)]
 if missing:
-    raise SystemExit("Customer support Settings text missing: " + ", ".join(missing))' <<<"$support_settings_xml"; then
-  echo "Customer support center card is missing from the top of Settings."
-  echo "$support_settings_xml"
-  exit 1
-fi
-echo "Customer support center found at the top of Settings."
+    raise SystemExit("Customer support subpage text missing: "+", ".join(missing))' <<<"$support_settings_xml"
+echo "Customer support subpage found."
 
 tap_text "자주 묻는 질문 (Q&A)"
 sleep 1
@@ -1157,7 +1178,7 @@ root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
 fields=[n for n in nodes if n.attrib.get("class")=="android.widget.EditText"]
 if len(fields)<3:
-    raise SystemExit("Support submission form must expose subject, optional email, and message fields.")
+    raise SystemExit("Support form must expose subject, optional email, and message fields.")
 if not any("문의 및 의견 보내기" in n.attrib.get("text","") for n in nodes):
     raise SystemExit("Support submission dialog title is missing.")' <<<"$support_form_xml"
 tap_text "취소"
@@ -1171,8 +1192,35 @@ fields=[n for n in root.iter("node") if n.attrib.get("class")=="android.widget.E
 if len(fields)<2:
     raise SystemExit("Support ticket lookup must expose ticket reference and private access-code fields.")' <<<"$support_lookup_xml"
 tap_text "취소"
-echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
+echo "Customer support subpage FAQ, inquiry submission form, and private lookup UI passed."
 
+# Foreground-app VPN compatibility controls live in the preserved Advanced
+# Settings page, not the new Settings category root. Return through the explicit
+# in-app navigation control: KEYCODE_BACK can leave nested settings routes open
+# on some emulator/IME states and caused the next selector to search the support
+# page instead of the Settings root.
+tap_text "‹ 설정으로 돌아가기"
+sleep 1
+settings_root_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-after-support.xml)"
+grep -Fq "Guardian의 보호와 앱 환경을 관리합니다." <<<"$settings_root_xml" || {
+  echo "Customer support back navigation did not return to the Settings root."
+  echo "$settings_root_xml"
+  exit 1
+}
+# The Advanced Settings entry is below the category cards on smaller screens.
+for attempt in $(seq 1 6); do
+  adb_cmd shell input swipe 540 1500 540 650 250
+  sleep 0.2
+done
+tap_text "고급 설정 및 서버 구성"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-advanced-settings.xml >/dev/null 2>&1
+advanced_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-advanced-settings.xml | tr -d '\r')"
+grep -Fq '업데이트·서버·DNS의 기존 상세 설정을 유지합니다.' <<<"$advanced_settings_xml" || {
+  echo "Advanced Settings page did not open."
+  echo "$advanced_settings_xml"
+  exit 1
+}
 
 auto_pause_picker_visible=0
 # The Settings tab opens at its top after the app is relaunched. Scroll down

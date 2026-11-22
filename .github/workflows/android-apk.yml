@@ -71,19 +71,24 @@ jobs:
               --releases-json release/guardian-releases.json \
               --commit "$GITHUB_SHA" \
               --baseline-version "0.7.34-dev" \
-              --baseline-code 47 \
+              --baseline-code "$GITHUB_RUN_NUMBER" \
               --github-env "$GITHUB_ENV" \
               --github-output "$GITHUB_OUTPUT"
           else
-            # PR validation builds are non-published and never consume a release number.
+            # PR builds get a unique, monotonically increasing install version
+            # from this workflow's run number. They do not publish release tags.
+            # The same workflow rerun keeps the same version for reproducibility.
+            dev_code=$((GITHUB_RUN_NUMBER + 1))
+            dev_name="0.7.34-dev-ci${GITHUB_RUN_NUMBER}"
             {
-              echo "GUARDIAN_VERSION_NAME=0.7.34-dev"
-              echo "GUARDIAN_VERSION_CODE=47"
+              echo "GUARDIAN_VERSION_NAME=$dev_name"
+              echo "GUARDIAN_VERSION_CODE=$dev_code"
               echo "GUARDIAN_RELEASE_TAG="
             } >> "$GITHUB_ENV"
             {
-              echo "version_name=0.7.34-dev"
-              echo "version_code=47"
+              echo "version_name=$dev_name"
+              echo "version_code=$dev_code"
+              echo "reused=false"
             } >> "$GITHUB_OUTPUT"
           fi
           echo "Version resolution completed."
@@ -275,7 +280,8 @@ jobs:
           cat > release/VERIFICATION_SUMMARY_KO.md <<EOF
           # Guardian AdBlock ${GUARDIAN_VERSION_NAME} — 빌드 및 소스 패키지 검증 결과
 
-          - 저장소 커밋: ${GITHUB_SHA}
+          - 빌드 소스 커밋: ${GITHUB_SHA}
+          - PR head 커밋: ${{ github.event.pull_request.head.sha || github.sha }}
           - GitHub Actions 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
           - versionCode: ${GUARDIAN_VERSION_CODE}
@@ -324,7 +330,7 @@ jobs:
           assert manifest["packageName"] == "com.guardian.adblock"
           assert manifest["versionCode"] == int("${{ env.GUARDIAN_VERSION_CODE }}")
           assert manifest["versionName"] == "${{ env.GUARDIAN_VERSION_NAME }}"
-          assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-dev", manifest["versionName"])
+          assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-dev(?:-ci[0-9]+)?", manifest["versionName"])
           assert manifest["sha256"] == hashlib.sha256(apk.read_bytes()).hexdigest()
           assert manifest["signerSha256"] == "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
           print("Development update manifest exactly matches the built APK.")
@@ -455,8 +461,24 @@ jobs:
           test -s "$ANDROID_AVD_HOME/$AVD_NAME.ini"
           test -s "$ANDROID_AVD_HOME/$AVD_NAME.avd/config.ini"
           "$EMULATOR_BIN" -list-avds | grep -Fx "$AVD_NAME"
+          # The emulator's default 10.0.2.3 DNS proxy can return ECONNREFUSED
+          # on hosted runners even while the virtual Wi-Fi link is connected.
+          # Pass through the runner's real upstream resolver(s) explicitly.
+          HOST_DNS_SERVERS="$(
+            {
+              awk '$1 == "nameserver" { print $2 }' /etc/resolv.conf
+              if command -v resolvectl >/dev/null 2>&1; then
+                resolvectl dns 2>/dev/null | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' || true
+              fi
+            } | awk '$0 !~ /^127\./ && $0 != "::1" && $0 !~ /^169\.254\./ && !seen[$0]++' | paste -sd, -
+          )"
+          if [ -z "$HOST_DNS_SERVERS" ]; then
+            HOST_DNS_SERVERS="8.8.8.8,1.1.1.1"
+          fi
+          echo "Android emulator upstream DNS servers: $HOST_DNS_SERVERS"
+          getent ahostsv4 adguardteam.github.io | head -n 3
           adb start-server
-          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -netfast -dns-server 8.8.8.8,1.1.1.1 > "$AVD_LOG" 2>&1 &
+          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -dns-server "$HOST_DNS_SERVERS" -netfast > "$AVD_LOG" 2>&1 &
           EMULATOR_PID=$!
           echo "Started emulator PID=$EMULATOR_PID, log=$AVD_LOG"
           ready=0
@@ -525,7 +547,11 @@ jobs:
           if timeout --signal=TERM --kill-after=3s 15s adb exec-out cat /sdcard/guardian-window.xml > emulator-diagnostics/ui-hierarchy.xml 2>&1; then :; fi
           if timeout --signal=TERM --kill-after=3s 15s adb exec-out screencap -p > emulator-diagnostics/screen.png 2>/dev/null; then :; fi
           capture package adb shell dumpsys package com.guardian.adblock
+          capture app-preferences adb shell run-as com.guardian.adblock cat /data/user/0/com.guardian.adblock/shared_prefs/guardian_settings.xml
+          capture app-services adb shell dumpsys activity services com.guardian.adblock
+          capture connectivity adb shell dumpsys connectivity
           capture vpn adb shell dumpsys vpn
+          capture network-routes adb shell ip route show table all
           capture emulator-version "$ANDROID_HOME/emulator/emulator" -version
           capture emulator-processes ps -ef
           if [ -e /dev/kvm ]; then ls -l /dev/kvm > emulator-diagnostics/kvm.txt 2>&1; else echo '/dev/kvm absent' > emulator-diagnostics/kvm.txt; fi
@@ -558,7 +584,8 @@ jobs:
           cat > release/FINAL_VERIFICATION_KO.md <<EOF
           # Guardian AdBlock ${GUARDIAN_VERSION_NAME} — 최종 검증 상태
 
-          - 커밋: ${GITHUB_SHA}
+          - 빌드 소스 커밋: ${GITHUB_SHA}
+          - PR head 커밋: ${{ github.event.pull_request.head.sha || github.sha }}
           - 실행: ${GITHUB_RUN_ID}
           - 패키지: com.guardian.adblock
           - 버전: ${GUARDIAN_VERSION_NAME} (${GUARDIAN_VERSION_CODE})
