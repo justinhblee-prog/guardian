@@ -153,6 +153,35 @@ open_settings_menu_item() {
   sleep 1
 }
 
+# Scroll the currently visible Android ScrollView until a named control is
+# actually on-screen. Use the emulator's live dimensions so this also works
+# after landscape/portrait Activity recreation.
+scroll_to_text() {
+  local wanted="$1" attempt size width height center_x start_y end_y xml
+  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
+  width="${size%x*}"
+  height="${size#*x}"
+  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
+    echo "Could not determine a usable emulator display size: $size"
+    return 1
+  fi
+  center_x=$((width / 2))
+  start_y=$((height * 4 / 5))
+  end_y=$((height / 5))
+  for attempt in $(seq 1 10); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
+    if grep -Fq "text=\"$wanted\"" <<<"$xml"; then
+      if tap_text "$wanted"; then return 0; fi
+    fi
+    echo "Scrolling to visible control '$wanted' (attempt $attempt/10; display ${width}x${height})."
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Could not bring control into the visible viewport: $wanted"
+  dump_ui_hierarchy /sdcard/guardian-scroll-target.xml
+  return 1
+}
+
 # Android AlertDialog ListView row TextViews are intentionally non-clickable
 # in UIAutomator's accessibility tree; ListView itself dispatches row taps.
 # Resolve only an exact child of android:id/select_dialog_listview, leaving
@@ -729,7 +758,7 @@ sleep 2
 # can be saved after Activity recreation and reaches the VPN rule engine.
 adb_cmd shell input swipe 540 1500 540 600 450
 sleep 1
-tap_text "규칙 저장 및 적용"
+scroll_to_text "규칙 저장 및 적용"
 sleep 1
 adb_cmd shell input keyevent KEYCODE_BACK || true
 tap_content_description "홈"
