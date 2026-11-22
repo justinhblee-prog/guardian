@@ -1510,22 +1510,6 @@ class MainActivity : Activity() {
         body.addView(buildSupportCenterCard().withTop(12))
         body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
-        body.addView(card(panel, 14).apply {
-            setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("프로그램 업데이트", 15f, white, true))
-            addView(text(
-                "앱 업데이트는 전용 메뉴에서 확인합니다. 필터 목록 업데이트와는 별도로 관리됩니다.",
-                11f, muted, false
-            ).withTop(5))
-            addView(infoRow("설치 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent).withTop(8))
-            addView(Button(this@MainActivity).apply {
-                text = "프로그램 업데이트 열기"
-                isAllCaps = false
-                setTextColor(bg)
-                background = shape(accent, 12)
-                setOnClickListener { showTab("updates") }
-            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
-        }.withTop(12))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
         body.addView(card(panel, 14).apply {
