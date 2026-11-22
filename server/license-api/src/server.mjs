@@ -185,7 +185,7 @@ function validateLicenseRef(value) {
 }
 async function listActivations(licenseId, req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const id = validateUuid(licenseId, '라이선스 ID');
   const license = await pool.query('SELECT id FROM licenses WHERE id=$1', [id]);
   if (!license.rowCount) throw Object.assign(new Error('라이선스를 찾을 수 없습니다.'), { status: 404 });
@@ -203,7 +203,7 @@ async function listActivations(licenseId, req) {
 }
 async function deactivateActivation(licenseId, activationId, req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const id = validateUuid(licenseId, '라이선스 ID');
   const activation = validateUuid(activationId, '기기 등록 ID');
   const client = await pool.connect();
@@ -415,7 +415,7 @@ async function getSupportTicket(ticketRef, token) {
 }
 async function listSupportTickets(req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const result = await pool.query(
     `SELECT id,ticket_ref,email,category,subject,message,status,admin_reply,created_at,updated_at,replied_at
      FROM support_tickets ORDER BY CASE status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'answered' THEN 2 ELSE 3 END,
@@ -425,7 +425,7 @@ async function listSupportTickets(req) {
 }
 async function replySupportTicket(id, body, req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     throw Object.assign(new Error('문의 ID 형식이 올바르지 않습니다.'), { status: 400 });
   }
@@ -497,7 +497,7 @@ async function createLicense(body) {
 }
 async function listLicenses(req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const result = await pool.query(
     `SELECT l.id,l.license_ref,l.status,l.expires_at,l.max_devices,l.created_at,
       count(a.id) FILTER (WHERE a.deactivated_at IS NULL)::int AS active_devices
@@ -508,7 +508,7 @@ async function listLicenses(req) {
 }
 async function listCustomers(req, search = '') {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const q = String(search).trim().slice(0, 100);
   const result = await pool.query(
     `SELECT c.id,c.name,c.email,c.created_at,c.updated_at,
@@ -524,7 +524,7 @@ async function listCustomers(req, search = '') {
 }
 async function listAuditEvents(req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const result = await pool.query(
     `SELECT e.id,e.event_type,e.actor,e.metadata,e.created_at,l.license_ref
      FROM license_events e LEFT JOIN licenses l ON l.id=e.license_id
@@ -534,7 +534,7 @@ async function listAuditEvents(req) {
 }
 async function revokeLicense(id, req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     throw Object.assign(new Error('라이선스 ID 형식이 올바르지 않습니다.'), { status: 400 });
   }
@@ -576,7 +576,7 @@ function validateRelease(body) {
     releaseNotes, mandatory: body.mandatory === true };
 }
 async function listAdminUpdates(req) {
-  requireEnv(); requireAdmin(req);
+  requireEnv(); await requireAdmin(req);
   const result = await pool.query(
     `SELECT id,platform,channel,version,download_url,sha256,min_supported_version,mandatory,release_notes,published_at,active
      FROM guardian_updates ORDER BY published_at DESC LIMIT 100`
@@ -584,7 +584,7 @@ async function listAdminUpdates(req) {
   return { updates: result.rows };
 }
 async function publishUpdate(body, req) {
-  requireEnv(); requireAdmin(req);
+  requireEnv(); await requireAdmin(req);
   const x = validateRelease(body);
   const result = await pool.query(
     `INSERT INTO guardian_updates(platform,channel,version,download_url,sha256,min_supported_version,mandatory,release_notes)
