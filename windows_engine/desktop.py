@@ -192,7 +192,7 @@ class GuardianDesktop:
             if not release: self.program_update_status.set('공식 릴리스가 아직 게시되지 않았습니다.'); return
             self.latest_release_url=release.get('html_url',''); tag=release.get('tag_name','버전 정보 없음')
             assets=release.get('assets',[]); installer=next((item for item in assets if item.get('name','').lower().endswith('.exe') and 'windows' in item.get('name','').lower()),None)
-            self.program_update_status.set('최신 릴리스: '+tag+'\\n'+('Windows 설치 파일: '+installer.get('name') if installer else 'Windows 설치 파일이 릴리스 자산에 없습니다.'))
+            self.program_update_status.set('최신 릴리스: '+tag+'\n'+('Windows 설치 파일: '+installer.get('name') if installer else 'Windows 설치 파일이 릴리스 자산에 없습니다.'))
             self.open_release_button.configure(state='normal' if self.latest_release_url else 'disabled')
         except Exception as exc: self.program_update_status.set('업데이트 확인 실패: '+str(exc)); self.open_release_button.configure(state='disabled')
     def open_release_page(self):
