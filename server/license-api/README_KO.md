@@ -80,6 +80,7 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 - `GET /v1/updates/latest?platform=android|windows&channel=stable|beta`: 공개 업데이트 메타데이터 조회. 버전, HTTPS 다운로드 URL, SHA-256, 최소 지원 버전, 필수 여부 및 릴리스 노트를 반환
 - `GET /v1/admin/updates`: 관리자 인증 후 최근 제품 업데이트 100건 조회
 - `POST /v1/admin/updates`: 관리자 인증 후 플랫폼/채널/버전/HTTPS URL/SHA-256/최소 지원 버전/필수 여부/릴리스 노트 등록 또는 동일 버전 갱신
+- `POST /v1/admin/token/rotate`: 현재 관리자 토큰 인증 후 새 토큰을 1회 발급하고 기존 토큰을 즉시 폐기. 새 토큰 원문은 응답에서만 반환되며 DB에는 해시만 저장
 - `POST /v1/admin/licenses`: 관리자 인증 + `{ "planCode": "annual_365d", "validDays": 365, "maxDevices": 1 }`. 영구 발급은 `{ "planCode": "permanent", "validDays": null, "maxDevices": 1 }`
 - `POST /v1/admin/licenses/{uuid}/revoke`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>` 및 UUID 형식의 라이선스 ID 필요
 - `GET /v1/admin/licenses/{uuid}/activations`: 라이선스의 최근 활성화 기록 최대 50건 조회. 기기 식별자는 해시 마지막 8자리만 반환
@@ -113,4 +114,6 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 docker compose logs api
 ```
 
-로그에서 `[GUARDIAN ADMIN INITIAL TOKEN]` 항목을 확인해 암호 관리자에 안전하게 보관하십시오. 이 토큰은 재시작 시 다시 표시되지 않습니다. 로그 접근 권한을 제한하고, 토큰을 채팅·Git·스크린샷에 공유하지 마십시오. 기존 환경변수 토큰은 하위 호환으로 지원하며, 설정 시 해당 토큰의 해시를 DB에 동기화합니다. 새 빈 DB에는 `schema.sql`이, 기존 DB에는 migration 008이 필요합니다.
+인증 후 관리자 화면의 **관리자 토큰 재발급** 기능으로 새 토큰을 발급할 수 있습니다. 재발급 즉시 기존 토큰은 모든 API 인스턴스에서 거부되며 새 토큰은 화면에 한 번 표시됩니다. 브라우저를 닫기 전에 암호 관리자에 보관하십시오. 토큰 재발급은 감사 이벤트로 기록됩니다.
+
+로그에서 `[GUARDIAN ADMIN INITIAL TOKEN]` 항목을 확인해 암호 관리자에 안전하게 보관하십시오. 이 토큰은 재시작 시 다시 표시되지 않습니다. 로그 접근 권한을 제한하고, 토큰을 채팅·Git·스크린샷에 공유하지 마십시오. 기존 환경변수 토큰은 하위 호환으로 지원하며, DB에 최초 관리자 인증 정보가 없을 때만 초기 토큰으로 사용합니다. DB에 해시가 만들어진 이후에는 DB 값이 우선하므로 토큰 재발급이 재시작으로 되돌아가지 않습니다. 새 빈 DB에는 `schema.sql`이, 기존 DB에는 migration 008이 필요합니다.
