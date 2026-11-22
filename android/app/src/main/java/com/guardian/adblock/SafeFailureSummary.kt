@@ -40,6 +40,18 @@ internal object SafeFailureSummary {
         return fallback
     }
 
+    /** Exception type chain for CI diagnostics; never emits messages, URLs, paths, or resolver data. */
+    fun diagnosticTypeChain(error: Throwable): String {
+        val seen = Collections.newSetFromMap(IdentityHashMap<Throwable, Boolean>())
+        val types = mutableListOf<String>()
+        var current: Throwable? = error
+        while (current != null && types.size < 8 && seen.add(current)) {
+            types += current.javaClass.simpleName.ifBlank { "Throwable" }
+            current = current.cause
+        }
+        return types.joinToString(" -> ")
+    }
+
     fun describe(error: Throwable): String = describeCode(codeFor(error))
 
     internal fun describeCode(code: String): String = when (code) {
