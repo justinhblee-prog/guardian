@@ -491,10 +491,10 @@ function validateRelease(body) {
   const sha256 = typeof body.sha256 === 'string' ? body.sha256.trim().toLowerCase() : '';
   const minSupportedVersion = typeof body.minSupportedVersion === 'string' ? body.minSupportedVersion.trim() : '';
   const releaseNotes = typeof body.releaseNotes === 'string' ? body.releaseNotes.trim() : '';
-  if (!platform || !channel || !/^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version) ||
-      !/^https:\\/\\//i.test(downloadUrl) || downloadUrl.length > 2048 ||
+  if (!platform || !channel || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version) ||
+      !/^https:\/\//i.test(downloadUrl) || downloadUrl.length > 2048 ||
       !/^[a-f0-9]{64}$/.test(sha256) ||
-      (minSupportedVersion && !/^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(minSupportedVersion)) ||
+      (minSupportedVersion && !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(minSupportedVersion)) ||
       releaseNotes.length > 8000) {
     throw Object.assign(new Error('플랫폼, 채널, 버전, HTTPS 다운로드 주소, SHA-256 및 릴리스 정보를 확인하세요.'), { status: 400 });
   }
@@ -524,7 +524,8 @@ async function publishUpdate(body, req) {
   );
   return { update: result.rows[0] };
 }
-async function latestUpdate(url) {\n  requireEnv();
+async function latestUpdate(url) {
+  requireEnv();
   const platform = url.searchParams.get('platform');
   const channel = url.searchParams.get('channel') || 'stable';
   if (!['android','windows'].includes(platform) || !['stable','beta'].includes(channel)) {
@@ -569,7 +570,8 @@ const server = http.createServer(async (req, res) => {
         return json(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' });
       }
     }
-    if (req.method === 'GET' && url.pathname === '/v1/updates/latest') {\n      const latest = await latestUpdate(url);\n      return json(res, 200, latest);\n    }\n    if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
+    if (req.method === 'GET' && url.pathname === '/v1/updates/latest') {
+      const latest = await latestUpdate(url);\n      return json(res, 200, latest);\n    }\n    if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
     if (req.method === 'GET' && url.pathname === '/ready') {
       try {
         requireEnv();
