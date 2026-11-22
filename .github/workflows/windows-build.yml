@@ -6,10 +6,12 @@ on:
     paths:
       - "dns_engine/**"
       - "windows_engine/**"
+      - "VERSION"
       - "installer/**"
       - "requirements-dev.txt"
       - "requirements-windows-build.txt"
       - "scripts/build_windows.ps1"
+      - "VERSION"
       - ".github/workflows/windows-build.yml"
   pull_request:
     paths:
