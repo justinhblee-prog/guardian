@@ -17,10 +17,12 @@ if (-not $tailscale) { $tailscale = $tailscaleCommand.Name }
 $healthUrl = 'http://127.0.0.1:8787/ready'
 $serveTarget = 'http://127.0.0.1:8787'
 try {
-  $health = Invoke-WebRequest -Uri $healthUrl -TimeoutSec 8 -UseBasicParsing
-  if ($health.StatusCode -ne 200) { throw 'not ready' }
+  $health = Invoke-RestMethod -Uri $healthUrl -TimeoutSec 8
+  if (-not $health.ok -or $health.database -ne 'ready' -or $health.signer -ne 'ready') {
+    throw 'API readiness payload did not confirm database and signer.'
+  }
 } catch {
-  throw 'Guardian License API가 준비되지 않았습니다. 먼저 Start-All-GuardianServices.ps1을 실행하고 /ready 응답을 확인하세요.'
+  throw 'Guardian License API가 준비되지 않았습니다. DB 연결과 RSA 서명키가 포함된 /ready 응답을 확인하세요. Start-All-GuardianServices.ps1 실행 상태도 점검하세요.'
 }
 
 . (Join-Path $PSScriptRoot 'Get-GuardianTailscaleStatus.ps1')
@@ -43,11 +45,21 @@ if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 설정에 실패했습니다. 
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 상태 확인 실패' }
 
 $licenseApiUrl = 'https://' + $dnsName
-try {
-  $privateHealth = Invoke-WebRequest -Uri ($licenseApiUrl + '/ready') -TimeoutSec 12 -UseBasicParsing
-  if ($privateHealth.StatusCode -ne 200) { throw 'not ready' }
-} catch {
-  throw 'Tailscale HTTPS 주소에서 Guardian License API /ready 검증에 실패했습니다. Serve 상태와 tailnet DNS/HTTPS를 확인하세요.'
+$privateReadyUrl = $licenseApiUrl + '/ready'
+$privateHealth = $null
+for ($attempt = 1; $attempt -le 5; $attempt++) {
+  try {
+    $privateHealth = Invoke-RestMethod -Uri $privateReadyUrl -TimeoutSec 10
+    if ($privateHealth.ok -and $privateHealth.database -eq 'ready' -and $privateHealth.signer -eq 'ready') {
+      break
+    }
+    throw 'API readiness payload did not confirm database and signer.'
+  } catch {
+    if ($attempt -eq 5) {
+      throw "Tailscale HTTPS /ready 검증에 실패했습니다. Serve, MagicDNS, TLS, DB 및 RSA 서명키 준비 상태를 확인하세요. ($($_.Exception.Message))"
+    }
+    Start-Sleep -Seconds 2
+  }
 }
 
 if ($RegisterGitHubVariable) {
