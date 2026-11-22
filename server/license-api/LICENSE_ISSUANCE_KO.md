@@ -37,7 +37,8 @@
 
 ```json
 {
-  "validDays": 365,
+  "planCode": "annual_365d",
+  "validDays": 365,  // 영구 라이선스는 planCode=permanent, validDays=null
   "maxDevices": 1,
   "customer": {
     "name": "고객명",
