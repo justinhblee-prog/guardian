@@ -50,11 +50,13 @@ if (-not [string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64)) {
 $ProgramFilesX86 = [Environment]::GetFolderPath('ProgramFilesX86')
 $Iscc = Join-Path $ProgramFilesX86 'Inno Setup 6\ISCC.exe'
 if (-not (Test-Path $Iscc)) { throw 'Inno Setup 6 is required to build the Windows installer.' }
+$InstallerOutput = Join-Path $Root "dist/installer/Guardian-AdBlock-Windows-Setup-$ProductVersion-b$BuildNumber.exe"
+if (Test-Path $InstallerOutput) { Remove-Item -LiteralPath $InstallerOutput -Force }
 & $Iscc "/DMyAppVersion=$ProductVersion" "/DMyAppBuildNumber=$BuildNumber" installer\guardian.iss
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup compilation failed.' }
 
-$InstallerPath = Get-ChildItem (Join-Path $Root 'dist/installer/Guardian-AdBlock-Windows-Setup-*.exe') | Select-Object -First 1
-if (-not $InstallerPath) { throw 'Compiled Windows installer was not found.' }
+$InstallerPath = Get-Item -LiteralPath $InstallerOutput -ErrorAction SilentlyContinue
+if (-not $InstallerPath) { throw "Expected versioned Windows installer was not found: $InstallerOutput" }
 if ($SigningCertificate) {
     Sign-GuardianBinary $InstallerPath.FullName
     $InstallerSignature = Get-AuthenticodeSignature -FilePath $InstallerPath.FullName
