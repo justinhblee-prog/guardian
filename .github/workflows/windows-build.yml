@@ -109,6 +109,15 @@ jobs:
             if (Test-Path $installLog) { Get-Content $installLog -Tail 80 }
             throw "Silent installation failed with exit code $($process.ExitCode)"
           }
+          # Launch the actual desktop GUI from the installed package. The runner starts
+          # with no active Guardian protection state, so this smoke test does not
+          # alter host DNS settings; it verifies the packaged Tkinter app stays alive.
+          $desktop = Start-Process -FilePath "$installDir\GuardianAdBlock\GuardianAdBlock.exe" -PassThru
+          Start-Sleep -Seconds 6
+          $desktop.Refresh()
+          if ($desktop.HasExited) { throw "Installed Guardian desktop UI exited during startup (code $($desktop.ExitCode))." }
+          Stop-Process -Id $desktop.Id -Force
+          Write-Host "Installed Guardian desktop UI launch smoke test passed."
           $dnsPackageTest = Invoke-GuardianProcess -FilePath "$installDir\GuardianSelfTest\GuardianSelfTest.exe" -ArgumentList @() -TimeoutSeconds 30 -Label "Packaged DNS self-test"
           if ($dnsPackageTest.ExitCode -ne 0) {
             $selfTestLog = Join-Path $env:TEMP "GuardianDnsSelfTest.log"
