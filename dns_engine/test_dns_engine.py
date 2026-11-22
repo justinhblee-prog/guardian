@@ -117,3 +117,25 @@ def test_ipv6_upstream_dns_query():
         assert response[2]&0x80 and response[3]&15==0
     finally:
         upstream.close(); thread.join(timeout=2)
+
+
+def test_proxy_stop_closes_listener_when_worker_exited_before_shutdown():
+    from dns_engine.proxy import DnsProxy
+
+    class ExitedThread:
+        def is_alive(self): return False
+        def join(self, timeout=None): raise AssertionError("exited worker must not be joined")
+
+    class Listener:
+        def __init__(self): self.closed=False
+        def shutdown(self): raise AssertionError("shutdown must not wait for a dead serve_forever worker")
+        def server_close(self): self.closed=True
+
+    proxy=DnsProxy(DomainRules(),listen=("127.0.0.1",0))
+    listener=Listener()
+    proxy._servers=[listener]
+    proxy._udp_servers=[listener]
+    proxy._threads=[ExitedThread()]
+    proxy.stop()
+    assert listener.closed
+    assert proxy._servers==[] and proxy._threads==[]
