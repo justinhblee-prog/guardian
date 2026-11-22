@@ -88,7 +88,7 @@ Android 앱의 **운영 서버 주소 (노트북)**는 라이선스 API에 연�
 ./Enable-GuardianPrivateApiOnly.ps1 -RegisterGitHubVariable
 ```
 
-이 옵션은 Tailscale HTTPS 주소의 `/ready` 응답을 확인한 뒤 GitHub repository variable `GUARDIAN_LICENSE_API_BASE_URL` 하나만 등록합니다. 필터 source 승인, 공개 filter branch 게시, Production release 실행, Tailscale Funnel 설정은 하지 않습니다. `gh auth login` 및 repository variable 수정 권한이 필요합니다.
+이 옵션은 로컬 및 Tailscale HTTPS 주소의 `/ready` JSON에서 `ok=true`, `database=ready`, `signer=ready`를 확인합니다. HTTPS 인증서·라우팅 전파 지연을 위해 외부 검증은 최대 5회 재시도하며, 검증 성공 후 GitHub repository variable `GUARDIAN_LICENSE_API_BASE_URL` 하나만 등록합니다. 검증 실패 시 GitHub variable은 변경하지 않습니다. 필터 source 승인, 공개 filter branch 게시, Production release 실행, Tailscale Funnel 설정은 하지 않습니다. `gh auth login` 및 repository variable 수정 권한이 필요합니다.
 
 그 다음 Git for Windows, GitHub CLI(`gh`) 로그인 및 JDK `keytool`이 준비된 PowerShell 7.2에서 아래 signing-only 모드를 실행합니다.
 
