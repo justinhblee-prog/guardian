@@ -37,7 +37,17 @@ def daemon_startup_diagnostics():
         details.append("DNS 백그라운드 로그 읽기 실패: "+str(exc))
     try:
         health=json.loads(HEALTH.read_text(encoding="utf-8"))
-        details.append("최근 프로세스 상태: "+json.dumps(health,ensure_ascii=False))
+        heartbeat=float(health.get("heartbeatAt",0))
+        age=max(0.0,time.time()-heartbeat)
+        pid=health.get("pid")
+        pid_running=daemon_process_is_running(HEALTH)
+        details.append(
+            "최근 프로세스 상태: "+json.dumps(
+                {"pid":pid,"heartbeatAt":heartbeat,"heartbeatAgeSeconds":round(age,2),
+                 "pidProcessTableAlive":pid_running},
+                ensure_ascii=False,
+            )
+        )
     except Exception:
         details.append("유효한 DNS 백그라운드 생존 상태 파일이 없습니다.")
     details.extend(dns_port_53_diagnostics())
@@ -374,11 +384,36 @@ class GuardianDesktop:
     def show_diagnostics(self):
         self._select_nav("diagnostics"); self.page_title.configure(text="진단 정보"); self._clear_page()
         panel=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=20,pady=18); panel.pack(fill="both",expand=True)
-        self._label(panel,"시스템 진단",16,self.TEXT,"bold").pack(anchor="w")
-        rows=[("애플리케이션 데이터",str(APP_DIR)),("DNS 백업","보존됨" if BACKUP.exists() else "없음"),("보호 상태 파일","존재" if STATE.exists() else "없음"),("백그라운드 상태","정상 응답" if daemon_health_is_fresh(HEALTH) else "응답 없음"),("DNS 작업 이름",TASK_NAME),("시작 로그",str(APP_DIR/"daemon-startup.log"))]
+        header=tk.Frame(panel,bg=self.PANEL); header.pack(fill="x")
+        self._label(header,"시스템 진단",16,self.TEXT,"bold").pack(side="left")
+        self._button(header,"진단 새로고침",self.show_diagnostics).pack(side="right")
+        ready,reason=proxy_readiness_status()
+        health_data={}
+        try: health_data=json.loads(HEALTH.read_text(encoding="utf-8"))
+        except Exception: pass
+        heartbeat_age=max(0.0,time.time()-float(health_data.get("heartbeatAt",0) or 0))
+        pid_running=daemon_process_is_running(HEALTH)
+        rows=[
+            ("DNS 응답", "정상" if ready else "실패 · "+reason),
+            ("백그라운드 PID",str(health_data.get("pid","확인 불가"))+" · "+("실행 중" if pid_running else "확인 실패")),
+            ("Heartbeat 경과",f"{heartbeat_age:.1f}초"),
+            ("애플리케이션 데이터",str(APP_DIR)),
+            ("DNS 백업","보존됨" if BACKUP.exists() else "없음"),
+            ("보호 상태 파일","존재" if STATE.exists() else "없음"),
+            ("DNS 작업 이름",TASK_NAME),
+            ("시작 로그",str(APP_DIR/"daemon-startup.log")),
+        ]
         for label,value in rows:
-            row=tk.Frame(panel,bg=self.PANEL); row.pack(fill="x",pady=8); self._label(row,label,9,self.MUTED).pack(anchor="w"); self._label(row,value,9,self.TEXT).pack(anchor="w",pady=(3,0))
-        self._button(panel,"시작 로그 폴더 열기",lambda:os.startfile(str(APP_DIR))).pack(anchor="w",pady=(16,0))
+            row=tk.Frame(panel,bg=self.PANEL); row.pack(fill="x",pady=6)
+            self._label(row,label,9,self.MUTED).pack(anchor="w")
+            self._label(row,value,9,self.GREEN if label=="DNS 응답" and ready else (self.AMBER if label=="DNS 응답" else self.TEXT),wraplength=760,justify="left").pack(anchor="w",pady=(3,0))
+        def copy_diagnostics():
+            report=daemon_startup_diagnostics()+"\\n\\nDNS readiness: "+reason
+            self.root.clipboard_clear(); self.root.clipboard_append(report); self.root.update_idletasks()
+            messagebox.showinfo("진단 정보","진단 내용을 클립보드에 복사했습니다.")
+        actions=tk.Frame(panel,bg=self.PANEL); actions.pack(fill="x",pady=(14,0))
+        self._button(actions,"진단 내용 복사",copy_diagnostics).pack(side="left")
+        self._button(actions,"시작 로그 폴더 열기",lambda:os.startfile(str(APP_DIR))).pack(side="left",padx=(8,0))
     def set_active_ui(self,active,label=None):
         self.active=active; current=label or ("보호 실행 중" if active else "보호 꺼짐"); self.status.set(current)
         if hasattr(self,"top_status"):
