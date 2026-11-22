@@ -543,8 +543,12 @@ class GuardianDesktop:
         install_button.configure(state="disabled")
         install_button.pack(side="left",padx=(8,0))
         def check_update():
+            state["update"]=None
+            state["path"]=None
             check_button.configure(state="disabled")
             download_button.configure(state="disabled")
+            folder_button.configure(state="disabled")
+            install_button.configure(state="disabled")
             status.configure(text="공식 Windows 업데이트를 확인하고 있습니다…",fg=self.MUTED)
             def worker():
                 try:
@@ -553,6 +557,7 @@ class GuardianDesktop:
                 except Exception as exc:
                     result=None; error=str(exc)
                 def finish():
+                    if not status.winfo_exists(): return
                     check_button.configure(state="normal")
                     state["update"]=result
                     if error:
@@ -576,6 +581,7 @@ class GuardianDesktop:
                 except Exception as exc:
                     path=None; error=str(exc)
                 def finish():
+                    if not status.winfo_exists(): return
                     download_button.configure(state="normal" if error else "disabled")
                     if error:
                         status.configure(text="업데이트 다운로드 실패: "+error,fg=self.AMBER)
