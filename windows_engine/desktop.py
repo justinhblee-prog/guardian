@@ -109,26 +109,86 @@ def self_test():
         raise
 class GuardianDesktop:
     def __init__(self,root):
-        self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False
-        self.status=tk.StringVar(value="보호 꺼짐"); root.title("Guardian AdBlock"); root.geometry("920x640"); root.minsize(820,580); root.configure(bg="#101820")
-        tk.Label(root,text="GUARDIAN",font=("Segoe UI",24,"bold"),fg="#f2f6fa",bg="#101820").pack(pady=(24,2))
-        tk.Label(root,text="Windows DNS Protection",font=("Segoe UI",10),fg="#9fb2c3",bg="#101820").pack()
-        self.status_label=tk.Label(root,textvariable=self.status,font=("Segoe UI",15,"bold"),fg="#f3b64a",bg="#101820"); self.status_label.pack(pady=26)
-        row=tk.Frame(root,bg="#101820"); row.pack()
-        self.start_button=tk.Button(row,text="보호 시작",command=self.start_protection,width=16,height=2,bg="#197a57",fg="white",font=("Segoe UI",11,"bold"),relief="flat"); self.start_button.pack(side="left",padx=8)
-        self.stop_button=tk.Button(row,text="보호 중지",command=self.stop_protection,width=16,height=2,bg="#8b3940",fg="white",font=("Segoe UI",11,"bold"),relief="flat",state="disabled"); self.stop_button.pack(side="left",padx=8)
-        self.stats=tk.Label(root,text="차단 0건  |  전달 0건",font=("Segoe UI",12),fg="#d7e0e8",bg="#101820"); self.stats.pack(pady=20)
-        actions=tk.Frame(root,bg="#101820"); actions.pack(pady=4)
-        tk.Button(actions,text="프로그램 업데이트",command=self.check_program_updates,width=18,bg="#197a57",fg="white",relief="flat").pack(side="left",padx=6)
-        tk.Button(actions,text="필터 업데이트",command=self.update_filters,width=16,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=6)
-        tk.Button(actions,text="필터 서버 설정",command=self.open_filter_settings,width=16,bg="#33404c",fg="white",relief="flat").pack(side="left",padx=6)
-        tk.Button(actions,text="라이선스",command=self.open_license_settings,width=12,bg="#5946a8",fg="white",relief="flat").pack(side="left",padx=6)
-        self.license_status=tk.Label(root,text="라이선스: 무료",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.license_status.pack(pady=2)
+        self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False; self.current_page='home'; self.pages={}; self.nav_buttons={}
+        self.status=tk.StringVar(value='보호 꺼짐')
+        root.title('Guardian AdBlock'); root.geometry('1180x760'); root.minsize(1020,680); root.configure(bg='#101820')
+        shell=tk.Frame(root,bg='#101820'); shell.pack(fill='both',expand=True)
+        sidebar=tk.Frame(shell,bg='#111e2a',width=228); sidebar.pack(side='left',fill='y'); sidebar.pack_propagate(False)
+        tk.Label(sidebar,text='GUARDIAN',font=('Segoe UI',22,'bold'),fg='#f2f6fa',bg='#111e2a').pack(anchor='w',padx=22,pady=(28,2))
+        tk.Label(sidebar,text='WINDOWS SECURITY',font=('Segoe UI',9,'bold'),fg='#65d6ae',bg='#111e2a').pack(anchor='w',padx=23,pady=(0,24))
+        self.nav=tk.Frame(sidebar,bg='#111e2a'); self.nav.pack(fill='x',padx=12)
+        self.content=tk.Frame(shell,bg='#101820'); self.content.pack(side='left',fill='both',expand=True)
+        top=tk.Frame(self.content,bg='#101820'); top.pack(fill='x',padx=30,pady=(24,10))
+        self.page_title=tk.Label(top,text='대시보드',font=('Segoe UI',22,'bold'),fg='#f2f6fa',bg='#101820'); self.page_title.pack(side='left')
+        self.header_status=tk.Label(top,textvariable=self.status,font=('Segoe UI',10,'bold'),fg='#f3b64a',bg='#263440',padx=14,pady=8); self.header_status.pack(side='right')
+        self.workspace=tk.Frame(self.content,bg='#101820'); self.workspace.pack(fill='both',expand=True,padx=30,pady=(10,28))
+        self.pages={name:tk.Frame(self.workspace,bg='#101820') for name in ('home','protection','filters','exclusions','activity','premium','updates','settings')}
+        nav_items=[('home','대시보드'),('protection','보호 설정'),('filters','필터 관리'),('exclusions','앱 제외 관리'),('activity','활동 및 기록'),('premium','라이선스 · Premium'),('updates','프로그램 업데이트'),('settings','일반 설정 · 지원')]
+        for key,label in nav_items:
+            button=tk.Button(self.nav,text=label,anchor='w',command=lambda k=key:self.show_page(k),bg='#111e2a',fg='#bdcbd7',activebackground='#234a43',activeforeground='white',relief='flat',bd=0,font=('Segoe UI',10,'bold'),padx=14,pady=12,cursor='hand2')
+            button.pack(fill='x',pady=2); self.nav_buttons[key]=button
+        home=self.pages['home']
+        tk.Label(home,text='기기 전체 DNS 보호 상태와 차단 활동을 관리합니다.',font=('Segoe UI',11),fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=(0,22))
+        self.status_label=tk.Label(home,textvariable=self.status,font=('Segoe UI',19,'bold'),fg='#f3b64a',bg='#101820'); self.status_label.pack(anchor='w',pady=10)
+        actions=tk.Frame(home,bg='#101820'); actions.pack(anchor='w',pady=10)
+        self.start_button=tk.Button(actions,text='보호 시작',command=self.start_protection,width=18,height=2,bg='#197a57',fg='white',font=('Segoe UI',11,'bold'),relief='flat',cursor='hand2'); self.start_button.pack(side='left',padx=(0,10))
+        self.stop_button=tk.Button(actions,text='보호 중지',command=self.stop_protection,width=18,height=2,bg='#8b3940',fg='white',font=('Segoe UI',11,'bold'),relief='flat',state='disabled',cursor='hand2'); self.stop_button.pack(side='left')
+        self.stats=tk.Label(home,text='차단 0건  |  전달 0건',font=('Segoe UI',15,'bold'),fg='#d7e0e8',bg='#101820'); self.stats.pack(anchor='w',pady=24)
+        self.license_status=tk.Label(home,text='라이선스: 무료',font=('Segoe UI',10),fg='#9fb2c3',bg='#101820'); self.license_status.pack(anchor='w',pady=5)
+        self.filter_status=tk.Label(home,text='필터 업데이트: 서버 미설정',font=('Segoe UI',10),fg='#9fb2c3',bg='#101820'); self.filter_status.pack(anchor='w',pady=5)
+        tk.Label(home,text='백그라운드 DNS 보호 · IPv4/IPv6 · 기존 DNS 자동 복구',font=('Segoe UI',10),fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=18)
+        tk.Label(home,text='앱 창을 닫아도 보호는 유지됩니다. 보호 중지 시 기존 DNS 설정을 복구합니다.',font=('Segoe UI',9),fg='#aab8c4',bg='#101820').pack(anchor='w')
+        self._section('protection','보호 설정','보호 시작·중지와 DNS 엔진 상태를 관리합니다.')
+        tk.Button(self.pages['protection'],text='보호 시작',command=self.start_protection,width=18,height=2,bg='#197a57',fg='white',relief='flat').pack(anchor='w',pady=8)
+        tk.Button(self.pages['protection'],text='보호 중지',command=self.stop_protection,width=18,height=2,bg='#8b3940',fg='white',relief='flat').pack(anchor='w',pady=8)
+        self._section('filters','필터 관리','서명된 광고·추적·위협 필터 목록을 업데이트합니다. 프로그램 업데이트와 별개입니다.')
+        tk.Button(self.pages['filters'],text='필터 업데이트 실행',command=self.update_filters,width=22,height=2,bg='#197a57',fg='white',relief='flat').pack(anchor='w',pady=8)
+        tk.Button(self.pages['filters'],text='필터 서버 설정',command=self.open_filter_settings,width=22,height=2,bg='#33404c',fg='white',relief='flat').pack(anchor='w',pady=8)
+        self._section('exclusions','앱 제외 관리','DNS 필터링에서 제외할 앱 정책을 설정합니다.')
+        tk.Label(self.pages['exclusions'],text='Windows 앱 제외 정책 UI는 현재 엔진 연결 구현이 필요합니다. 미구현 기능을 동작하는 것처럼 표시하지 않습니다.',wraplength=700,fg='#f0c477',bg='#101820',justify='left').pack(anchor='w',pady=10)
+        self._section('activity','활동 및 기록','DNS 요청·차단 통계와 진단 기록을 확인합니다.')
+        tk.Label(self.pages['activity'],text='실시간 통계는 DNS 엔진 상태 파일과 연동해 표시합니다.',fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=10)
+        self._section('premium','라이선스 및 Premium','공통 Guardian 라이선스와 기기 활성화를 관리합니다.')
+        tk.Button(self.pages['premium'],text='라이선스 관리',command=self.open_license_settings,width=22,height=2,bg='#5946a8',fg='white',relief='flat').pack(anchor='w',pady=8)
+        self._section('updates','프로그램 업데이트','Guardian Windows 앱의 새 버전을 확인합니다. 필터 목록 갱신과 다른 기능입니다.')
+        self.update_version=tk.Label(self.pages['updates'],text='설치 버전: 확인 중',fg='#d7e0e8',bg='#101820',font=('Segoe UI',12,'bold')); self.update_version.pack(anchor='w',pady=10)
+        self.program_update_status=tk.StringVar(value='업데이트 확인 전')
+        tk.Label(self.pages['updates'],textvariable=self.program_update_status,wraplength=760,justify='left',fg='#bdcbd7',bg='#101820').pack(anchor='w',pady=12)
+        row=tk.Frame(self.pages['updates'],bg='#101820'); row.pack(anchor='w',pady=10)
+        tk.Button(row,text='업데이트 확인',command=self.check_program_updates,width=18,height=2,bg='#197a57',fg='white',relief='flat').pack(side='left',padx=(0,10))
+        self.open_release_button=tk.Button(row,text='공식 릴리스 페이지',command=self.open_release_page,state='disabled',width=20,height=2,bg='#294e70',fg='white',relief='flat'); self.open_release_button.pack(side='left')
+        tk.Label(self.pages['updates'],text='안전상 자동 설치는 수행하지 않습니다. 정식 서명 검증 및 업데이트 설치 절차가 검증되기 전까지 공식 릴리스에서 수동 설치합니다.',wraplength=760,justify='left',fg='#f0c477',bg='#101820').pack(anchor='w',pady=10)
+        self._section('settings','일반 설정 및 지원','필터 서버·라이선스 연결과 제품 정보를 관리합니다.')
+        tk.Button(self.pages['settings'],text='필터 서버 설정',command=self.open_filter_settings,width=22,height=2,bg='#33404c',fg='white',relief='flat').pack(anchor='w',pady=8)
+        tk.Button(self.pages['settings'],text='라이선스 설정',command=self.open_license_settings,width=22,height=2,bg='#5946a8',fg='white',relief='flat').pack(anchor='w',pady=8)
+        self.show_page('home')
         self.refresh_license_status()
-        self.filter_status=tk.Label(root,text="필터 업데이트: 서버 미설정",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.filter_status.pack(pady=3)
-        tk.Label(root,text="백그라운드 DNS 보호 · IPv4/IPv6 · 기존 DNS 자동 복구",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820").pack(pady=6)
-        tk.Label(root,text="보호 시작 시 어댑터 DNS를 로컬 필터로 전환합니다. 앱 창을 닫아도 백그라운드 보호는 유지되며, 보호 중지는 원래 DNS 설정을 복구합니다.",wraplength=540,font=("Segoe UI",9),fg="#aab8c4",bg="#101820").pack(pady=12)
-        root.protocol("WM_DELETE_WINDOW",self.close); self.recover_previous_state(); self.refresh()
+        root.protocol('WM_DELETE_WINDOW',self.close); self.recover_previous_state(); self.refresh()
+    def _section(self,page,title,description):
+        frame=self.pages[page]
+        tk.Label(frame,text=title,font=('Segoe UI',20,'bold'),fg='#f2f6fa',bg='#101820').pack(anchor='w',pady=(8,6))
+        tk.Label(frame,text=description,font=('Segoe UI',10),fg='#9fb2c3',bg='#101820',wraplength=760,justify='left').pack(anchor='w',pady=(0,18))
+    def show_page(self,page):
+        for frame in self.pages.values(): frame.pack_forget()
+        self.pages[page].pack(fill='both',expand=True)
+        labels={'home':'대시보드','protection':'보호 설정','filters':'필터 관리','exclusions':'앱 제외 관리','activity':'활동 및 기록','premium':'라이선스 · Premium','updates':'프로그램 업데이트','settings':'일반 설정 · 지원'}
+        self.page_title.configure(text=labels[page]); self.current_page=page
+        for key,button in self.nav_buttons.items(): button.configure(bg='#234a43' if key==page else '#111e2a',fg='white' if key==page else '#bdcbd7')
+    def check_program_updates(self):
+        self.program_update_status.set('공식 GitHub 릴리스 확인 중...'); self.root.update_idletasks()
+        try:
+            request=urllib.request.Request('https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=20',headers={'Accept':'application/vnd.github+json','User-Agent':'GuardianAdBlock-Windows'})
+            with urllib.request.urlopen(request,timeout=12) as response: releases=json.loads(response.read(1024*1024).decode('utf-8'))
+            release=next((item for item in releases if not item.get('draft')),None)
+            if not release: self.program_update_status.set('공식 릴리스가 아직 게시되지 않았습니다.'); return
+            self.latest_release_url=release.get('html_url',''); tag=release.get('tag_name','버전 정보 없음')
+            assets=release.get('assets',[]); installer=next((item for item in assets if item.get('name','').lower().endswith('.exe') and 'windows' in item.get('name','').lower()),None)
+            self.program_update_status.set('최신 릴리스: '+tag+'\\n'+('Windows 설치 파일: '+installer.get('name') if installer else 'Windows 설치 파일이 릴리스 자산에 없습니다.'))
+            self.open_release_button.configure(state='normal' if self.latest_release_url else 'disabled')
+        except Exception as exc: self.program_update_status.set('업데이트 확인 실패: '+str(exc)); self.open_release_button.configure(state='disabled')
+    def open_release_page(self):
+        url=getattr(self,'latest_release_url','')
+        if url: webbrowser.open(url)
     def set_active_ui(self,active,label=None):
         self.active=active; self.status.set(label or ("보호 실행 중" if active else "보호 꺼짐"))
         self.status_label.configure(fg="#54d69b" if active else "#f3b64a")
