@@ -151,7 +151,7 @@ class GuardianDesktop:
         self._section('premium','라이선스 및 Premium','공통 Guardian 라이선스와 기기 활성화를 관리합니다.')
         tk.Button(self.pages['premium'],text='라이선스 관리',command=self.open_license_settings,width=22,height=2,bg='#5946a8',fg='white',relief='flat').pack(anchor='w',pady=8)
         self._section('updates','프로그램 업데이트','Guardian Windows 앱의 새 버전을 확인합니다. 필터 목록 갱신과 다른 기능입니다.')
-        self.update_version=tk.Label(self.pages['updates'],text='설치 버전: 확인 중',fg='#d7e0e8',bg='#101820',font=('Segoe UI',12,'bold')); self.update_version.pack(anchor='w',pady=10)
+        self.update_version=tk.Label(self.pages['updates'],text='설치 버전: 0.1.0-dev',fg='#d7e0e8',bg='#101820',font=('Segoe UI',12,'bold')); self.update_version.pack(anchor='w',pady=10)
         self.program_update_status=tk.StringVar(value='업데이트 확인 전')
         tk.Label(self.pages['updates'],textvariable=self.program_update_status,wraplength=760,justify='left',fg='#bdcbd7',bg='#101820').pack(anchor='w',pady=12)
         row=tk.Frame(self.pages['updates'],bg='#101820'); row.pack(anchor='w',pady=10)
@@ -179,7 +179,7 @@ class GuardianDesktop:
         try:
             request=urllib.request.Request('https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=20',headers={'Accept':'application/vnd.github+json','User-Agent':'GuardianAdBlock-Windows'})
             with urllib.request.urlopen(request,timeout=12) as response: releases=json.loads(response.read(1024*1024).decode('utf-8'))
-            release=next((item for item in releases if not item.get('draft')),None)
+            release=next((item for item in releases if not item.get('draft') and not item.get('prerelease')),None)
             if not release: self.program_update_status.set('공식 릴리스가 아직 게시되지 않았습니다.'); return
             self.latest_release_url=release.get('html_url',''); tag=release.get('tag_name','버전 정보 없음')
             assets=release.get('assets',[]); installer=next((item for item in assets if item.get('name','').lower().endswith('.exe') and 'windows' in item.get('name','').lower()),None)
