@@ -25,7 +25,7 @@ const rateLimitOptions = {
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers',
+  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers', '/v1/admin/updates',
   '/v1/support/tickets', '/v1/admin/support/tickets', '/v1/support/tickets/lookup'
 ]);
 const pool = DATABASE_URL ? new Pool({
@@ -482,6 +482,62 @@ async function revokeLicense(id, req) {
   finally { client.release(); }
 }
 
+
+function validateRelease(body) {
+  const platform = ['android','windows'].includes(body.platform) ? body.platform : '';
+  const channel = ['stable','beta'].includes(body.channel) ? body.channel : '';
+  const version = typeof body.version === 'string' ? body.version.trim() : '';
+  const downloadUrl = typeof body.downloadUrl === 'string' ? body.downloadUrl.trim() : '';
+  const sha256 = typeof body.sha256 === 'string' ? body.sha256.trim().toLowerCase() : '';
+  const minSupportedVersion = typeof body.minSupportedVersion === 'string' ? body.minSupportedVersion.trim() : '';
+  const releaseNotes = typeof body.releaseNotes === 'string' ? body.releaseNotes.trim() : '';
+  if (!platform || !channel || !/^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version) ||
+      !/^https:\\/\\//i.test(downloadUrl) || downloadUrl.length > 2048 ||
+      !/^[a-f0-9]{64}$/.test(sha256) ||
+      (minSupportedVersion && !/^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(minSupportedVersion)) ||
+      releaseNotes.length > 8000) {
+    throw Object.assign(new Error('플랫폼, 채널, 버전, HTTPS 다운로드 주소, SHA-256 및 릴리스 정보를 확인하세요.'), { status: 400 });
+  }
+  return { platform, channel, version, downloadUrl, sha256, minSupportedVersion: minSupportedVersion || null,
+    releaseNotes, mandatory: body.mandatory === true };
+}
+async function listAdminUpdates(req) {
+  requireEnv(); requireAdmin(req);
+  const result = await pool.query(
+    `SELECT id,platform,channel,version,download_url,sha256,min_supported_version,mandatory,release_notes,published_at,active
+     FROM guardian_updates ORDER BY published_at DESC LIMIT 100`
+  );
+  return { updates: result.rows };
+}
+async function publishUpdate(body, req) {
+  requireEnv(); requireAdmin(req);
+  const x = validateRelease(body);
+  const result = await pool.query(
+    `INSERT INTO guardian_updates(platform,channel,version,download_url,sha256,min_supported_version,mandatory,release_notes)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+     ON CONFLICT(platform,channel,version) DO UPDATE SET
+       download_url=EXCLUDED.download_url,sha256=EXCLUDED.sha256,
+       min_supported_version=EXCLUDED.min_supported_version,mandatory=EXCLUDED.mandatory,
+       release_notes=EXCLUDED.release_notes,published_at=now(),active=true
+     RETURNING id,platform,channel,version,download_url,sha256,min_supported_version,mandatory,release_notes,published_at,active`,
+    [x.platform,x.channel,x.version,x.downloadUrl,x.sha256,x.minSupportedVersion,x.mandatory,x.releaseNotes]
+  );
+  return { update: result.rows[0] };
+}
+async function latestUpdate(url) {
+  const platform = url.searchParams.get('platform');
+  const channel = url.searchParams.get('channel') || 'stable';
+  if (!['android','windows'].includes(platform) || !['stable','beta'].includes(channel)) {
+    throw Object.assign(new Error('플랫폼 또는 채널 값이 올바르지 않습니다.'), { status: 400 });
+  }
+  const result = await pool.query(
+    `SELECT platform,channel,version,download_url,sha256,min_supported_version,mandatory,release_notes,published_at
+     FROM guardian_updates WHERE platform=$1 AND channel=$2 AND active=true
+     ORDER BY published_at DESC LIMIT 1`, [platform,channel]
+  );
+  return { update: result.rows[0] || null };
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -513,7 +569,7 @@ const server = http.createServer(async (req, res) => {
         return json(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' });
       }
     }
-    if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
+    if (req.method === 'GET' && url.pathname === '/v1/updates/latest') {\n      const latest = await latestUpdate(url);\n      return json(res, 200, latest);\n    }\n    if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
     if (req.method === 'GET' && url.pathname === '/ready') {
       try {
         requireEnv();
@@ -528,7 +584,7 @@ const server = http.createServer(async (req, res) => {
              to_regclass('public.support_tickets') AS support_tickets,
              to_regclass('public.customers') AS customers`
         );
-        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers'];
+        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers', 'guardian_updates'];
         if (requiredTables.some(table => !schema.rows[0]?.[table])) {
           throw new Error('license_database_schema_not_initialized');
         }
@@ -563,7 +619,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" });
       return res.end(html);
     }
-    if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
+    if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));\n    if (req.method === 'GET' && url.pathname === '/v1/admin/updates') return json(res, 200, await listAdminUpdates(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/support/tickets') return json(res, 200, await listSupportTickets(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/customers') return json(res, 200, await listCustomers(req, url.searchParams.get('q') || ''));
@@ -595,7 +651,7 @@ const server = http.createServer(async (req, res) => {
            AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>now())
          LIMIT 1`, [device, licenseRef]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
-    } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
+    } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });\n    else if (url.pathname === '/v1/admin/updates') result = await publishUpdate(body, req);
     else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
       const id = url.pathname.split('/')[4];
       result = await revokeLicense(id, req);
