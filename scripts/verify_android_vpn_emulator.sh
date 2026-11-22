@@ -246,7 +246,9 @@ adb_cmd shell input keyevent KEYCODE_BACK || true
 # The PRO feature cards are below the membership details on a phone-sized
 # viewport. Return to Premium, scroll the actual page, and verify the feature
 # card only after it enters the visible UI hierarchy.
-tap_content_description "프리미엄"
+tap_content_description "설정"
+sleep 1
+tap_content_description "라이선스 및 프리미엄"
 sleep 1
 premium_features_visible=0
 for attempt in $(seq 1 8); do
@@ -632,8 +634,8 @@ if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))' <<<"$home_controls_xml"
 echo "App-exclusion search, package filtering, Android Auto lookup, and single Home protection control passed."
 
-# Verify the simplified dashboard and all seven persistent bottom-navigation destinations.
-echo "Verifying the simplified home dashboard and all seven bottom-navigation destinations."
+# Verify the simplified dashboard and all five persistent bottom-navigation destinations.
+echo "Verifying the simplified home dashboard and all five bottom-navigation destinations."
 home_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-home-navigation.xml)"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -673,7 +675,7 @@ if not any(node.attrib.get("content-desc")==sys.argv[1]
   fi
 done
 tap_content_description "홈"
-echo "Single home protection control and all seven bottom-navigation destinations passed."
+echo "Single home protection control and all five bottom-navigation destinations passed."
 
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
@@ -701,12 +703,12 @@ selected=any(node.attrib.get("content-desc")=="설정" and node.attrib.get("sele
 draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
 if not (selected and draft):
     raise SystemExit("Activity rotation lost the selected filter tab, restored scroll position, or unsaved rule draft.")' <<<"$rotation_xml"
-if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Activity restored after configuration change; tab=rules scrollY=[1-9][0-9]* hasRuleDraft=true"; then
+if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Activity restored after configuration change; tab=settings-filtering scrollY=[1-9][0-9]* hasRuleDraft=true"; then
   echo "Activity did not retain the unsaved rule editor draft across rotation."
   adb_cmd logcat -d -s GuardianUI:I | tail -80
   exit 1
 fi
-if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Saving Activity state; tab=rules scrollY=[1-9][0-9]*"; then
+if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Saving Activity state; tab=settings-filtering scrollY=[1-9][0-9]*"; then
   echo "Activity did not save the scrolled filter-editor position before rotation."
   exit 1
 fi
