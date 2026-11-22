@@ -10,7 +10,7 @@ from resolve_guardian_dev_version import resolve_next_version
 class GuardianDevVersionTests(unittest.TestCase):
     def setUp(self):
         self.releases = [{
-            "tag_name": "guardian-dev-v47",
+            "tag_name": "guardian-dev-v54",
             "name": "Guardian AdBlock 0.7.34-dev (개발 업데이트)",
             "draft": False,
             "prerelease": True,
@@ -18,9 +18,9 @@ class GuardianDevVersionTests(unittest.TestCase):
         }]
 
     def test_next_release_increments_patch_and_version_code(self):
-        result = resolve_next_version(self.releases, "a" * 40, "0.7.34-dev", 47)
+        result = resolve_next_version(self.releases, "a" * 40, "0.7.41-dev", 54)
         self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
-                         ("0.7.35-dev", 48, "guardian-dev-v48"))
+                         ("0.7.42-dev", 55, "guardian-dev-v55"))
         self.assertFalse(result["reused"])
 
     def test_same_commit_rerun_reuses_existing_release(self):
@@ -30,9 +30,9 @@ class GuardianDevVersionTests(unittest.TestCase):
             "draft": False, "prerelease": True,
             "body": "Guardian-Source-Commit: " + "b" * 40
         })
-        result = resolve_next_version(self.releases, "b" * 40, "0.7.34-dev", 47)
+        result = resolve_next_version(self.releases, "b" * 40, "0.7.41-dev", 47)
         self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
-                         ("0.7.35-dev", 48, "guardian-dev-v48"))
+                         ("0.7.42-dev", 55, "guardian-dev-v48"))
         self.assertTrue(result["reused"])
 
     def test_older_commit_cannot_republish_after_newer_release(self):
@@ -54,7 +54,7 @@ class GuardianDevVersionTests(unittest.TestCase):
         ])
         result = resolve_next_version(self.releases, "e" * 40, "0.7.34-dev", 47)
         self.assertEqual((result["version_name"], result["version_code"]),
-                         ("0.7.35-dev", 48))
+                         ("0.7.42-dev", 55))
 
     def test_development_version_code_cannot_enter_production_range(self):
         releases = [{"tag_name": "guardian-dev-v1999999", "name": "Guardian AdBlock 0.7.99-dev",
