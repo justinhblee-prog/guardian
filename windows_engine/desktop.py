@@ -364,7 +364,16 @@ class GuardianDesktop:
         self._label(side,"WINDOWS SECURITY",8,self.MUTED,"bold",self.SIDE).pack(anchor="w",padx=24,pady=(0,30))
         self._label(side,"WORKSPACE",8,"#657891","bold",self.SIDE).pack(anchor="w",padx=22,pady=(0,10))
         self.nav={}
-        items=[("home","▦   대시보드",self.show_dashboard),("filters","◉   필터 업데이트",self.show_filter_updates),("network","⌁   필터 서버 설정",self.open_filter_settings),("license","◇   라이선스",self.show_license_page),("diagnostics","≋   진단 정보",self.show_diagnostics)]
+        # Keep the same top-level information architecture as Android.
+        items=[
+            ("home","⌂   홈",self.show_dashboard),
+            ("protection","◈   보호 설정",self.show_protection_page),
+            ("app-exclusions","◉   앱 제외",self.show_app_exclusions_page),
+            ("activity","▤   DNS 활동",self.show_activity_page),
+            ("premium","✦   프리미엄",self.show_license_page),
+            ("rules","≡   필터 규칙",self.show_filter_updates),
+            ("settings","⚙   설정",self.show_settings_page),
+        ]
         for key,label,fn in items:
             b=tk.Button(side,text=label,command=lambda k=key,f=fn:(self._select_nav(k),f()),anchor="w",bg=self.SIDE,fg=self.MUTED,activebackground=self.ALT,activeforeground=self.TEXT,relief="flat",bd=0,padx=22,pady=13,cursor="hand2",font=("Segoe UI",10,"bold")); b.pack(fill="x",padx=10,pady=2); self.nav[key]=b
         tk.Frame(side,bg=self.SIDE).pack(fill="both",expand=True)
@@ -405,8 +414,72 @@ class GuardianDesktop:
             (self.filter_status if col==0 else self.license_status).pack(anchor="w"); self._button(card,button,fn).pack(anchor="w",pady=(16,0))
         self._label(self.page,"앱 창을 닫아도 백그라운드 DNS 보호는 유지됩니다.",9,self.MUTED,bg=self.BG).pack(anchor="w",pady=(14,0))
         self.set_active_ui(self.active,self.status.get())
+    def show_protection_page(self):
+        self._select_nav("protection"); self.page_title.configure(text="보호 설정"); self._clear_page()
+        ready,reason=proxy_readiness_status()
+        card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=20)
+        card.pack(fill="x",pady=(0,14))
+        self._label(card,"GUARDIAN PROTECTION",9,self.TEAL,"bold").pack(anchor="w")
+        self._label(card,"실시간 DNS 보호",18,self.TEXT,"bold").pack(anchor="w",pady=(8,10))
+        self._label(card,"보호 상태: "+("실행 중" if self.active and ready else "확인 필요" if self.active else "꺼짐"),12,self.GREEN if self.active and ready else self.AMBER if self.active else self.MUTED,"bold").pack(anchor="w")
+        self._label(card,"DNS 응답: "+("정상" if ready else reason),10,self.GREEN if ready else self.AMBER,wraplength=760,justify="left").pack(anchor="w",pady=(6,0))
+        actions=tk.Frame(card,bg=self.PANEL); actions.pack(anchor="w",pady=(16,0))
+        self._button(actions,"보호 시작",self.start_protection,"primary").pack(side="left")
+        self._button(actions,"보호 중지",self.stop_protection,"danger").pack(side="left",padx=(8,0))
+        features=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=18)
+        features.pack(fill="x")
+        self._label(features,"보호 엔진 구성",14,self.TEXT,"bold").pack(anchor="w")
+        for title,detail in [
+            ("광고·추적 도메인 차단","설치된 DNS 필터 규칙을 DNS 질의에 적용합니다."),
+            ("서명 필터 업데이트","검증된 manifest와 공개키를 사용해 규칙을 갱신합니다."),
+            ("백그라운드 보호","앱 창을 닫아도 명시적으로 보호를 중지하기 전까지 DNS 데몬이 유지됩니다."),
+        ]:
+            row=tk.Frame(features,bg=self.PANEL); row.pack(fill="x",pady=(12,0))
+            self._label(row,title,10,self.TEXT,"bold").pack(anchor="w")
+            self._label(row,detail,9,self.MUTED,wraplength=760,justify="left").pack(anchor="w",pady=(3,0))
+
+    def show_app_exclusions_page(self):
+        self._select_nav("app-exclusions"); self.page_title.configure(text="앱 제외"); self._clear_page()
+        card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=22,pady=20)
+        card.pack(fill="x")
+        self._label(card,"APP EXCLUSIONS",9,self.TEAL,"bold").pack(anchor="w")
+        self._label(card,"Windows 앱별 제외",18,self.TEXT,"bold").pack(anchor="w",pady=(8,10))
+        self._label(card,"현재 Windows 버전은 운영체제 DNS 프록시 방식으로 기기 전체의 DNS 요청을 처리하므로 Android VPN처럼 앱별 트래픽을 식별해 제외하는 기능은 아직 지원하지 않습니다.",11,self.AMBER,wraplength=760,justify="left").pack(anchor="w")
+        self._label(card,"앱별 제외를 지원하는 것처럼 표시하거나 실제로 적용되지 않는 설정을 제공하지 않습니다. Windows Filtering Platform 기반 앱 식별·제외 엔진이 구현되고 검증되면 이 메뉴에 연결합니다.",10,self.MUTED,wraplength=760,justify="left").pack(anchor="w",pady=(10,0))
+
+    def show_activity_page(self):
+        self._select_nav("activity"); self.page_title.configure(text="DNS 활동"); self._clear_page()
+        try: stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
+        except (OSError,ValueError): stats={}
+        values=[
+            ("차단된 DNS 요청",int(stats.get("blocked",0))),
+            ("정상 전달 요청",int(stats.get("forwarded",0))),
+            ("TCP 처리 오류",int(stats.get("tcpErrorCount",0))),
+        ]
+        for title,value in values:
+            card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=18,pady=15)
+            card.pack(fill="x",pady=(0,10))
+            self._label(card,title,10,self.MUTED,"bold").pack(anchor="w")
+            self._label(card,f"{value:,}",23,self.TEAL if "차단" in title else self.TEXT,"bold").pack(anchor="w",pady=(6,0))
+        self._label(self.page,"이 통계는 Windows DNS 데몬이 기록한 실제 처리 카운터입니다. 도메인별 상세 기록은 개인정보 보호를 위해 수집하지 않습니다.",9,self.MUTED,bg=self.BG,wraplength=760,justify="left").pack(anchor="w",pady=(4,0))
+        self._button(self.page,"통계 새로고침",self.show_activity_page).pack(anchor="w",pady=(14,0))
+
+    def show_settings_page(self):
+        self._select_nav("settings"); self.page_title.configure(text="설정"); self._clear_page()
+        cards=[
+            ("필터 서버 설정","서명 manifest 주소, source ID, 검증 공개키를 관리합니다.",self.open_filter_settings,"열기"),
+            ("라이선스 설정","Windows와 Android에서 공유하는 Guardian 라이선스를 관리합니다.",self.open_license_settings,"열기"),
+            ("시스템 진단","DNS 응답, 백그라운드 데몬, 필터 및 네트워크 상태를 확인합니다.",self.show_diagnostics,"진단 보기"),
+        ]
+        for title,detail,action,label in cards:
+            card=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=20,pady=16)
+            card.pack(fill="x",pady=(0,12))
+            self._label(card,title,13,self.TEXT,"bold").pack(anchor="w")
+            self._label(card,detail,9,self.MUTED,wraplength=720,justify="left").pack(anchor="w",pady=(5,12))
+            self._button(card,label,action,"primary" if title=="시스템 진단" else "secondary").pack(anchor="w")
+
     def show_filter_updates(self):
-        self._select_nav("filters"); self.page_title.configure(text="필터 업데이트"); self._clear_page()
+        self._select_nav("rules"); self.page_title.configure(text="필터 규칙"); self._clear_page()
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
         except Exception: data={}
         try: status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
@@ -437,7 +510,7 @@ class GuardianDesktop:
             self._label(self.page,"현재는 내장 기본 규칙으로 동작합니다. 서명 manifest 서버 주소와 공개키가 등록되기 전까지 원격 필터 업데이트는 실행할 수 없습니다.",9,self.MUTED,bg=self.BG,wraplength=760,justify="left").pack(anchor="w",pady=(4,0))
 
     def show_license_page(self):
-        self._select_nav("license"); self.page_title.configure(text="라이선스"); self._clear_page()
+        self._select_nav("premium"); self.page_title.configure(text="프리미엄"); self._clear_page()
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
         except Exception: data={}
         configured=bool(str(data.get("license_api_base_url") or "").strip() and str(data.get("license_public_key") or "").strip())
@@ -473,7 +546,7 @@ class GuardianDesktop:
         self._label(self.page,"Windows와 Android는 동일한 라이선스 계정과 기기 활성화 한도를 공유하도록 설계되어 있습니다.",9,self.MUTED,bg=self.BG,wraplength=760,justify="left").pack(anchor="w",pady=(4,0))
 
     def show_diagnostics(self):
-        self._select_nav("diagnostics"); self.page_title.configure(text="진단 정보"); self._clear_page()
+        self._select_nav("settings"); self.page_title.configure(text="시스템 진단"); self._clear_page()
         panel=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=20,pady=18); panel.pack(fill="both",expand=True)
         header=tk.Frame(panel,bg=self.PANEL); header.pack(fill="x")
         self._label(header,"시스템 진단",16,self.TEXT,"bold").pack(side="left")
@@ -517,11 +590,16 @@ class GuardianDesktop:
         self._button(actions,"시작 로그 폴더 열기",lambda:os.startfile(str(APP_DIR))).pack(side="left",padx=(8,0))
     def set_active_ui(self,active,label=None):
         self.active=active; current=label or ("보호 실행 중" if active else "보호 꺼짐"); self.status.set(current)
-        if hasattr(self,"top_status"):
+        if hasattr(self,"top_status") and self.top_status.winfo_exists():
             self.top_status.configure(text="●  "+current,fg=self.GREEN if active else self.AMBER)
+        if hasattr(self,"hero_status") and self.hero_status.winfo_exists():
             self.hero_status.configure(text=current,fg=self.GREEN if active else self.TEXT)
+        if hasattr(self,"hero_description") and self.hero_description.winfo_exists():
             self.hero_description.configure(text="DNS 요청을 검사하고 구성된 필터 규칙을 적용하고 있습니다." if active else "DNS 요청을 검사하고 광고·추적 도메인을 차단합니다.")
-            self.start_button.configure(state="disabled" if active else "normal"); self.stop_button.configure(state="normal" if active else "disabled")
+        if hasattr(self,"start_button") and self.start_button.winfo_exists():
+            self.start_button.configure(state="disabled" if active else "normal")
+        if hasattr(self,"stop_button") and self.stop_button.winfo_exists():
+            self.stop_button.configure(state="normal" if active else "disabled")
     def recover_previous_state(self):
         if BACKUP.exists():
             try:
