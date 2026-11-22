@@ -132,7 +132,12 @@ class MainActivity : Activity() {
         window.navigationBarColor = bg
         window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         window.decorView.systemUiVisibility = 0
-        val restoredTab = ActivityScreenState.restoreTab(savedInstanceState?.getString(STATE_CURRENT_TAB))
+        val persistedTab = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
+            .getString(PREF_LAST_SELECTED_TAB, null)
+        val restoredTab = ActivityScreenState.restoreTab(
+            savedInstanceState?.getString(STATE_CURRENT_TAB),
+            persistedTab
+        )
         val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
         val retainedRuleDraft = lastNonConfigurationInstance as? RuleEditorDraft
         if (savedInstanceState != null) {
@@ -466,6 +471,9 @@ class MainActivity : Activity() {
         focusAppExclusions: Boolean = false
     ) {
         currentTab = tab
+        getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
+            .putString(PREF_LAST_SELECTED_TAB, tab)
+            .apply()
         focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings-license-activation"
         focusAppExclusionsOnBuild = focusAppExclusions && tab == "settings"
         licenseKeyInput = null
@@ -4112,6 +4120,8 @@ class MainActivity : Activity() {
         private const val MAX_USER_RULES = 1000
         private const val KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED = "app_inventory_disclosure_accepted_v1"
         private const val STATE_CURRENT_TAB = "guardian.ui.current_tab"
+        private const val UI_STATE_PREFS = "guardian_ui_state"
+        private const val PREF_LAST_SELECTED_TAB = "last_selected_tab"
         private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
         private const val STATE_SCROLL_Y = "guardian.ui.scroll_y"
     }
