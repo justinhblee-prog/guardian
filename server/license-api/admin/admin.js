@@ -350,7 +350,7 @@ async function load() {
   if (!adminToken || loading) return;
   setBusy(true);
   try {
-    const [licenses, audit, customers, support] = await Promise.all([
+    const [licenses, audit, customers, support, updates] = await Promise.all([
       api("/v1/admin/licenses"),
       api("/v1/admin/events"),
       api("/v1/admin/customers"),
