@@ -38,7 +38,7 @@ class WindowsUpdate:
 
 def _https_bytes(url: str, limit: int) -> bytes:
     parsed = urlsplit(url)
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+    if parsed.scheme != "https" or parsed.hostname not in {"api.github.com", "github.com"} or parsed.username or parsed.password:
         raise WindowsUpdateError("Guardian updates require HTTPS URLs without embedded credentials.")
     request = urllib.request.Request(
         url,
@@ -128,8 +128,9 @@ def check_for_update(current_build: int, fetcher=_https_bytes) -> WindowsUpdate 
         if not manifest_asset:
             continue
         manifest_url = manifest_asset.get("browser_download_url")
-        if not isinstance(manifest_url, str):
-            continue
+        expected_manifest_url = f"https://github.com/{REPOSITORY}/releases/download/{tag}/{MANIFEST_NAME}"
+        if manifest_url != expected_manifest_url:
+            raise WindowsUpdateError("Windows update manifest URL does not match the official Guardian release.")
         manifest = _validate_manifest(
             fetcher(manifest_url, MAX_MANIFEST_BYTES),
             tag,
