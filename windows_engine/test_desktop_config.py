@@ -149,3 +149,27 @@ def test_windows_settings_exposes_the_six_shared_subsections():
     source = inspect.getsource(GuardianDesktop.show_settings_page)
     for label in ("일반", "필터링", "라이선스 및 프리미엄", "고객 지원", "정보", "종료"):
         assert label in source
+
+
+
+def test_windows_about_page_exposes_real_versioned_update_actions():
+    import inspect
+    from windows_engine.desktop import GuardianDesktop
+
+    source = inspect.getsource(GuardianDesktop.show_about_page)
+    assert "get_product_version()" in source
+    assert "get_product_build_number()" in source
+    assert "check_for_update(" in source
+    assert "download_update(" in source
+    assert "업데이트 확인" in source
+    assert "설치 파일 다운로드" in source
+    assert "설치 프로그램 실행" in source
+
+
+def test_windows_license_client_receives_shared_product_version():
+    import inspect
+    from windows_engine.desktop import GuardianDesktop
+
+    source = inspect.getsource(GuardianDesktop._license_client)
+    assert "app_version=get_product_version()" in source
+    assert "0.1.0-dev" not in source
