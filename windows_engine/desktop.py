@@ -50,6 +50,18 @@ def daemon_startup_diagnostics():
         )
     except Exception:
         details.append("유효한 DNS 백그라운드 생존 상태 파일이 없습니다.")
+    try:
+        stats=json.loads(STATS.read_text(encoding="utf-8"))
+        details.append(
+            "DNS TCP 처리 진단: "+json.dumps(
+                {"tcpErrorCount":int(stats.get("tcpErrorCount",0)),
+                 "lastTcpErrorType":str(stats.get("lastTcpErrorType","")),
+                 "lastTcpErrorStage":str(stats.get("lastTcpErrorStage",""))},
+                ensure_ascii=False,
+            )
+        )
+    except (OSError,ValueError,TypeError):
+        details.append("DNS TCP 처리 진단: 아직 기록된 통계가 없습니다.")
     details.extend(dns_port_53_diagnostics())
     return "\n\n".join(details)
 
