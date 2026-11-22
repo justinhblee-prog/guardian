@@ -42,3 +42,63 @@ def test_proxy_readiness_rejects_unowned_loopback_dns(tmp_path, monkeypatch):
         raise AssertionError("must not trust an arbitrary loopback DNS responder")
     monkeypatch.setattr(desktop.socket, "socket", unexpected_socket)
     assert not desktop.proxy_ready()
+
+def test_proxy_readiness_uses_tcp_listener_and_valid_dns_response(monkeypatch):
+    import struct
+    import windows_engine.desktop as desktop
+
+    monkeypatch.setattr(desktop, "daemon_health_is_fresh", lambda path: True)
+    query = desktop.blocked_probe_query()
+    response = bytearray(query)
+    response[2] = 0x81
+    response[3] = 0x83
+    framed = struct.pack("!H", len(response)) + bytes(response)
+
+    class FakeTcpSocket:
+        def __init__(self, family, kind):
+            assert family == desktop.socket.AF_INET
+            assert kind == desktop.socket.SOCK_STREAM
+            self.received = bytearray(framed)
+            self.sent = b""
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def settimeout(self, value): assert value == 1.0
+        def connect(self, address): assert address == ("127.0.0.1", 53)
+        def sendall(self, payload):
+            self.sent = payload
+            assert payload == struct.pack("!H", len(query)) + query
+        def recv(self, size):
+            chunk = bytes(self.received[:size])
+            del self.received[:size]
+            return chunk
+
+    monkeypatch.setattr(desktop.socket, "socket", FakeTcpSocket)
+    assert desktop.proxy_ready()
+
+
+def test_proxy_readiness_rejects_tcp_listener_with_invalid_response(monkeypatch):
+    import struct
+    import windows_engine.desktop as desktop
+
+    monkeypatch.setattr(desktop, "daemon_health_is_fresh", lambda path: True)
+    query = desktop.blocked_probe_query()
+    wrong = bytearray(query)
+    wrong[0] ^= 0xFF
+    wrong[2] = 0x81
+    wrong[3] = 0x83
+    framed = struct.pack("!H", len(wrong)) + bytes(wrong)
+
+    class FakeTcpSocket:
+        def __init__(self, family, kind): self.received = bytearray(framed)
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def settimeout(self, value): pass
+        def connect(self, address): pass
+        def sendall(self, payload): pass
+        def recv(self, size):
+            chunk = bytes(self.received[:size])
+            del self.received[:size]
+            return chunk
+
+    monkeypatch.setattr(desktop.socket, "socket", FakeTcpSocket)
+    assert not desktop.proxy_ready()
