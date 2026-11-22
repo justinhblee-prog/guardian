@@ -48,6 +48,7 @@ def test_proxy_readiness_uses_tcp_listener_and_valid_dns_response(monkeypatch):
     import windows_engine.desktop as desktop
 
     monkeypatch.setattr(desktop, "daemon_health_is_fresh", lambda path: True)
+    monkeypatch.setattr(desktop, "configured_probe_domain", lambda: "doubleclick.net")
     query = desktop.blocked_probe_query()
     response = bytearray(query)
     response[2] = 0x81
