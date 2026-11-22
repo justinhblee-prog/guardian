@@ -237,7 +237,7 @@ class GuardianDesktop:
         self._license_status_checking=True
         def worker():
             try:
-                result=client.status()
+                result=client.revalidate()
                 error=None
             except Exception as exc:
                 result=None
