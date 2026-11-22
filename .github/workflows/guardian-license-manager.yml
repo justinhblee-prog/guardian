@@ -1,0 +1,35 @@
+name: Guardian License Manager Windows
+on:
+  pull_request:
+    paths:
+      - 'apps/GuardianLicenseManager/**'
+      - '.github/workflows/guardian-license-manager.yml'
+  push:
+    branches: [main, 'feature/**']
+    paths:
+      - 'apps/GuardianLicenseManager/**'
+      - '.github/workflows/guardian-license-manager.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore apps/GuardianLicenseManager/GuardianLicenseManager.csproj
+      - name: Build
+        run: dotnet build apps/GuardianLicenseManager/GuardianLicenseManager.csproj -c Release --no-restore
+      - name: Publish self-contained Windows app
+        run: dotnet publish apps/GuardianLicenseManager/GuardianLicenseManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/GuardianLicenseManager
+      - name: Upload Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: guardian-license-manager-win-x64
+          path: artifacts/GuardianLicenseManager/
+          if-no-files-found: error
+          retention-days: 30
