@@ -48,7 +48,7 @@ if (!databaseUrl) {
   };
 
   before(async () => {
-    await pool.query('TRUNCATE api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE guardian_updates, api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
@@ -111,6 +111,34 @@ if (!databaseUrl) {
     const response = await fetch(`${baseUrl}/ready`);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ok: true, service: 'guardian-license-api', database: 'ready', signer: 'ready' });
+  });
+
+  test('admins can publish Android and Windows update metadata for public client checks', async () => {
+    const version = `0.0.${Math.floor(Date.now() / 1000)}`;
+    const payload = {
+      platform: 'android', channel: 'stable', version,
+      downloadUrl: 'https://downloads.example.com/guardian.apk',
+      sha256: 'a'.repeat(64), minSupportedVersion: '1.0.0',
+      mandatory: true, releaseNotes: 'Update metadata integration test'
+    };
+    const denied = await fetch(`${baseUrl}/v1/admin/updates`);
+    assert.equal(denied.status, 401);
+
+    const published = await post('/v1/admin/updates', payload, adminHeaders);
+    assert.equal(published.status, 200);
+    const created = await published.json();
+    assert.equal(created.update.version, version);
+    assert.equal(created.update.mandatory, true);
+
+    const latest = await fetch(`${baseUrl}/v1/updates/latest?platform=android&channel=stable`);
+    assert.equal(latest.status, 200);
+    const current = await latest.json();
+    assert.equal(current.update.version, version);
+    assert.equal(current.update.sha256, payload.sha256);
+    assert.equal(current.update.download_url, payload.downloadUrl);
+
+    const invalid = await post('/v1/admin/updates', { ...payload, version: `0.0.${Math.floor(Date.now() / 1000) + 1}`, downloadUrl: 'http://downloads.example.com/guardian.apk' }, adminHeaders);
+    assert.equal(invalid.status, 400);
   });
 
   after(async () => {
