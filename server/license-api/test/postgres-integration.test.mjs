@@ -162,6 +162,84 @@ if (!databaseUrl) {
     assert.equal(linked.rows[0].order_ref, 'ORDER-TEST-001');
   });
 
+  test('repeat issuance for the same email reuses one customer and preserves per-license order references', async () => {
+    const email = `shared-customer-${randomUUID()}@example.test`;
+    const first = await post('/v1/admin/licenses', {
+      planCode: 'annual_365d',
+      validDays: 365,
+      maxDevices: 1,
+      customer: { name: 'First Customer Name', email, orderRef: 'ORDER-FIRST' }
+    }, adminHeaders);
+    assert.equal(first.status, 200);
+    const firstIssued = await first.json();
+
+    const second = await post('/v1/admin/licenses', {
+      planCode: 'monthly_30d',
+      validDays: 30,
+      maxDevices: 2,
+      customer: { name: 'Updated Customer Name', email: email.toUpperCase(), orderRef: 'ORDER-SECOND' }
+    }, adminHeaders);
+    assert.equal(second.status, 200);
+    const secondIssued = await second.json();
+
+    const linked = await pool.query(
+      'SELECT id,customer_id,order_ref,max_devices FROM licenses WHERE id = ANY($1::uuid[]) ORDER BY order_ref',
+      [[firstIssued.license.id, secondIssued.license.id]]
+    );
+    assert.equal(linked.rowCount, 2);
+    assert.ok(linked.rows[0].customer_id);
+    assert.equal(linked.rows[0].customer_id, linked.rows[1].customer_id);
+    assert.deepEqual(linked.rows.map(row => row.order_ref), ['ORDER-FIRST', 'ORDER-SECOND']);
+    assert.deepEqual(linked.rows.map(row => row.max_devices), [1, 2]);
+
+    const directory = await fetch(
+      `${baseUrl}/v1/admin/customers?q=${encodeURIComponent(email)}`,
+      { headers: adminHeaders }
+    );
+    assert.equal(directory.status, 200);
+    const customers = (await directory.json()).customers;
+    assert.equal(customers.length, 1);
+    assert.equal(customers[0].name, 'Updated Customer Name');
+    assert.equal(customers[0].email, email);
+    assert.equal(customers[0].license_count, 2);
+    assert.equal(customers[0].active_licenses, 2);
+
+    const audit = await pool.query(
+      'SELECT metadata::text AS metadata FROM license_events WHERE license_id = ANY($1::uuid[]) AND event_type = $2',
+      [[firstIssued.license.id, secondIssued.license.id], 'issued']
+    );
+    assert.equal(audit.rowCount, 2);
+    for (const row of audit.rows) {
+      assert.match(row.metadata, /"customerLinked":true/);
+      assert.doesNotMatch(row.metadata, /First Customer Name|Updated Customer Name|shared-customer-|ORDER-FIRST|ORDER-SECOND/);
+    }
+  });
+
+  test('named plan presets reject duration mismatches and unknown plan codes', async () => {
+    const mismatch = await post('/v1/admin/licenses', {
+      planCode: 'annual_365d',
+      validDays: 30,
+      maxDevices: 1
+    }, adminHeaders);
+    assert.equal(mismatch.status, 400);
+
+    const unknown = await post('/v1/admin/licenses', {
+      planCode: 'lifetime_unlimited',
+      validDays: 365,
+      maxDevices: 1
+    }, adminHeaders);
+    assert.equal(unknown.status, 400);
+
+    const valid = await post('/v1/admin/licenses', {
+      planCode: 'quarterly_90d',
+      validDays: 90,
+      maxDevices: 3
+    }, adminHeaders);
+    assert.equal(valid.status, 200);
+    const issued = await valid.json();
+    assert.equal(issued.license.max_devices, 3);
+  });
+
   test('customer issuance rejects malformed email and overlong fields', async () => {
     const invalidEmail = await post('/v1/admin/licenses', {
       validDays: 30, maxDevices: 1, customer: { name: 'Test', email: 'not-an-email' }
