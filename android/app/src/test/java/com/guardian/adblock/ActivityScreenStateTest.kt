@@ -21,4 +21,18 @@ class ActivityScreenStateTest {
         assertEquals("home", ActivityScreenState.restoreTab("unknown"))
         assertEquals("home", ActivityScreenState.restoreTab("settings-not-a-real-page"))
     }
+
+    @Test fun restoresPersistedSettingsSubmenuWhenSavedInstanceStateIsUnavailable() {
+        assertEquals("settings-premium", ActivityScreenState.restoreTab(null, "settings-premium"))
+        assertEquals("settings-license", ActivityScreenState.restoreTab("", "settings-license"))
+        assertEquals("settings-filtering", ActivityScreenState.restoreTab(null, "settings-filtering"))
+    }
+
+    @Test fun savedInstanceTabTakesPrecedenceOverPersistedTab() {
+        assertEquals("settings-about", ActivityScreenState.restoreTab("settings-about", "settings-premium"))
+    }
+
+    @Test fun invalidPersistedTabFallsBackToHome() {
+        assertEquals("home", ActivityScreenState.restoreTab(null, "settings-not-a-real-page"))
+    }
 }
