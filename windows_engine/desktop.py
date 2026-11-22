@@ -9,7 +9,7 @@ from windows_engine.filter_updates import FilterUpdater
 from windows_engine.license_client import LicenseClientError,WindowsLicenseClient
 from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_is_running
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
-CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"
+CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"; LOG_FILE=APP_DIR/"logs"/"proxy-daemon.log"
 TASK_NAME="GuardianDnsProxy"
 DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndication.com^\n||googleadservices.com^\n||adservice.google.com^\n||adnxs.com^\n||criteo.com^\n||taboola.com^\n||outbrain.com^\n||scorecardresearch.com^\n||quantserve.com^\n||mixpanel.com^\n||hotjar.com\n"
 def ensure_config():
@@ -81,11 +81,11 @@ def daemon_readiness_diagnosis():
     except OSError as exc: details.append("IPv4 UDP 127.0.0.1:53: "+str(exc))
     try:
         if LOG_FILE.exists():
-            tail="\\n".join(LOG_FILE.read_text(encoding="utf-8",errors="replace").splitlines()[-18:])
-            details.append("Daemon log (last lines):\\n"+tail[:4500])
+            tail="\n".join(LOG_FILE.read_text(encoding="utf-8",errors="replace").splitlines()[-18:])
+            details.append("Daemon log (last lines):\n"+tail[:4500])
         else: details.append("Daemon log: not created at "+str(LOG_FILE))
     except Exception as exc: details.append("Daemon log could not be read: "+str(exc))
-    return "\\n".join(details)
+    return "\n".join(details)
 
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
@@ -97,7 +97,7 @@ def ensure_daemon_running():
     while time.monotonic()<deadline:
         if proxy_ready(): return
         time.sleep(.25)
-    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\\n\\nStartup diagnosis:\\n"+daemon_readiness_diagnosis())
+    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\n\nStartup diagnosis:\n"+daemon_readiness_diagnosis())
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
