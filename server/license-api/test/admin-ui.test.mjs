@@ -115,7 +115,9 @@ test("customer cards can load an authenticated, bounded per-customer license his
   const server = await readFile(new URL("../src/server.mjs", import.meta.url), "utf8");
   const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
   assert.match(server, /function listCustomerLicenses\(customerId, req\)/);
-  assert.match(server, /JOIN customers c ON c\.id=l\.customer_id/);
+  assert.ok(server.includes("customerLicensesMatch"));
+  assert.ok(server.includes("/licenses$/.exec(url.pathname)"));
+  assert.ok(server.includes("listCustomerLicenses(customerLicensesMatch[1], req)"));
   assert.match(server, /LIMIT 100/);
   assert.match(server, /\/v1\/admin\/customers\/\(\[\^\/\]\+\)\/licenses/);
   assert.match(js, /고객 라이선스 내역/);
