@@ -111,27 +111,33 @@ for node in root.iter("node"):
 
 tap_text() {
   local wanted="$1"
-  local xml
+  local xml bounds
   xml="$(dump_ui_hierarchy /sdcard/guardian-window.xml)"
-  local bounds
   bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
+parents={child: parent for parent in root.iter() for child in parent}
 for node in root.iter("node"):
-    if ((sys.argv[1] in node.attrib.get("text","")
-         or sys.argv[1] in node.attrib.get("content-desc",""))
-        and node.attrib.get("visible-to-user", "true") == "true"
-        and node.attrib.get("clickable") == "true"
-        and node.attrib.get("enabled") == "true"):
-        parts=node.attrib.get("bounds","").strip("[]").split("][")
-        if len(parts)==2:
-            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
-            print((x1+x2)//2,(y1+y2)//2)
-            break' "$wanted" <<<"$xml")"
-  if [[ -z "$bounds" ]]; then
-    echo "Could not locate visible clickable UI control: $wanted"
+    if (sys.argv[1] not in node.attrib.get("text","")
+        and sys.argv[1] not in node.attrib.get("content-desc","")):
+        continue
+    if node.attrib.get("visible-to-user","true") != "true":
+        continue
+    target=node
+    while target is not None:
+        if (target.attrib.get("visible-to-user","true")=="true"
+            and target.attrib.get("clickable")=="true"
+            and target.attrib.get("enabled")=="true"):
+            parts=target.attrib.get("bounds","").strip("[]").split("][")
+            if len(parts)==2:
+                x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+                print((x1+x2)//2,(y1+y2)//2)
+                raise SystemExit(0)
+        target=parents.get(target)
+raise SystemExit(1)' "$wanted" <<<"$xml")" || {
+    echo "Could not locate visible clickable UI control or clickable text parent: $wanted"
     echo "$xml"
     return 1
-  fi
+  }
   read -r x y <<<"$bounds"
   adb_cmd shell input tap "$x" "$y"
 }
