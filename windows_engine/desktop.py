@@ -1,5 +1,5 @@
 """Tkinter desktop control panel for Guardian Windows DNS protection."""
-import json,os,sys,socket,struct,subprocess,time
+import json,os,sys,socket,struct,subprocess,time,threading
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
@@ -8,6 +8,7 @@ from dns_engine.wire import make_query
 from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin
 from windows_engine.filter_updates import FilterUpdater
 from windows_engine.version import get_product_build_number, get_product_version
+from windows_engine.update_client import check_for_update, download_update
 from windows_engine.license_client import LicenseClientError,WindowsLicenseClient
 from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_is_running
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
@@ -519,6 +520,79 @@ class GuardianDesktop:
         self._label(self.page,"Guardian AdBlock for Windows",16,self.TEXT,"bold").pack(anchor="w")
         self._label(self.page,f"버전 {get_product_version()} · Build {get_product_build_number()} · 개발 빌드",10,self.MUTED).pack(anchor="w",pady=(8,4))
         self._label(self.page,"주식회사 유진컨설팅",10,self.MUTED).pack(anchor="w")
+        tk.Frame(self.page,bg=self.BORDER,height=1).pack(fill="x",pady=16)
+        self._label(self.page,"Windows 프로그램 업데이트",14,self.TEXT,"bold").pack(anchor="w")
+        self._label(
+            self.page,
+            "공식 Guardian 개발 릴리스에서 새 설치 파일을 확인하고 SHA-256을 검증합니다. 다운로드한 설치 파일을 실행하면 업데이트를 진행할 수 있습니다.",
+            9,self.MUTED,wraplength=740,justify="left"
+        ).pack(anchor="w",pady=(6,10))
+        status=self._label(self.page,"업데이트 확인 전",10,self.MUTED,wraplength=740,justify="left")
+        status.pack(anchor="w",pady=(0,10))
+        state={"update":None,"path":None}
+        actions=tk.Frame(self.page,bg=self.BG); actions.pack(anchor="w")
+        check_button=self._button(actions,"업데이트 확인",lambda:check_update(),"primary")
+        check_button.pack(side="left")
+        download_button=self._button(actions,"설치 파일 다운로드",lambda:download_latest(),"secondary")
+        download_button.configure(state="disabled")
+        download_button.pack(side="left",padx=(8,0))
+        folder_button=self._button(actions,"다운로드 폴더 열기",lambda:open_download_folder(),"secondary")
+        folder_button.configure(state="disabled")
+        folder_button.pack(side="left",padx=(8,0))
+        def check_update():
+            check_button.configure(state="disabled")
+            download_button.configure(state="disabled")
+            status.configure(text="공식 Windows 업데이트를 확인하고 있습니다…",fg=self.MUTED)
+            def worker():
+                try:
+                    result=check_for_update(get_product_build_number())
+                    error=None
+                except Exception as exc:
+                    result=None; error=str(exc)
+                def finish():
+                    check_button.configure(state="normal")
+                    state["update"]=result
+                    if error:
+                        status.configure(text="업데이트 확인 실패: "+error,fg=self.AMBER)
+                    elif result is None:
+                        status.configure(text="새 Windows 개발 업데이트가 없거나 현재 버전이 최신입니다.",fg=self.MUTED)
+                    else:
+                        status.configure(text=f"새 버전 발견: {result.version_name} · Build {result.build_number}",fg=self.GREEN)
+                        download_button.configure(state="normal")
+                self.root.after(0,finish)
+            threading.Thread(target=worker,name="guardian-windows-update-check",daemon=True).start()
+        def download_latest():
+            update=state.get("update")
+            if update is None: return
+            download_button.configure(state="disabled")
+            status.configure(text="설치 파일 다운로드 및 SHA-256 검증 중…",fg=self.MUTED)
+            def worker():
+                try:
+                    path=download_update(update)
+                    error=None
+                except Exception as exc:
+                    path=None; error=str(exc)
+                def finish():
+                    download_button.configure(state="normal" if error else "disabled")
+                    if error:
+                        status.configure(text="업데이트 다운로드 실패: "+error,fg=self.AMBER)
+                    else:
+                        state["path"]=path
+                        folder_button.configure(state="normal")
+                        status.configure(text=f"다운로드 및 무결성 검증 완료: {path.name}\n폴더를 열어 설치 프로그램을 실행하세요.",fg=self.GREEN)
+                self.root.after(0,finish)
+            threading.Thread(target=worker,name="guardian-windows-update-download",daemon=True).start()
+        def open_download_folder():
+            path=state.get("path")
+            if path and path.parent.exists():
+                os.startfile(str(path.parent))
+        tk.Frame(self.page,bg=self.BORDER,height=1).pack(fill="x",pady=16)
+        self._label(self.page,"업데이트 설치 안내",11,self.TEXT,"bold").pack(anchor="w")
+        self._label(
+            self.page,
+            "다운로드한 설치 프로그램은 SHA-256 검증을 통과한 파일입니다. 개발 빌드는 코드 서명이 없을 수 있어 Windows SmartScreen 경고가 표시될 수 있습니다. 설치 전 게시자와 파일 정보를 확인하세요.",
+            9,self.MUTED,wraplength=740,justify="left"
+        ).pack(anchor="w",pady=(5,0))
 
     def confirm_exit(self):
         if messagebox.askyesno("Guardian 종료","Guardian 앱 창을 종료하시겠습니까? 백그라운드 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다."):
@@ -740,7 +814,7 @@ class GuardianDesktop:
         public_key=data.get("license_public_key","").strip()
         if not base or not public_key:
             raise LicenseClientError("라이선스 API HTTPS 주소와 RSA 공개키를 먼저 설정하세요.")
-        return WindowsLicenseClient(base,public_key,APP_DIR,app_version="0.1.0-dev")
+        return WindowsLicenseClient(base,public_key,APP_DIR,app_version=get_product_version())
     def refresh_license_status(self):
         try:
             data=json.loads(CONFIG.read_text(encoding="utf-8")) if CONFIG.exists() else {}
