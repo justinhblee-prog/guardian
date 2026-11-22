@@ -24,7 +24,7 @@ def test_recv_exact_fails_on_truncated_tcp_frame():
 
 def test_configured_probe_domain_uses_a_domain_blocked_by_current_rules(tmp_path, monkeypatch):
     (tmp_path / "custom-rules.txt").write_text(
-        "||ads.example^\\n@@||allowed.ads.example^\\n||tracking.example^\\n",
+        "||ads.example^\n@@||allowed.ads.example^\n||tracking.example^\n",
         encoding="utf-8",
     )
     config = tmp_path / "guardian.json"
