@@ -99,8 +99,16 @@ class DnsProxy:
         finally: self.stop()
     def stop(self):
         servers=self._servers; threads=self._threads
-        for server in servers: server.shutdown()
-        for thread in threads: thread.join(timeout=3)
-        for server in servers: server.server_close()
+        # socketserver.shutdown() waits for serve_forever() to set its internal
+        # completion event. If a listener thread exited during startup, calling
+        # shutdown() on that server can wait forever. Only signal live workers.
+        for index,server in enumerate(servers):
+            thread=threads[index] if index < len(threads) else None
+            if thread is not None and thread.is_alive():
+                server.shutdown()
+        for thread in threads:
+            if thread.is_alive(): thread.join(timeout=3)
+        for server in servers:
+            server.server_close()
         self._servers=[]; self._udp_servers=[]; self._tcp_servers=[]; self._threads=[]
     def shutdown(self): self.stop()
