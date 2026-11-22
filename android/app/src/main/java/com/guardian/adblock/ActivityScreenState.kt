@@ -4,6 +4,8 @@ package com.guardian.adblock
 internal object ActivityScreenState {
     private val supportedTabs = setOf("home", "protection", "app-exclusions", "activity", "premium", "rules", "settings")
 
-    fun restoreTab(savedTab: String?): String =
-        savedTab?.takeIf { it in supportedTabs } ?: "home"
+    fun restoreTab(savedTab: String?, persistedTab: String? = null): String =
+        savedTab?.takeIf { it in supportedTabs }
+            ?: persistedTab?.takeIf { it in supportedTabs }
+            ?: "home"
 }
