@@ -9,6 +9,8 @@ internal object ActivityScreenState {
         "settings-general", "settings-advanced"
     )
 
-    fun restoreTab(savedTab: String?): String =
-        savedTab?.takeIf { it in supportedTabs } ?: "home"
+    fun restoreTab(savedTab: String?, persistedTab: String? = null): String =
+        savedTab?.takeIf { it in supportedTabs }
+            ?: persistedTab?.takeIf { it in supportedTabs }
+            ?: "home"
 }
