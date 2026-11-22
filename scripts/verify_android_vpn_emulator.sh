@@ -1096,26 +1096,10 @@ selected_settings=any(node.attrib.get("content-desc")=="설정"
 if "설정" not in texts or "Guardian의 세부 기능과 계정, 지원 정보를 관리합니다." not in texts or not selected_settings:
     raise SystemExit("Guardian Settings page heading, description, or selected navigation state is missing after tapping its clickable navigation parent.")' <<<"$settings_tab_xml"
 
-# Verify the customer-facing support center is reachable and its FAQ/form UI
-# renders. Do not submit a real ticket from the emulator fixture.
-# The preceding VPN auto-pause acceptance test may leave Settings scrolled well below
-# the support card. Reset the Settings ScrollView to its top before searching for
-# the support entry; otherwise a downward-only search can never find a card above
-# the retained scroll position.
-for attempt in $(seq 1 20); do
-  adb_cmd shell input swipe 540 500 540 1550 250
-  sleep 0.15
-done
-adb_cmd shell uiautomator dump /sdcard/guardian-support-top.xml >/dev/null 2>&1
-support_top_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-top.xml | tr -d '\r')"
-if ! grep -Fq "Guardian 앱 정보와 보호 정책" <<<"$support_top_xml"; then
-  echo "Could not confirm Settings returned to its top before support-center verification."
-  echo "$support_top_xml"
-  exit 1
-fi
-
-# The support card is intentionally the first content card in Settings.
-# Verify it at the top immediately; scrolling down would move it out of view.
+# Open the dedicated support settings page from the current Settings menu.
+# The support center is a separate submenu, not a card on the Settings landing page.
+tap_content_description "고객 지원"
+sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
 support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
 if ! python3 -c 'import sys, xml.etree.ElementTree as ET
