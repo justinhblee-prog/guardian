@@ -112,15 +112,13 @@ jobs:
             exit 1
           fi
           grep -F 'GUARDIAN_STABLE_UPDATER_ENABLED' android/app/build.gradle.kts
-          STABLE_UPDATER_BRANCHES="$(grep -Fc 'else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED)' android/app/src/main/java/com/guardian/adblock/MainActivity.kt)"
-          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-            test "$STABLE_UPDATER_BRANCHES" -eq 1
-            if grep -F 'guardian-dev-update-startup' android/app/src/main/java/com/guardian/adblock/MainActivity.kt; then
-              echo 'Automatic development APK update discovery must not run from the activity startup path.'
-              exit 1
-            fi
-          else
-            test "$STABLE_UPDATER_BRANCHES" -eq 1
+          ANDROID_ACTIVITY='android/app/src/main/java/com/guardian/adblock/MainActivity.kt'
+          grep -F 'private fun buildUpdates' "$ANDROID_ACTIVITY"
+          STABLE_UPDATER_CALLS="$(grep -Fc 'GuardianStableUpdateManager.checkForUpdate()' "$ANDROID_ACTIVITY")"
+          test "$STABLE_UPDATER_CALLS" -eq 1
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]] && grep -F 'guardian-dev-update-startup' "$ANDROID_ACTIVITY"; then
+            echo 'Automatic development APK update discovery must not run from the activity startup path.'
+            exit 1
           fi
           grep -F 'BuildConfig.BUILD_TYPE == "direct"' android/app/src/test/java/com/guardian/adblock/DistributionBuildTypePolicyTest.kt
       - name: Validate stable in-app update publishing contract
