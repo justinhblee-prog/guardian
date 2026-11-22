@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>GuardianLicenseManager</AssemblyName>
+    <RootNamespace>GuardianLicenseManager</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>Guardian License Manager</Product>
+    <Description>Guardian license issuance and customer administration</Description>
+  </PropertyGroup>
+</Project>
