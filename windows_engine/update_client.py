@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 REPOSITORY = "justinhblee-prog/guardian"
 RELEASES_URL = f"https://api.github.com/repos/{REPOSITORY}/releases?per_page=30"
 MANIFEST_NAME = "guardian-windows-update.json"
+ALLOWED_UPDATE_HOSTS = {"api.github.com", "github.com", "release-assets.githubusercontent.com"}
 MAX_MANIFEST_BYTES = 64 * 1024
 MAX_INSTALLER_BYTES = 180 * 1024 * 1024
 TAG_PATTERN = re.compile(r"^guardian-windows-dev-v([1-9][0-9]*)$")
@@ -46,6 +47,15 @@ def _https_bytes(url: str, limit: int) -> bytes:
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
+            final_url = urlsplit(response.geturl())
+            if (
+                final_url.scheme != "https"
+                or final_url.hostname not in ALLOWED_UPDATE_HOSTS
+                or final_url.username
+                or final_url.password
+                or final_url.port not in (None, 443)
+            ):
+                raise WindowsUpdateError("Guardian update redirected to an untrusted host or URL.")
             if response.status != 200:
                 raise WindowsUpdateError(f"Update server returned HTTP {response.status}.")
             data = response.read(limit + 1)
