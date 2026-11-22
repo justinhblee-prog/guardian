@@ -80,7 +80,7 @@ def run_with_startup_logging():
     try:
         APP_DIR.mkdir(parents=True, exist_ok=True)
         with (APP_DIR / "daemon-startup.log").open("a", encoding="utf-8") as log:
-            log.write(f"\\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] Guardian DNS daemon launch pid={os.getpid()}\\n")
+            log.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] Guardian DNS daemon launch pid={os.getpid()}\n")
         return main()
     except BaseException:
         try:
