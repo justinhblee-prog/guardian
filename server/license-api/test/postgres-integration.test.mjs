@@ -68,6 +68,12 @@ if (!databaseUrl) {
     assert.equal(second.generated, false);
     assert.equal(second.tokenHash, first.tokenHash);
     assert.equal(secondLog, '');
+
+    adminHeaders.authorization = `Bearer ${firstToken}`;
+    const accepted = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: adminHeaders });
+    assert.equal(accepted.status, 200);
+    const rejectedLegacy = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: { authorization: `Bearer ${process.env.GUARDIAN_ADMIN_TOKEN}` } });
+    assert.equal(rejectedLegacy.status, 401);
   });
 
   test('PostgreSQL rate limiter prunes expired buckets during bounded cleanup', async () => {
