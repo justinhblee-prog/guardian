@@ -1468,19 +1468,32 @@ class MainActivity : Activity() {
             Triple("고객 지원", "도움말, 문의 등록 및 문의 조회", "settings-support"),
             Triple("정보", "앱 버전, 개발사 및 개인정보 안내", "settings-about")
         )
-        sections.forEach { (name, description, destination) ->
-            body.addView(card(panel, 16).apply {
-                setPadding(dp(16), dp(15), dp(16), dp(15))
+        val useTwoColumns = ResponsiveLayoutPolicy.usesTwoColumnSettings(resources.configuration.screenWidthDp)
+        val destinations = if (useTwoColumns) {
+            val columns = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                val labels = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
-                labels.addView(text(name, 15f, white, true))
-                labels.addView(text(description, 11f, muted, false).withTop(5))
-                addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
-                addView(text("›", 25f, accent, true))
-                setOnClickListener { showTab(destination) }
-            }.withTop(10))
+                gravity = Gravity.TOP
+            }
+            val left = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            val right = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            sections.forEachIndexed { index, (name, description, destination) ->
+                val target = if (index < 3) left else right
+                target.addView(settingsCategoryCard(name, description, destination).withTop(10))
+            }
+            columns.addView(left, LinearLayout.LayoutParams(0, -2, 1f))
+            columns.addView(space(16), LinearLayout.LayoutParams(dp(16), 1))
+            columns.addView(right, LinearLayout.LayoutParams(0, -2, 1f))
+            columns
+        } else {
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                sections.forEach { (name, description, destination) ->
+                    addView(settingsCategoryCard(name, description, destination).withTop(10))
+                }
+            }
         }
+        body.addView(destinations)
+
         body.addView(Button(this).apply {
             text = "고급 설정 및 서버 구성"
             isAllCaps = false
@@ -1503,6 +1516,22 @@ class MainActivity : Activity() {
             }
         }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
     }
+
+    private fun settingsCategoryCard(name: String, description: String, destination: String): View =
+        card(panel, 16).apply {
+            setPadding(dp(16), dp(15), dp(16), dp(15))
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(76)
+            val labels = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+            labels.addView(text(name, 15f, white, true))
+            labels.addView(text(description, 11f, muted, false).withTop(5))
+            addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text("›", 25f, accent, true))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showTab(destination) }
+        }
 
     private fun settingsSubpage(body: LinearLayout, title: String, subtitle: String) {
         body.addView(Button(this).apply {
