@@ -147,7 +147,13 @@ class GuardianDesktop:
         self._section('exclusions','앱 제외 관리','DNS 필터링에서 제외할 앱 정책을 설정합니다.')
         tk.Label(self.pages['exclusions'],text='Windows 앱 제외 정책 UI는 현재 엔진 연결 구현이 필요합니다. 미구현 기능을 동작하는 것처럼 표시하지 않습니다.',wraplength=700,fg='#f0c477',bg='#101820',justify='left').pack(anchor='w',pady=10)
         self._section('activity','활동 및 기록','DNS 요청·차단 통계와 진단 기록을 확인합니다.')
-        tk.Label(self.pages['activity'],text='실시간 통계는 DNS 엔진 상태 파일과 연동해 표시합니다.',fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=10)
+        tk.Label(self.pages['activity'],text='백그라운드 DNS 엔진이 기록한 누적 요청 통계입니다.',fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=(0,14))
+        self.activity_stats=tk.Label(self.pages['activity'],text='차단 0건  |  정상 전달 0건  |  오류 0건',font=('Segoe UI',16,'bold'),fg='#d7e0e8',bg='#101820')
+        self.activity_stats.pack(anchor='w',pady=10)
+        self.activity_updated=tk.Label(self.pages['activity'],text='통계 수집 대기 중',fg='#9fb2c3',bg='#101820')
+        self.activity_updated.pack(anchor='w',pady=4)
+        tk.Button(self.pages['activity'],text='지금 새로고침',command=self.refresh,width=18,height=2,bg='#294e70',fg='white',relief='flat').pack(anchor='w',pady=12)
+        tk.Label(self.pages['activity'],text='통계는 Guardian DNS 엔진이 실행 중일 때 갱신됩니다. 현재는 DNS 요청의 도메인별 상세 이력은 저장하지 않습니다.',wraplength=720,justify='left',fg='#f0c477',bg='#101820').pack(anchor='w',pady=12)
         self._section('premium','라이선스 및 Premium','공통 Guardian 라이선스와 기기 활성화를 관리합니다.')
         tk.Button(self.pages['premium'],text='라이선스 관리',command=self.open_license_settings,width=22,height=2,bg='#5946a8',fg='white',relief='flat').pack(anchor='w',pady=8)
         self._section('updates','프로그램 업데이트','Guardian Windows 앱의 새 버전을 확인합니다. 필터 목록 갱신과 다른 기능입니다.')
@@ -337,7 +343,11 @@ class GuardianDesktop:
     def refresh(self):
         try:
             stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
-            self.stats.configure(text=f"광고/추적 차단 {int(stats.get('blocked',0)):,}건  |  정상 전달 {int(stats.get('forwarded',0)):,}건")
+            blocked=int(stats.get('blocked',0)); forwarded=int(stats.get('forwarded',0)); failed=int(stats.get('failed',0))
+            summary=f"광고/추적 차단 {blocked:,}건  |  정상 전달 {forwarded:,}건  |  오류 {failed:,}건"
+            self.stats.configure(text=summary)
+            self.activity_stats.configure(text=summary)
+            self.activity_updated.configure(text='마지막 갱신: '+time.strftime('%Y-%m-%d %H:%M:%S'))
         except (OSError,ValueError,TypeError): pass
         try:
             status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
