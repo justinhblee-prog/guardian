@@ -133,14 +133,17 @@ class GuardianDesktop:
         actions=tk.Frame(home,bg='#101820'); actions.pack(anchor='w',pady=10)
         self.start_button=tk.Button(actions,text='보호 시작',command=self.start_protection,width=18,height=2,bg='#197a57',fg='white',font=('Segoe UI',11,'bold'),relief='flat',cursor='hand2'); self.start_button.pack(side='left',padx=(0,10))
         self.stop_button=tk.Button(actions,text='보호 중지',command=self.stop_protection,width=18,height=2,bg='#8b3940',fg='white',font=('Segoe UI',11,'bold'),relief='flat',state='disabled',cursor='hand2'); self.stop_button.pack(side='left')
+        self.start_buttons=[self.start_button]; self.stop_buttons=[self.stop_button]
         self.stats=tk.Label(home,text='차단 0건  |  전달 0건',font=('Segoe UI',15,'bold'),fg='#d7e0e8',bg='#101820'); self.stats.pack(anchor='w',pady=24)
         self.license_status=tk.Label(home,text='라이선스: 무료',font=('Segoe UI',10),fg='#9fb2c3',bg='#101820'); self.license_status.pack(anchor='w',pady=5)
         self.filter_status=tk.Label(home,text='필터 업데이트: 서버 미설정',font=('Segoe UI',10),fg='#9fb2c3',bg='#101820'); self.filter_status.pack(anchor='w',pady=5)
         tk.Label(home,text='백그라운드 DNS 보호 · IPv4/IPv6 · 기존 DNS 자동 복구',font=('Segoe UI',10),fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=18)
         tk.Label(home,text='앱 창을 닫아도 보호는 유지됩니다. 보호 중지 시 기존 DNS 설정을 복구합니다.',font=('Segoe UI',9),fg='#aab8c4',bg='#101820').pack(anchor='w')
         self._section('protection','보호 설정','보호 시작·중지와 DNS 엔진 상태를 관리합니다.')
-        tk.Button(self.pages['protection'],text='보호 시작',command=self.start_protection,width=18,height=2,bg='#197a57',fg='white',relief='flat').pack(anchor='w',pady=8)
-        tk.Button(self.pages['protection'],text='보호 중지',command=self.stop_protection,width=18,height=2,bg='#8b3940',fg='white',relief='flat').pack(anchor='w',pady=8)
+        protection_start=tk.Button(self.pages['protection'],text='보호 시작',command=self.start_protection,width=18,height=2,bg='#197a57',fg='white',relief='flat')
+        protection_start.pack(anchor='w',pady=8); self.start_buttons.append(protection_start)
+        protection_stop=tk.Button(self.pages['protection'],text='보호 중지',command=self.stop_protection,width=18,height=2,bg='#8b3940',fg='white',relief='flat',state='disabled')
+        protection_stop.pack(anchor='w',pady=8); self.stop_buttons.append(protection_stop)
         self._section('filters','필터 관리','서명된 광고·추적·위협 필터 목록을 업데이트합니다. 프로그램 업데이트와 별개입니다.')
         tk.Button(self.pages['filters'],text='필터 업데이트 실행',command=self.update_filters,width=22,height=2,bg='#197a57',fg='white',relief='flat').pack(anchor='w',pady=8)
         tk.Button(self.pages['filters'],text='필터 서버 설정',command=self.open_filter_settings,width=22,height=2,bg='#33404c',fg='white',relief='flat').pack(anchor='w',pady=8)
@@ -198,7 +201,9 @@ class GuardianDesktop:
     def set_active_ui(self,active,label=None):
         self.active=active; self.status.set(label or ("보호 실행 중" if active else "보호 꺼짐"))
         self.status_label.configure(fg="#54d69b" if active else "#f3b64a")
-        self.start_button.configure(state="disabled" if active else "normal"); self.stop_button.configure(state="normal" if active else "disabled")
+        self.header_status.configure(fg="#54d69b" if active else "#f3b64a",bg="#183b32" if active else "#263440")
+        for button in self.start_buttons: button.configure(state="disabled" if active else "normal")
+        for button in self.stop_buttons: button.configure(state="normal" if active else "disabled")
     def recover_previous_state(self):
         if BACKUP.exists():
             try:
