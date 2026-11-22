@@ -2379,7 +2379,7 @@ class MainActivity : Activity() {
             Triple("settings", "⚙", "전체 메뉴")
         )
         items.forEach { (id, icon, label) ->
-            val active = selected == id
+            val active = selected == id || (id == "settings" && selected in setOf("updates", "rules", "app-exclusions"))
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
