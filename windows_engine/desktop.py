@@ -11,10 +11,6 @@ from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
 CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"
 TASK_NAME="GuardianDnsProxy"
-def daemon_executable_path():
-    if getattr(sys,"frozen",False):
-        return Path(sys.executable).resolve().parent / "GuardianDnsProxy" / "GuardianDnsProxy.exe"
-    return Path(__file__).resolve().parents[1] / "dist" / "GuardianDnsProxy" / "GuardianDnsProxy.exe"
 DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndication.com^\n||googleadservices.com^\n||adservice.google.com^\n||adnxs.com^\n||criteo.com^\n||taboola.com^\n||outbrain.com^\n||scorecardresearch.com^\n||quantserve.com^\n||mixpanel.com^\n||hotjar.com\n"
 def ensure_config():
     APP_DIR.mkdir(parents=True,exist_ok=True); rules=APP_DIR/"rules.txt"
@@ -63,45 +59,15 @@ def proxy_ready():
     except OSError: return False
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
-def daemon_startup_diagnostics():
-    details=[]
-    daemon_exe=daemon_executable_path()
-    details.append(f"DNS 백그라운드 실행 파일: {daemon_exe} (파일 존재: {daemon_exe.is_file()})")
-    try:
-        task=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
-        output="\\n".join(part.strip() for part in (task.stdout,task.stderr) if part and part.strip())
-        if output: details.append("작업 스케줄러 상태:\\n"+output[-5000:])
-        else: details.append("작업 스케줄러 상태를 읽지 못했습니다.")
-    except Exception as exc:
-        details.append("작업 스케줄러 조회 실패: "+str(exc))
-    log_path=APP_DIR/"daemon-startup.log"
-    try:
-        if log_path.exists():
-            lines=log_path.read_text(encoding="utf-8",errors="replace").splitlines()
-            details.append("DNS 백그라운드 시작 로그:\\n"+"\\n".join(lines[-50:]))
-        else:
-            details.append("DNS 백그라운드 시작 로그가 없습니다: "+str(log_path))
-    except OSError as exc:
-        details.append("DNS 백그라운드 로그 읽기 실패: "+str(exc))
-    try:
-        health=json.loads(HEALTH.read_text(encoding="utf-8"))
-        details.append("최근 프로세스 상태: "+json.dumps(health,ensure_ascii=False))
-    except Exception:
-        details.append("유효한 DNS 백그라운드 생존 상태 파일이 없습니다.")
-    return "\\n\\n".join(details)
 def ensure_daemon_running():
     if proxy_ready(): return
-    daemon_exe=daemon_executable_path()
-    if not daemon_exe.is_file():
-        raise NetworkConfigError(f"Guardian DNS 백그라운드 실행 파일을 찾을 수 없습니다: {daemon_exe}. 설치 파일이 누락되었거나 보안 프로그램에 의해 격리되었을 수 있습니다.")
     result=run_task("/Run","/TN",TASK_NAME)
     if result.returncode: raise NetworkConfigError(result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")
     deadline=time.monotonic()+12
     while time.monotonic()<deadline:
         if proxy_ready(): return
         time.sleep(.25)
-    diagnostics=daemon_startup_diagnostics()
-    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\\n\\n"+diagnostics)
+    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53")
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
@@ -142,30 +108,81 @@ def self_test():
         Path(tempfile.gettempdir(),"GuardianDesktopSelfTest.log").write_text(traceback.format_exc(),encoding="utf-8")
         raise
 class GuardianDesktop:
+    BG="#0B1220"; SIDE="#101A2B"; PANEL="#151F32"; ALT="#1B2940"; BORDER="#263650"
+    TEXT="#F4F7FB"; MUTED="#93A4BA"; TEAL="#2DD4BF"; GREEN="#34D399"; AMBER="#FBBF24"; BLUE="#60A5FA"
     def __init__(self,root):
-        self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False
-        self.status=tk.StringVar(value="보호 꺼짐"); root.title("Guardian AdBlock"); root.geometry("620x440"); root.minsize(560,400); root.configure(bg="#101820")
-        tk.Label(root,text="GUARDIAN",font=("Segoe UI",24,"bold"),fg="#f2f6fa",bg="#101820").pack(pady=(24,2))
-        tk.Label(root,text="Windows DNS Protection",font=("Segoe UI",10),fg="#9fb2c3",bg="#101820").pack()
-        self.status_label=tk.Label(root,textvariable=self.status,font=("Segoe UI",15,"bold"),fg="#f3b64a",bg="#101820"); self.status_label.pack(pady=26)
-        row=tk.Frame(root,bg="#101820"); row.pack()
-        self.start_button=tk.Button(row,text="보호 시작",command=self.start_protection,width=16,height=2,bg="#197a57",fg="white",font=("Segoe UI",11,"bold"),relief="flat"); self.start_button.pack(side="left",padx=8)
-        self.stop_button=tk.Button(row,text="보호 중지",command=self.stop_protection,width=16,height=2,bg="#8b3940",fg="white",font=("Segoe UI",11,"bold"),relief="flat",state="disabled"); self.stop_button.pack(side="left",padx=8)
-        self.stats=tk.Label(root,text="차단 0건  |  전달 0건",font=("Segoe UI",12),fg="#d7e0e8",bg="#101820"); self.stats.pack(pady=20)
-        actions=tk.Frame(root,bg="#101820"); actions.pack(pady=4)
-        tk.Button(actions,text="필터 업데이트",command=self.update_filters,width=16,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=6)
-        tk.Button(actions,text="필터 서버 설정",command=self.open_filter_settings,width=16,bg="#33404c",fg="white",relief="flat").pack(side="left",padx=6)
-        tk.Button(actions,text="라이선스",command=self.open_license_settings,width=12,bg="#5946a8",fg="white",relief="flat").pack(side="left",padx=6)
-        self.license_status=tk.Label(root,text="라이선스: 무료",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.license_status.pack(pady=2)
-        self.refresh_license_status()
-        self.filter_status=tk.Label(root,text="필터 업데이트: 서버 미설정",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.filter_status.pack(pady=3)
-        tk.Label(root,text="백그라운드 DNS 보호 · IPv4/IPv6 · 기존 DNS 자동 복구",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820").pack(pady=6)
-        tk.Label(root,text="보호 시작 시 어댑터 DNS를 로컬 필터로 전환합니다. 앱 창을 닫아도 백그라운드 보호는 유지되며, 보호 중지는 원래 DNS 설정을 복구합니다.",wraplength=540,font=("Segoe UI",9),fg="#aab8c4",bg="#101820").pack(pady=12)
+        self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False; self.status=tk.StringVar(value="보호 꺼짐")
+        root.title("Guardian | Windows Security"); root.geometry("1120x760"); root.minsize(900,650); root.configure(bg=self.BG)
+        root.option_add("*Font",("Segoe UI",10)); self._build_shell(); self.refresh_license_status()
         root.protocol("WM_DELETE_WINDOW",self.close); self.recover_previous_state(); self.refresh()
+    def _label(self,p,t,s=10,c=None,w="normal",bg=None,**kw):
+        return tk.Label(p,text=t,font=("Segoe UI",s,w),fg=c or self.TEXT,bg=bg or self.PANEL,**kw)
+    def _button(self,p,t,cmd,tone="secondary"):
+        bg,fg={"primary":(self.TEAL,"#062A2A"),"danger":("#3A1D2A","#FDA4AF"),"secondary":(self.ALT,self.TEXT)}[tone]
+        return tk.Button(p,text=t,command=cmd,bg=bg,fg=fg,activebackground=bg,activeforeground=fg,relief="flat",bd=0,cursor="hand2",padx=16,pady=10,font=("Segoe UI",10,"bold"))
+    def _build_shell(self):
+        shell=tk.Frame(self.root,bg=self.BG); shell.pack(fill="both",expand=True)
+        side=tk.Frame(shell,bg=self.SIDE,width=224); side.pack(side="left",fill="y"); side.pack_propagate(False)
+        self._label(side,"◈  GUARDIAN",19,self.TEXT,"bold",self.SIDE).pack(anchor="w",padx=22,pady=(27,3))
+        self._label(side,"WINDOWS SECURITY",8,self.MUTED,"bold",self.SIDE).pack(anchor="w",padx=24,pady=(0,30))
+        self._label(side,"WORKSPACE",8,"#657891","bold",self.SIDE).pack(anchor="w",padx=22,pady=(0,10))
+        self.nav={}
+        items=[("home","▦   대시보드",self.show_dashboard),("filters","◉   필터 업데이트",self.update_filters),("network","⌁   필터 서버 설정",self.open_filter_settings),("license","◇   라이선스",self.open_license_settings),("diagnostics","≋   진단 정보",self.show_diagnostics)]
+        for key,label,fn in items:
+            b=tk.Button(side,text=label,command=lambda k=key,f=fn:(self._select_nav(k),f()),anchor="w",bg=self.SIDE,fg=self.MUTED,activebackground=self.ALT,activeforeground=self.TEXT,relief="flat",bd=0,padx=22,pady=13,cursor="hand2",font=("Segoe UI",10,"bold")); b.pack(fill="x",padx=10,pady=2); self.nav[key]=b
+        tk.Frame(side,bg=self.SIDE).pack(fill="both",expand=True)
+        self._label(side,"GUARDIAN WINDOWS",8,"#657891","bold",self.SIDE).pack(anchor="w",padx=22)
+        self._label(side,"Development build  •  0.1.0-dev",8,self.MUTED,bg=self.SIDE).pack(anchor="w",padx=22,pady=(5,20))
+        body=tk.Frame(shell,bg=self.BG); body.pack(side="left",fill="both",expand=True)
+        head=tk.Frame(body,bg=self.BG); head.pack(fill="x",padx=34,pady=(25,18))
+        self.page_title=self._label(head,"대시보드",21,self.TEXT,"bold",self.BG); self.page_title.pack(side="left")
+        self.top_status=self._label(head,"●  보호 꺼짐",9,self.AMBER,"bold",self.BG); self.top_status.pack(side="right",pady=8)
+        self.page=tk.Frame(body,bg=self.BG); self.page.pack(fill="both",expand=True,padx=34,pady=(0,28)); self.show_dashboard()
+    def _select_nav(self,key):
+        for k,b in self.nav.items(): b.configure(bg=self.ALT if k==key else self.SIDE,fg=self.TEAL if k==key else self.MUTED)
+    def _clear_page(self):
+        for w in self.page.winfo_children(): w.destroy()
+    def _metric(self,p,title,sub,color):
+        f=tk.Frame(p,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=18,pady=15)
+        self._label(f,title,9,self.MUTED,"bold").pack(anchor="w"); v=self._label(f,"0",23,color,"bold"); v.pack(anchor="w",pady=(8,2)); self._label(f,sub,9,self.MUTED).pack(anchor="w"); return f,v
+    def show_dashboard(self):
+        self._select_nav("home"); self.page_title.configure(text="대시보드"); self._clear_page()
+        hero=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=26,pady=23); hero.pack(fill="x",pady=(0,18))
+        left=tk.Frame(hero,bg=self.PANEL); left.pack(side="left",fill="x",expand=True)
+        self._label(left,"REAL-TIME NETWORK PROTECTION",9,self.TEAL,"bold").pack(anchor="w")
+        self.hero_status=self._label(left,"보호가 꺼져 있습니다",22,self.TEXT,"bold"); self.hero_status.pack(anchor="w",pady=(8,4))
+        self.hero_description=self._label(left,"DNS 요청을 검사하고 광고·추적 도메인을 차단합니다.",10,self.MUTED); self.hero_description.pack(anchor="w")
+        ctl=tk.Frame(hero,bg=self.PANEL); ctl.pack(side="right",padx=(20,0))
+        self.start_button=self._button(ctl,"보호 시작",self.start_protection,"primary"); self.start_button.pack(fill="x",pady=(0,8))
+        self.stop_button=self._button(ctl,"보호 중지",self.stop_protection,"danger"); self.stop_button.pack(fill="x")
+        metrics=tk.Frame(self.page,bg=self.BG); metrics.pack(fill="x",pady=(0,18))
+        for i in range(3): metrics.columnconfigure(i,weight=1,uniform="metric")
+        self.blocked_value=self._metric(metrics,"차단된 요청","광고 및 추적 도메인",self.TEAL); self.forwarded_value=self._metric(metrics,"정상 전달","업스트림 DNS 응답",self.BLUE); self.adapters_value=self._metric(metrics,"보호 상태","네트워크 어댑터",self.TEXT)
+        for i,item in enumerate((self.blocked_value,self.forwarded_value,self.adapters_value)): item[0].grid(row=0,column=i,sticky="nsew",padx=(0 if i==0 else 8,0 if i==2 else 8))
+        lower=tk.Frame(self.page,bg=self.BG); lower.pack(fill="both",expand=True); lower.columnconfigure((0,1),weight=1,uniform="cards")
+        for col,title,eyebrow,accent,button,fn in [(0,"필터 상태","FILTER INTELLIGENCE",self.TEAL,"필터 업데이트",self.update_filters),(1,"라이선스","GUARDIAN ACCOUNT",self.BLUE,"라이선스 관리",self.open_license_settings)]:
+            card=tk.Frame(lower,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=18,pady=16); card.grid(row=0,column=col,sticky="nsew",padx=(0,9) if col==0 else (9,0))
+            self._label(card,eyebrow,8,accent,"bold").pack(anchor="w"); self._label(card,title,14,self.TEXT,"bold").pack(anchor="w",pady=(9,8))
+            if col==0: self.filter_status=self._label(card,"서버 미설정",10,self.AMBER)
+            else: self.license_status=self._label(card,"무료 버전",10,self.MUTED)
+            (self.filter_status if col==0 else self.license_status).pack(anchor="w"); self._button(card,button,fn).pack(anchor="w",pady=(16,0))
+        self._label(self.page,"앱 창을 닫아도 백그라운드 DNS 보호는 유지됩니다.",9,self.MUTED,bg=self.BG).pack(anchor="w",pady=(14,0))
+        self.set_active_ui(self.active,self.status.get())
+    def show_diagnostics(self):
+        self._select_nav("diagnostics"); self.page_title.configure(text="진단 정보"); self._clear_page()
+        panel=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=20,pady=18); panel.pack(fill="both",expand=True)
+        self._label(panel,"시스템 진단",16,self.TEXT,"bold").pack(anchor="w")
+        rows=[("애플리케이션 데이터",str(APP_DIR)),("DNS 백업","보존됨" if BACKUP.exists() else "없음"),("보호 상태 파일","존재" if STATE.exists() else "없음"),("백그라운드 상태","정상 응답" if daemon_health_is_fresh(HEALTH) else "응답 없음"),("DNS 작업 이름",TASK_NAME),("시작 로그",str(APP_DIR/"daemon-startup.log"))]
+        for label,value in rows:
+            row=tk.Frame(panel,bg=self.PANEL); row.pack(fill="x",pady=8); self._label(row,label,9,self.MUTED).pack(anchor="w"); self._label(row,value,9,self.TEXT).pack(anchor="w",pady=(3,0))
+        self._button(panel,"시작 로그 폴더 열기",lambda:os.startfile(str(APP_DIR))).pack(anchor="w",pady=(16,0))
     def set_active_ui(self,active,label=None):
-        self.active=active; self.status.set(label or ("보호 실행 중" if active else "보호 꺼짐"))
-        self.status_label.configure(fg="#54d69b" if active else "#f3b64a")
-        self.start_button.configure(state="disabled" if active else "normal"); self.stop_button.configure(state="normal" if active else "disabled")
+        self.active=active; current=label or ("보호 실행 중" if active else "보호 꺼짐"); self.status.set(current)
+        if hasattr(self,"top_status"):
+            self.top_status.configure(text="●  "+current,fg=self.GREEN if active else self.AMBER)
+            self.hero_status.configure(text=current,fg=self.GREEN if active else self.TEXT)
+            self.hero_description.configure(text="DNS 요청을 검사하고 구성된 필터 규칙을 적용하고 있습니다." if active else "DNS 요청을 검사하고 광고·추적 도메인을 차단합니다.")
+            self.start_button.configure(state="disabled" if active else "normal"); self.stop_button.configure(state="normal" if active else "disabled")
     def recover_previous_state(self):
         if BACKUP.exists():
             try:
@@ -310,14 +327,17 @@ class GuardianDesktop:
     def refresh(self):
         try:
             stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
-            self.stats.configure(text=f"광고/추적 차단 {int(stats.get('blocked',0)):,}건  |  정상 전달 {int(stats.get('forwarded',0)):,}건")
-        except (OSError,ValueError,TypeError): pass
+            if hasattr(self,"blocked_value"): self.blocked_value[1].configure(text=f"{int(stats.get('blocked',0)):,}")
+            if hasattr(self,"forwarded_value"): self.forwarded_value[1].configure(text=f"{int(stats.get('forwarded',0)):,}")
+            if hasattr(self,"adapters_value"): self.adapters_value[1].configure(text="보호 중" if self.active else "대기 중")
+        except (OSError,ValueError,TypeError,KeyError): pass
         try:
             status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
-            label={"updated":"서명 필터 업데이트 완료","current":"최신 필터 사용 중","error":"필터 업데이트 오류"}.get(status.get("state"),"필터 업데이트 상태 확인 필요")
-            version=status.get("sourceVersion","")
-            self.filter_status.configure(text=f"{label} {version}".strip(),fg="#54d69b" if status.get("state") in ("updated","current") else "#ff9b85")
+            label={"updated":"서명 필터 업데이트 완료","current":"최신 필터 사용 중","error":"필터 업데이트 오류"}.get(status.get("state"),"필터 상태 확인 필요")
+            if hasattr(self,"filter_status"):
+                self.filter_status.configure(text=f"{label} {status.get('sourceVersion','')}".strip(),fg=self.GREEN if status.get("state") in ("updated","current") else self.AMBER)
         except (OSError,ValueError,TypeError): pass
+        if hasattr(self,"top_status"): self.set_active_ui(self.active,self.status.get())
         self.root.after(1000,self.refresh)
     def close(self):
         self.root.destroy()  # Background DNS task intentionally continues until explicit Stop.
