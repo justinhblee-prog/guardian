@@ -74,11 +74,10 @@ public partial class MainWindow : Window
         var result = await Get<LicenseListResponse>("v1/admin/licenses");
         _rows.Clear();
         foreach (var item in result.Licenses ?? []) _rows.Add(new LicenseRow(item));
-        var now = DateTimeOffset.UtcNow;
         TotalCount.Text = _rows.Count.ToString("N0");
-        ActiveCount.Text = _rows.Count(x => x.Status == "active" && x.ExpiresAt > now).ToString("N0");
-        ExpiredCount.Text = _rows.Count(x => x.Status == "active" && x.ExpiresAt <= now).ToString("N0");
-        RevokedCount.Text = _rows.Count(x => x.Status != "active").ToString("N0");
+        ActiveCount.Text = _rows.Count(x => EffectiveStatus(x.Status, x.ExpiresAt) == "active").ToString("N0");
+        ExpiredCount.Text = _rows.Count(x => EffectiveStatus(x.Status, x.ExpiresAt) == "expired").ToString("N0");
+        RevokedCount.Text = _rows.Count(x => EffectiveStatus(x.Status, x.ExpiresAt) == "revoked").ToString("N0");
     }
 
     private async void Issue_Click(object sender, RoutedEventArgs e)
@@ -124,6 +123,13 @@ public partial class MainWindow : Window
         [JsonPropertyName("active_devices")] public int ActiveDevices { get; set; }
         [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; set; }
     }
+    private static string EffectiveStatus(string status, DateTimeOffset expiresAt)
+    {
+        if (string.Equals(status, "revoked", StringComparison.OrdinalIgnoreCase)) return "revoked";
+        if (string.Equals(status, "expired", StringComparison.OrdinalIgnoreCase) || expiresAt <= DateTimeOffset.UtcNow) return "expired";
+        return "active";
+    }
+
     private sealed class LicenseRow
     {
         public LicenseRow(LicenseDto x) { Id=x.Id; Status=x.Status; ExpiresAt=x.ExpiresAt; DisplayRef=x.LicenseRef; ActiveDevices=x.ActiveDevices; MaxDevices=x.MaxDevices; }
@@ -133,7 +139,7 @@ public partial class MainWindow : Window
         public string DisplayRef { get; }
         public int ActiveDevices { get; }
         public int MaxDevices { get; }
-        public string StatusLabel => Status == "active" && ExpiresAt > DateTimeOffset.UtcNow ? "사용 가능" : Status == "active" ? "만료" : "정지";
+        public string StatusLabel => EffectiveStatus(Status, ExpiresAt) switch { "active" => "사용 가능", "expired" => "만료", _ => "정지" };
         public string ExpiresLabel => ExpiresAt.ToLocalTime().ToString("yyyy-MM-dd");
         public string DeviceLabel => $"{ActiveDevices}/{MaxDevices}";
     }
