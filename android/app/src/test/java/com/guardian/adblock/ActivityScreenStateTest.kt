@@ -15,4 +15,14 @@ class ActivityScreenStateTest {
         assertEquals("home", ActivityScreenState.restoreTab(""))
         assertEquals("home", ActivityScreenState.restoreTab("unknown"))
     }
+
+    @Test fun fallsBackToPersistedWorkspaceTabWhenActivityStateIsUnavailable() {
+        assertEquals("activity", ActivityScreenState.restoreTab(null, "activity"))
+        assertEquals("settings", ActivityScreenState.restoreTab("", "settings"))
+        assertEquals("home", ActivityScreenState.restoreTab(null, "unknown"))
+    }
+
+    @Test fun savedActivityStateTakesPrecedenceOverPersistedTab() {
+        assertEquals("protection", ActivityScreenState.restoreTab("protection", "activity"))
+    }
 }
