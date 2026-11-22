@@ -11,6 +11,10 @@ from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
 CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"
 TASK_NAME="GuardianDnsProxy"
+def daemon_executable_path():
+    if getattr(sys,"frozen",False):
+        return Path(sys.executable).resolve().parent / "GuardianDnsProxy" / "GuardianDnsProxy.exe"
+    return Path(__file__).resolve().parents[1] / "dist" / "GuardianDnsProxy" / "GuardianDnsProxy.exe"
 DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndication.com^\n||googleadservices.com^\n||adservice.google.com^\n||adnxs.com^\n||criteo.com^\n||taboola.com^\n||outbrain.com^\n||scorecardresearch.com^\n||quantserve.com^\n||mixpanel.com^\n||hotjar.com\n"
 def ensure_config():
     APP_DIR.mkdir(parents=True,exist_ok=True); rules=APP_DIR/"rules.txt"
@@ -61,6 +65,8 @@ def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
 def daemon_startup_diagnostics():
     details=[]
+    daemon_exe=daemon_executable_path()
+    details.append(f"DNS 백그라운드 실행 파일: {daemon_exe} (파일 존재: {daemon_exe.is_file()})")
     try:
         task=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
         output="\\n".join(part.strip() for part in (task.stdout,task.stderr) if part and part.strip())
@@ -85,6 +91,9 @@ def daemon_startup_diagnostics():
     return "\\n\\n".join(details)
 def ensure_daemon_running():
     if proxy_ready(): return
+    daemon_exe=daemon_executable_path()
+    if not daemon_exe.is_file():
+        raise NetworkConfigError(f"Guardian DNS 백그라운드 실행 파일을 찾을 수 없습니다: {daemon_exe}. 설치 파일이 누락되었거나 보안 프로그램에 의해 격리되었을 수 있습니다.")
     result=run_task("/Run","/TN",TASK_NAME)
     if result.returncode: raise NetworkConfigError(result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")
     deadline=time.monotonic()+12
