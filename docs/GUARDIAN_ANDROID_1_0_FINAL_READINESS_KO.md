@@ -1,5 +1,15 @@
 # Guardian Android 1.0 — 출시 준비 및 검증 현황
 
+## 최신 검증 결과 — 2026-11-22
+
+- Android 설정·프리미엄 PR #247, 태블릿 설정 PR #258, 태블릿 에뮬레이터 PR #259의 최신 exact-head Android unit/lint/APK emulator E2E가 모두 통과했습니다.
+- CI runs: [#247 44965026477](https://github.com/justinhblee-prog/guardian/actions/runs/44965026477), [#258 44965023189](https://github.com/justinhblee-prog/guardian/actions/runs/44965023189), [#259 44965018915](https://github.com/justinhblee-prog/guardian/actions/runs/44965018915).
+- #259 tablet test: 1066.7dp에서 설정 카테고리 2열, landscape 재배치, 999dp에서 1열 전환 통과.
+- VPN tunnel, allowed DNS, built-in/custom blocked DNS, in-place APK update 후 VPN 자동 복구, foreground-app pause/resume 검증 통과.
+- 개발 APK `0.7.34-dev-ci2007` / versionCode `2008`, SHA-256 `c5d0ccfc88118388586e58d0b350852d06617a19aa703a044d1d36209d652f7e`. Production 서명 APK가 아닙니다.
+- 실기기 Android, Production API/키, filter source 재배포 승인, Windows 물리 PC acceptance는 미완료입니다. Production 1.0은 계속 미출시 상태입니다.
+
+
 - 기준일: 2026-11-21 (KST)
 - 저장소: https://github.com/justinhblee-prog/guardian
 - 기준 브랜치: `main`
