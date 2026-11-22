@@ -449,13 +449,33 @@ if (!databaseUrl) {
   });
 
 
-  test('existing license databases can apply migrations 002 through 005 repeatedly', async () => {
+  test('permanent licenses remain active, enforce device limits, and issue short-lived signed tokens', async () => {
+    const response = await post('/v1/admin/licenses', { planCode: 'permanent', validDays: null, maxDevices: 2 }, adminHeaders);
+    assert.equal(response.status, 200);
+    const created = await response.json();
+    assert.equal(created.license.expires_at, null);
+    const firstDevice = '1'.repeat(64), secondDevice = '2'.repeat(64), overflowDevice = '3'.repeat(64);
+    const first = await post('/v1/licenses/activate', { licenseKey: created.licenseKey, deviceBinding: firstDevice, appVersion: 'permanent-test' });
+    assert.equal(first.status, 200); assertSignedToken(await first.json());
+    const second = await post('/v1/licenses/activate', { licenseKey: created.licenseKey, deviceBinding: secondDevice, appVersion: 'permanent-test' });
+    assert.equal(second.status, 200); assertSignedToken(await second.json());
+    const overflow = await post('/v1/licenses/activate', { licenseKey: created.licenseKey, deviceBinding: overflowDevice, appVersion: 'permanent-test' });
+    assert.equal(overflow.status, 409);
+    const status = await post('/v1/licenses/status', { deviceBinding: firstDevice, licenseRef: created.license.license_ref });
+    assert.equal((await status.json()).status, 'active');
+    const listed = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: adminHeaders });
+    assert.equal(listed.status, 200);
+    assert.ok((await listed.json()).licenses.some(item => item.id === created.license.id && item.expires_at === null));
+  });
+
+  test('existing license databases can apply migrations 002 through 006 repeatedly', async () => {
     await pool.query('DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
     for (const migrationPath of [
       new URL('../migrations/002_shared_rate_limit_buckets.sql', import.meta.url),
       new URL('../migrations/003_support_tickets.sql', import.meta.url),
       new URL('../migrations/004_customers.sql', import.meta.url),
-      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url)
+      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url),
+      new URL('../migrations/006_permanent_licenses.sql', import.meta.url)
     ]) {
       const sql = readFileSync(migrationPath, 'utf8');
       await pool.query(sql);
@@ -484,6 +504,10 @@ if (!databaseUrl) {
     assert.equal(event.rowCount, 1);
     assert.equal(event.rows[0].metadata.planCode, 'monthly_30d');
     assert.equal(event.rows[0].metadata.days, 30);
+
+    const permanent = await post('/v1/admin/licenses', { planCode: 'permanent', validDays: null, maxDevices: 3 }, adminHeaders);
+    assert.equal(permanent.status, 200);
+    assert.equal((await permanent.json()).license.expires_at, null);
 
     const mismatch = await post('/v1/admin/licenses', {
       planCode: 'monthly_30d', validDays: 31, maxDevices: 2
