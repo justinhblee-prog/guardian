@@ -60,3 +60,61 @@ def test_process_is_running_detects_current_process():
     assert process_is_running(os.getpid())
     assert not process_is_running(2**30)
     assert not process_is_running(2**40)
+
+
+def test_windows_process_check_falls_back_to_tasklist_when_openprocess_is_denied(monkeypatch):
+    import ctypes
+    import subprocess
+    import windows_engine.daemon_health as health
+
+    class Api:
+        def __init__(self, result=None):
+            self.result = result
+        def __call__(self, *_args):
+            return self.result
+
+    class Kernel:
+        OpenProcess = Api(0)
+        GetExitCodeProcess = Api(0)
+        CloseHandle = Api(1)
+
+    monkeypatch.setattr(health.os, "name", "nt")
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *_args, **_kwargs: Kernel(), raising=False)
+    monkeypatch.setattr(
+        health.subprocess, "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0], 0,
+            stdout='"GuardianDnsProxy.exe","39716","Services","0","3,000 K"\\n',
+            stderr="",
+        ),
+    )
+
+    assert health.process_is_running(39716)
+
+
+def test_windows_process_check_does_not_accept_a_different_tasklist_pid(monkeypatch):
+    import ctypes
+    import subprocess
+    import windows_engine.daemon_health as health
+
+    class Api:
+        def __init__(self, result=None):
+            self.result = result
+        def __call__(self, *_args):
+            return self.result
+
+    class Kernel:
+        OpenProcess = Api(0)
+        GetExitCodeProcess = Api(0)
+        CloseHandle = Api(1)
+
+    monkeypatch.setattr(health.os, "name", "nt")
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *_args, **_kwargs: Kernel(), raising=False)
+    monkeypatch.setattr(
+        health.subprocess, "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0], 0, stdout='"other.exe","1234","Console","1","1,000 K"\\n', stderr="",
+        ),
+    )
+
+    assert not health.process_is_running(39716)
