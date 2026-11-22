@@ -87,7 +87,7 @@ public partial class MainWindow : Window
         try
         {
             var plan = (PlanBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "annual_365d";
-            var days = plan switch { "short_7d" => 7, "monthly_30d" => 30, "quarterly_90d" => 90, _ => 365 };
+            int? days = plan switch { "short_7d" => 7, "monthly_30d" => 30, "quarterly_90d" => 90, "permanent" => null, _ => 365 };
             var devices = int.Parse((DeviceCountBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "1");
             var payload = new { validDays = days, maxDevices = devices, planCode = plan, customer = new { name = CustomerNameBox.Text.Trim(), email = CustomerEmailBox.Text.Trim(), orderRef = OrderRefBox.Text.Trim() } };
             var result = await Post<IssueResponse>("v1/admin/licenses", payload);
@@ -118,15 +118,15 @@ public partial class MainWindow : Window
         public string Id { get; set; } = "";
         [JsonPropertyName("license_ref")] public string LicenseRef { get; set; } = "";
         public string Status { get; set; } = "";
-        [JsonPropertyName("expires_at")] public DateTimeOffset ExpiresAt { get; set; }
+        [JsonPropertyName("expires_at")] public DateTimeOffset? ExpiresAt { get; set; }
         [JsonPropertyName("max_devices")] public int MaxDevices { get; set; }
         [JsonPropertyName("active_devices")] public int ActiveDevices { get; set; }
         [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; set; }
     }
-    private static string EffectiveStatus(string status, DateTimeOffset expiresAt)
+    private static string EffectiveStatus(string status, DateTimeOffset? expiresAt)
     {
         if (string.Equals(status, "revoked", StringComparison.OrdinalIgnoreCase)) return "revoked";
-        if (string.Equals(status, "expired", StringComparison.OrdinalIgnoreCase) || expiresAt <= DateTimeOffset.UtcNow) return "expired";
+        if (string.Equals(status, "expired", StringComparison.OrdinalIgnoreCase) || (expiresAt.HasValue && expiresAt.Value <= DateTimeOffset.UtcNow)) return "expired";
         return "active";
     }
 
@@ -135,12 +135,12 @@ public partial class MainWindow : Window
         public LicenseRow(LicenseDto x) { Id=x.Id; Status=x.Status; ExpiresAt=x.ExpiresAt; DisplayRef=x.LicenseRef; ActiveDevices=x.ActiveDevices; MaxDevices=x.MaxDevices; }
         public string Id { get; }
         public string Status { get; }
-        public DateTimeOffset ExpiresAt { get; }
+        public DateTimeOffset? ExpiresAt { get; }
         public string DisplayRef { get; }
         public int ActiveDevices { get; }
         public int MaxDevices { get; }
         public string StatusLabel => EffectiveStatus(Status, ExpiresAt) switch { "active" => "사용 가능", "expired" => "만료", _ => "정지" };
-        public string ExpiresLabel => ExpiresAt.ToLocalTime().ToString("yyyy-MM-dd");
+        public string ExpiresLabel => ExpiresAt.HasValue ? ExpiresAt.Value.ToLocalTime().ToString("yyyy-MM-dd") : "영구 (PERMANENT)";
         public string DeviceLabel => $"{ActiveDevices}/{MaxDevices}";
     }
 }
