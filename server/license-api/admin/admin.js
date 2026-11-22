@@ -39,7 +39,7 @@ async function api(path, options = {}) {
 
 function setBusy(value) {
   loading = value;
-  for (const id of ["connect", "issue", "refresh", "disconnect", "publishUpdate", "refreshUpdates"]) $(id).disabled = value;
+  for (const id of ["connect", "issue", "refresh", "disconnect", "publishUpdate", "refreshUpdates", "rotateAdminToken", "copyAdminToken"]) $(id).disabled = value;
 }
 
 function renderSummary() {
@@ -499,6 +499,28 @@ $("refresh").addEventListener("click", async () => {
   try { await load(); }
   catch { /* The status line already contains the API error. */ }
 });
+$("rotateAdminToken").addEventListener("click", async () => {
+  if (!adminToken || loading) return;
+  if (!window.confirm("관리자 토큰을 재발급할까요? 기존 토큰은 즉시 사용할 수 없게 됩니다.")) return;
+  setBusy(true);
+  try {
+    const result = await api("/v1/admin/token/rotate", { method: "POST", body: JSON.stringify({}) });
+    adminToken = result.adminToken;
+    $("rotatedAdminToken").textContent = result.adminToken;
+    $("rotatedTokenPanel").hidden = false;
+    statusText("새 관리자 토큰을 발급했습니다. 암호 관리자에 안전하게 보관하세요.", "ok");
+  } catch (error) {
+    statusText(error.message, "error");
+  } finally {
+    setBusy(false);
+  }
+});
+$("copyAdminToken").addEventListener("click", async () => {
+  const value = $("rotatedAdminToken").textContent;
+  try { await navigator.clipboard.writeText(value); statusText("새 관리자 토큰을 복사했습니다.", "ok"); }
+  catch { statusText("복사할 수 없습니다. 토큰을 직접 선택해 복사하세요.", "error"); }
+});
+
 $("disconnect").addEventListener("click", () => {
   adminToken = "";
   licenseItems = [];
@@ -508,6 +530,8 @@ $("disconnect").addEventListener("click", () => {
   $("dashboard").hidden = true;
   $("authPanel").hidden = false;
   $("issued").hidden = true;
+  $("rotatedTokenPanel").hidden = true;
+  $("rotatedAdminToken").textContent = "";
   $("key").textContent = "";
   $("search").value = "";
   $("statusFilter").value = "all";
