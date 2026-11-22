@@ -10,5 +10,6 @@
     <Version>1.1.0</Version>
     <Product>Guardian License Manager</Product>
     <Description>Guardian license issuance and customer administration</Description>
+    <ApplicationIcon>guardian.ico</ApplicationIcon>
   </PropertyGroup>
 </Project>
