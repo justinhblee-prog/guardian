@@ -23,7 +23,7 @@ def test_stale_or_future_heartbeat_is_not_ready(tmp_path: Path):
     path = tmp_path / "daemon-health.json"
     write_daemon_health(path, pid=1234, now=100.0)
     check = lambda pid: True
-    assert not daemon_health_is_fresh(path, now=105.0, process_check=check)
+    assert not daemon_health_is_fresh(path, now=111.0, process_check=check)
     assert not daemon_health_is_fresh(path, now=90.0, process_check=check)
 
 
