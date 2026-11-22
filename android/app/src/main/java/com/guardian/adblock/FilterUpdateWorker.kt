@@ -100,6 +100,7 @@ class FilterUpdateWorker(
             )
             if (optionalFailure) Result.retry() else Result.success()
         } catch (e: Exception) {
+            android.util.Log.e("Guardian", "Scheduled filter update failed: ${SafeFailureSummary.codeFor(e)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(e)}")
             prefs.edit().putString(
                 FilterListManager.KEY_LAST_ERROR,
                 SafeFailureSummary.codeFor(e)
