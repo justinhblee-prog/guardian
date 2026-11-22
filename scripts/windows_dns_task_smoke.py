@@ -102,6 +102,7 @@ def main():
     )
     state_path = APP_DIR / "protection.json"
     state_path.write_text(json.dumps({"enabled": True, "updatedAt": time.time()}), encoding="utf-8")
+    HEALTH.unlink(missing_ok=True)
     query = query_packet()
     failure = None
     try:
@@ -138,6 +139,8 @@ def main():
         deadline = time.monotonic() + 5
         while HEALTH.exists() and time.monotonic() < deadline:
             time.sleep(0.2)
+        if HEALTH.exists() and failure is None:
+            failure = RuntimeError("Guardian DNS daemon did not stop after schtasks /End; health file remains present")
     if failure:
         print(str(failure), file=sys.stderr)
         return 1
