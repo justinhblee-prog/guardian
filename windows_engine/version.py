@@ -24,8 +24,8 @@ def get_product_build_number() -> int:
     try:
         lines = _version_file().read_text(encoding="utf-8").splitlines()
         number = int(lines[1].strip())
-    except (OSError, IndexError, ValueError):
-        return 55
+    except (OSError, IndexError, ValueError) as exc:
+        raise RuntimeError("Guardian VERSION metadata is missing or invalid; refusing to report a guessed build number.") from exc
     if number < 1:
         raise ValueError("VERSION file contains an invalid build number.")
     return number
@@ -39,8 +39,8 @@ def get_product_version() -> str:
         return override
     try:
         version = _version_file().read_text(encoding="utf-8").splitlines()[0].strip()
-    except (OSError, IndexError):
-        return "0.7.42-dev"
+    except (OSError, IndexError) as exc:
+        raise RuntimeError("Guardian VERSION metadata is missing; refusing to report a guessed product version.") from exc
     if not _VERSION_PATTERN.fullmatch(version):
         raise ValueError("VERSION file contains an invalid product version.")
     return version
