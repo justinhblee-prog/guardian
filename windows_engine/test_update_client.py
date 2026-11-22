@@ -22,6 +22,7 @@ def make_release(build=56, version="0.7.43-dev", installer=b"guardian-installer"
         "versionName": version,
         "buildNumber": build,
         "tagName": tag,
+        "sourceCommit": "a" * 40,
         "installerName": filename,
         "installerUrl": url,
         "sha256": hashlib.sha256(installer).hexdigest(),
