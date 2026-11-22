@@ -1,12 +1,17 @@
 #define MyAppName "Guardian AdBlock"
-#define MyAppVersion "0.1.0-dev"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.7.42-dev"
+#endif
+#ifndef MyAppBuildNumber
+  #define MyAppBuildNumber "55"
+#endif
 #define MyAppPublisher "Eugene Consulting"
 #define MyAppExeName "GuardianAdBlock.exe"
 
 [Setup]
 AppId={{A2C3E5A4-5C62-4C3F-9B7E-2D8E5D8A0F11}
 AppName={#MyAppName}
-AppVersion={#MyAppVersion}
+AppVersion={#MyAppVersion} (Build {#MyAppBuildNumber})
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\Guardian AdBlock
 DefaultGroupName=Guardian AdBlock
@@ -26,6 +31,7 @@ Source: "..\dist\GuardianDnsProxy\*"; DestDir: "{app}\GuardianDnsProxy"; Flags: 
 Source: "..\dist\GuardianSelfTest\*"; DestDir: "{app}\GuardianSelfTest"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\dist\GuardianMaintenance\*"; DestDir: "{app}\GuardianMaintenance"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "Register-GuardianDnsTask.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\\VERSION"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Guardian AdBlock"; Filename: "{app}\{#MyAppExeName}"
