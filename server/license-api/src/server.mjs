@@ -145,9 +145,9 @@ function requireAdmin(req) {
   const authorization = req.headers.authorization || '';
   const match = /^Bearer\s+([^\s]+)$/i.exec(authorization);
   const supplied = match?.[1] || '';
-  const valid = ADMIN_TOKEN && ADMIN_TOKEN.length >= 32
-    ? adminTokenMatches(supplied, ADMIN_TOKEN)
-    : ACTIVE_ADMIN_TOKEN_HASH && adminTokenMatches(hashAdminToken(supplied), ACTIVE_ADMIN_TOKEN_HASH);
+  const valid = ACTIVE_ADMIN_TOKEN_HASH
+    ? adminTokenMatches(hashAdminToken(supplied), ACTIVE_ADMIN_TOKEN_HASH)
+    : ADMIN_TOKEN && ADMIN_TOKEN.length >= 32 && adminTokenMatches(supplied, ADMIN_TOKEN);
   if (!valid) {
     throw Object.assign(new Error('관리자 인증에 실패했습니다.'), { status: 401 });
   }
