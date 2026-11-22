@@ -4,6 +4,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 from dns_engine import DomainRules,DnsProxy
+from dns_engine.wire import make_query
 from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin
 from windows_engine.filter_updates import FilterUpdater
 from windows_engine.license_client import LicenseClientError,WindowsLicenseClient
@@ -134,8 +135,9 @@ def configured_probe_domain():
     return next((domain for domain in sorted(rules.blocked) if rules.is_blocked(domain)),None)
 
 def blocked_probe_query(domain="doubleclick.net"):
-    labels=b"".join(bytes([len(p)])+p.encode("ascii") for p in domain.split("."))+b"\\0"
-    return struct.pack("!HHHHHH",0x6a31,0x0100,1,0,0,0)+labels+struct.pack("!HH",1,1)
+    """Build the same valid DNS wire query used by real clients."""
+    return make_query(domain,0x6a31)
+
 def is_dns_probe_response(query,response):
     # Readiness means the DNS listener answered, not that a particular
     # domain is blocked. User filter lists and allowlists are configurable.
