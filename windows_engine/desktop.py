@@ -127,10 +127,9 @@ class GuardianDesktop:
         self._label(side,"WINDOWS SECURITY",8,self.MUTED,"bold",self.SIDE).pack(anchor="w",padx=24,pady=(0,30))
         self._label(side,"WORKSPACE",8,"#657891","bold",self.SIDE).pack(anchor="w",padx=22,pady=(0,10))
         self.nav={}
-        entries=[("home","▦   대시보드",self.show_dashboard),("filters","◉   필터 업데이트",lambda:self.update_filters()),("network","⌁   필터 서버 설정",lambda:self.open_filter_settings()),("license","◇   라이선스",lambda:self.open_license_settings()),("diagnostics","≋   진단 정보",self.show_diagnostics)]
-        for key,label,cmd in entries:
-            b=tk.Button(side,text=label,command=lambda k=key,fn=cmd:(self._select_nav(k),fn()),anchor="w",bg=self.SIDE,fg=self.MUTED,activebackground=self.ALT,activeforeground=self.TEXT,relief="flat",bd=0,padx=22,pady=13,cursor="hand2",font=("Segoe UI",10,"bold"))
-            b.pack(fill="x",padx=10,pady=2); self.nav[key]=b
+        items=[("home","▦   대시보드",self.show_dashboard),("filters","◉   필터 업데이트",self.update_filters),("network","⌁   필터 서버 설정",self.open_filter_settings),("license","◇   라이선스",self.open_license_settings),("diagnostics","≋   진단 정보",self.show_diagnostics)]
+        for key,label,fn in items:
+            b=tk.Button(side,text=label,command=lambda k=key,f=fn:(self._select_nav(k),f()),anchor="w",bg=self.SIDE,fg=self.MUTED,activebackground=self.ALT,activeforeground=self.TEXT,relief="flat",bd=0,padx=22,pady=13,cursor="hand2",font=("Segoe UI",10,"bold")); b.pack(fill="x",padx=10,pady=2); self.nav[key]=b
         tk.Frame(side,bg=self.SIDE).pack(fill="both",expand=True)
         self._label(side,"GUARDIAN WINDOWS",8,"#657891","bold",self.SIDE).pack(anchor="w",padx=22)
         self._label(side,"Development build  •  0.1.0-dev",8,self.MUTED,bg=self.SIDE).pack(anchor="w",padx=22,pady=(5,20))
@@ -145,8 +144,7 @@ class GuardianDesktop:
         for w in self.page.winfo_children(): w.destroy()
     def _metric(self,p,title,sub,color):
         f=tk.Frame(p,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=18,pady=15)
-        self._label(f,title,9,self.MUTED,"bold").pack(anchor="w"); v=self._label(f,"0",23,color,"bold"); v.pack(anchor="w",pady=(8,2))
-        self._label(f,sub,9,self.MUTED).pack(anchor="w"); return f,v
+        self._label(f,title,9,self.MUTED,"bold").pack(anchor="w"); v=self._label(f,"0",23,color,"bold"); v.pack(anchor="w",pady=(8,2)); self._label(f,sub,9,self.MUTED).pack(anchor="w"); return f,v
     def show_dashboard(self):
         self._select_nav("home"); self.page_title.configure(text="대시보드"); self._clear_page()
         hero=tk.Frame(self.page,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=26,pady=23); hero.pack(fill="x",pady=(0,18))
@@ -159,18 +157,15 @@ class GuardianDesktop:
         self.stop_button=self._button(ctl,"보호 중지",self.stop_protection,"danger"); self.stop_button.pack(fill="x")
         metrics=tk.Frame(self.page,bg=self.BG); metrics.pack(fill="x",pady=(0,18))
         for i in range(3): metrics.columnconfigure(i,weight=1,uniform="metric")
-        self.blocked_value=self._metric(metrics,"차단된 요청","광고 및 추적 도메인",self.TEAL)
-        self.forwarded_value=self._metric(metrics,"정상 전달","업스트림 DNS 응답",self.BLUE)
-        self.adapters_value=self._metric(metrics,"보호 상태","네트워크 어댑터",self.TEXT)
+        self.blocked_value=self._metric(metrics,"차단된 요청","광고 및 추적 도메인",self.TEAL); self.forwarded_value=self._metric(metrics,"정상 전달","업스트림 DNS 응답",self.BLUE); self.adapters_value=self._metric(metrics,"보호 상태","네트워크 어댑터",self.TEXT)
         for i,item in enumerate((self.blocked_value,self.forwarded_value,self.adapters_value)): item[0].grid(row=0,column=i,sticky="nsew",padx=(0 if i==0 else 8,0 if i==2 else 8))
         lower=tk.Frame(self.page,bg=self.BG); lower.pack(fill="both",expand=True); lower.columnconfigure((0,1),weight=1,uniform="cards")
-        for col,title,eyebrow,accent,desc,button,cmd in [(0,"필터 상태","FILTER INTELLIGENCE",self.TEAL,"서명 필터와 업데이트 상태를 관리합니다.","필터 업데이트",self.update_filters),(1,"라이선스","GUARDIAN ACCOUNT",self.BLUE,"Windows와 Android 공통 라이선스 상태입니다.","라이선스 관리",self.open_license_settings)]:
+        for col,title,eyebrow,accent,button,fn in [(0,"필터 상태","FILTER INTELLIGENCE",self.TEAL,"필터 업데이트",self.update_filters),(1,"라이선스","GUARDIAN ACCOUNT",self.BLUE,"라이선스 관리",self.open_license_settings)]:
             card=tk.Frame(lower,bg=self.PANEL,highlightthickness=1,highlightbackground=self.BORDER,padx=18,pady=16); card.grid(row=0,column=col,sticky="nsew",padx=(0,9) if col==0 else (9,0))
             self._label(card,eyebrow,8,accent,"bold").pack(anchor="w"); self._label(card,title,14,self.TEXT,"bold").pack(anchor="w",pady=(9,8))
             if col==0: self.filter_status=self._label(card,"서버 미설정",10,self.AMBER)
             else: self.license_status=self._label(card,"무료 버전",10,self.MUTED)
-            (self.filter_status if col==0 else self.license_status).pack(anchor="w")
-            self._button(card,button,cmd).pack(anchor="w",pady=(16,0))
+            (self.filter_status if col==0 else self.license_status).pack(anchor="w"); self._button(card,button,fn).pack(anchor="w",pady=(16,0))
         self._label(self.page,"앱 창을 닫아도 백그라운드 DNS 보호는 유지됩니다.",9,self.MUTED,bg=self.BG).pack(anchor="w",pady=(14,0))
         self.set_active_ui(self.active,self.status.get())
     def show_diagnostics(self):
@@ -181,172 +176,7 @@ class GuardianDesktop:
         for label,value in rows:
             row=tk.Frame(panel,bg=self.PANEL); row.pack(fill="x",pady=8); self._label(row,label,9,self.MUTED).pack(anchor="w"); self._label(row,value,9,self.TEXT).pack(anchor="w",pady=(3,0))
         self._button(panel,"시작 로그 폴더 열기",lambda:os.startfile(str(APP_DIR))).pack(anchor="w",pady=(16,0))
-    def recover_previous_state(self):
-        if BACKUP.exists():
-            try:
-                state=json.loads(STATE.read_text(encoding="utf-8")) if STATE.exists() else {}
-                if state.get("enabled") is True:
-                    ensure_daemon_running(); self.set_active_ui(True,"보호 실행 중 · 재연결됨"); return
-                self.manager.restore(); write_state(False)
-            except Exception as exc:
-                # If DNS still points at loopback, never stop a possibly live proxy.
-                if BACKUP.exists() and proxy_ready(): self.set_active_ui(True,"보호 경로 유지 중 · 복구 확인 필요")
-                else:
-                    try: self.manager.restore(); write_state(False)
-                    except Exception: pass
-                self.start_button.configure(state="disabled")
-                messagebox.showerror("Guardian DNS 복구",f"이전 보호 상태를 자동 복구하지 못했습니다. DNS 백업을 보존했습니다.\n\n{exc}")
-        elif STATE.exists():
-            write_state(False)
-            try: stop_daemon()
-            except Exception as exc:
-                self.set_active_ui(False,"보호 꺼짐 · 백그라운드 종료 확인 필요")
-                messagebox.showerror("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
-    def start_protection(self):
-        if self.active: return
-        try:
-            ensure_config(); load_runtime_config(CONFIG); write_state(True); ensure_daemon_running()
-            count=self.manager.enable(); self.set_active_ui(True,f"보호 실행 중 · 어댑터 {count}개")
-        except Exception as exc:
-            if BACKUP.exists():
-                # A partial rollback leaves DNS on loopback; keep the daemon alive.
-                if proxy_ready(): self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
-                else: self.start_button.configure(state="disabled")
-            else:
-                write_state(False)
-                try: stop_daemon()
-                except Exception as stop_error:
-                    self.set_active_ui(False,"보호 시작 실패 · 백그라운드 종료 확인 필요")
-                    messagebox.showerror("Guardian 보호 시작 실패",f"{exc}\\n\\n백그라운드 종료 실패: {stop_error}")
-                    return
-                self.set_active_ui(False,"보호 시작 실패")
-            messagebox.showerror("Guardian 보호 시작 실패",str(exc))
-    def stop_protection(self):
-        if not self.active and not BACKUP.exists(): return
-        try: self.manager.restore()
-        except Exception as exc:
-            self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
-            messagebox.showerror("DNS 복구 실패",f"백그라운드 DNS 프록시를 계속 유지하고 백업을 보존했습니다.\n\n{exc}"); return
-        write_state(False)
-        try: stop_daemon()
-        except Exception as exc:
-            self.set_active_ui(False,"DNS 복구 완료 · 백그라운드 종료 확인 필요")
-            messagebox.showerror("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
-            return
-        self.set_active_ui(False)
-    def open_filter_settings(self):
-        try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
-        except Exception as exc: messagebox.showerror("필터 서버 설정",str(exc)); return
-        dialog=tk.Toplevel(self.root); dialog.title("서명 필터 서버 설정"); dialog.geometry("560x360"); dialog.configure(bg="#101820")
-        tk.Label(dialog,text="HTTPS manifest 기본 주소",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(14,2))
-        base=tk.Entry(dialog,width=72); base.insert(0,data.get("manifest_base_url","")); base.pack(fill="x",padx=16)
-        tk.Label(dialog,text="필터 source ID",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(10,2))
-        source=tk.Entry(dialog); source.insert(0,data.get("filter_source_id","adguard")); source.pack(fill="x",padx=16)
-        tk.Label(dialog,text="RSA 공개키 (X.509 SPKI Base64)",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(10,2))
-        key=tk.Text(dialog,height=5,wrap="word"); key.insert("1.0",data.get("manifest_public_key","")); key.pack(fill="both",expand=True,padx=16)
-        def save():
-            data["manifest_base_url"]=base.get().strip(); data["filter_source_id"]=source.get().strip(); data["manifest_public_key"]=key.get("1.0","end").strip()
-            tmp=CONFIG.with_suffix(".tmp"); tmp.write_text(json.dumps(data,indent=2),encoding="utf-8"); os.replace(tmp,CONFIG)
-            dialog.destroy(); messagebox.showinfo("필터 서버 설정","설정이 저장되었습니다. 공개키는 배포 서버의 오프라인 서명 공개키와 정확히 일치해야 합니다.")
-        tk.Button(dialog,text="저장",command=save,bg="#197a57",fg="white",relief="flat").pack(pady=10)
-    def _license_client(self,data):
-        base=data.get("license_api_base_url","").strip()
-        public_key=data.get("license_public_key","").strip()
-        if not base or not public_key:
-            raise LicenseClientError("라이선스 API HTTPS 주소와 RSA 공개키를 먼저 설정하세요.")
-        return WindowsLicenseClient(base,public_key,APP_DIR,app_version="0.1.0-dev")
-    def refresh_license_status(self):
-        try:
-            data=json.loads(CONFIG.read_text(encoding="utf-8")) if CONFIG.exists() else {}
-            client=self._license_client(data)
-            entitlement=client.current_entitlement()
-            if entitlement:
-                self.license_status.configure(text=f"라이선스: Guardian Pro · 만료 {time.strftime('%Y-%m-%d',time.localtime(entitlement['expiresAt']))}",fg="#54d69b")
-            else:
-                self.license_status.configure(text="라이선스: 무료",fg="#9fb2c3")
-        except Exception:
-            self.license_status.configure(text="라이선스: 설정 필요",fg="#f3b64a")
-    def open_license_settings(self):
-        try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
-        except Exception as exc: messagebox.showerror("Guardian 라이선스",str(exc)); return
-        dialog=tk.Toplevel(self.root); dialog.title("Guardian 공통 라이선스"); dialog.geometry("620x520"); dialog.configure(bg="#101820")
-        tk.Label(dialog,text="공통 라이선스 API HTTPS 주소",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(14,2))
-        base=tk.Entry(dialog); base.insert(0,data.get("license_api_base_url","")); base.pack(fill="x",padx=16)
-        tk.Label(dialog,text="RSA 공개키 (X.509 SPKI Base64)",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(10,2))
-        public=tk.Text(dialog,height=4,wrap="word"); public.insert("1.0",data.get("license_public_key","")); public.pack(fill="x",padx=16)
-        tk.Label(dialog,text="Guardian Pro 라이선스 키 (발급받은 키를 입력)",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(10,2))
-        license_key=tk.Entry(dialog); license_key.pack(fill="x",padx=16)
-        tk.Label(dialog,text="Windows와 Android는 같은 라이선스를 사용하며 기기 활성화 한도를 공유합니다.",fg="#9fb2c3",bg="#101820",wraplength=560,justify="left").pack(anchor="w",padx=16,pady=10)
-        status=tk.StringVar(value="서버 주소와 공개키를 저장한 뒤 라이선스를 활성화하세요.")
-        tk.Label(dialog,textvariable=status,fg="#9fb2c3",bg="#101820",wraplength=560,justify="left").pack(anchor="w",padx=16,pady=6)
-        def save_config():
-            data["license_api_base_url"]=base.get().strip()
-            data["license_public_key"]=public.get("1.0","end").strip()
-            tmp=CONFIG.with_suffix(".tmp"); tmp.write_text(json.dumps(data,indent=2),encoding="utf-8"); os.replace(tmp,CONFIG)
-            return data
-        def activate():
-            try:
-                saved=save_config()
-                entitlement=self._license_client(saved).activate(license_key.get())
-                status.set("Guardian Pro 활성화 완료 · 만료 "+time.strftime("%Y-%m-%d",time.localtime(entitlement["expiresAt"])))
-                self.refresh_license_status()
-            except Exception as exc: status.set("활성화 실패: "+str(exc))
-        def refresh():
-            try:
-                saved=save_config()
-                entitlement=self._license_client(saved).refresh()
-                status.set("라이선스 갱신 완료 · 만료 "+time.strftime("%Y-%m-%d",time.localtime(entitlement["expiresAt"])))
-                self.refresh_license_status()
-            except Exception as exc: status.set("갱신 실패: "+str(exc))
-        def deactivate():
-            try:
-                saved=save_config()
-                self._license_client(saved).deactivate()
-                status.set("이 Windows 기기의 라이선스 등록을 해제했습니다.")
-                self.refresh_license_status()
-            except Exception as exc: status.set("기기 해제 실패: "+str(exc))
-        buttons=tk.Frame(dialog,bg="#101820"); buttons.pack(pady=12)
-        tk.Button(buttons,text="설정 저장",command=lambda: (save_config(),status.set("설정 저장 완료")),bg="#33404c",fg="white",relief="flat").pack(side="left",padx=5)
-        tk.Button(buttons,text="라이선스 활성화",command=activate,bg="#197a57",fg="white",relief="flat").pack(side="left",padx=5)
-        tk.Button(buttons,text="갱신",command=refresh,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=5)
-        tk.Button(buttons,text="이 기기 해제",command=deactivate,bg="#8b3940",fg="white",relief="flat").pack(side="left",padx=5)
-    def update_filters(self):
-        try:
-            data=json.loads(CONFIG.read_text(encoding="utf-8"))
-            base=data.get("manifest_base_url","").strip(); key=data.get("manifest_public_key","").strip(); source=data.get("filter_source_id","adguard").strip()
-            if not base or not key: raise NetworkConfigError("서명 필터 업데이트를 사용하려면 HTTPS manifest 주소와 운영 공개키를 먼저 설정해야 합니다.")
-            rules_path=CONFIG.with_name(data.get("rules_file","rules.txt"))
-            updater=FilterUpdater(base,source,key,APP_DIR/"manifest-state.json",rules_path)
-            result=updater.update()
-            status={"state":"updated","sourceVersion":result["sourceVersion"],"checkedAt":time.time()}
-            tmp=APP_DIR/"filter-update-status.tmp"; tmp.write_text(json.dumps(status),encoding="utf-8"); os.replace(tmp,APP_DIR/"filter-update-status.json")
-            messagebox.showinfo("필터 업데이트 완료",f"서명 검증 및 SHA-256 확인 완료\n버전: {result['sourceVersion']}\n차단 규칙: {len(DomainRules.from_text(rules_path.read_text(encoding='utf-8')).blocked):,}개")
-        except Exception as exc: messagebox.showerror("필터 업데이트 실패",str(exc))
-    def refresh(self):
-        try:
-            stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
-            if hasattr(self,"blocked_value"): self.blocked_value[1].configure(text=f"{int(stats.get('blocked',0)):,}")
-            if hasattr(self,"forwarded_value"): self.forwarded_value[1].configure(text=f"{int(stats.get('forwarded',0)):,}")
-            if hasattr(self,"adapters_value"): self.adapters_value[1].configure(text="보호 중" if self.active else "대기 중")
-        except (OSError,ValueError,TypeError,KeyError): pass
-        try:
-            status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
-            label={"updated":"서명 필터 업데이트 완료","current":"최신 필터 사용 중","error":"필터 업데이트 오류"}.get(status.get("state"),"필터 상태 확인 필요")
-            if hasattr(self,"filter_status"): self.filter_status.configure(text=f"{label} {status.get('sourceVersion','')}".strip(),fg=self.GREEN if status.get("state") in ("updated","current") else self.AMBER)
-        except (OSError,ValueError,TypeError): pass
-        if hasattr(self,"top_status"): self.set_active_ui(self.active,self.status.get())
-        self.root.after(1000,self.refresh)
-    def close(self):
-        self.root.destroy()  # Background DNS task intentionally continues until explicit Stop.
-def main():
-    if "--self-test" in sys.argv: self_test(); return 0
-    if "--restore-dns" in sys.argv:
-        if not is_admin(): return 1
-        restore_and_remove_task(); return 0
-    if os.name!="nt": raise SystemExit("Windows 10/11 only")
-    if not is_admin(): return 0 if elevate() else 1
-    ensure_config(); root=tk.Tk(); GuardianDesktop(root); root.mainloop(); return 0
-if __name__=="__main__": raise SystemExit(main())    def set_active_ui(self,active,label=None):
+    def set_active_ui(self,active,label=None):
         self.active=active; current=label or ("보호 실행 중" if active else "보호 꺼짐"); self.status.set(current)
         if hasattr(self,"top_status"):
             self.top_status.configure(text="●  "+current,fg=self.GREEN if active else self.AMBER)
