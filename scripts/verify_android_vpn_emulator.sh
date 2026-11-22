@@ -1101,7 +1101,7 @@ python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
 texts={node.attrib.get("text","") for node in nodes}
-selected_settings=any(node.attrib.get("content-desc")=="설정"
+selected_settings=any(node.attrib.get("content-desc")=="전체 메뉴"
                       and node.attrib.get("selected")=="true"
                       for node in nodes)
 if "Guardian 앱 정보와 보호 정책" not in texts or not selected_settings:
