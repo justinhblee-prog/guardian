@@ -2,6 +2,11 @@
 
 Guardian 사용자 앱과 분리된 관리자 전용 Windows 데스크톱 앱입니다. WPF / .NET 8 기반이며 기존 Guardian License API와 PostgreSQL을 사용합니다.
 
+## 화면 구성
+- Windows 관리자 앱 기본 창을 980×700으로 축소하고 760×560까지 크기 조절 가능하도록 구성했습니다.
+- 모바일은 반응형 PWA 관리자 앱으로 제공하며, Android Chrome/iOS Safari에서 홈 화면에 추가해 실행합니다.
+- Windows 헤더/창 아이콘과 모바일 PWA는 Guardian 방패-G 주 아이콘을 공유합니다.
+
 ## 구현 범위
 - HTTPS License API 관리자 연결 (관리자 Bearer 토큰은 메모리에만 유지)
 - 라이선스 현황 요약 및 최근 200건 목록
