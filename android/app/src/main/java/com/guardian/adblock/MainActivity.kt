@@ -3336,7 +3336,7 @@ class MainActivity : Activity() {
                             prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("Guardian", "Security filter download failed: ${SafeFailureSummary.codeFor(e)}")
+                        android.util.Log.e("Guardian", "Security filter download failed: ${SafeFailureSummary.codeFor(e)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(e)}")
                         val editor = prefs.edit().putString(
                             FilterListManager.KEY_SECURITY_LAST_ERROR,
                             SafeFailureSummary.codeFor(e)
@@ -3407,7 +3407,7 @@ class MainActivity : Activity() {
                     androidAdsFilterCheckBox?.isEnabled = true
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Guardian", "Base filter update failed: ${SafeFailureSummary.codeFor(e)}")
+                android.util.Log.e("Guardian", "Base filter update failed: ${SafeFailureSummary.codeFor(e)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(e)}")
                 filterUpdateRunning.set(false)
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
                     .putString(FilterListManager.KEY_LAST_ERROR, SafeFailureSummary.codeFor(e)).apply()
