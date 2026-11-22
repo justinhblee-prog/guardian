@@ -376,6 +376,17 @@ class GuardianDesktop:
                 status.set("라이선스 갱신 완료 · 만료 "+time.strftime("%Y-%m-%d",time.localtime(entitlement["expiresAt"])))
                 self.refresh_license_status()
             except Exception as exc: status.set("갱신 실패: "+str(exc))
+        def check_server():
+            try:
+                saved=save_config()
+                result=self._license_client(saved).status()
+                if str(result.get("status","")).lower()=="active":
+                    status.set("서버 확인 완료 · Guardian Pro 활성")
+                else:
+                    status.set("서버 확인 완료 · Pro 권한 없음")
+                self.refresh_license_status()
+            except Exception as exc:
+                status.set("서버 확인 실패: "+str(exc)+" · 일시적 연결 오류라면 기존 서명 토큰은 만료 전까지 유지됩니다.")
         def deactivate():
             try:
                 saved=save_config()
@@ -387,6 +398,7 @@ class GuardianDesktop:
         tk.Button(buttons,text="설정 저장",command=lambda: (save_config(),status.set("설정 저장 완료")),bg="#33404c",fg="white",relief="flat").pack(side="left",padx=5)
         tk.Button(buttons,text="라이선스 활성화",command=activate,bg="#197a57",fg="white",relief="flat").pack(side="left",padx=5)
         tk.Button(buttons,text="갱신",command=refresh,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=5)
+        tk.Button(buttons,text="서버 상태 확인",command=check_server,bg="#40556d",fg="white",relief="flat").pack(side="left",padx=5)
         tk.Button(buttons,text="이 기기 해제",command=deactivate,bg="#8b3940",fg="white",relief="flat").pack(side="left",padx=5)
     def update_filters(self):
         try:
