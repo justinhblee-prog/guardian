@@ -21,8 +21,8 @@ def daemon_startup_diagnostics():
     details.append(f"DNS 백그라운드 실행 파일: {daemon_exe} (파일 존재: {daemon_exe.is_file()})")
     try:
         task=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
-        output="\\n".join(part.strip() for part in (task.stdout,task.stderr) if part and part.strip())
-        if output: details.append("작업 스케줄러 상태:\\n"+output[-5000:])
+        output="\n".join(part.strip() for part in (task.stdout,task.stderr) if part and part.strip())
+        if output: details.append("작업 스케줄러 상태:\n"+output[-5000:])
         else: details.append("작업 스케줄러 상태를 읽지 못했습니다.")
     except Exception as exc:
         details.append("작업 스케줄러 조회 실패: "+str(exc))
@@ -30,7 +30,7 @@ def daemon_startup_diagnostics():
     try:
         if log_path.exists():
             lines=log_path.read_text(encoding="utf-8",errors="replace").splitlines()
-            details.append("DNS 백그라운드 시작 로그:\\n"+"\\n".join(lines[-50:]))
+            details.append("DNS 백그라운드 시작 로그:\n"+"\n".join(lines[-50:]))
         else:
             details.append("DNS 백그라운드 시작 로그가 없습니다: "+str(log_path))
     except OSError as exc:
@@ -41,7 +41,7 @@ def daemon_startup_diagnostics():
     except Exception:
         details.append("유효한 DNS 백그라운드 생존 상태 파일이 없습니다.")
     details.extend(dns_port_53_diagnostics())
-    return "\\n\\n".join(details)
+    return "\n\n".join(details)
 
 def dns_port_53_diagnostics():
     """Identify processes that may prevent Guardian from binding its DNS listeners."""
@@ -140,14 +140,14 @@ def ensure_daemon_running():
             time.sleep(.25)
         if daemon_process_is_running(HEALTH):
             diagnostics=daemon_startup_diagnostics()
-            raise NetworkConfigError("Guardian DNS background process is already running but did not answer on IPv4 loopback port 53; a duplicate start was not requested.\\n\\n"+diagnostics)
+            raise NetworkConfigError("Guardian DNS background process is already running but did not answer on IPv4 loopback port 53; a duplicate start was not requested.\n\n"+diagnostics)
 
     result=run_task("/Run","/TN",TASK_NAME)
     if result.returncode:
         task_state=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
         diagnostics=daemon_startup_diagnostics()
         detail=task_state.stdout.strip() or task_state.stderr.strip()
-        raise NetworkConfigError((result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")+"\\n"+detail+"\\n"+diagnostics)
+        raise NetworkConfigError((result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")+"\n"+detail+"\n"+diagnostics)
     deadline=time.monotonic()+12
     while time.monotonic()<deadline:
         if proxy_ready(): return
@@ -155,7 +155,7 @@ def ensure_daemon_running():
     task_state=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
     diagnostics=daemon_startup_diagnostics()
     detail=task_state.stdout.strip() or task_state.stderr.strip()
-    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\\n"+detail+"\\n"+diagnostics)
+    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\n"+detail+"\n"+diagnostics)
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
@@ -291,7 +291,7 @@ class GuardianDesktop:
             try: stop_daemon()
             except Exception as exc:
                 self.set_active_ui(False,"보호 꺼짐 · 백그라운드 종료 확인 필요")
-                messagebox.showerror("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
+                messagebox.showerror("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\n\n{exc}")
     def start_protection(self):
         if self.active: return
         try:
@@ -307,7 +307,7 @@ class GuardianDesktop:
                 try: stop_daemon()
                 except Exception as stop_error:
                     self.set_active_ui(False,"보호 시작 실패 · 백그라운드 종료 확인 필요")
-                    messagebox.showerror("Guardian 보호 시작 실패",f"{exc}\\n\\n백그라운드 종료 실패: {stop_error}")
+                    messagebox.showerror("Guardian 보호 시작 실패",f"{exc}\n\n백그라운드 종료 실패: {stop_error}")
                     return
                 self.set_active_ui(False,"보호 시작 실패")
             messagebox.showerror("Guardian 보호 시작 실패",str(exc))
@@ -321,7 +321,7 @@ class GuardianDesktop:
         try: stop_daemon()
         except Exception as exc:
             self.set_active_ui(False,"DNS 복구 완료 · 백그라운드 종료 확인 필요")
-            messagebox.showerror("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
+            messagebox.showerror("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\n\n{exc}")
             return
         self.set_active_ui(False)
     def open_filter_settings(self):
