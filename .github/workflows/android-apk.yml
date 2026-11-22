@@ -223,9 +223,9 @@ jobs:
           assert manifest.get("sha256") == digest, "Published predecessor APK SHA-256 does not match its release manifest."
           print(f"Verified actual published predecessor: {manifest['versionName']} ({manifest['versionCode']}), SHA-256 {digest}")
           with open(__import__("os").environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              env.write(f"GUARDIAN_PREVIOUS_APK={apk_path}\\n")
-              env.write(f"GUARDIAN_PREVIOUS_VERSION_CODE={manifest['versionCode']}\\n")
-              env.write(f"GUARDIAN_PREVIOUS_VERSION_NAME={manifest['versionName']}\\n")
+              env.write(f"GUARDIAN_PREVIOUS_APK={apk_path}\n")
+              env.write(f"GUARDIAN_PREVIOUS_VERSION_CODE={manifest['versionCode']}\n")
+              env.write(f"GUARDIAN_PREVIOUS_VERSION_NAME={manifest['versionName']}\n")
           PY
 
           # Independently inspect the APK itself. Do not trust its sidecar JSON
@@ -235,8 +235,6 @@ jobs:
           ACTUAL_SIGNER="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$PREVIOUS_APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
           test "$ACTUAL_SIGNER" = "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
           echo "Previous release APK package and signing certificate independently verified."
-          echo "Upgrade baseline: $GUARDIAN_PREVIOUS_VERSION_NAME ($GUARDIAN_PREVIOUS_VERSION_CODE)"
-          echo "Upgrade baseline APK: $PREVIOUS_APK"
 
       - name: Assemble current debug APK for build verification
         shell: bash
@@ -467,9 +465,9 @@ jobs:
       - name: Install and launch APK on Android emulator
         id: android_emulator
         env:
-          GUARDIAN_PREVIOUS_APK: /tmp/guardian-0.7.33-dev.apk
-          GUARDIAN_PREVIOUS_VERSION_CODE: "46"
-          GUARDIAN_PREVIOUS_VERSION_NAME: 0.7.33-dev
+          GUARDIAN_PREVIOUS_APK: ${{ env.GUARDIAN_PREVIOUS_APK }}
+          GUARDIAN_PREVIOUS_VERSION_CODE: ${{ env.GUARDIAN_PREVIOUS_VERSION_CODE }}
+          GUARDIAN_PREVIOUS_VERSION_NAME: ${{ env.GUARDIAN_PREVIOUS_VERSION_NAME }}
           GUARDIAN_CURRENT_VERSION_CODE: ${{ env.GUARDIAN_VERSION_CODE }}
           GUARDIAN_CURRENT_VERSION_NAME: ${{ env.GUARDIAN_VERSION_NAME }}
         # Keep the APK artifact even if emulator infrastructure or VPN E2E fails.
@@ -501,7 +499,7 @@ jobs:
           echo "=== AVD manager inventory ==="
           "$AVDMANAGER" list avd
           echo "=== AVD files ==="
-          find "$ANDROID_AVD_HOME" -maxdepth 3 -type f -printf '%p (%s bytes)\\n' || true
+          find "$ANDROID_AVD_HOME" -maxdepth 3 -type f -printf '%p (%s bytes)\n' || true
           test -s "$ANDROID_AVD_HOME/$AVD_NAME.ini"
           test -s "$ANDROID_AVD_HOME/$AVD_NAME.avd/config.ini"
           "$EMULATOR_BIN" -list-avds | grep -Fx "$AVD_NAME"
