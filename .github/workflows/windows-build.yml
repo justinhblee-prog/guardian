@@ -183,10 +183,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if (git diff --quiet HEAD^ HEAD -- VERSION) {
+          git diff --quiet HEAD^ HEAD -- VERSION
+          if ($LASTEXITCODE -eq 0) {
             Write-Host 'Shared product version did not change; no new Windows release is published.'
             exit 0
           }
+          if ($LASTEXITCODE -ne 1) { throw 'Could not inspect the shared product version change.' }
           $VersionLines = Get-Content VERSION
           $VersionName = $VersionLines[0].Trim()
           $BuildNumber = [int]$VersionLines[1].Trim()
