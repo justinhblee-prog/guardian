@@ -327,14 +327,17 @@ class GuardianDesktop:
     def refresh(self):
         try:
             stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
-            self.stats.configure(text=f"광고/추적 차단 {int(stats.get('blocked',0)):,}건  |  정상 전달 {int(stats.get('forwarded',0)):,}건")
-        except (OSError,ValueError,TypeError): pass
+            if hasattr(self,"blocked_value"): self.blocked_value[1].configure(text=f"{int(stats.get('blocked',0)):,}")
+            if hasattr(self,"forwarded_value"): self.forwarded_value[1].configure(text=f"{int(stats.get('forwarded',0)):,}")
+            if hasattr(self,"adapters_value"): self.adapters_value[1].configure(text="보호 중" if self.active else "대기 중")
+        except (OSError,ValueError,TypeError,KeyError): pass
         try:
             status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
-            label={"updated":"서명 필터 업데이트 완료","current":"최신 필터 사용 중","error":"필터 업데이트 오류"}.get(status.get("state"),"필터 업데이트 상태 확인 필요")
-            version=status.get("sourceVersion","")
-            self.filter_status.configure(text=f"{label} {version}".strip(),fg="#54d69b" if status.get("state") in ("updated","current") else "#ff9b85")
+            label={"updated":"서명 필터 업데이트 완료","current":"최신 필터 사용 중","error":"필터 업데이트 오류"}.get(status.get("state"),"필터 상태 확인 필요")
+            if hasattr(self,"filter_status"):
+                self.filter_status.configure(text=f"{label} {status.get('sourceVersion','')}".strip(),fg=self.GREEN if status.get("state") in ("updated","current") else self.AMBER)
         except (OSError,ValueError,TypeError): pass
+        if hasattr(self,"top_status"): self.set_active_ui(self.active,self.status.get())
         self.root.after(1000,self.refresh)
     def close(self):
         self.root.destroy()  # Background DNS task intentionally continues until explicit Stop.
