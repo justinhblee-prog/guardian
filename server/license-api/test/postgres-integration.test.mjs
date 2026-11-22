@@ -210,7 +210,7 @@ if (!databaseUrl) {
     );
     assert.equal(audit.rowCount, 2);
     for (const row of audit.rows) {
-      assert.match(row.metadata, /"customerLinked":true/);
+      assert.match(row.metadata, /"customerLinked"\\s*:\\s*true/);
       assert.doesNotMatch(row.metadata, /First Customer Name|Updated Customer Name|shared-customer-|ORDER-FIRST|ORDER-SECOND/);
     }
   });
