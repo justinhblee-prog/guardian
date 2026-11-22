@@ -6,6 +6,7 @@ python -m pytest -q dns_engine windows_engine
 python -m compileall -q dns_engine windows_engine
 python -m PyInstaller --noconfirm --clean --windowed --name GuardianAdBlock windows_engine/desktop.py
 python -m PyInstaller --noconfirm --clean --windowed --name GuardianDnsProxy --distpath dist --workpath build/daemon windows_engine/proxy_daemon.py
+python -m PyInstaller --noconfirm --clean --console --name GuardianSelfTest --distpath dist --workpath build/selftest windows_engine/self_test.py
 $SigningCertificate = $null
 $SigningCertificatePath = Join-Path $env:RUNNER_TEMP 'guardian-code-signing.pfx'
 if (-not [string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64)) {
@@ -25,6 +26,7 @@ if (-not [string]::IsNullOrWhiteSpace($env:GUARDIAN_SIGNING_CERT_BASE64)) {
     }
     Sign-GuardianBinary (Join-Path $Root 'dist/GuardianAdBlock/GuardianAdBlock.exe')
     Sign-GuardianBinary (Join-Path $Root 'dist/GuardianDnsProxy/GuardianDnsProxy.exe')
+    Sign-GuardianBinary (Join-Path $Root 'dist/GuardianSelfTest/GuardianSelfTest.exe')
     Write-Host "Guardian binaries signed with: $($SigningCertificate.Subject)"
 } else {
     Write-Warning 'No trusted code-signing certificate configured. This development installer will be unsigned and may trigger SmartScreen/Defender reputation warnings.'
