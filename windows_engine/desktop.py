@@ -391,12 +391,22 @@ class GuardianDesktop:
         health_data={}
         try: health_data=json.loads(HEALTH.read_text(encoding="utf-8"))
         except Exception: pass
+        try: config_data=json.loads(CONFIG.read_text(encoding="utf-8"))
+        except Exception: config_data={}
         heartbeat_age=max(0.0,time.time()-float(health_data.get("heartbeatAt",0) or 0))
         pid_running=daemon_process_is_running(HEALTH)
+        filter_configured=bool(config_data.get("manifest_base_url","").strip() and config_data.get("manifest_public_key","").strip())
+        license_configured=bool(config_data.get("license_api_base_url","").strip() and config_data.get("license_public_key","").strip())
+        rules_path=APP_DIR/config_data.get("rules_file","rules.txt")
+        try: rule_count=len(DomainRules.from_text(rules_path.read_text(encoding="utf-8")).blocked)
+        except Exception: rule_count=0
         rows=[
             ("DNS 응답", "정상" if ready else "실패 · "+reason),
             ("백그라운드 PID",str(health_data.get("pid","확인 불가"))+" · "+("실행 중" if pid_running else "확인 실패")),
             ("Heartbeat 경과",f"{heartbeat_age:.1f}초"),
+            ("필터 서버", "연결 설정 완료" if filter_configured else "HTTPS 주소/서명 공개키 설정 필요"),
+            ("라이선스 서버", "연결 설정 완료" if license_configured else "HTTPS 주소/공개키 설정 필요"),
+            ("로컬 차단 규칙",f"{rule_count:,}개"),
             ("애플리케이션 데이터",str(APP_DIR)),
             ("DNS 백업","보존됨" if BACKUP.exists() else "없음"),
             ("보호 상태 파일","존재" if STATE.exists() else "없음"),
