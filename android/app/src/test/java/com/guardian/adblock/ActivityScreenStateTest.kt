@@ -5,7 +5,7 @@ import org.junit.Test
 
 class ActivityScreenStateTest {
     @Test fun restoresEverySupportedWorkspaceTab() {
-        listOf("home", "protection", "app-exclusions", "activity", "premium", "rules", "settings").forEach { tab ->
+        listOf("home", "protection", "app-exclusions", "activity", "premium", "rules", "settings", "updates").forEach { tab ->
             assertEquals(tab, ActivityScreenState.restoreTab(tab))
         }
     }
