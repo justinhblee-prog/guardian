@@ -14,7 +14,7 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - PostgreSQL 연결 5초, idle 연결 30초, statement 10초, query 12초, idle-in-transaction 15초 timeout
 - API JSON 본문은 최상위 객체만 허용하며, `null`·배열·문자열·숫자 등 잘못된 본문 형태는 HTTP 400으로 거부
 - 라이선스 발급/활성화/갱신/상태 및 관리자 기기 관리 API에 PostgreSQL 공유 요청 제한과 `429 Retry-After` 응답. 동일 DB를 사용하는 다중 API 인스턴스에서도 요청 카운터를 공유
-- 반응형 라이선스 관리자 대시보드: `/admin`. 전체/사용 가능/만료/정지 요약, 라이선스 검색·상태 필터·정렬, 발급·정지, 기기별 조회·해제, 최근 감사 기록을 제공합니다. 관리자 토큰은 페이지 메모리에서만 유지하고 브라우저 저장소에 저장하지 않습니다.
+- 반응형 라이선스 관리자 대시보드: `/admin`. 전체/사용 가능/만료/정지 요약, 라이선스 검색·상태 필터·정렬, 발급·정지, 기기별 조회·해제, 최근 감사 기록, Android/Windows 업데이트 게시 기능을 제공합니다. 관리자 토큰은 페이지 메모리에서만 유지하고 브라우저 저장소에 저장하지 않습니다.
 
 ## 환경 변수
 - `DATABASE_URL`: PostgreSQL 접속 URL
@@ -66,7 +66,7 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 ./Apply-GuardianLicenseMigrations.ps1
 ```
 
-이 스크립트는 PostgreSQL 준비 상태 확인 → 외부 보호 경로에 DB 백업 생성 → `002_shared_rate_limit_buckets.sql`, `003_support_tickets.sql`, `004_customers.sql` 순차 적용 → 필수 테이블 존재 확인 → 최신 API 이미지 재빌드 → `/ready` 확인까지 수행합니다. SQL migration은 재실행해도 안전하도록 `IF NOT EXISTS`를 사용합니다. 자동 스크립트를 사용할 수 없는 환경에서는 `docker compose exec -T db psql -v ON_ERROR_STOP=1 -U guardian -d guardian`에 migration SQL을 순서대로 전달할 수 있지만, 반드시 먼저 백업하십시오. migration 실패 시 백업을 보존하고 원인을 확인한 뒤 재시도하며, 운영 DB를 임의로 삭제하거나 초기화하지 마십시오.
+이 스크립트는 PostgreSQL 준비 상태 확인 → 외부 보호 경로에 DB 백업 생성 → `002_shared_rate_limit_buckets.sql`, `003_support_tickets.sql`, `004_customers.sql`, `005_shared_guardian_product.sql`, `006_permanent_licenses.sql`, `007_guardian_updates.sql` 순차 적용 → 필수 테이블 존재 확인 → 최신 API 이미지 재빌드 → `/ready` 확인까지 수행합니다. SQL migration은 재실행해도 안전하도록 `IF NOT EXISTS`를 사용합니다. 자동 스크립트를 사용할 수 없는 환경에서는 `docker compose exec -T db psql -v ON_ERROR_STOP=1 -U guardian -d guardian`에 migration SQL을 순서대로 전달할 수 있지만, 반드시 먼저 백업하십시오. migration 실패 시 백업을 보존하고 원인을 확인한 뒤 재시도하며, 운영 DB를 임의로 삭제하거나 초기화하지 마십시오.
 
 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
 
@@ -77,6 +77,9 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 - `POST /v1/licenses/status`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
 - `GET /v1/admin/licenses`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>`
 - `GET /v1/admin/events`: 최근 발급/활성화/비활성화/정지 감사 기록 100건
+- `GET /v1/updates/latest?platform=android|windows&channel=stable|beta`: 공개 업데이트 메타데이터 조회. 버전, HTTPS 다운로드 URL, SHA-256, 최소 지원 버전, 필수 여부 및 릴리스 노트를 반환
+- `GET /v1/admin/updates`: 관리자 인증 후 최근 제품 업데이트 100건 조회
+- `POST /v1/admin/updates`: 관리자 인증 후 플랫폼/채널/버전/HTTPS URL/SHA-256/최소 지원 버전/필수 여부/릴리스 노트 등록 또는 동일 버전 갱신
 - `POST /v1/admin/licenses`: 관리자 인증 + `{ "planCode": "annual_365d", "validDays": 365, "maxDevices": 1 }`. 영구 발급은 `{ "planCode": "permanent", "validDays": null, "maxDevices": 1 }`
 - `POST /v1/admin/licenses/{uuid}/revoke`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>` 및 UUID 형식의 라이선스 ID 필요
 - `GET /v1/admin/licenses/{uuid}/activations`: 라이선스의 최근 활성화 기록 최대 50건 조회. 기기 식별자는 해시 마지막 8자리만 반환
@@ -90,7 +93,7 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 활성화/갱신 성공 시 `payload`, `signature`, `expiresIn`을 반환합니다. 서버는 `Bearer` 인증 스킴을 엄격히 요구하며, `expiresIn`은 서명된 `expiresAt - issuedAt`과 일치합니다. Windows와 Android 클라이언트에는 같은 RSA 키쌍의 X.509 공개키를 배포하고 개인키는 API 서버에만 보관합니다. 신규 토큰의 제품 claim은 플랫폼 중립적인 `guardian`이며, Android 검증기는 기존 `guardian-android` 토큰도 호환합니다. 각 클라이언트는 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증해야 합니다.
 
 ## 고객 디렉터리 DB 마이그레이션
-기존 데이터베이스에는 `migrations/004_customers.sql`, `migrations/005_shared_guardian_product.sql` 및 `migrations/006_permanent_licenses.sql`을 한 번 적용해야 합니다. 005는 공통 `guardian-pro` 제품 레코드를 추가하며 기존 Android 라이선스와 제품 레코드를 삭제하거나 변환하지 않습니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
+기존 데이터베이스에는 `migrations/004_customers.sql`, `migrations/005_shared_guardian_product.sql` 및 `migrations/006_permanent_licenses.sql`과 `migrations/007_guardian_updates.sql`을 한 번 적용해야 합니다. 005는 공통 `guardian-pro` 제품 레코드를 추가하며 기존 Android 라이선스와 제품 레코드를 삭제하거나 변환하지 않습니다. 이 migration은 customers 테이블과 선택적 license.customer_id/order_ref 컬럼 및 인덱스를 추가하며 기존 라이선스·키 해시·활성화 기록을 삭제하거나 변경하지 않습니다. 적용 전 백업을 만들고, 적용 후 `/ready`와 관리자 고객 목록 API를 검증합니다.
 
 ## 보안 및 출시 전 남은 작업
 - API 인스턴스 간 rate limiting은 PostgreSQL 공유 카운터로 구현했지만, 프록시/WAF의 신뢰 IP 기반 방어와 DDoS 완화는 별도 구성해야 합니다. 관리자 토큰은 Bearer 방식이며 브라우저 메모리에만 보관합니다. 공개 운영 전 MFA 또는 SSO, 관리자별 RBAC, 토큰 교체·폐기 절차, 접근 감사, 비밀값 저장소, WAF 및 침투 테스트를 추가해야 합니다. 관리자 다중 사용자/RBAC, 이메일/구매 복구, Google Play Billing 및 결제 webhook, 자동 환불/차지백 동기화도 공개 전 별도 구현이 필요합니다.
