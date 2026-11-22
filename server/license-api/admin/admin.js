@@ -454,3 +454,5 @@ $("refreshCustomers").addEventListener("click", async () => {
 });
 $("statusFilter").addEventListener("change", renderLicenses);
 $("sortOrder").addEventListener("change", renderLicenses);
+
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("/admin-sw.js", { scope: "/" }).catch(() => {});
