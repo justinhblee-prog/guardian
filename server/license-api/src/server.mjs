@@ -146,7 +146,7 @@ async function requireAdmin(req) {
 
 async function rotateAdminToken(req) {
   requireEnv();
-  await await requireAdmin(req);
+  await requireAdmin(req);
   const authorization = req.headers.authorization || '';
   const supplied = /^Bearer\s+([^\s]+)$/i.exec(authorization)?.[1] || '';
   const previousHash = hashAdminToken(supplied);
