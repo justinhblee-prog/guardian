@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createPostgresRateLimiter } from '../src/rate-limit.mjs';
+import { initializeAdminAuth } from '../src/server.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -51,6 +52,23 @@ if (!databaseUrl) {
     await pool.query('TRUNCATE guardian_updates, api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  test('first-run admin token is generated once and only its hash persists across restarts', async () => {
+    let firstToken = '';
+    const first = await initializeAdminAuth({ configuredToken: null, logToken: token => { firstToken = token; } });
+    assert.equal(first.generated, true);
+    assert.match(firstToken, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(first.tokenHash, (await import('node:crypto')).createHash('sha256').update(firstToken).digest('hex'));
+    const stored = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
+    assert.equal(stored.rows[0].token_hash, first.tokenHash);
+    assert.equal(stored.rows[0].token_hash.includes(firstToken), false);
+
+    let secondLog = '';
+    const second = await initializeAdminAuth({ configuredToken: null, logToken: token => { secondLog = token; } });
+    assert.equal(second.generated, false);
+    assert.equal(second.tokenHash, first.tokenHash);
+    assert.equal(secondLog, '');
   });
 
   test('PostgreSQL rate limiter prunes expired buckets during bounded cleanup', async () => {
