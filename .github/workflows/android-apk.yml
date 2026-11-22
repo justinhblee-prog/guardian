@@ -461,8 +461,24 @@ jobs:
           test -s "$ANDROID_AVD_HOME/$AVD_NAME.ini"
           test -s "$ANDROID_AVD_HOME/$AVD_NAME.avd/config.ini"
           "$EMULATOR_BIN" -list-avds | grep -Fx "$AVD_NAME"
+          # The emulator's default 10.0.2.3 DNS proxy can return ECONNREFUSED
+          # on hosted runners even while the virtual Wi-Fi link is connected.
+          # Pass through the runner's real upstream resolver(s) explicitly.
+          HOST_DNS_SERVERS="$(
+            {
+              awk '$1 == "nameserver" { print $2 }' /etc/resolv.conf
+              if command -v resolvectl >/dev/null 2>&1; then
+                resolvectl dns 2>/dev/null | grep -Eo '([0-9]{1,3}\\.){3}[0-9]{1,3}' || true
+              fi
+            } | awk '$0 !~ /^127\\./ && $0 != "::1" && $0 !~ /^169\\.254\\./ && !seen[$0]++' | paste -sd, -
+          )"
+          if [ -z "$HOST_DNS_SERVERS" ]; then
+            HOST_DNS_SERVERS="8.8.8.8,1.1.1.1"
+          fi
+          echo "Android emulator upstream DNS servers: $HOST_DNS_SERVERS"
+          getent ahostsv4 adguardteam.github.io | head -n 3
           adb start-server
-          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -netfast > "$AVD_LOG" 2>&1 &
+          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -dns-server "$HOST_DNS_SERVERS" -netfast > "$AVD_LOG" 2>&1 &
           EMULATOR_PID=$!
           echo "Started emulator PID=$EMULATOR_PID, log=$AVD_LOG"
           ready=0
