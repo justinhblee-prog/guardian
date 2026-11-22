@@ -7,7 +7,7 @@ from dns_engine import DomainRules,DnsProxy
 from dns_engine.wire import make_query
 from windows_engine.network_config import DnsAdapterManager,NetworkConfigError,is_admin
 from windows_engine.filter_updates import FilterUpdater
-from windows_engine.version import get_product_version
+from windows_engine.version import get_product_build_number, get_product_version
 from windows_engine.license_client import LicenseClientError,WindowsLicenseClient
 from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_is_running
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
@@ -517,7 +517,7 @@ class GuardianDesktop:
     def show_about_page(self):
         self._select_nav("settings"); self.page_title.configure(text="정보"); self._clear_page()
         self._label(self.page,"Guardian AdBlock for Windows",16,self.TEXT,"bold").pack(anchor="w")
-        self._label(self.page,f"버전 {get_product_version()} · 개발 빌드",10,self.MUTED).pack(anchor="w",pady=(8,4))
+        self._label(self.page,f"버전 {get_product_version()} · Build {get_product_build_number()} · 개발 빌드",10,self.MUTED).pack(anchor="w",pady=(8,4))
         self._label(self.page,"주식회사 유진컨설팅",10,self.MUTED).pack(anchor="w")
 
     def confirm_exit(self):
