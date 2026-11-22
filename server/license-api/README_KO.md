@@ -14,11 +14,11 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - PostgreSQL 연결 5초, idle 연결 30초, statement 10초, query 12초, idle-in-transaction 15초 timeout
 - API JSON 본문은 최상위 객체만 허용하며, `null`·배열·문자열·숫자 등 잘못된 본문 형태는 HTTP 400으로 거부
 - 라이선스 발급/활성화/갱신/상태 및 관리자 기기 관리 API에 PostgreSQL 공유 요청 제한과 `429 Retry-After` 응답. 동일 DB를 사용하는 다중 API 인스턴스에서도 요청 카운터를 공유
-- 반응형 라이선스 관리자 대시보드: `/admin`. 전체/사용 가능/만료/정지 요약, 라이선스 검색·상태 필터·정렬, 발급·정지, 기기별 조회·해제, 최근 감사 기록, Android/Windows 업데이트 게시 기능을 제공합니다. 관리자 토큰은 페이지 메모리에서만 유지하고 브라우저 저장소에 저장하지 않습니다.
+- 반응형 라이선스 관리자 대시보드: `/admin`. 전체/사용 가능/만료/정지 요약, 라이선스 검색·상태 필터·정렬, 발급·정지, 기기별 조회·해제, 최근 감사 기록, Android/Windows 업데이트 게시 기능을 제공합니다. 관리자 토큰은 페이지 메모리에서만 유지하고 브라우저 저장소에 저장하지 않습니다. 환경변수를 생략하면 최초 실행 로그에 토큰이 단 한 번 표시되므로 즉시 암호 관리자에 보관하십시오. 이후 재시작에서는 같은 DB 해시를 사용하며 토큰을 다시 출력하지 않습니다.
 
 ## 환경 변수
 - `DATABASE_URL`: PostgreSQL 접속 URL
-- `GUARDIAN_ADMIN_TOKEN`: 최소 32자 이상의 무작위 관리자 bearer token
+- `GUARDIAN_ADMIN_TOKEN`: 선택 항목. 설정하면 기존 수동/외부 Secret 방식으로 인증하며 DB에도 해시를 동기화합니다. 생략하면 최초 API 실행 시 256비트 무작위 관리자 토큰을 자동 생성하고 SHA-256 해시만 PostgreSQL에 영구 저장합니다.
 - `GUARDIAN_LICENSE_LOOKUP_SECRET`: 최소 32자 이상의 별도 무작위 HMAC 비밀값
 - `GUARDIAN_LICENSE_PRIVATE_KEY`: RSA 2048비트 이상 개인키 PEM. Secret Manager에서 주입하고 Git/앱에 넣지 않습니다. 환경 변수의 줄바꿈은 `\n` 형태를 지원합니다.
 - `PORT`: 기본 8787
@@ -88,7 +88,7 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 - `GET /v1/admin/customers?q=<검색어>`: 관리자 인증 후 고객명/이메일 검색, 고객별 전체 라이선스 수·사용 가능 라이선스 수·최근 발급일 조회(최대 200명)
 - 기존 고객 정보가 없는 과거 라이선스는 자동으로 고객을 추정하지 않습니다. 마이그레이션 004 이후 신규 발급부터 고객 연결이 저장됩니다.
 - `GET /health`: 프로세스 생존 상태
-- `GET /ready`: DB 연결, 관리자 토큰, HMAC 비밀값 및 RSA 2048비트 이상 서명키 준비 상태 확인. Docker health check에서 사용
+- `GET /ready`: DB 연결, 관리자 인증 초기화, HMAC 비밀값 및 RSA 2048비트 이상 서명키 준비 상태 확인. Docker health check에서 사용
 
 활성화/갱신 성공 시 `payload`, `signature`, `expiresIn`을 반환합니다. 서버는 `Bearer` 인증 스킴을 엄격히 요구하며, `expiresIn`은 서명된 `expiresAt - issuedAt`과 일치합니다. Windows와 Android 클라이언트에는 같은 RSA 키쌍의 X.509 공개키를 배포하고 개인키는 API 서버에만 보관합니다. 신규 토큰의 제품 claim은 플랫폼 중립적인 `guardian`이며, Android 검증기는 기존 `guardian-android` 토큰도 호환합니다. 각 클라이언트는 서명, 상품, 권한, 만료 시각, 설치별 deviceBinding을 검증해야 합니다.
 
@@ -102,3 +102,15 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 - DB 스키마는 신규 설치용 초기 스키마입니다. 기존 DB에 적용할 경우 별도 migration 검토가 필요합니다.
 - 운영 RSA 개인키와 관리자/HMAC 비밀값, DATABASE_URL은 절대 저장소/앱/채팅에 커밋하지 않습니다.
 - 실제 결제 연결 전에는 수동 발급용 관리 도구이며, 실제 유료 판매/결제 완료를 주장하지 않습니다.
+
+
+## 관리자 토큰 자동 초기화 및 영구 보관
+
+기본 운영에서는 `GUARDIAN_ADMIN_TOKEN`을 직접 생성하거나 환경변수에 넣을 필요가 없습니다. API가 PostgreSQL 준비 후 `admin_credentials` 단일 행을 원자적으로 생성하고, 256비트 난수 bearer token의 SHA-256 해시만 저장합니다. 최초 생성된 원문 토큰은 서버 시작 로그에 한 번만 출력됩니다. 여러 API 인스턴스가 동시에 시작해도 DB 유일 행 잠금/충돌 처리를 통해 하나의 토큰만 발급되며, 이후 재시작은 저장된 해시를 재사용합니다.
+
+최초 토큰 확인:
+```sh
+docker compose logs api
+```
+
+로그에서 `[GUARDIAN ADMIN INITIAL TOKEN]` 항목을 확인해 암호 관리자에 안전하게 보관하십시오. 이 토큰은 재시작 시 다시 표시되지 않습니다. 로그 접근 권한을 제한하고, 토큰을 채팅·Git·스크린샷에 공유하지 마십시오. 기존 환경변수 토큰은 하위 호환으로 지원하며, 설정 시 해당 토큰의 해시를 DB에 동기화합니다. 새 빈 DB에는 `schema.sql`이, 기존 DB에는 migration 008이 필요합니다.
