@@ -60,3 +60,42 @@ def test_tcp_listener_returns_servfail_for_unexpected_handler_error():
         assert proxy.last_tcp_error_type=="RuntimeError"
     finally:
         proxy.stop()
+
+def test_tcp_listener_returns_servfail_when_query_processing_raises_oserror():
+    rules=DomainRules()
+    proxy=DnsProxy(rules,listen=(("127.0.0.1",0),))
+    proxy.process_query=lambda _packet: (_ for _ in ()).throw(OSError("synthetic upstream socket failure"))
+    proxy.start()
+    try:
+        port=proxy._tcp_servers[0].server_address[1]
+        query=_query("example.org")
+        with socket.create_connection(("127.0.0.1",port),timeout=3) as client:
+            client.settimeout(3)
+            client.sendall(struct.pack("!H",len(query))+query)
+            length=struct.unpack("!H",_read_exact(client,2))[0]
+            response=_read_exact(client,length)
+        assert response[:2]==query[:2]
+        assert response[2]&0x80
+        assert response[3]&0x0F==2
+        assert proxy.tcp_error_count==1
+        assert proxy.last_tcp_error_type=="OSError"
+        assert proxy.last_tcp_error_stage=="process DNS request"
+    finally:
+        proxy.stop()
+
+
+def test_tcp_listener_records_incomplete_request_without_leaking_query_data():
+    proxy=DnsProxy(DomainRules(),listen=(("127.0.0.1",0),))
+    proxy.start()
+    try:
+        port=proxy._tcp_servers[0].server_address[1]
+        with socket.create_connection(("127.0.0.1",port),timeout=3) as client:
+            client.settimeout(3)
+            client.sendall(b"\\x00")
+            client.shutdown(socket.SHUT_WR)
+            assert client.recv(1)==b""
+        assert proxy.tcp_error_count==1
+        assert proxy.last_tcp_error_type=="OSError"
+        assert proxy.last_tcp_error_stage=="read request length"
+    finally:
+        proxy.stop()
