@@ -129,13 +129,16 @@ def recv_exact(sock,length):
         if not chunk: raise OSError("DNS TCP response ended early")
         chunks.append(chunk); remaining-=len(chunk)
     return b"".join(chunks)
-def proxy_ready():
+def proxy_readiness_status():
+    """Return a safe, actionable reason when the local TCP DNS probe is not ready."""
     # The daemon publishes its heartbeat only after all UDP/TCP listeners bind.
     # Probe TCP because Windows SharedAccess may own wildcard UDP port 53.
-    if not daemon_health_is_fresh(HEALTH): return False
+    if not daemon_health_is_fresh(HEALTH):
+        return False,"DNS daemon heartbeat is missing, stale, or its PID is no longer running"
     try:
         domain=configured_probe_domain()
-        if not domain: return False
+        if not domain:
+            return False,"no active blocked domain is available for the DNS readiness probe"
         query=blocked_probe_query(domain)
         with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as client:
             client.settimeout(1.0)
@@ -143,10 +146,21 @@ def proxy_ready():
             client.sendall(struct.pack("!H",len(query))+query)
             header=recv_exact(client,2)
             length=struct.unpack("!H",header)[0]
-            if length<12 or length>4096: return False
+            if length<12 or length>4096:
+                return False,"local TCP DNS listener returned an invalid response length"
             response=recv_exact(client,length)
-        return is_dns_probe_response(query,response)
-    except (OSError,ValueError,TypeError): return False
+        if not is_dns_probe_response(query,response):
+            return False,"local TCP DNS listener responded, but the DNS response failed validation"
+        return True,"local TCP DNS response validated"
+    except OSError as exc:
+        return False,f"local TCP DNS connection/read failed (errno={getattr(exc,'winerror',None) or exc.errno or 'unknown'})"
+    except (ValueError,TypeError):
+        return False,"DNS readiness probe could not load or construct a valid blocked-domain query"
+
+
+def proxy_ready():
+    ready,_reason=proxy_readiness_status()
+    return ready
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
 def ensure_daemon_running():
@@ -165,8 +179,9 @@ def ensure_daemon_running():
             if not daemon_process_is_running(HEALTH): break
             time.sleep(.25)
         if daemon_process_is_running(HEALTH):
+            _ready,reason=proxy_readiness_status()
             diagnostics=daemon_startup_diagnostics()
-            raise NetworkConfigError("Guardian DNS background process is already running but did not answer on IPv4 loopback port 53; a duplicate start was not requested.\n\n"+diagnostics)
+            raise NetworkConfigError("Guardian DNS background process is already running but did not answer on IPv4 loopback port 53; a duplicate start was not requested.\nReadiness diagnosis: "+reason+"\n\n"+diagnostics)
 
     result=run_task("/Run","/TN",TASK_NAME)
     if result.returncode:
@@ -179,9 +194,10 @@ def ensure_daemon_running():
         if proxy_ready(): return
         time.sleep(.25)
     task_state=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
+    _ready,reason=proxy_readiness_status()
     diagnostics=daemon_startup_diagnostics()
     detail=task_state.stdout.strip() or task_state.stderr.strip()
-    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\n"+detail+"\n"+diagnostics)
+    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\nReadiness diagnosis: "+reason+"\n"+detail+"\n"+diagnostics)
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
