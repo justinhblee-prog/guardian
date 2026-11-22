@@ -6,7 +6,7 @@ from dns_engine import DnsProxy, DomainRules
 
 
 def _query(domain="doubleclick.net"):
-    labels=b"".join(bytes([len(part)])+part.encode("ascii") for part in domain.split("."))+b"\\0"
+    labels=b"".join(bytes([len(part)])+part.encode("ascii") for part in domain.split("."))+b"\0"
     return struct.pack("!HHHHHH",0x4A31,0x0100,1,0,0,0)+labels+struct.pack("!HH",1,1)
 
 
