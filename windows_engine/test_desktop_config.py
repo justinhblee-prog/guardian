@@ -42,3 +42,17 @@ def test_proxy_readiness_rejects_unowned_loopback_dns(tmp_path, monkeypatch):
         raise AssertionError("must not trust an arbitrary loopback DNS responder")
     monkeypatch.setattr(desktop.socket, "socket", unexpected_socket)
     assert not desktop.proxy_ready()
+
+
+def test_license_server_revalidation_interval_is_five_minutes():
+    from windows_engine.desktop import license_status_poll_due
+    assert license_status_poll_due(0, 300)
+    assert license_status_poll_due(100, 400)
+    assert not license_status_poll_due(100, 399.9)
+
+
+def test_license_server_revalidation_does_not_poll_too_frequently():
+    from windows_engine.desktop import license_status_poll_due
+    assert not license_status_poll_due(1000, 1001)
+    assert not license_status_poll_due(1000, 1299)
+    assert license_status_poll_due(1000, 1300)
