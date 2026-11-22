@@ -203,7 +203,9 @@ cache_ready() {
 
 echo "Verifying the dedicated Guardian Premium menu and license activation focus."
 dismiss_dev_update_prompt
-tap_content_description "프리미엄"
+tap_content_description "설정"
+sleep 1
+tap_content_description "라이선스 및 프리미엄"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -356,7 +358,7 @@ for node in root.iter("node"):
 
 echo "Verifying the app-exclusion search field is automatically revealed and filters installed apps."
 # Protection diagnostics and app exclusions are separate destinations in bottom navigation.
-tap_content_description "보호 설정"
+tap_content_description "보호"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-protection-controls.xml >/dev/null 2>&1
 protection_controls_xml="$(adb_cmd shell cat /sdcard/guardian-protection-controls.xml | tr -d '\r')"
@@ -645,7 +647,7 @@ controls=[node.attrib.get("text","").strip() for node in nodes
     and node.attrib.get("clickable")=="true"]
 if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))
-expected={"홈","보호 설정","앱 제외","DNS 활동","프리미엄","필터 규칙","설정"}
+expected={"홈","보호","앱 제외","활동","설정"}
 actual={node.attrib.get("content-desc") for node in nodes
         if node.attrib.get("class")=="android.widget.LinearLayout"
         and node.attrib.get("clickable")=="true"}
@@ -654,7 +656,7 @@ if not expected.issubset(actual):
 if not any(node.attrib.get("content-desc")=="홈" and node.attrib.get("selected")=="true"
            for node in nodes):
     raise SystemExit("Home is not the selected bottom-navigation destination.")' <<<"$home_navigation_xml"
-for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "프리미엄" "필터 규칙" "설정"; do
+for navigation_label in "보호" "앱 제외" "활동" "설정"; do
   tap_content_description "$navigation_label"
   sleep 1
   navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-navigation.xml)"
@@ -676,7 +678,9 @@ echo "Single home protection control and all seven bottom-navigation destination
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
 echo "Verifying filter-screen and unsaved rule state survive device rotation."
-tap_content_description "필터 규칙"
+tap_content_description "설정"
+sleep 1
+tap_content_description "필터링"
 tap_first_edit_text
 adb_cmd shell input text 'rotation-preserved.example'
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
@@ -693,7 +697,7 @@ rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
-selected=any(node.attrib.get("content-desc")=="필터 규칙" and node.attrib.get("selected")=="true" for node in nodes)
+selected=any(node.attrib.get("content-desc")=="설정" and node.attrib.get("selected")=="true" for node in nodes)
 draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
 if not (selected and draft):
     raise SystemExit("Activity rotation lost the selected filter tab, restored scroll position, or unsaved rule draft.")' <<<"$rotation_xml"
