@@ -3,6 +3,7 @@ name: Guardian AdBlock Production Release
   pull_request:
     paths:
       - 'android/app/build.gradle.kts'
+      - 'VERSION'
       - 'android/app/src/main/AndroidManifest.xml'
       - 'android/app/src/direct/AndroidManifest.xml'
       - 'android/app/src/main/java/com/guardian/adblock/MainActivity.kt'
