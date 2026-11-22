@@ -142,14 +142,29 @@ raise SystemExit(1)' "$wanted" <<<"$xml")" || {
   adb_cmd shell input tap "$x" "$y"
 }
 
-# The current Android navigation has five primary destinations. Filter and app
-# exclusion pages are opened from the "전체 메뉴" workspace rather than stale
-# standalone bottom-navigation items.
+# The current Android navigation has five primary destinations. Older
+# published APKs still expose Filter and App Exclusions as direct bottom tabs.
+# This script first exercises the previously published APK during upgrade E2E,
+# so select the matching navigation model from the live accessibility tree.
 open_settings_menu_item() {
   local title="$1"
-  tap_content_description "전체 메뉴"
-  sleep 1
-  tap_text "$title"
+  local xml
+  xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+  if grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
+    tap_content_description "전체 메뉴"
+    sleep 1
+    tap_text "$title"
+  else
+    case "$title" in
+      "앱 제외 관리") tap_content_description "앱 제외" ;;
+      "필터 관리") tap_content_description "필터 규칙" ;;
+      *)
+        echo "Legacy navigation fallback is not defined for menu item: $title"
+        echo "$xml"
+        return 1
+        ;;
+    esac
+  fi
   sleep 1
 }
 
