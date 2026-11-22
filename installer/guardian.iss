@@ -76,7 +76,7 @@ begin
 
   { Close the desktop process so Windows releases python3.dll and other
     PyInstaller runtime files before Inno Setup copies the new package. }
-  StopUiCommand := "$ErrorActionPreference='Stop'; Get-Process -Name 'GuardianAdBlock' -ErrorAction SilentlyContinue | Stop-Process -Force; $deadline=(Get-Date).AddSeconds(10); while ((Get-Process -Name 'GuardianAdBlock' -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }; if (Get-Process -Name 'GuardianAdBlock' -ErrorAction SilentlyContinue) { exit 1 }";
+  StopUiCommand := '$ErrorActionPreference=''Stop''; Get-Process -Name GuardianAdBlock -ErrorAction SilentlyContinue | Stop-Process -Force; $deadline=(Get-Date).AddSeconds(10); while ((Get-Process -Name GuardianAdBlock -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }; if (Get-Process -Name GuardianAdBlock -ErrorAction SilentlyContinue) { exit 1 }';
   if (not Exec(ExpandConstant('{sys}\\WindowsPowerShell\\v1.0\\powershell.exe'), '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' + StopUiCommand + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode)) or (ResultCode <> 0) then begin
     MsgBox('Guardian is still running and Windows has not released its application files. Restart Windows and run setup again.', mbError, MB_OK);
     Result := False;
