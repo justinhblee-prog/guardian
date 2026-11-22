@@ -81,6 +81,7 @@ test("customer directory is wired to the authenticated API and renders customer 
 test("admin license cards expose guarded manual extension and renewal API wiring", async () => {
   const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
   assert.match(js, /createButton\("기간 연장"/);
+  assert.match(js, /extended: \["기간 연장", "↻"\]/);
   assert.match(js, /validDays: days/);
   assert.match(js, /\/extend/);
   assert.match(js, /confirm\(/);
