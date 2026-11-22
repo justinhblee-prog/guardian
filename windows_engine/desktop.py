@@ -11,6 +11,8 @@ from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
 CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"
 TASK_NAME="GuardianDnsProxy"
+def daemon_executable_path():
+def daemon_startup_diagnostics():
 DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndication.com^\n||googleadservices.com^\n||adservice.google.com^\n||adnxs.com^\n||criteo.com^\n||taboola.com^\n||outbrain.com^\n||scorecardresearch.com^\n||quantserve.com^\n||mixpanel.com^\n||hotjar.com\n"
 def ensure_config():
     APP_DIR.mkdir(parents=True,exist_ok=True); rules=APP_DIR/"rules.txt"
@@ -60,14 +62,6 @@ def proxy_ready():
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
 def ensure_daemon_running():
-    if proxy_ready(): return
-    result=run_task("/Run","/TN",TASK_NAME)
-    if result.returncode: raise NetworkConfigError(result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")
-    deadline=time.monotonic()+12
-    while time.monotonic()<deadline:
-        if proxy_ready(): return
-        time.sleep(.25)
-    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53")
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
