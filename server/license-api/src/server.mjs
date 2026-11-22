@@ -210,7 +210,7 @@ async function activate(body) {
     const found = await client.query(
       `SELECT l.*, p.code AS product_code, p.active AS product_active
        FROM licenses l JOIN products p ON p.id=l.product_id
-       WHERE l.key_lookup=$1 AND l.status='active' AND l.expires_at>now() AND p.active=true
+       WHERE l.key_lookup=$1 AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>now()) AND p.active=true
        FOR UPDATE OF l`, [candidate.keyLookup]
     );
     let license = null;
@@ -257,7 +257,7 @@ async function refresh(body) {
        SELECT l.* FROM licenses l JOIN activations a ON a.license_id=l.id
        JOIN products p ON p.id=l.product_id
        WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
-       AND l.status='active' AND l.expires_at>now() AND p.active=true
+       AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>now()) AND p.active=true
        LIMIT 1 FOR UPDATE OF l, a`,
       [device, licenseRef]
     );
@@ -382,13 +382,14 @@ async function createLicense(body) {
     customer = { name, email, orderRef: orderRef || null };
   }
   const maxDevices = Number.isInteger(body.maxDevices) ? body.maxDevices : 1;
-  const days = Number.isInteger(body.validDays) ? body.validDays : 365;
-  const planDurations = { monthly_30d: 30, quarterly_90d: 90, annual_365d: 365, short_7d: 7 };
+  const days = body.validDays === null ? null : (Number.isInteger(body.validDays) ? body.validDays : 365);
+  const planDurations = { monthly_30d: 30, quarterly_90d: 90, annual_365d: 365, short_7d: 7, permanent: null };
   const planCode = typeof body.planCode === 'string' ? body.planCode : 'custom';
   const expectedDays = planDurations[planCode];
   if (!['custom', ...Object.keys(planDurations)].includes(planCode) ||
       (expectedDays !== undefined && days !== expectedDays) ||
-      maxDevices < 1 || maxDevices > 20 || days < 1 || days > 36500) {
+      maxDevices < 1 || maxDevices > 20 ||
+      (planCode === 'permanent' ? days !== null : (!Number.isInteger(days) || days < 1 || days > 36500))) {
     throw Object.assign(new Error('기기 수 또는 유효 기간 설정이 범위를 벗어났습니다.'), { status: 400 });
   }
   const key = newLicenseKey();
@@ -412,11 +413,11 @@ async function createLicense(body) {
     const ref = randomUUID();
     const inserted = await client.query(
       `INSERT INTO licenses(license_ref,product_id,customer_id,order_ref,key_salt,key_hash,key_lookup,expires_at,max_devices)
-       VALUES($1,$2,$3,$4,$5,$6,$7,now()+($8::int * interval '1 day'),$9)
+       VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8::int IS NULL THEN NULL ELSE now()+($8::int * interval '1 day') END,$9)
        RETURNING id,license_ref,status,expires_at,max_devices,created_at`,
       [ref, product.rows[0].id, customerId, customer?.orderRef || null, hashed.saltHex, hashed.hashHex, hashed.keyLookup, days, maxDevices]
     );
-    await recordEvent(client, inserted.rows[0].id, 'issued', 'admin', { planCode, maxDevices, days, customerLinked: Boolean(customerId) });
+    await recordEvent(client, inserted.rows[0].id, 'issued', 'admin', { planCode, maxDevices, days, permanent: planCode === 'permanent', customerLinked: Boolean(customerId) });
     await client.query('COMMIT');
     return { license: inserted.rows[0], licenseKey: key };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
@@ -440,7 +441,7 @@ async function listCustomers(req, search = '') {
   const result = await pool.query(
     `SELECT c.id,c.name,c.email,c.created_at,c.updated_at,
        count(DISTINCT l.id)::int AS license_count,
-       count(DISTINCT l.id) FILTER (WHERE l.status='active' AND l.expires_at>now())::int AS active_licenses,
+       count(DISTINCT l.id) FILTER (WHERE l.status='active' AND (l.expires_at IS NULL OR l.expires_at>now()))::int AS active_licenses,
        max(l.created_at) AS last_license_issued
      FROM customers c LEFT JOIN licenses l ON l.customer_id=c.id
      WHERE ($1='' OR c.name ILIKE '%' || $1 || '%' OR c.email ILIKE '%' || $1 || '%')
@@ -591,7 +592,7 @@ const server = http.createServer(async (req, res) => {
          JOIN activations a ON a.license_id=l.id
          JOIN products p ON p.id=l.product_id AND p.active=true
          WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
-           AND l.status='active' AND l.expires_at>now()
+           AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>now())
          LIMIT 1`, [device, licenseRef]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
     } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
