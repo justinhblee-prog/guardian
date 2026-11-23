@@ -45,7 +45,7 @@ internal object GuardianStableUpdateManager {
         // Always inspect the highest stable tag rather than assuming the first entry is newest.
         val latest = candidates.maxWithOrNull { left, right ->
             GuardianStableUpdatePolicy.compareVersionTags(left.tag, right.tag)
-        } ?: return null
+        } ?: error("공식 정식 Release를 찾을 수 없습니다. 아직 정식 APK 업데이트가 게시되지 않았습니다.")
         val tag = latest.tag
         val assets = latest.release.optJSONArray("assets")
             ?: error("최신 정식 Release에 업데이트 자산 목록이 없습니다.")
