@@ -1710,7 +1710,6 @@ class MainActivity : Activity() {
                     isFocusable = true
                     setOnClickListener {
                         selectedSettingsCategory = target
-                        settingsSidebarCollapsed = true
                         showTab("settings")
                     }
                 }.apply {
