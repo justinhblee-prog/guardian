@@ -1521,6 +1521,8 @@ class MainActivity : Activity() {
         ).withTop(14))
     }
     private fun buildPremium(body: LinearLayout) {
+
+        val entitlement = LicenseEntitlementStore.current(this)
         val reportsAvailable = entitlement?.let {
             PremiumEntitlementPolicy.canUse(
                 PremiumEntitlementPolicy.Feature.PREMIUM_REPORTS,
@@ -1528,8 +1530,6 @@ class MainActivity : Activity() {
                 System.currentTimeMillis() / 1000L
             )
         } == true
-
-        val entitlement = LicenseEntitlementStore.current(this)
         val retainedLicense = LicenseEntitlementStore.currentForRefresh(this)
         val proActive = entitlement != null
         // Development builds expose the complete Premium preview independently
