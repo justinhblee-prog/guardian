@@ -266,12 +266,13 @@ class GuardianDesktop:
             card=tk.Frame(parent,bg='#121d2c',highlightthickness=1,highlightbackground='#243449')
             card.pack(side='left',fill='both',expand=True,padx=(0,10))
             tk.Label(card,text=title,font=('Segoe UI',9,'bold'),fg='#91a8bd',bg='#121d2c').pack(anchor='w',padx=17,pady=(15,5))
-            tk.Label(card,text=value,font=('Segoe UI',21,'bold'),fg='#f4f4f5',bg='#121d2c').pack(anchor='w',padx=17)
+            value_label=tk.Label(card,text=value,font=('Segoe UI',21,'bold'),fg='#f4f4f5',bg='#121d2c')
+            value_label.pack(anchor='w',padx=17)
             tk.Label(card,text=sub,font=('Segoe UI',8),fg='#91a8bd',bg='#121d2c').pack(anchor='w',padx=17,pady=(3,15))
-            return card
-        metric_card(metrics,'차단된 요청','0','광고 · 추적 · 위협 도메인')
-        metric_card(metrics,'정상 전달','0','업스트림 DNS 응답')
-        metric_card(metrics,'보호 필터','—','필터 상태 확인 필요')
+            return value_label
+        self.stats=metric_card(metrics,'차단된 요청','0','광고 · 추적 · 위협 도메인')
+        self.forwarded_stats=metric_card(metrics,'정상 전달','0','업스트림 DNS 응답')
+        self.failed_stats=metric_card(metrics,'DNS 오류','0','실패 · 타임아웃 · 응답 오류')
         lower=tk.Frame(home,bg='#0b1220'); lower.pack(fill='x')
         info=tk.Frame(lower,bg='#121d2c',highlightthickness=1,highlightbackground='#243449')
         info.pack(side='left',fill='both',expand=True,padx=(0,10))
@@ -740,7 +741,9 @@ class GuardianDesktop:
             stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
             blocked=int(stats.get('blocked',0)); forwarded=int(stats.get('forwarded',0)); failed=int(stats.get('failed',0))
             summary=f"광고/추적 차단 {blocked:,}건  |  정상 전달 {forwarded:,}건  |  오류 {failed:,}건"
-            self.stats.configure(text=summary)
+            self.stats.configure(text=f"{blocked:,}")
+            self.forwarded_stats.configure(text=f"{forwarded:,}")
+            self.failed_stats.configure(text=f"{failed:,}")
             self.activity_stats.configure(text=summary)
             updated_at=float(stats.get('updatedAt',0) or 0)
             self.activity_updated.configure(text=('마지막 수집: '+time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(updated_at))) if updated_at>0 else 'DNS 엔진 통계 수집 대기 중')
