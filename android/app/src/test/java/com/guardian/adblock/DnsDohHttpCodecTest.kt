@@ -44,7 +44,7 @@ class DnsDohHttpCodecTest {
         assertTrue(request != null)
         assertArrayEquals(largeDnsMessage, request!!.copyOfRange(request.size - largeDnsMessage.size, request.size))
 
-        val response = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nContent-Length: 5000\\r\\n\\r\\n"
+        val response = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: 5000\r\n\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + largeDnsMessage
         assertArrayEquals(largeDnsMessage, DnsDohHttpCodec.readResponse(ByteArrayInputStream(response)))
     }
