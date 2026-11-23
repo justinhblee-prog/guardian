@@ -72,7 +72,12 @@ internal object PremiumReportStore {
         require(windowDays in 1..MAX_WINDOW_DAYS) { "리포트 기간은 1~90일이어야 합니다." }
         val nowSeconds = nowEpochMillis / 1000L
         val entitlement = LicenseEntitlementStore.current(context, nowSeconds) ?: return null
-        if (!PremiumEntitlementPolicy.isEntitlementActive(entitlement, nowSeconds)) return null
+        if (!PremiumEntitlementPolicy.canUse(
+                PremiumEntitlementPolicy.Feature.PREMIUM_REPORTS,
+                entitlement,
+                nowSeconds
+            )
+        ) return null
 
         val end = Instant.ofEpochMilli(nowEpochMillis).atZone(ZoneId.systemDefault()).toLocalDate()
         val start = end.minusDays((windowDays - 1).toLong())
