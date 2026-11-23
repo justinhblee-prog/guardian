@@ -9,6 +9,14 @@ internal object FilterStartupGate {
     fun hasUsableBundledBaseline(blockedRules: Int, importantBlockedRules: Int): Boolean =
         blockedRules > 0 || importantBlockedRules > 0
 
+    internal fun meetsMinimumRuleCount(
+        blockedRules: Int,
+        importantBlockedRules: Int,
+        minimumRules: Int
+    ): Boolean = minimumRules > 0 &&
+        blockedRules >= 0 && importantBlockedRules >= 0 &&
+        blockedRules.toLong() + importantBlockedRules.toLong() >= minimumRules.toLong()
+
     /**
      * Parses an optional feed without allowing a stale, missing, or malformed cache
      * to take down the DNS tunnel. A failed feed becomes an empty source and is
@@ -21,8 +29,8 @@ internal object FilterStartupGate {
     ): FilterRuleParser.Parsed = runCatching {
         require(minimumRules > 0) { "Optional filter minimum must be positive." }
         load().also { parsed ->
-            val actualRules = parsed.blocked.size + parsed.importantBlocked.size
-            check(actualRules >= minimumRules) {
+            val actualRules = parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong()
+            check(meetsMinimumRuleCount(parsed.blocked.size, parsed.importantBlocked.size, minimumRules)) {
                 "Optional filter has too few valid block rules: $actualRules"
             }
         }
