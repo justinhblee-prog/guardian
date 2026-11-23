@@ -45,13 +45,42 @@ def resolve_premium_category(hierarchy: str) -> str:
     raise ValueError("No supported License/Premium category is present in Settings")
 
 
+def resolve_settings_item(hierarchy: str, requested: str) -> str:
+    """Resolve current or legacy labels for a Settings destination."""
+    root = _root(hierarchy)
+    aliases = {
+        "앱 제외 관리": ("앱 제외 관리", "앱 제외"),
+        "필터 관리": ("필터 관리", "필터 규칙"),
+    }
+    candidates = aliases.get(requested, (requested,))
+    visible = {
+        value.strip()
+        for node in root.iter("node")
+        if node.attrib.get("visible-to-user", "true") == "true"
+        for value in (node.attrib.get("text", ""), node.attrib.get("content-desc", ""))
+        if value.strip()
+    }
+    for candidate in candidates:
+        if candidate in visible:
+            return candidate
+    raise ValueError("No visible compatible Settings item for: " + requested)
+
+
 def main() -> int:
-    if len(sys.argv) != 2 or sys.argv[1] not in {"entry", "category"}:
-        print("usage: android_navigation_compat.py entry|category", file=sys.stderr)
+    if len(sys.argv) not in (2, 3) or sys.argv[1] not in {"entry", "category", "settings-item"}:
+        print("usage: android_navigation_compat.py entry|category|settings-item [title]", file=sys.stderr)
+        return 2
+    if sys.argv[1] == "settings-item" and len(sys.argv) != 3:
+        print("settings-item requires a requested title", file=sys.stderr)
         return 2
     hierarchy = sys.stdin.read()
     try:
-        value = resolve_premium_entry(hierarchy) if sys.argv[1] == "entry" else resolve_premium_category(hierarchy)
+        if sys.argv[1] == "entry":
+            value = resolve_premium_entry(hierarchy)
+        elif sys.argv[1] == "category":
+            value = resolve_premium_category(hierarchy)
+        else:
+            value = resolve_settings_item(hierarchy, sys.argv[2])
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
