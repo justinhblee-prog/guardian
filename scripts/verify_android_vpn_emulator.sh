@@ -200,8 +200,18 @@ open_settings_menu_item() {
   # the detail page can also contain a nested control named "설정", which must
   # not be mistaken for the bottom-navigation destination.
   if grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
-    tap_content_description "전체 메뉴"
-    sleep 1
+    # The published 0.7.45 predecessor can retain a nested Settings detail
+    # page even when its generic All Menu tab is already selected. Re-select
+    # the route from Home so the legacy category index is actually restored.
+    if grep -Fq 'content-desc="홈"' <<<"$xml"; then
+      tap_content_description "홈"
+      sleep 0.5
+    fi
+    xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+    if grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
+      tap_content_description "전체 메뉴"
+      sleep 1
+    fi
   elif grep -Fq 'content-desc="설정"' <<<"$xml"; then
     tap_content_description "설정"
     # On current phones, tapping Settings while a detail page is open must
