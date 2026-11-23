@@ -817,7 +817,7 @@ class GuardianVpnService : VpnService() {
                 // Keep VPN startup available even if a packaged APK is missing its
                 // shared baseline asset. This is a degraded emergency list, not a
                 // substitute for repairing the APK asset packaging.
-                unavailable.add("기본 필터 라이브러리 누락 — 내장 긴급 규칙")
+                unavailable.add("기본 필터 라이브러리 누락 (${SafeFailureSummary.codeFor(error)}) — 내장 긴급 규칙")
                 prefs.edit().putString(
                     KEY_STARTUP_TRACE,
                     ProtectionDiagnostics.exceptionTraceSummary(error)
