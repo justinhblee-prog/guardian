@@ -448,7 +448,7 @@ echo "Verifying the app-exclusion search field is automatically revealed and fil
 # Detect the installed version instead of applying the candidate label to the
 # legacy APK before the in-place upgrade step.
 adb_cmd shell uiautomator dump /sdcard/guardian-navigation.xml >/dev/null 2>&1
-navigation_xml="$(adb_cmd shell cat /sdcard/guardian-navigation.xml | tr -d '\\r')"
+navigation_xml="$(adb_cmd shell cat /sdcard/guardian-navigation.xml | tr -d '\r')"
 if grep -Fq 'content-desc="보호 설정"' <<<"$navigation_xml"; then
   tap_content_description "보호 설정"
 elif grep -Fq 'content-desc="보호"' <<<"$navigation_xml"; then
@@ -1236,7 +1236,7 @@ if missing_settings or not selected_settings:
 scroll_to_text "정보"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-about-menu.xml >/dev/null 2>&1
-about_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-menu.xml | tr -d '\\r')"
+about_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-menu.xml | tr -d '\r')"
 if ! grep -Fq '앱 버전' <<<"$about_menu_xml" || ! grep -Fq '0.7.46-dev' <<<"$about_menu_xml"; then
   echo "The About submenu did not expose the current app version."
   echo "$about_menu_xml"
@@ -1247,7 +1247,7 @@ sleep 1
 scroll_to_text "종료"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-exit-menu.xml >/dev/null 2>&1
-exit_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-menu.xml | tr -d '\\r')"
+exit_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-menu.xml | tr -d '\r')"
 if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml" || ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_menu_xml"; then
   echo "The Exit submenu did not display its confirmation dialog."
   echo "$exit_menu_xml"
