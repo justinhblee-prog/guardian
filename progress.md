@@ -284,3 +284,9 @@
 - Android Premium 화면에 URL 구조 검사 및 APK SAF 선택/검사 결과 UI를 연결했습니다. 개발 미리보기에서만 기능 시험이 가능하며 PRO entitlement를 부여하지 않습니다. 정식 빌드는 production-ready 권한 등록 전까지 비활성입니다.
 - 독립 Kotlin/JVM smoke 통과: URL 9개 시나리오, APK DEX 5개 시나리오. Android Gradle/JUnit, SAF picker, 실기기 검증은 미실행입니다.
 - 범위 한계: manifest/권한·서명·실행 동작·네트워크 평판은 검사하지 않습니다. 이 엔진은 정적 DEX 문자열 휴리스틱이며 완전한 백신/악성코드 탐지 기능이 아닙니다.
+
+
+## 2026-11-24 — URL 파서 경계값 방어
+- 최신 phishing branch 커밋 `9ff044f8a590993349f7dc427d8049239b1641f2`: 포트 범위 1~65535, IDN 변환 후 전체 호스트 길이 253자, 숫자·점만으로 된 비정상 IPv4 입력을 검증합니다.
+- 저위험 결과 설명은 안전 보증으로 오해되지 않도록 문구를 조정했습니다.
+- 독립 Kotlin/JVM smoke 재실행 통과: 정상/의심 URL, punycode, 혼합 문자, IP literal, 단축 URL, userinfo, 실행 파일 확장자, 비정상 포트, malformed numeric host, 비지원 scheme 및 길이 경계.
