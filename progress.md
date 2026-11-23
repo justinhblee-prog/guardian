@@ -267,3 +267,13 @@
 - 문의 조회 화면뿐 아니라 `LicenseApiClient.lookupSupportTicket()` 진입점에서도 접수 번호와 조회 코드를 검증해 다른 호출 경로에서 잘못된 요청이 전송되지 않도록 했습니다.
 - 테스트에 조회 코드 최소/최대 길이, 잘못된 패딩 및 공백 문자를 추가했습니다.
 - 실제 `SupportInputPolicy.kt`와 동등한 독립 Kotlin/JVM 하네스를 `kotlinc`로 컴파일·실행해 이메일, 접수 번호, 조회 코드 검증 3개 시나리오를 통과했습니다. Android Gradle/JUnit 및 실제 API/DB는 미실행입니다.
+
+
+## 2026-11-24 — Android 무료 기본 제품 트랙 분리
+- 작업 브랜치: work/android-free-release-20261124 (기준: PR #290 HEAD e1a1b4f).
+- 최신 변경: 4096ba6ab8dc1ab72a0e615658b7eb7c01b2561a.
+- 라이선스 활성화 진입 후 Premium 복귀 버튼, 1차 Back 키보드 닫기, 2차 Back Premium 복귀, 회전/재생성 복귀 상태 보존을 추가했습니다.
+- filter_rules.txt asset 누락 시 시작 전 검사와 VPN 서비스 내부 로더가 내장 긴급 규칙으로 전환합니다. 정상 전체 필터가 아닌 제한 모드임을 표시하고 원인을 진단 상태에 기록합니다.
+- Android emulator 스크립트에 Back/복귀 E2E 단계를 추가했고 새 셸 블록은 bash -n 통과했습니다.
+- 아직 미검증: Android Gradle/JUnit, 전체 emulator VPN/DNS E2E, 실제 단말, 최신 branch APK 및 updater download/install.
+- 이전 기준 커밋 e1a1b4f의 Android workflow #2573은 build/unit/lint/emulator 성공이지만, 이 branch의 새 커밋을 검증한 결과로 재사용하지 않습니다.
