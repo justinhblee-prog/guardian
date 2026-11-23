@@ -279,7 +279,7 @@ class GuardianDesktop:
         self._section('premium','라이선스 및 Premium','공통 Guardian 라이선스와 기기 활성화를 관리합니다.')
         tk.Button(self.pages['premium'],text='라이선스 관리',command=self.open_license_settings,width=22,height=2,bg='#5946a8',fg='white',relief='flat').pack(anchor='w',pady=8)
         self._section('updates','프로그램 업데이트','Guardian Windows 앱의 새 버전을 확인합니다. 필터 목록 갱신과 다른 기능입니다.')
-        self.update_version=tk.Label(self.pages['updates'],text='설치 버전: 0.1.0-dev',fg='#d7e0e8',bg='#101114',font=('Segoe UI',12,'bold')); self.update_version.pack(anchor='w',pady=10)
+        self.update_version=tk.Label(self.pages['updates'],text='설치 버전: 0.1.1-dev',fg='#d7e0e8',bg='#101114',font=('Segoe UI',12,'bold')); self.update_version.pack(anchor='w',pady=10)
         self.program_update_status=tk.StringVar(value='업데이트 확인 전')
         tk.Label(self.pages['updates'],textvariable=self.program_update_status,wraplength=760,justify='left',fg='#bdcbd7',bg='#101114').pack(anchor='w',pady=12)
         row=tk.Frame(self.pages['updates'],bg='#101114'); row.pack(anchor='w',pady=10)
@@ -636,7 +636,7 @@ class GuardianDesktop:
         public_key=data.get("license_public_key","").strip()
         if not base or not public_key:
             raise LicenseClientError("라이선스 API HTTPS 주소와 RSA 공개키를 먼저 설정하세요.")
-        return WindowsLicenseClient(base,public_key,APP_DIR,app_version="0.1.0-dev")
+        return WindowsLicenseClient(base,public_key,APP_DIR,app_version="0.1.1-dev")
     def refresh_license_status(self):
         try:
             data=json.loads(CONFIG.read_text(encoding="utf-8")) if CONFIG.exists() else {}
