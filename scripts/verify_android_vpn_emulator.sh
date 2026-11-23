@@ -1343,6 +1343,11 @@ echo "Customer support center FAQ, inquiry submission form, and private lookup U
 
 
 auto_pause_picker_visible=0
+# Support dialogs can return to the previously active destination on some
+# Android builds. Reset through Home before entering Settings so this assertion
+# validates the actual Settings route rather than relying on a stale tab state.
+tap_content_description "홈"
+sleep 1
 # Compatibility and auto-pause controls now live in Full Menu > Filtering.
 # Navigate to that submenu explicitly before searching its scrollable content.
 settings_tab_selected=0
