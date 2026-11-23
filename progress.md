@@ -275,3 +275,12 @@
 - Kotlin/JVM smoke 9개 시나리오 통과. 최초 컴파일 smoke에서 IntArray collection 변환 오류를 발견해 `asIterable()` 적용 후 재실행 통과.
 - 현재는 오프라인 휴리스틱으로 외부 평판/위협 인텔리전스 조회를 하지 않습니다. 위험 점수는 악성 판정이 아니며, 낮은 점수도 안전을 보증하지 않습니다.
 - 미완료: APK/Dex 정적 분석, Android picker/UI, 실제 기능 권한 연결, Android Gradle/JUnit 및 emulator E2E.
+
+
+## 2026-11-24 — APK DEX 정적 검사 및 Premium 미리보기 UI
+- 최신 PRO phishing branch 커밋: `e5ee552c73e4f43c5b9dcdc99d3b47d05a433334`.
+- 선택 APK ZIP 안의 `classes.dex`, `classes2.dex` 등 DEX만 검사합니다. APK 압축 입력 200MB, 전체 해제 128MB, DEX 합계 64MB, ZIP 항목 10,000개 상한을 적용합니다.
+- 동적 코드 로딩, Runtime.exec, SMS, 접근성, 오버레이, 기기 관리자, 클립보드, PackageInstaller, WebView JS bridge 문자열을 탐지합니다. 클래스/메서드 문자열은 DEX에 분리 저장될 수 있어 별도 토큰 집합으로 확인합니다.
+- Android Premium 화면에 URL 구조 검사 및 APK SAF 선택/검사 결과 UI를 연결했습니다. 개발 미리보기에서만 기능 시험이 가능하며 PRO entitlement를 부여하지 않습니다. 정식 빌드는 production-ready 권한 등록 전까지 비활성입니다.
+- 독립 Kotlin/JVM smoke 통과: URL 9개 시나리오, APK DEX 5개 시나리오. Android Gradle/JUnit, SAF picker, 실기기 검증은 미실행입니다.
+- 범위 한계: manifest/권한·서명·실행 동작·네트워크 평판은 검사하지 않습니다. 이 엔진은 정적 DEX 문자열 휴리스틱이며 완전한 백신/악성코드 탐지 기능이 아닙니다.
