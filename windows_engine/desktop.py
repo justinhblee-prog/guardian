@@ -87,9 +87,7 @@ def daemon_readiness_diagnosis():
         xml_query=run_task("/Query","/TN",TASK_NAME,"/XML")
         if xml_query.returncode==0:
             try:
-                xml_root=ET.fromstring(xml_query.stdout)
-                command=xml_root.find(".//{*}Actions/{*}Exec/{*}Command")
-                details.append("Registered task executable: "+(command.text.strip() if command is not None and command.text else "not found in task XML"))
+                details.append("Registered task executable: "+(task_executable_from_xml(xml_query.stdout) or "not found in task XML"))
             except ET.ParseError as exc:
                 details.append("Task XML parse failed: "+str(exc))
     except Exception as exc: details.append("Task Scheduler query failed: "+str(exc))
@@ -138,6 +136,14 @@ def expected_daemon_executable():
         return None
     return Path(sys.executable).resolve().parent/"GuardianDnsProxy"/"GuardianDnsProxy.exe"
 
+def task_executable_from_xml(xml_text):
+    xml_text=xml_text.lstrip("\\ufeff")
+    if xml_text.lstrip().startswith("<?xml") and "?>" in xml_text:
+        xml_text=xml_text.split("?>",1)[1]
+    root=ET.fromstring(xml_text)
+    command=root.find(".//{*}Actions/{*}Exec/{*}Command")
+    return command.text.strip().strip('"') if command is not None and command.text else ""
+
 def ensure_daemon_task():
     executable=expected_daemon_executable()
     if executable is None:
@@ -153,10 +159,7 @@ def ensure_daemon_task():
     registered_path=""
     if query.returncode==0 and query.stdout.strip():
         try:
-            root=ET.fromstring(query.stdout)
-            command=root.find(".//{*}Actions/{*}Exec/{*}Command")
-            if command is not None and command.text:
-                registered_path=command.text.strip().strip('"')
+            registered_path=task_executable_from_xml(query.stdout)
         except ET.ParseError:
             registered_path=""
     expected=os.path.normcase(os.path.abspath(str(executable)))
