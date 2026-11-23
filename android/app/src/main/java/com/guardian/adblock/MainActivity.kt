@@ -1814,7 +1814,7 @@ class MainActivity : FragmentActivity() {
             val detailScroll = ScrollView(this).apply {
                 isFillViewport = true
                 clipToPadding = false
-                addView(detailPanel, ScrollView.LayoutParams(
+                addView(detailPanel, FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ))
