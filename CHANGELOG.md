@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-24 — 보안 프로필 네트워크 자동 전환 엔진 연결
+- Android ConnectivityManager 기본 네트워크 callback을 연결해 Wi-Fi/모바일/이더넷, 인터넷 검증, captive portal, 종량제 여부에 따라 보안 프로필을 자동 선택합니다.
+- 선택된 프로필은 실제 FilterListManager 설정에 반영하고, 보호 중이면 DNS 규칙 재로드를 요청합니다.
+- SSID/BSSID 및 네트워크 식별자는 저장하지 않습니다. 알 수 없는 Wi-Fi는 공용 Wi-Fi, captive/unvalidated/기타 네트워크는 엄격 보호로 처리합니다.
+- 종량제 링크에서는 자동 필터 다운로드 허용 정책을 false로 저장합니다. 다만 자동 다운로드 스케줄러 연동은 미완료입니다.
+- DEBUG 빌드에서만 자동 전환을 활성화하고, Premium 개발 미리보기에 사용자가 켜고 끌 수 있는 토글을 추가했습니다. Release는 entitlement/기기 검증 전까지 비활성입니다.
+- 독립 Kotlin/JVM smoke 통과: captive/unvalidated, public Wi-Fi, cellular metered, roaming, unknown transport 분기. Android Gradle/JUnit, emulator/실기기 NetworkCallback 검증은 미완료입니다.
+
 ## 2026-11-23 — Windows 조용한 DNS 실행 및 반응형 설정 탐색
 - Windows DNS 어댑터 조회·변경에 사용하는 PowerShell 실행에 CREATE_NO_WINDOW 및 STARTF_USESHOWWINDOW를 적용해 보호 시작/중지 중 콘솔 창이 표시되지 않도록 수정했습니다.
 - Windows 설정 카테고리는 항목 선택만으로 자동 축소되지 않으며, 사용자가 접기 버튼을 누를 때만 아이콘 레일로 전환됩니다.

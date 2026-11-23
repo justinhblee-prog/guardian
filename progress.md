@@ -267,3 +267,14 @@
 - 문의 조회 화면뿐 아니라 `LicenseApiClient.lookupSupportTicket()` 진입점에서도 접수 번호와 조회 코드를 검증해 다른 호출 경로에서 잘못된 요청이 전송되지 않도록 했습니다.
 - 테스트에 조회 코드 최소/최대 길이, 잘못된 패딩 및 공백 문자를 추가했습니다.
 - 실제 `SupportInputPolicy.kt`와 동등한 독립 Kotlin/JVM 하네스를 `kotlinc`로 컴파일·실행해 이메일, 접수 번호, 조회 코드 검증 3개 시나리오를 통과했습니다. Android Gradle/JUnit 및 실제 API/DB는 미실행입니다.
+
+
+## 2026-11-24 — 보안 프로필 네트워크 자동 전환 연결
+- 최신 branch 커밋: `830febf46caabad468a00738d246e5042a55b4e0`.
+- Android ConnectivityManager `registerDefaultNetworkCallback`로 네트워크 capability를 감시하고 Wi-Fi/모바일/이더넷, VALIDATED, CAPTIVE_PORTAL, NOT_METERED에 따라 SecurityProfilePolicy를 자동 적용합니다.
+- 선택한 프로필의 DNS filter profile/security/Android ads 옵션을 FilterListManager 설정에 반영하고, VPN 보호 중이면 ACTION_RELOAD_RULES를 호출합니다.
+- SSID/BSSID/네트워크 식별자는 저장하지 않습니다. 신뢰 여부를 확인하지 못한 Wi-Fi는 public Wi-Fi로 처리하고, captive/unvalidated/기타 네트워크는 strict로 처리합니다.
+- 종량제 네트워크에서는 automaticFilterUpdates=false 정책을 저장하지만 실제 updater scheduler 연동은 미완료입니다. roaming 자동 감지도 아직 false 고정이며 Travel 프로필은 현재 자동 판정되지 않습니다.
+- Premium DEBUG 미리보기에서 자동 전환 토글을 제공합니다. Release는 PRO entitlement 및 Android device validation 전까지 자동 전환이 비활성입니다.
+- 독립 Kotlin/JVM smoke 통과: public Wi-Fi, captive portal, metered cellular, roaming policy, unknown transport.
+- 미완료: Android Gradle/JUnit, emulator/physical-device network callback, OEM capability behavior, trusted Wi-Fi 식별/사용자 지정, roaming, updater scheduler integration, PRO gate.
