@@ -63,9 +63,9 @@ def test_windows_task_xml_parser_handles_namespaces_and_bom():
 
 def test_windows_dashboard_stats_are_initialized_before_first_refresh():
     source = (Path(__file__).with_name("desktop.py")).read_text(encoding="utf-8")
-    assert "self.stats=metric_card(metrics,'차단된 요청','0'" in source
-    assert "self.forwarded_stats=metric_card(metrics,'정상 전달','0'" in source
-    assert "self.failed_stats=metric_card(metrics,'DNS 오류','0'" in source
+    assert 'self.stats=metric_card(metrics,"차단된 요청","0"' in source
+    assert 'self.forwarded_stats=metric_card(metrics,"정상 전달","0"' in source
+    assert 'self.failed_stats=metric_card(metrics,"DNS 오류","0"' in source
     assert 'self.stats.configure(text=f"{blocked:,}")' in source
     assert 'self.forwarded_stats.configure(text=f"{forwarded:,}")' in source
     assert 'self.failed_stats.configure(text=f"{failed:,}")' in source
