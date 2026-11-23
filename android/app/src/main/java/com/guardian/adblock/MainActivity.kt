@@ -1824,35 +1824,91 @@ class MainActivity : FragmentActivity() {
             return
         }
 
-        val menuCard = LinearLayout(this).apply {
+        // Phone layout uses the same persistent icon rail + detail workspace as tablet/desktop.
+        val mobileSplit = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.TOP
+        }.withTop(18) as LinearLayout
+        val mobileRail = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(4), dp(16), dp(4))
-            background = shape(Color.rgb(27, 27, 30), 20)
+            setPadding(dp(5), dp(7), dp(5), dp(7))
+            background = shape(Color.rgb(17, 31, 47), 16)
         }
-        sections.forEachIndexed { index, (symbol, title, description, target) ->
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(4), dp(15), dp(2), dp(15))
-                addView(text(symbol, 21f, muted, true), LinearLayout.LayoutParams(dp(42), -2))
-                val labels = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
-                labels.addView(text(title, 16f, white, true))
-                labels.addView(text(description, 11f, muted, false).withTop(4))
-                addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
-                addView(text("›", 25f, muted, false))
+        val mobileDetail = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(14), dp(12), dp(16))
+            background = shape(Color.rgb(27, 27, 30), 16)
+        }
+        mobileSplit.addView(mobileRail, LinearLayout.LayoutParams(dp(58), ViewGroup.LayoutParams.MATCH_PARENT).apply {
+            marginEnd = dp(8)
+        })
+        val mobileToggle = Button(this).apply {
+            text = "›"
+            isAllCaps = false
+            textSize = 19f
+            setTextColor(accent)
+            background = shape(panel2, 11)
+            contentDescription = "설정 카테고리 펼치기"
+            setOnClickListener {
+                settingsSidebarCollapsed = !settingsSidebarCollapsed
+                showTab("settings")
+            }
+        }
+        mobileRail.addView(mobileToggle, LinearLayout.LayoutParams(-1, dp(40)).apply { bottomMargin = dp(7) })
+        sections.forEach { (symbol, title, description, target) ->
+            val selected = selectedSettingsCategory == target
+            mobileRail.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(2), dp(11), dp(2), dp(11))
+                background = shape(if (selected) Color.rgb(27, 72, 81) else Color.TRANSPARENT, 12)
+                addView(text(symbol, 19f, if (selected) white else muted, true))
                 contentDescription = title
                 isClickable = true
                 isFocusable = true
-                setOnClickListener { showTab(target) }
-            }
-            menuCard.addView(row)
-            if (index < sections.lastIndex) {
-                menuCard.addView(View(this).apply { setBackgroundColor(Color.rgb(39, 62, 78)) },
-                    LinearLayout.LayoutParams(-1, dp(1)).apply { leftMargin = dp(42) })
-            }
+                setOnClickListener {
+                    selectedSettingsCategory = target
+                    settingsSidebarCollapsed = true
+                    showTab("settings")
+                }
+            }, LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(4) })
         }
-        body.addView(menuCard.withTop(22))
-        body.addView(text("설정 항목을 선택하면 세부 설정 화면으로 이동합니다.", 11f, muted, false).withTop(12))
+        when (selectedSettingsCategory) {
+            "settings-general" -> buildSettingsGeneral(mobileDetail)
+            "settings-filtering" -> buildSettingsFiltering(mobileDetail)
+            "settings-premium" -> buildSettingsPremium(mobileDetail)
+            "settings-support" -> {
+                mobileDetail.addView(text("고객 지원", 21f, white, true))
+                mobileDetail.addView(buildSupportCenterCard().withTop(10))
+                mobileDetail.addView(text("진단 정보와 오류 내용은 직접 확인하고 복사할 수 있습니다.", 11f, muted, false).withTop(8))
+            }
+            "settings-about" -> buildSettingsAbout(mobileDetail)
+            "settings-exit" -> {
+                mobileDetail.addView(text("종료", 21f, white, true))
+                mobileDetail.addView(text("앱을 닫아도 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다.", 11f, muted, false).withTop(8))
+                mobileDetail.addView(Button(this).apply {
+                    text = "Guardian 종료"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(Color.rgb(139, 57, 64), 12)
+                    setOnClickListener {
+                        AlertDialog.Builder(this@MainActivity).setTitle("Guardian 종료")
+                            .setMessage("앱을 종료하시겠습니까? 실행 중인 DNS 보호는 종료 후에도 유지됩니다.")
+                            .setNegativeButton("취소", null)
+                            .setPositiveButton("종료") { _, _ -> finish() }
+                            .show()
+                    }
+                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(12) })
+            }
+            else -> buildSettingsGeneral(mobileDetail)
+        }
+        val mobileDetailScroll = ScrollView(this).apply {
+            isFillViewport = true
+            clipToPadding = false
+            addView(mobileDetail, FrameLayout.LayoutParams(-1, -2))
+        }
+        mobileSplit.addView(mobileDetailScroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        body.addView(mobileSplit, LinearLayout.LayoutParams(-1, dp(660)))
     }
 
     private fun buildSettingsGeneral(body: LinearLayout) {
