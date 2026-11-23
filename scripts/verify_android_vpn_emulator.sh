@@ -1345,8 +1345,29 @@ echo "Customer support center FAQ, inquiry submission form, and private lookup U
 auto_pause_picker_visible=0
 # Compatibility and auto-pause controls now live in Full Menu > Filtering.
 # Navigate to that submenu explicitly before searching its scrollable content.
-tap_content_description "설정"
-sleep 1
+settings_tab_selected=0
+for attempt in $(seq 1 3); do
+  tap_content_description "설정"
+  sleep 1
+  settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("content-desc")=="설정"
+       and node.attrib.get("selected")=="true"
+       and node.attrib.get("clickable")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$settings_navigation_xml"; then
+    settings_tab_selected=1
+    break
+  fi
+  echo "Settings navigation did not become selected (attempt $attempt/3); retrying."
+done
+if [[ "$settings_tab_selected" -ne 1 ]]; then
+  echo "Could not select the Settings navigation destination before checking VPN auto-pause."
+  echo "$settings_navigation_xml"
+  exit 1
+fi
 scroll_to_text "필터링"
 sleep 1
 for attempt in $(seq 1 24); do
