@@ -2353,11 +2353,26 @@ class MainActivity : Activity() {
     }
 
     private fun bottomNav(selected: String, asRail: Boolean = false): View {
+        val horizontal = !asRail
         val nav = LinearLayout(this).apply {
             orientation = if (asRail) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setBackgroundColor(Color.rgb(15, 23, 39))
-            setPadding(if (asRail) dp(7) else dp(5), dp(8), if (asRail) dp(7) else dp(5), dp(8))
+            setPadding(if (asRail) dp(7) else dp(4), dp(6), if (asRail) dp(7) else dp(4), dp(6))
+            if (horizontal) minimumHeight = dp(62)
+            // Keep labels above Android's gesture/navigation area on edge-to-edge devices.
+            if (horizontal) {
+                setOnApplyWindowInsetsListener { view, insets ->
+                    val bottomInset = if (Build.VERSION.SDK_INT >= 30) {
+                        insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+                    } else {
+                        @Suppress("DEPRECATION")
+                        insets.systemWindowInsetBottom
+                    }
+                    view.setPadding(dp(4), dp(6), dp(4), dp(6) + bottomInset)
+                    insets
+                }
+            }
         }
         val items = listOf(
             Triple("home", "⌂", "홈"),
@@ -2371,18 +2386,23 @@ class MainActivity : Activity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4), if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4))
+                setPadding(if (asRail) dp(4) else dp(1), if (asRail) dp(12) else dp(3), if (asRail) dp(4) else dp(1), if (asRail) dp(12) else dp(3))
                 contentDescription = label
                 isSelected = active
                 setOnClickListener { navigateToTab(id) }
                 if (active) background = shape(Color.rgb(31, 54, 76), 14)
             }
-            item.addView(text(icon, if (asRail) 24f else 21f, if (active) accent else muted, true).apply { gravity = Gravity.CENTER })
-            item.addView(text(label, if (asRail) 11f else 10f, if (active) white else muted, active).apply { gravity = Gravity.CENTER; setPadding(0, dp(2), 0, 0) })
+            item.addView(text(icon, if (asRail) 24f else 20f, if (active) accent else muted, true).apply { gravity = Gravity.CENTER })
+            item.addView(text(label, if (asRail) 11f else 11f, if (active) white else muted, active).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, dp(2), 0, 0)
+                maxLines = 1
+                includeFontPadding = true
+            })
             if (asRail) {
                 nav.addView(item, LinearLayout.LayoutParams(-1, dp(68)))
             } else {
-                nav.addView(item, LinearLayout.LayoutParams(0, dp(48), 1f))
+                nav.addView(item, LinearLayout.LayoutParams(0, dp(50), 1f))
             }
         }
         return nav
