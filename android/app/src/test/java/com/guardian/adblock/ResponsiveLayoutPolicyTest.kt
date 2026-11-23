@@ -81,3 +81,10 @@ class ResponsiveLayoutPolicyTest {
         }
     }
 }
+
+    @Test
+    fun settingsUseSinglePaneOnPhonesAndSplitPaneOnTablets() {
+        assertEquals(false, ResponsiveLayoutPolicy.usesSettingsSplitPane(599))
+        assertEquals(true, ResponsiveLayoutPolicy.usesSettingsSplitPane(600))
+        assertEquals(true, ResponsiveLayoutPolicy.usesSettingsSplitPane(840))
+    }
