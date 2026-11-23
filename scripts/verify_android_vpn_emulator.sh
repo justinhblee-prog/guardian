@@ -153,7 +153,7 @@ open_settings_menu_item() {
   if grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
     tap_content_description "전체 메뉴"
     sleep 1
-    tap_text "$title"
+    scroll_to_text "$title"
   else
     case "$title" in
       "앱 제외 관리") tap_content_description "앱 제외" ;;
@@ -720,10 +720,9 @@ controls=[node.attrib.get("text","").strip() for node in nodes
     and node.attrib.get("clickable")=="true"]
 if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))
-# This phase deliberately runs against the published predecessor APK.
-# Its navigation contract is the seven-item Korean layout; the new five-item
-# layout is asserted again after the current APK is installed below.
-expected={"홈","보호 설정","앱 제외","DNS 활동","프리미엄","필터 규칙","설정"}
+# This phase runs against the published predecessor APK 0.7.45-dev.
+# That build already contains the five-destination navigation redesign.
+expected={"홈","보호","활동","Premium","전체 메뉴"}
 actual={node.attrib.get("content-desc") for node in nodes
         if node.attrib.get("class")=="android.widget.LinearLayout"
         and node.attrib.get("clickable")=="true"}
@@ -732,7 +731,7 @@ if not expected.issubset(actual):
 if not any(node.attrib.get("content-desc")=="홈" and node.attrib.get("selected")=="true"
            for node in nodes):
     raise SystemExit("Home is not the selected bottom-navigation destination.")' <<<"$home_navigation_xml"
-for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "프리미엄" "필터 규칙" "설정"; do
+for navigation_label in "보호" "활동" "Premium" "전체 메뉴"; do
   tap_content_description "$navigation_label"
   sleep 1
   navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-navigation.xml)"
