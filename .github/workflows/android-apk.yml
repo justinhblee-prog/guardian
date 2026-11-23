@@ -71,8 +71,8 @@ jobs:
           python3 scripts/resolve_guardian_dev_version.py \
             --releases-json release/guardian-releases.json \
             --commit "$GITHUB_SHA" \
-            --baseline-version "0.7.46-dev" \
-            --baseline-code 59 \
+            --baseline-version "0.7.48-dev" \
+            --baseline-code 61 \
             --github-env "$GITHUB_ENV" \
             --github-output "$GITHUB_OUTPUT"
           echo "Version resolution completed."
