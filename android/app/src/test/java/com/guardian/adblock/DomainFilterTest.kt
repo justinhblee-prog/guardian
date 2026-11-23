@@ -248,6 +248,12 @@ class DomainFilterTest {
         assertTrue(FilterStartupGate.hasUsableBundledBaseline(count, 0))
     }
 
+    @Test fun emergencyBootstrapLinesParseIntoAUsableDnsBaseline() {
+        val parsed = FilterRuleParser.parse(DomainFilter.bootstrapRuleLines())
+        assertTrue(parsed.blocked.isNotEmpty())
+        assertTrue(FilterStartupGate.hasUsableBundledBaseline(parsed.blocked.size, parsed.importantBlocked.size))
+    }
+
     @Test fun appliesPersistedUserBlockAndAllowRulesAlongsideDownloadedSources() {
         DomainFilter.loadParsedRuleSources(
             sources = listOf({ FilterRuleParser.parse("block=feed-ads.example") }),

@@ -97,6 +97,7 @@ object DomainFilter {
     }
 
     fun bootstrapRuleCount(): Int = bootstrapBlocked.size
+    fun bootstrapRuleLines(): List<String> = bootstrapBlocked.map { "block=$it" }
 
     fun blockedRuleCount(): Int = activeRules.blocked.size + activeRules.importantBlocked.size
     fun allowedRuleCount(): Int = activeRules.allowed.size
