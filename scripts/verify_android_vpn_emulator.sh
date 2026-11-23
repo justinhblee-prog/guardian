@@ -234,8 +234,13 @@ scroll_to_text() {
   end_y=$((height / 5))
   for attempt in $(seq 1 10); do
     xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
-    if grep -Fq "text=\"$wanted\"" <<<"$xml"; then
+    if grep -Fq "text=\\\"$wanted\\\"" <<<"$xml"; then
       if tap_text "$wanted"; then return 0; fi
+    elif grep -Fq "content-desc=\\\"$wanted\\\"" <<<"$xml"; then
+      # Collapsed Android settings rails expose category labels as accessibility
+      # descriptions instead of visible text nodes. Resolve the semantic target
+      # directly; swiping the content pane cannot scroll the sidebar item.
+      if tap_content_description "$wanted"; then return 0; fi
     fi
     echo "Scrolling to visible control '$wanted' (attempt $attempt/10; display ${width}x${height})."
     adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
