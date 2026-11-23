@@ -380,7 +380,6 @@ remove incompatible override    @Deprecated("Deprecated in Java")
             }
         }
         restoreProtectionAfterUpdateIfNeeded()
-        requireDeviceAuthenticationIfEnabled()
     }
 
     private fun requireDeviceAuthenticationIfEnabled() {
@@ -450,6 +449,11 @@ remove incompatible override    @Deprecated("Deprecated in Java")
         deviceAuthInProgress = true
         startActivityForResult(credentialIntent, REQUEST_DEVICE_CREDENTIAL)
         return true
+    }
+
+    override fun onResume() {
+        super.onResume()
+        requireDeviceAuthenticationIfEnabled()
     }
 
     override fun onStop() {
