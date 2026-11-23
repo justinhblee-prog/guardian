@@ -26,7 +26,7 @@ internal data class PremiumReportSummary(
     val other: Long
 ) {
     val blockRatePercent: Int
-        get() = if (queries <= 0L) 0 else ((blocked.coerceAtMost(queries) * 100L) / queries).toInt()
+        get() = if (queries <= 0L) 0 else ((blocked.coerceAtMost(queries).toDouble() / queries.toDouble()) * 100.0).toInt()
 }
 
 /** Pure aggregation kept separate from Android storage so report math is testable. */
