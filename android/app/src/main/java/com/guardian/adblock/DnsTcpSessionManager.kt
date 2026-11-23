@@ -20,6 +20,9 @@ class DnsTcpSessionManager(
         var clientNext: Long,
         var serverNext: Long,
         val serverInitial: Long,
+        var serverAcknowledged: Long,
+        var peerWindow: Int = 65535,
+        val pendingServerData: ByteArrayOutputStream = ByteArrayOutputStream(),
         val received: ByteArrayOutputStream = ByteArrayOutputStream(),
         var lastActivity: Long,
         var lastClientSegmentStart: Long? = null,
@@ -67,7 +70,9 @@ class DnsTcpSessionManager(
             }
             val serverInitial = random.nextInt().toLong() and 0xffffffffL
             val session = Session(tcp.sequence, expectedClientNext,
-                (serverInitial + 1L) and MASK, serverInitial, lastActivity = now)
+                (serverInitial + 1L) and MASK, serverInitial,
+                serverAcknowledged = (serverInitial + 1L) and MASK,
+                peerWindow = tcp.window, lastActivity = now)
             sessions[key] = session
             return listOf(DnsTcpPacket.response(tcp, serverInitial, session.clientNext,
                 DnsTcpPacket.SYN or DnsTcpPacket.ACK))
@@ -91,6 +96,13 @@ class DnsTcpSessionManager(
             tcp.acknowledgement != initialServerNext) {
             return listOf(ack(tcp, session))
         }
+        // Track cumulative acknowledgements and the peer's currently advertised
+        // receive window. Window scaling is not negotiated, so this is the raw
+        // 16-bit window from the TCP header.
+        val ackDistance = (tcp.acknowledgement - session.serverAcknowledged) and MASK
+        val outstanding = (session.serverNext - session.serverAcknowledged) and MASK
+        if (ackDistance in 1L..outstanding) session.serverAcknowledged = tcp.acknowledgement
+        session.peerWindow = tcp.window
         session.lastActivity = now
         // Keep a half-closed session until the client acknowledges our FIN.
         // This lets a lost FIN/data response be replayed on an exact retransmission.
@@ -112,6 +124,11 @@ class DnsTcpSessionManager(
                     else listOf(ack(tcp, session))
             }
             return listOf(ack(tcp, session))
+        }
+        // ACK-only packets can reopen a zero/small receive window and drain
+        // queued DNS response bytes without requiring another DNS request.
+        if (tcp.payload.isEmpty() && !tcp.fin && session.pendingServerData.size() > 0) {
+            return drainServerData(tcp, session)
         }
         // Once the client has sent FIN, its byte stream is closed.
         // Do not accept new payload at the FIN sequence boundary; otherwise a
@@ -152,15 +169,7 @@ class DnsTcpSessionManager(
                     framed[0] = (answer.size ushr 8).toByte()
                     framed[1] = answer.size.toByte()
                     System.arraycopy(answer, 0, framed, 2, answer.size)
-                    var sent = 0
-                    while (sent < framed.size) {
-                        val count = minOf(maxSegmentPayload, framed.size - sent)
-                        val segment = framed.copyOfRange(sent, sent + count)
-                        replies.add(DnsTcpPacket.response(tcp, session.serverNext,
-                            session.clientNext, DnsTcpPacket.ACK or DnsTcpPacket.PSH, segment))
-                        session.serverNext = (session.serverNext + count) and MASK
-                        sent += count
-                    }
+                    session.pendingServerData.write(framed)
                 }
                 offset += messageLength + 2
             }
@@ -184,6 +193,7 @@ class DnsTcpSessionManager(
                 session.lastServerReplies = replies.map { it.copyOf() }
                 return replies
             }
+            replies.addAll(drainServerData(tcp, session))
             if (replies.isEmpty()) replies.add(ack(tcp, session))
             session.lastServerReplies = replies.map { it.copyOf() }
             return replies
@@ -209,6 +219,27 @@ class DnsTcpSessionManager(
             return listOf(fin)
         }
         return emptyList()
+    }
+
+    private fun drainServerData(packet: DnsTcpPacket.Parsed, session: Session): List<ByteArray> {
+        val outstanding = (session.serverNext - session.serverAcknowledged) and MASK
+        val available = (session.peerWindow.toLong() - outstanding).coerceAtLeast(0L).toInt()
+        if (available == 0 || session.pendingServerData.size() == 0) return emptyList()
+        val pending = session.pendingServerData.toByteArray()
+        val sendBytes = minOf(available, pending.size)
+        val replies = ArrayList<ByteArray>()
+        var offset = 0
+        while (offset < sendBytes) {
+            val count = minOf(maxSegmentPayload, sendBytes - offset)
+            val segment = pending.copyOfRange(offset, offset + count)
+            replies.add(DnsTcpPacket.response(packet, session.serverNext, session.clientNext,
+                DnsTcpPacket.ACK or DnsTcpPacket.PSH, segment))
+            session.serverNext = (session.serverNext + count) and MASK
+            offset += count
+        }
+        session.pendingServerData.reset()
+        session.pendingServerData.write(pending, sendBytes, pending.size - sendBytes)
+        return replies
     }
 
     @Synchronized
