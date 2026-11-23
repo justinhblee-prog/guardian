@@ -42,13 +42,18 @@ internal object SecurityProfilePolicy {
 
     fun resolveAutomatic(context: NetworkContext): Profile {
         // Captive portals and unvalidated networks are treated as untrusted.
-        if (context.captivePortal || !context.validated) return profile(Id.STRICT)
-        if (context.roaming) return profile(Id.TRAVEL)
-        return when (context.transport) {
-            Transport.WIFI -> if (context.trustedNetwork) profile(Id.HOME) else profile(Id.PUBLIC_WIFI)
-            Transport.CELLULAR -> profile(Id.MOBILE)
-            Transport.ETHERNET -> if (context.trustedNetwork) profile(Id.WORK) else profile(Id.STRICT)
-            Transport.OTHER, Transport.UNKNOWN -> profile(Id.STRICT)
+        val selected = when {
+            context.captivePortal || !context.validated -> profile(Id.STRICT)
+            context.roaming -> profile(Id.TRAVEL)
+            context.transport == Transport.WIFI && context.trustedNetwork -> profile(Id.HOME)
+            context.transport == Transport.WIFI -> profile(Id.PUBLIC_WIFI)
+            context.transport == Transport.CELLULAR -> profile(Id.MOBILE)
+            context.transport == Transport.ETHERNET && context.trustedNetwork -> profile(Id.WORK)
+            else -> profile(Id.STRICT)
         }
+        // Never download large filter updates automatically over a metered link.
+        return selected.copy(
+            automaticFilterUpdates = selected.automaticFilterUpdates && !context.metered
+        )
     }
 }
