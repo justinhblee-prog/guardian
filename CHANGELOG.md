@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-24 — 정식 updater 리디렉션 사전 차단
+- HttpURLConnection 자동 리디렉션을 끄고 HTTPS 3xx Location을 직접 따라가도록 변경했습니다. 다음 호스트에 연결하기 전에 URL scheme/host allowlist를 검사하므로 허용되지 않은 외부 호스트에는 요청하지 않습니다.
+- 최대 5회 리디렉션을 허용하며, HTTPS가 아닌 URL·userinfo 포함 URL·허용되지 않은 host는 연결 전에 거부합니다.
+
 ## 2026-11-24 — 정식 updater 버전 태그 입력 상한
 - 정식 Release semver 비교는 각 숫자 구성요소를 최대 9자리로 제한하고, 비정상적으로 큰 숫자 태그는 stable 후보에서 제외합니다.
 - Kotlin/JVM smoke 통과: v1.10.0/v1.9.9 숫자 정렬, 메이저 버전 비교, prerelease 제외, 과도한 숫자 태그 거부.
