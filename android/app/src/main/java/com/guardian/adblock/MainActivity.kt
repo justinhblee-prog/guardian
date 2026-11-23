@@ -1129,11 +1129,13 @@ class MainActivity : Activity() {
                 setOnClickListener {
                     val currentStatus = prefs.getString(GuardianVpnService.KEY_STATUS, "최근 오류 기록 없음").orEmpty()
                     val startupTrace = prefs.getString(GuardianVpnService.KEY_STARTUP_TRACE, "기록 없음").orEmpty()
+                    val filterError = prefs.getString(FilterListManager.KEY_LAST_ERROR, "최근 필터 오류 기록 없음").orEmpty()
                     val report = buildString {
-                        appendLine("Guardian AdBlock 보호 오류")
+                        appendLine("Guardian AdBlock 오류")
                         appendLine("앱 버전: ${BuildConfig.VERSION_NAME}")
-                        appendLine("상태: $currentStatus")
-                        appendLine("오류 호출 경로: $startupTrace")
+                        appendLine("보호 상태/최근 오류: $currentStatus")
+                        appendLine("보호 오류 호출 경로: $startupTrace")
+                        appendLine("최근 필터 업데이트 오류 코드: $filterError")
                     }
                     try {
                         val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
