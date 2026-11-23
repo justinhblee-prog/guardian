@@ -87,6 +87,12 @@ public partial class MainWindow : Window
         RevokedCount.Text = _rows.Count(x => EffectiveStatus(x.Status, x.ExpiresAt) == "revoked").ToString("N0");
     }
 
+    private void PlanBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var plan = (PlanBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "annual_365d";
+        CustomDaysPanel.Visibility = plan == "custom" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private async void Issue_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(CustomerNameBox.Text) || string.IsNullOrWhiteSpace(CustomerEmailBox.Text))
@@ -94,7 +100,16 @@ public partial class MainWindow : Window
         try
         {
             var plan = (PlanBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "annual_365d";
-            int? days = plan switch { "short_7d" => 7, "monthly_30d" => 30, "quarterly_90d" => 90, "permanent" => null, _ => 365 };
+            int days;
+            if (plan == "custom")
+            {
+                if (!int.TryParse(CustomDaysBox.Text.Trim(), out days) || days < 1 || days > 36500)
+                { StatusText.Text = "직접 이용 기간은 1~36500일의 정수여야 합니다."; return; }
+            }
+            else
+            {
+                days = plan switch { "short_7d" => 7, "monthly_30d" => 30, "quarterly_90d" => 90, _ => 365 };
+            }
             var devices = int.Parse((DeviceCountBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "1");
             var payload = new { validDays = days, maxDevices = devices, planCode = plan, customer = new { name = CustomerNameBox.Text.Trim(), email = CustomerEmailBox.Text.Trim(), orderRef = OrderRefBox.Text.Trim() } };
             var result = await Post<IssueResponse>("v1/admin/licenses", payload);
