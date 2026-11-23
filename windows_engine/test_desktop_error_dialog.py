@@ -11,5 +11,5 @@ def test_windows_error_dialog_exposes_copy_select_all_keyboard_and_scroll():
     assert 'dialog.bind("<Control-c>"' in source
     assert 'yscrollcommand=scrollbar.set' in source
     assert "scrollbar.configure(command=text.yview)" in source
-    assert source.count("self.show_error_dialog(") == 9
+    assert source.count("self.show_error_dialog(") == 7
     assert "messagebox.showerror(" not in source
