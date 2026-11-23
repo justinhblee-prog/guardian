@@ -80,7 +80,6 @@ class ResponsiveLayoutPolicyTest {
             ResponsiveLayoutPolicy.contentWidthPx(600, Float.NaN)
         }
     }
-}
 
     @Test
     fun settingsUseSinglePaneOnPhonesAndSplitPaneOnTablets() {
@@ -88,3 +87,4 @@ class ResponsiveLayoutPolicyTest {
         assertEquals(true, ResponsiveLayoutPolicy.usesSettingsSplitPane(600))
         assertEquals(true, ResponsiveLayoutPolicy.usesSettingsSplitPane(840))
     }
+}
