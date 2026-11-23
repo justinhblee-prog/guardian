@@ -106,15 +106,23 @@ object DomainFilter {
 
     private fun isValidRuleDomain(domain: String): Boolean = normalizeRuleDomain(domain) == domain
 
-    fun isBlocked(domain: String): Boolean {
+    fun isBlocked(domain: String): Boolean = isBlocked(domain, emptySet())
+
+    /**
+     * App-specific rules are additive and cannot override global allow rules or
+     * important block rules. This prevents a per-app custom list from weakening
+     * the user's global allow/block precedence.
+     */
+    fun isBlocked(domain: String, additionalBlockedRules: Set<String>): Boolean {
         val d = domain.trim().trimEnd('.').lowercase(java.util.Locale.ROOT)
         if (d.isEmpty() || d.length > 253) return false
         val snapshot = activeRules
-        // Hash lookups by DNS label avoid scanning every downloaded rule for
-        // every query. Work is bounded by the number of labels in the domain.
+        // Important global rules always win; global allow rules then retain their
+        // established precedence over both normal and app-specific block lists.
         if (matchesDomainOrParent(d, snapshot.importantBlocked)) return true
         if (matchesDomainOrParent(d, snapshot.allowed)) return false
-        return matchesDomainOrParent(d, snapshot.blocked)
+        return matchesDomainOrParent(d, snapshot.blocked) ||
+            matchesDomainOrParent(d, additionalBlockedRules)
     }
 
     private fun matchesDomainOrParent(domain: String, rules: Set<String>): Boolean {

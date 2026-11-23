@@ -699,7 +699,8 @@ class GuardianVpnService : VpnService() {
                         )
                         else -> null
                     }
-                    val result = DnsQueryPolicy.resolve(payload, ::forwardDns)
+                    val appSpecificRules = PerAppDnsPolicyStore.rules(this, appPackage)
+                    val result = DnsQueryPolicy.resolve(payload, ::forwardDns, appSpecificRules)
                     if (result == null) {
                         recordIgnoredPacket("IPv4/IPv6 UDP DNS 질의 형식 또는 질문 영역 검증 실패")
                         continue
