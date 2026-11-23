@@ -1401,7 +1401,36 @@ if ! grep -Fq '프로그램 업데이트' <<<"$updates_xml" ||
   echo "$updates_xml"
   exit 1
 fi
-echo "Settings > 정보 > 앱 업데이트 확인 opens the dedicated Program Updates screen."
+
+# Exercise the actual development update check, not only the presence of its
+# controls. PR builds are intentionally not published as releases, so the
+# currently published manifest must resolve to "already latest" for this
+# higher versionCode. This validates network/API parsing and the no-update UI
+# without downloading or installing an untrusted/unpublished build.
+if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
+  tap_text "개발 업데이트 확인"
+  update_check_ready=0
+  for attempt in $(seq 1 20); do
+    sleep 1
+    updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-result.xml)"
+    if grep -Fq '현재 설치된 개발 버전이 최신입니다.' <<<"$updates_xml"; then
+      update_check_ready=1
+      break
+    fi
+    if grep -Eq '업데이트 확인에 실패|업데이트를 확인할 수 없습니다|오류' <<<"$updates_xml"; then
+      echo "Development update check returned an error instead of a valid latest-version response."
+      echo "$updates_xml"
+      exit 1
+    fi
+  done
+  if [[ "$update_check_ready" -ne 1 ]]; then
+    echo "Development update check did not reach the expected latest-version state."
+    echo "$updates_xml"
+    exit 1
+  fi
+  echo "Development update check reached the expected latest-version state."
+fi
+echo "Settings > 정보 > 앱 업데이트 확인 opens the dedicated Program Updates screen and executes its version check."
 tap_content_description "설정"
 sleep 1
 scroll_to_text "종료"
