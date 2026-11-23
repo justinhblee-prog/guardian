@@ -291,3 +291,9 @@
 - CSV는 UTF-8 BOM과 기간별 집계 수치만 포함하며 DNS 도메인/URL/앱 식별자를 내보내지 않습니다. 음수 카운터, blocked > queries, 범위 밖 차단율을 방어합니다.
 - 독립 Kotlin/JVM smoke 통과: 정상 집계, BOM, 식별자 비포함, 비정상 카운터 방어.
 - Android Gradle/JUnit 및 실제 Android share sheet는 미검증입니다. entitlement production-ready 목록은 계속 비어 있어 검증 전 PRO 접근을 열지 않습니다.
+
+
+## 2026-11-24 — PRO 리포트 CSV 내보내기 실제 파일화
+- 리포트 공유가 텍스트 본문 전달에 그치던 문제를 수정했습니다.
+- `cache/updates/reports`에 UTF-8 CSV 파일을 생성하고 FileProvider URI를 `EXTRA_STREAM` 및 ClipData로 전달합니다. 읽기 URI 권한을 부여하며 오류는 사용자에게 표시합니다.
+- 파일명 생성 테스트 추가. Android JUnit/실기기 공유 검증은 아직 수행하지 않았습니다.
