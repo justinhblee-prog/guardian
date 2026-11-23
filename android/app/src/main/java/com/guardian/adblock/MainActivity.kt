@@ -154,6 +154,7 @@ class MainActivity : Activity() {
             )
         }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
+        val restoreLicenseReturnTarget = savedInstanceState?.getBoolean(STATE_LICENSE_RETURN_TARGET, false) == true
         val savedSettingsCategory = savedInstanceState?.getString(STATE_SETTINGS_CATEGORY)
         selectedSettingsCategory = when (savedSettingsCategory) {
             "settings-general" -> "settings-general"
@@ -174,7 +175,11 @@ class MainActivity : Activity() {
         } else {
             restoredTab
         }
-        showTab(screenTab, focusLicenseActivation = restoreLicenseFocus)
+        showTab(
+            screenTab,
+            focusLicenseActivation = restoreLicenseFocus,
+            returnToPremiumAfterLicenseActivation = restoreLicenseReturnTarget
+        )
         if (restoredTab == "settings-filtering") {
             if (hasRuleDraft) {
                 blockRulesInput.setText(restoredBlockDraft)
@@ -314,6 +319,7 @@ class MainActivity : Activity() {
         outState.putString(STATE_CURRENT_TAB, currentTab)
         outState.putString(STATE_SETTINGS_CATEGORY, selectedSettingsCategory)
         outState.putBoolean(STATE_FOCUS_LICENSE_ACTIVATION, focusLicenseActivationOnBuild)
+        outState.putBoolean(STATE_LICENSE_RETURN_TARGET, licenseActivationReturnTarget)
         outState.putInt(STATE_SCROLL_Y, savedScrollY)
         if (currentTab == "settings-filtering" && ::blockRulesInput.isInitialized && ::allowRulesInput.isInitialized) {
             outState.putString(STATE_BLOCK_RULES_DRAFT, blockRulesInput.text.toString())
@@ -528,7 +534,8 @@ class MainActivity : Activity() {
     private fun showTab(
         tab: String,
         focusLicenseActivation: Boolean = false,
-        focusAppExclusions: Boolean = false
+        focusAppExclusions: Boolean = false,
+        returnToPremiumAfterLicenseActivation: Boolean = false
     ) {
         val previousTab = currentTab
         val entryWidthDp = resources.configuration.screenWidthDp.coerceAtLeast(1)
@@ -544,7 +551,7 @@ class MainActivity : Activity() {
             .apply()
         focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings-premium"
         licenseActivationReturnTarget = LicenseActivationNavigationPolicy
-            .shouldReturnToPremium(tab, focusLicenseActivation)
+            .shouldReturnToPremium(tab, focusLicenseActivation || returnToPremiumAfterLicenseActivation)
         focusAppExclusionsOnBuild = focusAppExclusions && tab == "app-exclusions"
         licenseKeyInput = null
         startButton = null
@@ -4279,6 +4286,7 @@ class MainActivity : Activity() {
         private const val UI_STATE_PREFS = "guardian_ui_state"
         private const val PREF_LAST_SELECTED_TAB = "last_selected_tab"
         private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
+        private const val STATE_LICENSE_RETURN_TARGET = "guardian.ui.license_return_target"
         private const val STATE_SCROLL_Y = "guardian.ui.scroll_y"
         private const val STATE_BLOCK_RULES_DRAFT = "guardian.ui.block_rules_draft"
         private const val STATE_ALLOW_RULES_DRAFT = "guardian.ui.allow_rules_draft"
