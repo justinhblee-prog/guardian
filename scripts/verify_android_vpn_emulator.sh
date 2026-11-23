@@ -1570,7 +1570,9 @@ if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
   scroll_to_text "$legacy_filter_target"
 else
   ensure_text_visible "필터링"
-  tap_content_description "필터링"
+  # The category card exposes its clickable accessibility label with the
+  # action suffix; the visible title itself is a non-clickable TextView.
+  tap_content_description "필터링 설정 열기"
 fi
 sleep 1
 for attempt in $(seq 1 24); do
