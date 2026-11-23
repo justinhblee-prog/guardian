@@ -195,11 +195,19 @@ open_settings_menu_item() {
   local title="$1"
   local xml target
   xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
-  if grep -Fq 'content-desc="설정"' <<<"$xml"; then
+  # The predecessor APK used a dedicated "전체 메뉴" destination alongside
+  # a separate Premium tab. Prefer that exact legacy route when it is present;
+  # the detail page can also contain a nested control named "설정", which must
+  # not be mistaken for the bottom-navigation destination.
+  if grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
+    tap_content_description "전체 메뉴"
+    sleep 1
+  elif grep -Fq 'content-desc="설정"' <<<"$xml"; then
     tap_content_description "설정"
-    # On phones, tapping Settings while a detail page is open must return to
-    # the six-category index. Wait for that semantic state, not an arbitrary
-    # sleep; otherwise a stale detail hierarchy can be mistaken for the menu.
+    # On current phones, tapping Settings while a detail page is open must
+    # return to the six-category index. Wait for that semantic state, not an
+    # arbitrary sleep; otherwise a stale detail hierarchy can be mistaken for
+    # the menu.
     local index_ready=0
     for attempt in $(seq 1 8); do
       sleep 0.4
@@ -222,9 +230,6 @@ raise SystemExit(0 if expected.intersection(visible) else 1)' <<<"$xml"; then
       echo "$xml"
       return 1
     fi
-  elif grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
-    tap_content_description "전체 메뉴"
-    sleep 1
   else
     case "$title" in
       "앱 제외 관리") tap_content_description "앱 제외"; sleep 1 ;;
