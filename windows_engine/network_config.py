@@ -11,7 +11,18 @@ def is_admin():
     except (AttributeError,OSError): return False
 
 def run_powershell(script):
-    result=subprocess.run(["powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-Command",script],capture_output=True,text=True,timeout=30)
+    """Execute the DNS adapter helper without showing a PowerShell console window."""
+    options={"capture_output":True,"text":True,"timeout":30}
+    if os.name=="nt":
+        startup=subprocess.STARTUPINFO()
+        startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = 0
+        options["startupinfo"]=startup
+        options["creationflags"]=getattr(subprocess,"CREATE_NO_WINDOW",0x08000000)
+    result=subprocess.run(
+        ["powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-Command",script],
+        **options
+    )
     if result.returncode: raise NetworkConfigError(result.stderr.strip() or "PowerShell command failed")
     return result.stdout.strip()
 
