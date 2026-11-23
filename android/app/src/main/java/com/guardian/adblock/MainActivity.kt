@@ -1580,7 +1580,7 @@ class MainActivity : Activity() {
         body.addView(text("보호 정책, 필터, 앱 제외, 업데이트와 지원을 한곳에서 관리합니다.", 13f, muted, false).withTop(5))
         val menuItems = listOf(
             Triple("updates", "프로그램 업데이트", "Guardian 앱 업데이트 확인 및 설치"),
-            Triple("rules", "필터 관리", "필터 프로필과 사용자 차단·허용 규칙"),
+            Triple("rules", "필터링", "필터 프로필과 사용자 차단·허용 규칙"),
             Triple("app-exclusions", "앱 제외 관리", "DNS 필터링에서 제외할 앱 선택"),
             Triple("premium", "라이선스 및 Premium", "라이선스 활성화, 이용 기간 및 기기 상태 확인")
         )
