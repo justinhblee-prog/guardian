@@ -1077,12 +1077,13 @@ class GuardianVpnService : VpnService() {
             socket.connect(InetSocketAddress(upstreamAddress, 53), 3500)
             socket.soTimeout = 3500
             val output = DataOutputStream(socket.getOutputStream())
+            if (query.size !in 17..65535) return null
             output.writeShort(query.size)
             output.write(query)
             output.flush()
             val input = DataInputStream(socket.getInputStream())
             val length = input.readUnsignedShort()
-            if (length !in 17..4096) {
+            if (length !in 17..65535) {
                 lastUpstreamFailure = "TCP: DNS 응답 길이가 유효하지 않습니다"
                 return null
             }
@@ -1133,7 +1134,7 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun forwardDnsOverTls(query: ByteArray, upstreamAddress: String): ByteArray? {
-        if (query.size !in 17..4096) return null
+        if (query.size !in 17..65535) return null
         val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
         var socket: SSLSocket? = null
         return try {
@@ -1159,7 +1160,7 @@ class GuardianVpnService : VpnService() {
 
             val input = DataInputStream(socket.inputStream)
             val length = input.readUnsignedShort()
-            if (length !in 17..4096) return null
+            if (length !in 17..65535) return null
             val answer = ByteArray(length)
             input.readFully(answer)
             if (DomainFilter.isMatchingResponse(query, answer)) answer else null
