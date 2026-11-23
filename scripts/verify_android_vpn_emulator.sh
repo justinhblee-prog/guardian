@@ -1367,25 +1367,28 @@ fi
 # Verify the About and Exit submenus even though they are below the phone viewport.
 scroll_to_text "정보"
 sleep 1
-# The About card continues below the phone viewport. Reveal the app-update
-# action before asserting it exists; UIAutomator omits off-screen children.
-ensure_text_visible "앱 업데이트 확인"
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-about-menu.xml >/dev/null 2>&1
-about_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-menu.xml | tr -d '\r')"
+# The About screen is a vertically scrolling page. Verify the version row
+# while it is in the initial viewport, then scroll separately to the update
+# action; UIAutomator omits children outside the current viewport.
+adb_cmd shell uiautomator dump /sdcard/guardian-about-version.xml >/dev/null 2>&1
+about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | tr -d '\r')"
 expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
 if [[ -z "$expected_current_version" ]]; then
   echo "GUARDIAN_CURRENT_VERSION_NAME was not provided to the Android VPN emulator check."
   exit 1
 fi
-if ! grep -Fq '앱 버전' <<<"$about_menu_xml" || ! grep -Fq "$expected_current_version" <<<"$about_menu_xml"; then
-  echo "The About submenu did not expose the current app version."
-  echo "$about_menu_xml"
+if ! grep -Fq '앱 버전' <<<"$about_version_xml" || ! grep -Fq "$expected_current_version" <<<"$about_version_xml"; then
+  echo "The About screen's initial viewport did not expose the current app version."
+  echo "$about_version_xml"
   exit 1
 fi
-if ! grep -Fq '앱 업데이트 확인' <<<"$about_menu_xml"; then
+ensure_text_visible "앱 업데이트 확인"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-about-update.xml >/dev/null 2>&1
+about_update_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-update.xml | tr -d '\r')"
+if ! grep -Fq '앱 업데이트 확인' <<<"$about_update_xml"; then
   echo "The About submenu does not expose the dedicated app-update entry."
-  echo "$about_menu_xml"
+  echo "$about_update_xml"
   exit 1
 fi
 tap_text "앱 업데이트 확인"
