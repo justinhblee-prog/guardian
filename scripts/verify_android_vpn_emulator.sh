@@ -264,7 +264,7 @@ cache_ready() {
 
 echo "Verifying the dedicated Guardian Premium menu and license activation focus."
 dismiss_dev_update_prompt
-tap_content_description "프리미엄"
+tap_content_description "Premium"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -305,7 +305,7 @@ adb_cmd shell input keyevent KEYCODE_BACK || true
 # The PRO feature cards are below the membership details on a phone-sized
 # viewport. Return to Premium, scroll the actual page, and verify the feature
 # card only after it enters the visible UI hierarchy.
-tap_content_description "프리미엄"
+tap_content_description "Premium"
 sleep 1
 premium_features_visible=0
 for attempt in $(seq 1 8); do
