@@ -423,6 +423,12 @@ class GuardianDesktop:
             widget.destroy()
         self.settings_detail = None
         self.settings_category_buttons = {}
+        self.settings_category_meta = {}
+        self.settings_sidebar = None
+        self.settings_sidebar_title = None
+        self.settings_sidebar_description = None
+        self.settings_sidebar_toggle = None
+        self.settings_sidebar_collapsed = False
 
     def _settings_subpage_header(self,title,description):
         for widget in self.settings_detail.winfo_children():
@@ -433,12 +439,37 @@ class GuardianDesktop:
         tk.Label(self.settings_detail,text=description,font=('Segoe UI',10),
                  fg='#91a8bd',bg='#0b1220',wraplength=720,justify='left').pack(anchor='w',pady=(0,18))
 
+    def _set_settings_sidebar_collapsed(self,collapsed):
+        self.settings_sidebar_collapsed=bool(collapsed)
+        if not self.settings_sidebar:
+            return
+        self.settings_sidebar.configure(width=68 if collapsed else 270)
+        if self.settings_sidebar_title:
+            self.settings_sidebar_title.configure(text='⚙' if collapsed else '설정')
+            self.settings_sidebar_title.pack_configure(anchor='center' if collapsed else 'w',
+                                                       padx=0 if collapsed else 18)
+        if self.settings_sidebar_description:
+            if collapsed:
+                self.settings_sidebar_description.pack_forget()
+            elif not self.settings_sidebar_description.winfo_manager():
+                self.settings_sidebar_description.pack(anchor='w',padx=18,pady=(0,16))
+        if self.settings_sidebar_toggle:
+            self.settings_sidebar_toggle.configure(text='›' if collapsed else '‹ 메뉴 접기')
+        for key,button in self.settings_category_buttons.items():
+            symbol,title,detail=self.settings_category_meta[key]
+            button.configure(text=symbol if collapsed else f'{symbol}   {title}\\n      {detail}',
+                             anchor='center' if collapsed else 'w',
+                             justify='center' if collapsed else 'left',
+                             padx=4 if collapsed else 15,
+                             wraplength=48 if collapsed else 225)
+
     def _select_settings_category(self,key,action):
         for name,button in self.settings_category_buttons.items():
             selected=name==key
             button.configure(bg='#1c4650' if selected else '#242529',
                              fg='#ffffff' if selected else '#d5e2ef')
         action()
+        self._set_settings_sidebar_collapsed(True)
 
     def show_settings_page(self):
         self._clear_settings_page()
@@ -449,13 +480,22 @@ class GuardianDesktop:
                          highlightthickness=1,highlightbackground='#243449')
         sidebar.pack(side='left',fill='y',padx=(0,18))
         sidebar.pack_propagate(False)
+        self.settings_sidebar=sidebar
         self.settings_detail=tk.Frame(split,bg='#0b1220')
         self.settings_detail.pack(side='left',fill='both',expand=True)
-        tk.Label(sidebar,text='설정',font=('Segoe UI',19,'bold'),
-                 fg='#f4f4f5',bg='#121d2c').pack(anchor='w',padx=18,pady=(22,4))
-        tk.Label(sidebar,text='Guardian을 원하는 방식으로 관리하세요.',
+        self.settings_sidebar_toggle=tk.Button(
+            sidebar,text='‹ 메뉴 접기',command=lambda:self._set_settings_sidebar_collapsed(not self.settings_sidebar_collapsed),
+            bg='#26364b',fg='#55d3be',activebackground='#26364b',activeforeground='white',
+            relief='flat',bd=0,font=('Segoe UI',9,'bold'),cursor='hand2'
+        )
+        self.settings_sidebar_toggle.pack(fill='x',padx=10,pady=(10,12))
+        self.settings_sidebar_title=tk.Label(sidebar,text='설정',font=('Segoe UI',19,'bold'),
+                 fg='#f4f4f5',bg='#121d2c')
+        self.settings_sidebar_title.pack(anchor='w',padx=18,pady=(8,4))
+        self.settings_sidebar_description=tk.Label(sidebar,text='Guardian을 원하는 방식으로 관리하세요.',
                  font=('Segoe UI',9),fg='#9b9ca3',bg='#121d2c',
-                 wraplength=225,justify='left').pack(anchor='w',padx=18,pady=(0,16))
+                 wraplength=225,justify='left')
+        self.settings_sidebar_description.pack(anchor='w',padx=18,pady=(0,16))
         sections=[
             ('general','◉','일반','앱 동작과 기본 환경',self.show_general_settings),
             ('filtering','◈','필터링','DNS 보호와 차단 규칙',self.show_filtering_settings),
@@ -465,6 +505,7 @@ class GuardianDesktop:
             ('exit','⏻','종료','앱 종료 및 보호 유지 안내',self.show_exit_settings),
         ]
         self.settings_category_buttons={}
+        self.settings_category_meta={}
         for key,symbol,title,detail,action in sections:
             selected = key == 'general'
             button=tk.Button(
@@ -478,6 +519,7 @@ class GuardianDesktop:
             )
             button.pack(fill='x',padx=10,pady=3)
             self.settings_category_buttons[key]=button
+            self.settings_category_meta[key]=(symbol,title,detail)
         self._select_settings_category('general',self.show_general_settings)
 
     def show_exit_settings(self):
