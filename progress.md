@@ -284,3 +284,10 @@
 - report store는 Android Context/SharedPreferences 경계 stub을 둔 Kotlin compile smoke를 통과했습니다. Aggregator와 report calculations의 Kotlin/JVM smoke도 통과했습니다.
 - 별도 하위 트랙: #299 threat analytics (engine model), #300 security profile resolver (network policy); #297 advanced filtering, #298 per-app policies, #301 phishing/app scan은 전용 작업 브랜치에서 분리 관리합니다.
 - 미완료: 리포트 UI 실제 노출을 위한 Android Gradle/JUnit/에뮬레이터 통과, DNS report persistence instrumented test, export, per-app reporting and trend analytics.
+
+
+## 2026-11-24 — PRO 리포트 CSV export
+- 상위 PRO 브랜치 `work/android-pro-premium-20261124` 최신 변경은 `PremiumReportCsv`와 Premium 리포트 카드의 CSV 공유 동작입니다.
+- CSV는 UTF-8 BOM과 기간별 집계 수치만 포함하며 DNS 도메인/URL/앱 식별자를 내보내지 않습니다. 음수 카운터, blocked > queries, 범위 밖 차단율을 방어합니다.
+- 독립 Kotlin/JVM smoke 통과: 정상 집계, BOM, 식별자 비포함, 비정상 카운터 방어.
+- Android Gradle/JUnit 및 실제 Android share sheet는 미검증입니다. entitlement production-ready 목록은 계속 비어 있어 검증 전 PRO 접근을 열지 않습니다.
