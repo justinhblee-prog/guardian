@@ -137,7 +137,7 @@ def expected_daemon_executable():
     return Path(sys.executable).resolve().parent/"GuardianDnsProxy"/"GuardianDnsProxy.exe"
 
 def task_executable_from_xml(xml_text):
-    xml_text=xml_text.lstrip("\\ufeff")
+    xml_text=xml_text.lstrip("\ufeff")
     if xml_text.lstrip().startswith("<?xml") and "?>" in xml_text:
         xml_text=xml_text.split("?>",1)[1]
     root=ET.fromstring(xml_text)
