@@ -87,15 +87,15 @@ internal object SecurityProfileMonitor {
         val manager = app.getSystemService(ConnectivityManager::class.java) ?: return
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                manager.getNetworkCapabilities(network)?.let { apply(app, it) }
+                manager.getNetworkCapabilities(network)?.let { apply(app, it, manager) }
             }
             override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                apply(app, capabilities)
+                apply(app, capabilities, manager)
             }
             override fun onLost(network: Network) {
                 val activeNetwork = manager.activeNetwork
                 val capabilities = activeNetwork?.let(manager::getNetworkCapabilities)
-                if (capabilities == null) applyUnknown(app) else apply(app, capabilities)
+                if (capabilities == null) applyUnknown(app) else apply(app, capabilities, manager)
             }
         }
         runCatching { manager.registerDefaultNetworkCallback(callback) }.onSuccess {
@@ -103,7 +103,7 @@ internal object SecurityProfileMonitor {
             callbackRef.set(callback)
             val activeNetwork = manager.activeNetwork
             val capabilities = activeNetwork?.let(manager::getNetworkCapabilities)
-            if (capabilities == null) applyUnknown(app) else apply(app, capabilities)
+            if (capabilities == null) applyUnknown(app) else apply(app, capabilities, manager)
         }
     }
 
@@ -116,20 +116,34 @@ internal object SecurityProfileMonitor {
     }
 
     private fun applyUnknown(context: Context) {
-        apply(
-            context,
-            SecurityProfilePolicy.NetworkContext(
-                SecurityProfilePolicy.Transport.UNKNOWN,
-                validated = false,
-                captivePortal = false,
-                metered = true,
-                roaming = false,
-                trustedNetwork = false
-            )
+        val unknown = SecurityProfilePolicy.NetworkContext(
+            SecurityProfilePolicy.Transport.UNKNOWN,
+            validated = false,
+            captivePortal = false,
+            metered = true,
+            roaming = false,
+            trustedNetwork = false
         )
+        SecurityProfileStore.applyAutomaticProfile(context, SecurityProfilePolicy.resolveAutomatic(unknown))
     }
 
-    private fun apply(context: Context, capabilities: NetworkCapabilities) {
+    private fun apply(
+        context: Context,
+        reportedCapabilities: NetworkCapabilities,
+        manager: ConnectivityManager
+    ) {
+        // The default route can be Guardian's own VPN interface. Prefer a physical
+        // underlying network when Android exposes one, otherwise use the reported facts.
+        val capabilities = if (reportedCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+            manager.allNetworks.asSequence()
+                .mapNotNull(manager::getNetworkCapabilities)
+                .filterNot { it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) }
+                .maxByOrNull { candidate ->
+                    (if (candidate.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) 4 else 0) +
+                        (if (candidate.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) 2 else 0) +
+                        (if (candidate.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)) 1 else 0)
+                } ?: reportedCapabilities
+        } else reportedCapabilities
         val transport = when {
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> SecurityProfilePolicy.Transport.WIFI
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> SecurityProfilePolicy.Transport.CELLULAR
