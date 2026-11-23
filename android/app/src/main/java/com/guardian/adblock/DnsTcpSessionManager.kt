@@ -127,8 +127,12 @@ class DnsTcpSessionManager(
         }
         // ACK-only packets can reopen a zero/small receive window and drain
         // queued DNS response bytes without requiring another DNS request.
-        if (tcp.payload.isEmpty() && !tcp.fin && session.pendingServerData.size() > 0) {
-            return drainServerData(tcp, session)
+        if (tcp.payload.isEmpty() && !tcp.fin &&
+            (session.pendingServerData.size() > 0 || session.clientFinReceived && !session.serverFinSent)) {
+            val replies = drainServerData(tcp, session).toMutableList()
+            appendPendingFin(tcp, session, replies)
+            if (replies.isNotEmpty()) session.lastServerReplies = replies.map { it.copyOf() }
+            return replies
         }
         // Once the client has sent FIN, its byte stream is closed.
         // Do not accept new payload at the FIN sequence boundary; otherwise a
@@ -183,17 +187,14 @@ class DnsTcpSessionManager(
                 return listOf(DnsTcpPacket.response(tcp, session.serverNext,
                     session.clientNext, DnsTcpPacket.RST or DnsTcpPacket.ACK))
             }
+            replies.addAll(drainServerData(tcp, session))
             if (tcp.fin) {
                 session.clientNext = (session.clientNext + 1L) and MASK
-                replies.add(DnsTcpPacket.response(tcp, session.serverNext,
-                    session.clientNext, DnsTcpPacket.FIN or DnsTcpPacket.ACK))
-                session.serverNext = (session.serverNext + 1L) and MASK
                 session.clientFinReceived = true
-                session.serverFinSent = true
+                appendPendingFin(tcp, session, replies)
                 session.lastServerReplies = replies.map { it.copyOf() }
-                return replies
+                return if (replies.isEmpty()) listOf(ack(tcp, session)) else replies
             }
-            replies.addAll(drainServerData(tcp, session))
             if (replies.isEmpty()) replies.add(ack(tcp, session))
             session.lastServerReplies = replies.map { it.copyOf() }
             return replies
@@ -219,6 +220,16 @@ class DnsTcpSessionManager(
             return listOf(fin)
         }
         return emptyList()
+    }
+
+    private fun appendPendingFin(packet: DnsTcpPacket.Parsed, session: Session, replies: MutableList<ByteArray>) {
+        if (!session.clientFinReceived || session.serverFinSent || session.pendingServerData.size() != 0) return
+        val outstanding = (session.serverNext - session.serverAcknowledged) and MASK
+        if (outstanding >= session.peerWindow.toLong()) return
+        replies.add(DnsTcpPacket.response(packet, session.serverNext, session.clientNext,
+            DnsTcpPacket.FIN or DnsTcpPacket.ACK))
+        session.serverNext = (session.serverNext + 1L) and MASK
+        session.serverFinSent = true
     }
 
     private fun drainServerData(packet: DnsTcpPacket.Parsed, session: Session): List<ByteArray> {
