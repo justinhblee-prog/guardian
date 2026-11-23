@@ -91,6 +91,7 @@ class MainActivity : Activity() {
     private var currentTab = "home"
     private var selectedSettingsCategory = "settings-general"
     private var settingsSidebarCollapsed = false
+    private var phoneSettingsShowingDetail = false
     // Reused across tab rebuilds to keep navigation taps responsive.
     private var companyLogoBitmap: android.graphics.Bitmap? = null
     private var contentScrollView: ScrollView? = null
@@ -495,8 +496,8 @@ class MainActivity : Activity() {
         if (tab == "settings" && previousTab != "settings" &&
             !ResponsiveLayoutPolicy.usesSettingsSplitPane(entryWidthDp)
         ) {
-            // On phones, enter directly into the detail workspace with a compact icon rail.
-            settingsSidebarCollapsed = true
+            // Phones use a full-width category list, then a full-width detail page.
+            phoneSettingsShowingDetail = false
         }
         currentTab = tab
         getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
@@ -1758,75 +1759,70 @@ class MainActivity : Activity() {
             return
         }
 
-        // Phone layout uses the same persistent icon rail + detail workspace as tablet/desktop.
-        val mobileSplit = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.TOP
-        }.withTop(18) as LinearLayout
-        val mobileRail = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(5), dp(7), dp(5), dp(7))
-            background = shape(Color.rgb(17, 31, 47), 16)
+        // Phone layout deliberately avoids a cramped side-by-side rail.
+        // Show the six settings categories at full width, then open the selected
+        // category as a full-width detail page with a clear back-to-menu action.
+        if (!phoneSettingsShowingDetail) {
+            sections.forEach { (symbol, title, description, target) ->
+                body.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(16), dp(15), dp(14), dp(15))
+                    background = shape(panel, 15)
+                    addView(text(symbol, 21f, accent, true),
+                        LinearLayout.LayoutParams(dp(38), -2))
+                    val labels = LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        addView(text(title, 14f, white, true))
+                        addView(text(description, 11f, muted, false).withTop(4))
+                    }
+                    addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(text("›", 24f, muted, true))
+                    isClickable = true
+                    isFocusable = true
+                    contentDescription = "$title 설정 열기"
+                    setOnClickListener {
+                        selectedSettingsCategory = target
+                        phoneSettingsShowingDetail = true
+                        showTab("settings")
+                    }
+                }.withTop(9))
+            }
+            return
         }
-        val mobileDetail = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(14), dp(12), dp(16))
-            background = shape(Color.rgb(27, 27, 30), 16)
-        }
-        mobileSplit.addView(mobileRail, LinearLayout.LayoutParams(
-            dp(if (settingsSidebarCollapsed) 58 else 154),
-            ViewGroup.LayoutParams.MATCH_PARENT
-        ).apply { marginEnd = dp(8) })
-        val mobileToggle = Button(this).apply {
-            text = if (settingsSidebarCollapsed) "›" else "‹  메뉴 접기"
+
+        body.addView(Button(this).apply {
+            text = "‹  설정 메뉴"
             isAllCaps = false
-            textSize = if (settingsSidebarCollapsed) 19f else 11f
+            textSize = 13f
             setTextColor(accent)
             background = shape(panel2, 11)
-            contentDescription = if (settingsSidebarCollapsed) "설정 카테고리 펼치기" else "설정 카테고리 접기"
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            setPadding(dp(14), 0, dp(14), 0)
             setOnClickListener {
-                settingsSidebarCollapsed = !settingsSidebarCollapsed
+                phoneSettingsShowingDetail = false
                 showTab("settings")
             }
-        }
-        mobileRail.addView(mobileToggle, LinearLayout.LayoutParams(-1, dp(40)).apply { bottomMargin = dp(7) })
-        sections.forEach { (symbol, title, description, target) ->
-            val selected = selectedSettingsCategory == target
-            mobileRail.addView(LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(if (settingsSidebarCollapsed) 2 else 9), dp(10), dp(4), dp(10))
-                background = shape(if (selected) Color.rgb(27, 72, 81) else Color.TRANSPARENT, 12)
-                addView(text(symbol, 19f, if (selected) white else muted, true),
-                    LinearLayout.LayoutParams(dp(30), -2))
-                if (!settingsSidebarCollapsed) {
-                    addView(text(title, 11f, if (selected) white else muted, true),
-                        LinearLayout.LayoutParams(0, -2, 1f))
-                }
-                contentDescription = title
-                isClickable = true
-                isFocusable = true
-                setOnClickListener {
-                    selectedSettingsCategory = target
-                    settingsSidebarCollapsed = true
-                    showTab("settings")
-                }
-            }, LinearLayout.LayoutParams(-1, dp(if (settingsSidebarCollapsed) 48 else 54)).apply { bottomMargin = dp(4) })
-        }
+        }.withTop(12))
+        val phoneDetail = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(16), dp(15), dp(18))
+            background = shape(Color.rgb(27, 27, 30), 16)
+        }.withTop(10)
         when (selectedSettingsCategory) {
-            "settings-general" -> buildSettingsGeneral(mobileDetail)
-            "settings-filtering" -> buildSettingsFiltering(mobileDetail)
-            "settings-premium" -> buildSettingsPremium(mobileDetail)
+            "settings-general" -> buildSettingsGeneral(phoneDetail)
+            "settings-filtering" -> buildSettingsFiltering(phoneDetail)
+            "settings-premium" -> buildSettingsPremium(phoneDetail)
             "settings-support" -> {
-                mobileDetail.addView(text("고객 지원", 21f, white, true))
-                mobileDetail.addView(buildSupportCenterCard().withTop(10))
-                mobileDetail.addView(text("진단 정보와 오류 내용은 직접 확인하고 복사할 수 있습니다.", 11f, muted, false).withTop(8))
+                phoneDetail.addView(text("고객 지원", 21f, white, true))
+                phoneDetail.addView(buildSupportCenterCard().withTop(10))
+                phoneDetail.addView(text("진단 정보와 오류 내용은 직접 확인하고 복사할 수 있습니다.", 11f, muted, false).withTop(8))
             }
-            "settings-about" -> buildSettingsAbout(mobileDetail)
+            "settings-about" -> buildSettingsAbout(phoneDetail)
             "settings-exit" -> {
-                mobileDetail.addView(text("종료", 21f, white, true))
-                mobileDetail.addView(text("앱을 닫아도 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다.", 11f, muted, false).withTop(8))
-                mobileDetail.addView(Button(this).apply {
+                phoneDetail.addView(text("종료", 21f, white, true))
+                phoneDetail.addView(text("앱을 닫아도 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다.", 11f, muted, false).withTop(8))
+                phoneDetail.addView(Button(this).apply {
                     text = "Guardian 종료"
                     isAllCaps = false
                     setTextColor(white)
@@ -1840,15 +1836,9 @@ class MainActivity : Activity() {
                     }
                 }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(12) })
             }
-            else -> buildSettingsGeneral(mobileDetail)
+            else -> buildSettingsGeneral(phoneDetail)
         }
-        val mobileDetailScroll = ScrollView(this).apply {
-            isFillViewport = true
-            clipToPadding = false
-            addView(mobileDetail, FrameLayout.LayoutParams(-1, -2))
-        }
-        mobileSplit.addView(mobileDetailScroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
-        body.addView(mobileSplit, LinearLayout.LayoutParams(-1, dp(660)))
+        body.addView(phoneDetail, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
     }
 
     private fun buildSettingsGeneral(body: LinearLayout) {
