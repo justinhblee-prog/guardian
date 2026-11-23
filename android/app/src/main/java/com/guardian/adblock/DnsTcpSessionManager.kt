@@ -33,10 +33,12 @@ class DnsTcpSessionManager(
     private val sessions = LinkedHashMap<Key, Session>()
     private val maxSessions = 128
     private val idleTimeoutMs = 60_000L
-    private val maxDnsMessage = 4096
-    private val maxBufferedBytes = 8192
+    // DNS-over-TCP uses a 16-bit length prefix; retain one maximum-sized frame plus its prefix.
+    private val maxDnsMessage = 65535
+    private val maxBufferedBytes = 65537
     // Conservative default MSS when the client did not negotiate TCP options.
-    private val maxSegmentPayload = 536
+    // 1200 bytes keeps the synthesized IPv6 packet below the 1280-byte minimum MTU.
+    private val maxSegmentPayload = 1200
 
     @Synchronized
     fun handle(packet: ByteArray, length: Int, resolve: (ByteArray) -> ByteArray?): List<ByteArray> {
