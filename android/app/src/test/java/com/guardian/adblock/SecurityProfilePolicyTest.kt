@@ -62,6 +62,17 @@ class SecurityProfilePolicyTest {
         )
     }
 
+    @Test fun meteredNetworksDisableAutomaticFilterDownloads() {
+        val result = SecurityProfilePolicy.resolveAutomatic(
+            network(transport = SecurityProfilePolicy.Transport.CELLULAR, metered = true)
+        )
+        assertFalse(result.automaticFilterUpdates)
+        val unmetered = SecurityProfilePolicy.resolveAutomatic(
+            network(transport = SecurityProfilePolicy.Transport.CELLULAR, metered = false)
+        )
+        assertTrue(unmetered.automaticFilterUpdates)
+    }
+
     @Test fun unknownTransportsNeverBecomeTrustedProfiles() {
         listOf(
             SecurityProfilePolicy.Transport.OTHER,
