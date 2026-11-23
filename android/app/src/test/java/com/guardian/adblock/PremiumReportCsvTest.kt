@@ -45,4 +45,23 @@ class PremiumReportCsvTest {
         )
         assertTrue(csv.contains("2026-11-01,2026-11-01,0,0,0,0,0,0,0,0,0"))
     }
+    @Test fun reportFileNameUsesOnlyIsoDateRange() {
+        val summary = PremiumReportSummary(
+            startDate = LocalDate.parse("2026-11-01"),
+            endDate = LocalDate.parse("2026-11-07"),
+            daysWithActivity = 2,
+            queries = 10,
+            blocked = 2,
+            forwarded = 8,
+            failed = 0,
+            ads = 1,
+            trackers = 1,
+            other = 0
+        )
+        assertEquals(
+            "guardian-premium-report-2026-11-01-2026-11-07.csv",
+            PremiumReportCsv.fileName(summary)
+        )
+    }
+
 }
