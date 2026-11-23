@@ -119,11 +119,11 @@ class MainActivity : Activity() {
         }
     }
 
-    private val bg = Color.rgb(10, 16, 30)
-    private val panel = Color.rgb(20, 29, 48)
-    private val panel2 = Color.rgb(27, 39, 61)
-    private val accent = Color.rgb(72, 220, 174)
-    private val muted = Color.rgb(151, 166, 190)
+    private val bg = Color.rgb(9, 17, 29)
+    private val panel = Color.rgb(17, 31, 47)
+    private val panel2 = Color.rgb(25, 48, 65)
+    private val accent = Color.rgb(55, 211, 190)
+    private val muted = Color.rgb(151, 174, 192)
     private val white = Color.rgb(241, 246, 255)
     private val red = Color.rgb(255, 112, 125)
 
@@ -717,10 +717,10 @@ class MainActivity : Activity() {
     }
 
     private fun buildHome(body: LinearLayout) {
-        val homeBg = Color.rgb(29, 29, 29)
-        val homePanel = Color.rgb(57, 57, 57)
-        val homeGreen = Color.rgb(105, 179, 132)
-        val homeOrange = Color.rgb(244, 116, 74)
+        val homeBg = Color.rgb(14, 29, 43)
+        val homePanel = Color.rgb(19, 38, 55)
+        val homeGreen = Color.rgb(55, 211, 190)
+        val homeOrange = Color.rgb(239, 164, 91)
         val wideDashboard = ResponsiveLayoutPolicy.usesTwoColumnDashboard(resources.configuration.screenWidthDp)
 
         body.addView(text("보호 대시보드", 24f, white, true))
@@ -731,10 +731,10 @@ class MainActivity : Activity() {
             setPadding(dp(20), dp(20), dp(20), dp(20))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(22, 38, 56), Color.rgb(34, 48, 64))
+                intArrayOf(Color.rgb(13, 39, 55), Color.rgb(19, 54, 68))
             ).apply {
                 cornerRadius = dp(22).toFloat()
-                setStroke(dp(1), Color.rgb(65, 91, 116))
+                setStroke(dp(1), Color.rgb(48, 112, 126))
             }
         }
         val brandRow = LinearLayout(this).apply {
@@ -1641,7 +1641,7 @@ class MainActivity : Activity() {
             val categoryPanel = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(8), dp(8), dp(8), dp(8))
-                background = shape(Color.rgb(27, 27, 30), 20)
+                background = shape(Color.rgb(17, 31, 47), 20)
             }
             val detailPanel = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -1658,7 +1658,7 @@ class MainActivity : Activity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(13), dp(14), dp(10), dp(14))
-                    background = shape(if (selected) Color.rgb(62, 62, 66) else Color.TRANSPARENT, 16)
+                    background = shape(if (selected) Color.rgb(27, 72, 81) else Color.TRANSPARENT, 16)
                     addView(text(symbol, 19f, if (selected) white else muted, true),
                         LinearLayout.LayoutParams(dp(30), -2))
                     val labels = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
@@ -1732,7 +1732,7 @@ class MainActivity : Activity() {
             }
             menuCard.addView(row)
             if (index < sections.lastIndex) {
-                menuCard.addView(View(this).apply { setBackgroundColor(Color.rgb(58, 58, 62)) },
+                menuCard.addView(View(this).apply { setBackgroundColor(Color.rgb(39, 62, 78)) },
                     LinearLayout.LayoutParams(-1, dp(1)).apply { leftMargin = dp(42) })
             }
         }
