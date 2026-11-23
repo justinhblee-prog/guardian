@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-24 — 정식 updater 버전 태그 입력 상한
+- 정식 Release semver 비교는 각 숫자 구성요소를 최대 9자리로 제한하고, 비정상적으로 큰 숫자 태그는 stable 후보에서 제외합니다.
+- Kotlin/JVM smoke 통과: v1.10.0/v1.9.9 숫자 정렬, 메이저 버전 비교, prerelease 제외, 과도한 숫자 태그 거부.
+
 ## 2026-11-24 — 정식 Android 업데이트 검증 강화
 - APK 및 manifest 다운로드의 HTTPS 리디렉션 최종 호스트를 GitHub 공식 asset 호스트로 제한했습니다. 예상하지 못한 외부 호스트로 이동하면 다운로드/검증을 중단합니다.
 - GitHub Release 응답 순서가 semver 순서와 다를 수 있어, 정식 업데이트 후보를 버전 태그의 숫자 비교로 정렬한 뒤 최신 stable release manifest를 검증합니다.

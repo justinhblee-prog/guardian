@@ -293,3 +293,9 @@
 - Release API 반환 순서에 의존하지 않고 semver tag를 숫자로 비교해 가장 높은 stable tag를 선택합니다. 최종 설치 가능 여부는 manifest의 versionCode가 현재 앱보다 높은지 확인하고, tag/versionName 일치를 검증합니다.
 - 독립 Kotlin/JVM smoke 통과: `v1.10.0 > v1.9.9`, 메이저 버전 비교, 동등/역순, 공식 asset redirect allowlist.
 - 미완료: 실제 HTTP redirect, APK hash/signer/package 검증, 설치 화면/인플레이스 업데이트, Android Gradle/JUnit 및 emulator update E2E.
+
+
+## 2026-11-24 — updater semver 입력 상한
+- 최신 무료 브랜치 커밋 `08e9424a3b8e8d8d1d97810ff0ad7ae2c172e95c`.
+- Release tag 숫자 구성요소가 9자리를 넘으면 stable 후보에서 제외해 비정상적인 BigInteger 입력을 제한합니다.
+- Kotlin/JVM smoke 통과: 숫자 semver 정렬, prerelease 제외, 과도한 구성요소 거부. Android Gradle/JUnit 및 실제 Release API/redirect/설치 검증은 미완료입니다.
