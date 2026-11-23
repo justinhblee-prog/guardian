@@ -1408,9 +1408,19 @@ scroll_to_text "종료"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-exit-menu.xml >/dev/null 2>&1
 exit_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-menu.xml | tr -d '\r')"
-if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml" || ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_menu_xml"; then
-  echo "The Exit submenu did not display its confirmation dialog."
+if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml"; then
+  echo "The Exit submenu did not expose its explicit Guardian 종료 action."
   echo "$exit_menu_xml"
+  exit 1
+fi
+tap_text "Guardian 종료"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-exit-confirmation.xml >/dev/null 2>&1
+exit_confirmation_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-confirmation.xml | tr -d '\r')"
+if ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
+   ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
+  echo "The explicit Guardian 종료 action did not open its confirmation dialog."
+  echo "$exit_confirmation_xml"
   exit 1
 fi
 tap_text "취소"
