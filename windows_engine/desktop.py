@@ -563,7 +563,7 @@ class GuardianDesktop:
                              padx=4 if collapsed else 15,
                              wraplength=48 if collapsed else 225)
 
-    def _select_settings_category(self,key,action,collapse=True):
+    def _select_settings_category(self,key,action,collapse=False):
         for name,button in self.settings_category_buttons.items():
             selected=name==key
             button.configure(bg='#1c4650' if selected else '#242529',
