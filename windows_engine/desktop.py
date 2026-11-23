@@ -811,7 +811,7 @@ class GuardianDesktop:
         public_key=data.get("license_public_key","").strip()
         if not base or not public_key:
             raise LicenseClientError("라이선스 API HTTPS 주소와 RSA 공개키를 먼저 설정하세요.")
-        return WindowsLicenseClient(base,public_key,APP_DIR,app_version="0.7.47")
+        return WindowsLicenseClient(base,public_key,APP_DIR,app_version="0.7.49")
     def refresh_license_status(self):
         try:
             data=json.loads(CONFIG.read_text(encoding="utf-8")) if CONFIG.exists() else {}
