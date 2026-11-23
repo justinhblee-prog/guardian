@@ -84,3 +84,10 @@ def test_windows_settings_sidebar_stays_expanded_after_category_selection():
     source = (Path(__file__).with_name("desktop.py")).read_text(encoding="utf-8")
     assert "def _select_settings_category(self,key,action,collapse=False):" in source
     assert "command=lambda k=key,a=action:self._select_settings_category(k,a)" in source
+
+
+def test_windows_window_uses_compact_adaptive_dimensions():
+    source = (Path(__file__).with_name("desktop.py")).read_text(encoding="utf-8")
+    assert "window_width=max(900,min(1200,screen_width-80))" in source
+    assert "window_height=max(600,min(760,screen_height-100))" in source
+    assert "root.minsize(900,600)" in source
