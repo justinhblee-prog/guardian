@@ -690,7 +690,9 @@ class GuardianVpnService : VpnService() {
                         // packets when their IP protocol explicitly identifies UDP.
                         continue
                     }
-                    val appPackage = when {
+                    // Per-app attribution and policy are development-only until the
+                    // signed PRO entitlement gate and Android device tests are integrated.
+                    val appPackage = if (BuildConfig.DEBUG) when {
                         ipv4 != null -> AppTrafficAttribution.resolveUdpDnsPackage(
                             this, ipv4.source, ipv4.sourcePort, ipv4.destination, ipv4.destinationPort
                         )
@@ -698,8 +700,10 @@ class GuardianVpnService : VpnService() {
                             this, ipv6.source, ipv6.sourcePort, ipv6.destination, ipv6.destinationPort
                         )
                         else -> null
-                    }
-                    val appSpecificRules = PerAppDnsPolicyStore.rules(this, appPackage)
+                    } else null
+                    val appSpecificRules = if (BuildConfig.DEBUG) {
+                        PerAppDnsPolicyStore.rules(this, appPackage)
+                    } else emptySet()
                     val result = DnsQueryPolicy.resolve(payload, appSpecificRules, ::forwardDns)
                     if (result == null) {
                         recordIgnoredPacket("IPv4/IPv6 UDP DNS 질의 형식 또는 질문 영역 검증 실패")
@@ -800,7 +804,9 @@ class GuardianVpnService : VpnService() {
                 ).apply()
             }
         }
-        AppDnsActivityStore.record(this, sourceAppPackage, blocked, forwarded, category)
+        if (BuildConfig.DEBUG) {
+            AppDnsActivityStore.record(this, sourceAppPackage, blocked, forwarded, category)
+        }
         // Persist every query, but coalesce UI refresh broadcasts to avoid flooding
         // the main thread when an app generates many DNS requests in a short burst.
         val now = android.os.SystemClock.elapsedRealtime()
