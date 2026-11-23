@@ -87,4 +87,13 @@ class FilterStartupGateTest {
             )
         )
     }
+    @Test
+    fun optionalFeedMinimumCountUsesOverflowSafeLongArithmetic() {
+        assertTrue(FilterStartupGate.meetsMinimumRuleCount(Int.MAX_VALUE, 1, Int.MAX_VALUE))
+        assertTrue(FilterStartupGate.meetsMinimumRuleCount(Int.MAX_VALUE, Int.MAX_VALUE, Int.MAX_VALUE))
+        assertFalse(FilterStartupGate.meetsMinimumRuleCount(1, 1, Int.MAX_VALUE))
+        assertFalse(FilterStartupGate.meetsMinimumRuleCount(-1, Int.MAX_VALUE, 1))
+        assertFalse(FilterStartupGate.meetsMinimumRuleCount(Int.MAX_VALUE, 1, 0))
+    }
+
 }
