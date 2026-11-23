@@ -578,6 +578,14 @@ class MainActivity : FragmentActivity() {
         focusLicenseActivation: Boolean = false,
         focusAppExclusions: Boolean = false
     ) {
+        val previousTab = currentTab
+        val entryWidthDp = resources.configuration.screenWidthDp.coerceAtLeast(1)
+        if (tab == "settings" && previousTab != "settings" &&
+            !ResponsiveLayoutPolicy.usesSettingsSplitPane(entryWidthDp)
+        ) {
+            // On phones, enter directly into the detail workspace with a compact icon rail.
+            settingsSidebarCollapsed = true
+        }
         currentTab = tab
         getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
             .putString(PREF_LAST_SELECTED_TAB, tab)
