@@ -1929,6 +1929,7 @@ class MainActivity : Activity() {
     }
 
     private fun buildSettingsPremium(body: LinearLayout) {
+        val releasableLicense = LicenseEntitlementStore.currentForRefresh(this)
         buildPremium(body)
                 body.addView(card(panel, 14).apply {
                     setPadding(dp(15), dp(15), dp(15), dp(15))
