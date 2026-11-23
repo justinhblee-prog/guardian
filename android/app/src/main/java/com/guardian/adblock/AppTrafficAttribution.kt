@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 /** Resolves UDP DNS socket ownership for an active VpnService (Android 10+). */
 internal object AppTrafficAttribution {
     private const val UDP_PROTOCOL = 17
-    private const val CACHE_TTL_MILLIS = 30_000L
+    private const val CACHE_TTL_MILLIS = 1_000L
     private const val MAX_CACHE_ENTRIES = 2_048
 
     private data class FlowKey(
@@ -70,7 +70,7 @@ internal object AppPackageIdentityPolicy {
         if (unique.size != 1) return null
         return unique.single().takeIf {
             it.length in 3..255 &&
-                it.matches(Regex("[A-Za-z0-9_]+(?:\\\\.[A-Za-z0-9_]+)+"))
+                it.matches(Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+"))
         }
     }
 }

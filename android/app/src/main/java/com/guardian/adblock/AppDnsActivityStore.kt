@@ -16,6 +16,7 @@ internal data class AppDnsStats(
 internal object AppDnsActivityStore {
     private const val PREFS = "guardian_app_dns_activity_v1"
     private const val KEY_PACKAGES = "tracked_packages"
+    private const val MAX_TRACKED_PACKAGES = 200
     @Synchronized
     fun record(
         context: Context,
@@ -28,6 +29,8 @@ internal object AppDnsActivityStore {
             it.length in 3..255 && it.matches(Regex("[A-Za-z0-9_]+(?:\\\\.[A-Za-z0-9_]+)+"))
         } ?: return
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val packages = prefs.getStringSet(KEY_PACKAGES, emptySet()).orEmpty().toMutableSet()
+        if (safePackage !in packages && packages.size >= MAX_TRACKED_PACKAGES) return
         val prefix = "app.$safePackage."
         val editor = prefs.edit()
         fun increment(key: String, amount: Long = 1L) {
@@ -44,7 +47,6 @@ internal object AppDnsActivityStore {
             DomainFilter.BlockCategory.OTHER -> increment("other")
             null -> Unit
         }
-        val packages = prefs.getStringSet(KEY_PACKAGES, emptySet()).orEmpty().toMutableSet()
         packages.add(safePackage)
         editor.putStringSet(KEY_PACKAGES, packages).apply()
     }
