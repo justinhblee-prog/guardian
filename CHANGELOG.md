@@ -501,3 +501,9 @@
 - 각 자산 URL이 현재 선택된 stable tag 및 예상 파일명(`guardian-android.json`, `guardian-android.apk`)과 정확히 일치해야 합니다. 다른 태그, 파일명, 추가 경로, query/fragment, 비표준 포트, 비공식 호스트는 거부합니다.
 - 회귀 테스트 8개 케이스를 추가했습니다.
 - Kotlin/JVM smoke 6개 assertion 통과. Android Gradle/JUnit, lint, APK, GitHub Release 실제 CDN redirect 및 설치 검증은 미실행입니다. CI 비용 발생 작업은 실행하지 않았습니다.
+
+
+## 2026-11-24 Android 무료 버전 — 업데이트 확인 결과 문구 정확성
+- 공식 stable Release 후보가 하나도 없을 때 이를 '최신 버전'으로 잘못 표시하지 않고, 정식 Release 미게시 오류로 표시하도록 수정했습니다.
+- 설치 버전이 최신 공개 정식 버전과 같거나 더 높은 경우에는 '최신 공개 버전 이상'이라고 안내해 버전 관계를 과장하지 않습니다.
+- Android Gradle/JUnit 및 UI 런타임 검증은 아직 실행하지 않았습니다.
