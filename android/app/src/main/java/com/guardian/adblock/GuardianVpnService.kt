@@ -58,6 +58,7 @@ class GuardianVpnService : VpnService() {
         private const val VIRTUAL_DNS = "10.13.37.2"
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
         private const val MAX_UDP_DNS_RESPONSE_BYTES = 1232
+        private const val MAX_DNS_MESSAGE_BYTES = 65535
         const val KEY_UPSTREAM_DNS = "upstream_dns"
         const val KEY_UPSTREAM_TRANSPORT = "upstream_transport"
         const val KEY_UPSTREAM_TLS_HOST = "upstream_tls_host"
@@ -1044,7 +1045,9 @@ class GuardianVpnService : VpnService() {
             socket.soTimeout = 3500
             val address = InetAddress.getByName(upstreamAddress)
             socket.send(DatagramPacket(query, query.size, address, 53))
-            val response = ByteArray(4096)
+            // DNS UDP payloads may use the full 16-bit DNS message length.
+            // Do not silently truncate large upstream replies at an arbitrary 4 KiB cap.
+            val response = ByteArray(MAX_DNS_MESSAGE_BYTES)
             val packet = DatagramPacket(response, response.size)
             socket.receive(packet)
             if (packet.address != address || packet.port != 53) {
