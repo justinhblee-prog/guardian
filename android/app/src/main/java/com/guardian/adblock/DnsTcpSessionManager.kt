@@ -131,7 +131,9 @@ class DnsTcpSessionManager(
             (session.pendingServerData.size() > 0 || session.clientFinReceived && !session.serverFinSent)) {
             val replies = drainServerData(tcp, session).toMutableList()
             appendPendingFin(tcp, session, replies)
-            if (replies.isNotEmpty()) session.lastServerReplies = replies.map { it.copyOf() }
+            // Do not replace the cached reply for the last client data/FIN
+            // segment with a later window-update response. Exact request
+            // retransmissions must replay the response to that request.
             return replies
         }
         // Once the client has sent FIN, its byte stream is closed.
