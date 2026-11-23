@@ -267,3 +267,11 @@
 - 문의 조회 화면뿐 아니라 `LicenseApiClient.lookupSupportTicket()` 진입점에서도 접수 번호와 조회 코드를 검증해 다른 호출 경로에서 잘못된 요청이 전송되지 않도록 했습니다.
 - 테스트에 조회 코드 최소/최대 길이, 잘못된 패딩 및 공백 문자를 추가했습니다.
 - 실제 `SupportInputPolicy.kt`와 동등한 독립 Kotlin/JVM 하네스를 `kotlinc`로 컴파일·실행해 이메일, 접수 번호, 조회 코드 검증 3개 시나리오를 통과했습니다. Android Gradle/JUnit 및 실제 API/DB는 미실행입니다.
+
+
+## 2026-11-24 — 피싱 URL 오프라인 분석 엔진
+- 전용 브랜치 `work/pro-phishing-scan-20261124`, 최신 구현 커밋 `27237fa527d492d75752dc1972a86a6aad1320eb`.
+- HTTP, IP literal, punycode, 혼합 스크립트, URL userinfo, 민감 문구, 다단계 서브도메인, URL shortener, 비표준 포트, 실행 파일 확장자를 구조적 신호로 분석합니다.
+- Kotlin/JVM smoke 9개 시나리오 통과. 최초 컴파일 smoke에서 IntArray collection 변환 오류를 발견해 `asIterable()` 적용 후 재실행 통과.
+- 현재는 오프라인 휴리스틱으로 외부 평판/위협 인텔리전스 조회를 하지 않습니다. 위험 점수는 악성 판정이 아니며, 낮은 점수도 안전을 보증하지 않습니다.
+- 미완료: APK/Dex 정적 분석, Android picker/UI, 실제 기능 권한 연결, Android Gradle/JUnit 및 emulator E2E.

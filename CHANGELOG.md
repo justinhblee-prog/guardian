@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-24 — PRO 피싱 URL 구조 분석 엔진 1차 구현
+- 오프라인 URL 분석기를 추가해 HTTP 비암호화, IP literal, punycode, 혼합 문자 체계, 주소 내 사용자 정보, 로그인/인증 유도형 도메인 문구, 과도한 하위 도메인, 단축 URL, 비표준 포트, 실행 파일 확장자를 주의 신호로 분류합니다.
+- 위험도는 구조적 신호 합산이며, 낮은 점수도 안전 보증이 아닙니다. 외부 평판 조회나 실시간 악성 URL DB 조회를 수행하지 않습니다.
+- Kotlin/JVM smoke 9개 시나리오 통과. Android UI/PRO gate 연결, APK 코드 정적 검사, Android Gradle/JUnit은 미완료입니다.
+
 ## 2026-11-23 — Windows 조용한 DNS 실행 및 반응형 설정 탐색
 - Windows DNS 어댑터 조회·변경에 사용하는 PowerShell 실행에 CREATE_NO_WINDOW 및 STARTF_USESHOWWINDOW를 적용해 보호 시작/중지 중 콘솔 창이 표시되지 않도록 수정했습니다.
 - Windows 설정 카테고리는 항목 선택만으로 자동 축소되지 않으며, 사용자가 접기 버튼을 누를 때만 아이콘 레일로 전환됩니다.
