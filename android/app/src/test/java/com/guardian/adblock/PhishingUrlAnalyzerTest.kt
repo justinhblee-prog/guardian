@@ -48,6 +48,8 @@ class PhishingUrlAnalyzerTest {
             "file:///etc/passwd",
             "https://",
             "https://bad host.example/",
+            "https://example.com:70000/",
+            "https://999.999.999.999/",
             "https://" + "a".repeat(2050)
         ).forEach { raw ->
             assertEquals(raw, PhishingUrlAnalyzer.Risk.INVALID, PhishingUrlAnalyzer.analyze(raw).risk)

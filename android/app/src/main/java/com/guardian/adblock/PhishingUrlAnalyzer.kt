@@ -77,11 +77,14 @@ internal object PhishingUrlAnalyzer {
             }
         }
         if (host.isBlank() || host.length > 253) return invalid()
+        if (port != null && port !in 1..65535) return invalid()
         val asciiHost = runCatching {
             if (host.contains(':')) host.lowercase(Locale.ROOT)
             else IDN.toASCII(host.trimEnd('.'), IDN.USE_STD3_ASCII_RULES).lowercase(Locale.ROOT)
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: return invalid()
         if (asciiHost.split('.').any { it.isBlank() || it.length > 63 }) return invalid()
+        if (asciiHost.length > 253) return invalid()
+        if (host.all { it.isDigit() || it == '.' } && host.contains('.') && !isIpLiteral(asciiHost)) return invalid()
 
         if (scheme == "http") signals.add(Signal.INSECURE_HTTP)
         if (isIpLiteral(asciiHost)) signals.add(Signal.IP_LITERAL_HOST)
@@ -106,7 +109,7 @@ internal object PhishingUrlAnalyzer {
         val explanation = when (risk) {
             Risk.HIGH -> "여러 주의 신호가 확인되었습니다. 링크를 열지 말고 발신자와 공식 사이트를 별도로 확인하세요."
             Risk.CAUTION -> "주의 신호가 확인되었습니다. 링크의 실제 목적지와 발신자를 확인한 뒤 이용하세요."
-            Risk.LOW -> "이 검사에서 뚜렷한 구조적 주의 신호를 찾지 못했습니다. 안전한 사이트임을 보증하지는 않습니다."
+            Risk.LOW -> "높은 위험을 나타내는 구조적 신호는 확인되지 않았습니다. 안전한 사이트임을 보증하지는 않습니다."
             Risk.INVALID -> "HTTP 또는 HTTPS 주소 형식인지 확인해 주세요."
         }
         return Result(true, asciiHost, risk, score, signals.toList(), explanation)
