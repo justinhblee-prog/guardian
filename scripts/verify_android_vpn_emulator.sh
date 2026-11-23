@@ -1367,6 +1367,10 @@ fi
 # Verify the About and Exit submenus even though they are below the phone viewport.
 scroll_to_text "정보"
 sleep 1
+# The About card continues below the phone viewport. Reveal the app-update
+# action before asserting it exists; UIAutomator omits off-screen children.
+ensure_text_visible "앱 업데이트 확인"
+sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-about-menu.xml >/dev/null 2>&1
 about_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-menu.xml | tr -d '\r')"
 expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
