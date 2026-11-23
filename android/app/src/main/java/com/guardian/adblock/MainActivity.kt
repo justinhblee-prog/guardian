@@ -970,6 +970,7 @@ class MainActivity : Activity() {
                     .setMessage("DNS 질의·차단 통계와 최근 요청 기록이 이 기기에서 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
                     .setNegativeButton("취소", null)
                     .setPositiveButton("초기화") { _, _ ->
+                        AppDnsActivityStore.clear(this@MainActivity)
                         prefs.edit()
                             .putLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
                             .putLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)
@@ -1603,6 +1604,9 @@ class MainActivity : Activity() {
             if (proActive) accent else muted
         ))
 
+        if (developmentPreview) {
+            body.addView(buildAppDnsStatsPreview().withTop(14))
+        }
         body.addView(text("PRO 기능 미리보기", 18f, white, true).withTop(24))
         body.addView(text(
             if (developmentPreview) "개발 미리보기 모드 · 라이선스 권한을 부여하지 않으며, 실제 엔진 연결 상태를 각 항목에 표시합니다."
@@ -2141,6 +2145,38 @@ class MainActivity : Activity() {
                 // inventory so it remains discoverable without scrolling through every app.
                 buildCompatibilityPauseSection(body)
                 body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
+    }
+
+    private fun buildAppDnsStatsPreview(): LinearLayout {
+        val entries = AppDnsActivityStore.snapshot(this, 10)
+        return card(panel, 16).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("앱별 DNS 활동 · 개발 미리보기", 15f, white, true))
+            addView(text(
+                "Android 10+에서 Guardian VPN이 소유 UID를 확인한 UDP DNS 요청만 앱에 연결합니다. DNS-over-TCP, DoH/DoT, UID 확인 불가 및 공유 UID 앱은 포함되지 않을 수 있습니다.",
+                10f, muted, false
+            ).withTop(5))
+            if (entries.isEmpty()) {
+                addView(text("아직 연결된 앱별 DNS 기록이 없습니다. 보호를 시작하고 앱에서 DNS 요청을 발생시켜 주세요.", 11f, muted, false).withTop(12))
+            } else {
+                entries.forEach { entry ->
+                    addView(View(this@MainActivity).apply {
+                        setBackgroundColor(panel2)
+                    }, LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(8) })
+                    val label = runCatching {
+                        val info = packageManager.getApplicationInfo(entry.packageName, 0)
+                        packageManager.getApplicationLabel(info).toString()
+                    }.getOrDefault(entry.packageName)
+                    addView(text(label, 12f, white, true).withTop(8))
+                    addView(text(entry.packageName, 9f, muted, false).withTop(2))
+                    addView(text(
+                        "질의 ${entry.queries} · 차단 ${entry.blocked} · 광고 ${entry.ads} · 추적 ${entry.trackers} · 실패 ${entry.failed}",
+                        10f, accent, false
+                    ).withTop(4))
+                }
+            }
+            addView(text("개발 미리보기 데이터는 기기 내부에만 저장되며 PRO 권한을 부여하지 않습니다.", 10f, Color.rgb(238, 176, 82), true).withTop(10))
+        }
     }
 
     private fun buildSettingsPremium(body: LinearLayout) {
