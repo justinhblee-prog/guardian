@@ -60,3 +60,5 @@ def test_android_navigation_contract_uses_approved_primary_hierarchy():
     assert 'GuardianNavigationItem("app-exclusions", "▣", "앱 제외")' in source
     assert 'GuardianNavigationItem("settings", "⚙", "설정")' in source
     assert 'GuardianNavigationItem("premium"' not in source
+    activity=(root/"android/app/src/main/java/com/guardian/adblock/MainActivity.kt").read_text(encoding="utf-8")
+    assert 'text = "최근 오류 내용 복사"' in activity
