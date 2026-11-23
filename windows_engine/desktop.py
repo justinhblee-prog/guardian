@@ -255,7 +255,7 @@ class GuardianDesktop:
                 copy_button.configure(text="복사 완료")
                 dialog.after(1800,lambda: copy_button.configure(text="오류 내용 복사"))
             except Exception as copy_error:
-                messagebox.showwarning("복사 실패",f"클립보드에 복사하지 못했습니다.\\n\\n{copy_error}")
+                messagebox.showwarning("복사 실패",f"클립보드에 복사하지 못했습니다.\n\n{copy_error}")
         copy_button=tk.Button(actions,text="오류 내용 복사",command=copy_error,bg="#197a57",fg="white",activebackground="#238b67",relief="flat",font=("Segoe UI",10,"bold"),padx=16,pady=9,cursor="hand2")
         copy_button.pack(side="left")
         tk.Button(actions,text="닫기",command=dialog.destroy,bg="#33404c",fg="white",relief="flat",padx=18,pady=9,cursor="hand2").pack(side="right")
