@@ -301,7 +301,9 @@ class GuardianDesktop:
             assets=release.get('assets',[]); installer=next((item for item in assets if item.get('name','').lower().endswith('.exe') and 'windows' in item.get('name','').lower()),None)
             self.program_update_status.set('최신 릴리스: '+tag+'\n'+('Windows 설치 파일: '+installer.get('name') if installer else 'Windows 설치 파일이 릴리스 자산에 없습니다.'))
             self.open_release_button.configure(state='normal' if self.latest_release_url else 'disabled')
-        except Exception as exc: self.program_update_status.set('업데이트 확인 실패: '+str(exc)); self.open_release_button.configure(state='disabled')
+        except Exception as exc:
+            self.program_update_status.set('업데이트 확인 실패: '+str(exc)); self.open_release_button.configure(state='disabled')
+            self.show_error_dialog("프로그램 업데이트 확인 실패",str(exc))
     def open_release_page(self):
         url=getattr(self,'latest_release_url','')
         if url: webbrowser.open(url)
@@ -420,21 +422,27 @@ class GuardianDesktop:
                 entitlement=self._license_client(saved).activate(license_key.get())
                 status.set("Guardian Pro 활성화 완료 · 만료 "+time.strftime("%Y-%m-%d",time.localtime(entitlement["expiresAt"])))
                 self.refresh_license_status()
-            except Exception as exc: status.set("활성화 실패: "+str(exc))
+            except Exception as exc:
+                status.set("활성화 실패: "+str(exc))
+                self.show_error_dialog("라이선스 활성화 실패",str(exc))
         def refresh():
             try:
                 saved=save_config()
                 entitlement=self._license_client(saved).refresh()
                 status.set("라이선스 갱신 완료 · 만료 "+time.strftime("%Y-%m-%d",time.localtime(entitlement["expiresAt"])))
                 self.refresh_license_status()
-            except Exception as exc: status.set("갱신 실패: "+str(exc))
+            except Exception as exc:
+                status.set("갱신 실패: "+str(exc))
+                self.show_error_dialog("라이선스 갱신 실패",str(exc))
         def deactivate():
             try:
                 saved=save_config()
                 self._license_client(saved).deactivate()
                 status.set("이 Windows 기기의 라이선스 등록을 해제했습니다.")
                 self.refresh_license_status()
-            except Exception as exc: status.set("기기 해제 실패: "+str(exc))
+            except Exception as exc:
+                status.set("기기 해제 실패: "+str(exc))
+                self.show_error_dialog("기기 라이선스 해제 실패",str(exc))
         buttons=tk.Frame(dialog,bg="#101820"); buttons.pack(pady=12)
         tk.Button(buttons,text="설정 저장",command=lambda: (save_config(),status.set("설정 저장 완료")),bg="#33404c",fg="white",relief="flat").pack(side="left",padx=5)
         tk.Button(buttons,text="라이선스 활성화",command=activate,bg="#197a57",fg="white",relief="flat").pack(side="left",padx=5)
