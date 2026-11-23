@@ -1654,23 +1654,6 @@ class MainActivity : Activity() {
         body.addView(text("일반", 25f, white, true))
         body.addView(text("앱 동작과 네트워크 연결의 기본 설정을 관리합니다.", 13f, muted, false).withTop(5))
         body.addView(card(panel, 14).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(15), dp(13), dp(15), dp(13))
-                addView(text(title, 15f, white, true))
-                addView(text(description, 11f, muted, false).withTop(4))
-                setOnClickListener { showTab(target) }
-                isClickable = true
-                isFocusable = true
-            }.withTop(9))
-        }
-        body.addView(text("앱 정보 및 고객 지원", 18f, white, true).withTop(22))
-        body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
-        body.addView(buildSupportCenterCard().withTop(12))
-        body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
-        body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
-        body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
-        body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
-        body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("운영 서버 주소 (노트북)", 15f, white, true))
             addView(text(
