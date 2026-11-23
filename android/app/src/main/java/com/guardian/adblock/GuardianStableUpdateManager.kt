@@ -83,6 +83,9 @@ internal object GuardianStableUpdateManager {
         }
         try {
             connection.connect()
+            check(isAllowedReleaseDownloadUrl(connection.url.toString())) {
+                "정식 APK 다운로드가 허용되지 않은 서버로 리디렉션되었습니다."
+            }
             check(connection.responseCode in 200..299) { "정식 APK 다운로드 실패: HTTP ${connection.responseCode}" }
             val expectedLength = connection.contentLengthLong
             check(expectedLength in 1..MAX_APK_BYTES) { "정식 APK 파일 크기가 허용 범위를 벗어났습니다." }
@@ -173,6 +176,25 @@ internal object GuardianStableUpdateManager {
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
+    internal fun isAllowedReleaseDownloadUrl(address: String): Boolean = runCatching {
+        val uri = java.net.URI(address)
+        uri.scheme.equals("https", true) && uri.host?.lowercase() in setOf(
+            "github.com",
+            "release-assets.githubusercontent.com",
+            "objects.githubusercontent.com"
+        ) && uri.userInfo == null
+    }.getOrDefault(false)
+
+    private fun isAllowedHttpsUrl(address: String): Boolean = runCatching {
+        val uri = java.net.URI(address)
+        uri.scheme.equals("https", true) && uri.host?.lowercase() in setOf(
+            "api.github.com",
+            "github.com",
+            "release-assets.githubusercontent.com",
+            "objects.githubusercontent.com"
+        ) && uri.userInfo == null
+    }.getOrDefault(false)
+
     private fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
         val uri = java.net.URI(address)
         uri.scheme.equals("https", true) && uri.host.equals("github.com", true) &&
@@ -189,6 +211,9 @@ internal object GuardianStableUpdateManager {
         }
         try {
             connection.connect()
+            check(isAllowedHttpsUrl(connection.url.toString())) {
+                "정식 업데이트 확인 요청이 허용되지 않은 서버로 리디렉션되었습니다."
+            }
             check(connection.responseCode in 200..299) { "정식 업데이트 확인 실패: HTTP ${connection.responseCode}" }
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream(); val buffer = ByteArray(8192)

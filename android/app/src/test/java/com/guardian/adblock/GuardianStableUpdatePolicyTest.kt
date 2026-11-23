@@ -24,4 +24,25 @@ class GuardianStableUpdatePolicyTest {
         assertFalse(GuardianStableUpdatePolicy.isSha256("a".repeat(63)))
         assertFalse(GuardianStableUpdatePolicy.isSha256("g".repeat(64)))
     }
+
+    @Test fun stableApkRedirectsMustRemainOnOfficialHttpsAssetHosts() {
+        assertTrue(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://release-assets.githubusercontent.com/github-production-release-asset/guardian.apk"
+        ))
+        assertTrue(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://objects.githubusercontent.com/release/guardian.apk"
+        ))
+        assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://evil.example/guardian.apk"
+        ))
+        assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "http://release-assets.githubusercontent.com/guardian.apk"
+        ))
+        assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://api.github.com/repos/guardian"
+        ))
+        assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://user@github.com/guardian.apk"
+        ))
+    }
 }
