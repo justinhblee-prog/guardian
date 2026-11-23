@@ -25,5 +25,19 @@ internal object GuardianStableUpdatePolicy {
 
     fun isNewerVersion(installedVersionCode: Int, candidateVersionCode: Int): Boolean =
         candidateVersionCode > installedVersionCode
+
     fun isSha256(value: String): Boolean = Regex("^[a-fA-F0-9]{64}$").matches(value)
+
+    fun isOfficialReleaseAssetUrl(address: String, tag: String, assetName: String): Boolean = runCatching {
+        require(isStableRelease(draft = false, prerelease = false, tag = tag))
+        require(assetName == "guardian-android.json" || assetName == "guardian-android.apk")
+        val uri = java.net.URI(address)
+        uri.scheme.equals("https", true) &&
+            (uri.port == -1 || uri.port == 443) &&
+            uri.host.equals("github.com", true) &&
+            uri.userInfo == null &&
+            uri.query == null &&
+            uri.fragment == null &&
+            uri.path == "/justinhblee-prog/guardian/releases/download/$tag/$assetName"
+    }.getOrDefault(false)
 }
