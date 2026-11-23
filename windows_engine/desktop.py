@@ -463,13 +463,14 @@ class GuardianDesktop:
                              padx=4 if collapsed else 15,
                              wraplength=48 if collapsed else 225)
 
-    def _select_settings_category(self,key,action):
+    def _select_settings_category(self,key,action,collapse=True):
         for name,button in self.settings_category_buttons.items():
             selected=name==key
             button.configure(bg='#1c4650' if selected else '#242529',
                              fg='#ffffff' if selected else '#d5e2ef')
         action()
-        self._set_settings_sidebar_collapsed(True)
+        if collapse:
+            self._set_settings_sidebar_collapsed(True)
 
     def show_settings_page(self):
         self._clear_settings_page()
@@ -520,7 +521,7 @@ class GuardianDesktop:
             button.pack(fill='x',padx=10,pady=3)
             self.settings_category_buttons[key]=button
             self.settings_category_meta[key]=(symbol,title,detail)
-        self._select_settings_category('general',self.show_general_settings)
+        self._select_settings_category('general',self.show_general_settings,collapse=False)
 
     def show_exit_settings(self):
         self._settings_subpage_header('종료','Guardian 앱 창을 닫아도 백그라운드 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다.')
