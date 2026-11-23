@@ -148,7 +148,17 @@ class MainActivity : Activity() {
             )
         }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
-        showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
+        val screenTab = if (
+            resources.configuration.screenWidthDp >= 600 &&
+            restoredTab.startsWith("settings-") &&
+            !restoreLicenseFocus
+        ) {
+            selectedSettingsCategory = restoredTab
+            "settings"
+        } else {
+            restoredTab
+        }
+        showTab(screenTab, focusLicenseActivation = restoreLicenseFocus)
         if (restoredTab == "settings-filtering") {
             retainedRuleDraft?.let { draft ->
                 blockRulesInput.setText(draft.blockRules)
