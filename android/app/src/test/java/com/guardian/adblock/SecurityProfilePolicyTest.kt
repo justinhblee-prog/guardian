@@ -1,0 +1,87 @@
+package com.guardian.adblock
+
+import org.junit.Assert.*
+import org.junit.Test
+
+class SecurityProfilePolicyTest {
+    private fun network(
+        transport: SecurityProfilePolicy.Transport = SecurityProfilePolicy.Transport.WIFI,
+        validated: Boolean = true,
+        captive: Boolean = false,
+        metered: Boolean = false,
+        roaming: Boolean = false,
+        trusted: Boolean = false
+    ) = SecurityProfilePolicy.NetworkContext(transport, validated, captive, metered, roaming, trusted)
+
+    @Test fun unknownWifiDefaultsToPublicWifiProfile() {
+        assertEquals(
+            SecurityProfilePolicy.Id.PUBLIC_WIFI,
+            SecurityProfilePolicy.resolveAutomatic(network()).id
+        )
+    }
+
+    @Test fun trustedWifiUsesHomeProfile() {
+        assertEquals(
+            SecurityProfilePolicy.Id.HOME,
+            SecurityProfilePolicy.resolveAutomatic(network(trusted = true)).id
+        )
+    }
+
+    @Test fun captivePortalAndUnvalidatedNetworksUseStrictProfile() {
+        assertEquals(
+            SecurityProfilePolicy.Id.STRICT,
+            SecurityProfilePolicy.resolveAutomatic(network(captive = true)).id
+        )
+        assertEquals(
+            SecurityProfilePolicy.Id.STRICT,
+            SecurityProfilePolicy.resolveAutomatic(network(validated = false)).id
+        )
+    }
+
+    @Test fun roamingTakesPrecedenceOverTransportProfile() {
+        assertEquals(
+            SecurityProfilePolicy.Id.TRAVEL,
+            SecurityProfilePolicy.resolveAutomatic(
+                network(transport = SecurityProfilePolicy.Transport.CELLULAR, roaming = true)
+            ).id
+        )
+    }
+
+    @Test fun mobileAndTrustedEthernetResolveDeterministically() {
+        assertEquals(
+            SecurityProfilePolicy.Id.MOBILE,
+            SecurityProfilePolicy.resolveAutomatic(
+                network(transport = SecurityProfilePolicy.Transport.CELLULAR, metered = true)
+            ).id
+        )
+        assertEquals(
+            SecurityProfilePolicy.Id.WORK,
+            SecurityProfilePolicy.resolveAutomatic(
+                network(transport = SecurityProfilePolicy.Transport.ETHERNET, trusted = true)
+            ).id
+        )
+    }
+
+    @Test fun unknownTransportsNeverBecomeTrustedProfiles() {
+        listOf(
+            SecurityProfilePolicy.Transport.OTHER,
+            SecurityProfilePolicy.Transport.UNKNOWN,
+            SecurityProfilePolicy.Transport.ETHERNET
+        ).forEach { transport ->
+            assertEquals(
+                SecurityProfilePolicy.Id.STRICT,
+                SecurityProfilePolicy.resolveAutomatic(network(transport = transport)).id
+            )
+        }
+    }
+
+    @Test fun everyProfileUsesAnExistingFilterProfileKey() {
+        val available = FilterListManager.availableProfiles().map { it.key }.toSet()
+        SecurityProfilePolicy.Id.values().forEach { id ->
+            assertTrue(
+                "Unknown filter profile for $id",
+                SecurityProfilePolicy.profile(id).filterProfileKey in available
+            )
+        }
+    }
+}

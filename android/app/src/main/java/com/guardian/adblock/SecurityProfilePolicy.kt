@@ -1,0 +1,54 @@
+package com.guardian.adblock
+
+/**
+ * Resolves a user-selected security profile from Android network facts.
+ *
+ * This policy intentionally accepts a boolean trust decision from its caller instead of
+ * storing or logging Wi-Fi SSIDs. Android may restrict SSID visibility, so an unknown
+ * network is never silently treated as trusted.
+ */
+internal object SecurityProfilePolicy {
+    enum class Id { HOME, WORK, PUBLIC_WIFI, MOBILE, TRAVEL, STRICT }
+    enum class Transport { WIFI, CELLULAR, ETHERNET, OTHER, UNKNOWN }
+
+    data class NetworkContext(
+        val transport: Transport,
+        val validated: Boolean,
+        val captivePortal: Boolean,
+        val metered: Boolean,
+        val roaming: Boolean,
+        val trustedNetwork: Boolean
+    )
+
+    data class Profile(
+        val id: Id,
+        val label: String,
+        val filterProfileKey: String,
+        val securityFilterEnabled: Boolean,
+        val androidAdsFilterEnabled: Boolean,
+        val automaticFilterUpdates: Boolean
+    )
+
+    private val profiles = mapOf(
+        Id.HOME to Profile(Id.HOME, "집", "adguard", true, true, true),
+        Id.WORK to Profile(Id.WORK, "업무", "1hosts_lite", true, true, true),
+        Id.PUBLIC_WIFI to Profile(Id.PUBLIC_WIFI, "공용 Wi-Fi", "hagezi_pro", true, true, true),
+        Id.MOBILE to Profile(Id.MOBILE, "모바일 데이터", "adguard", true, true, true),
+        Id.TRAVEL to Profile(Id.TRAVEL, "여행", "hagezi_pro", true, true, true),
+        Id.STRICT to Profile(Id.STRICT, "엄격 보호", "hagezi_pro", true, true, true)
+    )
+
+    fun profile(id: Id): Profile = profiles.getValue(id)
+
+    fun resolveAutomatic(context: NetworkContext): Profile {
+        // Captive portals and unvalidated networks are treated as untrusted.
+        if (context.captivePortal || !context.validated) return profile(Id.STRICT)
+        if (context.roaming) return profile(Id.TRAVEL)
+        return when (context.transport) {
+            Transport.WIFI -> if (context.trustedNetwork) profile(Id.HOME) else profile(Id.PUBLIC_WIFI)
+            Transport.CELLULAR -> profile(Id.MOBILE)
+            Transport.ETHERNET -> if (context.trustedNetwork) profile(Id.WORK) else profile(Id.STRICT)
+            Transport.OTHER, Transport.UNKNOWN -> profile(Id.STRICT)
+        }
+    }
+}
