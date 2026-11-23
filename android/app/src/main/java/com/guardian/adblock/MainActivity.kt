@@ -470,7 +470,7 @@ class MainActivity : Activity() {
         getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
             .putString(PREF_LAST_SELECTED_TAB, tab)
             .apply()
-        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings"
+        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings-general"
         focusAppExclusionsOnBuild = focusAppExclusions && tab == "settings"
         licenseKeyInput = null
         startButton = null
@@ -558,7 +558,7 @@ class MainActivity : Activity() {
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL
             )
         )
-        if (focusLicenseActivationOnBuild && tab == "settings") {
+        if (focusLicenseActivationOnBuild && tab == "settings-general") {
             scroll.post {
                 licenseKeyInput?.let { input ->
                     val bounds = android.graphics.Rect()
@@ -1527,7 +1527,7 @@ class MainActivity : Activity() {
                 setTextColor(bg)
                 background = shape(accent, 12)
                 setOnClickListener {
-                    showTab("settings", focusLicenseActivation = true)
+                    showTab("settings-general", focusLicenseActivation = true)
                 }
             }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
         }.withTop(16))
@@ -1831,7 +1831,7 @@ class MainActivity : Activity() {
                     thread {
                         try {
                             LicenseApiClient.activate(this@MainActivity, key, BuildConfig.VERSION_NAME)
-                            runOnUiThread { showTab("settings") }
+                            runOnUiThread { showTab("premium") }
                         } catch (error: Exception) {
                             runOnUiThread {
                                 licenseFeedback.text = "라이선스 활성화 실패: ${SafeFailureSummary.describe(error)}"
