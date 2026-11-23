@@ -561,7 +561,10 @@ class MainActivity : Activity() {
             }
             else -> buildSettingsLanding(body)
         }
-        val navSelection = if (tab.startsWith("settings-")) "settings" else tab
+        val navSelection = when {
+            tab.startsWith("settings-") || tab in setOf("premium", "updates", "rules") -> "settings"
+            else -> tab
+        }
         val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
         val contentWidth = ResponsiveLayoutPolicy.contentWidthPx(
             ResponsiveLayoutPolicy.contentAreaWidthDp(screenWidthDp),
@@ -2359,12 +2362,12 @@ class MainActivity : Activity() {
         val items = listOf(
             Triple("home", "⌂", "홈"),
             Triple("protection", "◈", "보호"),
+            Triple("app-exclusions", "▣", "앱 제외"),
             Triple("activity", "▤", "활동"),
-            Triple("premium", "✦", "Premium"),
-            Triple("settings", "⚙", "전체 메뉴")
+            Triple("settings", "⚙", "설정")
         )
         items.forEach { (id, icon, label) ->
-            val active = selected == id || (id == "settings" && (selected.startsWith("settings-") || selected in setOf("updates", "rules", "app-exclusions")))
+            val active = selected == id
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
