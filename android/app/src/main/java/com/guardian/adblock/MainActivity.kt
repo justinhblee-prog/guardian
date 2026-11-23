@@ -1839,16 +1839,17 @@ class MainActivity : FragmentActivity() {
             setPadding(dp(12), dp(14), dp(12), dp(16))
             background = shape(Color.rgb(27, 27, 30), 16)
         }
-        mobileSplit.addView(mobileRail, LinearLayout.LayoutParams(dp(58), ViewGroup.LayoutParams.MATCH_PARENT).apply {
-            marginEnd = dp(8)
-        })
+        mobileSplit.addView(mobileRail, LinearLayout.LayoutParams(
+            dp(if (settingsSidebarCollapsed) 58 else 154),
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ).apply { marginEnd = dp(8) })
         val mobileToggle = Button(this).apply {
-            text = "›"
+            text = if (settingsSidebarCollapsed) "›" else "‹  메뉴 접기"
             isAllCaps = false
-            textSize = 19f
+            textSize = if (settingsSidebarCollapsed) 19f else 11f
             setTextColor(accent)
             background = shape(panel2, 11)
-            contentDescription = "설정 카테고리 펼치기"
+            contentDescription = if (settingsSidebarCollapsed) "설정 카테고리 펼치기" else "설정 카테고리 접기"
             setOnClickListener {
                 settingsSidebarCollapsed = !settingsSidebarCollapsed
                 showTab("settings")
@@ -1858,11 +1859,16 @@ class MainActivity : FragmentActivity() {
         sections.forEach { (symbol, title, description, target) ->
             val selected = selectedSettingsCategory == target
             mobileRail.addView(LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                setPadding(dp(2), dp(11), dp(2), dp(11))
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(if (settingsSidebarCollapsed) 2 else 9), dp(10), dp(4), dp(10))
                 background = shape(if (selected) Color.rgb(27, 72, 81) else Color.TRANSPARENT, 12)
-                addView(text(symbol, 19f, if (selected) white else muted, true))
+                addView(text(symbol, 19f, if (selected) white else muted, true),
+                    LinearLayout.LayoutParams(dp(30), -2))
+                if (!settingsSidebarCollapsed) {
+                    addView(text(title, 11f, if (selected) white else muted, true),
+                        LinearLayout.LayoutParams(0, -2, 1f))
+                }
                 contentDescription = title
                 isClickable = true
                 isFocusable = true
@@ -1871,7 +1877,7 @@ class MainActivity : FragmentActivity() {
                     settingsSidebarCollapsed = true
                     showTab("settings")
                 }
-            }, LinearLayout.LayoutParams(-1, dp(48)).apply { bottomMargin = dp(4) })
+            }, LinearLayout.LayoutParams(-1, dp(if (settingsSidebarCollapsed) 48 else 54)).apply { bottomMargin = dp(4) })
         }
         when (selectedSettingsCategory) {
             "settings-general" -> buildSettingsGeneral(mobileDetail)
