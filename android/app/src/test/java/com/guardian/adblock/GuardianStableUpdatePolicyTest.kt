@@ -13,6 +13,7 @@ class GuardianStableUpdatePolicyTest {
         assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "v1.0.0-rc1"))
         assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "v1.0"))
     }
+
     @Test fun updateMustHaveStrictlyHigherVersionCode() {
         assertTrue(GuardianStableUpdatePolicy.isNewerVersion(30, 31))
         assertFalse(GuardianStableUpdatePolicy.isNewerVersion(30, 30))
@@ -33,6 +34,7 @@ class GuardianStableUpdatePolicyTest {
             tag = "v999999999999999999999.0.0"
         ))
     }
+
     @Test fun sha256MustBeExactly64HexCharacters() {
         assertTrue(GuardianStableUpdatePolicy.isSha256("a".repeat(64)))
         assertTrue(GuardianStableUpdatePolicy.isSha256("A".repeat(64)))
@@ -61,6 +63,35 @@ class GuardianStableUpdatePolicyTest {
         ))
         assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
             "https://github.com:444/guardian.apk"
+        ))
+    }
+
+    @Test fun releaseAssetMustMatchExactOfficialTagAndAssetPath() {
+        val base = "https://github.com/justinhblee-prog/guardian/releases/download/v1.2.3/"
+        assertTrue(GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl(
+            base + "guardian-android.json", "v1.2.3", "guardian-android.json"
+        ))
+        assertTrue(GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl(
+            base + "guardian-android.apk", "v1.2.3", "guardian-android.apk"
+        ))
+        assertFalse(GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl(
+            base + "guardian-android.apk", "v1.2.4", "guardian-android.apk"
+        ))
+        assertFalse(GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl(
+            base + "other.apk", "v1.2.3", "guardian-android.apk"
+        ))
+        assertFalse(GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl(
+            base + "guardian-android.apk/extra", "v1.2.3", "guardian-android.apk"
+        ))
+        assertFalse(GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl(
+            base + "guardian-android.apk?download=1", "v1.2.3", "guardian-android.apk"
+        ))
+        assertFalse(GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl(
+            "https://evil.example/justinhblee-prog/guardian/releases/download/v1.2.3/guardian-android.apk",
+            "v1.2.3", "guardian-android.apk"
+        ))
+        assertFalse(GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl(
+            base + "guardian-android.apk", "v1.2.3-rc1", "guardian-android.apk"
         ))
     }
 }
