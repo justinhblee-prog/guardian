@@ -1,10 +1,10 @@
+# Changelog
+
 ## 2026-11-24 — Android 무료 기본 제품 복구 트랙
 - 라이선스 활성화 화면의 명시적 Premium 복귀 버튼과 system Back 동작을 추가했습니다. 첫 Back은 IME를 닫고, 다음 Back은 Premium 화면으로 복귀하며, 화면 재생성 시 복귀 대상을 보존합니다.
 - filter_rules.txt 누락 시 보호 시작 전 검사와 VPN 서비스 내부 규칙 로더 모두 10개 내장 긴급 DNS 규칙으로 전환하도록 보강했습니다. 이때 제한 모드와 원인 코드를 표시하며, 정상 asset 패키징 검증은 계속 필수입니다.
 - Android VPN emulator E2E에 활성화 화면의 키보드 닫기, system Back, 명시적 복귀 버튼 검증을 추가했습니다.
 - 변경된 Android 소스/테스트는 아직 Gradle/JUnit 및 에뮬레이터에서 실행되지 않았습니다. 이 브랜치 커밋의 APK는 아직 생성·검증되지 않았습니다.
-
-# Changelog
 
 ## 2026-11-23 — Windows 조용한 DNS 실행 및 반응형 설정 탐색
 - Windows DNS 어댑터 조회·변경에 사용하는 PowerShell 실행에 CREATE_NO_WINDOW 및 STARTF_USESHOWWINDOW를 적용해 보호 시작/중지 중 콘솔 창이 표시되지 않도록 수정했습니다.
