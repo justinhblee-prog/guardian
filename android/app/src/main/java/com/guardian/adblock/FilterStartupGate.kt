@@ -7,7 +7,7 @@ package com.guardian.adblock
  */
 internal object FilterStartupGate {
     fun hasUsableBundledBaseline(blockedRules: Int, importantBlockedRules: Int): Boolean =
-        blockedRules.coerceAtLeast(0) + importantBlockedRules.coerceAtLeast(0) > 0
+        blockedRules > 0 || importantBlockedRules > 0
 
     /**
      * Parses an optional feed without allowing a stale, missing, or malformed cache
