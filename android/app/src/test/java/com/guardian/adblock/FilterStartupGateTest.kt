@@ -59,4 +59,25 @@ class FilterStartupGateTest {
         assertTrue(unavailableCalled)
         assertTrue(result.blocked.isEmpty())
     }
+
+    @Test
+    fun malformedBundledAssetIsDetectedAndEmergencyBaselineIsUsable() {
+        val malformed = FilterRuleParser.parse(
+            listOf("# comments only", "block=not a hostname", "allow=only.example")
+        )
+        assertFalse(
+            FilterStartupGate.hasUsableBundledBaseline(
+                malformed.blocked.size,
+                malformed.importantBlocked.size
+            )
+        )
+
+        val emergency = FilterRuleParser.parse(DomainFilter.bootstrapRuleLines())
+        assertTrue(
+            FilterStartupGate.hasUsableBundledBaseline(
+                emergency.blocked.size,
+                emergency.importantBlocked.size
+            )
+        )
+    }
 }
