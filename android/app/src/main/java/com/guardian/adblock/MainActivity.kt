@@ -92,6 +92,7 @@ class MainActivity : FragmentActivity() {
     private var receiverRegistered = false
     private var currentTab = "home"
     private var selectedSettingsCategory = "settings-general"
+    private var settingsSidebarCollapsed = false
     // Reused across tab rebuilds to keep navigation taps responsive.
     private var companyLogoBitmap: android.graphics.Bitmap? = null
     private var contentScrollView: ScrollView? = null
@@ -1733,10 +1734,25 @@ class MainActivity : FragmentActivity() {
                 setPadding(dp(20), dp(18), dp(20), dp(20))
                 background = shape(Color.rgb(27, 27, 30), 20)
             }
-            split.addView(categoryPanel, LinearLayout.LayoutParams(dp(260), ViewGroup.LayoutParams.MATCH_PARENT).apply {
-                marginEnd = dp(14)
+            split.addView(categoryPanel, LinearLayout.LayoutParams(
+                dp(if (settingsSidebarCollapsed) 68 else 260),
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ).apply { marginEnd = dp(14) })
+            val sidebarToggle = Button(this).apply {
+                text = if (settingsSidebarCollapsed) ">" else "<  메뉴 접기"
+                isAllCaps = false
+                textSize = if (settingsSidebarCollapsed) 20f else 12f
+                setTextColor(accent)
+                background = shape(panel2, 12)
+                contentDescription = if (settingsSidebarCollapsed) "설정 메뉴 펼치기" else "설정 메뉴 접기"
+                setOnClickListener {
+                    settingsSidebarCollapsed = !settingsSidebarCollapsed
+                    showTab("settings")
+                }
+            }
+            categoryPanel.addView(sidebarToggle, LinearLayout.LayoutParams(-1, dp(42)).apply {
+                bottomMargin = dp(8)
             })
-            split.addView(detailPanel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
             sections.forEachIndexed { index, (symbol, title, description, target) ->
                 val selected = selectedSettingsCategory == target
                 categoryPanel.addView(LinearLayout(this).apply {
@@ -1746,15 +1762,20 @@ class MainActivity : FragmentActivity() {
                     background = shape(if (selected) Color.rgb(27, 72, 81) else Color.TRANSPARENT, 16)
                     addView(text(symbol, 19f, if (selected) white else muted, true),
                         LinearLayout.LayoutParams(dp(30), -2))
-                    val labels = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
-                    labels.addView(text(title, 14f, if (selected) white else white, true))
-                    labels.addView(text(description, 10f, muted, false).withTop(3))
-                    addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+                    if (!settingsSidebarCollapsed) {
+                        val labels = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+                        labels.addView(text(title, 14f, white, true))
+                        labels.addView(text(description, 10f, muted, false).withTop(3))
+                        addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+                    } else {
+                        gravity = Gravity.CENTER
+                    }
                     contentDescription = title
                     isClickable = true
                     isFocusable = true
                     setOnClickListener {
                         selectedSettingsCategory = target
+                        settingsSidebarCollapsed = true
                         showTab("settings")
                     }
                 }.apply {
@@ -1790,6 +1811,15 @@ class MainActivity : FragmentActivity() {
                 }
                 else -> buildSettingsGeneral(detailPanel)
             }
+            val detailScroll = ScrollView(this).apply {
+                isFillViewport = true
+                clipToPadding = false
+                addView(detailPanel, ScrollView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ))
+            }
+            split.addView(detailScroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
             body.addView(split, LinearLayout.LayoutParams(-1, dp(660)))
             return
         }
