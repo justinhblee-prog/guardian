@@ -696,6 +696,40 @@ class DnsTcpSessionManagerTest {
         assertArrayEquals(largeAnswer, framedAnswer.copyOfRange(2, framedAnswer.size))
     }
 
+    @Test fun largeDnsResponseWaitsForAndFollowsPeerReceiveWindowUpdates() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 8000, window = 0)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val clientNext = 8001L + framedQuery.size
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 8001, acknowledgment = serverStart, payload = framedQuery, window = 0)
+        val largeAnswer = ByteArray(5000) { (it and 0xff).toByte() }
+        assertTrue(manager.handle(request, request.size) { largeAnswer }.isEmpty())
+
+        val firstWindow = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = serverStart, window = 2048)
+        val first = manager.handle(firstWindow, firstWindow.size) { null }
+        assertEquals(2, first.size)
+        val firstSegments = first.map { DnsTcpPacket.parse(it, it.size, 53000)!! }
+        assertEquals(2048, firstSegments.sumOf { it.payload.size })
+        assertEquals(serverStart, firstSegments.first().sequence)
+
+        val secondWindow = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = (serverStart + 2048L) and 0xffffffffL, window = 2048)
+        val second = manager.handle(secondWindow, secondWindow.size) { null }
+        assertEquals(2, second.size)
+        assertEquals(2048, second.sumOf { DnsTcpPacket.parse(it, it.size, 53000)!!.payload.size })
+
+        val finalWindow = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = (serverStart + 4096L) and 0xffffffffL, window = 2048)
+        val last = manager.handle(finalWindow, finalWindow.size) { null }
+        assertEquals(1, last.size)
+        assertEquals(906, DnsTcpPacket.parse(last.single(), last.single().size, 53000)!!.payload.size)
+    }
+
     private fun newManager(): DnsTcpSessionManager =
         DnsTcpSessionManager(random = deterministicRandom())
 
@@ -711,7 +745,7 @@ class DnsTcpSessionManagerTest {
     )
 
     private fun packet(flags: Int, seq: Long, payload: ByteArray = byteArrayOf(),
-                       acknowledgment: Long = 0L): ByteArray {
+                       acknowledgment: Long = 0L, window: Int = 8192): ByteArray {
         val tcpLength = 20 + payload.size
         val p = ByteArray(20 + tcpLength)
         p[0] = 0x45; p[2] = (p.size ushr 8).toByte(); p[3] = p.size.toByte(); p[9] = 6
@@ -722,7 +756,7 @@ class DnsTcpSessionManagerTest {
         p[28] = (acknowledgment ushr 24).toByte(); p[29] = (acknowledgment ushr 16).toByte()
         p[30] = (acknowledgment ushr 8).toByte(); p[31] = acknowledgment.toByte()
         p[32] = 0x50; p[33] = flags.toByte()
-        p[34] = 0x20; p[35] = 0
+        p[34] = (window ushr 8).toByte(); p[35] = window.toByte()
         System.arraycopy(payload, 0, p, 40, payload.size)
         sealTcp4(p); sealIp4(p)
         return p
