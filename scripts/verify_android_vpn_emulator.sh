@@ -150,7 +150,11 @@ open_settings_menu_item() {
   local title="$1"
   local xml
   xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
-  if grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
+  if grep -Fq 'content-desc="설정"' <<<"$xml"; then
+    tap_content_description "설정"
+    sleep 1
+    scroll_to_text "$title"
+  elif grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
     tap_content_description "전체 메뉴"
     sleep 1
     scroll_to_text "$title"
@@ -264,7 +268,7 @@ cache_ready() {
 
 echo "Verifying the dedicated Guardian Premium menu and license activation focus."
 dismiss_dev_update_prompt
-tap_content_description "Premium"
+open_settings_menu_item "라이선스 및 프리미엄"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -305,7 +309,7 @@ adb_cmd shell input keyevent KEYCODE_BACK || true
 # The PRO feature cards are below the membership details on a phone-sized
 # viewport. Return to Premium, scroll the actual page, and verify the feature
 # card only after it enters the visible UI hierarchy.
-tap_content_description "Premium"
+open_settings_menu_item "라이선스 및 프리미엄"
 sleep 1
 premium_features_visible=0
 for attempt in $(seq 1 8); do
@@ -1155,7 +1159,7 @@ current_home_xml="$(dump_ui_hierarchy /sdcard/guardian-current-home-navigation.x
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
-expected={"홈","보호","활동","Premium","전체 메뉴"}
+expected={"홈","보호","앱 제외","활동","설정"}
 actual={n.attrib.get("content-desc") for n in nodes
         if n.attrib.get("class")=="android.widget.LinearLayout"
         and n.attrib.get("clickable")=="true"}
@@ -1163,7 +1167,7 @@ if not expected.issubset(actual):
     raise SystemExit("Current APK bottom navigation is missing destinations: "+repr(sorted(expected-actual)))
 if not any(n.attrib.get("content-desc")=="홈" and n.attrib.get("selected")=="true" for n in nodes):
     raise SystemExit("Current APK Home destination is not selected.")' <<<"$current_home_xml"
-for navigation_label in "보호" "활동" "Premium" "전체 메뉴"; do
+for navigation_label in "보호" "앱 제외" "활동" "설정"; do
   tap_content_description "$navigation_label"
   sleep 1
   current_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-current-navigation.xml)"
@@ -1187,7 +1191,7 @@ sleep 2
 # The bottom-navigation label is a non-clickable child of the tab item.
 # Target the clickable parent via its accessibility content description, then
 # assert that the Settings page actually opened before scrolling its content.
-tap_content_description "전체 메뉴"
+tap_content_description "설정"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-settings-tab.xml >/dev/null 2>&1
 settings_tab_xml="$(adb_cmd shell cat /sdcard/guardian-settings-tab.xml | tr -d '\r')"
@@ -1195,7 +1199,7 @@ python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
 texts={node.attrib.get("text","") for node in nodes}
-selected_settings=any(node.attrib.get("content-desc")=="전체 메뉴"
+selected_settings=any(node.attrib.get("content-desc")=="설정"
                       and node.attrib.get("selected")=="true"
                       for node in nodes)
 required_settings = {
@@ -1216,7 +1220,7 @@ if ! grep -Fq '앱 버전' <<<"$about_menu_xml" || ! grep -Fq '0.7.46-dev' <<<"$
   echo "$about_menu_xml"
   exit 1
 fi
-tap_content_description "전체 메뉴"
+tap_content_description "설정"
 sleep 1
 scroll_to_text "종료"
 sleep 1
@@ -1229,7 +1233,7 @@ if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml" || ! grep -Fq '앱을 종료
 fi
 tap_text "취소"
 sleep 1
-tap_content_description "전체 메뉴"
+tap_content_description "설정"
 sleep 1
 
 # Verify the customer-facing support center is reachable and its FAQ/form UI
@@ -1319,7 +1323,7 @@ echo "Customer support center FAQ, inquiry submission form, and private lookup U
 auto_pause_picker_visible=0
 # Compatibility and auto-pause controls now live in Full Menu > Filtering.
 # Navigate to that submenu explicitly before searching its scrollable content.
-tap_content_description "전체 메뉴"
+tap_content_description "설정"
 sleep 1
 scroll_to_text "필터링"
 sleep 1
