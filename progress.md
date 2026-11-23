@@ -286,3 +286,9 @@
 - 독립 Kotlin/JVM smoke 통과: package identity, rule parser, SharedPreferences stub 기반 aggregate store, Android API stub 기반 UID mapping.
 - 보안/릴리스 경계: signed PRO entitlement gate 및 실제 Android 기기 테스트가 끝나지 않아 app attribution/stats/custom rules runtime은 BuildConfig.DEBUG에서만 활성화됩니다. Release build에서는 비활성.
 - 미완료: Gradle/JUnit, emulator/physical-device UID attribution, UDP app attribution on OEM devices, TCP DNS attribution, PRO entitlement integration, policy removal/uninstall cleanup, production UI.
+
+
+## 2026-11-24 — 앱별 DNS 통계 버퍼링
+- 최신 앱별 정책 branch 커밋 `38b5617b36a26340b69023a0c59a54f2092f1900`.
+- per-app DNS stats는 5초 단위 버퍼링으로 디스크 쓰기를 줄이고, 화면 snapshot/서비스 종료 시 flush합니다. 앱별 package 기록 최대 200개, 도메인/URL 비저장 원칙 유지.
+- SharedPreferences stub Kotlin smoke 통과: 질의/차단/전달/실패/광고/추적 합계, flush, clear.
