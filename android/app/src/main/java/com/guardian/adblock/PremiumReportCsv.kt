@@ -2,6 +2,9 @@ package com.guardian.adblock
 
 /** Exports only aggregate counters; never includes queried domains or app identifiers. */
 internal object PremiumReportCsv {
+    fun fileName(summary: PremiumReportSummary): String =
+        "guardian-premium-report-${summary.startDate}-${summary.endDate}.csv"
+
     fun render(summary: PremiumReportSummary): String = buildString {
         append('\uFEFF')
         appendLine("start_date,end_date,days_with_activity,queries,blocked,block_rate_percent,forwarded,failed,ads,trackers,other")
