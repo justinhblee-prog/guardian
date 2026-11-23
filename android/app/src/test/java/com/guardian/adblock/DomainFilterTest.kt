@@ -279,4 +279,29 @@ class DomainFilterTest {
         assertTrue(DomainFilter.isBlocked("sub.critical.example"))
     }
 
+
+    @Test fun restoresOnlyTheBuiltInEmergencyRulesWhenBundledAssetIsUnavailable() {
+        DomainFilter.loadRules(listOf("block=custom-only.example"))
+        val restoredCount = DomainFilter.resetToBootstrapRules()
+
+        assertEquals(10, restoredCount)
+        assertEquals(restoredCount, DomainFilter.bootstrapRuleCount())
+        assertTrue(DomainFilter.isBlocked("ads.doubleclick.net"))
+        assertTrue(DomainFilter.isBlocked("page.googlesyndication.com"))
+        assertTrue(DomainFilter.isBlocked("tracker.scorecardresearch.com"))
+        assertFalse(DomainFilter.isBlocked("custom-only.example"))
+        assertFalse(DomainFilter.isBlocked("ordinary.example"))
+        assertEquals(0, DomainFilter.allowedRuleCount())
+    }
+
+    @Test fun bootstrapRuleLinesAreParseableAndMatchTheRuntimeEmergencySet() {
+        val parsed = FilterRuleParser.parse(DomainFilter.bootstrapRuleLines())
+        assertEquals(DomainFilter.bootstrapRuleCount(), parsed.blocked.size)
+        assertTrue(parsed.allowed.isEmpty())
+        assertTrue(parsed.importantBlocked.isEmpty())
+        DomainFilter.loadRules(DomainFilter.bootstrapRuleLines())
+        assertTrue(DomainFilter.isBlocked("sub.doubleclick.net"))
+        assertTrue(DomainFilter.isBlocked("sub.adform.net"))
+    }
+
 }
