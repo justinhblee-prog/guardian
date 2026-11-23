@@ -1248,10 +1248,36 @@ missing_settings = required_settings - texts
 if missing_settings or not selected_settings:
     raise SystemExit("Guardian Settings top-level menu is missing entries: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
 # The Settings page is a vertically scrollable list. A single accessibility
-# hierarchy dump only includes rows intersecting the current viewport; verify
-# lower submenu rows after scrolling them into view instead of falsely treating
-# a partially visible next row as a missing menu entry.
-scroll_to_text "라이선스 및 프리미엄"
+# hierarchy dump only includes rows intersecting the current viewport. Reveal
+# the lower category without activating it: scroll_to_text intentionally taps
+# its target, which would replace the landing list with the Premium detail page.
+ensure_text_visible() {
+  local wanted="$1" attempt size width height center_x start_y end_y xml
+  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
+  width="${size%x*}"
+  height="${size#*x}"
+  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
+    echo "Could not determine a usable emulator display size: $size"
+    return 1
+  fi
+  center_x=$((width / 2))
+  start_y=$((height * 4 / 5))
+  end_y=$((height / 5))
+  for attempt in $(seq 1 10); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
+    if grep -Fq "text=\"$wanted\"" <<<"$xml"; then
+      echo "Visible without activation: $wanted"
+      return 0
+    fi
+    echo "Scrolling to reveal '$wanted' without opening it (attempt $attempt/10)."
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Could not reveal the category without activating it: $wanted"
+  dump_ui_hierarchy /sdcard/guardian-scroll-target.xml
+  return 1
+}
+ensure_text_visible "라이선스 및 프리미엄"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-license-menu.xml >/dev/null 2>&1
 license_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-license-menu.xml | tr -d '\r')"
