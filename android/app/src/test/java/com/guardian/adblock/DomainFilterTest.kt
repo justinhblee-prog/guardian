@@ -115,6 +115,18 @@ class DomainFilterTest {
         assertFalse(DomainFilter.isBlocked("pixel.trusted.ads.customer.example"))
     }
 
+    @Test fun appSpecificBlockRulesAreAdditiveAndRespectGlobalPrecedence() {
+        DomainFilter.loadRules(listOf(
+            "block=ads.example",
+            "allow=trusted.example",
+            "block-important=critical.example"
+        ))
+        assertTrue(DomainFilter.isBlocked("app-only.example", setOf("app-only.example")))
+        assertTrue(DomainFilter.isBlocked("sub.app-only.example", setOf("app-only.example")))
+        assertFalse(DomainFilter.isBlocked("trusted.example", setOf("trusted.example")))
+        assertTrue(DomainFilter.isBlocked("critical.example", setOf("critical.example")))
+    }
+
     @Test fun failedRuleReplacementKeepsPreviouslyActiveRules() {
         DomainFilter.loadRules(listOf("block=stable.example"))
         assertThrows(IllegalArgumentException::class.java) {

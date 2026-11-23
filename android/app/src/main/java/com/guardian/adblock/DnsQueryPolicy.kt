@@ -12,7 +12,14 @@ internal object DnsQueryPolicy {
         val forwarded: Boolean
     )
 
-    fun resolve(query: ByteArray, upstream: (ByteArray) -> ByteArray?, additionalBlockedRules: Set<String> = emptySet()): Result? {
+    fun resolve(query: ByteArray, upstream: (ByteArray) -> ByteArray?): Result? =
+        resolve(query, emptySet(), upstream)
+
+    fun resolve(
+        query: ByteArray,
+        additionalBlockedRules: Set<String>,
+        upstream: (ByteArray) -> ByteArray?
+    ): Result? {
         val domain = DomainFilter.readQuestionName(query) ?: return null
         if (DomainFilter.isBlocked(domain, additionalBlockedRules)) {
             val response = DomainFilter.makeNxdomain(query) ?: return null

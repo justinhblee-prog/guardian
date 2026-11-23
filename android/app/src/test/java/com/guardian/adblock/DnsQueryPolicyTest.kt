@@ -46,6 +46,27 @@ class DnsQueryPolicyTest {
         assertEquals(0, calls)
     }
 
+    @Test fun appSpecificRulesBlockOnlyTheSelectedAppsQuery() {
+        DomainFilter.loadRules(listOf("block=global.example"))
+        var calls = 0
+        val selectedApp = DnsQueryPolicy.resolve(
+            query("app-only.example"),
+            setOf("app-only.example")
+        ) { calls++; null }
+        assertNotNull(selectedApp)
+        assertTrue(selectedApp!!.blocked)
+        assertEquals(0, calls)
+
+        val otherApp = DnsQueryPolicy.resolve(query("app-only.example")) {
+            calls++
+            DomainFilter.makeServfail(it)
+        }
+        assertNotNull(otherApp)
+        assertFalse(otherApp!!.blocked)
+        assertTrue(otherApp.forwarded)
+        assertEquals(1, calls)
+    }
+
     @Test fun upstreamNullReturnsServfailAndMarksFailure() {
         DomainFilter.loadRules(listOf("block=ads.example"))
         val result = DnsQueryPolicy.resolve(query("news.example")) { null }
