@@ -1664,7 +1664,6 @@ class MainActivity : Activity() {
             background = shape(accent, 12)
             setOnClickListener { showTab("updates") }
         }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(14) })
-        body.addView(text("일반", 18f, white, true).withTop(22))
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("운영 서버 주소 (노트북)", 15f, white, true))
