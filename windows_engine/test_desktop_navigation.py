@@ -25,7 +25,7 @@ def test_windows_settings_uses_persistent_category_and_detail_panes():
     assert "self.settings_detail=tk.Frame(split,bg='#0b1220')" in source
     assert "sidebar=tk.Frame(split,bg='#121d2c',width=270" in source
     assert "self.settings_detail.winfo_children()" in source
-    assert "self._select_settings_category('general',self.show_general_settings)" in source
+    assert "self._select_settings_category('general',self.show_general_settings,collapse=False)" in source
     assert "command=lambda k=key,a=action:self._select_settings_category(k,a)" in source
 
 
