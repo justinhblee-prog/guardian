@@ -403,7 +403,51 @@ if not any(node.attrib.get("class")=="android.widget.EditText"
     and node.attrib.get("focused")=="true"
     for node in root.iter("node")):
     raise SystemExit("Premium CTA did not focus the PRO license activation input.")' <<<"$premium_license_xml"
+# The first Back must dismiss the IME while preserving the activation return affordance.
 adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-license-ime-dismissed.xml >/dev/null 2>&1
+license_ime_dismissed_xml="$(adb_cmd shell cat /sdcard/guardian-license-ime-dismissed.xml | tr -d '\\r')"
+if ! grep -Fq 'content-desc="프리미엄 화면으로 돌아가기"' <<<"$license_ime_dismissed_xml"; then
+  echo "The focused activation screen lost its explicit Premium return button after the first Back."
+  echo "$license_ime_dismissed_xml"
+  exit 1
+fi
+
+# The second system Back must leave the focused activation state and return to Premium.
+adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-license-system-back.xml >/dev/null 2>&1
+license_system_back_xml="$(adb_cmd shell cat /sdcard/guardian-license-system-back.xml | tr -d '\\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+visible=" ".join(node.attrib.get("text","") for node in root.iter("node")
+                 if node.attrib.get("visible-to-user","true")=="true")
+if "Guardian Premium" not in visible:
+    raise SystemExit("Second system Back did not return to the Premium screen.")
+if any(node.attrib.get("content-desc")=="프리미엄 화면으로 돌아가기" for node in root.iter("node")):
+    raise SystemExit("Activation return affordance remained after returning to Premium.")' <<<"$license_system_back_xml"
+
+# Verify the explicit return button independently of Android system Back.
+tap_text "PRO 라이선스 활성화"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-license-explicit-back.xml >/dev/null 2>&1
+license_explicit_back_xml="$(adb_cmd shell cat /sdcard/guardian-license-explicit-back.xml | tr -d '\\r')"
+if ! grep -Fq 'content-desc="프리미엄 화면으로 돌아가기"' <<<"$license_explicit_back_xml"; then
+  echo "The explicit Premium return button is missing from the focused activation view."
+  echo "$license_explicit_back_xml"
+  exit 1
+fi
+tap_content_description "프리미엄 화면으로 돌아가기"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-license-explicit-return.xml >/dev/null 2>&1
+license_explicit_return_xml="$(adb_cmd shell cat /sdcard/guardian-license-explicit-return.xml | tr -d '\\r')"
+if ! grep -Fq 'text="Guardian Premium"' <<<"$license_explicit_return_xml" ||
+   grep -Fq 'content-desc="프리미엄 화면으로 돌아가기"' <<<"$license_explicit_return_xml"; then
+  echo "The explicit return button did not restore the Premium screen."
+  echo "$license_explicit_return_xml"
+  exit 1
+fi
 
 # The PRO feature cards are below the membership details on a phone-sized
 # viewport. Return to Premium, scroll the actual page, and verify the feature
