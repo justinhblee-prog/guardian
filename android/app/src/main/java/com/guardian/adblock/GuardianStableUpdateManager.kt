@@ -10,7 +10,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
+import javax.net.ssl.HttpsURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
@@ -102,13 +102,10 @@ internal object GuardianStableUpdateManager {
         }
         val directory = File(context.cacheDir, "stable-updates").apply { mkdirs() }
         val target = File(directory, "guardian-${update.versionCode}.apk")
-        val connection = (URL(update.apkUrl).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 15000; readTimeout = 45000; instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
-            setRequestProperty("Accept", "application/octet-stream")
-        }
+        val connection = openAllowedHttpsConnection(
+            update.apkUrl, 15000, 45000, "application/octet-stream", ::isAllowedReleaseDownloadUrl
+        )
         try {
-            connection.connect()
             check(isAllowedReleaseDownloadUrl(connection.url.toString())) {
                 "정식 APK 다운로드가 허용되지 않은 서버로 리디렉션되었습니다."
             }
@@ -202,6 +199,54 @@ internal object GuardianStableUpdateManager {
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
+    /**
+     * Follow redirects manually so a Location is validated before the next host is contacted.
+     * Automatic redirects would make a post-connect host check too late.
+     */
+    private fun openAllowedHttpsConnection(
+        address: String,
+        connectTimeoutMillis: Int,
+        readTimeoutMillis: Int,
+        accept: String,
+        isAllowed: (String) -> Boolean
+    ): HttpsURLConnection {
+        var current = URL(address)
+        var redirects = 0
+        while (true) {
+            check(isAllowed(current.toString())) { "업데이트 요청 주소가 허용되지 않은 HTTPS 서버입니다." }
+            val connection = current.openConnection() as? HttpsURLConnection
+                ?: error("HTTPS 업데이트 연결을 만들 수 없습니다.")
+            connection.connectTimeout = connectTimeoutMillis
+            connection.readTimeout = readTimeoutMillis
+            connection.instanceFollowRedirects = false
+            connection.setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
+            connection.setRequestProperty("Accept", accept)
+            connection.connect()
+            val response = connection.responseCode
+            if (response in 300..399) {
+                val location = connection.getHeaderField("Location")
+                connection.disconnect()
+                check(redirects < 5) { "업데이트 서버 리디렉션 횟수가 너무 많습니다." }
+                require(!location.isNullOrBlank()) { "업데이트 서버 리디렉션 주소가 없습니다." }
+                val next = URL(current, location)
+                check(isAllowed(next.toString())) {
+                    "업데이트 서버가 허용되지 않은 호스트로 리디렉션하려 했습니다."
+                }
+                current = next
+                redirects += 1
+                continue
+            }
+            if (response !in 200..299) {
+                connection.disconnect()
+                error("업데이트 서버 요청 실패: HTTP $response")
+            }
+            check(isAllowed(connection.url.toString())) {
+                "업데이트 요청의 최종 주소가 허용된 HTTPS 서버가 아닙니다."
+            }
+            return connection
+        }
+    }
+
     internal fun isAllowedReleaseDownloadUrl(address: String): Boolean = runCatching {
         val uri = java.net.URI(address)
         uri.scheme.equals("https", true) && uri.host?.lowercase() in setOf(
@@ -230,13 +275,10 @@ internal object GuardianStableUpdateManager {
 
     private fun readHttps(address: String, maxBytes: Int): String {
         require(address.startsWith("https://", true)) { "업데이트 서버는 HTTPS만 허용합니다." }
-        val connection = (URL(address).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 12000; readTimeout = 15000; instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
-            setRequestProperty("Accept", "application/vnd.github+json")
-        }
+        val connection = openAllowedHttpsConnection(
+            address, 12000, 15000, "application/vnd.github+json", ::isAllowedHttpsUrl
+        )
         try {
-            connection.connect()
             check(isAllowedHttpsUrl(connection.url.toString())) {
                 "정식 업데이트 확인 요청이 허용되지 않은 서버로 리디렉션되었습니다."
             }
