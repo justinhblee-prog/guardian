@@ -1,5 +1,5 @@
 """Tkinter desktop control panel for Guardian Windows DNS protection."""
-import json,os,sys,socket,struct,subprocess,time,urllib.request,webbrowser
+import json,os,sys,socket,struct,subprocess,time,urllib.request,webbrowser,xml.etree.ElementTree as ET
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
@@ -81,6 +81,17 @@ def daemon_readiness_diagnosis():
         task=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
         task_text=(task.stdout or task.stderr or "").strip()
         details.append("Task Scheduler query: "+(task_text[:1800] if task_text else f"no output (exit {task.returncode})"))
+        executable=expected_daemon_executable()
+        if executable is not None:
+            details.append(f"Expected DNS executable: {executable} (exists={executable.is_file()})")
+        xml_query=run_task("/Query","/TN",TASK_NAME,"/XML")
+        if xml_query.returncode==0:
+            try:
+                xml_root=ET.fromstring(xml_query.stdout)
+                command=xml_root.find(".//{*}Actions/{*}Exec/{*}Command")
+                details.append("Registered task executable: "+(command.text.strip() if command is not None and command.text else "not found in task XML"))
+            except ET.ParseError as exc:
+                details.append("Task XML parse failed: "+str(exc))
     except Exception as exc: details.append("Task Scheduler query failed: "+str(exc))
     try:
         health=json.loads(HEALTH.read_text(encoding="utf-8"))
@@ -103,6 +114,13 @@ def daemon_readiness_diagnosis():
             result=subprocess.run(["netstat.exe","-ano","-p",protocol],capture_output=True,text=True,timeout=5)
             matches=[line.strip() for line in (result.stdout or "").splitlines() if ":53" in line]
             details.append(f"Port 53 {protocol.upper()} endpoints: "+(" | ".join(matches[:8]) if matches else "no matching endpoint reported"))
+            pids=set()
+            for line in matches:
+                try: pids.add(int(line.split()[-1]))
+                except (ValueError,IndexError): pass
+            for pid in sorted(pids):
+                owner=subprocess.run(["tasklist.exe","/FI",f"PID eq {pid}","/FO","LIST"],capture_output=True,text=True,timeout=5)
+                details.append(f"Port 53 {protocol.upper()} owner PID {pid}: "+(owner.stdout.strip() or owner.stderr.strip() or f"exit={owner.returncode}"))
     except Exception as exc: details.append("Port 53 ownership query failed: "+str(exc))
     try:
         if LOG_FILE.exists():
@@ -114,8 +132,51 @@ def daemon_readiness_diagnosis():
 
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
+
+def expected_daemon_executable():
+    if not getattr(sys,"frozen",False):
+        return None
+    return Path(sys.executable).resolve().parent/"GuardianDnsProxy"/"GuardianDnsProxy.exe"
+
+def ensure_daemon_task():
+    executable=expected_daemon_executable()
+    if executable is None:
+        return
+    if not executable.is_file():
+        raise NetworkConfigError(
+            "Guardian DNS 실행 파일을 찾을 수 없습니다.\n"
+            f"필요한 파일: {executable}\n"
+            "설치 패키지에서 GuardianDnsProxy 폴더가 누락되었거나 설치 경로가 변경되었을 수 있습니다. "
+            "DNS 설정은 변경하지 않았습니다."
+        )
+    query=run_task("/Query","/TN",TASK_NAME,"/XML")
+    registered_path=""
+    if query.returncode==0 and query.stdout.strip():
+        try:
+            root=ET.fromstring(query.stdout)
+            command=root.find(".//{*}Actions/{*}Exec/{*}Command")
+            if command is not None and command.text:
+                registered_path=command.text.strip().strip('"')
+        except ET.ParseError:
+            registered_path=""
+    expected=os.path.normcase(os.path.abspath(str(executable)))
+    actual=os.path.normcase(os.path.abspath(os.path.expandvars(registered_path))) if registered_path else ""
+    if actual==expected:
+        return
+    # Repair a stale/missing task action using the executable next to the installed UI.
+    created=run_task("/Create","/TN",TASK_NAME,"/SC","ONSTART","/RU","SYSTEM",
+                     "/RL","HIGHEST","/TR",f'"{executable}"',"/F")
+    if created.returncode:
+        raise NetworkConfigError(
+            "Guardian DNS 자동 시작 작업을 복구하지 못했습니다.\n"
+            f"실행 파일: {executable}\n"
+            f"기존 작업 경로: {registered_path or '확인 불가'}\n"
+            f"작업 스케줄러: {(created.stderr or created.stdout).strip()}"
+        )
+
 def ensure_daemon_running():
     if proxy_ready(): return
+    ensure_daemon_task()
     result=run_task("/Run","/TN",TASK_NAME)
     if result.returncode: raise NetworkConfigError(result.stderr.strip() or result.stdout.strip() or "Guardian DNS background task is not installed")
     deadline=time.monotonic()+12
