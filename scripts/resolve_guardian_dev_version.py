@@ -8,6 +8,9 @@ import re
 from pathlib import Path
 from typing import Any
 
+DEFAULT_BASELINE_VERSION = "0.7.48-dev"
+DEFAULT_BASELINE_CODE = 61
+
 TAG_PATTERN = re.compile(r"^guardian-dev-v([0-9]+)$")
 VERSION_PATTERN = re.compile(r"([0-9]+)\.([0-9]+)\.([0-9]+)-dev")
 
@@ -73,8 +76,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--releases-json", required=True)
     parser.add_argument("--commit", required=True)
-    parser.add_argument("--baseline-version", default="0.7.48-dev")
-    parser.add_argument("--baseline-code", type=int, default=61)
+    parser.add_argument("--baseline-version", default=DEFAULT_BASELINE_VERSION)
+    parser.add_argument("--baseline-code", type=int, default=DEFAULT_BASELINE_CODE)
     parser.add_argument("--github-env", required=True)
     parser.add_argument("--github-output", required=True)
     args = parser.parse_args()
