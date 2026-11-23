@@ -333,3 +333,10 @@
 
 - `FilterStartupGate.hasUsableBundledBaseline`의 덧셈 기반 판정을 개별 양수 비교로 변경해 정수 오버플로 가능성을 제거했습니다.
 - 극단 카운트 회귀 테스트 추가. Android Gradle/JUnit은 실행하지 않았습니다.
+
+
+## 2026-11-24 — 정식 앱 업데이트 자산 경로 검증 강화
+- Free branch: `work/android-free-release-20261124`.
+- `GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl`를 추가해 Release URL의 HTTPS/443, github.com, 저장소 경로, 선택된 semantic tag, 정확한 자산 파일명을 함께 검사합니다.
+- Manifest와 APK URL 각각에 검증을 적용하고, 태그 불일치·잘못된 파일명·경로 추가·query·비공식 host·prerelease tag를 거부하는 테스트를 추가했습니다.
+- 검증: 원격 소스 재조회 완료, Kotlin/JVM smoke 6/6 통과. Android Gradle/JUnit 및 전체 앱 빌드는 아직 실행하지 않았습니다. GitHub Actions는 시작하지 않았습니다.
