@@ -628,6 +628,35 @@ class DnsTcpSessionManagerTest {
     }
 
 
+    @Test fun returnsDnsTcpResponsesLargerThanFourKilobytesInMtuSafeSegments() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 4100)
+        manager.handle(syn, syn.size) { null }
+
+        val largeAnswer = ByteArray(5000) { (it and 0xff).toByte() }
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 4101, payload = framedQuery)
+        val replies = manager.handle(request, request.size) { largeAnswer }
+
+        assertTrue(replies.size > 1)
+        val reconstructed = java.io.ByteArrayOutputStream()
+        var expectedSequence: Long? = null
+        replies.forEach { bytes ->
+            val segment = DnsTcpPacket.parse(bytes, bytes.size, 53000)!!
+            assertTrue(segment.payload.size <= 1200)
+            if (expectedSequence != null) assertEquals(expectedSequence, segment.sequence)
+            expectedSequence = (segment.sequence + segment.payload.size) and 0xffffffffL
+            reconstructed.write(segment.payload)
+        }
+        val framedAnswer = reconstructed.toByteArray()
+        assertEquals(largeAnswer.size + 2, framedAnswer.size)
+        assertEquals(largeAnswer.size, ((framedAnswer[0].toInt() and 255) shl 8) or
+            (framedAnswer[1].toInt() and 255))
+        assertArrayEquals(largeAnswer, framedAnswer.copyOfRange(2, framedAnswer.size))
+    }
+
     private fun newManager(): DnsTcpSessionManager =
         DnsTcpSessionManager(random = deterministicRandom())
 
