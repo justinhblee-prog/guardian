@@ -252,8 +252,12 @@ class GuardianDesktop:
         }
         p=self.palette
         root.title('Guardian AdBlock')
-        root.geometry("1440x900")
-        root.minsize(1060,700)
+        screen_width=root.winfo_screenwidth()
+        screen_height=root.winfo_screenheight()
+        window_width=min(1360,max(980,screen_width-60))
+        window_height=min(820,max(640,screen_height-90))
+        root.geometry(f"{window_width}x{window_height}")
+        root.minsize(980,640)
         root.configure(bg=p["bg"])
         shell=tk.Frame(root,bg=p["bg"]); shell.pack(fill="both",expand=True)
         sidebar=tk.Frame(shell,bg=p["sidebar"],width=238,highlightthickness=1,highlightbackground="#1d2c40")
@@ -507,7 +511,13 @@ class GuardianDesktop:
             self.page_title.configure(text=labels[page])
         self.current_page=page
         selected_page = page if page in self.nav_buttons else ('settings' if page in {'filters','premium','updates'} else page)
-        for key,button in self.nav_buttons.items(): button.configure(bg='#1c4650' if key==selected_page else '#121d2c',fg='white' if key==selected_page else '#d5e2ef')
+        for key,button in self.nav_buttons.items():
+            selected=key==selected_page
+            button.configure(
+                bg="#1b4050" if selected else self.palette["sidebar"],
+                fg=self.palette["text"] if selected else "#aebfd0",
+                activebackground="#21495b"
+            )
     def _clear_settings_page(self):
         for widget in self.pages['settings'].winfo_children():
             widget.destroy()
