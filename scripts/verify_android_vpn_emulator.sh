@@ -150,7 +150,7 @@ open_license_premium_menu() {
   local xml
   xml="$(dump_ui_hierarchy /sdcard/guardian-license-navigation.xml)"
   if grep -Fq 'content-desc="설정"' <<<"$xml"; then
-    open_license_premium_menu
+    open_settings_menu_item "라이선스 및 프리미엄"
   else
     # The published predecessor still exposes Premium as a direct destination.
     tap_content_description "Premium"
