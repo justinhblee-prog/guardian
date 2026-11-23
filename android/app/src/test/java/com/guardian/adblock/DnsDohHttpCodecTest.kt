@@ -38,6 +38,17 @@ class DnsDohHttpCodecTest {
         assertArrayEquals(dnsMessage, DnsDohHttpCodec.readResponse(ByteArrayInputStream(response)))
     }
 
+    @Test fun supportsDnsMessagesLargerThanFourKilobytes() {
+        val largeDnsMessage = ByteArray(5000) { (it and 0xff).toByte() }
+        val request = DnsDohHttpCodec.buildPostRequest("cloudflare-dns.com", "/dns-query", largeDnsMessage)
+        assertTrue(request != null)
+        assertArrayEquals(largeDnsMessage, request!!.copyOfRange(request.size - largeDnsMessage.size, request.size))
+
+        val response = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nContent-Length: 5000\\r\\n\\r\\n"
+            .toByteArray(StandardCharsets.ISO_8859_1) + largeDnsMessage
+        assertArrayEquals(largeDnsMessage, DnsDohHttpCodec.readResponse(ByteArrayInputStream(response)))
+    }
+
     @Test fun rejectsRedirectsAndWrongMediaTypes() {
         val redirect = "HTTP/1.1 302 Found\r\nContent-Type: application/dns-message\r\nContent-Length: 29\r\n\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
