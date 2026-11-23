@@ -39,6 +39,23 @@ if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 설정에 실패했습니다. 
 & $tailscale serve status
 if ($LASTEXITCODE -ne 0) { throw 'Tailscale Serve 상태 확인 실패' }
 
+# Verify the actual MagicDNS HTTPS route, certificate and API readiness rather
+# than treating a successful local /ready check or Serve configuration as proof.
+$privateReadyUrl = 'https://' + $dnsName + '/ready'
+$privateReady = $null
+for ($attempt = 1; $attempt -le 5; $attempt++) {
+  try {
+    $privateReady = Invoke-RestMethod -Uri $privateReadyUrl -TimeoutSec 10
+    if ($privateReady.ok -and $privateReady.database -eq 'ready' -and $privateReady.signer -eq 'ready') { break }
+    throw 'API readiness payload did not confirm database and signer.'
+  } catch {
+    if ($attempt -eq 5) {
+      throw "Tailscale HTTPS /ready 검증에 실패했습니다. Serve, MagicDNS, TLS 및 API 준비 상태를 확인하세요. ($($_.Exception.Message))"
+    }
+    Start-Sleep -Seconds 2
+  }
+}
+
 Write-Host ''
 Write-Host 'Guardian 비공개 라이선스 API 주소'
 Write-Host ('https://' + $dnsName)
