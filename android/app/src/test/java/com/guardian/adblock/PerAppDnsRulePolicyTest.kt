@@ -6,7 +6,7 @@ import org.junit.Test
 class PerAppDnsRulePolicyTest {
     @Test fun normalizesAndDeduplicatesAdditionalDomains() {
         val parsed = PerAppDnsRulePolicy.parse(
-            " Ads.Example.com \ntracker.example.com.\nads.example.com\n\n"
+            "# custom app rules\n Ads.Example.com \ntracker.example.com.\nads.example.com\n\n"
         )
         assertEquals(setOf("ads.example.com", "tracker.example.com"), parsed.normalizedRules)
         assertTrue(parsed.invalidLines.isEmpty())

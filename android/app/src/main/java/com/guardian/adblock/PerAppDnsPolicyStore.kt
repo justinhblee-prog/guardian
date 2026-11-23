@@ -11,7 +11,7 @@ internal data class PerAppDnsRuleParseResult(
 internal object PerAppDnsRulePolicy {
     const val MAX_RULES_PER_APP = 200
     fun parse(raw: String): PerAppDnsRuleParseResult {
-        val lines = raw.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+        val lines = raw.lineSequence().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.toList()
         require(lines.size <= MAX_RULES_PER_APP) { "앱별 추가 차단 규칙은 최대 200개까지 등록할 수 있습니다." }
         val valid = linkedSetOf<String>()
         val invalid = mutableListOf<String>()
