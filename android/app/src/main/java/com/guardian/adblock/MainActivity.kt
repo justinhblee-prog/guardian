@@ -147,11 +147,13 @@ class MainActivity : FragmentActivity() {
             persistedTab
         )
         val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
-        val retainedRuleDraft = lastNonConfigurationInstance as? RuleEditorDraft
+        val restoredBlockDraft = savedInstanceState?.getString(STATE_BLOCK_RULES_DRAFT)
+        val restoredAllowDraft = savedInstanceState?.getString(STATE_ALLOW_RULES_DRAFT)
+        val hasRuleDraft = restoredBlockDraft != null && restoredAllowDraft != null
         if (savedInstanceState != null) {
             android.util.Log.i(
                 "GuardianUI",
-                "Activity restored after configuration change; tab=$restoredTab scrollY=$restoredScrollY hasRuleDraft=${retainedRuleDraft != null}"
+                "Activity restored after configuration change; tab=$restoredTab scrollY=$restoredScrollY hasRuleDraft=$hasRuleDraft"
             )
         }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
@@ -177,9 +179,9 @@ class MainActivity : FragmentActivity() {
         }
         showTab(screenTab, focusLicenseActivation = restoreLicenseFocus)
         if (restoredTab == "settings-filtering") {
-            retainedRuleDraft?.let { draft ->
-                blockRulesInput.setText(draft.blockRules)
-                allowRulesInput.setText(draft.allowRules)
+            if (hasRuleDraft) {
+                blockRulesInput.setText(restoredBlockDraft)
+                allowRulesInput.setText(restoredAllowDraft)
             }
         }
         if (restoredScrollY > 0 && !restoreLicenseFocus) {
@@ -187,7 +189,7 @@ class MainActivity : FragmentActivity() {
                 scroll.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
                     override fun onGlobalLayout() {
                         scroll.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                        if (restoredTab == "settings-filtering" && retainedRuleDraft != null) {
+                        if (restoredTab == "settings-filtering" && hasRuleDraft) {
                             val editorBounds = android.graphics.Rect()
                             blockRulesInput.getDrawingRect(editorBounds)
                             scroll.offsetDescendantRectToMyCoords(blockRulesInput, editorBounds)
@@ -316,19 +318,14 @@ class MainActivity : FragmentActivity() {
         outState.putString(STATE_SETTINGS_CATEGORY, selectedSettingsCategory)
         outState.putBoolean(STATE_FOCUS_LICENSE_ACTIVATION, focusLicenseActivationOnBuild)
         outState.putInt(STATE_SCROLL_Y, savedScrollY)
+        if (currentTab == "settings-filtering" && ::blockRulesInput.isInitialized && ::allowRulesInput.isInitialized) {
+            outState.putString(STATE_BLOCK_RULES_DRAFT, blockRulesInput.text.toString())
+            outState.putString(STATE_ALLOW_RULES_DRAFT, allowRulesInput.text.toString())
+        }
         super.onSaveInstanceState(outState)
     }
 
-    private data class RuleEditorDraft(val blockRules: String, val allowRules: String)
-
-    override fun onRetainNonConfigurationInstance(): Any? {
-        if (currentTab != "settings-filtering" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
-        val draft = RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
-        android.util.Log.i("GuardianUI", "Retaining rule editor draft; blockChars=${draft.blockRules.length} allowChars=${draft.allowRules.length}")
-        return draft
-    }
-
-    @Deprecated("Deprecated in Java")
+remove incompatible override    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (currentTab.startsWith("settings-")) {
             showTab("settings")
@@ -4228,5 +4225,7 @@ class MainActivity : FragmentActivity() {
         private const val PREF_DEVICE_AUTH_LOCK = "device_auth_app_lock_v1"
         private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
         private const val STATE_SCROLL_Y = "guardian.ui.scroll_y"
+        private const val STATE_BLOCK_RULES_DRAFT = "guardian.ui.block_rules_draft"
+        private const val STATE_ALLOW_RULES_DRAFT = "guardian.ui.allow_rules_draft"
     }
 }
