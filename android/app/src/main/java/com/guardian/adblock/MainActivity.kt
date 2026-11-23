@@ -1,6 +1,8 @@
 package com.guardian.adblock
 
-import android.app.Activity
+import androidx.fragment.app.FragmentActivity
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -45,7 +47,7 @@ import java.util.Date
 import java.util.Locale
 import java.io.File
 
-class MainActivity : Activity() {
+class MainActivity : FragmentActivity() {
     private lateinit var root: LinearLayout
     private lateinit var status: TextView
     private lateinit var statusTitle: TextView
@@ -100,6 +102,9 @@ class MainActivity : Activity() {
     private val protectionCheckRunning = AtomicBoolean(false)
     @Volatile private var pendingFilterStartNotice: String? = null
     private var syncingFilterOptions = false
+    private var deviceAuthInProgress = false
+    private var appUnlockedThisForeground = false
+    private var syncingDeviceLockControl = false
 
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -376,6 +381,65 @@ class MainActivity : Activity() {
             }
         }
         restoreProtectionAfterUpdateIfNeeded()
+        requireDeviceAuthenticationIfEnabled()
+    }
+
+    private fun requireDeviceAuthenticationIfEnabled() {
+        val enabled = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
+            .getBoolean(PREF_DEVICE_AUTH_LOCK, false)
+        if (!enabled || appUnlockedThisForeground || deviceAuthInProgress || isFinishing || isDestroyed) return
+        authenticateWithDeviceCredential(
+            onSuccess = { appUnlockedThisForeground = true },
+            onFailure = { if (!isFinishing) finish() }
+        )
+    }
+
+    private fun authenticateWithDeviceCredential(onSuccess: () -> Unit, onFailure: () -> Unit) {
+        if (deviceAuthInProgress) return
+        val biometricManager = BiometricManager.from(this)
+        if (Build.VERSION.SDK_INT < 29 && biometricManager.canAuthenticate() != BiometricManager.BIOMETRIC_SUCCESS) {
+            Toast.makeText(this, "이 Android 버전에서는 등록된 지문 인증을 사용할 수 없습니다.", Toast.LENGTH_LONG).show()
+            onFailure()
+            return
+        }
+        deviceAuthInProgress = true
+        val prompt = BiometricPrompt(
+            this,
+            ContextCompat.getMainExecutor(this),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    deviceAuthInProgress = false
+                    appUnlockedThisForeground = true
+                    onSuccess()
+                }
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    deviceAuthInProgress = false
+                    onFailure()
+                }
+            }
+        )
+        val promptBuilder = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Guardian 보호 인증")
+            .setSubtitle("이 기기에 등록된 인증 수단으로 본인 확인을 해주세요.")
+            .setConfirmationRequired(false)
+        if (Build.VERSION.SDK_INT >= 29) {
+            // Android 10+ uses the device's enrolled fingerprint/face or secure
+            // lock-screen credential (PIN, pattern, or password) without asking
+            // the user to register a second credential inside Guardian.
+            promptBuilder.setDeviceCredentialAllowed(true)
+        } else {
+            promptBuilder.setNegativeButtonText("취소")
+        }
+        prompt.authenticate(promptBuilder.build())
+    }
+
+    override fun onStop() {
+        if (!deviceAuthInProgress) appUnlockedThisForeground = false
+        if (receiverRegistered) {
+            unregisterReceiver(stateReceiver)
+            receiverRegistered = false
+        }
+        super.onStop()
     }
 
     /**
@@ -418,14 +482,6 @@ class MainActivity : Activity() {
                 .putString(GuardianVpnService.KEY_STATUS, "업데이트 후 VPN 자동 복구 요청에 실패했습니다. 다시 시도합니다.")
                 .commit()
         }
-    }
-
-    override fun onStop() {
-        if (receiverRegistered) {
-            unregisterReceiver(stateReceiver)
-            receiverRegistered = false
-        }
-        super.onStop()
     }
 
     @Deprecated("Deprecated in Android API")
@@ -1750,6 +1806,39 @@ class MainActivity : Activity() {
             addView(infoRow("화면 테마", "Guardian 기본 화면 테마", "다크", accent))
             addView(infoRow("백그라운드 동작", "앱 창을 닫아도 실행 중인 DNS 보호 유지", "유지", accent))
         }.withTop(12))
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("기기 인증으로 앱 잠금", 15f, white, true))
+            val lockStatus = text(
+                if (getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).getBoolean(PREF_DEVICE_AUTH_LOCK, false))
+                    "앱 잠금 사용 중 · 화면을 다시 열면 기기 인증을 요청합니다."
+                else "꺼짐 · 휴대폰에 등록된 지문 또는 화면 잠금 PIN·패턴·비밀번호를 사용할 수 있습니다.",
+                11f, muted, false
+            ).withTop(6) as TextView
+            addView(lockStatus)
+            addView(Button(this@MainActivity).apply {
+                text = if (getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).getBoolean(PREF_DEVICE_AUTH_LOCK, false)) "앱 잠금 끄기" else "기기 인증 잠금 켜기"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(panel2, 12)
+                setOnClickListener {
+                    val prefs = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
+                    val currentlyEnabled = prefs.getBoolean(PREF_DEVICE_AUTH_LOCK, false)
+                    authenticateWithDeviceCredential(
+                        onSuccess = {
+                            val enabled = !currentlyEnabled
+                            prefs.edit().putBoolean(PREF_DEVICE_AUTH_LOCK, enabled).apply()
+                            appUnlockedThisForeground = true
+                            lockStatus.text = if (enabled) "앱 잠금 사용 중 · 화면을 다시 열면 기기 인증을 요청합니다." else "앱 잠금이 꺼졌습니다."
+                            text = if (enabled) "앱 잠금 끄기" else "기기 인증 잠금 켜기"
+                        },
+                        onFailure = {
+                            Toast.makeText(this@MainActivity, "기기 인증에 실패해 설정을 변경하지 않았습니다.", Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+        }.withTop(10))
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("알림 권한", 15f, white, true))
@@ -4103,6 +4192,7 @@ class MainActivity : Activity() {
         private const val STATE_SETTINGS_CATEGORY = "guardian.ui.settings_category"
         private const val UI_STATE_PREFS = "guardian_ui_state"
         private const val PREF_LAST_SELECTED_TAB = "last_selected_tab"
+        private const val PREF_DEVICE_AUTH_LOCK = "device_auth_app_lock_v1"
         private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
         private const val STATE_SCROLL_Y = "guardian.ui.scroll_y"
     }
