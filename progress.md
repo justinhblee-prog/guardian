@@ -278,3 +278,10 @@
 - Premium DEBUG 미리보기에서 자동 전환 토글을 제공합니다. Release는 PRO entitlement 및 Android device validation 전까지 자동 전환이 비활성입니다.
 - 독립 Kotlin/JVM smoke 통과: public Wi-Fi, captive portal, metered cellular, roaming policy, unknown transport.
 - 미완료: Android Gradle/JUnit, emulator/physical-device network callback, OEM capability behavior, trusted Wi-Fi 식별/사용자 지정, roaming, updater scheduler integration, PRO gate.
+
+
+## 2026-11-24 — Guardian VPN 하위 물리 네트워크 선택
+- 최신 security profile branch 커밋 `42f50c5ac8de2d6bdbcdbfad14e206cc795787e9`.
+- 기본 네트워크 callback이 Guardian VPN 인터페이스(TRANSPORT_VPN)를 반환할 경우, `ConnectivityManager.allNetworks`에서 VPN이 아닌 물리 네트워크를 찾아 validated/Wi-Fi/not-metered capability를 판별합니다.
+- 물리 네트워크를 찾지 못하면 VPN capability를 사용하고 OTHER/strict 보호로 보수 처리합니다.
+- Android API signature stub 기반 Kotlin compile smoke 통과. 실제 VPN 활성 중 물리 network enumeration과 OEM별 callback은 아직 검증되지 않았습니다.

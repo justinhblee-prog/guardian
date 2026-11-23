@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-24 — VPN 하위 물리 네트워크 capability 판별 보강
+- Guardian VPN 자체가 기본 네트워크로 보고되는 경우 TRANSPORT_VPN capability에만 의존하지 않고, ConnectivityManager.allNetworks에서 VPN이 아닌 물리 네트워크를 찾아 Wi-Fi/모바일/종량제 상태를 판별합니다.
+- 물리 네트워크를 찾지 못하면 기존 보고 capability를 보수적으로 사용해 미확인 네트워크를 엄격 보호로 처리합니다.
+- Android API Stub 기반 Kotlin 컴파일 smoke 통과. 실제 VPN 중 OEM별 allNetworks 노출 및 NetworkCallback 동작은 에뮬레이터/실기기 검증이 필요합니다.
+
 ## 2026-11-24 — 보안 프로필 네트워크 자동 전환 엔진 연결
 - Android ConnectivityManager 기본 네트워크 callback을 연결해 Wi-Fi/모바일/이더넷, 인터넷 검증, captive portal, 종량제 여부에 따라 보안 프로필을 자동 선택합니다.
 - 선택된 프로필은 실제 FilterListManager 설정에 반영하고, 보호 중이면 DNS 규칙 재로드를 요청합니다.
