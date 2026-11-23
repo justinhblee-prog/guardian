@@ -311,3 +311,10 @@
 - 최신 무료 브랜치 커밋 `673c4991b9d6d8dbf8825ce3f6c46c152604006a`.
 - GitHub 공식 호스트라도 HTTPS 기본 포트 443 이외의 포트는 redirect target으로 허용하지 않습니다.
 - Kotlin/JVM smoke 통과: 공식 asset host, HTTP/비허용 host/userinfo/비표준 포트 차단.
+
+
+## 2026-11-24 — emergency filter fallback regression tests
+- Branch `work/android-free-release-20261124` now includes two additional `DomainFilterTest` cases.
+- Verifies `resetToBootstrapRules()` replaces the prior active set (including custom rules), returns the expected 10-rule count, preserves subdomain blocking, and clears allow rules.
+- Verifies every built-in bootstrap line parses into a valid block rule and can be loaded by the production rule engine.
+- Test source and Changelog update committed; Android Gradle/JUnit execution remains pending. No CI run or APK build was triggered.
