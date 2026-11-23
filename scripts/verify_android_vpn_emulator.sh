@@ -1433,7 +1433,11 @@ if [[ "$settings_tab_selected" -ne 1 ]]; then
   echo "$settings_navigation_xml"
   exit 1
 fi
-scroll_to_text "필터링"
+# Reveal the exact Settings category without substring-matching unrelated
+# copy such as the App Exclusions description ("DNS 필터링에서 제외").
+# Then activate the category by its dedicated accessibility content description.
+ensure_text_visible "필터링"
+tap_content_description "필터링"
 sleep 1
 for attempt in $(seq 1 24); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
