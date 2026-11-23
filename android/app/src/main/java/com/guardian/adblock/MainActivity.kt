@@ -148,10 +148,10 @@ class MainActivity : Activity() {
             )
         }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
-        selectedSettingsCategory = when (savedInstanceState?.getString(STATE_SETTINGS_CATEGORY)) {
+        val savedSettingsCategory = savedInstanceState?.getString(STATE_SETTINGS_CATEGORY)
+        selectedSettingsCategory = when (savedSettingsCategory) {
             "settings-general", "settings-filtering", "settings-premium",
-            "settings-support", "settings-about", "settings-exit" ->
-                savedInstanceState.getString(STATE_SETTINGS_CATEGORY)!!
+            "settings-support", "settings-about", "settings-exit" -> savedSettingsCategory
             else -> restoredTab.takeIf { it.startsWith("settings-") } ?: "settings-general"
         }
         val screenTab = if (
