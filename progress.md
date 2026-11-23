@@ -267,3 +267,11 @@
 - 문의 조회 화면뿐 아니라 `LicenseApiClient.lookupSupportTicket()` 진입점에서도 접수 번호와 조회 코드를 검증해 다른 호출 경로에서 잘못된 요청이 전송되지 않도록 했습니다.
 - 테스트에 조회 코드 최소/최대 길이, 잘못된 패딩 및 공백 문자를 추가했습니다.
 - 실제 `SupportInputPolicy.kt`와 동등한 독립 Kotlin/JVM 하네스를 `kotlinc`로 컴파일·실행해 이메일, 접수 번호, 조회 코드 검증 3개 시나리오를 통과했습니다. Android Gradle/JUnit 및 실제 API/DB는 미실행입니다.
+
+
+## 2026-11-24 — PRO 프리미엄 독립 개발 트랙
+- 작업 브랜치: work/android-pro-premium-20261124 (기준: PR #290 HEAD e1a1b4f).
+- fail-closed PRO feature registry와 서명 entitlement shape/time/device 검증 정책을 추가했습니다. 미구현 6개 기능은 모두 기본 잠금 상태입니다.
+- PremiumReportAggregator와 PremiumReportStore를 추가했습니다. 일별 합계만 90일 보존하고 도메인/앱 식별자는 저장하지 않습니다. 조회는 PRO 리포트 기능이 production-ready 등록되기 전까지 거부합니다.
+- Kotlin/JVM smoke 및 Android API stub compile은 통과했습니다. 실제 Android Gradle/JUnit, DNS 이벤트 연결, UI 및 entitlement runtime 통합은 미완료입니다.
+- 하위 병렬 트랙: #297 고급 필터, #298 앱별 정책, #299 위협 분석, #300 보안 프로필 자동화, #301 피싱 URL/앱 검사.

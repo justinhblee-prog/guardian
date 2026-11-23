@@ -1,3 +1,9 @@
+## 2026-11-24 — PRO 프리미엄 병렬 개발 기반
+- 6개 PRO 기능의 fail-closed entitlement policy와 테스트를 추가했습니다. 유효한 서명 라이선스만으로는 실제 구현되지 않은 기능을 열 수 없으며, production-ready 등록은 비어 있습니다.
+- 일별 DNS 합계만 저장하는 90일 로컬 리포트 저장소와 기간별 집계 엔진을 추가했습니다. 도메인/앱 식별자는 저장하지 않으며, 리포트 조회는 PREMIUM_REPORTS 권한이 production-ready로 등록된 뒤에만 허용합니다.
+- Kotlin/JVM smoke에서 entitlement 정책, 기간 집계, 0 나누기 및 overflow 방어를 확인했습니다. Store는 Android API 경계 stub을 둔 Kotlin compile smoke를 통과했습니다.
+- 아직 미완료: DNS 이벤트 파이프라인 연결, Premium UI, 실제 기능 entitlement gate, Android Gradle/JUnit 및 emulator 검증.
+
 # Changelog
 
 ## 2026-11-23 — Windows 조용한 DNS 실행 및 반응형 설정 탐색
