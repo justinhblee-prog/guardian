@@ -1,5 +1,5 @@
 """Tkinter desktop control panel for Guardian Windows DNS protection."""
-import json,os,sys,socket,struct,subprocess,time,urllib.request,webbrowser,xml.etree.ElementTree as ET
+import json,os,sys,socket,struct,subprocess,time,urllib.request,webbrowser,re,xml.etree.ElementTree as ET
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
@@ -112,7 +112,7 @@ def daemon_readiness_diagnosis():
     try:
         for protocol in ("udp","tcp"):
             result=run_hidden(["netstat.exe","-ano","-p",protocol],capture_output=True,text=True,timeout=5)
-            matches=[line.strip() for line in (result.stdout or "").splitlines() if ":53" in line]
+            matches=[line.strip() for line in (result.stdout or "").splitlines() if re.search(r":53(?:\\s|$)", line)]
             details.append(f"Port 53 {protocol.upper()} endpoints: "+(" | ".join(matches[:8]) if matches else "no matching endpoint reported"))
             pids=set()
             for line in matches:
@@ -689,10 +689,10 @@ class GuardianDesktop:
                 try: stop_daemon()
                 except Exception as stop_error:
                     self.set_active_ui(False,"보호 시작 실패 · 백그라운드 종료 확인 필요")
-                    self.show_error_dialog("Guardian 보호 시작 실패",f"{exc}\n\n백그라운드 종료 실패: {stop_error}")
+                    self.status.set("보호 시작 실패 · 백그라운드 종료 확인 필요"); self.last_error_message=f"{exc}\n\n백그라운드 종료 실패: {stop_error}"
                     return
                 self.set_active_ui(False,"보호 시작 실패")
-            self.show_error_dialog("Guardian 보호 시작 실패",str(exc))
+            self.status.set("보호 시작 실패 · "+str(exc).splitlines()[0][:72]); self.last_error_message=str(exc)
     def stop_protection(self):
         if not self.active and not BACKUP.exists(): return
         try: self.manager.restore()
