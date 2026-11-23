@@ -938,9 +938,20 @@ if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.andro
   exit 1
 fi
 tap_content_description "앱별 보호 제외 변경사항 저장"
-prefs="$(read_prefs)"
-if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
-  echo "Explicit Save control was tapped but the selected package was not persisted."
+# ADB input tap returns before Android has necessarily dispatched the click
+# listener and committed SharedPreferences. Poll the durable state rather than
+# racing the UI thread with an immediate run-as read.
+excluded_saved=0
+for attempt in $(seq 1 20); do
+  prefs="$(read_prefs)"
+  if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+    excluded_saved=1
+    break
+  fi
+  sleep 0.5
+done
+if [[ "$excluded_saved" -ne 1 ]]; then
+  echo "Explicit Save control was tapped but the selected package was not persisted after 10 seconds."
   read_prefs
   exit 1
 fi
@@ -969,9 +980,17 @@ if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.and
   exit 1
 fi
 tap_content_description "앱별 보호 제외 변경사항 저장"
-prefs="$(read_prefs)"
-if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
-  echo "Explicit Save control was tapped but the removed package remained persisted."
+excluded_removed=0
+for attempt in $(seq 1 20); do
+  prefs="$(read_prefs)"
+  if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+    excluded_removed=1
+    break
+  fi
+  sleep 0.5
+done
+if [[ "$excluded_removed" -ne 1 ]]; then
+  echo "Explicit Save control was tapped but the removed package remained persisted after 10 seconds."
   read_prefs
   exit 1
 fi
