@@ -9,16 +9,16 @@ import java.util.zip.ZipInputStream
 internal object ApkStaticAnalyzer {
     enum class Status { SCANNED, INVALID_APK, LIMIT_EXCEEDED }
     enum class Risk { LOW, REVIEW, HIGH }
-    enum class Signal(val points: Int, val label: String, val token: String) {
-        DYNAMIC_CODE(25, "동적 코드 로딩 API 참조", "Ldalvik/system/DexClassLoader;"),
-        PROCESS_EXEC(30, "외부 프로세스 실행 API 참조", "Ljava/lang/Runtime;->exec"),
-        SMS_SEND(25, "SMS 전송 API 참조", "Landroid/telephony/SmsManager;->send"),
-        ACCESSIBILITY(20, "접근성 서비스 API 참조", "Landroid/accessibilityservice/AccessibilityService;"),
-        OVERLAY(15, "화면 오버레이 API 참조", "Landroid/view/WindowManager\$LayoutParams;"),
-        DEVICE_ADMIN(20, "기기 관리자 API 참조", "Landroid/app/admin/DevicePolicyManager;"),
-        CLIPBOARD(10, "클립보드 API 참조", "Landroid/content/ClipboardManager;"),
-        INSTALLER(20, "앱 설치 API 참조", "Landroid/content/pm/PackageInstaller;"),
-        WEBVIEW_BRIDGE(15, "WebView JavaScript 브리지 API 참조", "Landroid/webkit/WebView;->addJavascriptInterface")
+    enum class Signal(val points: Int, val label: String, val tokens: List<String>) {
+        DYNAMIC_CODE(25, "동적 코드 로딩 API 참조", listOf("Ldalvik/system/DexClassLoader;")),
+        PROCESS_EXEC(30, "외부 프로세스 실행 API 참조", listOf("Ljava/lang/Runtime;", "exec")),
+        SMS_SEND(25, "SMS 전송 API 참조", listOf("Landroid/telephony/SmsManager;", "send")),
+        ACCESSIBILITY(20, "접근성 서비스 API 참조", listOf("Landroid/accessibilityservice/AccessibilityService;")),
+        OVERLAY(15, "화면 오버레이 API 참조", listOf("Landroid/view/WindowManager\$LayoutParams;")),
+        DEVICE_ADMIN(20, "기기 관리자 API 참조", listOf("Landroid/app/admin/DevicePolicyManager;")),
+        CLIPBOARD(10, "클립보드 API 참조", listOf("Landroid/content/ClipboardManager;")),
+        INSTALLER(20, "앱 설치 API 참조", listOf("Landroid/content/pm/PackageInstaller;")),
+        WEBVIEW_BRIDGE(15, "WebView JavaScript 브리지 API 참조", listOf("Landroid/webkit/WebView;", "addJavascriptInterface"))
     }
     data class Result(
         val status: Status, val risk: Risk?, val score: Int,
@@ -63,7 +63,7 @@ internal object ApkStaticAnalyzer {
                         }
                         dexCount++
                         val text = bytes.toString(Charsets.ISO_8859_1)
-                        Signal.values().filterTo(signals) { text.contains(it.token) }
+                        Signal.values().filterTo(signals) { signal -> signal.tokens.all(text::contains) }
                     }
                     zip.closeEntry()
                 }

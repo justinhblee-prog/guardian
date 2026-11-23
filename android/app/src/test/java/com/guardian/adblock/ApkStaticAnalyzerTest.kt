@@ -30,7 +30,7 @@ class ApkStaticAnalyzerTest {
 
     @Test fun multipleSensitiveApiReferencesRequireManualReview() {
         val r = ApkStaticAnalyzer.analyze(ByteArrayInputStream(apk(
-            "Ldalvik/system/DexClassLoader; Ljava/lang/Runtime;->exec Landroid/telephony/SmsManager;->send"
+            "Ldalvik/system/DexClassLoader; Ljava/lang/Runtime; exec Landroid/telephony/SmsManager; send"
         )))
         assertEquals(ApkStaticAnalyzer.Risk.HIGH, r.risk)
         assertEquals(3, r.signals.size)
