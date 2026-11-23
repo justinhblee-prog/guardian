@@ -472,3 +472,9 @@
 - Package versionCode 21 / `0.7.8-dev`.
 - CI run: https://github.com/justinhblee-prog/guardian/actions/runs/43573908206 — pending at documentation update time. Do not treat this source change as verified until that run completes successfully.
 - This is parser hardening only; it does not prove physical-device VPN routing or real ad-removal effectiveness.
+
+
+## Android free-track — emergency filter fallback regression coverage (2026-11-24)
+- Added regression tests proving the built-in emergency DNS rules replace the previous active rule set, contain exactly the expected 10 parseable block entries, preserve subdomain matching, and do not retain custom/allow rules from the replaced set.
+- This covers the pure Kotlin rule-engine behavior only. Android asset-open failure handling, VPN startup, Gradle/JUnit, emulator, and physical-device behavior remain unverified until the Android test environment is available.
+- No APK was built and no GitHub Actions run was triggered.
