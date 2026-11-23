@@ -36,7 +36,7 @@ on:
 # New commits supersede stale runs for both PRs and main.
 concurrency:
   group: ${{ github.ref == 'refs/heads/main' && 'guardian-android-dev-release' || format('guardian-android-{0}', github.event.pull_request.number || github.ref) }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
