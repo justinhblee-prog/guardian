@@ -1264,6 +1264,7 @@ class GuardianVpnService : VpnService() {
     }
 
     override fun onDestroy() {
+        if (BuildConfig.DEBUG) AppDnsActivityStore.flushPending(this)
         // Process/service teardown is not an explicit user stop. Preserve the durable
         // restore request so MY_PACKAGE_REPLACED and START_STICKY can rebuild the tunnel.
         stopProtection(preserveRestoreIntent = true)
