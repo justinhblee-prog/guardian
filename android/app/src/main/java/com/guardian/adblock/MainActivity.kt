@@ -1603,6 +1603,9 @@ class MainActivity : Activity() {
             if (proActive) accent else muted
         ))
 
+        if (developmentPreview) {
+            body.addView(buildThreatAnalyticsPreview().withTop(14))
+        }
         body.addView(text("PRO 기능 미리보기", 18f, white, true).withTop(24))
         body.addView(text(
             if (developmentPreview) "개발 미리보기 모드 · 라이선스 권한을 부여하지 않으며, 실제 엔진 연결 상태를 각 항목에 표시합니다."
@@ -1634,7 +1637,7 @@ class MainActivity : Activity() {
         val previewFeatures = listOf(
             Triple("고급 광고·추적 차단", "필터 엔진 기반 차단 정책과 사용자 규칙을 확장하는 기능", "필터 엔진 기반 · 적용 범위 검증 필요"),
             Triple("앱별 세밀한 보호 제어", "앱 단위 보호 제외와 예외 정책을 관리하는 기능", "현재 개발 중 · 기기별 VPN 검증 필요"),
-            Triple("실시간 위협·DNS 활동 분석", "차단 이벤트와 DNS 요청을 분류해 활동 내역으로 제공", "기본 DNS 처리 존재 · 고급 분석 개발 필요"),
+            Triple("실시간 위협·DNS 활동 분석", "실제 필터 출처 기반 위협·광고·추적 차단 분류", "DNS 출처 분류·집계 연결 · Android 검증 및 PRO 권한 등록 대기"),
             Triple("보안 프로필 및 자동화", "상황별 보호 정책과 자동 전환을 관리하는 기능", "화면 미리보기 · 자동화 엔진 미구현"),
             Triple("피싱 링크·앱 코드 검사", "의심 URL과 앱 코드의 위험도를 검사하는 기능", "검사 엔진 미연결 · 실제 탐지 안 함"),
             Triple("프리미엄 리포트 및 통계", "기간별 차단량과 보호 상태를 요약하는 기능", "리포트 엔진 개발 필요")
@@ -2141,6 +2144,37 @@ class MainActivity : Activity() {
                 // inventory so it remains discoverable without scrolling through every app.
                 buildCompatibilityPauseSection(body)
                 body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
+    }
+
+    private fun buildThreatAnalyticsPreview(): LinearLayout {
+        val summary = ThreatAnalyticsStore.summary(this)
+        return card(panel, 16).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("위협 분석 · 개발 미리보기", 15f, white, true))
+            addView(text(
+                "실제 필터 출처를 기준으로 위협 인텔리전스, 광고·추적, 사용자 지정 및 출처 미확인 차단을 구분합니다. 목록 일치는 악성 행위 확정 판정이 아닙니다.",
+                10f, muted, false
+            ).withTop(5))
+            addView(text(
+                "위협 목록 일치 ${summary.high} · 광고/추적 ${summary.informational} · 미평가 ${summary.unassessed}",
+                12f, accent, true
+            ).withTop(10))
+            if (summary.recent.isEmpty()) {
+                addView(text("아직 분류된 차단 이벤트가 없습니다.", 10f, muted, false).withTop(8))
+            } else {
+                summary.recent.take(8).forEach { event ->
+                    val time = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
+                        .format(Date(event.timestampEpochMillis))
+                    addView(text(
+                        "${time} · ${event.title}",
+                        10f,
+                        if (event.severity == ThreatAnalyticsEngine.Severity.HIGH) Color.rgb(238, 176, 82) else muted,
+                        false
+                    ).withTop(6))
+                }
+            }
+            addView(text("이 개발 미리보기의 위협 이벤트에는 도메인·URL을 별도로 저장하지 않습니다. PRO 권한은 부여되지 않습니다.", 10f, Color.rgb(238, 176, 82), false).withTop(9))
+        }
     }
 
     private fun buildSettingsPremium(body: LinearLayout) {

@@ -7,8 +7,19 @@ object DomainFilter {
         "adnxs.com", "adform.net", "taboola.com", "outbrain.com",
         "criteo.com", "scorecardresearch.com", "quantserve.com"
     )
-    private data class RuleSet(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>)
-    @Volatile private var activeRules = RuleSet(bootstrapBlocked, emptySet(), emptySet())
+    private data class RuleSet(
+        val blocked: Set<String>,
+        val allowed: Set<String>,
+        val importantBlocked: Set<String>,
+        val securityBlocked: Set<String> = emptySet(),
+        val securityImportantBlocked: Set<String> = emptySet(),
+        val nonSecurityBlocked: Set<String> = emptySet(),
+        val nonSecurityImportantBlocked: Set<String> = emptySet(),
+        val userBlocked: Set<String> = emptySet()
+    )
+    @Volatile private var activeRules = RuleSet(
+        bootstrapBlocked, emptySet(), emptySet(), nonSecurityBlocked = bootstrapBlocked
+    )
 
     /** Loads list-backed sources for callers that already hold a small collection. */
     fun loadRuleSources(
@@ -30,7 +41,8 @@ object DomainFilter {
         sources: List<() -> FilterRuleParser.Parsed>,
         minimumRuleCounts: List<Int>,
         userBlockDomains: List<String> = emptyList(),
-        userAllowDomains: List<String> = emptyList()
+        userAllowDomains: List<String> = emptyList(),
+        securitySourceIndexes: Set<Int> = emptySet()
     ) {
         require(sources.isNotEmpty() && sources.size == minimumRuleCounts.size) {
             "Filter source validation configuration is incomplete"
@@ -38,6 +50,14 @@ object DomainFilter {
         val blocked = HashSet<String>()
         val allowed = HashSet<String>()
         val importantBlocked = HashSet<String>()
+        val securityBlocked = HashSet<String>()
+        val securityImportantBlocked = HashSet<String>()
+        val nonSecurityBlocked = HashSet<String>()
+        val nonSecurityImportantBlocked = HashSet<String>()
+        val userBlocked = HashSet<String>()
+        require(securitySourceIndexes.all { it in sources.indices }) {
+            "Security filter source index is outside the loaded source list"
+        }
         sources.forEachIndexed { index, load ->
             val parsed = load()
             val count = parsed.blocked.size + parsed.importantBlocked.size
@@ -47,14 +67,30 @@ object DomainFilter {
             blocked.addAll(parsed.blocked)
             allowed.addAll(parsed.allowed)
             importantBlocked.addAll(parsed.importantBlocked)
+            if (index in securitySourceIndexes) {
+                securityBlocked.addAll(parsed.blocked)
+                securityImportantBlocked.addAll(parsed.importantBlocked)
+            } else {
+                nonSecurityBlocked.addAll(parsed.blocked)
+                nonSecurityImportantBlocked.addAll(parsed.importantBlocked)
+            }
         }
-        userBlockDomains.forEach { DomainFilter.normalizeRuleDomain(it)?.let(blocked::add) }
+        userBlockDomains.forEach {
+            DomainFilter.normalizeRuleDomain(it)?.let { normalized ->
+                blocked.add(normalized)
+                userBlocked.add(normalized)
+            }
+        }
         userAllowDomains.forEach { DomainFilter.normalizeRuleDomain(it)?.let(allowed::add) }
         require(blocked.isNotEmpty() || importantBlocked.isNotEmpty()) {
             "Filter sources contain no valid DNS block rules"
         }
         // One volatile swap keeps allow/block precedence consistent during live updates.
-        activeRules = RuleSet(blocked, allowed, importantBlocked)
+        activeRules = RuleSet(
+            blocked, allowed, importantBlocked,
+            securityBlocked, securityImportantBlocked,
+            nonSecurityBlocked, nonSecurityImportantBlocked, userBlocked
+        )
     }
 
     /** Loads the canonical cross-platform rules shipped as an Android asset. */
@@ -63,6 +99,38 @@ object DomainFilter {
     }
 
     enum class BlockCategory { AD, TRACKER, OTHER }
+
+    /** Returns only evidence for a domain that is actually blocked by the active rule set. */
+    fun blockEvidence(domain: String): Set<ThreatAnalyticsEngine.Evidence> {
+        val d = domain.trim().trimEnd('.').lowercase(java.util.Locale.ROOT)
+        if (d.isEmpty() || d.length > 253) return emptySet()
+        val snapshot = activeRules
+        val globalImportant = matchesDomainOrParent(d, snapshot.importantBlocked)
+        val globalAllow = matchesDomainOrParent(d, snapshot.allowed)
+        val globalBlocked = globalImportant ||
+            (!globalAllow && matchesDomainOrParent(d, snapshot.blocked))
+        if (!globalBlocked) return emptySet()
+        val evidence = linkedSetOf<ThreatAnalyticsEngine.Evidence>()
+        if (matchesDomainOrParent(d, snapshot.securityImportantBlocked) ||
+            (!globalAllow && matchesDomainOrParent(d, snapshot.securityBlocked))
+        ) {
+            evidence.add(ThreatAnalyticsEngine.Evidence.SECURITY_INTELLIGENCE_LIST)
+        }
+        if (!globalAllow && matchesDomainOrParent(d, snapshot.userBlocked)) {
+            evidence.add(ThreatAnalyticsEngine.Evidence.USER_BLOCK_RULE)
+        }
+        if (matchesDomainOrParent(d, snapshot.nonSecurityImportantBlocked) ||
+            (!globalAllow && matchesDomainOrParent(d, snapshot.nonSecurityBlocked))
+        ) {
+            when (classifyBlockedDomain(d)) {
+                BlockCategory.AD -> evidence.add(ThreatAnalyticsEngine.Evidence.AD_FILTER)
+                BlockCategory.TRACKER -> evidence.add(ThreatAnalyticsEngine.Evidence.TRACKER_FILTER)
+                BlockCategory.OTHER -> evidence.add(ThreatAnalyticsEngine.Evidence.UNKNOWN_BLOCK_SOURCE)
+            }
+        }
+        if (evidence.isEmpty()) evidence.add(ThreatAnalyticsEngine.Evidence.UNKNOWN_BLOCK_SOURCE)
+        return evidence
+    }
 
     /**
      * Best-effort reporting category only. The imported DNS lists do not carry

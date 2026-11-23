@@ -754,6 +754,9 @@ class GuardianVpnService : VpnService() {
 
     private fun recordDnsActivity(domain: String, blocked: Boolean, forwarded: Boolean) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val threatAssessment = if (blocked && BuildConfig.DEBUG) {
+            ThreatAnalyticsEngine.assess(true, DomainFilter.blockEvidence(domain))
+        } else null
         synchronized(DNS_STATS_LOCK) {
             val queries = prefs.getLong(KEY_DNS_QUERIES, 0L) + 1L
             val blockedCount = prefs.getLong(KEY_DNS_BLOCKED, 0L) + if (blocked) 1L else 0L
@@ -772,7 +775,8 @@ class GuardianVpnService : VpnService() {
                 else -> "DNS 응답 실패"
             }
             val previous = prefs.getString(KEY_DNS_RECENT, "").orEmpty()
-            val lines = (listOf("$outcome · $domain") + previous.lineSequence().filter { it.isNotBlank() }.toList()).take(8)
+            val threatLabel = threatAssessment?.title?.let { " · $it" }.orEmpty()
+            val lines = (listOf("$outcome · $domain$threatLabel") + previous.lineSequence().filter { it.isNotBlank() }.toList()).take(8)
             prefs.edit()
                 .putLong(KEY_DNS_QUERIES, queries)
                 .putLong(KEY_DNS_BLOCKED, blockedCount)
@@ -790,6 +794,7 @@ class GuardianVpnService : VpnService() {
                 ).apply()
             }
         }
+        if (BuildConfig.DEBUG) ThreatAnalyticsStore.record(this, threatAssessment)
         // Persist every query, but coalesce UI refresh broadcasts to avoid flooding
         // the main thread when an app generates many DNS requests in a short burst.
         val now = android.os.SystemClock.elapsedRealtime()

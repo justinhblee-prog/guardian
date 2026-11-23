@@ -115,6 +115,48 @@ class DomainFilterTest {
         assertFalse(DomainFilter.isBlocked("pixel.trusted.ads.customer.example"))
     }
 
+    @Test fun blockEvidenceTracksSecurityAdTrackerAndUserRuleSources() {
+        DomainFilter.loadParsedRuleSources(
+            sources = listOf(
+                { FilterRuleParser.parse("block=doubleclick.net") },
+                { FilterRuleParser.parse("block=analytics.example") },
+                { FilterRuleParser.parse("block-important=critical.example") }
+            ),
+            minimumRuleCounts = listOf(1, 1, 1),
+            userBlockDomains = listOf("custom.example"),
+            userAllowDomains = listOf("trusted.doubleclick.net", "critical.example"),
+            securitySourceIndexes = setOf(2)
+        )
+        assertEquals(
+            setOf(ThreatAnalyticsEngine.Evidence.AD_FILTER),
+            DomainFilter.blockEvidence("doubleclick.net")
+        )
+        assertEquals(
+            setOf(ThreatAnalyticsEngine.Evidence.TRACKER_FILTER),
+            DomainFilter.blockEvidence("analytics.example")
+        )
+        assertEquals(
+            setOf(ThreatAnalyticsEngine.Evidence.SECURITY_INTELLIGENCE_LIST),
+            DomainFilter.blockEvidence("critical.example")
+        )
+        assertEquals(
+            setOf(ThreatAnalyticsEngine.Evidence.USER_BLOCK_RULE),
+            DomainFilter.blockEvidence("custom.example")
+        )
+        assertTrue(DomainFilter.blockEvidence("trusted.doubleclick.net").isEmpty())
+    }
+
+    @Test fun blockEvidenceDoesNotLabelUnknownNonSecurityDomainsAsMalware() {
+        DomainFilter.loadParsedRuleSources(
+            sources = listOf({ FilterRuleParser.parse("block=unknown.example") }),
+            minimumRuleCounts = listOf(1)
+        )
+        assertEquals(
+            setOf(ThreatAnalyticsEngine.Evidence.UNKNOWN_BLOCK_SOURCE),
+            DomainFilter.blockEvidence("unknown.example")
+        )
+    }
+
     @Test fun failedRuleReplacementKeepsPreviouslyActiveRules() {
         DomainFilter.loadRules(listOf("block=stable.example"))
         assertThrows(IllegalArgumentException::class.java) {
