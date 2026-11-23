@@ -10,6 +10,7 @@ on:
       - "requirements-dev.txt"
       - "requirements-windows-build.txt"
       - "scripts/build_windows.ps1"
+      - "scripts/windows_dns_task_smoke.py"
       - ".github/workflows/windows-build.yml"
   pull_request:
     paths:
@@ -19,6 +20,7 @@ on:
       - "requirements-dev.txt"
       - "requirements-windows-build.txt"
       - "scripts/build_windows.ps1"
+      - "scripts/windows_dns_task_smoke.py"
       - ".github/workflows/windows-build.yml"
 
 permissions:
@@ -83,6 +85,8 @@ jobs:
           if (-not (Test-Path "$installDir\GuardianDnsProxy\_internal")) { throw "Installed DNS daemon runtime dependencies are missing" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if (-not $task) { throw "Boot-start DNS task was not registered" }
+          python scripts/windows_dns_task_smoke.py
+          if ($LASTEXITCODE -ne 0) { throw "Installed SYSTEM DNS task failed its IPv4 UDP/TCP loopback smoke test" }
           $restoreTest = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList "--restore-dns" -Wait -PassThru
           if ($restoreTest.ExitCode -ne 0) { throw "DNS restore and task cleanup command failed with exit code $($restoreTest.ExitCode)" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue

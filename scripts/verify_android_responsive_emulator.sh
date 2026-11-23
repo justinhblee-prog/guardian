@@ -36,7 +36,7 @@ verify_layout() {
   python3 -c '
 import sys,xml.etree.ElementTree as ET
 mode=sys.argv[1]; root=ET.fromstring(sys.stdin.read()); nodes=list(root.iter("node"))
-labels=("홈","보호 설정","앱 제외","DNS 활동","프리미엄","필터 규칙","설정"); found={}
+labels=("홈","보호","활동","Premium","전체 메뉴"); found={}
 for label in labels:
     matches=[n for n in nodes if n.attrib.get("content-desc")==label and n.attrib.get("visible-to-user","true")=="true" and n.attrib.get("clickable")=="true"]
     if not matches: raise SystemExit("Missing visible navigation destination: "+label)
@@ -83,18 +83,18 @@ print("Navigation selection and destination content passed: "+label)
 }
 echo "Verify expanded tablet rail."
 verify_layout "1600x2560" 160 "rail" "expanded tablet"
-tap_navigation "보호 설정"
+tap_navigation "보호"
 echo "Resize to compact window and verify bottom navigation."
 verify_layout "700x1200" 160 "bottom" "compact window"
-tap_navigation "DNS 활동"
+tap_navigation "활동"
 echo "Resize to landscape tablet and verify state restoration."
 verify_layout "1200x700" 160 "rail" "landscape tablet"
 xml="$(dump_ui)"
 python3 -c '
 import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if not any(n.attrib.get("content-desc")=="DNS 활동" and n.attrib.get("selected")=="true" for n in root.iter("node")):
-    raise SystemExit("Selected tab was not preserved after resize/rotation.")
+if not any(n.attrib.get("content-desc")=="활동" and n.attrib.get("selected")=="true" for n in root.iter("node")):
+    raise SystemExit("Selected Activity destination was not preserved after resize/rotation.")
 print("Selected tab survived resize/landscape recreation.")
 ' <<<"$xml"
 echo "Guardian adaptive navigation emulator verification passed."

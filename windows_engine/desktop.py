@@ -1,5 +1,5 @@
 """Tkinter desktop control panel for Guardian Windows DNS protection."""
-import json,os,sys,socket,struct,subprocess,time
+import json,os,sys,socket,struct,subprocess,time,urllib.request,webbrowser
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
@@ -9,7 +9,7 @@ from windows_engine.filter_updates import FilterUpdater
 from windows_engine.license_client import LicenseClientError,WindowsLicenseClient
 from windows_engine.daemon_health import daemon_health_is_fresh, daemon_process_is_running
 APP_DIR=Path(os.environ.get("PROGRAMDATA",r"C:\ProgramData"))/"Guardian"
-CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"
+CONFIG=APP_DIR/"guardian.json"; BACKUP=APP_DIR/"dns-backup.json"; STATE=APP_DIR/"protection.json"; STATS=APP_DIR/"dns-stats.json"; HEALTH=APP_DIR/"daemon-health.json"; LOG_FILE=APP_DIR/"logs"/"proxy-daemon.log"
 TASK_NAME="GuardianDnsProxy"
 DEFAULT_RULES="! Guardian bootstrap rules\n||doubleclick.net^\n||googlesyndication.com^\n||googleadservices.com^\n||adservice.google.com^\n||adnxs.com^\n||criteo.com^\n||taboola.com^\n||outbrain.com^\n||scorecardresearch.com^\n||quantserve.com^\n||mixpanel.com^\n||hotjar.com\n"
 def ensure_config():
@@ -48,6 +48,23 @@ def is_dns_probe_response(query,response):
             and response[:2]==query[:2]
             and bool(response[2]&0x80)
             and struct.unpack("!H",response[4:6])[0]==1)
+def probe_tcp_dns(query):
+    with socket.create_connection(("127.0.0.1",53),timeout=.8) as client:
+        client.settimeout(.8); client.sendall(struct.pack("!H",len(query))+query)
+        header=b""
+        while len(header)<2:
+            chunk=client.recv(2-len(header))
+            if not chunk: return False
+            header+=chunk
+        length=struct.unpack("!H",header)[0]
+        if length<12 or length>4096: return False
+        response=b""
+        while len(response)<length:
+            chunk=client.recv(length-len(response))
+            if not chunk: return False
+            response+=chunk
+        return is_dns_probe_response(query,response)
+
 def proxy_ready():
     # A generic DNS response on loopback is not proof that Guardian owns the port.
     if not daemon_health_is_fresh(HEALTH): return False
@@ -55,8 +72,46 @@ def proxy_ready():
         query=blocked_probe_query()
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
             client.settimeout(.8); client.sendto(query,("127.0.0.1",53)); response,_=client.recvfrom(512)
-        return is_dns_probe_response(query,response)
+        if not is_dns_probe_response(query,response): return False
+        return probe_tcp_dns(query)
     except OSError: return False
+def daemon_readiness_diagnosis():
+    details=[]
+    try:
+        task=run_task("/Query","/TN",TASK_NAME,"/V","/FO","LIST")
+        task_text=(task.stdout or task.stderr or "").strip()
+        details.append("Task Scheduler query: "+(task_text[:1800] if task_text else f"no output (exit {task.returncode})"))
+    except Exception as exc: details.append("Task Scheduler query failed: "+str(exc))
+    try:
+        health=json.loads(HEALTH.read_text(encoding="utf-8"))
+        pid=health.get("pid"); heartbeat=float(health.get("heartbeatAt",0)); age=time.time()-heartbeat
+        alive=daemon_process_is_running(HEALTH)
+        details.append(f"Daemon heartbeat: pid={pid}, age={age:.1f}s, process_alive={alive}")
+    except Exception as exc: details.append("Daemon heartbeat: unavailable ("+str(exc)+")")
+    try:
+        query=blocked_probe_query()
+        details.append("IPv4 TCP 127.0.0.1:53: "+("valid DNS response" if probe_tcp_dns(query) else "invalid or incomplete DNS response"))
+    except OSError as exc: details.append("IPv4 TCP 127.0.0.1:53: "+str(exc))
+    try:
+        query=blocked_probe_query()
+        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
+            client.settimeout(.7); client.sendto(query,("127.0.0.1",53)); response,_=client.recvfrom(512)
+        details.append("IPv4 UDP 127.0.0.1:53: "+("DNS response received" if is_dns_probe_response(query,response) else "invalid DNS response"))
+    except OSError as exc: details.append("IPv4 UDP 127.0.0.1:53: "+str(exc))
+    try:
+        for protocol in ("udp","tcp"):
+            result=subprocess.run(["netstat.exe","-ano","-p",protocol],capture_output=True,text=True,timeout=5)
+            matches=[line.strip() for line in (result.stdout or "").splitlines() if ":53" in line]
+            details.append(f"Port 53 {protocol.upper()} endpoints: "+(" | ".join(matches[:8]) if matches else "no matching endpoint reported"))
+    except Exception as exc: details.append("Port 53 ownership query failed: "+str(exc))
+    try:
+        if LOG_FILE.exists():
+            tail="\n".join(LOG_FILE.read_text(encoding="utf-8",errors="replace").splitlines()[-18:])
+            details.append("Daemon log (last lines):\n"+tail[:4500])
+        else: details.append("Daemon log: not created at "+str(LOG_FILE))
+    except Exception as exc: details.append("Daemon log could not be read: "+str(exc))
+    return "\n".join(details)
+
 def run_task(*args):
     return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
 def ensure_daemon_running():
@@ -67,7 +122,7 @@ def ensure_daemon_running():
     while time.monotonic()<deadline:
         if proxy_ready(): return
         time.sleep(.25)
-    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53")
+    raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\n\nStartup diagnosis:\n"+daemon_readiness_diagnosis())
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
     if daemon_process_is_running(HEALTH):
@@ -109,29 +164,101 @@ def self_test():
         raise
 class GuardianDesktop:
     def __init__(self,root):
-        self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False
-        self.status=tk.StringVar(value="보호 꺼짐"); root.title("Guardian AdBlock"); root.geometry("620x440"); root.minsize(560,400); root.configure(bg="#101820")
-        tk.Label(root,text="GUARDIAN",font=("Segoe UI",24,"bold"),fg="#f2f6fa",bg="#101820").pack(pady=(24,2))
-        tk.Label(root,text="Windows DNS Protection",font=("Segoe UI",10),fg="#9fb2c3",bg="#101820").pack()
-        self.status_label=tk.Label(root,textvariable=self.status,font=("Segoe UI",15,"bold"),fg="#f3b64a",bg="#101820"); self.status_label.pack(pady=26)
-        row=tk.Frame(root,bg="#101820"); row.pack()
-        self.start_button=tk.Button(row,text="보호 시작",command=self.start_protection,width=16,height=2,bg="#197a57",fg="white",font=("Segoe UI",11,"bold"),relief="flat"); self.start_button.pack(side="left",padx=8)
-        self.stop_button=tk.Button(row,text="보호 중지",command=self.stop_protection,width=16,height=2,bg="#8b3940",fg="white",font=("Segoe UI",11,"bold"),relief="flat",state="disabled"); self.stop_button.pack(side="left",padx=8)
-        self.stats=tk.Label(root,text="차단 0건  |  전달 0건",font=("Segoe UI",12),fg="#d7e0e8",bg="#101820"); self.stats.pack(pady=20)
-        actions=tk.Frame(root,bg="#101820"); actions.pack(pady=4)
-        tk.Button(actions,text="필터 업데이트",command=self.update_filters,width=16,bg="#294e70",fg="white",relief="flat").pack(side="left",padx=6)
-        tk.Button(actions,text="필터 서버 설정",command=self.open_filter_settings,width=16,bg="#33404c",fg="white",relief="flat").pack(side="left",padx=6)
-        tk.Button(actions,text="라이선스",command=self.open_license_settings,width=12,bg="#5946a8",fg="white",relief="flat").pack(side="left",padx=6)
-        self.license_status=tk.Label(root,text="라이선스: 무료",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.license_status.pack(pady=2)
+        self.root=root; self.manager=DnsAdapterManager(BACKUP); self.active=False; self.current_page='home'; self.pages={}; self.nav_buttons={}
+        self.status=tk.StringVar(value='보호 꺼짐')
+        root.title('Guardian AdBlock'); root.geometry('1180x760'); root.minsize(1020,680); root.configure(bg='#101820')
+        shell=tk.Frame(root,bg='#101820'); shell.pack(fill='both',expand=True)
+        sidebar=tk.Frame(shell,bg='#111e2a',width=228); sidebar.pack(side='left',fill='y'); sidebar.pack_propagate(False)
+        tk.Label(sidebar,text='GUARDIAN',font=('Segoe UI',22,'bold'),fg='#f2f6fa',bg='#111e2a').pack(anchor='w',padx=22,pady=(28,2))
+        tk.Label(sidebar,text='WINDOWS SECURITY',font=('Segoe UI',9,'bold'),fg='#65d6ae',bg='#111e2a').pack(anchor='w',padx=23,pady=(0,24))
+        self.nav=tk.Frame(sidebar,bg='#111e2a'); self.nav.pack(fill='x',padx=12)
+        self.content=tk.Frame(shell,bg='#101820'); self.content.pack(side='left',fill='both',expand=True)
+        top=tk.Frame(self.content,bg='#101820'); top.pack(fill='x',padx=30,pady=(24,10))
+        self.page_title=tk.Label(top,text='대시보드',font=('Segoe UI',22,'bold'),fg='#f2f6fa',bg='#101820'); self.page_title.pack(side='left')
+        self.header_status=tk.Label(top,textvariable=self.status,font=('Segoe UI',10,'bold'),fg='#f3b64a',bg='#263440',padx=14,pady=8); self.header_status.pack(side='right')
+        self.workspace=tk.Frame(self.content,bg='#101820'); self.workspace.pack(fill='both',expand=True,padx=30,pady=(10,28))
+        self.pages={name:tk.Frame(self.workspace,bg='#101820') for name in ('home','protection','filters','exclusions','activity','premium','updates','settings')}
+        nav_items=[('home','대시보드'),('protection','보호 설정'),('filters','필터 관리'),('exclusions','앱 제외 관리'),('activity','활동 및 기록'),('premium','라이선스 · Premium'),('updates','프로그램 업데이트'),('settings','일반 설정 · 지원')]
+        for key,label in nav_items:
+            button=tk.Button(self.nav,text=label,anchor='w',command=lambda k=key:self.show_page(k),bg='#111e2a',fg='#bdcbd7',activebackground='#234a43',activeforeground='white',relief='flat',bd=0,font=('Segoe UI',10,'bold'),padx=14,pady=12,cursor='hand2')
+            button.pack(fill='x',pady=2); self.nav_buttons[key]=button
+        home=self.pages['home']
+        tk.Label(home,text='기기 전체 DNS 보호 상태와 차단 활동을 관리합니다.',font=('Segoe UI',11),fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=(0,22))
+        self.status_label=tk.Label(home,textvariable=self.status,font=('Segoe UI',19,'bold'),fg='#f3b64a',bg='#101820'); self.status_label.pack(anchor='w',pady=10)
+        actions=tk.Frame(home,bg='#101820'); actions.pack(anchor='w',pady=10)
+        self.start_button=tk.Button(actions,text='보호 시작',command=self.start_protection,width=18,height=2,bg='#197a57',fg='white',font=('Segoe UI',11,'bold'),relief='flat',cursor='hand2'); self.start_button.pack(side='left',padx=(0,10))
+        self.stop_button=tk.Button(actions,text='보호 중지',command=self.stop_protection,width=18,height=2,bg='#8b3940',fg='white',font=('Segoe UI',11,'bold'),relief='flat',state='disabled',cursor='hand2'); self.stop_button.pack(side='left')
+        self.start_buttons=[self.start_button]; self.stop_buttons=[self.stop_button]
+        self.stats=tk.Label(home,text='차단 0건  |  전달 0건',font=('Segoe UI',15,'bold'),fg='#d7e0e8',bg='#101820'); self.stats.pack(anchor='w',pady=24)
+        self.license_status=tk.Label(home,text='라이선스: 무료',font=('Segoe UI',10),fg='#9fb2c3',bg='#101820'); self.license_status.pack(anchor='w',pady=5)
+        self.filter_status=tk.Label(home,text='필터 업데이트: 서버 미설정',font=('Segoe UI',10),fg='#9fb2c3',bg='#101820'); self.filter_status.pack(anchor='w',pady=5)
+        tk.Label(home,text='백그라운드 DNS 보호 · IPv4/IPv6 · 기존 DNS 자동 복구',font=('Segoe UI',10),fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=18)
+        tk.Label(home,text='앱 창을 닫아도 보호는 유지됩니다. 보호 중지 시 기존 DNS 설정을 복구합니다.',font=('Segoe UI',9),fg='#aab8c4',bg='#101820').pack(anchor='w')
+        self._section('protection','보호 설정','보호 시작·중지와 DNS 엔진 상태를 관리합니다.')
+        protection_start=tk.Button(self.pages['protection'],text='보호 시작',command=self.start_protection,width=18,height=2,bg='#197a57',fg='white',relief='flat')
+        protection_start.pack(anchor='w',pady=8); self.start_buttons.append(protection_start)
+        protection_stop=tk.Button(self.pages['protection'],text='보호 중지',command=self.stop_protection,width=18,height=2,bg='#8b3940',fg='white',relief='flat',state='disabled')
+        protection_stop.pack(anchor='w',pady=8); self.stop_buttons.append(protection_stop)
+        self._section('filters','필터 관리','서명된 광고·추적·위협 필터 목록을 업데이트합니다. 프로그램 업데이트와 별개입니다.')
+        tk.Button(self.pages['filters'],text='필터 업데이트 실행',command=self.update_filters,width=22,height=2,bg='#197a57',fg='white',relief='flat').pack(anchor='w',pady=8)
+        tk.Button(self.pages['filters'],text='필터 서버 설정',command=self.open_filter_settings,width=22,height=2,bg='#33404c',fg='white',relief='flat').pack(anchor='w',pady=8)
+        self._section('exclusions','앱 제외 관리','DNS 필터링에서 제외할 앱 정책을 설정합니다.')
+        tk.Label(self.pages['exclusions'],text='현재 Windows DNS 프록시는 DNS 요청의 도메인만 처리하며 요청을 보낸 Windows 프로세스 정보를 제공하지 않습니다. 따라서 앱별 제외를 임의로 적용하지 않습니다. 앱별 정책을 안전하게 지원하려면 Windows Filtering Platform 기반 프로세스 식별·정책 계층과 관리자 권한 설치/제거, IPv4·IPv6 회귀 테스트가 먼저 필요합니다. 현재는 미지원 상태입니다.',wraplength=700,fg='#f0c477',bg='#101820',justify='left').pack(anchor='w',pady=10)
+        self._section('activity','활동 및 기록','DNS 요청·차단 통계와 진단 기록을 확인합니다.')
+        tk.Label(self.pages['activity'],text='백그라운드 DNS 엔진이 기록한 누적 요청 통계입니다.',fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=(0,14))
+        self.activity_stats=tk.Label(self.pages['activity'],text='차단 0건  |  정상 전달 0건  |  오류 0건',font=('Segoe UI',16,'bold'),fg='#d7e0e8',bg='#101820')
+        self.activity_stats.pack(anchor='w',pady=10)
+        self.activity_updated=tk.Label(self.pages['activity'],text='통계 수집 대기 중',fg='#9fb2c3',bg='#101820')
+        self.activity_updated.pack(anchor='w',pady=4)
+        tk.Button(self.pages['activity'],text='지금 새로고침',command=self.refresh,width=18,height=2,bg='#294e70',fg='white',relief='flat').pack(anchor='w',pady=12)
+        tk.Label(self.pages['activity'],text='통계는 Guardian DNS 엔진이 실행 중일 때 갱신됩니다. 현재는 DNS 요청의 도메인별 상세 이력은 저장하지 않습니다.',wraplength=720,justify='left',fg='#f0c477',bg='#101820').pack(anchor='w',pady=12)
+        self._section('premium','라이선스 및 Premium','공통 Guardian 라이선스와 기기 활성화를 관리합니다.')
+        tk.Button(self.pages['premium'],text='라이선스 관리',command=self.open_license_settings,width=22,height=2,bg='#5946a8',fg='white',relief='flat').pack(anchor='w',pady=8)
+        self._section('updates','프로그램 업데이트','Guardian Windows 앱의 새 버전을 확인합니다. 필터 목록 갱신과 다른 기능입니다.')
+        self.update_version=tk.Label(self.pages['updates'],text='설치 버전: 0.1.0-dev',fg='#d7e0e8',bg='#101820',font=('Segoe UI',12,'bold')); self.update_version.pack(anchor='w',pady=10)
+        self.program_update_status=tk.StringVar(value='업데이트 확인 전')
+        tk.Label(self.pages['updates'],textvariable=self.program_update_status,wraplength=760,justify='left',fg='#bdcbd7',bg='#101820').pack(anchor='w',pady=12)
+        row=tk.Frame(self.pages['updates'],bg='#101820'); row.pack(anchor='w',pady=10)
+        tk.Button(row,text='업데이트 확인',command=self.check_program_updates,width=18,height=2,bg='#197a57',fg='white',relief='flat').pack(side='left',padx=(0,10))
+        self.open_release_button=tk.Button(row,text='공식 릴리스 페이지',command=self.open_release_page,state='disabled',width=20,height=2,bg='#294e70',fg='white',relief='flat'); self.open_release_button.pack(side='left')
+        tk.Label(self.pages['updates'],text='안전상 자동 설치는 수행하지 않습니다. 정식 서명 검증 및 업데이트 설치 절차가 검증되기 전까지 공식 릴리스에서 수동 설치합니다.',wraplength=760,justify='left',fg='#f0c477',bg='#101820').pack(anchor='w',pady=10)
+        self._section('settings','일반 설정 및 지원','필터 서버·라이선스 연결과 제품 정보를 관리합니다.')
+        tk.Button(self.pages['settings'],text='필터 서버 설정',command=self.open_filter_settings,width=22,height=2,bg='#33404c',fg='white',relief='flat').pack(anchor='w',pady=8)
+        tk.Button(self.pages['settings'],text='라이선스 설정',command=self.open_license_settings,width=22,height=2,bg='#5946a8',fg='white',relief='flat').pack(anchor='w',pady=8)
+        self.show_page('home')
         self.refresh_license_status()
-        self.filter_status=tk.Label(root,text="필터 업데이트: 서버 미설정",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820"); self.filter_status.pack(pady=3)
-        tk.Label(root,text="백그라운드 DNS 보호 · IPv4/IPv6 · 기존 DNS 자동 복구",font=("Segoe UI",9),fg="#9fb2c3",bg="#101820").pack(pady=6)
-        tk.Label(root,text="보호 시작 시 어댑터 DNS를 로컬 필터로 전환합니다. 앱 창을 닫아도 백그라운드 보호는 유지되며, 보호 중지는 원래 DNS 설정을 복구합니다.",wraplength=540,font=("Segoe UI",9),fg="#aab8c4",bg="#101820").pack(pady=12)
-        root.protocol("WM_DELETE_WINDOW",self.close); self.recover_previous_state(); self.refresh()
+        root.protocol('WM_DELETE_WINDOW',self.close); self.recover_previous_state(); self.refresh()
+    def _section(self,page,title,description):
+        frame=self.pages[page]
+        tk.Label(frame,text=title,font=('Segoe UI',20,'bold'),fg='#f2f6fa',bg='#101820').pack(anchor='w',pady=(8,6))
+        tk.Label(frame,text=description,font=('Segoe UI',10),fg='#9fb2c3',bg='#101820',wraplength=760,justify='left').pack(anchor='w',pady=(0,18))
+    def show_page(self,page):
+        for frame in self.pages.values(): frame.pack_forget()
+        self.pages[page].pack(fill='both',expand=True)
+        labels={'home':'대시보드','protection':'보호 설정','filters':'필터 관리','exclusions':'앱 제외 관리','activity':'활동 및 기록','premium':'라이선스 · Premium','updates':'프로그램 업데이트','settings':'일반 설정 · 지원'}
+        self.page_title.configure(text=labels[page]); self.current_page=page
+        for key,button in self.nav_buttons.items(): button.configure(bg='#234a43' if key==page else '#111e2a',fg='white' if key==page else '#bdcbd7')
+    def check_program_updates(self):
+        self.program_update_status.set('공식 GitHub 릴리스 확인 중...'); self.root.update_idletasks()
+        try:
+            request=urllib.request.Request('https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=20',headers={'Accept':'application/vnd.github+json','User-Agent':'GuardianAdBlock-Windows'})
+            with urllib.request.urlopen(request,timeout=12) as response: releases=json.loads(response.read(1024*1024).decode('utf-8'))
+            release=next((item for item in releases if not item.get('draft') and not item.get('prerelease')),None)
+            if not release: self.program_update_status.set('공식 릴리스가 아직 게시되지 않았습니다.'); return
+            self.latest_release_url=release.get('html_url',''); tag=release.get('tag_name','버전 정보 없음')
+            assets=release.get('assets',[]); installer=next((item for item in assets if item.get('name','').lower().endswith('.exe') and 'windows' in item.get('name','').lower()),None)
+            self.program_update_status.set('최신 릴리스: '+tag+'\n'+('Windows 설치 파일: '+installer.get('name') if installer else 'Windows 설치 파일이 릴리스 자산에 없습니다.'))
+            self.open_release_button.configure(state='normal' if self.latest_release_url else 'disabled')
+        except Exception as exc: self.program_update_status.set('업데이트 확인 실패: '+str(exc)); self.open_release_button.configure(state='disabled')
+    def open_release_page(self):
+        url=getattr(self,'latest_release_url','')
+        if url: webbrowser.open(url)
     def set_active_ui(self,active,label=None):
         self.active=active; self.status.set(label or ("보호 실행 중" if active else "보호 꺼짐"))
         self.status_label.configure(fg="#54d69b" if active else "#f3b64a")
-        self.start_button.configure(state="disabled" if active else "normal"); self.stop_button.configure(state="normal" if active else "disabled")
+        self.header_status.configure(fg="#54d69b" if active else "#f3b64a",bg="#183b32" if active else "#263440")
+        for button in self.start_buttons: button.configure(state="disabled" if active else "normal")
+        for button in self.stop_buttons: button.configure(state="normal" if active else "disabled")
     def recover_previous_state(self):
         if BACKUP.exists():
             try:
@@ -145,14 +272,14 @@ class GuardianDesktop:
                 else:
                     try: self.manager.restore(); write_state(False)
                     except Exception: pass
-                self.start_button.configure(state="disabled")
+                [button.configure(state="disabled") for button in self.start_buttons]
                 messagebox.showerror("Guardian DNS 복구",f"이전 보호 상태를 자동 복구하지 못했습니다. DNS 백업을 보존했습니다.\n\n{exc}")
         elif STATE.exists():
             write_state(False)
             try: stop_daemon()
             except Exception as exc:
                 self.set_active_ui(False,"보호 꺼짐 · 백그라운드 종료 확인 필요")
-                messagebox.showerror("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
+                messagebox.showerror("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\n\n{exc}")
     def start_protection(self):
         if self.active: return
         try:
@@ -162,13 +289,13 @@ class GuardianDesktop:
             if BACKUP.exists():
                 # A partial rollback leaves DNS on loopback; keep the daemon alive.
                 if proxy_ready(): self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
-                else: self.start_button.configure(state="disabled")
+                else: [button.configure(state="disabled") for button in self.start_buttons]
             else:
                 write_state(False)
                 try: stop_daemon()
                 except Exception as stop_error:
                     self.set_active_ui(False,"보호 시작 실패 · 백그라운드 종료 확인 필요")
-                    messagebox.showerror("Guardian 보호 시작 실패",f"{exc}\\n\\n백그라운드 종료 실패: {stop_error}")
+                    messagebox.showerror("Guardian 보호 시작 실패",f"{exc}\n\n백그라운드 종료 실패: {stop_error}")
                     return
                 self.set_active_ui(False,"보호 시작 실패")
             messagebox.showerror("Guardian 보호 시작 실패",str(exc))
@@ -182,7 +309,7 @@ class GuardianDesktop:
         try: stop_daemon()
         except Exception as exc:
             self.set_active_ui(False,"DNS 복구 완료 · 백그라운드 종료 확인 필요")
-            messagebox.showerror("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\\n\\n{exc}")
+            messagebox.showerror("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\n\n{exc}")
             return
         self.set_active_ui(False)
     def open_filter_settings(self):
@@ -276,7 +403,12 @@ class GuardianDesktop:
     def refresh(self):
         try:
             stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
-            self.stats.configure(text=f"광고/추적 차단 {int(stats.get('blocked',0)):,}건  |  정상 전달 {int(stats.get('forwarded',0)):,}건")
+            blocked=int(stats.get('blocked',0)); forwarded=int(stats.get('forwarded',0)); failed=int(stats.get('failed',0))
+            summary=f"광고/추적 차단 {blocked:,}건  |  정상 전달 {forwarded:,}건  |  오류 {failed:,}건"
+            self.stats.configure(text=summary)
+            self.activity_stats.configure(text=summary)
+            updated_at=float(stats.get('updatedAt',0) or 0)
+            self.activity_updated.configure(text=('마지막 수집: '+time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(updated_at))) if updated_at>0 else 'DNS 엔진 통계 수집 대기 중')
         except (OSError,ValueError,TypeError): pass
         try:
             status=json.loads((APP_DIR/"filter-update-status.json").read_text(encoding="utf-8"))
