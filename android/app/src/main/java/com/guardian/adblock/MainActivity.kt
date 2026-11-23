@@ -1854,12 +1854,12 @@ class MainActivity : Activity() {
                         thread {
                             try {
                                 LicenseApiClient.refresh(this@MainActivity)
-                                runOnUiThread { showTab("settings") }
+                                runOnUiThread { showTab("premium") }
                             } catch (error: Exception) {
                                 runOnUiThread {
                                     if (error is LicenseApiException && error.invalidatesEntitlement) {
                                         // Rebuild settings after the local signed token was cleared.
-                                        showTab("settings")
+                                        showTab("premium")
                                     } else {
                                         licenseFeedback.text = "라이선스 갱신 실패: ${SafeFailureSummary.describe(error)}"
                                         isEnabled = true
@@ -1880,7 +1880,7 @@ class MainActivity : Activity() {
                         thread {
                             try {
                                 LicenseApiClient.deactivate(this@MainActivity)
-                                runOnUiThread { showTab("settings") }
+                                runOnUiThread { showTab("premium") }
                             } catch (error: Exception) {
                                 runOnUiThread {
                                     licenseFeedback.text = "기기 등록 해제 실패: ${SafeFailureSummary.describe(error)}"
