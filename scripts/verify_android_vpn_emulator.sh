@@ -28,11 +28,22 @@ adb_cmd shell settings delete global private_dns_specifier >/dev/null 2>&1 || tr
 # filter refresh may still be running. Do not force-stop that process: doing so
 # cancels the very downloads this readiness gate is waiting for. Bring the
 # existing Activity back to the foreground and verify that Android accepted it.
-launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1)"
+launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1 || true)"
 printf '%s\\n' "$launch_result"
-grep -q 'Status: ok' <<<"$launch_result"
+if ! grep -q 'Status: ok' <<<"$launch_result"; then
+  echo "am start -W did not return its normal status line; verifying the resumed Activity directly."
+fi
 sleep 3
-foreground="$(adb_cmd shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tail -1 || true)"
+foreground="$(adb_cmd shell dumpsys activity activities 2>/dev/null | grep -E 'mResumedActivity|topResumedActivity' | tail -1 || true)"
+if ! grep -q "$PACKAGE" <<<"$foreground"; then
+  echo "Guardian Activity was not confirmed in the foreground; retrying the launch."
+  for attempt in 1 2 3; do
+    adb_cmd shell am start -n "$PACKAGE/.MainActivity" >/dev/null 2>&1 || true
+    sleep 2
+    foreground="$(adb_cmd shell dumpsys activity activities 2>/dev/null | grep -E 'mResumedActivity|topResumedActivity' | tail -1 || true)"
+    grep -q "$PACKAGE" <<<"$foreground" && break
+  done
+fi
 echo "Guardian foreground activity: ${foreground:-not reported}"
 grep -q "$PACKAGE" <<<"$foreground"
 
