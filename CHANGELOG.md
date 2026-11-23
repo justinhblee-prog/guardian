@@ -460,3 +460,10 @@
 - Package versionCode 21 / `0.7.8-dev`.
 - CI run: https://github.com/justinhblee-prog/guardian/actions/runs/43573908206 — pending at documentation update time. Do not treat this source change as verified until that run completes successfully.
 - This is parser hardening only; it does not prove physical-device VPN routing or real ad-removal effectiveness.
+
+
+## 2026-11-24 Android PRO — 실제 CSV 파일 공유
+- 이전 리포트 공유 동작은 CSV 내용을 `Intent.EXTRA_TEXT`로 전달해 일반 텍스트로 공유했으며, 파일 첨부로 보장되지 않았습니다.
+- 실제 UTF-8 CSV 파일을 앱 cache의 FileProvider 허용 경로(`updates/reports/`)에 생성하고, `EXTRA_STREAM`, ClipData 및 읽기 권한으로 공유하도록 수정했습니다.
+- 날짜 범위 기반 파일명과 회귀 테스트를 추가했습니다. 파일에는 기존 정책대로 집계 합계만 포함하고 도메인/앱 식별자는 넣지 않습니다.
+- Android Gradle/JUnit·실제 공유 대상 앱 검증은 미실행입니다.
