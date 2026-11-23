@@ -25,6 +25,14 @@ class GuardianStableUpdatePolicyTest {
         assertEquals(0, GuardianStableUpdatePolicy.compareVersionTags("v1.2.3", "v1.2.3"))
         assertTrue(GuardianStableUpdatePolicy.compareVersionTags("v1.2.3", "v1.2.4") < 0)
     }
+
+    @Test fun rejectsUnboundedVersionComponents() {
+        assertFalse(GuardianStableUpdatePolicy.isStableRelease(
+            draft = false,
+            prerelease = false,
+            tag = "v999999999999999999999.0.0"
+        ))
+    }
     @Test fun sha256MustBeExactly64HexCharacters() {
         assertTrue(GuardianStableUpdatePolicy.isSha256("a".repeat(64)))
         assertTrue(GuardianStableUpdatePolicy.isSha256("A".repeat(64)))

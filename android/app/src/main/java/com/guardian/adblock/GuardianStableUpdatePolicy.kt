@@ -1,16 +1,18 @@
 package com.guardian.adblock
 
-import java.math.BigInteger
-
 internal object GuardianStableUpdatePolicy {
+    private val stableTagPattern = Regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$")
+
     fun isStableRelease(draft: Boolean, prerelease: Boolean, tag: String): Boolean =
-        !draft && !prerelease && Regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$").matches(tag)
+        !draft && !prerelease && runCatching { compareVersionTags(tag, tag) }.isSuccess
+
     fun compareVersionTags(left: String, right: String): Int {
-        fun parts(tag: String): List<BigInteger> {
-            require(Regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$").matches(tag)) {
-                "Invalid stable version tag"
+        fun parts(tag: String): List<Int> {
+            require(stableTagPattern.matches(tag)) { "Invalid stable version tag" }
+            return tag.substring(1).split('.').map { component ->
+                require(component.length <= 9) { "Stable version component is too large" }
+                component.toIntOrNull() ?: error("Invalid stable version component")
             }
-            return tag.substring(1).split('.').map(::BigInteger)
         }
         val a = parts(left)
         val b = parts(right)
