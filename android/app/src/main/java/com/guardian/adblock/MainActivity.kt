@@ -3808,6 +3808,7 @@ class MainActivity : Activity() {
                     bundled.blocked.size,
                     bundled.importantBlocked.size
                 )
+                val baselineFallbackUsed = !bundledReady
                 val baselineReady = if (bundledReady) {
                     true
                 } else {
@@ -3836,8 +3837,13 @@ class MainActivity : Activity() {
                 if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true) &&
                     !runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrDefault(false)
                 ) unavailable.add("Android 앱 광고")
-                val notice = if (unavailable.isEmpty()) null else
-                    "기본 DNS 규칙으로 먼저 연결합니다. 추가 필터는 아직 준비되지 않았습니다: ${unavailable.joinToString()}."
+                val notice = when {
+                    baselineFallbackUsed ->
+                        "기본 필터 라이브러리에 유효한 차단 규칙이 없어 최소 내장 규칙으로 연결합니다. 필터 업데이트와 진단 정보를 확인해 주세요."
+                    unavailable.isNotEmpty() ->
+                        "기본 DNS 규칙으로 먼저 연결합니다. 추가 필터는 아직 준비되지 않았습니다: ${unavailable.joinToString()}."
+                    else -> null
+                }
                 android.util.Log.i(
                     "GuardianProtection",
                     "Bundled-rule readiness: ready=$baselineReady optionalFiltersMissing=${unavailable.joinToString()} elapsedMs=${android.os.SystemClock.elapsedRealtime() - startedAt}"
