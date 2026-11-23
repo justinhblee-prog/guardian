@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-24 — 정식 Android 업데이트 검증 강화
+- APK 및 manifest 다운로드의 HTTPS 리디렉션 최종 호스트를 GitHub 공식 asset 호스트로 제한했습니다. 예상하지 못한 외부 호스트로 이동하면 다운로드/검증을 중단합니다.
+- GitHub Release 응답 순서가 semver 순서와 다를 수 있어, 정식 업데이트 후보를 버전 태그의 숫자 비교로 정렬한 뒤 최신 stable release manifest를 검증합니다.
+- 설치 순서는 manifest의 서명된 versionCode를 기준으로 판단하며, Release tag와 manifest versionName 일치도 확인합니다.
+- 독립 Kotlin/JVM smoke 통과: semver 정렬과 APK redirect allowlist. 실제 HTTP 리디렉션, APK 다운로드/서명/설치 및 Android Gradle/JUnit 검증은 미완료입니다.
+
 ## 2026-11-24 — 무료 보호 시작 진단의 긴급 규칙 fallback 표시 개선
 - `filter_rules.txt`가 누락되어 내장 긴급 DNS 규칙으로 시작한 경우, 기존 진단 요약이 이를 일반적인 확인 불가 상태로 숨길 수 있던 문제를 수정했습니다.
 - 지원 진단에는 내장 긴급 규칙 사용 및 기본 필터 파일 복구 필요를 표시하고, 예외 클래스/원시 오류 문자열은 노출하지 않습니다.

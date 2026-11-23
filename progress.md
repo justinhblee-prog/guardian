@@ -285,3 +285,11 @@
 - 예외 클래스/원시 문자열/임의 도메인은 진단 결과에 복사하지 않습니다.
 - 독립 `kotlinc` Kotlin/JVM smoke 통과: baseline 누락, baseline+선택 필터 누락, 민감 문자열 제거.
 - Android Gradle/JUnit, 전체 VPN/DNS emulator E2E, 실기기, APK 및 updater download/install 검증은 미완료입니다.
+
+
+## 2026-11-24 — 정식 Android updater 보안·버전 선택 보강
+- 최신 무료 브랜치 커밋: `036be1f442b4a558ea7f9c39d624dd5e4674eaa9`.
+- 정식 APK 다운로드 후 최종 URL이 HTTPS GitHub 공식 Release asset 호스트(`github.com`, `release-assets.githubusercontent.com`, `objects.githubusercontent.com`)인지 확인합니다. manifest/API 확인 응답도 공식 HTTPS GitHub 호스트만 허용합니다.
+- Release API 반환 순서에 의존하지 않고 semver tag를 숫자로 비교해 가장 높은 stable tag를 선택합니다. 최종 설치 가능 여부는 manifest의 versionCode가 현재 앱보다 높은지 확인하고, tag/versionName 일치를 검증합니다.
+- 독립 Kotlin/JVM smoke 통과: `v1.10.0 > v1.9.9`, 메이저 버전 비교, 동등/역순, 공식 asset redirect allowlist.
+- 미완료: 실제 HTTP redirect, APK hash/signer/package 검증, 설치 화면/인플레이스 업데이트, Android Gradle/JUnit 및 emulator update E2E.
