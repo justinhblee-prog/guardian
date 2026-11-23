@@ -1770,8 +1770,19 @@ class MainActivity : Activity() {
             Triple("앱별 세밀한 보호 제어", "앱 단위 보호 제외와 예외 정책을 관리하는 기능", "현재 개발 중 · 기기별 VPN 검증 필요"),
             Triple("실시간 위협·DNS 활동 분석", "차단 이벤트와 DNS 요청을 분류해 활동 내역으로 제공", "기본 DNS 처리 존재 · 고급 분석 개발 필요"),
             Triple("보안 프로필 및 자동화", "상황별 보호 정책과 자동 전환을 관리하는 기능", "화면 미리보기 · 자동화 엔진 미구현"),
-            Triple("피싱 링크·앱 코드 검사", "의심 URL과 앱 코드의 위험도를 검사하는 기능", "검사 엔진 미연결 · 실제 탐지 안 함"),
-            Triple("프리미엄 리포트 및 통계", "기간별 차단량과 보호 상태를 요약하는 기능", "리포트 엔진 개발 필요")
+            Triple(
+                "피싱 링크·앱 코드 검사",
+                "오프라인 URL 구조 신호와 선택한 APK의 DEX 민감 API 참조를 검사",
+                if (phishingFeatureAvailable) "PRO 기능 사용 가능"
+                else if (developmentPreview) "URL·DEX 검사 엔진 연결 · 개발 미리보기"
+                else "엔진 구현 · Android 검증 및 권한 등록 대기"
+            ),
+            Triple(
+                "프리미엄 리포트 및 통계",
+                "일간·주간·월간 DNS 합계와 CSV 공유",
+                if (reportsAvailable) "PRO 기능 사용 가능"
+                else "DNS 합계·기간별 집계·CSV 구현 · Android 검증 및 권한 등록 대기"
+            )
         )
         previewFeatures.forEach { (name, description, status) ->
             body.addView(card(panel, 14).apply {
