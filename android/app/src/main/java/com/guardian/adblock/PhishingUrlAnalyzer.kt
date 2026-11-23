@@ -122,7 +122,7 @@ internal object PhishingUrlAnalyzer {
     }
 
     private fun hasMixedScripts(host: String): Boolean {
-        val scripts = host.codePoints().toArray().mapNotNull { codePoint ->
+        val scripts = host.codePoints().toArray().asIterable().mapNotNull { codePoint ->
             val script = Character.UnicodeScript.of(codePoint)
             script.takeIf {
                 it == Character.UnicodeScript.LATIN ||
