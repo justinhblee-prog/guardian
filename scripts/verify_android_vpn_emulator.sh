@@ -146,6 +146,17 @@ raise SystemExit(1)' "$wanted" <<<"$xml")" || {
 # published APKs still expose Filter and App Exclusions as direct bottom tabs.
 # This script first exercises the previously published APK during upgrade E2E,
 # so select the matching navigation model from the live accessibility tree.
+open_license_premium_menu() {
+  local xml
+  xml="$(dump_ui_hierarchy /sdcard/guardian-license-navigation.xml)"
+  if grep -Fq 'content-desc="설정"' <<<"$xml"; then
+    open_license_premium_menu
+  else
+    # The published predecessor still exposes Premium as a direct destination.
+    tap_content_description "Premium"
+  fi
+}
+
 open_settings_menu_item() {
   local title="$1"
   local xml
@@ -268,7 +279,7 @@ cache_ready() {
 
 echo "Verifying the dedicated Guardian Premium menu and license activation focus."
 dismiss_dev_update_prompt
-open_settings_menu_item "라이선스 및 프리미엄"
+open_license_premium_menu
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -309,7 +320,7 @@ adb_cmd shell input keyevent KEYCODE_BACK || true
 # The PRO feature cards are below the membership details on a phone-sized
 # viewport. Return to Premium, scroll the actual page, and verify the feature
 # card only after it enters the visible UI hierarchy.
-open_settings_menu_item "라이선스 및 프리미엄"
+open_license_premium_menu
 sleep 1
 premium_features_visible=0
 for attempt in $(seq 1 8); do
