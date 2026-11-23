@@ -375,9 +375,9 @@ object FilterListManager {
             // Public community feeds may contain isolated legacy-encoding bytes in comments.
             // Replace malformed sequences; invalid rule tokens are then rejected by the parser.
             val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Lenient(bytes))
-            android.util.Log.i("Guardian", "Filter parsing completed: cache=$cacheName blocked=${parsed.blocked.size + parsed.importantBlocked.size} elapsedMs=${System.currentTimeMillis() - startedAt}")
-            require((parsed.blocked.size + parsed.importantBlocked.size) >= minimumRules) {
-                "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size + parsed.importantBlocked.size}개뿐입니다."
+            android.util.Log.i("Guardian", "Filter parsing completed: cache=$cacheName blocked=${parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong()} elapsedMs=${System.currentTimeMillis() - startedAt}")
+            require((parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong()) >= minimumRules) {
+                "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong()}개뿐입니다."
             }
             val target = File(context.filesDir, cacheName)
             val now = System.currentTimeMillis()
@@ -388,7 +388,7 @@ object FilterListManager {
             val previousCachedProfile = preferences.getString(KEY_CACHED_PROFILE, null)
             val metadata = preferences.edit()
                 .putLong(updatedKey, now)
-                .putInt(countKey, parsed.blocked.size + parsed.importantBlocked.size)
+                .putInt(countKey, parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong())
                 .putInt(ignoredKey, parsed.ignored)
             if (cachedProfileKey != null) metadata.putString(KEY_CACHED_PROFILE, cachedProfileKey)
             android.util.Log.i("Guardian", "Filter cache commit started: cache=$cacheName")
@@ -411,7 +411,7 @@ object FilterListManager {
                 }
             )
             android.util.Log.i("Guardian", "Filter cache committed: cache=$cacheName bytes=${bytes.size} elapsedMs=${System.currentTimeMillis() - startedAt}")
-            return UpdateResult(parsed.blocked.size + parsed.importantBlocked.size, parsed.allowed.size, parsed.ignored, bytes.size, now)
+            return UpdateResult(parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong(), parsed.allowed.size, parsed.ignored, bytes.size, now)
         } finally {
             connection?.disconnect()
         }
@@ -445,7 +445,7 @@ object FilterListManager {
         // legacy-encoded comments. Decode with replacement; malformed rule tokens fail validation.
         val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Lenient(bytes))
         val effectiveMinimum = maxOf(minimumRules, download.manifest.minimumRules)
-        require(parsed.blocked.size + parsed.importantBlocked.size >= effectiveMinimum) {
+        require(parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong() >= effectiveMinimum) {
             "서명 필터의 유효한 차단 도메인이 최소 규칙 수보다 적습니다."
         }
 
@@ -468,7 +468,7 @@ object FilterListManager {
         )
         val metadata = preferences.edit()
             .putLong(updatedKey, now)
-            .putInt(countKey, parsed.blocked.size + parsed.importantBlocked.size)
+            .putInt(countKey, parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong())
             .putInt(ignoredKey, parsed.ignored)
             .putString(infoKeys.first, download.manifest.sourceVersion)
             .putString(infoKeys.second, download.manifest.sha256)
@@ -500,7 +500,7 @@ object FilterListManager {
             }
         )
         return UpdateResult(
-            parsed.blocked.size + parsed.importantBlocked.size, parsed.allowed.size,
+            parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong(), parsed.allowed.size,
             parsed.ignored, bytes.size, now
         )
     }
