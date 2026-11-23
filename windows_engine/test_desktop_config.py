@@ -1,4 +1,5 @@
 import json,pytest
+from pathlib import Path
 from windows_engine.desktop import load_runtime_config
 from windows_engine.network_config import NetworkConfigError
 def test_runtime_config_requires_nonempty_filter(tmp_path):
@@ -44,7 +45,6 @@ def test_proxy_readiness_rejects_unowned_loopback_dns(tmp_path, monkeypatch):
     assert not desktop.proxy_ready()
 
 def test_desktop_navigation_uses_approved_primary_and_settings_hierarchy():
-    from pathlib import Path
     source=Path(__file__).with_name("desktop.py").read_text(encoding="utf-8")
     assert "nav_items=[('home','홈'),('protection','보호'),('exclusions','앱 제외'),('activity','활동'),('settings','설정')]" in source
     for label in ("일반","필터링","라이선스 및 Premium","고객 지원","정보","종료"):
