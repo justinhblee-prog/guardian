@@ -38,6 +38,6 @@ def test_protection_start_does_not_open_modal_error_windows():
 def test_diagnostic_port_filter_does_not_match_mdns_5353():
     import re
 
-    exact_port_53 = re.compile(r":53(?:\\s|$)")
+    exact_port_53 = re.compile(r":53(?:\s|$)")
     assert exact_port_53.search("UDP    0.0.0.0:53             *:*                                    4812")
     assert not exact_port_53.search("UDP    0.0.0.0:5353           *:*                                    34420")
