@@ -157,15 +157,38 @@ raise SystemExit(1)' "$wanted" <<<"$xml")" || {
 # published APKs still expose Filter and App Exclusions as direct bottom tabs.
 # This script first exercises the previously published APK during upgrade E2E,
 # so select the matching navigation model from the live accessibility tree.
+# Resolve the Premium entry from the actual navigation tree. The published
+# predecessor exposes a direct Premium tab, while current builds place it
+# under Settings. Do not assume the Korean label or the legacy tab exists.
 open_license_premium_menu() {
-  local xml
+  local xml entry category
   xml="$(dump_ui_hierarchy /sdcard/guardian-license-navigation.xml)"
-  if grep -Fq 'content-desc="설정"' <<<"$xml"; then
-    open_settings_menu_item "라이선스 및 프리미엄"
-  else
-    # The published predecessor still exposes Premium as a direct destination.
-    tap_content_description "Premium"
+  entry="$(python3 scripts/android_navigation_compat.py entry <<<"$xml")" || {
+    echo "Could not resolve the Guardian Premium navigation entry."
+    echo "$xml"
+    return 1
+  }
+  case "$entry" in
+    direct:Premium) tap_content_description "Premium" ;;
+    direct:프리미엄) tap_content_description "프리미엄" ;;
+    settings) tap_content_description "설정" ;;
+    all-menu) tap_content_description "전체 메뉴" ;;
+    *)
+      echo "Unsupported Guardian Premium navigation route: $entry"
+      return 1
+      ;;
+  esac
+  if [[ "$entry" == "settings" || "$entry" == "all-menu" ]]; then
+    sleep 1
+    xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+    category="$(python3 scripts/android_navigation_compat.py category <<<"$xml")" || {
+      echo "Settings does not expose a supported License/Premium category."
+      echo "$xml"
+      return 1
+    }
+    scroll_to_text "$category"
   fi
+  sleep 1
 }
 
 open_settings_menu_item() {
