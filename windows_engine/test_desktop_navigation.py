@@ -69,3 +69,12 @@ def test_windows_dashboard_stats_are_initialized_before_first_refresh():
     assert 'self.stats.configure(text=f"{blocked:,}")' in source
     assert 'self.forwarded_stats.configure(text=f"{forwarded:,}")' in source
     assert 'self.failed_stats.configure(text=f"{failed:,}")' in source
+
+def test_windows_settings_sidebar_collapses_to_icon_rail_and_can_expand():
+    source = (Path(__file__).with_name("desktop.py")).read_text(encoding="utf-8")
+    assert "def _set_settings_sidebar_collapsed(self,collapsed):" in source
+    assert "self.settings_sidebar.configure(width=68 if collapsed else 270)" in source
+    assert "button.configure(text=symbol if collapsed else" in source
+    assert "self._set_settings_sidebar_collapsed(True)" in source
+    assert "command=lambda:self._set_settings_sidebar_collapsed(not self.settings_sidebar_collapsed)" in source
+
