@@ -325,76 +325,94 @@ class GuardianDesktop:
     def _clear_settings_page(self):
         for widget in self.pages['settings'].winfo_children():
             widget.destroy()
+        self.settings_detail = None
+        self.settings_category_buttons = {}
 
     def _settings_subpage_header(self,title,description):
-        self._clear_settings_page()
+        for widget in self.settings_detail.winfo_children():
+            widget.destroy()
         self.page_title.configure(text=title)
-        back=tk.Button(self.pages['settings'],text='← 전체 설정',command=self.show_settings_page,
-                       bg='#26364B',fg='#F4F7FB',activebackground='#334B68',
-                       relief='flat',bd=0,padx=14,pady=8,cursor='hand2')
-        back.pack(anchor='w',pady=(0,16))
-        tk.Label(self.pages['settings'],text=title,font=('Segoe UI',20,'bold'),
-                 fg='#f2f6fa',bg='#101820').pack(anchor='w',pady=(0,6))
-        tk.Label(self.pages['settings'],text=description,font=('Segoe UI',10),
-                 fg='#9fb2c3',bg='#101820',wraplength=760,justify='left').pack(anchor='w',pady=(0,18))
+        tk.Label(self.settings_detail,text=title,font=('Segoe UI',20,'bold'),
+                 fg='#f2f6fa',bg='#101820').pack(anchor='w',pady=(4,6))
+        tk.Label(self.settings_detail,text=description,font=('Segoe UI',10),
+                 fg='#9fb2c3',bg='#101820',wraplength=720,justify='left').pack(anchor='w',pady=(0,18))
+
+    def _select_settings_category(self,key,action):
+        for name,button in self.settings_category_buttons.items():
+            selected=name==key
+            button.configure(bg='#234a43' if selected else '#151F32',
+                             fg='#ffffff' if selected else '#bdcbd7')
+        action()
 
     def show_settings_page(self):
         self._clear_settings_page()
-        self.page_title.configure(text='일반 설정 · 지원')
-        tk.Label(self.pages['settings'],text='설정',font=('Segoe UI',20,'bold'),
-                 fg='#f2f6fa',bg='#101820').pack(anchor='w',pady=(8,6))
-        tk.Label(self.pages['settings'],text='Guardian의 기본 동작, 필터링, 라이선스, 고객 지원과 제품 정보를 관리합니다.',
-                 font=('Segoe UI',10),fg='#9fb2c3',bg='#101820',wraplength=760,justify='left').pack(anchor='w',pady=(0,18))
+        self.page_title.configure(text='설정')
+        split=tk.Frame(self.pages['settings'],bg='#101820')
+        split.pack(fill='both',expand=True)
+        sidebar=tk.Frame(split,bg='#111e2a',width=232,highlightthickness=1,
+                         highlightbackground='#263650')
+        sidebar.pack(side='left',fill='y',padx=(0,18))
+        sidebar.pack_propagate(False)
+        self.settings_detail=tk.Frame(split,bg='#101820')
+        self.settings_detail.pack(side='left',fill='both',expand=True)
+        tk.Label(sidebar,text='설정 메뉴',font=('Segoe UI',13,'bold'),
+                 fg='#f2f6fa',bg='#111e2a').pack(anchor='w',padx=14,pady=(16,12))
         sections=[
-            ('일반','앱 동작, 백그라운드 보호 및 진단',self.show_general_settings),
-            ('필터링','필터 서버, 서명 규칙 및 DNS 필터 업데이트',self.show_filtering_settings),
-            ('라이선스 및 프리미엄','Guardian Pro 라이선스 활성화와 기기 관리',self.show_license_settings),
-            ('고객 지원','문제 해결, 진단 정보 및 오류 내용 복사',self.show_support_page),
-            ('정보','제품 버전, 프로그램 업데이트 및 제품 정보',self.show_about_page),
-            ('종료','Guardian 앱 종료 및 백그라운드 보호 안내',self.confirm_exit),
+            ('general','일반','앱 동작과 기본 환경',self.show_general_settings),
+            ('filtering','필터링','DNS 보호 및 필터 관리',self.show_filtering_settings),
+            ('premium','라이선스 및 프리미엄','이용 기간과 기기 관리',self.show_license_settings),
+            ('support','고객 지원','진단과 오류 복사',self.show_support_page),
+            ('about','정보','버전과 업데이트',self.show_about_page),
+            ('exit','종료','앱 종료 및 보호 유지 안내',self.show_exit_settings),
         ]
-        for title,detail,action in sections:
-            card=tk.Frame(self.pages['settings'],bg='#151F32',highlightthickness=1,
-                          highlightbackground='#263650',padx=18,pady=14)
-            card.pack(fill='x',pady=(0,9))
-            tk.Label(card,text=title,font=('Segoe UI',12,'bold'),fg='#F4F7FB',bg='#151F32').pack(anchor='w')
-            tk.Label(card,text=detail,font=('Segoe UI',9),fg='#93A4BA',bg='#151F32',
-                     wraplength=700,justify='left').pack(anchor='w',pady=(4,10))
-            tk.Button(card,text='열기',command=action,bg='#26364B',fg='#F4F7FB',
-                      activebackground='#334B68',relief='flat',bd=0,padx=14,pady=7,
-                      cursor='hand2').pack(anchor='w')
+        self.settings_category_buttons={}
+        for key,title,detail,action in sections:
+            button=tk.Button(sidebar,text=title+'\n'+detail,anchor='w',justify='left',
+                             command=lambda k=key,a=action:self._select_settings_category(k,a),
+                             bg='#151F32',fg='#bdcbd7',activebackground='#234a43',
+                             activeforeground='white',relief='flat',bd=0,
+                             font=('Segoe UI',10,'bold'),padx=13,pady=12,
+                             wraplength=196,cursor='hand2')
+            button.pack(fill='x',padx=9,pady=3)
+            self.settings_category_buttons[key]=button
+        self._select_settings_category('general',self.show_general_settings)
+
+    def show_exit_settings(self):
+        self._settings_subpage_header('종료','Guardian 앱 창을 닫아도 백그라운드 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다.')
+        tk.Button(self.settings_detail,text='Guardian 종료',command=self.confirm_exit,
+                  bg='#8b3940',fg='white',relief='flat',padx=18,pady=10).pack(anchor='w')
 
     def show_general_settings(self):
         self._settings_subpage_header('일반','Windows 앱의 기본 동작과 백그라운드 보호 동작을 확인합니다.')
-        tk.Label(self.pages['settings'],text='앱 창을 닫아도 DNS 보호 데몬은 백그라운드에서 계속 실행됩니다. 보호를 해제하려면 보호 화면에서 명시적으로 중지하세요.',
+        tk.Label(self.settings_detail,text='앱 창을 닫아도 DNS 보호 데몬은 백그라운드에서 계속 실행됩니다. 보호를 해제하려면 보호 화면에서 명시적으로 중지하세요.',
                  font=('Segoe UI',10),fg='#bdcbd7',bg='#101820',wraplength=760,justify='left').pack(anchor='w',pady=(0,14))
-        tk.Button(self.pages['settings'],text='시스템 진단 보기',command=self.show_diagnostics,
+        tk.Button(self.settings_detail,text='시스템 진단 보기',command=self.show_diagnostics,
                   bg='#197a57',fg='white',relief='flat',padx=16,pady=9).pack(anchor='w')
 
     def show_filtering_settings(self):
         self._settings_subpage_header('필터링','서명된 광고·추적·위협 필터와 DNS 규칙 공급원을 관리합니다. 프로그램 업데이트와 별개입니다.')
-        tk.Label(self.pages['settings'],text='필터 목록을 갱신하면 서명과 SHA-256을 검증한 뒤 로컬 규칙을 교체합니다.',
+        tk.Label(self.settings_detail,text='필터 목록을 갱신하면 서명과 SHA-256을 검증한 뒤 로컬 규칙을 교체합니다.',
                  font=('Segoe UI',10),fg='#bdcbd7',bg='#101820',wraplength=760,justify='left').pack(anchor='w',pady=(0,14))
-        tk.Button(self.pages['settings'],text='필터 서버 설정',command=self.open_filter_settings,
+        tk.Button(self.settings_detail,text='필터 서버 설정',command=self.open_filter_settings,
                   bg='#26364B',fg='white',relief='flat',padx=16,pady=9).pack(anchor='w',pady=(0,8))
-        tk.Button(self.pages['settings'],text='필터 목록 지금 업데이트',command=self.update_filters,
+        tk.Button(self.settings_detail,text='필터 목록 지금 업데이트',command=self.update_filters,
                   bg='#197a57',fg='white',relief='flat',padx=16,pady=9).pack(anchor='w')
 
     def show_license_settings(self):
         self._settings_subpage_header('라이선스 및 프리미엄','Windows와 Android는 동일한 Guardian 라이선스와 기기 활성화 한도를 공유합니다.')
-        tk.Label(self.pages['settings'],text='발급받은 키를 활성화하고 이 기기의 등록 상태를 갱신하거나 해제할 수 있습니다.',
+        tk.Label(self.settings_detail,text='발급받은 키를 활성화하고 이 기기의 등록 상태를 갱신하거나 해제할 수 있습니다.',
                  font=('Segoe UI',10),fg='#bdcbd7',bg='#101820',wraplength=760,justify='left').pack(anchor='w',pady=(0,14))
-        tk.Button(self.pages['settings'],text='라이선스 활성화 및 기기 관리',command=self.open_license_settings,
+        tk.Button(self.settings_detail,text='라이선스 활성화 및 기기 관리',command=self.open_license_settings,
                   bg='#5946a8',fg='white',relief='flat',padx=16,pady=9).pack(anchor='w')
 
     def show_support_page(self):
         self._settings_subpage_header('고객 지원','문제 해결을 위해 DNS 상태, 포트 점유, 서비스 작업 상태와 오류 로그를 확인하고 복사할 수 있습니다.')
-        tk.Button(self.pages['settings'],text='시스템 진단 및 오류 내용 보기',command=self.show_diagnostics,
+        tk.Button(self.settings_detail,text='시스템 진단 및 오류 내용 보기',command=self.show_diagnostics,
                   bg='#197a57',fg='white',relief='flat',padx=16,pady=9).pack(anchor='w')
 
     def show_diagnostics(self):
         self._settings_subpage_header('시스템 진단','아래 전체 진단 내용을 복사해 지원 요청에 첨부할 수 있습니다.')
-        area=tk.Frame(self.pages['settings'],bg='#101820')
+        area=tk.Frame(self.settings_detail,bg='#101820')
         area.pack(fill='both',expand=True)
         scroll=tk.Scrollbar(area,orient='vertical')
         scroll.pack(side='right',fill='y')
@@ -409,7 +427,7 @@ class GuardianDesktop:
             details='진단 정보 생성 실패: '+str(exc)
         report.insert('1.0',details)
         report.configure(state='disabled')
-        actions=tk.Frame(self.pages['settings'],bg='#101820')
+        actions=tk.Frame(self.settings_detail,bg='#101820')
         actions.pack(anchor='w',pady=10)
         def copy_report():
             try:
@@ -419,7 +437,7 @@ class GuardianDesktop:
                 feedback.configure(text='전체 진단 정보를 클립보드에 복사했습니다.',fg='#54d69b')
             except tk.TclError as exc:
                 feedback.configure(text='복사 실패: '+str(exc),fg='#ff9b85')
-        feedback=tk.Label(self.pages['settings'],text='Ctrl+C 또는 전체 복사 버튼으로 진단 내용을 복사할 수 있습니다.',
+        feedback=tk.Label(self.settings_detail,text='Ctrl+C 또는 전체 복사 버튼으로 진단 내용을 복사할 수 있습니다.',
                           fg='#9fb2c3',bg='#101820')
         feedback.pack(anchor='w')
         tk.Button(actions,text='오류 내용 복사',command=copy_report,bg='#197a57',fg='white',
@@ -437,15 +455,15 @@ class GuardianDesktop:
 
     def show_about_page(self):
         self._settings_subpage_header('정보','Guardian AdBlock for Windows 제품 및 업데이트 정보를 확인합니다.')
-        tk.Label(self.pages['settings'],text='Guardian AdBlock',font=('Segoe UI',16,'bold'),
+        tk.Label(self.settings_detail,text='Guardian AdBlock',font=('Segoe UI',16,'bold'),
                  fg='#f2f6fa',bg='#101820').pack(anchor='w')
-        tk.Label(self.pages['settings'],text='설치 버전: '+self.update_version.cget('text').replace('설치 버전: ',''),
+        tk.Label(self.settings_detail,text='설치 버전: '+self.update_version.cget('text').replace('설치 버전: ',''),
                  font=('Segoe UI',10),fg='#9fb2c3',bg='#101820').pack(anchor='w',pady=(8,4))
-        tk.Label(self.pages['settings'],text='주식회사 유진컨설팅 · Guardian AdBlock',
+        tk.Label(self.settings_detail,text='주식회사 유진컨설팅 · Guardian AdBlock',
                  font=('Segoe UI',10),fg='#9fb2c3',bg='#101820').pack(anchor='w')
-        tk.Label(self.pages['settings'],text='프로그램 업데이트는 왼쪽의 별도 메뉴에서 확인합니다. 필터 업데이트와 완전히 분리되어 있습니다.',
+        tk.Label(self.settings_detail,text='프로그램 업데이트는 왼쪽의 별도 메뉴에서 확인합니다. 필터 업데이트와 완전히 분리되어 있습니다.',
                  font=('Segoe UI',9),fg='#9fb2c3',bg='#101820',wraplength=740,justify='left').pack(anchor='w',pady=(12,0))
-        tk.Button(self.pages['settings'],text='프로그램 업데이트 열기',
+        tk.Button(self.settings_detail,text='프로그램 업데이트 열기',
                   command=lambda:self.show_page('updates'),bg='#294e70',fg='white',
                   relief='flat',padx=14,pady=8).pack(anchor='w',pady=(12,0))
 
