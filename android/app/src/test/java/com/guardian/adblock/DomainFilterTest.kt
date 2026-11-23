@@ -238,6 +238,16 @@ class DomainFilterTest {
         assertNull(DomainFilter.makeTruncatedResponse(byteArrayOf(0, 1, 2)))
     }
 
+    @Test fun restoresEmergencyBootstrapRulesWhenBundledAssetIsUnavailable() {
+        DomainFilter.loadRules(listOf("block=temporary-test.example"))
+        val count = DomainFilter.resetToBootstrapRules()
+
+        assertTrue(count >= 1)
+        assertTrue(DomainFilter.isBlocked("doubleclick.net"))
+        assertFalse(DomainFilter.isBlocked("temporary-test.example"))
+        assertTrue(FilterStartupGate.hasUsableBundledBaseline(count, 0))
+    }
+
     @Test fun appliesPersistedUserBlockAndAllowRulesAlongsideDownloadedSources() {
         DomainFilter.loadParsedRuleSources(
             sources = listOf({ FilterRuleParser.parse("block=feed-ads.example") }),

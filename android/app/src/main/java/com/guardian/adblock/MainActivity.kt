@@ -3823,9 +3823,18 @@ class MainActivity : Activity() {
                 )
                 baselineReady to if (baselineReady) notice else "앱 내 기본 DNS 규칙이 비어 있어 보호를 시작할 수 없습니다."
             } catch (error: Exception) {
-                android.util.Log.e("GuardianProtection", "Bundled filter asset could not be loaded: ${SafeFailureSummary.codeFor(error)}")
+                android.util.Log.e("GuardianProtection", "Bundled filter asset could not be loaded; switching to emergency rules: ${SafeFailureSummary.codeFor(error)}")
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
-                false to "앱 내 기본 필터 라이브러리를 읽지 못했습니다. 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
+                // A missing packaged asset must not make the entire VPN unusable.
+                // DomainFilter owns a tiny built-in emergency baseline; start in a
+                // clearly degraded mode and keep the detailed error in diagnostics.
+                val emergencyRuleCount = DomainFilter.resetToBootstrapRules()
+                val emergencyReady = FilterStartupGate.hasUsableBundledBaseline(emergencyRuleCount, 0)
+                emergencyReady to if (emergencyReady) {
+                    "기본 필터 라이브러리를 읽지 못해 최소 내장 규칙으로 보호를 시작합니다. 필터 업데이트와 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
+                } else {
+                    "앱 내 기본 필터 라이브러리를 읽지 못했고 최소 내장 규칙도 사용할 수 없습니다. 보호를 시작할 수 없습니다."
+                }
             } catch (error: LinkageError) {
                 android.util.Log.e("GuardianProtection", "Bundled filter component could not be loaded: ${SafeFailureSummary.codeFor(error)}")
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()

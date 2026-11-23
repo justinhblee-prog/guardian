@@ -87,6 +87,17 @@ object DomainFilter {
         }
     }
 
+    /**
+     * Restore the small built-in emergency list when the bundled shared asset cannot be read.
+     * This deliberately drops optional/downloaded rules and returns the active baseline size.
+     */
+    fun resetToBootstrapRules(): Int {
+        activeRules = RuleSet(bootstrapBlocked, emptySet(), emptySet())
+        return bootstrapBlocked.size
+    }
+
+    fun bootstrapRuleCount(): Int = bootstrapBlocked.size
+
     fun blockedRuleCount(): Int = activeRules.blocked.size + activeRules.importantBlocked.size
     fun allowedRuleCount(): Int = activeRules.allowed.size
 
