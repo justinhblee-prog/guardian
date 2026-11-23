@@ -1242,7 +1242,7 @@ if missing:
   echo "$support_settings_xml"
   exit 1
 fi
-echo "Customer support center found at the top of Settings."
+echo "Customer support center found in the dedicated Support submenu."
 
 tap_text "자주 묻는 질문 (Q&A)"
 sleep 1
@@ -1292,10 +1292,12 @@ echo "Customer support center FAQ, inquiry submission form, and private lookup U
 
 
 auto_pause_picker_visible=0
-# The Settings tab opens at its top after the app is relaunched. Scroll down
-# through account/DNS settings until the compatibility card appears. The card is
-# deliberately placed before the large installed-app inventory, so this search
-# does not depend on the number of installed packages or an old scroll offset.
+# Compatibility and auto-pause controls now live in Full Menu > Filtering.
+# Navigate to that submenu explicitly before searching its scrollable content.
+tap_content_description "전체 메뉴"
+sleep 1
+scroll_to_text "필터링"
+sleep 1
 for attempt in $(seq 1 24); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   auto_pause_settings_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
