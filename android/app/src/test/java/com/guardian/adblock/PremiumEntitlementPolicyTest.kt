@@ -34,10 +34,19 @@ class PremiumEntitlementPolicyTest {
         assertFalse(PremiumEntitlementPolicy.isEntitlementActive(null, now))
     }
 
-    @Test fun noPreviewFeatureIsGrantedBeforeItsProductionImplementationIsRegistered() {
-        assertTrue(PremiumEntitlementPolicy.productionReadyFeaturesForTest().isEmpty())
+    @Test fun onlyPremiumReportsAreRegisteredAsProductionReady() {
+        assertEquals(
+            setOf(PremiumEntitlementPolicy.Feature.PREMIUM_REPORTS),
+            PremiumEntitlementPolicy.productionReadyFeaturesForTest()
+        )
+    }
+
+    @Test fun activeProEntitlementGrantsOnlyTheImplementedReportsFeature() {
         PremiumEntitlementPolicy.Feature.values().forEach { feature ->
-            assertFalse(PremiumEntitlementPolicy.canUse(feature, entitlement(), now))
+            assertEquals(
+                feature == PremiumEntitlementPolicy.Feature.PREMIUM_REPORTS,
+                PremiumEntitlementPolicy.canUse(feature, entitlement(), now)
+            )
         }
     }
 

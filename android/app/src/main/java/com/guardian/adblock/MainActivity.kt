@@ -1521,6 +1521,14 @@ class MainActivity : Activity() {
         ).withTop(14))
     }
     private fun buildPremium(body: LinearLayout) {
+        val reportsAvailable = entitlement?.let {
+            PremiumEntitlementPolicy.canUse(
+                PremiumEntitlementPolicy.Feature.PREMIUM_REPORTS,
+                it,
+                System.currentTimeMillis() / 1000L
+            )
+        } == true
+
         val entitlement = LicenseEntitlementStore.current(this)
         val retainedLicense = LicenseEntitlementStore.currentForRefresh(this)
         val proActive = entitlement != null
@@ -1637,7 +1645,11 @@ class MainActivity : Activity() {
             Triple("실시간 위협·DNS 활동 분석", "차단 이벤트와 DNS 요청을 분류해 활동 내역으로 제공", "기본 DNS 처리 존재 · 고급 분석 개발 필요"),
             Triple("보안 프로필 및 자동화", "상황별 보호 정책과 자동 전환을 관리하는 기능", "화면 미리보기 · 자동화 엔진 미구현"),
             Triple("피싱 링크·앱 코드 검사", "의심 URL과 앱 코드의 위험도를 검사하는 기능", "검사 엔진 미연결 · 실제 탐지 안 함"),
-            Triple("프리미엄 리포트 및 통계", "기간별 차단량과 보호 상태를 요약하는 기능", "리포트 엔진 개발 필요")
+            Triple(
+                "프리미엄 리포트 및 통계",
+                "일간·주간·월간 DNS 보호 결과와 차단 유형을 요약하는 기능",
+                if (reportsAvailable) "PRO 기능 사용 가능" else "PRO 라이선스 활성화 후 이용 가능"
+            )
         )
         previewFeatures.forEach { (name, description, status) ->
             body.addView(card(panel, 14).apply {
@@ -1646,6 +1658,10 @@ class MainActivity : Activity() {
                 addView(text(description, 11f, muted, false).withTop(5))
                 addView(text(status, 10f, Color.rgb(238, 176, 82), true).withTop(8))
             }.withTop(8))
+        }
+
+        if (reportsAvailable) {
+            body.addView(buildPremiumReportCard().withTop(14))
         }
 
         body.addView(text(
@@ -2141,6 +2157,61 @@ class MainActivity : Activity() {
                 // inventory so it remains discoverable without scrolling through every app.
                 buildCompatibilityPauseSection(body)
                 body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
+    }
+
+    private fun buildPremiumReportCard(): LinearLayout {
+        val reportCard = card(panel, 16).apply {
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            addView(text("프리미엄 보호 리포트", 16f, white, true))
+            addView(text(
+                "도메인이나 앱 식별자를 저장하지 않고 DNS 보호 합계만 기기에 보관합니다.",
+                11f, muted, false
+            ).withTop(5))
+        }
+        val reportDetails = TextView(this).apply {
+            textSize = 12f
+            setTextColor(white)
+            setPadding(0, dp(12), 0, dp(8))
+        }
+        fun render(days: Int) {
+            val summary = PremiumReportStore.readSummary(this, days)
+            reportDetails.text = if (summary == null || summary.queries == 0L) {
+                "최근 ${days}일 동안 집계된 DNS 보호 기록이 없습니다."
+            } else {
+                buildString {
+                    appendLine("기간: ${summary.startDate} ~ ${summary.endDate}")
+                    appendLine("DNS 질의: ${summary.queries}건 · 차단: ${summary.blocked}건 (${summary.blockRatePercent}%)")
+                    appendLine("광고: ${summary.ads}건 · 추적: ${summary.trackers}건 · 기타: ${summary.other}건")
+                    appendLine("전달: ${summary.forwarded}건 · 실패: ${summary.failed}건")
+                    append("활동 기록: ${summary.daysWithActivity}일")
+                }
+            }
+        }
+        val periodRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        listOf(1, 7, 30).forEachIndexed { index, days ->
+            val periodButton = Button(this).apply {
+                text = when (days) { 1 -> "일간"; 7 -> "주간"; else -> "월간" }
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 9)
+                setOnClickListener { render(days) }
+            }
+            periodRow.addView(
+                periodButton,
+                LinearLayout.LayoutParams(0, dp(40), 1f).apply {
+                    if (index > 0) marginStart = dp(8)
+                }
+            )
+        }
+        reportCard.addView(periodRow, LinearLayout.LayoutParams(-1, -2).apply {
+            topMargin = dp(12)
+        })
+        reportCard.addView(reportDetails, LinearLayout.LayoutParams(-1, -2))
+        render(7)
+        return reportCard
     }
 
     private fun buildSettingsPremium(body: LinearLayout) {
