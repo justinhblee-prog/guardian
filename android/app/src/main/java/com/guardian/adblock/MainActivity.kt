@@ -96,6 +96,8 @@ class MainActivity : Activity() {
     private var companyLogoBitmap: android.graphics.Bitmap? = null
     private var contentScrollView: ScrollView? = null
     private var focusLicenseActivationOnBuild = false
+    // Remains true after the keyboard-focus post completes so Back can return to Premium.
+    private var licenseActivationReturnTarget = false
     private var licenseKeyInput: EditText? = null
     private val filterUpdateRunning = AtomicBoolean(false)
     private val startupFilterCheckStarted = AtomicBoolean(false)
@@ -320,8 +322,32 @@ class MainActivity : Activity() {
         super.onSaveInstanceState(outState)
     }
 
+    private fun isSoftwareKeyboardVisible(): Boolean {
+        val root = window.decorView
+        val visibleFrame = android.graphics.Rect()
+        root.getWindowVisibleDisplayFrame(visibleFrame)
+        val obscuredHeight = root.rootView.height - visibleFrame.bottom
+        return obscuredHeight > dp(180)
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        if (LicenseActivationNavigationPolicy.shouldReturnToPremium(
+                currentTab, licenseActivationReturnTarget
+            )
+        ) {
+            // The IME normally consumes the first system Back. Keep this guard for
+            // devices/IME implementations that dispatch Back to the Activity first.
+            if (isSoftwareKeyboardVisible()) {
+                val inputMethod = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                inputMethod.hideSoftInputFromWindow(
+                    (currentFocus ?: window.decorView).windowToken, 0
+                )
+                return
+            }
+            showTab("settings-premium")
+            return
+        }
         if (currentTab.startsWith("settings-")) {
             showTab("settings")
             return
@@ -517,6 +543,8 @@ class MainActivity : Activity() {
             .putString(PREF_LAST_SELECTED_TAB, tab)
             .apply()
         focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings-premium"
+        licenseActivationReturnTarget = LicenseActivationNavigationPolicy
+            .shouldReturnToPremium(tab, focusLicenseActivation)
         focusAppExclusionsOnBuild = focusAppExclusions && tab == "app-exclusions"
         licenseKeyInput = null
         startButton = null
@@ -2200,6 +2228,22 @@ class MainActivity : Activity() {
                 }.withTop(12))
                 body.addView(card(panel, 14).apply {
                     setPadding(dp(15), dp(15), dp(15), dp(15))
+                    if (licenseActivationReturnTarget) {
+                        addView(Button(this@MainActivity).apply {
+                            text = "← 프리미엄으로 돌아가기"
+                            contentDescription = "프리미엄 화면으로 돌아가기"
+                            isAllCaps = false
+                            setTextColor(white)
+                            background = shape(panel2, 10)
+                            setOnClickListener {
+                                val inputMethod = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                                inputMethod.hideSoftInputFromWindow(
+                                    (currentFocus ?: window.decorView).windowToken, 0
+                                )
+                                showTab("settings-premium")
+                            }
+                        }, LinearLayout.LayoutParams(-1, dp(42)).apply { bottomMargin = dp(12) })
+                    }
                     addView(text("PRO 라이선스 활성화", 15f, white, true))
                     addView(text(
                         "발급받은 라이선스 키를 입력하면 서버에서 기기 등록 후 서명 토큰을 발급합니다.",
