@@ -51,3 +51,11 @@ def test_windows_dns_diagnostics_identify_port_53_process_owners():
     source = (Path(__file__).with_name("desktop.py")).read_text(encoding="utf-8")
     assert '["tasklist.exe","/FI",f"PID eq {pid}","/FO","LIST"]' in source
     assert "Expected DNS executable:" in source
+
+
+def test_windows_task_xml_parser_handles_namespaces_and_bom():
+    source = (Path(__file__).with_name("desktop.py")).read_text(encoding="utf-8")
+    assert "def task_executable_from_xml(xml_text):" in source
+    assert 'xml_text=xml_text.lstrip("\\ufeff")' in source
+    assert 'root=ET.fromstring(xml_text)' in source
+    assert 'root.find(".//{*}Actions/{*}Exec/{*}Command")' in source
