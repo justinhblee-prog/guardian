@@ -42,3 +42,21 @@ def test_proxy_readiness_rejects_unowned_loopback_dns(tmp_path, monkeypatch):
         raise AssertionError("must not trust an arbitrary loopback DNS responder")
     monkeypatch.setattr(desktop.socket, "socket", unexpected_socket)
     assert not desktop.proxy_ready()
+
+def test_desktop_navigation_uses_approved_primary_and_settings_hierarchy():
+    from pathlib import Path
+    source=Path(__file__).with_name("desktop.py").read_text(encoding="utf-8")
+    assert "nav_items=[('home','홈'),('protection','보호'),('exclusions','앱 제외'),('activity','활동'),('settings','설정')]" in source
+    for label in ("일반","필터링","라이선스 및 Premium","고객 지원","정보","종료"):
+        assert "('"+({"일반":"general","필터링":"filters","라이선스 및 Premium":"premium","고객 지원":"support","정보":"info","종료":"exit"}[label])+"','"+label+"'" in source
+    assert "def show_error_dialog(self,title,message):" in source
+    assert "오류 전문 복사" in source
+    assert "messagebox.showerror(" not in source
+
+
+def test_android_navigation_contract_uses_approved_primary_hierarchy():
+    root=Path(__file__).resolve().parents[1]
+    source=(root/"android/app/src/main/java/com/guardian/adblock/GuardianNavigation.kt").read_text(encoding="utf-8")
+    assert 'GuardianNavigationItem("app-exclusions", "▣", "앱 제외")' in source
+    assert 'GuardianNavigationItem("settings", "⚙", "설정")' in source
+    assert 'GuardianNavigationItem("premium"' not in source
