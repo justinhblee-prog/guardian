@@ -1200,12 +1200,37 @@ selected_settings=any(node.attrib.get("content-desc")=="전체 메뉴"
                       for node in nodes)
 required_settings = {
     "세부 설정", "일반", "필터링", "라이선스 및 프리미엄",
-    "고객 지원", "정보", "종료", "프로그램 업데이트",
-    "필터 관리", "앱 제외 관리"
+    "프로그램 업데이트", "필터 관리", "앱 제외 관리"
 }
 missing_settings = required_settings - texts
 if missing_settings or not selected_settings:
     raise SystemExit("Guardian full menu is missing agreed entries: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
+
+# Verify the About and Exit submenus even though they are below the phone viewport.
+scroll_to_text "정보"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-about-menu.xml >/dev/null 2>&1
+about_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-menu.xml | tr -d '\\r')"
+if ! grep -Fq '앱 버전' <<<"$about_menu_xml" || ! grep -Fq '0.7.46-dev' <<<"$about_menu_xml"; then
+  echo "The About submenu did not expose the current app version."
+  echo "$about_menu_xml"
+  exit 1
+fi
+tap_content_description "전체 메뉴"
+sleep 1
+scroll_to_text "종료"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-exit-menu.xml >/dev/null 2>&1
+exit_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-menu.xml | tr -d '\\r')"
+if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml" || ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_menu_xml"; then
+  echo "The Exit submenu did not display its confirmation dialog."
+  echo "$exit_menu_xml"
+  exit 1
+fi
+tap_text "취소"
+sleep 1
+tap_content_description "전체 메뉴"
+sleep 1
 
 # Verify the customer-facing support center is reachable and its FAQ/form UI
 # renders. The support card now lives in its dedicated Settings > 고객 지원 submenu.
