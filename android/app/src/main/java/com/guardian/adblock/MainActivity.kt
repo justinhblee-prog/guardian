@@ -458,6 +458,19 @@ class MainActivity : Activity() {
             showTab(tab)
             return
         }
+        // A tap on the Settings bottom-navigation destination is an explicit
+        // request to return to the category index. Do this before assigning
+        // currentTab: showTab() uses the previous destination to decide whether
+        // a phone should start on the category index or retain a detail page.
+        // Without this reset, returning to Settings from an already-open detail
+        // page leaves the user stranded in that detail screen and automation
+        // cannot reach sibling categories such as App Exclusions.
+        if (!ResponsiveLayoutPolicy.usesSettingsSplitPane(
+                resources.configuration.screenWidthDp.coerceAtLeast(1)
+            ) && (currentTab != "settings" || phoneSettingsShowingDetail)
+        ) {
+            phoneSettingsShowingDetail = false
+        }
         currentTab = tab
         val loadingRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
