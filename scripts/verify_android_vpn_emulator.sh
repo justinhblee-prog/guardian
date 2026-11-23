@@ -1534,13 +1534,13 @@ fi
 # expose it as a Settings category card. Select the route supported by the
 # actual screen rather than substring-matching descriptions in DNS details.
 if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
-  legacy_filter_target="$(python3 scripts/android_navigation_compat.py category <<<"$settings_navigation_xml" 2>/dev/null || true)"
-  if [[ -n "$legacy_filter_target" ]]; then
-    scroll_to_text "$legacy_filter_target"
-  else
-    ensure_text_visible "필터링"
-    tap_text "필터링"
+  legacy_filter_target="$(python3 scripts/android_navigation_compat.py settings-item "필터 관리" <<<"$settings_navigation_xml" 2>/dev/null || true)"
+  if [[ -z "$legacy_filter_target" ]]; then
+    echo "Legacy Full Menu does not expose a compatible Filtering destination."
+    echo "$settings_navigation_xml"
+    exit 1
   fi
+  scroll_to_text "$legacy_filter_target"
 else
   ensure_text_visible "필터링"
   tap_content_description "필터링"
