@@ -97,7 +97,7 @@ def daemon_readiness_diagnosis():
         health=json.loads(HEALTH.read_text(encoding="utf-8"))
         pid=health.get("pid"); heartbeat=float(health.get("heartbeatAt",0)); age=time.time()-heartbeat
         alive=daemon_health_is_fresh(HEALTH, process_check=lambda _pid: True)
-        details.append(f"Daemon heartbeat: pid={pid}, age={age:.1f}s, process_alive={alive}")
+        details.append(f"Daemon heartbeat: pid={pid}, age={age:.1f}s, heartbeat_fresh={alive}")
     except Exception as exc: details.append("Daemon heartbeat: unavailable ("+str(exc)+")")
     try:
         query=blocked_probe_query()
