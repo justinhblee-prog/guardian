@@ -1807,7 +1807,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(15), dp(16), dp(15), dp(18))
             background = shape(Color.rgb(27, 27, 30), 16)
-        }.withTop(10)
+        }
         when (selectedSettingsCategory) {
             "settings-general" -> buildSettingsGeneral(phoneDetail)
             "settings-filtering" -> buildSettingsFiltering(phoneDetail)
