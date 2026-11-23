@@ -356,3 +356,11 @@
 - Optional feed와 다운로드된 일반/서명 필터의 차단 규칙 수 비교를 Long 합산으로 변경했습니다.
 - 음수/0 최소값 및 Int 상한 경계 테스트를 추가했습니다.
 - 소스 반영 완료, Android JUnit/빌드 미실행.
+
+
+## 2026-11-24 — DNS TCP receive-window flow control
+- Free branch `work/android-free-release-20261124`: `DnsTcpSessionManager` now queues response bytes and sends only within the client's advertised 16-bit receive window after accounting for unacknowledged bytes.
+- Subsequent ACK/window updates drain queued response bytes in <=1,200-byte IPv6-safe segments; zero-window responses remain queued rather than being discarded. TCP window scaling is not negotiated, so the implementation deliberately uses the raw 16-bit window.
+- Client FIN processing is ordered after pending DNS response bytes; the server FIN is deferred until queued data has been sent and window capacity is available.
+- Added a regression test for a 5KB response held at zero window and delivered over three 2,048-byte window openings.
+- Source/test/docs committed remotely. Android Gradle/JUnit, lint, emulator, and physical-device tests have not run. No Actions run or APK build was started.
