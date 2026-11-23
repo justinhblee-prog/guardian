@@ -690,6 +690,15 @@ class GuardianVpnService : VpnService() {
                         // packets when their IP protocol explicitly identifies UDP.
                         continue
                     }
+                    val appPackage = when {
+                        ipv4 != null -> AppTrafficAttribution.resolveUdpDnsPackage(
+                            this, ipv4.source, ipv4.sourcePort, ipv4.destination, ipv4.destinationPort
+                        )
+                        ipv6 != null -> AppTrafficAttribution.resolveUdpDnsPackage(
+                            this, ipv6.source, ipv6.sourcePort, ipv6.destination, ipv6.destinationPort
+                        )
+                        else -> null
+                    }
                     val result = DnsQueryPolicy.resolve(payload, ::forwardDns)
                     if (result == null) {
                         recordIgnoredPacket("IPv4/IPv6 UDP DNS 질의 형식 또는 질문 영역 검증 실패")
@@ -701,7 +710,7 @@ class GuardianVpnService : VpnService() {
                     val boundedDnsResponse = if (result.response.size > MAX_UDP_DNS_RESPONSE_BYTES) {
                         DomainFilter.makeTruncatedResponse(payload) ?: continue
                     } else result.response
-                    recordDnsActivity(result.domain, result.blocked, result.forwarded)
+                    recordDnsActivity(result.domain, result.blocked, result.forwarded, appPackage)
                     val responsePacket = if (ipv4 != null) Ipv4Udp.response(ipv4, boundedDnsResponse)
                         else Ipv6Udp.response(ipv6!!, boundedDnsResponse)
                     synchronized(output) {
@@ -752,7 +761,7 @@ class GuardianVpnService : VpnService() {
         }
     }
 
-    private fun recordDnsActivity(domain: String, blocked: Boolean, forwarded: Boolean) {
+    private fun recordDnsActivity(domain: String, blocked: Boolean, forwarded: Boolean, packageName: String? = null) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         synchronized(DNS_STATS_LOCK) {
             val queries = prefs.getLong(KEY_DNS_QUERIES, 0L) + 1L
@@ -790,6 +799,7 @@ class GuardianVpnService : VpnService() {
                 ).apply()
             }
         }
+        AppDnsActivityStore.record(this, packageName, blocked, forwarded, category)
         // Persist every query, but coalesce UI refresh broadcasts to avoid flooding
         // the main thread when an app generates many DNS requests in a short burst.
         val now = android.os.SystemClock.elapsedRealtime()
