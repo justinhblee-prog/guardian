@@ -22,8 +22,8 @@ def test_windows_settings_contains_the_six_agreed_submenus():
 
 def test_windows_settings_uses_persistent_category_and_detail_panes():
     source = (Path(__file__).with_name("desktop.py")).read_text(encoding="utf-8")
-    assert "self.settings_detail=tk.Frame(split,bg='#101820')" in source
-    assert "sidebar=tk.Frame(split,bg='#111e2a',width=232" in source
+    assert "self.settings_detail=tk.Frame(split,bg='#101114')" in source
+    assert "sidebar=tk.Frame(split,bg='#1b1c20',width=270" in source
     assert "self.settings_detail.winfo_children()" in source
     assert "self._select_settings_category('general',self.show_general_settings)" in source
     assert "command=lambda k=key,a=action:self._select_settings_category(k,a)" in source
@@ -35,3 +35,19 @@ def test_windows_settings_details_render_in_detail_pane_not_over_sidebar():
     assert "self.settings_detail" in settings_methods
     assert "self.pages['settings'],text=" not in settings_methods
     assert "self.pages['settings'],bg=" not in settings_methods
+
+
+def test_windows_dns_task_path_is_checked_and_repaired_before_start():
+    source = (Path(__file__).with_name("desktop.py")).read_text(encoding="utf-8")
+    assert "def expected_daemon_executable():" in source
+    assert '"GuardianDnsProxy"/"GuardianDnsProxy.exe"' in source
+    assert "def ensure_daemon_task():" in source
+    assert 'run_task("/Create","/TN",TASK_NAME' in source
+    assert "ensure_daemon_task()" in source
+    assert "Registered task executable:" in source
+
+
+def test_windows_dns_diagnostics_identify_port_53_process_owners():
+    source = (Path(__file__).with_name("desktop.py")).read_text(encoding="utf-8")
+    assert '["tasklist.exe","/FI",f"PID eq {pid}","/FO","LIST"]' in source
+    assert "Expected DNS executable:" in source
