@@ -494,3 +494,10 @@
 - 기본 필터의 유효 규칙 수 판정에서 두 정수 카운트를 더하던 방식을 개별 양수 검사로 변경했습니다. 극단적으로 큰 규칙 수가 정수 오버플로로 잘못된 시작 불가 판정을 만들지 않습니다.
 - `Int.MAX_VALUE`, 음수 극단값 조합에 대한 회귀 테스트를 추가했습니다.
 - 검증: 소스 및 테스트 변경을 원격 브랜치에 반영. Android Gradle/JUnit 실행은 아직 미실행입니다.
+
+
+## 2026-11-24 Android 무료 버전 — 정식 업데이트 자산 경로 고정
+- 정식 Release manifest와 APK URL이 단순히 Guardian 저장소 도메인에 속하는지만 확인하던 검증을 강화했습니다.
+- 각 자산 URL이 현재 선택된 stable tag 및 예상 파일명(`guardian-android.json`, `guardian-android.apk`)과 정확히 일치해야 합니다. 다른 태그, 파일명, 추가 경로, query/fragment, 비표준 포트, 비공식 호스트는 거부합니다.
+- 회귀 테스트 8개 케이스를 추가했습니다.
+- Kotlin/JVM smoke 6개 assertion 통과. Android Gradle/JUnit, lint, APK, GitHub Release 실제 CDN redirect 및 설치 검증은 미실행입니다. CI 비용 발생 작업은 실행하지 않았습니다.
