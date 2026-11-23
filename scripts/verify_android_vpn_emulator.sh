@@ -1292,7 +1292,12 @@ scroll_to_text "정보"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-about-menu.xml >/dev/null 2>&1
 about_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-menu.xml | tr -d '\r')"
-if ! grep -Fq '앱 버전' <<<"$about_menu_xml" || ! grep -Fq '0.7.46-dev' <<<"$about_menu_xml"; then
+expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
+if [[ -z "$expected_current_version" ]]; then
+  echo "GUARDIAN_CURRENT_VERSION_NAME was not provided to the Android VPN emulator check."
+  exit 1
+fi
+if ! grep -Fq '앱 버전' <<<"$about_menu_xml" || ! grep -Fq "$expected_current_version" <<<"$about_menu_xml"; then
   echo "The About submenu did not expose the current app version."
   echo "$about_menu_xml"
   exit 1
