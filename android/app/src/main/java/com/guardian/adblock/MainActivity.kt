@@ -2222,12 +2222,34 @@ class MainActivity : Activity() {
                 if (summary == null) {
                     Toast.makeText(this@MainActivity, "리포트를 읽을 수 없습니다. PRO 권한과 기록을 확인해 주세요.", Toast.LENGTH_LONG).show()
                 } else {
-                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/csv"
-                        putExtra(Intent.EXTRA_SUBJECT, "Guardian Premium 보호 리포트")
-                        putExtra(Intent.EXTRA_TEXT, PremiumReportCsv.render(summary))
+                    try {
+                        val reportDirectory = File(cacheDir, "updates/reports").apply { mkdirs() }
+                        val reportFile = File(reportDirectory, PremiumReportCsv.fileName(summary))
+                        reportFile.writeText(PremiumReportCsv.render(summary), Charsets.UTF_8)
+                        val reportUri = androidx.core.content.FileProvider.getUriForFile(
+                            this@MainActivity,
+                            "${packageName}.fileprovider",
+                            reportFile
+                        )
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/csv"
+                            putExtra(Intent.EXTRA_SUBJECT, "Guardian Premium 보호 리포트")
+                            putExtra(Intent.EXTRA_STREAM, reportUri)
+                            clipData = android.content.ClipData.newUri(
+                                contentResolver,
+                                "Guardian Premium 보호 리포트",
+                                reportUri
+                            )
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "보호 리포트 공유"))
+                    } catch (error: Exception) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "CSV 파일을 만들거나 공유하지 못했습니다: " + SafeFailureSummary.describe(error),
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
-                    startActivity(Intent.createChooser(shareIntent, "보호 리포트 공유"))
                 }
             }
         }
