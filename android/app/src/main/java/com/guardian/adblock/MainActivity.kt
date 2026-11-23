@@ -148,6 +148,12 @@ class MainActivity : Activity() {
             )
         }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
+        selectedSettingsCategory = when (savedInstanceState?.getString(STATE_SETTINGS_CATEGORY)) {
+            "settings-general", "settings-filtering", "settings-premium",
+            "settings-support", "settings-about", "settings-exit" ->
+                savedInstanceState.getString(STATE_SETTINGS_CATEGORY)!!
+            else -> restoredTab.takeIf { it.startsWith("settings-") } ?: "settings-general"
+        }
         val screenTab = if (
             ResponsiveLayoutPolicy.usesSettingsSplitPane(resources.configuration.screenWidthDp) &&
             restoredTab.startsWith("settings-") &&
@@ -296,6 +302,7 @@ class MainActivity : Activity() {
         val savedScrollY = contentScrollView?.scrollY ?: 0
         android.util.Log.i("GuardianUI", "Saving Activity state; tab=$currentTab scrollY=$savedScrollY")
         outState.putString(STATE_CURRENT_TAB, currentTab)
+        outState.putString(STATE_SETTINGS_CATEGORY, selectedSettingsCategory)
         outState.putBoolean(STATE_FOCUS_LICENSE_ACTIVATION, focusLicenseActivationOnBuild)
         outState.putInt(STATE_SCROLL_Y, savedScrollY)
         super.onSaveInstanceState(outState)
@@ -4083,6 +4090,7 @@ class MainActivity : Activity() {
         private const val MAX_USER_RULES = 1000
         private const val KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED = "app_inventory_disclosure_accepted_v1"
         private const val STATE_CURRENT_TAB = "guardian.ui.current_tab"
+        private const val STATE_SETTINGS_CATEGORY = "guardian.ui.settings_category"
         private const val UI_STATE_PREFS = "guardian_ui_state"
         private const val PREF_LAST_SELECTED_TAB = "last_selected_tab"
         private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
