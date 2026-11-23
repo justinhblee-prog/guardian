@@ -937,6 +937,7 @@ class GuardianVpnService : VpnService() {
             .putString(KEY_STATUS, message)
         if (active) update.remove(KEY_STARTUP_TRACE)
         update.apply()
+        if (active) SecurityProfileMonitor.refresh(this) else SecurityProfileMonitor.stop()
         sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
     }
 
@@ -1249,6 +1250,7 @@ class GuardianVpnService : VpnService() {
     override fun onDestroy() {
         // Process/service teardown is not an explicit user stop. Preserve the durable
         // restore request so MY_PACKAGE_REPLACED and START_STICKY can rebuild the tunnel.
+        SecurityProfileMonitor.stop()
         stopProtection(preserveRestoreIntent = true)
         super.onDestroy()
     }

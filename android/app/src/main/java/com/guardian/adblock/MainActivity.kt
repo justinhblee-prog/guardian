@@ -1603,6 +1603,9 @@ class MainActivity : Activity() {
             if (proActive) accent else muted
         ))
 
+        if (developmentPreview) {
+            body.addView(buildSecurityProfilePreview().withTop(14))
+        }
         body.addView(text("PRO 기능 미리보기", 18f, white, true).withTop(24))
         body.addView(text(
             if (developmentPreview) "개발 미리보기 모드 · 라이선스 권한을 부여하지 않으며, 실제 엔진 연결 상태를 각 항목에 표시합니다."
@@ -2141,6 +2144,45 @@ class MainActivity : Activity() {
                 // inventory so it remains discoverable without scrolling through every app.
                 buildCompatibilityPauseSection(body)
                 body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
+    }
+
+    private fun buildSecurityProfilePreview(): LinearLayout {
+        val active = SecurityProfilePolicy.profile(SecurityProfileStore.activeProfileId(this))
+        return card(panel, 16).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("보안 프로필 자동 전환 · 개발 미리보기", 15f, white, true))
+            addView(text(
+                "네트워크의 연결 유형·검증 상태·종량제 여부를 확인해 보호 필터 프로필을 전환합니다. SSID/BSSID는 저장하지 않으며 알 수 없는 Wi-Fi는 공용 네트워크로 취급합니다.",
+                10f, muted, false
+            ).withTop(5))
+            val autoSwitch = CheckBox(this@MainActivity).apply {
+                text = "보호 중 네트워크 변경 시 프로필 자동 전환"
+                setTextColor(white)
+                buttonTintList = ColorStateList.valueOf(accent)
+                isChecked = SecurityProfileStore.automaticSwitchEnabled(this@MainActivity)
+                setOnCheckedChangeListener { _, checked ->
+                    SecurityProfileStore.setAutomaticSwitchEnabled(this@MainActivity, checked)
+                    SecurityProfileMonitor.refresh(this@MainActivity)
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (checked) "보호가 실행 중이면 네트워크 상태에 따라 프로필을 전환합니다."
+                        else "자동 프로필 전환을 중지했습니다.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+            addView(autoSwitch, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+            addView(text("현재 적용 프로필: ${active.label}", 12f, accent, true).withTop(8))
+            addView(text(
+                "요금제 연결 자동 필터 업데이트 허용 정책: " +
+                    if (SecurityProfileStore.automaticUpdatesAllowed(this@MainActivity)) "허용" else "제한",
+                10f, muted, false
+            ).withTop(4))
+            addView(text(
+                "제한: 로밍 자동 감지와 필터 자동 다운로드 스케줄러는 아직 연결되지 않았습니다. 이 개발 미리보기는 PRO 권한을 부여하지 않으며 Release 빌드에서는 자동 전환이 비활성입니다.",
+                10f, Color.rgb(238, 176, 82), false
+            ).withTop(8))
+        }
     }
 
     private fun buildSettingsPremium(body: LinearLayout) {
