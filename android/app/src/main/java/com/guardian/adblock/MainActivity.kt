@@ -866,15 +866,29 @@ class MainActivity : FragmentActivity() {
         hero.addView(power, LinearLayout.LayoutParams(-1, dp(58)))
         body.addView(hero.withTop(18))
 
-        val metrics = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val metrics = LinearLayout(this).apply {
+            orientation = if (wideDashboard) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        }
         blockRateValue = text("0%", 22f, homeGreen, true)
         blockedCountValue = text("0", 22f, homeOrange, true)
         queryCountValue = text("0", 22f, white, true)
-        metrics.addView(metricCard("차단률", blockRateValue!!, homeGreen), LinearLayout.LayoutParams(0, dp(104), 1f))
-        metrics.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
-        metrics.addView(metricCard("차단된 질의", blockedCountValue!!, homeOrange), LinearLayout.LayoutParams(0, dp(104), 1f))
-        metrics.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
-        metrics.addView(metricCard("전체 DNS", queryCountValue!!, white), LinearLayout.LayoutParams(0, dp(104), 1f))
+        val rateCard = metricCard("차단률", blockRateValue!!, homeGreen)
+        val blockedCard = metricCard("차단된 질의", blockedCountValue!!, homeOrange)
+        val queryCard = metricCard("전체 DNS", queryCountValue!!, white)
+        if (wideDashboard) {
+            metrics.addView(rateCard, LinearLayout.LayoutParams(0, dp(104), 1f))
+            metrics.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+            metrics.addView(blockedCard, LinearLayout.LayoutParams(0, dp(104), 1f))
+            metrics.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+            metrics.addView(queryCard, LinearLayout.LayoutParams(0, dp(104), 1f))
+        } else {
+            val firstRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            firstRow.addView(rateCard, LinearLayout.LayoutParams(0, dp(104), 1f))
+            firstRow.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+            firstRow.addView(blockedCard, LinearLayout.LayoutParams(0, dp(104), 1f))
+            metrics.addView(firstRow)
+            metrics.addView(queryCard, LinearLayout.LayoutParams(-1, dp(92)).apply { topMargin = dp(8) })
+        }
         body.addView(metrics.withTop(16))
 
         val versionName = try {
@@ -2685,7 +2699,7 @@ class MainActivity : FragmentActivity() {
             gravity = Gravity.CENTER
             setBackgroundColor(Color.rgb(15, 23, 39))
             setPadding(if (asRail) dp(7) else dp(4), dp(6), if (asRail) dp(7) else dp(4), dp(6))
-            if (horizontal) minimumHeight = dp(62)
+            if (horizontal) minimumHeight = dp(72)
             // Keep labels above Android's gesture/navigation area on edge-to-edge devices.
             if (horizontal) {
                 setOnApplyWindowInsetsListener { view, insets ->
@@ -2695,7 +2709,7 @@ class MainActivity : FragmentActivity() {
                         @Suppress("DEPRECATION")
                         insets.systemWindowInsetBottom
                     }
-                    view.setPadding(dp(4), dp(6), dp(4), dp(6) + bottomInset)
+                    view.setPadding(dp(4), dp(8), dp(4), dp(8) + bottomInset)
                     insets
                 }
             }
@@ -2712,23 +2726,23 @@ class MainActivity : FragmentActivity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(if (asRail) dp(4) else dp(1), if (asRail) dp(12) else dp(3), if (asRail) dp(4) else dp(1), if (asRail) dp(12) else dp(3))
+                setPadding(if (asRail) dp(4) else dp(2), if (asRail) dp(12) else dp(5), if (asRail) dp(4) else dp(2), if (asRail) dp(12) else dp(5))
                 contentDescription = label
                 isSelected = active
                 setOnClickListener { navigateToTab(id) }
                 if (active) background = shape(Color.rgb(31, 54, 76), 14)
             }
             item.addView(text(icon, if (asRail) 24f else 20f, if (active) accent else muted, true).apply { gravity = Gravity.CENTER })
-            item.addView(text(label, if (asRail) 11f else 11f, if (active) white else muted, active).apply {
+            item.addView(text(label, if (asRail) 11f else 10f, if (active) white else muted, active).apply {
                 gravity = Gravity.CENTER
                 setPadding(0, dp(2), 0, 0)
                 maxLines = 1
-                includeFontPadding = true
+                includeFontPadding = false
             })
             if (asRail) {
                 nav.addView(item, LinearLayout.LayoutParams(-1, dp(68)))
             } else {
-                nav.addView(item, LinearLayout.LayoutParams(0, dp(50), 1f))
+                nav.addView(item, LinearLayout.LayoutParams(0, dp(58), 1f))
             }
         }
         return nav
