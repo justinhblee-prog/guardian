@@ -42,6 +42,10 @@ object FilterListManager {
     data class UpdateResult(val blocked: Int, val allowed: Int, val ignored: Int, val bytes: Int, val updatedAt: Long)
     data class FilterProfile(val key: String, val label: String, val url: String, val minimumRules: Int)
 
+    private fun parsedBlockCount(parsed: FilterRuleParser.Parsed): Int =
+        (parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong())
+            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+
     private val profiles = listOf(
         FilterProfile("adguard", "AdGuard DNS Filter · 권장", FILTER_URL, 1000),
         FilterProfile("1hosts_lite", "1Hosts Lite · 균형", "https://adguardteam.github.io/HostlistsRegistry/assets/filter_24.txt", 100),
@@ -388,7 +392,7 @@ object FilterListManager {
             val previousCachedProfile = preferences.getString(KEY_CACHED_PROFILE, null)
             val metadata = preferences.edit()
                 .putLong(updatedKey, now)
-                .putInt(countKey, parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong())
+                .putInt(countKey, parsedBlockCount(parsed))
                 .putInt(ignoredKey, parsed.ignored)
             if (cachedProfileKey != null) metadata.putString(KEY_CACHED_PROFILE, cachedProfileKey)
             android.util.Log.i("Guardian", "Filter cache commit started: cache=$cacheName")
@@ -411,7 +415,7 @@ object FilterListManager {
                 }
             )
             android.util.Log.i("Guardian", "Filter cache committed: cache=$cacheName bytes=${bytes.size} elapsedMs=${System.currentTimeMillis() - startedAt}")
-            return UpdateResult(parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong(), parsed.allowed.size, parsed.ignored, bytes.size, now)
+            return UpdateResult(parsedBlockCount(parsed), parsed.allowed.size, parsed.ignored, bytes.size, now)
         } finally {
             connection?.disconnect()
         }
@@ -500,7 +504,7 @@ object FilterListManager {
             }
         )
         return UpdateResult(
-            parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong(), parsed.allowed.size,
+            parsedBlockCount(parsed), parsed.allowed.size,
             parsed.ignored, bytes.size, now
         )
     }
