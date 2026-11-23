@@ -277,3 +277,11 @@
 - Android emulator 스크립트에 Back/복귀 E2E 단계를 추가했고 새 셸 블록은 bash -n 통과했습니다.
 - 아직 미검증: Android Gradle/JUnit, 전체 emulator VPN/DNS E2E, 실제 단말, 최신 branch APK 및 updater download/install.
 - 이전 기준 커밋 e1a1b4f의 Android workflow #2573은 build/unit/lint/emulator 성공이지만, 이 branch의 새 커밋을 검증한 결과로 재사용하지 않습니다.
+
+
+## 2026-11-24 — 무료 진단의 baseline fallback 표시 보강
+- 브랜치 `work/android-free-release-20261124` 최신 커밋: `a82e28edc9cd448d6702feabf001867bfa60c8d8` 이후 `ProtectionDiagnostics.filterReadinessSummary`가 baseline asset 누락 원인을 진단에서 숨기던 문제를 수정했습니다.
+- 내장 긴급 DNS 규칙 사용과 기본 필터 파일 복구 필요를 명시하고, 옵션 필터 상태와 함께 표시합니다.
+- 예외 클래스/원시 문자열/임의 도메인은 진단 결과에 복사하지 않습니다.
+- 독립 `kotlinc` Kotlin/JVM smoke 통과: baseline 누락, baseline+선택 필터 누락, 민감 문자열 제거.
+- Android Gradle/JUnit, 전체 VPN/DNS emulator E2E, 실기기, APK 및 updater download/install 검증은 미완료입니다.
