@@ -19,5 +19,8 @@ class GuardianNavigationTest {
         assertEquals(listOf("general", "filtering", "license-premium", "support", "info", "exit"), GuardianNavigation.settingsItems)
         assertTrue(GuardianNavigation.isSettingsDestination("premium"))
         assertTrue(GuardianNavigation.isSettingsDestination("rules"))
+        assertTrue(GuardianNavigation.isSettingsDestination("settings-general"))
+        assertTrue(GuardianNavigation.isSettingsDestination("settings-support"))
+        assertTrue(GuardianNavigation.isSettingsDestination("settings-info"))
     }
 }
