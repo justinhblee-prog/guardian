@@ -104,6 +104,8 @@ class MainActivity : FragmentActivity() {
     private var syncingFilterOptions = false
     private var deviceAuthInProgress = false
     private var appUnlockedThisForeground = false
+    private var pendingDeviceAuthSuccess: (() -> Unit)? = null
+    private var pendingDeviceAuthFailure: (() -> Unit)? = null
     private var syncingDeviceLockControl = false
 
     private val stateReceiver = object : BroadcastReceiver() {
@@ -398,7 +400,8 @@ class MainActivity : FragmentActivity() {
         if (deviceAuthInProgress) return
         val biometricManager = BiometricManager.from(this)
         if (Build.VERSION.SDK_INT < 29 && biometricManager.canAuthenticate() != BiometricManager.BIOMETRIC_SUCCESS) {
-            Toast.makeText(this, "이 Android 버전에서는 등록된 지문 인증을 사용할 수 없습니다.", Toast.LENGTH_LONG).show()
+            if (launchDeviceCredentialConfirmation(onSuccess, onFailure)) return
+            Toast.makeText(this, "휴대폰에 지문 또는 안전한 화면 잠금(PIN·패턴·비밀번호)을 먼저 설정해 주세요.", Toast.LENGTH_LONG).show()
             onFailure()
             return
         }
@@ -414,6 +417,10 @@ class MainActivity : FragmentActivity() {
                 }
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     deviceAuthInProgress = false
+                    if (Build.VERSION.SDK_INT < 29 &&
+                        errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
+                        launchDeviceCredentialConfirmation(onSuccess, onFailure)
+                    ) return
                     onFailure()
                 }
             }
@@ -428,9 +435,24 @@ class MainActivity : FragmentActivity() {
             // the user to register a second credential inside Guardian.
             promptBuilder.setDeviceCredentialAllowed(true)
         } else {
-            promptBuilder.setNegativeButtonText("취소")
+            promptBuilder.setNegativeButtonText("PIN·패턴·비밀번호 사용")
         }
         prompt.authenticate(promptBuilder.build())
+    }
+
+    @Suppress("DEPRECATION")
+    private fun launchDeviceCredentialConfirmation(onSuccess: () -> Unit, onFailure: () -> Unit): Boolean {
+        val keyguard = getSystemService(KEYGUARD_SERVICE) as android.app.KeyguardManager
+        if (!keyguard.isDeviceSecure) return false
+        val credentialIntent = keyguard.createConfirmDeviceCredentialIntent(
+            "Guardian 보호 인증",
+            "휴대폰에 등록된 PIN, 패턴 또는 비밀번호로 본인 확인을 해주세요."
+        ) ?: return false
+        pendingDeviceAuthSuccess = onSuccess
+        pendingDeviceAuthFailure = onFailure
+        deviceAuthInProgress = true
+        startActivityForResult(credentialIntent, REQUEST_DEVICE_CREDENTIAL)
+        return true
     }
 
     override fun onStop() {
@@ -487,6 +509,16 @@ class MainActivity : FragmentActivity() {
     @Deprecated("Deprecated in Android API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_DEVICE_CREDENTIAL) {
+            deviceAuthInProgress = false
+            val success = resultCode == RESULT_OK
+            val callback = if (success) pendingDeviceAuthSuccess else pendingDeviceAuthFailure
+            pendingDeviceAuthSuccess = null
+            pendingDeviceAuthFailure = null
+            if (success) appUnlockedThisForeground = true
+            callback?.invoke()
+            return
+        }
         if (requestCode == REQUEST_VPN) {
             if (resultCode == RESULT_OK) startProtection()
             else {
@@ -4186,6 +4218,7 @@ class MainActivity : FragmentActivity() {
     companion object {
         private const val UPDATE_CHECK_THROTTLE_PREFS = "guardian_update_check_throttle"
         private const val REQUEST_VPN = 100
+        private const val REQUEST_DEVICE_CREDENTIAL = 7102
         private const val MAX_USER_RULES = 1000
         private const val KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED = "app_inventory_disclosure_accepted_v1"
         private const val STATE_CURRENT_TAB = "guardian.ui.current_tab"
