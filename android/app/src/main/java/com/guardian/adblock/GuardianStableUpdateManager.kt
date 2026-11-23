@@ -249,21 +249,25 @@ internal object GuardianStableUpdateManager {
 
     internal fun isAllowedReleaseDownloadUrl(address: String): Boolean = runCatching {
         val uri = java.net.URI(address)
-        uri.scheme.equals("https", true) && uri.host?.lowercase() in setOf(
-            "github.com",
-            "release-assets.githubusercontent.com",
-            "objects.githubusercontent.com"
-        ) && uri.userInfo == null
+        uri.scheme.equals("https", true) &&
+            (uri.port == -1 || uri.port == 443) &&
+            uri.host?.lowercase() in setOf(
+                "github.com",
+                "release-assets.githubusercontent.com",
+                "objects.githubusercontent.com"
+            ) && uri.userInfo == null
     }.getOrDefault(false)
 
     private fun isAllowedHttpsUrl(address: String): Boolean = runCatching {
         val uri = java.net.URI(address)
-        uri.scheme.equals("https", true) && uri.host?.lowercase() in setOf(
-            "api.github.com",
-            "github.com",
-            "release-assets.githubusercontent.com",
-            "objects.githubusercontent.com"
-        ) && uri.userInfo == null
+        uri.scheme.equals("https", true) &&
+            (uri.port == -1 || uri.port == 443) &&
+            uri.host?.lowercase() in setOf(
+                "api.github.com",
+                "github.com",
+                "release-assets.githubusercontent.com",
+                "objects.githubusercontent.com"
+            ) && uri.userInfo == null
     }.getOrDefault(false)
 
     private fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {

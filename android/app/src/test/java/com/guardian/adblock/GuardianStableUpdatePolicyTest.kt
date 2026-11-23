@@ -59,5 +59,8 @@ class GuardianStableUpdatePolicyTest {
         assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
             "https://user@github.com/guardian.apk"
         ))
+        assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://github.com:444/guardian.apk"
+        ))
     }
 }
