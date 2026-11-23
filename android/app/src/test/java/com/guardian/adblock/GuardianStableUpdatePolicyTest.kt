@@ -18,6 +18,13 @@ class GuardianStableUpdatePolicyTest {
         assertFalse(GuardianStableUpdatePolicy.isNewerVersion(30, 30))
         assertFalse(GuardianStableUpdatePolicy.isNewerVersion(30, 29))
     }
+
+    @Test fun semanticReleaseOrderingDoesNotDependOnGithubPublicationOrder() {
+        assertTrue(GuardianStableUpdatePolicy.compareVersionTags("v1.10.0", "v1.9.9") > 0)
+        assertTrue(GuardianStableUpdatePolicy.compareVersionTags("v2.0.0", "v1.99.99") > 0)
+        assertEquals(0, GuardianStableUpdatePolicy.compareVersionTags("v1.2.3", "v1.2.3"))
+        assertTrue(GuardianStableUpdatePolicy.compareVersionTags("v1.2.3", "v1.2.4") < 0)
+    }
     @Test fun sha256MustBeExactly64HexCharacters() {
         assertTrue(GuardianStableUpdatePolicy.isSha256("a".repeat(64)))
         assertTrue(GuardianStableUpdatePolicy.isSha256("A".repeat(64)))

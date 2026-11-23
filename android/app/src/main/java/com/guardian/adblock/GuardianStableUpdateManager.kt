@@ -26,48 +26,83 @@ internal object GuardianStableUpdateManager {
     private const val PACKAGE_NAME = "com.guardian.adblock"
     private const val MAX_APK_BYTES = 150L * 1024L * 1024L
 
+    private data class StableReleaseCandidate(val tag: String, val release: JSONObject)
+
     fun checkForUpdate(): GuardianStableUpdate? {
         val releases = JSONArray(readHttps(RELEASES_URL, 2 * 1024 * 1024))
-        for (index in 0 until releases.length()) {
-            val release = releases.getJSONObject(index)
+        val candidates = (0 until releases.length()).mapNotNull { index ->
+            val release = releases.optJSONObject(index) ?: return@mapNotNull null
             val tag = release.optString("tag_name")
             if (!GuardianStableUpdatePolicy.isStableRelease(
-                    release.optBoolean("draft", true), release.optBoolean("prerelease", false), tag
-                )) continue
-            val assets = release.optJSONArray("assets")
-                ?: error("최신 정식 Release에 업데이트 자산 목록이 없습니다.")
-            var manifestUrl: String? = null
-            var apkUrl: String? = null
-            for (assetIndex in 0 until assets.length()) {
-                val asset = assets.getJSONObject(assetIndex)
-                when (asset.optString("name")) {
-                    MANIFEST_ASSET -> manifestUrl = asset.optString("browser_download_url")
-                    APK_ASSET -> apkUrl = asset.optString("browser_download_url")
-                }
-            }
-            require(!manifestUrl.isNullOrBlank() && !apkUrl.isNullOrBlank()) {
-                "최신 정식 Release에 guardian-android.json 또는 guardian-android.apk가 없습니다."
-            }
-            require(isGuardianReleaseAssetUrl(manifestUrl)) { "정식 업데이트 manifest 주소가 Guardian 공식 GitHub Release가 아닙니다." }
-            require(isGuardianReleaseAssetUrl(apkUrl)) { "정식 APK 주소가 Guardian 공식 GitHub Release가 아닙니다." }
-
-            val manifest = JSONObject(readHttps(manifestUrl, 64 * 1024))
-            require(manifest.optInt("manifestVersion", 0) == 1) { "지원하지 않는 정식 업데이트 manifest 버전입니다." }
-            require(manifest.optString("packageName") == PACKAGE_NAME) { "정식 업데이트 manifest의 패키지 ID가 Guardian과 다릅니다." }
-            val versionName = manifest.optString("versionName")
-            val versionCode = manifest.optInt("versionCode", 0)
-            require(versionName.matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+$")) && versionCode > 0) {
-                "정식 업데이트 버전 정보가 올바르지 않습니다."
-            }
-            if (!GuardianStableUpdatePolicy.isNewerVersion(BuildConfig.VERSION_CODE, versionCode)) return null
-            require(tag == "v$versionName") { "정식 Release 태그와 manifest 버전이 일치하지 않습니다." }
-            val digest = manifest.optString("sha256").lowercase()
-            val signer = manifest.optString("signerSha256").lowercase()
-            require(GuardianStableUpdatePolicy.isSha256(digest)) { "정식 업데이트 SHA-256 형식이 올바르지 않습니다." }
-            require(GuardianStableUpdatePolicy.isSha256(signer)) { "정식 업데이트 서명 지문 형식이 올바르지 않습니다." }
-            return GuardianStableUpdate(versionName, versionCode, digest, signer, apkUrl, release.optString("body").take(3000))
+                    release.optBoolean("draft", true),
+                    release.optBoolean("prerelease", false),
+                    tag
+                )
+            ) return@mapNotNull null
+            StableReleaseCandidate(tag, release)
         }
-        return null
+        // GitHub release order is based on publication metadata, not semantic version.
+        // Always inspect the highest stable tag rather than assuming the first entry is newest.
+        val latest = candidates.maxWithOrNull { left, right ->
+            GuardianStableUpdatePolicy.compareVersionTags(left.tag, right.tag)
+        } ?: return null
+        val tag = latest.tag
+        if (!GuardianStableUpdatePolicy.isNewerVersion(BuildConfig.VERSION_CODE, tag.substring(1).let {
+                val parts = it.split('.')
+                // Version code remains the install-order authority; this value is only
+                // a quick semantic check before parsing the signed manifest.
+                parts[0].toIntOrNull()?.times(1_000_000)
+                    ?.plus(parts[1].toIntOrNull()?.times(1_000) ?: 0)
+                    ?.plus(parts[2].toIntOrNull() ?: 0) ?: Int.MAX_VALUE
+            })) return null
+
+        val assets = latest.release.optJSONArray("assets")
+            ?: error("최신 정식 Release에 업데이트 자산 목록이 없습니다.")
+        var manifestUrl: String? = null
+        var apkUrl: String? = null
+        for (assetIndex in 0 until assets.length()) {
+            val asset = assets.optJSONObject(assetIndex) ?: continue
+            when (asset.optString("name")) {
+                MANIFEST_ASSET -> manifestUrl = asset.optString("browser_download_url")
+                APK_ASSET -> apkUrl = asset.optString("browser_download_url")
+            }
+        }
+        require(!manifestUrl.isNullOrBlank() && !apkUrl.isNullOrBlank()) {
+            "최신 정식 Release에 guardian-android.json 또는 guardian-android.apk가 없습니다."
+        }
+        require(isGuardianReleaseAssetUrl(manifestUrl)) {
+            "정식 업데이트 manifest 주소가 Guardian 공식 GitHub Release가 아닙니다."
+        }
+        require(isGuardianReleaseAssetUrl(apkUrl)) {
+            "정식 APK 주소가 Guardian 공식 GitHub Release가 아닙니다."
+        }
+
+        val manifest = JSONObject(readHttps(manifestUrl, 64 * 1024))
+        require(manifest.optInt("manifestVersion", 0) == 1) {
+            "지원하지 않는 정식 업데이트 manifest 버전입니다."
+        }
+        require(manifest.optString("packageName") == PACKAGE_NAME) {
+            "정식 업데이트 manifest의 패키지 ID가 Guardian과 다릅니다."
+        }
+        val versionName = manifest.optString("versionName")
+        val versionCode = manifest.optInt("versionCode", 0)
+        require(versionName.matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+$")) && versionCode > 0) {
+            "정식 업데이트 버전 정보가 올바르지 않습니다."
+        }
+        require(tag == "v$versionName") { "정식 Release 태그와 manifest 버전이 일치하지 않습니다." }
+        if (!GuardianStableUpdatePolicy.isNewerVersion(BuildConfig.VERSION_CODE, versionCode)) return null
+        val digest = manifest.optString("sha256").lowercase()
+        val signer = manifest.optString("signerSha256").lowercase()
+        require(GuardianStableUpdatePolicy.isSha256(digest)) { "정식 업데이트 SHA-256 형식이 올바르지 않습니다." }
+        require(GuardianStableUpdatePolicy.isSha256(signer)) { "정식 업데이트 서명 지문 형식이 올바르지 않습니다." }
+        return GuardianStableUpdate(
+            versionName,
+            versionCode,
+            digest,
+            signer,
+            apkUrl,
+            latest.release.optString("body").take(3000)
+        )
     }
 
     fun download(context: Context, update: GuardianStableUpdate): File {
