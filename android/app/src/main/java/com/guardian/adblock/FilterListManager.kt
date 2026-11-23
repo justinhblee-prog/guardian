@@ -472,7 +472,7 @@ object FilterListManager {
         )
         val metadata = preferences.edit()
             .putLong(updatedKey, now)
-            .putInt(countKey, parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong())
+            .putInt(countKey, parsedBlockCount(parsed))
             .putInt(ignoredKey, parsed.ignored)
             .putString(infoKeys.first, download.manifest.sourceVersion)
             .putString(infoKeys.second, download.manifest.sha256)
