@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets
 
 object DnsDohHttpCodec {
     private const val MAX_HEADER_BYTES = 8192
-    private const val MAX_DNS_BYTES = 4096
+    private const val MAX_DNS_BYTES = 65535
 
     fun buildPostRequest(host: String, path: String, query: ByteArray): ByteArray? {
         val normalizedHost = DnsTlsHostValidator.normalize(host) ?: return null
