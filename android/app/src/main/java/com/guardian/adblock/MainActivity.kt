@@ -535,6 +535,9 @@ class MainActivity : Activity() {
             "activity" -> buildActivity(body)
             "premium" -> buildPremium(body)
             "updates" -> buildUpdates(body)
+            "settings-general" -> buildSettingsGeneral(body)
+            "settings-support" -> buildSettingsSupport(body)
+            "settings-info" -> buildSettingsInfo(body)
             "app-exclusions" -> {
                 body.addView(text("앱 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
@@ -1602,17 +1605,18 @@ class MainActivity : Activity() {
 
     private fun buildSettings(body: LinearLayout) {
         body.addView(text("설정", 25f, white, true))
-        body.addView(text("보호 정책, 필터, 앱 제외, 업데이트와 지원을 한곳에서 관리합니다.", 13f, muted, false).withTop(5))
-        val menuItems = listOf(
-            Triple("updates", "프로그램 업데이트", "Guardian 앱 업데이트 확인 및 설치"),
+        body.addView(text("기능별 설정을 선택해 관리합니다.", 13f, muted, false).withTop(5))
+        val items = listOf(
+            Triple("settings-general", "일반", "프로그램 업데이트와 운영 환경"),
             Triple("rules", "필터링", "필터 프로필과 사용자 차단·허용 규칙"),
-            Triple("app-exclusions", "앱 제외 관리", "DNS 필터링에서 제외할 앱 선택"),
-            Triple("premium", "라이선스 및 Premium", "라이선스 활성화, 이용 기간 및 기기 상태 확인")
+            Triple("premium", "라이선스 및 Premium", "이용 기간, 라이선스 활성화와 허용 기기"),
+            Triple("settings-support", "고객 지원", "자주 묻는 질문과 오류·문의 접수"),
+            Triple("settings-info", "정보", "앱 버전과 개인정보·제품 정보")
         )
-        menuItems.forEach { (target, title, description) ->
+        items.forEach { (target, title, description) ->
             body.addView(card(panel, 14).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(15), dp(13), dp(15), dp(13))
+                setPadding(dp(15), dp(14), dp(15), dp(14))
                 addView(text(title, 15f, white, true))
                 addView(text(description, 11f, muted, false).withTop(4))
                 setOnClickListener { showTab(target) }
@@ -1620,14 +1624,46 @@ class MainActivity : Activity() {
                 isFocusable = true
             }.withTop(9))
         }
-        body.addView(text("고객 지원", 18f, white, true).withTop(22))
-        body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
-        body.addView(buildSupportCenterCard().withTop(12))
-        body.addView(text("정보", 18f, white, true).withTop(22))
-        body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
+        body.addView(Button(this).apply {
+            text = "종료"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 12)
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Guardian 종료")
+                    .setMessage("앱을 종료하시겠습니까?\n\n이미 실행 중인 DNS 보호는 별도로 중지하지 않으면 계속 유지됩니다.")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("종료") { _, _ -> finish() }
+                    .show()
+            }
+        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(18) })
+    }
+
+    private fun buildSettingsSupport(body: LinearLayout) {
+        body.addView(text("고객 지원", 25f, white, true))
+        body.addView(text("오류·결제·라이선스 문의와 자주 묻는 질문을 확인합니다.", 13f, muted, false).withTop(5))
+        body.addView(buildSupportCenterCard().withTop(14))
+    }
+
+    private fun buildSettingsInfo(body: LinearLayout) {
+        body.addView(text("정보", 25f, white, true))
+        body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent).withTop(14))
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+    }
+
+    private fun buildSettingsGeneral(body: LinearLayout) {
+        body.addView(text("일반", 25f, white, true))
+        body.addView(text("Guardian 앱 업데이트와 운영 서버 연결을 관리합니다.", 13f, muted, false).withTop(5))
+        body.addView(Button(this).apply {
+            text = "프로그램 업데이트 확인"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 12)
+            setOnClickListener { showTab("updates") }
+        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(14) })
         body.addView(text("일반", 18f, white, true).withTop(22))
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
@@ -2062,21 +2098,6 @@ class MainActivity : Activity() {
         // inventory so it remains discoverable without scrolling through every app.
         buildCompatibilityPauseSection(body)
         body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
-        body.addView(Button(this).apply {
-            text = "Guardian 종료"
-            isAllCaps = false
-            setTextColor(white)
-            background = shape(panel2, 12)
-            setOnClickListener {
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Guardian 종료")
-                    .setMessage("앱을 종료하시겠습니까?\n\n이미 실행 중인 DNS 보호는 별도로 중지하지 않으면 계속 유지됩니다.")
-                    .setNegativeButton("취소", null)
-                    .setPositiveButton("종료") { _, _ -> finish() }
-                    .show()
-            }
-        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(18) })
-
     }
 
 
