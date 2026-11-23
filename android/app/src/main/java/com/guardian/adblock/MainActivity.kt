@@ -149,7 +149,7 @@ class MainActivity : Activity() {
         }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
         val screenTab = if (
-            resources.configuration.screenWidthDp >= 600 &&
+            ResponsiveLayoutPolicy.usesSettingsSplitPane(resources.configuration.screenWidthDp) &&
             restoredTab.startsWith("settings-") &&
             !restoreLicenseFocus
         ) {
@@ -1619,7 +1619,7 @@ class MainActivity : Activity() {
             Triple("종료", "Guardian 앱 종료 및 백그라운드 보호 안내", "settings-exit")
         )
         val screenWidthDp = resources.configuration.screenWidthDp
-        if (screenWidthDp >= 600) {
+        if (ResponsiveLayoutPolicy.usesSettingsSplitPane(screenWidthDp)) {
             body.addView(text("설정", 25f, white, true))
             body.addView(text("카테고리를 선택하면 오른쪽 영역에 해당 세부 항목이 표시됩니다.", 13f, muted, false).withTop(5))
             val split = LinearLayout(this).apply {
