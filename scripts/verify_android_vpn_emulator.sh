@@ -1266,10 +1266,10 @@ texts={node.attrib.get("text","") for node in nodes}
 selected_settings=any(node.attrib.get("content-desc")=="설정"
                       and node.attrib.get("selected")=="true"
                       for node in nodes)
-required_settings = {"세부 설정", "일반", "필터링", "프로그램 업데이트", "필터 관리", "앱 제외 관리"}
+required_settings = {"설정", "일반", "필터링", "라이선스 및 프리미엄"}
 missing_settings = required_settings - texts
 if missing_settings or not selected_settings:
-    raise SystemExit("Guardian Settings top-level menu is missing entries: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
+    raise SystemExit("Guardian Settings landing page is missing agreed categories: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
 # The Settings page is a vertically scrollable list. A single accessibility
 # hierarchy dump only includes rows intersecting the current viewport. Reveal
 # the lower category without activating it: scroll_to_text intentionally taps
@@ -1325,6 +1325,22 @@ if ! grep -Fq '앱 버전' <<<"$about_menu_xml" || ! grep -Fq "$expected_current
   echo "$about_menu_xml"
   exit 1
 fi
+if ! grep -Fq '앱 업데이트 확인' <<<"$about_menu_xml"; then
+  echo "The About submenu does not expose the dedicated app-update entry."
+  echo "$about_menu_xml"
+  exit 1
+fi
+tap_text "앱 업데이트 확인"
+sleep 1
+updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
+if ! grep -Fq '프로그램 업데이트' <<<"$updates_xml" ||
+   ! grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$updates_xml" ||
+   ! grep -Fq '업데이트 설치' <<<"$updates_xml"; then
+  echo "The dedicated Program Updates screen is missing its version-check/install controls."
+  echo "$updates_xml"
+  exit 1
+fi
+echo "Settings > 정보 > 앱 업데이트 확인 opens the dedicated Program Updates screen."
 tap_content_description "설정"
 sleep 1
 scroll_to_text "종료"
