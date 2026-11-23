@@ -1173,7 +1173,7 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun forwardDnsOverHttps(query: ByteArray, upstreamAddress: String): ByteArray? {
-        if (query.size !in 17..4096) return null
+        if (query.size !in 17..65535) return null
         val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
         val request = DnsDohHttpCodec.buildPostRequest(tlsHost, "/dns-query", query) ?: return null
         var socket: SSLSocket? = null
