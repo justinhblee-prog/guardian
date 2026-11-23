@@ -1121,6 +1121,29 @@ class MainActivity : Activity() {
             addView(protectionStatusDetail!!)
             val privateDns = privateDnsCompatibilityStatus()
             addView(text(privateDns.first, 11f, privateDns.second, false).withTop(10))
+            addView(Button(this@MainActivity).apply {
+                text = "최근 오류 내용 복사"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(panel2, 11)
+                setOnClickListener {
+                    val currentStatus = prefs.getString(GuardianVpnService.KEY_STATUS, "최근 오류 기록 없음").orEmpty()
+                    val startupTrace = prefs.getString(GuardianVpnService.KEY_STARTUP_TRACE, "기록 없음").orEmpty()
+                    val report = buildString {
+                        appendLine("Guardian AdBlock 보호 오류")
+                        appendLine("앱 버전: ${BuildConfig.VERSION_NAME}")
+                        appendLine("상태: $currentStatus")
+                        appendLine("오류 호출 경로: $startupTrace")
+                    }
+                    try {
+                        val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian protection error", report))
+                        Toast.makeText(this@MainActivity, "최근 오류 내용과 호출 경로를 복사했습니다.", Toast.LENGTH_SHORT).show()
+                    } catch (copyError: Exception) {
+                        Toast.makeText(this@MainActivity, "오류 복사 실패: ${copyError.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(12) })
             addView(text(
                 "보호 시작과 중지는 홈 화면의 단일 제어 버튼에서 실행합니다.",
                 11f, muted, false
