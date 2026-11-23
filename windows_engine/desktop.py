@@ -66,14 +66,16 @@ def probe_tcp_dns(query):
         return is_dns_probe_response(query,response)
 
 def proxy_ready():
-    # A generic DNS response on loopback is not proof that Guardian owns the port.
-    if not daemon_health_is_fresh(HEALTH): return False
+    # A fresh daemon heartbeat is paired with a real DNS response. OpenProcess
+    # can transiently fail for SYSTEM-owned scheduled-task processes even while
+    # their TCP listener is serving requests.
+    if not daemon_health_is_fresh(HEALTH, process_check=lambda _pid: True): return False
     try:
         query=blocked_probe_query()
+        if not probe_tcp_dns(query): return False
         with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as client:
             client.settimeout(.8); client.sendto(query,("127.0.0.1",53)); response,_=client.recvfrom(512)
-        if not is_dns_probe_response(query,response): return False
-        return probe_tcp_dns(query)
+        return is_dns_probe_response(query,response)
     except OSError: return False
 def daemon_readiness_diagnosis():
     details=[]
@@ -109,7 +111,7 @@ def daemon_readiness_diagnosis():
     except OSError as exc: details.append("IPv4 UDP 127.0.0.1:53: "+str(exc))
     try:
         for protocol in ("udp","tcp"):
-            result=subprocess.run(["netstat.exe","-ano","-p",protocol],capture_output=True,text=True,timeout=5)
+            result=run_hidden(["netstat.exe","-ano","-p",protocol],capture_output=True,text=True,timeout=5)
             matches=[line.strip() for line in (result.stdout or "").splitlines() if ":53" in line]
             details.append(f"Port 53 {protocol.upper()} endpoints: "+(" | ".join(matches[:8]) if matches else "no matching endpoint reported"))
             pids=set()
@@ -117,7 +119,7 @@ def daemon_readiness_diagnosis():
                 try: pids.add(int(line.split()[-1]))
                 except (ValueError,IndexError): pass
             for pid in sorted(pids):
-                owner=subprocess.run(["tasklist.exe","/FI",f"PID eq {pid}","/FO","LIST"],capture_output=True,text=True,timeout=5)
+                owner=run_hidden(["tasklist.exe","/FI",f"PID eq {pid}","/FO","LIST"],capture_output=True,text=True,timeout=5)
                 details.append(f"Port 53 {protocol.upper()} owner PID {pid}: "+(owner.stdout.strip() or owner.stderr.strip() or f"exit={owner.returncode}"))
     except Exception as exc: details.append("Port 53 ownership query failed: "+str(exc))
     try:
@@ -128,8 +130,21 @@ def daemon_readiness_diagnosis():
     except Exception as exc: details.append("Daemon log could not be read: "+str(exc))
     return "\n".join(details)
 
+def run_hidden(command, **kwargs):
+    """Run a helper process without flashing a console over the desktop UI."""
+    kwargs.setdefault("capture_output", True)
+    kwargs.setdefault("text", True)
+    if os.name == "nt":
+        startup = subprocess.STARTUPINFO()
+        startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = 0
+        kwargs.setdefault("startupinfo", startup)
+        kwargs.setdefault("creationflags", getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000))
+    return subprocess.run(command, **kwargs)
+
+
 def run_task(*args):
-    return subprocess.run(["schtasks.exe",*args],capture_output=True,text=True,timeout=15)
+    return run_hidden(["schtasks.exe",*args],timeout=15)
 
 def expected_daemon_executable():
     if not getattr(sys,"frozen",False):
@@ -201,7 +216,7 @@ def stop_daemon(delete=False):
             query=run_task("/Query","/TN",TASK_NAME)
             if query.returncode!=0: return
             time.sleep(.3)
-        powershell=subprocess.run(["powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-Command","Unregister-ScheduledTask -TaskName 'GuardianDnsProxy' -Confirm:$false -ErrorAction SilentlyContinue"],capture_output=True,text=True,timeout=20)
+        powershell=run_hidden(["powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-Command","Unregister-ScheduledTask -TaskName 'GuardianDnsProxy' -Confirm:$false -ErrorAction SilentlyContinue"],capture_output=True,text=True,timeout=20)
         for _ in range(10):
             query=run_task("/Query","/TN",TASK_NAME)
             if query.returncode!=0: return
