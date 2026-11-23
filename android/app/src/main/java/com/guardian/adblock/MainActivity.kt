@@ -1621,13 +1621,14 @@ class MainActivity : Activity() {
     }
 
     private fun buildSettingsLanding(body: LinearLayout) {
+        data class SettingsEntry(val symbol: String, val title: String, val description: String, val target: String)
         val sections = listOf(
-            Triple("◉", "일반", "앱 동작, DNS 연결 및 기본 환경", "settings-general"),
-            Triple("◈", "필터링", "광고·추적 차단, 보호 정책과 사용자 규칙", "settings-filtering"),
-            Triple("◇", "라이선스 및 프리미엄", "이용 기간, 허용 기기와 프리미엄 기능", "settings-premium"),
-            Triple("✉", "고객 지원", "도움말, 시스템 진단과 오류 내용 복사", "settings-support"),
-            Triple("ⓘ", "정보", "제품 정보, 개인정보와 업데이트", "settings-about"),
-            Triple("⏻", "종료", "앱 종료 및 백그라운드 보호 안내", "settings-exit")
+            SettingsEntry("◉", "일반", "앱 동작, DNS 연결 및 기본 환경", "settings-general"),
+            SettingsEntry("◈", "필터링", "광고·추적 차단, 보호 정책과 사용자 규칙", "settings-filtering"),
+            SettingsEntry("◇", "라이선스 및 프리미엄", "이용 기간, 허용 기기와 프리미엄 기능", "settings-premium"),
+            SettingsEntry("✉", "고객 지원", "도움말, 시스템 진단과 오류 내용 복사", "settings-support"),
+            SettingsEntry("ⓘ", "정보", "제품 정보, 개인정보와 업데이트", "settings-about"),
+            SettingsEntry("⏻", "종료", "앱 종료 및 백그라운드 보호 안내", "settings-exit")
         )
         val screenWidthDp = resources.configuration.screenWidthDp
         body.addView(text("설정", 27f, white, true))
