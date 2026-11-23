@@ -1500,7 +1500,7 @@ class MainActivity : Activity() {
                             val update = GuardianStableUpdateManager.checkForUpdate()
                             if (update == null) {
                                 runOnUiThread {
-                                    feedback.text = "현재 설치된 정식 버전이 최신입니다."
+                                    feedback.text = "설치된 정식 버전이 최신 공개 버전 이상입니다."
                                     isEnabled = true
                                 }
                             } else {
