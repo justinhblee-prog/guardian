@@ -97,6 +97,7 @@ class MainActivity : Activity() {
     private var contentScrollView: ScrollView? = null
     private var focusLicenseActivationOnBuild = false
     private var licenseKeyInput: EditText? = null
+    private var apkScanResultText: TextView? = null
     private val filterUpdateRunning = AtomicBoolean(false)
     private val startupFilterCheckStarted = AtomicBoolean(false)
     private val protectionCheckRunning = AtomicBoolean(false)
@@ -430,6 +431,60 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Android API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_APK_SCAN) {
+            if (resultCode == RESULT_OK) {
+                val selectedUri = data?.data
+                if (selectedUri == null) {
+                    apkScanResultText?.text = "선택한 파일 주소를 확인할 수 없습니다."
+                } else {
+                    apkScanResultText?.text = "APK DEX 검사 중…"
+                    thread(name = "guardian-apk-static-scan") {
+                        val result = runCatching {
+                            contentResolver.openInputStream(selectedUri)?.use(ApkStaticAnalyzer::analyze)
+                                ?: error("선택한 APK 파일을 열 수 없습니다.")
+                        }.getOrNull()
+                        runOnUiThread {
+                            apkScanResultText?.text = if (result == null) {
+                                "APK를 열거나 검사하지 못했습니다. 파일 접근 권한과 APK 형식을 확인해 주세요."
+                            } else {
+                                buildString {
+                                    append("APK 검사 · ")
+                                    append(when (result.status) {
+                                        ApkStaticAnalyzer.Status.SCANNED -> when (result.risk) {
+                                            ApkStaticAnalyzer.Risk.LOW -> "낮은 구조적 신호"
+                                            ApkStaticAnalyzer.Risk.REVIEW -> "추가 검토 필요"
+                                            ApkStaticAnalyzer.Risk.HIGH -> "높은 주의 신호"
+                                            null -> "판정 불가"
+                                        }
+                                        ApkStaticAnalyzer.Status.INVALID_APK -> "유효하지 않은 APK"
+                                        ApkStaticAnalyzer.Status.LIMIT_EXCEEDED -> "검사 용량 제한 초과"
+                                    })
+                                    append("\nDEX 파일: ${result.dexCount}개 · 검사 크기: ${result.dexBytes} bytes")
+                                    if (result.signals.isNotEmpty()) {
+                                        append("\n")
+                                        append(result.signals.joinToString("\n") { "• ${it.label}" })
+                                    }
+                                    append("\n")
+                                    append(result.explanation)
+                                    if (BuildConfig.DEBUG && !LicenseEntitlementStore.current(this@MainActivity).let {
+                                            it?.let { entitlement ->
+                                                PremiumEntitlementPolicy.canUse(
+                                                    PremiumEntitlementPolicy.Feature.PHISHING_AND_APP_SCAN,
+                                                    entitlement,
+                                                    System.currentTimeMillis() / 1000L
+                                                )
+                                            } == true
+                                        }) {
+                                        append("\n개발 미리보기 · PRO 권한은 부여되지 않았습니다.")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return
+        }
         if (requestCode == REQUEST_VPN) {
             if (resultCode == RESULT_OK) startProtection()
             else {
@@ -1609,14 +1664,93 @@ class MainActivity : Activity() {
             else "라이선스 활성화 후 이용할 수 있는 프리미엄 기능입니다.",
             11f, muted, false
         ).withTop(5))
+        val phishingFeatureAvailable = entitlement?.let {
+            PremiumEntitlementPolicy.canUse(
+                PremiumEntitlementPolicy.Feature.PHISHING_AND_APP_SCAN,
+                it,
+                System.currentTimeMillis() / 1000L
+            )
+        } == true
+        val phishingPreviewEnabled = phishingFeatureAvailable || developmentPreview
         body.addView(card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("앱 코드 피싱 보호", 15f, white, true))
+            addView(text("피싱 링크 · APK 정적 검사", 15f, white, true))
             addView(text(
-                "PRO 전용 기능으로 분류할 수 있도록 메뉴를 마련했습니다. 다만 현재 앱에는 앱 코드·링크를 판별하는 검사 엔진이 연결되어 있지 않아 아직 실제 탐지나 차단은 수행하지 않습니다.",
+                "링크 구조 신호와 사용자가 선택한 APK의 DEX 민감 API 참조를 오프라인으로 검사합니다. 외부 평판 DB 조회나 실시간 백신 검사는 아닙니다.",
                 11f, muted, false
             ).withTop(6))
-            addView(text("검사 엔진 연동 필요", 10f, Color.rgb(238, 176, 82), true).withTop(9))
+            val urlInput = EditText(this@MainActivity).apply {
+                hint = "https://example.com/path"
+                setSingleLine(true)
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+                setTextColor(white)
+                setHintTextColor(muted)
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                background = shape(bg, 10)
+            }
+            addView(urlInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
+            val analyzeUrl = Button(this@MainActivity).apply {
+                text = "링크 구조 분석"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 9)
+                isEnabled = phishingPreviewEnabled
+                setOnClickListener {
+                    if (!phishingPreviewEnabled) {
+                        Toast.makeText(this@MainActivity, "PRO 라이선스 및 기능 검증 완료 후 사용할 수 있습니다.", Toast.LENGTH_LONG).show()
+                    } else {
+                        val result = PhishingUrlAnalyzer.analyze(urlInput.text.toString())
+                        apkScanResultText?.text = buildString {
+                            append("링크 검사 · ")
+                            append(when (result.risk) {
+                                PhishingUrlAnalyzer.Risk.LOW -> "낮은 주의 신호"
+                                PhishingUrlAnalyzer.Risk.CAUTION -> "주의 필요"
+                                PhishingUrlAnalyzer.Risk.HIGH -> "높은 주의 신호"
+                                PhishingUrlAnalyzer.Risk.INVALID -> "주소 형식 오류"
+                            })
+                            result.normalizedHost?.let { append("\n도메인: $it") }
+                            if (result.signals.isNotEmpty()) {
+                                append("\n")
+                                append(result.signals.joinToString("\n") { "• ${it.label}" })
+                            }
+                            append("\n")
+                            append(result.explanation)
+                            if (developmentPreview && !phishingFeatureAvailable) append("\n개발 미리보기 · PRO 권한은 부여되지 않았습니다.")
+                        }
+                    }
+                }
+            }
+            addView(analyzeUrl, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            val chooseApk = Button(this@MainActivity).apply {
+                text = "APK 파일 선택 및 DEX 검사"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(Color.rgb(49, 59, 78), 9)
+                isEnabled = phishingPreviewEnabled
+                setOnClickListener {
+                    if (!phishingPreviewEnabled) {
+                        Toast.makeText(this@MainActivity, "PRO 라이선스 및 기능 검증 완료 후 사용할 수 있습니다.", Toast.LENGTH_LONG).show()
+                    } else {
+                        val picker = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "application/vnd.android.package-archive"
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivityForResult(picker, REQUEST_APK_SCAN)
+                    }
+                }
+            }
+            addView(chooseApk, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            apkScanResultText = TextView(this@MainActivity).apply {
+                text = if (phishingPreviewEnabled) "검사 결과가 여기에 표시됩니다." else "PRO 기능 검증 및 라이선스 활성화 후 사용할 수 있습니다."
+                textSize = 11f
+                setTextColor(muted)
+                setPadding(0, dp(10), 0, 0)
+            }
+            addView(apkScanResultText, LinearLayout.LayoutParams(-1, -2))
+            if (developmentPreview && !phishingFeatureAvailable) {
+                addView(text("개발 미리보기 · 실제 PRO 권한은 부여되지 않습니다.", 10f, Color.rgb(238, 176, 82), true).withTop(8))
+            }
         }.withTop(10))
         body.addView(card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
@@ -4219,6 +4353,7 @@ class MainActivity : Activity() {
     companion object {
         private const val UPDATE_CHECK_THROTTLE_PREFS = "guardian_update_check_throttle"
         private const val REQUEST_VPN = 100
+        private const val REQUEST_APK_SCAN = 101
         private const val MAX_USER_RULES = 1000
         private const val KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED = "app_inventory_disclosure_accepted_v1"
         private const val STATE_CURRENT_TAB = "guardian.ui.current_tab"
