@@ -267,3 +267,12 @@
 - 문의 조회 화면뿐 아니라 `LicenseApiClient.lookupSupportTicket()` 진입점에서도 접수 번호와 조회 코드를 검증해 다른 호출 경로에서 잘못된 요청이 전송되지 않도록 했습니다.
 - 테스트에 조회 코드 최소/최대 길이, 잘못된 패딩 및 공백 문자를 추가했습니다.
 - 실제 `SupportInputPolicy.kt`와 동등한 독립 Kotlin/JVM 하네스를 `kotlinc`로 컴파일·실행해 이메일, 접수 번호, 조회 코드 검증 3개 시나리오를 통과했습니다. Android Gradle/JUnit 및 실제 API/DB는 미실행입니다.
+
+
+## 2026-11-24 — 필터 출처 기반 DNS 위협 분류 연결
+- 최신 threat analytics branch 커밋: `e3d65eaceab39ff4f0a8e9d3f078f6e12dba3845`.
+- Filter loader가 security threat feed source index를 DomainFilter에 전달하고, DomainFilter가 security intelligence, 일반 광고/추적 feed, 사용자 차단 규칙, unknown source evidence를 구분합니다.
+- 실제 blocked DNS 이벤트만 ThreatAnalyticsEngine에 전달합니다. Security feed match는 high severity로 표시하되 구체적인 악성 행위 확정은 하지 않습니다. 광고/추적은 informational, 사용자 지정/unknown은 unassessed.
+- ThreatAnalyticsStore는 severity count와 최근 title/time만 저장하고 domain/URL은 저장하지 않습니다. MainActivity Premium DEBUG preview에 집계/최근 분류를 표시합니다.
+- Release build에서는 threat assessment/store가 BuildConfig.DEBUG로 비활성입니다. PRO entitlement gate 및 Android validation 전까지 preview-only입니다.
+- DomainFilter evidence tests 추가: ad/tracker/security/user/unknown 분리, allow precedence, important security override. Android Gradle/JUnit, emulator/physical device runtime 검증은 미완료입니다.

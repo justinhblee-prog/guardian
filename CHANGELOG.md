@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-24 — DNS 위협 분석을 실제 필터 출처에 연결
+- 필터 로더에서 위협 인텔리전스 source index를 보존하고, DomainFilter가 security/ad/tracker/user/unknown 증거를 구분하도록 확장했습니다.
+- 실제 차단된 DNS 이벤트만 분류하며, 보안 인텔리전스 목록 일치도 구체적인 악성 행위 확정으로 표현하지 않습니다. 광고·추적 차단은 정보성으로, 사용자 규칙과 출처 불명은 미평가로 분류합니다.
+- DNS 이벤트의 최근 기록에는 개발 미리보기에서 분류명을 추가하고, 별도 위협 집계는 도메인·URL 없이 severity/title/time만 로컬 저장합니다.
+- Premium 개발 미리보기에 고위험 목록 일치·광고/추적·미평가 합계와 최근 분류를 표시합니다. threat analytics runtime은 DEBUG 빌드에서만 동작합니다.
+- DomainFilter 출처 분류 테스트를 추가했습니다. Android Gradle/JUnit 및 에뮬레이터/실기기 검증은 미완료입니다.
+
 ## 2026-11-23 — Windows 조용한 DNS 실행 및 반응형 설정 탐색
 - Windows DNS 어댑터 조회·변경에 사용하는 PowerShell 실행에 CREATE_NO_WINDOW 및 STARTF_USESHOWWINDOW를 적용해 보호 시작/중지 중 콘솔 창이 표시되지 않도록 수정했습니다.
 - Windows 설정 카테고리는 항목 선택만으로 자동 축소되지 않으며, 사용자가 접기 버튼을 누를 때만 아이콘 레일로 전환됩니다.
