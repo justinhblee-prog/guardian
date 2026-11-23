@@ -327,3 +327,9 @@
 - MainActivity는 제한된 내장 규칙 모드임을 사용자에게 안내하고, 서비스는 필터 준비 진단에 손상/누락 사유를 남깁니다.
 - `FilterStartupGateTest`에 손상된 기본 자산 거부 및 긴급 규칙 사용 가능성 회귀 테스트를 추가했습니다.
 - 검증 한계: 소스 수정 및 원격 반영만 완료. Android Gradle/JUnit, lint, APK, 에뮬레이터, 실기기 검증은 미실행이며 Actions 비용이 발생하는 실행은 시작하지 않았습니다.
+
+
+## 2026-11-24 후속 검수 — 기본 필터 규칙 수 오버플로
+
+- `FilterStartupGate.hasUsableBundledBaseline`의 덧셈 기반 판정을 개별 양수 비교로 변경해 정수 오버플로 가능성을 제거했습니다.
+- 극단 카운트 회귀 테스트 추가. Android Gradle/JUnit은 실행하지 않았습니다.
