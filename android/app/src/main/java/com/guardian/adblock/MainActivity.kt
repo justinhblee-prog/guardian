@@ -3804,10 +3804,24 @@ class MainActivity : Activity() {
                 // Downloaded lists are optional enhancements and must never be a hard
                 // prerequisite for creating the tunnel on a first install/offline device.
                 val bundled = assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
-                val baselineReady = FilterStartupGate.hasUsableBundledBaseline(
+                val bundledReady = FilterStartupGate.hasUsableBundledBaseline(
                     bundled.blocked.size,
                     bundled.importantBlocked.size
                 )
+                val baselineReady = if (bundledReady) {
+                    true
+                } else {
+                    android.util.Log.e(
+                        "GuardianProtection",
+                        "Bundled filter asset contains no usable block rules; switching to emergency rules"
+                    )
+                    prefs.edit().putString(
+                        GuardianVpnService.KEY_STARTUP_TRACE,
+                        "filter_rules.txt was present but contained no usable DNS block rules"
+                    ).apply()
+                    val emergencyCount = DomainFilter.resetToBootstrapRules()
+                    FilterStartupGate.hasUsableBundledBaseline(emergencyCount, 0)
+                }
                 val unavailable = mutableListOf<String>()
                 val mainReady = runCatching { FilterListManager.hasCachedList(this) }.getOrDefault(false)
                 val selected = FilterListManager.selectedProfile(this)
