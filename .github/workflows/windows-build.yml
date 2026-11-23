@@ -85,6 +85,13 @@ jobs:
           if (-not (Test-Path "$installDir\GuardianDnsProxy\_internal")) { throw "Installed DNS daemon runtime dependencies are missing" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if (-not $task) { throw "Boot-start DNS task was not registered" }
+          $daemonExe = Join-Path $installDir "GuardianDnsProxy\GuardianDnsProxy.exe"
+          if (-not (Test-Path -LiteralPath $daemonExe -PathType Leaf)) { throw "Installed DNS daemon executable is missing: $daemonExe" }
+          $taskXml = [xml](Export-ScheduledTask -TaskName GuardianDnsProxy)
+          $taskCommand = [Environment]::ExpandEnvironmentVariables([string]$taskXml.Task.Actions.Exec.Command)
+          if ([IO.Path]::GetFullPath($taskCommand) -ne [IO.Path]::GetFullPath($daemonExe)) {
+            throw "Scheduled DNS task points to '$taskCommand' instead of installed executable '$daemonExe'"
+          }
           python scripts/windows_dns_task_smoke.py
           if ($LASTEXITCODE -ne 0) { throw "Installed SYSTEM DNS task failed its IPv4 UDP/TCP loopback smoke test" }
           $restoreTest = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList "--restore-dns" -Wait -PassThru
