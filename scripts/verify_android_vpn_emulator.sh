@@ -1210,7 +1210,7 @@ if missing_settings or not selected_settings:
 
 # Verify the customer-facing support center is reachable and its FAQ/form UI
 # renders. The support card now lives in its dedicated Settings > 고객 지원 submenu.
-tap_text "고객 지원"
+scroll_to_text "고객 지원"
 sleep 1
 for attempt in $(seq 1 20); do
   adb_cmd shell input swipe 540 500 540 1550 250
