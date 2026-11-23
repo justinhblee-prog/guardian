@@ -96,7 +96,7 @@ def daemon_readiness_diagnosis():
     try:
         health=json.loads(HEALTH.read_text(encoding="utf-8"))
         pid=health.get("pid"); heartbeat=float(health.get("heartbeatAt",0)); age=time.time()-heartbeat
-        alive=daemon_process_is_running(HEALTH)
+        alive=daemon_health_is_fresh(HEALTH, process_check=lambda _pid: True)
         details.append(f"Daemon heartbeat: pid={pid}, age={age:.1f}s, process_alive={alive}")
     except Exception as exc: details.append("Daemon heartbeat: unavailable ("+str(exc)+")")
     try:
@@ -112,7 +112,7 @@ def daemon_readiness_diagnosis():
     try:
         for protocol in ("udp","tcp"):
             result=run_hidden(["netstat.exe","-ano","-p",protocol],capture_output=True,text=True,timeout=5)
-            matches=[line.strip() for line in (result.stdout or "").splitlines() if re.search(r":53(?:\\s|$)", line)]
+            matches=[line.strip() for line in (result.stdout or "").splitlines() if re.search(r":53(?:\s|$)", line)]
             details.append(f"Port 53 {protocol.upper()} endpoints: "+(" | ".join(matches[:8]) if matches else "no matching endpoint reported"))
             pids=set()
             for line in matches:
@@ -204,9 +204,9 @@ def ensure_daemon_running():
     raise NetworkConfigError("Guardian DNS background task did not become ready on IPv4 loopback port 53.\n\nStartup diagnosis:\n"+daemon_readiness_diagnosis())
 def stop_daemon(delete=False):
     run_task("/End","/TN",TASK_NAME)
-    if daemon_process_is_running(HEALTH):
+    if daemon_health_is_fresh(HEALTH, process_check=lambda _pid: True):
         deadline=time.monotonic()+5
-        while daemon_process_is_running(HEALTH) and time.monotonic()<deadline:
+        while daemon_health_is_fresh(HEALTH, process_check=lambda _pid: True) and time.monotonic()<deadline:
             time.sleep(.2)
         if daemon_process_is_running(HEALTH):
             raise NetworkConfigError("Guardian DNS background process did not stop; network protection state was not marked stopped")
