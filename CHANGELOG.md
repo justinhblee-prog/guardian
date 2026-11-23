@@ -1,8 +1,7 @@
-## 2026-11-24 — IPv6 확장 헤더 파서 누락 복구
-- IPv6 UDP DNS 파서가 호출하던 `Ipv6ExtensionHeaderParser` 구현 파일이 Android 소스 트리에 없는 것을 확인했습니다. 이 상태는 Android 컴파일을 막는 미해결 참조입니다.
-- 확장 헤더 체인 최대 8개/2,048바이트 제한, 패킷 경계 확인, Hop-by-Hop·Destination Options·Routing·AH 길이 검증을 구현했습니다.
-- 조각화(Fragment), 활성 Routing Header, 잘못된 AH 길이, 지원하지 않는 확장 헤더는 안전하게 거부합니다.
-- 파서 전용 단위 테스트를 추가했습니다. Android Gradle/JUnit 실행은 아직 미실행입니다.
+## 2026-11-24 — IPv6 확장 헤더 파서 구조 재확인
+- 추가 조사 결과 `Ipv6ExtensionHeaderParser`는 누락된 것이 아니라 `DnsTcpPacket.kt` 하단에 이미 정의되어 UDP/TCP DNS 경로가 공유하고 있었습니다.
+- 별도 파일로 중복 구현을 추가한 시도는 즉시 되돌려 중복 선언을 제거했습니다. 기존 공유 파서는 유지합니다.
+- 이 항목은 컴파일 오류 수정이 아니며, Gradle/JUnit 빌드도 아직 실행하지 않았습니다.
 
 ## 2026-11-24 — 업스트림 UDP DNS 수신 크기 보완
 - 업스트림 UDP DNS 응답 수신 버퍼를 임의의 4,096바이트에서 DNS 메시지 최대 크기인 65,535바이트로 확장했습니다. 큰 응답이 TC 비트 없이 잘려 전달되는 문제를 방지합니다.
