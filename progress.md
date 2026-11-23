@@ -267,3 +267,12 @@
 - 문의 조회 화면뿐 아니라 `LicenseApiClient.lookupSupportTicket()` 진입점에서도 접수 번호와 조회 코드를 검증해 다른 호출 경로에서 잘못된 요청이 전송되지 않도록 했습니다.
 - 테스트에 조회 코드 최소/최대 길이, 잘못된 패딩 및 공백 문자를 추가했습니다.
 - 실제 `SupportInputPolicy.kt`와 동등한 독립 Kotlin/JVM 하네스를 `kotlinc`로 컴파일·실행해 이메일, 접수 번호, 조회 코드 검증 3개 시나리오를 통과했습니다. Android Gradle/JUnit 및 실제 API/DB는 미실행입니다.
+
+
+## 2026-11-24 — 앱별 DNS 귀속/통계 기반
+- 전용 브랜치 `work/pro-app-policy-20261124`, 최신 구현 커밋 `393178e75a73b9adda67a48729c222bd37f8204e`.
+- Android 10(API 29)+에서 active VpnService가 UDP DNS flow의 local/remote endpoint를 이용해 `getConnectionOwnerUid`를 조회합니다. 단일 package UID만 귀속하고 공유 UID/미확인 UID는 누락 처리합니다.
+- UID/패키지 귀속 캐시는 1초, 최대 2,048 flow. 앱별 통계는 최대 200 package, 기기 내부에 질의·차단·전달·실패·광고·추적·기타 합계만 저장합니다. 도메인/URL은 앱별 통계에 저장하지 않습니다.
+- Premium DEBUG 미리보기에 앱별 DNS 통계 카드를 연결하고 전체 DNS 기록 초기화 시 앱별 통계도 삭제합니다.
+- 독립 Kotlin/JVM smoke 통과: package identity validation, Android API stub 기반 flow attribution, SharedPreferences stub 기반 app stats aggregation/clear.
+- 제한: Android 9 이하, DNS-over-TCP, DoH/DoT, 공유 UID 및 소유 UID 조회 불가 흐름은 앱별 귀속에서 제외됩니다. 실제 emulator/physical device verification 및 개별 per-app custom block policy는 미완료입니다.

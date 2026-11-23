@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-24 — PRO 앱별 DNS 귀속 및 통계 엔진 기반
+- Android 10+의 활성 VpnService에서 `ConnectivityManager.getConnectionOwnerUid`로 UDP DNS 흐름의 UID를 조회하고, 단일 패키지에만 귀속합니다. 공유 UID·확인 불가 흐름은 임의 앱에 연결하지 않습니다.
+- UID 조회는 1초 흐름 캐시를 사용하며, 앱별 집계는 기기 내부에 패키지명과 질의/차단/전달/실패/광고/추적/기타 합계만 저장합니다. 도메인/URL은 앱별 통계에 저장하지 않습니다.
+- 패키지 기록은 최대 200개로 제한하고, 전체 DNS 활동 초기화 시 앱별 집계도 함께 삭제합니다.
+- Premium 개발 미리보기에 앱별 DNS 활동 카드 연결. TCP DNS·DoH/DoT·공유 UID·Android 9 이하에서는 앱 귀속이 제한됩니다.
+- 독립 Kotlin/JVM smoke 통과: 패키지 식별 정책, SharedPreferences 경계 Stub을 이용한 집계 저장/정렬/초기화, Android API 경계 Stub을 이용한 UID 귀속 컴파일/실행.
+- 실제 Android Gradle/JUnit, 에뮬레이터의 UID 귀속, 실제 기기별 VPN 동작 및 정식 PRO entitlement gate는 미검증입니다.
+
 ## 2026-11-23 — Windows 조용한 DNS 실행 및 반응형 설정 탐색
 - Windows DNS 어댑터 조회·변경에 사용하는 PowerShell 실행에 CREATE_NO_WINDOW 및 STARTF_USESHOWWINDOW를 적용해 보호 시작/중지 중 콘솔 창이 표시되지 않도록 수정했습니다.
 - Windows 설정 카테고리는 항목 선택만으로 자동 축소되지 않으며, 사용자가 접기 버튼을 누를 때만 아이콘 레일로 전환됩니다.
