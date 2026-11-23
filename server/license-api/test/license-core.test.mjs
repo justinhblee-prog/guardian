@@ -48,6 +48,15 @@ test('signed entitlement is capped at 24 hours even for a long-lived license', (
 });
 
 
+test('permanent license entitlement remains refreshable without an artificial expiry', () => {
+  const now = 1_800_000_000_000;
+  const token = issueEntitlementToken({ licenseRef: '12345678-abcd', deviceBinding: device, expiresAt: null, privateKey, now });
+  const issuedAt = Number(token.payload.match(/issuedAt=(\d+)/)?.[1]);
+  const expires = Number(token.payload.match(/expiresAt=(\d+)/)?.[1]);
+  assert.equal(expires - issuedAt, 24 * 60 * 60);
+  assert.equal(verify('RSA-SHA256', Buffer.from(token.payload), publicKey, Buffer.from(token.signature, 'base64')), true);
+});
+
 test('signed entitlement never outlives an earlier license expiry', () => {
   const now = 1_800_000_000_000;
   const licenseExpiry = new Date(now + 15 * 60 * 1000).toISOString();
