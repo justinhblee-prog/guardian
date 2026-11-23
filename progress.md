@@ -276,3 +276,13 @@
 - Premium DEBUG 미리보기에 앱별 DNS 통계 카드를 연결하고 전체 DNS 기록 초기화 시 앱별 통계도 삭제합니다.
 - 독립 Kotlin/JVM smoke 통과: package identity validation, Android API stub 기반 flow attribution, SharedPreferences stub 기반 app stats aggregation/clear.
 - 제한: Android 9 이하, DNS-over-TCP, DoH/DoT, 공유 UID 및 소유 UID 조회 불가 흐름은 앱별 귀속에서 제외됩니다. 실제 emulator/physical device verification 및 개별 per-app custom block policy는 미완료입니다.
+
+
+## 2026-11-24 — 앱별 추가 DNS 정책 적용
+- 최신 branch 커밋: `a549550981bbd124eb2e4577ecb656cf55174f0a`.
+- Android 10+ UDP DNS UID attribution을 이용해 앱별 DNS 통계를 기기 내부에 저장합니다. 공유 UID/UID 미확인은 귀속하지 않습니다.
+- 앱별 추가 차단 도메인 목록을 UDP DNS query path에 적용합니다. 앱당 최대 200개, 주석/중복/대소문자/마지막 점 정규화. 전역 important block과 global allow precedence는 유지합니다.
+- Premium DEBUG 미리보기에 설치 앱 선택, 앱별 규칙 편집 및 저장 UI를 추가했습니다.
+- 독립 Kotlin/JVM smoke 통과: package identity, rule parser, SharedPreferences stub 기반 aggregate store, Android API stub 기반 UID mapping.
+- 보안/릴리스 경계: signed PRO entitlement gate 및 실제 Android 기기 테스트가 끝나지 않아 app attribution/stats/custom rules runtime은 BuildConfig.DEBUG에서만 활성화됩니다. Release build에서는 비활성.
+- 미완료: Gradle/JUnit, emulator/physical-device UID attribution, UDP app attribution on OEM devices, TCP DNS attribution, PRO entitlement integration, policy removal/uninstall cleanup, production UI.
