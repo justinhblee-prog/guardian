@@ -208,16 +208,15 @@ class DnsTcpSessionManager(
                     session.clientNext, DnsTcpPacket.RST or DnsTcpPacket.ACK))
             }
             session.clientNext = (session.clientNext + 1L) and MASK
-            val fin = DnsTcpPacket.response(tcp, session.serverNext, session.clientNext,
-                DnsTcpPacket.FIN or DnsTcpPacket.ACK)
-            session.serverNext = (session.serverNext + 1L) and MASK
             session.lastClientSegmentStart = tcp.sequence
             session.lastClientPayload = byteArrayOf()
             session.lastClientFin = true
             session.clientFinReceived = true
-            session.serverFinSent = true
-            session.lastServerReplies = listOf(fin.copyOf())
-            return listOf(fin)
+            val replies = drainServerData(tcp, session).toMutableList()
+            appendPendingFin(tcp, session, replies)
+            if (replies.isEmpty()) replies.add(ack(tcp, session))
+            session.lastServerReplies = replies.map { it.copyOf() }
+            return replies
         }
         return emptyList()
     }
