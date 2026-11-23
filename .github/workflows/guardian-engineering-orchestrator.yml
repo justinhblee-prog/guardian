@@ -58,10 +58,11 @@ jobs:
           python3 scripts/resolve_guardian_dev_version.py \
             --releases-json /tmp/guardian-releases.json \
             --commit "$GITHUB_SHA" \
-            --baseline-version "0.7.42-dev" \
-            --baseline-code 55 \
             --github-env "$GITHUB_ENV" \
             --github-output "$GITHUB_OUTPUT"
+      - name: Enforce cross-platform version and changelog consistency
+        run: python3 -m unittest scripts/test_verify_guardian_versions.py
+
       - name: Validate development version resolver contract
         run: python3 -m unittest scripts/test_resolve_guardian_dev_version.py
       - name: Unit tests
