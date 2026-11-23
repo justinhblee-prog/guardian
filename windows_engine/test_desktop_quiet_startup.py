@@ -1,7 +1,7 @@
 import ast
 from pathlib import Path
 
-from windows_engine import desktop
+from windows_engine import desktop, network_config
 
 
 def test_helper_processes_are_started_without_console_windows(monkeypatch):
@@ -41,3 +41,25 @@ def test_diagnostic_port_filter_does_not_match_mdns_5353():
     exact_port_53 = re.compile(r":53(?:\s|$)")
     assert exact_port_53.search("UDP    0.0.0.0:53             *:*                                    4812")
     assert not exact_port_53.search("UDP    0.0.0.0:5353           *:*                                    34420")
+
+
+def test_dns_adapter_powershell_runs_without_console_window(monkeypatch):
+    class StartupInfo:
+        dwFlags = 0
+        wShowWindow = 1
+
+    captured = {}
+    monkeypatch.setattr(network_config.os, "name", "nt")
+    monkeypatch.setattr(network_config.subprocess, "STARTUPINFO", StartupInfo, raising=False)
+    monkeypatch.setattr(network_config.subprocess, "STARTF_USESHOWWINDOW", 1, raising=False)
+    monkeypatch.setattr(network_config.subprocess, "CREATE_NO_WINDOW", 0x08000000, raising=False)
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        captured["kwargs"] = kwargs
+        return type("Result", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
+
+    monkeypatch.setattr(network_config.subprocess, "run", fake_run)
+    assert network_config.run_powershell("Get-DnsClientServerAddress") == "ok"
+    assert captured["kwargs"]["creationflags"] & 0x08000000
+    assert captured["kwargs"]["startupinfo"].wShowWindow == 0
