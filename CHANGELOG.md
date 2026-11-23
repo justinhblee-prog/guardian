@@ -478,3 +478,12 @@
 - Added regression tests proving the built-in emergency DNS rules replace the previous active rule set, contain exactly the expected 10 parseable block entries, preserve subdomain matching, and do not retain custom/allow rules from the replaced set.
 - This covers the pure Kotlin rule-engine behavior only. Android asset-open failure handling, VPN startup, Gradle/JUnit, emulator, and physical-device behavior remain unverified until the Android test environment is available.
 - No APK was built and no GitHub Actions run was triggered.
+
+
+## 2026-11-24 Android 무료 버전 — 손상된 기본 필터 자산 복구 경로
+
+- 기본 `filter_rules.txt`가 누락된 경우뿐 아니라 파일이 존재해도 유효한 차단 규칙이 하나도 없는 경우를 보호 시작 전 점검에서 감지하도록 수정했습니다.
+- MainActivity는 손상된 기본 자산을 최소 내장 긴급 규칙으로 대체하고 사용자에게 제한된 보호 모드임을 표시합니다.
+- GuardianVpnService도 동일한 유효성 검사를 수행해 사전 점검과 실제 VPN 규칙 로딩의 판단이 어긋나지 않도록 했습니다.
+- 회귀 테스트는 주석/잘못된 규칙만 포함된 자산을 거부하고 내장 긴급 규칙은 시작 가능한지 확인합니다.
+- 검증: 변경 소스 재조회 및 테스트 케이스 추가. Android Gradle/JUnit 실행, APK 생성, 에뮬레이터·실기기 검증은 아직 미실행입니다.
