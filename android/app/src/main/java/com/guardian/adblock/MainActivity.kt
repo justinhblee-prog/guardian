@@ -2217,7 +2217,12 @@ class MainActivity : Activity() {
                     setTextColor(bg)
                     background = shape(accent, 9)
                     setOnClickListener {
-                        val parsed = PerAppDnsRulePolicy.parse(rulesInput.text.toString())
+                        val parsed = runCatching {
+                            PerAppDnsRulePolicy.parse(rulesInput.text.toString())
+                        }.getOrElse {
+                            Toast.makeText(this@MainActivity, it.message ?: "규칙 입력을 확인해 주세요.", Toast.LENGTH_LONG).show()
+                            return@setOnClickListener
+                        }
                         if (parsed.invalidLines.isNotEmpty()) {
                             Toast.makeText(
                                 this@MainActivity,
@@ -2225,14 +2230,19 @@ class MainActivity : Activity() {
                                 Toast.LENGTH_LONG
                             ).show()
                         } else {
-                            val count = PerAppDnsPolicyStore.replaceRules(
-                                this@MainActivity, selectedPackage, rulesInput.text.toString()
-                            )
-                            Toast.makeText(
-                                this@MainActivity,
-                                "${selectedPackage}: 앱별 규칙 ${count}개 저장 · 다음 UDP DNS 요청부터 적용",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            runCatching {
+                                PerAppDnsPolicyStore.replaceRules(
+                                    this@MainActivity, selectedPackage, rulesInput.text.toString()
+                                )
+                            }.onSuccess { count ->
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "${selectedPackage}: 앱별 규칙 ${count}개 저장 · 다음 UDP DNS 요청부터 적용",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }.onFailure {
+                                Toast.makeText(this@MainActivity, it.message ?: "앱별 규칙 저장에 실패했습니다.", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
