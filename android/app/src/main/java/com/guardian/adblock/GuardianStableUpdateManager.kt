@@ -61,11 +61,11 @@ internal object GuardianStableUpdateManager {
         require(!manifestUrl.isNullOrBlank() && !apkUrl.isNullOrBlank()) {
             "최신 정식 Release에 guardian-android.json 또는 guardian-android.apk가 없습니다."
         }
-        require(isGuardianReleaseAssetUrl(manifestUrl)) {
-            "정식 업데이트 manifest 주소가 Guardian 공식 GitHub Release가 아닙니다."
+        require(GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl(manifestUrl, tag, MANIFEST_ASSET)) {
+            "정식 업데이트 manifest 주소가 해당 Guardian Release의 공식 자산 경로와 일치하지 않습니다."
         }
-        require(isGuardianReleaseAssetUrl(apkUrl)) {
-            "정식 APK 주소가 Guardian 공식 GitHub Release가 아닙니다."
+        require(GuardianStableUpdatePolicy.isOfficialReleaseAssetUrl(apkUrl, tag, APK_ASSET)) {
+            "정식 APK 주소가 해당 Guardian Release의 공식 자산 경로와 일치하지 않습니다."
         }
 
         val manifest = JSONObject(readHttps(manifestUrl, 64 * 1024))
@@ -183,7 +183,7 @@ internal object GuardianStableUpdateManager {
         val signatures = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else {
             @Suppress("DEPRECATION") info.signatures
         } ?: error("현재 설치된 앱의 서명 정보를 읽을 수 없습니다.")
-        val certificate = signatures.firstOrNull()?.toByteArray() ?: error("현재 설치된 앱의 서명 인증서가 없습니다.")
+        val certificate = signatures.firstOrNull()?.toByteArray() ?: error("현재 설치된 앱의 서명 인증서를 읽을 수 없습니다.")
         return fingerprint(certificate)
     }
 
@@ -268,13 +268,6 @@ internal object GuardianStableUpdateManager {
                 "release-assets.githubusercontent.com",
                 "objects.githubusercontent.com"
             ) && uri.userInfo == null
-    }.getOrDefault(false)
-
-    private fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
-        val uri = java.net.URI(address)
-        uri.scheme.equals("https", true) && uri.host.equals("github.com", true) &&
-            uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
-            uri.userInfo == null && uri.query == null && uri.fragment == null
     }.getOrDefault(false)
 
     private fun readHttps(address: String, maxBytes: Int): String {
