@@ -318,3 +318,12 @@
 - Verifies `resetToBootstrapRules()` replaces the prior active set (including custom rules), returns the expected 10-rule count, preserves subdomain blocking, and clears allow rules.
 - Verifies every built-in bootstrap line parses into a valid block rule and can be loaded by the production rule engine.
 - Test source and Changelog update committed; Android Gradle/JUnit execution remains pending. No CI run or APK build was triggered.
+
+
+## 2026-11-24 Android 무료 버전 후속 — 기본 필터 손상 감지
+
+- 보호 시작 사전 점검과 VPN 서비스 규칙 로딩에서 `filter_rules.txt`의 실제 유효 차단 규칙 수를 확인하도록 보강했습니다.
+- 파일 누락뿐 아니라 빈 파일·주석만 있는 파일·파싱 후 유효 차단 규칙이 없는 손상 파일도 내장 긴급 규칙 10개로 대체합니다.
+- MainActivity는 제한된 내장 규칙 모드임을 사용자에게 안내하고, 서비스는 필터 준비 진단에 손상/누락 사유를 남깁니다.
+- `FilterStartupGateTest`에 손상된 기본 자산 거부 및 긴급 규칙 사용 가능성 회귀 테스트를 추가했습니다.
+- 검증 한계: 소스 수정 및 원격 반영만 완료. Android Gradle/JUnit, lint, APK, 에뮬레이터, 실기기 검증은 미실행이며 Actions 비용이 발생하는 실행은 시작하지 않았습니다.
