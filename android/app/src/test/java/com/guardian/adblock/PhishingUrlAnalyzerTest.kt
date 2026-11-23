@@ -36,7 +36,7 @@ class PhishingUrlAnalyzerTest {
     }
 
     @Test fun userInformationAndExecutableDownloadsRaiseRisk() {
-        val result = PhishingUrlAnalyzer.analyze("https://trusted.example@evil.example/download.apk")
+        val result = PhishingUrlAnalyzer.analyze("http://trusted.example@192.0.2.10:8080/download.apk")
         assertTrue(result.signals.contains(PhishingUrlAnalyzer.Signal.EMBEDDED_CREDENTIALS))
         assertTrue(result.signals.contains(PhishingUrlAnalyzer.Signal.EXECUTABLE_DOWNLOAD))
         assertEquals(PhishingUrlAnalyzer.Risk.HIGH, result.risk)
