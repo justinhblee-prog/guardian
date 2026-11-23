@@ -178,7 +178,7 @@ class GuardianDesktop:
         self.header_status=tk.Label(top,textvariable=self.status,font=('Segoe UI',10,'bold'),fg='#f3b64a',bg='#263440',padx=14,pady=8); self.header_status.pack(side='right')
         self.workspace=tk.Frame(self.content,bg='#101820'); self.workspace.pack(fill='both',expand=True,padx=30,pady=(10,28))
         self.pages={name:tk.Frame(self.workspace,bg='#101820') for name in ('home','protection','filters','exclusions','activity','premium','updates','settings')}
-        nav_items=[('home','대시보드'),('protection','보호 설정'),('filters','필터 관리'),('exclusions','앱 제외 관리'),('activity','활동 및 기록'),('premium','라이선스 · Premium'),('updates','프로그램 업데이트'),('settings','일반 설정 · 지원')]
+        nav_items=[('home','홈'),('protection','보호'),('exclusions','앱 제외'),('activity','활동'),('settings','설정')]
         for key,label in nav_items:
             button=tk.Button(self.nav,text=label,anchor='w',command=lambda k=key:self.show_page(k),bg='#111e2a',fg='#bdcbd7',activebackground='#234a43',activeforeground='white',relief='flat',bd=0,font=('Segoe UI',10,'bold'),padx=14,pady=12,cursor='hand2')
             button.pack(fill='x',pady=2); self.nav_buttons[key]=button
@@ -320,7 +320,8 @@ class GuardianDesktop:
         if page != 'settings':
             self.page_title.configure(text=labels[page])
         self.current_page=page
-        for key,button in self.nav_buttons.items(): button.configure(bg='#234a43' if key==page else '#111e2a',fg='white' if key==page else '#bdcbd7')
+        selected_page = page if page in self.nav_buttons else ('settings' if page in {'filters','premium','updates'} else page)
+        for key,button in self.nav_buttons.items(): button.configure(bg='#234a43' if key==selected_page else '#111e2a',fg='white' if key==selected_page else '#bdcbd7')
     def _clear_settings_page(self):
         for widget in self.pages['settings'].winfo_children():
             widget.destroy()
