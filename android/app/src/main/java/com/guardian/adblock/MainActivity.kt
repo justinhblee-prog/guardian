@@ -1648,7 +1648,7 @@ class MainActivity : Activity() {
             Triple(
                 "프리미엄 리포트 및 통계",
                 "일간·주간·월간 DNS 보호 결과와 차단 유형을 요약하는 기능",
-                if (reportsAvailable) "PRO 기능 사용 가능" else "PRO 라이선스 활성화 후 이용 가능"
+                if (reportsAvailable) "PRO 기능 사용 가능" else "엔진 연결됨 · Android 검증 및 권한 등록 대기"
             )
         )
         previewFeatures.forEach { (name, description, status) ->

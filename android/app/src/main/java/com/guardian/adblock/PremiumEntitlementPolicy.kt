@@ -19,7 +19,7 @@ internal object PremiumEntitlementPolicy {
 
     // Keep empty until a feature has a real engine, UI action path and passing tests.
     // Adding a feature here is a security-sensitive release decision.
-    private val productionReadyFeatures: Set<Feature> = setOf(Feature.PREMIUM_REPORTS)
+    private val productionReadyFeatures: Set<Feature> = emptySet()
 
     fun isEntitlementActive(
         entitlement: LicenseEntitlementVerifier.Entitlement?,
