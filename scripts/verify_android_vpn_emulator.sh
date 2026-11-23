@@ -1243,13 +1243,23 @@ texts={node.attrib.get("text","") for node in nodes}
 selected_settings=any(node.attrib.get("content-desc")=="설정"
                       and node.attrib.get("selected")=="true"
                       for node in nodes)
-required_settings = {
-    "세부 설정", "일반", "필터링", "라이선스 및 프리미엄",
-    "프로그램 업데이트", "필터 관리", "앱 제외 관리"
-}
+required_settings = {"세부 설정", "일반", "필터링", "프로그램 업데이트", "필터 관리", "앱 제외 관리"}
 missing_settings = required_settings - texts
 if missing_settings or not selected_settings:
-    raise SystemExit("Guardian full menu is missing agreed entries: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
+    raise SystemExit("Guardian Settings top-level menu is missing entries: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
+# The Settings page is a vertically scrollable list. A single accessibility
+# hierarchy dump only includes rows intersecting the current viewport; verify
+# lower submenu rows after scrolling them into view instead of falsely treating
+# a partially visible next row as a missing menu entry.
+scroll_to_text "라이선스 및 프리미엄"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-license-menu.xml >/dev/null 2>&1
+license_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-license-menu.xml | tr -d '\r')"
+if ! grep -Fq '라이선스 및 프리미엄' <<<"$license_menu_xml"; then
+  echo "The License and Premium Settings entry did not become visible after scrolling."
+  echo "$license_menu_xml"
+  exit 1
+fi
 
 # Verify the About and Exit submenus even though they are below the phone viewport.
 scroll_to_text "정보"
