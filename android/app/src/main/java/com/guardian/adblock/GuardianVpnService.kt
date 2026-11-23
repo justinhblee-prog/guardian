@@ -106,6 +106,11 @@ class GuardianVpnService : VpnService() {
     private val compatibilityResumeInProgress = AtomicBoolean(false)
     private val compatibilityMonitorGeneration = AtomicLong(0L)
 
+    override fun onDestroy() {
+        PremiumReportStore.flushPending(this)
+        super.onDestroy()
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lastStartId = startId
         when (intent?.action) {
@@ -754,12 +759,12 @@ class GuardianVpnService : VpnService() {
 
     private fun recordDnsActivity(domain: String, blocked: Boolean, forwarded: Boolean) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val category = if (blocked) DomainFilter.classifyBlockedDomain(domain) else null
         synchronized(DNS_STATS_LOCK) {
             val queries = prefs.getLong(KEY_DNS_QUERIES, 0L) + 1L
             val blockedCount = prefs.getLong(KEY_DNS_BLOCKED, 0L) + if (blocked) 1L else 0L
             val forwardedCount = prefs.getLong(KEY_DNS_FORWARDED, 0L) + if (forwarded) 1L else 0L
             val failedCount = prefs.getLong(KEY_DNS_FAILED, 0L) + if (!blocked && !forwarded) 1L else 0L
-            val category = if (blocked) DomainFilter.classifyBlockedDomain(domain) else null
             val adBlocked = prefs.getLong(KEY_DNS_AD_BLOCKED, 0L) +
                 if (category == DomainFilter.BlockCategory.AD) 1L else 0L
             val trackerBlocked = prefs.getLong(KEY_DNS_TRACKER_BLOCKED, 0L) +
@@ -790,6 +795,13 @@ class GuardianVpnService : VpnService() {
                 ).apply()
             }
         }
+        PremiumReportStore.recordDnsEvent(
+            this,
+            System.currentTimeMillis(),
+            blocked,
+            forwarded,
+            category
+        )
         // Persist every query, but coalesce UI refresh broadcasts to avoid flooding
         // the main thread when an app generates many DNS requests in a short burst.
         val now = android.os.SystemClock.elapsedRealtime()

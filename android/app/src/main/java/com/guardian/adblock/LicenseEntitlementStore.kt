@@ -49,6 +49,7 @@ internal object LicenseEntitlementStore {
             .putString(KEY_PAYLOAD, Base64.encodeToString(payload, Base64.NO_WRAP))
             .putString(KEY_SIGNATURE, signatureBase64)
             .commit()) { "라이선스 정보를 안전하게 저장하지 못했습니다." }
+        PremiumReportStore.invalidateEntitlementCache()
         return entitlement
     }
 
@@ -103,7 +104,9 @@ internal object LicenseEntitlementStore {
     @Synchronized
     fun clear(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        return prefs.edit().remove(KEY_PAYLOAD).remove(KEY_SIGNATURE).commit()
+        val cleared = prefs.edit().remove(KEY_PAYLOAD).remove(KEY_SIGNATURE).commit()
+        if (cleared) PremiumReportStore.invalidateEntitlementCache()
+        return cleared
     }
 
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
