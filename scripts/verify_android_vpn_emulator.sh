@@ -193,20 +193,18 @@ open_license_premium_menu() {
 
 open_settings_menu_item() {
   local title="$1"
-  local xml
+  local xml target
   xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
   if grep -Fq 'content-desc="설정"' <<<"$xml"; then
     tap_content_description "설정"
     sleep 1
-    scroll_to_text "$title"
   elif grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
     tap_content_description "전체 메뉴"
     sleep 1
-    scroll_to_text "$title"
   else
     case "$title" in
-      "앱 제외 관리") tap_content_description "앱 제외" ;;
-      "필터 관리") tap_content_description "필터 규칙" ;;
+      "앱 제외 관리") tap_content_description "앱 제외"; sleep 1 ;;
+      "필터 관리") tap_content_description "필터 규칙"; sleep 1 ;;
       *)
         echo "Legacy navigation fallback is not defined for menu item: $title"
         echo "$xml"
@@ -214,6 +212,42 @@ open_settings_menu_item() {
         ;;
     esac
   fi
+
+  # The previous published APK uses the shorter "앱 제외" label, while the
+  # redesigned Settings screen uses "앱 제외 관리". Resolve from the live
+  # accessibility hierarchy instead of assuming the newest label exists.
+  xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+  target="$(python3 - "$title" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+
+root = ET.fromstring(sys.stdin.read())
+requested = sys.argv[1]
+aliases = {
+    "앱 제외 관리": ("앱 제외 관리", "앱 제외"),
+    "필터 관리": ("필터 관리", "필터 규칙"),
+}
+candidates = aliases.get(requested, (requested,))
+visible = {
+    value.strip()
+    for node in root.iter("node")
+    if node.attrib.get("visible-to-user", "true") == "true"
+    for value in (node.attrib.get("text", ""), node.attrib.get("content-desc", ""))
+    if value.strip()
+}
+for candidate in candidates:
+    if candidate in visible:
+        print(candidate)
+        raise SystemExit(0)
+raise SystemExit("No visible compatible Settings item for: " + requested)
+PY
+)" || {
+    echo "Could not resolve Settings menu item '$title' from the live UI."
+    echo "$xml"
+    return 1
+  }
+  echo "Resolved Settings item: $title -> $target"
+  scroll_to_text "$target"
   sleep 1
 }
 
