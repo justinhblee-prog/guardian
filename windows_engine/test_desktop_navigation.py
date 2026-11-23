@@ -31,7 +31,7 @@ def test_windows_settings_uses_persistent_category_and_detail_panes():
 
 def test_windows_settings_details_render_in_detail_pane_not_over_sidebar():
     source = (Path(__file__).with_name("desktop.py")).read_text(encoding="utf-8")
-    settings_methods = source[source.index("    def _settings_subpage_header"):source.index("    def confirm_exit")]
+    settings_methods = source[source.index("    def show_general_settings"):source.index("    def confirm_exit")]
     assert "self.settings_detail" in settings_methods
     assert "self.pages['settings'],text=" not in settings_methods
     assert "self.pages['settings'],bg=" not in settings_methods
