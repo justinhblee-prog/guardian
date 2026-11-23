@@ -228,6 +228,87 @@ class GuardianDesktop:
         self.show_page('home')
         self.refresh_license_status()
         root.protocol('WM_DELETE_WINDOW',self.close); self.recover_previous_state(); self.refresh()
+    def show_error_dialog(self,title,message):
+        """Show actionable diagnostics with reliable copy/select-all support."""
+        detail=str(message)
+        dialog=tk.Toplevel(self.root)
+        dialog.title(title)
+        dialog.configure(bg="#101820")
+        dialog.geometry("780x540")
+        dialog.minsize(560,360)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        header=tk.Frame(dialog,bg="#101820")
+        header.pack(fill="x",padx=18,pady=(16,8))
+        tk.Label(header,text="오류가 발생했습니다",font=("Segoe UI",14,"bold"),
+                 fg="#ff9b85",bg="#101820").pack(anchor="w")
+        tk.Label(header,text="아래 진단 내용을 그대로 복사해 전달할 수 있습니다.",
+                 font=("Segoe UI",9),fg="#bdcbd7",bg="#101820").pack(anchor="w",pady=(4,0))
+        area=tk.Frame(dialog,bg="#101820")
+        area.pack(fill="both",expand=True,padx=18,pady=8)
+        scrollbar=tk.Scrollbar(area,orient="vertical")
+        scrollbar.pack(side="right",fill="y")
+        text=tk.Text(area,wrap="word",undo=False,relief="flat",bd=0,
+                     bg="#172635",fg="#f2f6fa",insertbackground="white",
+                     selectbackground="#287c70",selectforeground="white",
+                     font=("Consolas",9),padx=12,pady=10,
+                     yscrollcommand=scrollbar.set)
+        text.pack(side="left",fill="both",expand=True)
+        scrollbar.configure(command=text.yview)
+        text.insert("1.0",detail)
+        text.configure(state="disabled")
+        feedback=tk.StringVar(value="오류 내용을 선택하거나 전체 복사할 수 있습니다.")
+        tk.Label(dialog,textvariable=feedback,font=("Segoe UI",9),
+                 fg="#9fb2c3",bg="#101820").pack(anchor="w",padx=18,pady=(2,6))
+        buttons=tk.Frame(dialog,bg="#101820")
+        buttons.pack(fill="x",padx=18,pady=(0,16))
+        def copy_all():
+            try:
+                dialog.clipboard_clear()
+                dialog.clipboard_append(detail)
+                dialog.update_idletasks()
+                feedback.set("오류 내용 전체를 클립보드에 복사했습니다.")
+            except tk.TclError as error:
+                feedback.set("클립보드 복사 실패: "+str(error))
+        def select_all(event=None):
+            text.configure(state="normal")
+            text.tag_add("sel","1.0","end-1c")
+            text.mark_set("insert","1.0")
+            text.configure(state="disabled")
+            text.focus_set()
+            return "break"
+        def copy_selection(event=None):
+            try:
+                selected=text.get("sel.first","sel.last")
+            except tk.TclError:
+                selected=detail
+            try:
+                dialog.clipboard_clear()
+                dialog.clipboard_append(selected)
+                dialog.update_idletasks()
+                feedback.set("선택한 오류 내용을 클립보드에 복사했습니다.")
+            except tk.TclError as error:
+                feedback.set("클립보드 복사 실패: "+str(error))
+            return "break"
+        text.bind("<Control-a>",select_all)
+        text.bind("<Control-A>",select_all)
+        text.bind("<Control-c>",copy_selection)
+        text.bind("<Control-C>",copy_selection)
+        tk.Button(buttons,text="오류 내용 복사",command=copy_all,
+                  bg="#197a57",fg="white",activebackground="#238b67",
+                  relief="flat",padx=16,pady=8,cursor="hand2").pack(side="left")
+        tk.Button(buttons,text="전체 선택",command=select_all,
+                  bg="#294e70",fg="white",relief="flat",
+                  padx=16,pady=8,cursor="hand2").pack(side="left",padx=8)
+        tk.Button(buttons,text="닫기",command=dialog.destroy,
+                  bg="#33404c",fg="white",relief="flat",
+                  padx=20,pady=8,cursor="hand2").pack(side="right")
+        text.focus_set()
+        dialog.bind("<Escape>",lambda _event:dialog.destroy())
+        dialog.bind("<Control-c>",copy_selection)
+        dialog.bind("<Control-C>",copy_selection)
+        dialog.wait_window()
+
     def _section(self,page,title,description):
         frame=self.pages[page]
         tk.Label(frame,text=title,font=('Segoe UI',20,'bold'),fg='#f2f6fa',bg='#101820').pack(anchor='w',pady=(8,6))
@@ -273,13 +354,13 @@ class GuardianDesktop:
                     try: self.manager.restore(); write_state(False)
                     except Exception: pass
                 [button.configure(state="disabled") for button in self.start_buttons]
-                messagebox.showerror("Guardian DNS 복구",f"이전 보호 상태를 자동 복구하지 못했습니다. DNS 백업을 보존했습니다.\n\n{exc}")
+                self.show_error_dialog("Guardian DNS 복구",f"이전 보호 상태를 자동 복구하지 못했습니다. DNS 백업을 보존했습니다.\n\n{exc}")
         elif STATE.exists():
             write_state(False)
             try: stop_daemon()
             except Exception as exc:
                 self.set_active_ui(False,"보호 꺼짐 · 백그라운드 종료 확인 필요")
-                messagebox.showerror("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\n\n{exc}")
+                self.show_error_dialog("Guardian DNS 백그라운드 종료",f"DNS 보호는 꺼졌지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\n\n{exc}")
     def start_protection(self):
         if self.active: return
         try:
@@ -295,26 +376,26 @@ class GuardianDesktop:
                 try: stop_daemon()
                 except Exception as stop_error:
                     self.set_active_ui(False,"보호 시작 실패 · 백그라운드 종료 확인 필요")
-                    messagebox.showerror("Guardian 보호 시작 실패",f"{exc}\n\n백그라운드 종료 실패: {stop_error}")
+                    self.show_error_dialog("Guardian 보호 시작 실패",f"{exc}\n\n백그라운드 종료 실패: {stop_error}")
                     return
                 self.set_active_ui(False,"보호 시작 실패")
-            messagebox.showerror("Guardian 보호 시작 실패",str(exc))
+            self.show_error_dialog("Guardian 보호 시작 실패",str(exc))
     def stop_protection(self):
         if not self.active and not BACKUP.exists(): return
         try: self.manager.restore()
         except Exception as exc:
             self.set_active_ui(True,"보호 경로 유지 중 · DNS 복구 필요")
-            messagebox.showerror("DNS 복구 실패",f"백그라운드 DNS 프록시를 계속 유지하고 백업을 보존했습니다.\n\n{exc}"); return
+            self.show_error_dialog("DNS 복구 실패",f"백그라운드 DNS 프록시를 계속 유지하고 백업을 보존했습니다.\n\n{exc}"); return
         write_state(False)
         try: stop_daemon()
         except Exception as exc:
             self.set_active_ui(False,"DNS 복구 완료 · 백그라운드 종료 확인 필요")
-            messagebox.showerror("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\n\n{exc}")
+            self.show_error_dialog("Guardian DNS 종료 실패",f"기존 DNS 설정은 복구했지만 백그라운드 프로세스 종료를 확인하지 못했습니다.\n\n{exc}")
             return
         self.set_active_ui(False)
     def open_filter_settings(self):
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
-        except Exception as exc: messagebox.showerror("필터 서버 설정",str(exc)); return
+        except Exception as exc: self.show_error_dialog("필터 서버 설정",str(exc)); return
         dialog=tk.Toplevel(self.root); dialog.title("서명 필터 서버 설정"); dialog.geometry("560x360"); dialog.configure(bg="#101820")
         tk.Label(dialog,text="HTTPS manifest 기본 주소",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(14,2))
         base=tk.Entry(dialog,width=72); base.insert(0,data.get("manifest_base_url","")); base.pack(fill="x",padx=16)
@@ -346,7 +427,7 @@ class GuardianDesktop:
             self.license_status.configure(text="라이선스: 설정 필요",fg="#f3b64a")
     def open_license_settings(self):
         try: data=json.loads(CONFIG.read_text(encoding="utf-8"))
-        except Exception as exc: messagebox.showerror("Guardian 라이선스",str(exc)); return
+        except Exception as exc: self.show_error_dialog("Guardian 라이선스",str(exc)); return
         dialog=tk.Toplevel(self.root); dialog.title("Guardian 공통 라이선스"); dialog.geometry("620x520"); dialog.configure(bg="#101820")
         tk.Label(dialog,text="공통 라이선스 API HTTPS 주소",fg="white",bg="#101820").pack(anchor="w",padx=16,pady=(14,2))
         base=tk.Entry(dialog); base.insert(0,data.get("license_api_base_url","")); base.pack(fill="x",padx=16)
@@ -399,7 +480,7 @@ class GuardianDesktop:
             status={"state":"updated","sourceVersion":result["sourceVersion"],"checkedAt":time.time()}
             tmp=APP_DIR/"filter-update-status.tmp"; tmp.write_text(json.dumps(status),encoding="utf-8"); os.replace(tmp,APP_DIR/"filter-update-status.json")
             messagebox.showinfo("필터 업데이트 완료",f"서명 검증 및 SHA-256 확인 완료\n버전: {result['sourceVersion']}\n차단 규칙: {len(DomainRules.from_text(rules_path.read_text(encoding='utf-8')).blocked):,}개")
-        except Exception as exc: messagebox.showerror("필터 업데이트 실패",str(exc))
+        except Exception as exc: self.show_error_dialog("필터 업데이트 실패",str(exc))
     def refresh(self):
         try:
             stats=json.loads(STATS.read_text(encoding="utf-8")) if STATS.exists() else {}
