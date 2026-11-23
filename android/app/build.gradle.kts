@@ -233,5 +233,6 @@ android {
 
 dependencies {
     implementation("androidx.work:work-runtime:2.12.0")
+    implementation("androidx.biometric:biometric:1.1.0")
     testImplementation("junit:junit:4.13.2")
 }
