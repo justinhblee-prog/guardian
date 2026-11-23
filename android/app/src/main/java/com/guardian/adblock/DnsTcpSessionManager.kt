@@ -83,6 +83,14 @@ class DnsTcpSessionManager(
         if (sequenceAfter(tcp.acknowledgement, session.serverNext)) {
             return listOf(ack(tcp, session))
         }
+        // Before the first server data byte is sent, the only valid ACK is
+        // exactly SYN-ACK's next sequence. A stale ACK must not establish the
+        // stream or allow DNS payload to reach the resolver.
+        val initialServerNext = (session.serverInitial + 1L) and MASK
+        if (session.serverNext == initialServerNext &&
+            tcp.acknowledgement != initialServerNext) {
+            return listOf(ack(tcp, session))
+        }
         session.lastActivity = now
         // Keep a half-closed session until the client acknowledges our FIN.
         // This lets a lost FIN/data response be replayed on an exact retransmission.
