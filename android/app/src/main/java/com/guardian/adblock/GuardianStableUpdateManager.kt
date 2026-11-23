@@ -47,15 +47,6 @@ internal object GuardianStableUpdateManager {
             GuardianStableUpdatePolicy.compareVersionTags(left.tag, right.tag)
         } ?: return null
         val tag = latest.tag
-        if (!GuardianStableUpdatePolicy.isNewerVersion(BuildConfig.VERSION_CODE, tag.substring(1).let {
-                val parts = it.split('.')
-                // Version code remains the install-order authority; this value is only
-                // a quick semantic check before parsing the signed manifest.
-                parts[0].toIntOrNull()?.times(1_000_000)
-                    ?.plus(parts[1].toIntOrNull()?.times(1_000) ?: 0)
-                    ?.plus(parts[2].toIntOrNull() ?: 0) ?: Int.MAX_VALUE
-            })) return null
-
         val assets = latest.release.optJSONArray("assets")
             ?: error("최신 정식 Release에 업데이트 자산 목록이 없습니다.")
         var manifestUrl: String? = null
