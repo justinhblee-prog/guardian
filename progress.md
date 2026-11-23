@@ -305,3 +305,9 @@
 - 최신 무료 브랜치 커밋 `b281f463eec616604db20f30bb558fc3640e31e7`.
 - 자동 redirect를 끄고 3xx Location을 수동으로 처리합니다. 다음 서버에 연결하기 전에 HTTPS scheme와 GitHub 공식 API/release asset host allowlist를 확인하고, 최대 5회까지만 허용합니다.
 - 기존 사후 최종 URL 검사보다 안전하게, 비허용 host에 HTTP 요청을 보내기 전에 차단합니다. 실제 GitHub CDN redirect 및 APK 설치는 아직 검증되지 않았습니다.
+
+
+## 2026-11-24 — updater redirect port allowlist
+- 최신 무료 브랜치 커밋 `673c4991b9d6d8dbf8825ce3f6c46c152604006a`.
+- GitHub 공식 호스트라도 HTTPS 기본 포트 443 이외의 포트는 redirect target으로 허용하지 않습니다.
+- Kotlin/JVM smoke 통과: 공식 asset host, HTTP/비허용 host/userinfo/비표준 포트 차단.
