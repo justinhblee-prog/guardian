@@ -12,14 +12,14 @@
 
 ## 작업 브랜치 현황
 
-| 트랙 | 브랜치 | 최신 기준 커밋 | 주요 범위 |
+| 트랙 | 브랜치 | 상태 확인 시점 HEAD (2026-11-24) | 주요 범위 |
 |---|---|---|---|
-| 무료 Android | `work/android-free-release-20261124` | `ddb449d0d9af25cae6aa6710e9ca504e6143e30d` | 복구/진단, 보호 시작 fallback, 정식 updater 검증 |
+| 무료 Android | `work/android-free-release-20261124` | `42eef8343a8fe8262bbc081c0baea9a24b1c9be3` | 복구/진단, 보호 시작 fallback, 정식 updater 검증 |
 | PRO 공통 기반 | `work/android-pro-premium-20261124` | `bc025fcfbd0677c6004677791c8f21c671dbe4bc` | fail-closed entitlement, 일별 DNS 리포트 |
 | 고급 필터 | #297 | 별도 엔진/정책 작업 | 필터 범위·출처·갱신 정책 |
 | 앱별 보호 | `work/pro-app-policy-20261124` | `a2802d6beca848f6e1dd42804730895c8541e1e4` | UDP DNS UID 귀속, 앱별 집계/추가 차단 규칙 |
 | 위협 분석 | `work/pro-threat-analytics-20261124` | `15f1254bb2fec70c8302938816f32ad3f8186daf` | 필터 출처 기반 evidence 분류 |
-| 보안 프로필 | `work/pro-security-profiles-20261124` | `beb03345685896cdbd1ffb88671c3d94c3b993ed` | 네트워크 callback 기반 DEBUG 자동 전환 |
+| 보안 프로필 | `work/pro-security-profiles-20261124` | `65c93cf4880f3a7b6fe4dda6ad202c716409cefd` | 네트워크 callback 기반 DEBUG 자동 전환 |
 | 피싱·앱 검사 | `work/pro-phishing-scan-20261124` | `c2385ec70d3cb7e962460f941d86d781c0ab765c` | URL 구조 분석, APK DEX 정적 검사 |
 
 ## 통합 충돌이 예상되는 공통 파일
