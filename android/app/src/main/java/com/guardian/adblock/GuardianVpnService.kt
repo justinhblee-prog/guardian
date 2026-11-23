@@ -811,13 +811,13 @@ class GuardianVpnService : VpnService() {
         val minimumRuleCounts = mutableListOf<Int>()
         val unavailable = mutableListOf<String>()
         sources.add {
-            try {
+            val bundled = try {
                 assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
             } catch (error: Exception) {
                 // Keep VPN startup available even if a packaged APK is missing its
                 // shared baseline asset. This is a degraded emergency list, not a
                 // substitute for repairing the APK asset packaging.
-                unavailable.add("기본 필터 라이브러리 누락 (${SafeFailureSummary.codeFor(error)}) — 내장 긴급 규칙")
+                unavailable.add("기본 필터 라이브러리 누락 (${SafeFailureSummary.codeFor(error)})")
                 prefs.edit().putString(
                     KEY_STARTUP_TRACE,
                     ProtectionDiagnostics.exceptionTraceSummary(error)
@@ -826,6 +826,26 @@ class GuardianVpnService : VpnService() {
                     "Guardian",
                     "Bundled filter asset unavailable; using emergency rules: ${SafeFailureSummary.codeFor(error)}"
                 )
+                null
+            }
+            if (bundled != null && FilterStartupGate.hasUsableBundledBaseline(
+                    bundled.blocked.size,
+                    bundled.importantBlocked.size
+                )
+            ) {
+                bundled
+            } else {
+                if (bundled != null) {
+                    unavailable.add("기본 필터 라이브러리 손상 — 내장 긴급 규칙")
+                    prefs.edit().putString(
+                        KEY_STARTUP_TRACE,
+                        "filter_rules.txt was present but contained no usable DNS block rules"
+                    ).apply()
+                    android.util.Log.e(
+                        "Guardian",
+                        "Bundled filter asset contains no usable block rules; using emergency rules"
+                    )
+                }
                 FilterRuleParser.parse(DomainFilter.bootstrapRuleLines())
             }
         }
