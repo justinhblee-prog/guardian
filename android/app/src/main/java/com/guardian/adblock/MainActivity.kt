@@ -2173,7 +2173,9 @@ class MainActivity : Activity() {
             setTextColor(white)
             setPadding(0, dp(12), 0, dp(8))
         }
+        var selectedDays = 7
         fun render(days: Int) {
+            selectedDays = days
             val summary = PremiumReportStore.readSummary(this, days)
             reportDetails.text = if (summary == null || summary.queries == 0L) {
                 "최근 ${days}일 동안 집계된 DNS 보호 기록이 없습니다."
@@ -2210,6 +2212,28 @@ class MainActivity : Activity() {
             topMargin = dp(12)
         })
         reportCard.addView(reportDetails, LinearLayout.LayoutParams(-1, -2))
+        val exportButton = Button(this).apply {
+            text = "CSV 리포트 공유"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 9)
+            setOnClickListener {
+                val summary = PremiumReportStore.readSummary(this@MainActivity, selectedDays)
+                if (summary == null) {
+                    Toast.makeText(this@MainActivity, "리포트를 읽을 수 없습니다. PRO 권한과 기록을 확인해 주세요.", Toast.LENGTH_LONG).show()
+                } else {
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/csv"
+                        putExtra(Intent.EXTRA_SUBJECT, "Guardian Premium 보호 리포트")
+                        putExtra(Intent.EXTRA_TEXT, PremiumReportCsv.render(summary))
+                    }
+                    startActivity(Intent.createChooser(shareIntent, "보호 리포트 공유"))
+                }
+            }
+        }
+        reportCard.addView(exportButton, LinearLayout.LayoutParams(-1, dp(44)).apply {
+            topMargin = dp(8)
+        })
         render(7)
         return reportCard
     }
