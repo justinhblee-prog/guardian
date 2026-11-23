@@ -12,7 +12,7 @@ class ApkStaticAnalyzerTest {
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
             contents.forEachIndexed { i, text ->
-                zip.putNextEntry(ZipEntry(if (i == 0) "classes.dex" else "classes\${i + 1}.dex"))
+                zip.putNextEntry(ZipEntry(if (i == 0) "classes.dex" else "classes" + (i + 1) + ".dex"))
                 zip.write(byteArrayOf(100, 101, 120, 10, 48, 51, 53, 0))
                 zip.write(text.toByteArray(Charsets.ISO_8859_1))
                 zip.closeEntry()
