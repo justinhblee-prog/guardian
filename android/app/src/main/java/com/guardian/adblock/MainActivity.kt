@@ -2175,6 +2175,68 @@ class MainActivity : Activity() {
                     ).withTop(4))
                 }
             }
+            addView(text("앱별 추가 차단 규칙", 13f, white, true).withTop(16))
+            addView(text("선택한 앱의 UDP DNS 요청에만 추가 차단 규칙을 적용합니다. 전역 허용 규칙과 중요 차단 규칙의 우선순위는 유지됩니다.", 10f, muted, false).withTop(4))
+            val installedApps = InstalledAppInventory.load(this@MainActivity).apps
+            if (installedApps.isEmpty()) {
+                addView(text("설치 앱 목록을 가져올 수 없어 앱별 규칙 편집을 사용할 수 없습니다.", 10f, muted, false).withTop(8))
+            } else {
+                var selectedPackage = installedApps.first().first
+                val appSpinner = Spinner(this@MainActivity).apply {
+                    adapter = darkSpinnerAdapter(installedApps.map { "${it.second} · ${it.first}" })
+                    background = shape(panel2, 10)
+                    setPopupBackgroundDrawable(shape(panel, 10))
+                }
+                addView(appSpinner, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(8) })
+                val rulesInput = EditText(this@MainActivity).apply {
+                    hint = "ads.example.com\ntracker.example.com"
+                    setText(PerAppDnsPolicyStore.rules(this@MainActivity, selectedPackage).sorted().joinToString("\n"))
+                    setTextColor(white)
+                    setHintTextColor(muted)
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                    setSingleLine(false)
+                    minLines = 3
+                    maxLines = 6
+                    gravity = Gravity.TOP
+                    setPadding(dp(12), dp(10), dp(12), dp(10))
+                    background = shape(bg, 10)
+                }
+                addView(rulesInput, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+                appSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                    override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                        selectedPackage = installedApps[position].first
+                        rulesInput.setText(
+                            PerAppDnsPolicyStore.rules(this@MainActivity, selectedPackage).sorted().joinToString("\n")
+                        )
+                    }
+                }
+                addView(Button(this@MainActivity).apply {
+                    text = "선택 앱에 추가 차단 규칙 저장"
+                    isAllCaps = false
+                    setTextColor(bg)
+                    background = shape(accent, 9)
+                    setOnClickListener {
+                        val parsed = PerAppDnsRulePolicy.parse(rulesInput.text.toString())
+                        if (parsed.invalidLines.isNotEmpty()) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "잘못된 도메인: ${parsed.invalidLines.take(2).joinToString(", ")}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            val count = PerAppDnsPolicyStore.replaceRules(
+                                this@MainActivity, selectedPackage, rulesInput.text.toString()
+                            )
+                            Toast.makeText(
+                                this@MainActivity,
+                                "${selectedPackage}: 앱별 규칙 ${count}개 저장 · 다음 UDP DNS 요청부터 적용",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            }
             addView(text("개발 미리보기 데이터는 기기 내부에만 저장되며 PRO 권한을 부여하지 않습니다.", 10f, Color.rgb(238, 176, 82), true).withTop(10))
         }
     }
