@@ -264,7 +264,16 @@ cache_ready() {
 
 echo "Verifying the dedicated Guardian Premium menu and license activation focus."
 dismiss_dev_update_prompt
-tap_content_description "프리미엄"
+premium_nav_xml="$(dump_ui_hierarchy /sdcard/guardian-premium-navigation.xml)"
+if grep -Fq 'content-desc="Premium"' <<<"$premium_nav_xml"; then
+  tap_content_description "Premium"
+elif grep -Fq 'content-desc="프리미엄"' <<<"$premium_nav_xml"; then
+  tap_content_description "프리미엄"
+else
+  echo "Could not locate the Guardian Premium navigation item."
+  echo "$premium_nav_xml"
+  exit 1
+fi
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
