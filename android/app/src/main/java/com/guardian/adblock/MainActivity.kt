@@ -1711,8 +1711,9 @@ class MainActivity : FragmentActivity() {
             SettingsEntry("◉", "일반", "앱 동작, DNS 연결 및 기본 환경", "settings-general"),
             SettingsEntry("◈", "필터링", "광고·추적 차단, 보호 정책과 사용자 규칙", "settings-filtering"),
             SettingsEntry("◇", "라이선스 및 프리미엄", "이용 기간, 허용 기기와 프리미엄 기능", "settings-premium"),
+            SettingsEntry("⇧", "앱 업데이트", "Guardian 프로그램 버전 확인 및 설치", "updates"),
             SettingsEntry("✉", "고객 지원", "도움말, 시스템 진단과 오류 내용 복사", "settings-support"),
-            SettingsEntry("ⓘ", "정보", "제품 정보, 개인정보와 업데이트", "settings-about"),
+            SettingsEntry("ⓘ", "정보", "제품 정보, 개인정보 및 오픈소스 고지", "settings-about"),
             SettingsEntry("⏻", "종료", "앱 종료 및 백그라운드 보호 안내", "settings-exit")
         )
         val screenWidthDp = resources.configuration.screenWidthDp
@@ -1765,6 +1766,7 @@ class MainActivity : FragmentActivity() {
                 "settings-general" -> buildSettingsGeneral(detailPanel)
                 "settings-filtering" -> buildSettingsFiltering(detailPanel)
                 "settings-premium" -> buildSettingsPremium(detailPanel)
+                "updates" -> buildUpdates(detailPanel)
                 "settings-support" -> {
                     detailPanel.addView(text("고객 지원", 25f, white, true))
                     detailPanel.addView(buildSupportCenterCard().withTop(12))
