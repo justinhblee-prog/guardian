@@ -1711,9 +1711,8 @@ class MainActivity : FragmentActivity() {
             SettingsEntry("◉", "일반", "앱 동작, DNS 연결 및 기본 환경", "settings-general"),
             SettingsEntry("◈", "필터링", "광고·추적 차단, 보호 정책과 사용자 규칙", "settings-filtering"),
             SettingsEntry("◇", "라이선스 및 프리미엄", "이용 기간, 허용 기기와 프리미엄 기능", "settings-premium"),
-            SettingsEntry("⇧", "앱 업데이트", "Guardian 프로그램 버전 확인 및 설치", "updates"),
             SettingsEntry("✉", "고객 지원", "도움말, 시스템 진단과 오류 내용 복사", "settings-support"),
-            SettingsEntry("ⓘ", "정보", "제품 정보, 개인정보 및 오픈소스 고지", "settings-about"),
+            SettingsEntry("ⓘ", "정보", "제품 정보, 개인정보 및 앱 업데이트", "settings-about"),
             SettingsEntry("⏻", "종료", "앱 종료 및 백그라운드 보호 안내", "settings-exit")
         )
         val screenWidthDp = resources.configuration.screenWidthDp
@@ -1766,7 +1765,6 @@ class MainActivity : FragmentActivity() {
                 "settings-general" -> buildSettingsGeneral(detailPanel)
                 "settings-filtering" -> buildSettingsFiltering(detailPanel)
                 "settings-premium" -> buildSettingsPremium(detailPanel)
-                "updates" -> buildUpdates(detailPanel)
                 "settings-support" -> {
                     detailPanel.addView(text("고객 지원", 25f, white, true))
                     detailPanel.addView(buildSupportCenterCard().withTop(12))
@@ -2317,6 +2315,15 @@ class MainActivity : FragmentActivity() {
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙 및 설정 저장 위치", "기기 내부", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        body.addView(Button(this).apply {
+            text = "앱 업데이트 확인"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 12)
+            contentDescription = "Guardian 앱 업데이트 확인 및 설치"
+            setOnClickListener { showTab("updates") }
+        }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(14) })
+        body.addView(text("앱 업데이트는 여기에서 확인합니다. 필터 목록 갱신은 설정 > 필터링에서 별도로 관리합니다.", 11f, muted, false).withTop(7))
         body.addView(text("정책·오픈소스 및 라이선스 고지는 배포 문서와 함께 관리합니다.", 11f, muted, false).withTop(12))
                 body.addView(card(panel, 14).apply {
                     setPadding(dp(15), dp(13), dp(15), dp(13))
