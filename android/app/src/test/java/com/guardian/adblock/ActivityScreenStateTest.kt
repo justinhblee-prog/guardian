@@ -5,9 +5,17 @@ import org.junit.Test
 
 class ActivityScreenStateTest {
     @Test fun restoresEverySupportedWorkspaceTab() {
-        listOf("home", "protection", "app-exclusions", "activity", "premium", "rules", "settings", "updates").forEach { tab ->
+        listOf(
+            "home", "protection", "app-exclusions", "activity", "premium",
+            "settings", "updates", "settings-general", "settings-filtering",
+            "settings-premium", "settings-support", "settings-about", "settings-exit"
+        ).forEach { tab ->
             assertEquals(tab, ActivityScreenState.restoreTab(tab))
         }
+    }
+
+    @Test fun restoresLegacyRulesTabIntoFilteringSubmenu() {
+        assertEquals("settings-filtering", ActivityScreenState.restoreTab("rules"))
     }
 
     @Test fun missingOrUnknownSavedTabFallsBackToHome() {
