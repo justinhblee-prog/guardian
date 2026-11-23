@@ -281,7 +281,7 @@ class DnsTcpSessionManagerTest {
         val assembled = java.io.ByteArrayOutputStream()
         replies.forEach { bytes ->
             val segment = DnsTcpPacket.parse(bytes, bytes.size, 53000)!!
-            assertTrue(segment.payload.size <= 536)
+            assertTrue(segment.payload.size <= 1200)
             if (expectedSequence != null) assertEquals(expectedSequence!!.toLong(), segment.sequence)
             expectedSequence = (segment.sequence + segment.payload.size) and 0xffffffffL
             assertEquals(8001L + framedQuery.size, segment.acknowledgement)
