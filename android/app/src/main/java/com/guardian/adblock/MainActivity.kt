@@ -89,6 +89,7 @@ class MainActivity : Activity() {
     private var activityChart: ActivityStatsChart? = null
     private var receiverRegistered = false
     private var currentTab = "home"
+    private var selectedSettingsCategory = "settings-general"
     // Reused across tab rebuilds to keep navigation taps responsive.
     private var companyLogoBitmap: android.graphics.Bitmap? = null
     private var contentScrollView: ScrollView? = null
@@ -1599,6 +1600,85 @@ class MainActivity : Activity() {
     }
 
     private fun buildSettingsLanding(body: LinearLayout) {
+        val sections = listOf(
+            Triple("일반", "앱 동작, DNS 서버 및 기본 연결 설정", "settings-general"),
+            Triple("필터링", "보호 정책, 필터 목록과 사용자 규칙", "settings-filtering"),
+            Triple("라이선스 및 프리미엄", "PRO 기능, 라이선스 활성화·갱신·기기 관리", "settings-premium"),
+            Triple("고객 지원", "FAQ, 문의 접수 및 답변 확인", "settings-support"),
+            Triple("정보", "앱 버전, 빌드, 개인정보 및 제품 정보", "settings-about"),
+            Triple("종료", "Guardian 앱 종료 및 백그라운드 보호 안내", "settings-exit")
+        )
+        val screenWidthDp = resources.configuration.screenWidthDp
+        if (screenWidthDp >= 600) {
+            body.addView(text("설정", 25f, white, true))
+            body.addView(text("카테고리를 선택하면 오른쪽 영역에 해당 세부 항목이 표시됩니다.", 13f, muted, false).withTop(5))
+            val split = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.TOP
+            }.withTop(16) as LinearLayout
+            val categoryPanel = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                background = shape(panel, 14)
+            }
+            val detailPanel = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(14), dp(16), dp(18))
+                background = shape(panel, 14)
+            }
+            split.addView(categoryPanel, LinearLayout.LayoutParams(dp(220), ViewGroup.LayoutParams.MATCH_PARENT).apply {
+                marginEnd = dp(12)
+            })
+            split.addView(detailPanel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+            sections.forEach { (title, description, target) ->
+                val selected = selectedSettingsCategory == target
+                categoryPanel.addView(card(if (selected) panel2 else panel, 12).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(12), dp(12), dp(10), dp(12))
+                    addView(text(title, 14f, if (selected) accent else white, true))
+                    addView(text(description, 10f, muted, false).withTop(4))
+                    contentDescription = title
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        selectedSettingsCategory = target
+                        showTab("settings")
+                    }
+                }.withTop(5))
+            }
+            when (selectedSettingsCategory) {
+                "settings-general" -> buildSettingsGeneral(detailPanel)
+                "settings-filtering" -> buildSettingsFiltering(detailPanel)
+                "settings-premium" -> buildSettingsPremium(detailPanel)
+                "settings-support" -> {
+                    detailPanel.addView(text("고객 지원", 25f, white, true))
+                    detailPanel.addView(buildSupportCenterCard().withTop(12))
+                    detailPanel.addView(text("진단 정보와 오류 내용은 사용자가 직접 확인하고 복사할 수 있습니다.", 11f, muted, false).withTop(10))
+                }
+                "settings-about" -> buildSettingsAbout(detailPanel)
+                "settings-exit" -> {
+                    detailPanel.addView(text("Guardian 종료", 25f, white, true))
+                    detailPanel.addView(text("앱을 종료해도 실행 중인 DNS 보호는 중지하지 않는 한 유지됩니다.", 12f, muted, false).withTop(8))
+                    detailPanel.addView(Button(this).apply {
+                        text = "Guardian 종료"
+                        isAllCaps = false
+                        setTextColor(white)
+                        background = shape(Color.rgb(139, 57, 64), 12)
+                        setOnClickListener {
+                            AlertDialog.Builder(this@MainActivity).setTitle("Guardian 종료")
+                                .setMessage("앱을 종료하시겠습니까? 실행 중인 DNS 보호는 종료 후에도 유지됩니다.")
+                                .setNegativeButton("취소", null)
+                                .setPositiveButton("종료") { _, _ -> finish() }
+                                .show()
+                        }
+                    }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(16) })
+                }
+                else -> buildSettingsGeneral(detailPanel)
+            }
+            body.addView(split, LinearLayout.LayoutParams(-1, dp(640)))
+            return
+        }
+
         body.addView(text("전체 메뉴", 25f, white, true))
         body.addView(text("Guardian의 모든 기능과 세부 설정을 영역별로 관리합니다.", 13f, muted, false).withTop(5))
         val shortcuts = listOf(
@@ -1619,14 +1699,6 @@ class MainActivity : Activity() {
             }.withTop(9))
         }
         body.addView(text("세부 설정", 18f, white, true).withTop(22))
-        val sections = listOf(
-            Triple("일반", "앱 동작, DNS 서버 및 기본 연결 설정", "settings-general"),
-            Triple("필터링", "보호 정책, 필터 목록과 사용자 규칙", "settings-filtering"),
-            Triple("라이선스 및 프리미엄", "PRO 기능, 라이선스 활성화·갱신·기기 관리", "settings-premium"),
-            Triple("고객 지원", "FAQ, 문의 접수 및 답변 확인", "settings-support"),
-            Triple("정보", "앱 버전, 빌드, 개인정보 및 제품 정보", "settings-about"),
-            Triple("종료", "Guardian 앱 종료 및 백그라운드 보호 안내", "settings-exit")
-        )
         sections.forEach { (title, detail, target) ->
             body.addView(card(panel, 14).apply {
                 orientation = LinearLayout.VERTICAL
@@ -1641,7 +1713,7 @@ class MainActivity : Activity() {
         }
     }
 
-        private fun buildSettingsGeneral(body: LinearLayout) {
+    private fun buildSettingsGeneral(body: LinearLayout) {
         body.addView(text("일반", 25f, white, true))
         body.addView(text("앱 표시와 기본 동작, 알림 권한을 관리합니다.", 13f, muted, false).withTop(5))
         body.addView(card(panel, 14).apply {
