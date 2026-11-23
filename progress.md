@@ -275,3 +275,12 @@
 - PremiumReportAggregator와 PremiumReportStore를 추가했습니다. 일별 합계만 90일 보존하고 도메인/앱 식별자는 저장하지 않습니다. 조회는 PRO 리포트 기능이 production-ready 등록되기 전까지 거부합니다.
 - Kotlin/JVM smoke 및 Android API stub compile은 통과했습니다. 실제 Android Gradle/JUnit, DNS 이벤트 연결, UI 및 entitlement runtime 통합은 미완료입니다.
 - 하위 병렬 트랙: #297 고급 필터, #298 앱별 정책, #299 위협 분석, #300 보안 프로필 자동화, #301 피싱 URL/앱 검사.
+
+
+## 2026-11-24 — PRO 리포트 DNS 이벤트 통합 및 기능 게이트 유지
+- 최신 상위 PRO 브랜치 커밋: cabd53c3c97dda9e4a61fbc4959063109f5c076f 이후 리포트 저장소를 VPN DNS 이벤트에 연결했습니다.
+- 활성 서명 entitlement가 있을 때만 질의/차단/전달/실패 및 광고·추적·기타 카테고리 합계를 수집합니다. 도메인/URL/앱 식별자는 저장하지 않고 5초 단위 버퍼링 및 서비스 종료 flush를 사용합니다.
+- Premium 화면에 일간/주간/월간 리포트 UI 경로를 추가했으나, Android 통합 테스트가 아직 실행되지 않아 productionReadyFeatures는 계속 empty입니다. 미리보기/개발 빌드로 권한을 우회하지 않습니다.
+- report store는 Android Context/SharedPreferences 경계 stub을 둔 Kotlin compile smoke를 통과했습니다. Aggregator와 report calculations의 Kotlin/JVM smoke도 통과했습니다.
+- 별도 하위 트랙: #299 threat analytics (engine model), #300 security profile resolver (network policy); #297 advanced filtering, #298 per-app policies, #301 phishing/app scan은 전용 작업 브랜치에서 분리 관리합니다.
+- 미완료: 리포트 UI 실제 노출을 위한 Android Gradle/JUnit/에뮬레이터 통과, DNS report persistence instrumented test, export, per-app reporting and trend analytics.

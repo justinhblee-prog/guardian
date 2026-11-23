@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-24 — PRO DNS 리포트 수집·화면 통합 기반
+- 활성 서명 PRO entitlement가 있을 때만 VPN DNS 이벤트에서 일별 합계를 수집하도록 연결했습니다. 도메인·URL·앱 식별자는 저장하지 않고, 5초 단위로 버퍼링해 저장합니다.
+- 서비스 종료 시 대기 중인 합계를 flush하고 라이선스 활성화/해제 시 entitlement cache를 무효화합니다.
+- Premium 화면에 일간·주간·월간 리포트 UI 경로를 추가했지만, Android 통합 검증 전이므로 production-ready feature registry는 비워 두어 실제 접근을 계속 차단합니다.
+- 리포트 조회도 signed entitlement와 production-ready gate를 모두 요구합니다. 현재는 UI/엔진 소스가 연결된 개발 단계이며 Android Gradle/JUnit·에뮬레이터 통과 전까지 PRO 기능 완료로 표시하지 않습니다.
+
 ## 2026-11-24 — PRO 프리미엄 병렬 개발 기반
 - 6개 PRO 기능의 fail-closed entitlement policy와 테스트를 추가했습니다. 유효한 서명 라이선스만으로는 실제 구현되지 않은 기능을 열 수 없으며, production-ready 등록은 비어 있습니다.
 - 일별 DNS 합계만 저장하는 90일 로컬 리포트 저장소와 기간별 집계 엔진을 추가했습니다. 도메인/앱 식별자는 저장하지 않으며, 리포트 조회는 PREMIUM_REPORTS 권한이 production-ready로 등록된 뒤에만 허용합니다.
