@@ -1218,8 +1218,8 @@ for attempt in $(seq 1 20); do
 done
 adb_cmd shell uiautomator dump /sdcard/guardian-support-top.xml >/dev/null 2>&1
 support_top_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-top.xml | tr -d '\r')"
-if ! grep -Fq "Guardian 앱 정보와 보호 정책" <<<"$support_top_xml"; then
-  echo "Could not confirm Settings returned to its top before support-center verification."
+if ! grep -Fq "고객지원 센터" <<<"$support_top_xml"; then
+  echo "Could not confirm the dedicated Customer Support submenu is visible."
   echo "$support_top_xml"
   exit 1
 fi
@@ -1239,7 +1239,7 @@ required = (
 missing = [item for item in required if not any(item in text for text in texts)]
 if missing:
     raise SystemExit("Customer support Settings text missing: " + ", ".join(missing))' <<<"$support_settings_xml"; then
-  echo "Customer support center card is missing from the top of Settings."
+  echo "Customer support center card is missing from the dedicated support submenu."
   echo "$support_settings_xml"
   exit 1
 fi

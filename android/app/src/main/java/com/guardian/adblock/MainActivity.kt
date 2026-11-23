@@ -349,7 +349,7 @@ class MainActivity : Activity() {
         if (usageAccessSettingsOpened) {
             usageAccessSettingsOpened = false
             if (currentTab.startsWith("settings")) {
-                showTab("settings-general")
+                showTab(currentTab)
                 refreshStatus()
             }
         }
@@ -1612,7 +1612,7 @@ class MainActivity : Activity() {
         body.addView(text("Guardian의 모든 기능과 세부 설정을 영역별로 관리합니다.", 13f, muted, false).withTop(5))
         val shortcuts = listOf(
             Triple("updates", "프로그램 업데이트", "Guardian 앱 자체 업데이트 확인 및 설치"),
-            Triple("rules", "필터 관리", "필터 프로필과 사용자 차단·허용 규칙"),
+            Triple("settings-filtering", "필터 관리", "필터 프로필과 사용자 차단·허용 규칙"),
             Triple("app-exclusions", "앱 제외 관리", "DNS 필터링에서 제외할 앱 선택")
         )
         shortcuts.forEach { (target, title, description) ->
@@ -2350,7 +2350,7 @@ class MainActivity : Activity() {
             Triple("settings", "⚙", "전체 메뉴")
         )
         items.forEach { (id, icon, label) ->
-            val active = selected == id || (id == "settings" && selected.startsWith("settings-") || selected in setOf("updates", "rules", "app-exclusions"))
+            val active = selected == id || (id == "settings" && (selected.startsWith("settings-") || selected in setOf("updates", "rules", "app-exclusions")))
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
