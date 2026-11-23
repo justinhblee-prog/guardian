@@ -1199,15 +1199,19 @@ texts={node.attrib.get("text","") for node in nodes}
 selected_settings=any(node.attrib.get("content-desc")=="전체 메뉴"
                       and node.attrib.get("selected")=="true"
                       for node in nodes)
-if "Guardian 앱 정보와 보호 정책" not in texts or not selected_settings:
-    raise SystemExit("Guardian Settings tab did not open after tapping its clickable navigation parent.")' <<<"$settings_tab_xml"
+required_settings = {
+    "세부 설정", "일반", "필터링", "라이선스 및 프리미엄",
+    "고객 지원", "정보", "종료", "프로그램 업데이트",
+    "필터 관리", "앱 제외 관리"
+}
+missing_settings = required_settings - texts
+if missing_settings or not selected_settings:
+    raise SystemExit("Guardian full menu is missing agreed entries: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
 
 # Verify the customer-facing support center is reachable and its FAQ/form UI
-# renders. Do not submit a real ticket from the emulator fixture.
-# The preceding VPN auto-pause acceptance test may leave Settings scrolled well below
-# the support card. Reset the Settings ScrollView to its top before searching for
-# the support entry; otherwise a downward-only search can never find a card above
-# the retained scroll position.
+# renders. The support card now lives in its dedicated Settings > 고객 지원 submenu.
+tap_text "고객 지원"
+sleep 1
 for attempt in $(seq 1 20); do
   adb_cmd shell input swipe 540 500 540 1550 250
   sleep 0.15
