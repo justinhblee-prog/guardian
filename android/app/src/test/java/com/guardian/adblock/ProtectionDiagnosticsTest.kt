@@ -128,6 +128,20 @@ class ProtectionDiagnosticsTest {
         )
         assertTrue(unsafe == "확인 불가")
         assertTrue(!unsafe.contains("secret.example.com"))
+
+        val baselineMissing = ProtectionDiagnostics.filterReadinessSummary(
+            "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: 기본 필터 라이브러리 누락 (FileNotFoundException) — 내장 긴급 규칙"
+        )
+        assertTrue(baselineMissing.contains("내장 긴급 DNS 규칙 사용"))
+        assertTrue(baselineMissing.contains("기본 필터 파일 복구 필요"))
+        assertTrue(!baselineMissing.contains("FileNotFoundException"))
+
+        val baselineAndOptionalMissing = ProtectionDiagnostics.filterReadinessSummary(
+            "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: 기본 필터 라이브러리 누락 (IOException) — 내장 긴급 규칙, 광고·추적, Android 앱 광고"
+        )
+        assertTrue(baselineAndOptionalMissing.contains("내장 긴급 DNS 규칙 사용"))
+        assertTrue(baselineAndOptionalMissing.contains("광고·추적"))
+        assertTrue(baselineAndOptionalMissing.contains("Android 앱 광고"))
     }
 
     @Test fun supportReportShowsAssetAndCacheReadinessWithoutSensitiveData() {

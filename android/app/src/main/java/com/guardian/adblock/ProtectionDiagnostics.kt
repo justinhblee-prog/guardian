@@ -124,18 +124,18 @@ object ProtectionDiagnostics {
     fun filterReadinessSummary(value: String?): String {
         if (value == "모든 선택 필터가 준비되었습니다.") return "모든 선택 필터 준비됨"
         val prefix = "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: "
-        if (value?.startsWith(prefix) == true) {
-            val allowed = setOf("광고·추적", "보안", "Android 앱 광고")
-            val sources = value.removePrefix(prefix)
-                .split(',')
-                .map { it.trim() }
-                .filter { it in allowed }
-                .distinct()
-            if (sources.isNotEmpty()) {
-                return "기본 규칙으로 시작 · 추가 필터 준비 필요: ${sources.joinToString(", ")}"
-            }
+        if (value?.startsWith(prefix) != true) return "확인 불가"
+
+        val entries = value.removePrefix(prefix).split(',').map { it.trim() }
+        val baselineMissing = entries.any { it.startsWith("기본 필터 라이브러리 누락 (") }
+        val allowed = setOf("광고·추적", "보안", "Android 앱 광고")
+        val sources = entries.filter { it in allowed }.distinct()
+        val details = buildList {
+            if (baselineMissing) add("내장 긴급 DNS 규칙 사용 · 기본 필터 파일 복구 필요")
+            if (sources.isNotEmpty()) add("추가 필터 준비 필요: ${sources.joinToString(", ")}")
         }
-        return "확인 불가"
+        return if (details.isEmpty()) "확인 불가"
+        else "기본 규칙으로 시작 · ${details.joinToString(" · ")}"
     }
 
     fun supportReport(
