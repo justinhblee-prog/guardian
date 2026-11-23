@@ -197,7 +197,31 @@ open_settings_menu_item() {
   xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
   if grep -Fq 'content-desc="설정"' <<<"$xml"; then
     tap_content_description "설정"
-    sleep 1
+    # On phones, tapping Settings while a detail page is open must return to
+    # the six-category index. Wait for that semantic state, not an arbitrary
+    # sleep; otherwise a stale detail hierarchy can be mistaken for the menu.
+    local index_ready=0
+    for attempt in $(seq 1 8); do
+      sleep 0.4
+      xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+      if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+expected={"일반 설정 열기","필터링 설정 열기","라이선스 및 프리미엄 설정 열기","고객 지원 설정 열기","정보 설정 열기","종료 설정 열기"}
+visible={n.attrib.get("content-desc","") for n in root.iter("node")
+         if n.attrib.get("visible-to-user","true")=="true"
+         and n.attrib.get("clickable")=="true"
+         and n.attrib.get("enabled")=="true"}
+raise SystemExit(0 if expected.intersection(visible) else 1)' <<<"$xml"; then
+        index_ready=1
+        break
+      fi
+    done
+    if [[ "$index_ready" -ne 1 ]]; then
+      echo "Settings navigation did not return to the phone category index."
+      echo "Expected one of the six category entries; current hierarchy follows:"
+      echo "$xml"
+      return 1
+    fi
   elif grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
     tap_content_description "전체 메뉴"
     sleep 1
