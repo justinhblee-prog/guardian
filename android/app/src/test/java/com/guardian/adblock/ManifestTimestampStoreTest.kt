@@ -107,7 +107,7 @@ class ManifestTimestampStoreTest {
     @Test
     fun rejectsNegativeAndNonCanonicalPersistedTimestamps() {
         val (file, store) = newStore()
-        listOf("-1", "+100", "100 ", "12345678901234567").forEach { value ->
+        listOf("-1", "+100", "100 ", "00100", "12345678901234567").forEach { value ->
             file.writeText("base-adblock=$value\n")
             try {
                 store.lastAccepted("base-adblock")
