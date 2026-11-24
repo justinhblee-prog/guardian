@@ -40,6 +40,14 @@ internal object SecurityProfilePolicy {
 
     fun profile(id: Id): Profile = profiles.getValue(id)
 
+    /**
+     * When the default route is Guardian's VPN, allNetworks may expose multiple
+     * physical networks. Without an API-confirmed underlying default, choosing
+     * the highest-scoring candidate can classify a non-default network as active.
+     * Only a single candidate is unambiguous; all other counts must fail closed.
+     */
+    fun hasUnambiguousUnderlyingNetwork(candidateCount: Int): Boolean = candidateCount == 1
+
     fun resolveAutomatic(context: NetworkContext): Profile {
         // Captive portals and unvalidated networks are treated as untrusted.
         val selected = when {
