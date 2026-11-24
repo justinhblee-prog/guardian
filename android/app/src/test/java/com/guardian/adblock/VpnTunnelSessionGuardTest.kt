@@ -35,6 +35,15 @@ class VpnTunnelSessionGuardTest {
     }
 
     @Test
+    fun invalidatedSessionIsNotReportedAsActiveDuringItsShutdownWindow() {
+        val guard = VpnTunnelSessionGuard()
+        guard.activate(4L) {}
+        assertTrue(guard.hasActiveSession())
+        guard.invalidate()
+        assertFalse(guard.hasActiveSession())
+    }
+
+    @Test
     fun currentPacketLoopCanPublishItsOwnUnexpectedTerminationOnlyOnce() {
         val guard = VpnTunnelSessionGuard()
         var cleanupCount = 0
