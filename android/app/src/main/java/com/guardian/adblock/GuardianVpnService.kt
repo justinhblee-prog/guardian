@@ -620,7 +620,17 @@ class GuardianVpnService : VpnService() {
     }
     private fun startProtectionInternal(requestGeneration: Long, startId: Int) {
         tunnelActive = false
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        // A prior process/session's applied list is not evidence about this
+        // pending tunnel. Clear it under the same generation gate before probing.
+        if (!startCancellation.tryCommitStart(requestGeneration) {
+                prefs.edit()
+                    .putStringSet(KEY_EXCLUDED_APPS_APPLIED, emptySet())
+                    .putStringSet(KEY_EXCLUDED_APPS_ERROR, emptySet())
+                    .commit()
+            }
+        ) return
+        prefs.edit()
             .remove(KEY_FILTER_READINESS)
             .apply()
         try {
@@ -671,6 +681,8 @@ class GuardianVpnService : VpnService() {
         }
 
         var establishError: Exception? = null
+        val appliedExclusions = linkedSetOf<String>()
+        val staleExclusions = linkedSetOf<String>()
         val descriptor = try {
             val builder = Builder()
                 .setSession("Guardian AdBlock")
@@ -696,8 +708,6 @@ class GuardianVpnService : VpnService() {
                 if (!resolverAlreadyRouted) builder.addRoute(selectedResolver, selectedResolverPrefix)
             }
             val requestedExclusions = prefs.getStringSet(KEY_EXCLUDED_APPS, emptySet()).orEmpty()
-            val appliedExclusions = linkedSetOf<String>()
-            val staleExclusions = linkedSetOf<String>()
             requestedExclusions.sorted().forEach { excludedPackage ->
                 // Android does not permit a VPN to exclude its own package. Treat
                 // legacy/corrupt saved entries as unapplied instead of failing the
@@ -728,14 +738,9 @@ class GuardianVpnService : VpnService() {
                     )
                 }
             }
-            val established = builder.setBlocking(true).establish()
-            if (established != null) {
-                prefs.edit()
-                    .putStringSet(KEY_EXCLUDED_APPS_APPLIED, appliedExclusions)
-                    .putStringSet(KEY_EXCLUDED_APPS_ERROR, staleExclusions)
-                    .commit()
-            }
-            established
+            // Do not publish these as applied until this start generation
+            // successfully commits ownership of the established TUN.
+            builder.setBlocking(true).establish()
         } catch (e: Exception) {
             establishError = e
             null
@@ -753,6 +758,16 @@ class GuardianVpnService : VpnService() {
                 tun = descriptor
                 running.set(true)
                 tunnelActive = true
+            }
+            val exclusionStateSaved = prefs.edit()
+                .putStringSet(KEY_EXCLUDED_APPS_APPLIED, appliedExclusions)
+                .putStringSet(KEY_EXCLUDED_APPS_ERROR, staleExclusions)
+                .commit()
+            if (!exclusionStateSaved) {
+                android.util.Log.w(
+                    "GuardianProtection",
+                    "Could not persist applied VPN app exclusions"
+                )
             }
             try {
                 val filterNotice = getSharedPreferences(PREFS, MODE_PRIVATE)
