@@ -612,3 +612,5 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 순수 DNS 후보/순서 정책 테스트 4개를 추가했고 별도 Kotlin/JVM smoke harness에서 주소 정규화·IPv6 가상 DNS 제외·후보 순서·전송방식 보존을 실행 확인했습니다(`DNS_UPSTREAM_FALLBACK_POLICY_SMOKE=PASS`). Android Gradle/JUnit, 실제 Wi-Fi/모바일 DNS 연결은 미검증입니다.
 
 - Android 필터 캐시 교체에서 백업 복구 이동 자체가 실패하는 경우, `.bak` 파일을 보존해 다음 프로세스 시작 시 `recover()`가 이전 정상 세대를 복구하는 회귀 테스트를 추가했습니다. 테스트 소스 반영이며 Android JUnit/Gradle 실행은 아직 미실시입니다.
+
+- DNS upstream 응답 검증의 압축 이름 포인터가 DNS 헤더 영역(오프셋 0–11)을 가리키는 비정상 패킷을 거부하도록 보강했습니다. 해당 패킷을 재현하는 회귀 테스트를 추가했습니다. 소스 반영은 원격 재조회로 확인했으며 Android JUnit/Gradle 실행은 미실시입니다.
