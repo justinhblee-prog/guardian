@@ -1,3 +1,9 @@
+## 2026-11-24 — 위협 분석 live preview·집계 병합 JVM smoke
+
+- pending snapshot, persisted/pending summary merge, severity precedence, unknown evidence, recent-event ordering/cap 및 counter overflow 정책을 Kotlin/JVM 분리 harness로 컴파일·실행했습니다.
+- PASS 18/18: snapshot 비파괴 읽기 및 drain 보존, pending/persisted 집계 결합, pending 우선 최신순, 최근 20개 상한, negative/Long.MAX_VALUE saturation, security HIGH/ad-tracker informational/user-unknown unassessed, 비차단 무평가, 도메인·URL 미포함 고정 라벨.
+- 이는 ThreatAnalyticsEngine/Models 순수 Kotlin 정책 경로의 독립 smoke입니다. Android Gradle/JUnit, SharedPreferences 실제 저장, MainActivity broadcast/UI 갱신, VPN Service 수명주기 및 실기기 검증은 미실행입니다.
+
 ## 2026-11-24 — 위협 분석 저장·대기 집계 결합 정책 분리
 
 - 저장된 집계와 아직 5초 버퍼에 남은 집계를 화면에 합치는 정책을 `ThreatAnalyticsSummaryPolicy`로 분리했습니다.
