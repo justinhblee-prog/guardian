@@ -268,28 +268,38 @@ class MainActivity : Activity() {
             android.util.Log.i("Guardian", "Startup filter readiness check started")
             try {
                 val autoUpdate = filterPrefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
+                val now = System.currentTimeMillis()
                 val lastUpdate = FilterListManager.lastUpdatedAt(this)
-                val updateInterval = filterPrefs.getLong(
-                    FilterListManager.KEY_UPDATE_INTERVAL_MS,
-                    24L * 60L * 60L * 1000L
+                val updateInterval = FilterUpdateScheduler.normalizeInterval(
+                    filterPrefs.getLong(
+                        FilterListManager.KEY_UPDATE_INTERVAL_MS,
+                        FilterUpdateScheduler.DEFAULT_INTERVAL_MS
+                    )
                 )
+                val mainCacheReady = FilterListManager.hasCachedList(this)
                 val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                val securityCacheReady = FilterListManager.hasCachedSecurityList(this)
                 val profileChanged = FilterListManager.hasCachedFile(this) &&
                     FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
-                val securityStale = securityEnabled && (
-                    !FilterListManager.hasCachedSecurityList(this) ||
-                        System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval
-                    )
+                val securityStale = securityEnabled && FilterUpdatePolicy.isDue(
+                    securityCacheReady,
+                    FilterListManager.lastSecurityUpdatedAt(this),
+                    updateInterval,
+                    now
+                )
                 val androidAdsEnabled = filterPrefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-                val androidAdsStale = androidAdsEnabled && (
-                    !FilterListManager.hasCachedAndroidAdsList(this) ||
-                        System.currentTimeMillis() - FilterListManager.lastAndroidAdsUpdatedAt(this) >= updateInterval
-                    )
-                val initialMainMissing = !FilterListManager.hasCachedList(this)
-                val initialSecurityMissing = securityEnabled && !FilterListManager.hasCachedSecurityList(this)
-                val initialAndroidAdsMissing = androidAdsEnabled && !FilterListManager.hasCachedAndroidAdsList(this)
+                val androidAdsCacheReady = FilterListManager.hasCachedAndroidAdsList(this)
+                val androidAdsStale = androidAdsEnabled && FilterUpdatePolicy.isDue(
+                    androidAdsCacheReady,
+                    FilterListManager.lastAndroidAdsUpdatedAt(this),
+                    updateInterval,
+                    now
+                )
+                val initialMainMissing = !mainCacheReady
+                val initialSecurityMissing = securityEnabled && !securityCacheReady
+                val initialAndroidAdsMissing = androidAdsEnabled && !androidAdsCacheReady
                 val scheduledRefreshDue = autoUpdate && (
-                    System.currentTimeMillis() - lastUpdate >= updateInterval ||
+                    FilterUpdatePolicy.isDue(mainCacheReady, lastUpdate, updateInterval, now) ||
                         securityStale || androidAdsStale || profileChanged
                     )
                 val needsUpdate = FilterStartupPolicy.shouldRefresh(
