@@ -1,7 +1,6 @@
 package com.guardian.adblock
 
 import java.net.SocketTimeoutException
-import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
