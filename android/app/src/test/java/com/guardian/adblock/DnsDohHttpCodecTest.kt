@@ -126,7 +126,7 @@ class DnsDohHttpCodecTest {
     }
 
     @Test fun invokesReadGuardForEveryHttpParserRead() {
-        val response = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nContent-Length: 29\\r\\n\\r\\n"
+        val response = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: 29\r\n\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
         var guardedReads = 0
         assertArrayEquals(
@@ -138,7 +138,7 @@ class DnsDohHttpCodecTest {
 
     @Test(expected = SocketTimeoutException::class)
     fun abortsResponseParsingWhenReadDeadlineExpires() {
-        val response = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nContent-Length: 29\\r\\n\\r\\n"
+        val response = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: 29\r\n\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
         DnsDohHttpCodec.readResponse(ByteArrayInputStream(response)) {
             throw SocketTimeoutException("deadline")
