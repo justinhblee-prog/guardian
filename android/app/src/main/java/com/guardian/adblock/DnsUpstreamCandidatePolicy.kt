@@ -4,17 +4,29 @@ import java.net.InetAddress
 
 /** Orders resolver candidates without ever feeding Guardian's virtual DNS back into itself. */
 internal object DnsUpstreamCandidatePolicy {
-    fun udpCandidates(
+    data class Attempt(val address: String, val transport: String)
+
+    fun udpAttempts(
         configured: String,
         systemDns: List<String>,
         publicFallback: List<String>,
         virtualDns: Set<String>
-    ): List<String> = (listOf(configured) + systemDns + publicFallback)
-        .mapNotNull(::usableResolverAddress)
-        .filterNot { it in virtualDns }
-        .distinct()
+    ): List<Attempt> {
+        val candidates = (listOf(configured) + systemDns + publicFallback)
+            .mapNotNull(::usableResolverAddress)
+            .filterNot { it in virtualDns }
+            .distinct()
+        return buildList {
+            candidates.forEachIndexed { index, address ->
+                add(Attempt(address, "udp"))
+                // Only the user's configured resolver gets an immediate TCP retry.
+                // Device DNS and public fallbacks remain bounded UDP attempts.
+                if (index == 0) add(Attempt(address, "tcp"))
+            }
+        }
+    }
 
-    /** UDP mode may retry TCP/53; explicitly selected transports must remain explicit. */
+    /** Explicitly selected transports must never be silently downgraded. */
     fun transports(primary: String): List<String> =
         if (primary == "udp") listOf("udp", "tcp") else listOf(primary)
 
