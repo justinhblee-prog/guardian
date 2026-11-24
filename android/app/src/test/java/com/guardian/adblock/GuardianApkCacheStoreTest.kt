@@ -99,4 +99,63 @@ class GuardianApkCacheStoreTest {
         }
     }
 
+    @Test
+    fun failedBackupMoveThatAlreadyMovedFileRestoresOriginalAndCleansTemporary() {
+        val directory = Files.createTempDirectory("guardian-apk-cache").toFile()
+        try {
+            val target = File(directory, "guardian-43.apk").apply {
+                writeBytes("original-apk".toByteArray())
+            }
+            val temporary = File(directory, ".guardian-43.apk.part").apply {
+                writeBytes("replacement-apk".toByteArray())
+            }
+            var movedThenFailed = false
+
+            val failure = runCatching {
+                GuardianApkCacheStore.commit(temporary, target) { source, destination ->
+                    Files.move(
+                        source.toPath(),
+                        destination.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                    )
+                    if (source == target && !movedThenFailed) {
+                        movedThenFailed = true
+                        throw java.io.IOException("simulated post-move failure")
+                    }
+                }
+            }.exceptionOrNull()
+
+            assertTrue(failure is java.io.IOException)
+            assertArrayEquals("original-apk".toByteArray(), target.readBytes())
+            assertFalse(temporary.exists())
+            assertFalse(File(directory, "guardian-43.apk.bak").exists())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun failedFirstCacheMoveDoesNotLeavePartialTargetOrTemporaryFile() {
+        val directory = Files.createTempDirectory("guardian-apk-cache").toFile()
+        try {
+            val target = File(directory, "guardian-44.apk")
+            val temporary = File(directory, ".guardian-44.apk.part").apply {
+                writeBytes("replacement-apk".toByteArray())
+            }
+
+            val failure = runCatching {
+                GuardianApkCacheStore.commit(temporary, target) { _, destination ->
+                    destination.writeBytes("partial".toByteArray())
+                    throw java.io.IOException("simulated first-write failure")
+                }
+            }.exceptionOrNull()
+
+            assertTrue(failure is java.io.IOException)
+            assertFalse(target.exists())
+            assertFalse(temporary.exists())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
 }
