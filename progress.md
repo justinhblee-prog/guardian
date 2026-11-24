@@ -308,3 +308,9 @@
 - InstalledAppInventory는 전체 앱 조회 권한과 PackageManager 주요 설치 앱 조회 성공이 모두 참일 때만 보유 앱 이름 집합을 신뢰합니다.
 - 이 조건에서만 앱별 추가 규칙과 앱별 DNS 통계를 정리합니다. 불완전 inventory에서는 삭제 작업을 하지 않습니다.
 - 제거된 앱의 통계·tracked package 및 policy cache를 지워 200개 통계 한도 포화를 방지합니다. 순수 cleanup policy 테스트 추가; Android SharedPreferences/JUnit·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 빈 설치 앱 목록 앱별 데이터 삭제 방지
+- PackageManager가 예외 없이 빈 설치 목록을 반환하는 OEM/visibility 이상 상황에서 전체 앱별 규칙·통계가 삭제될 수 있던 경로를 차단했습니다.
+- primary installed-app enumeration이 비어 있지 않고 QUERY_ALL_PACKAGES 권한이 확인되며 final inventory도 비어 있지 않을 때만 orphan cleanup을 호출합니다. 순수 policy도 installedPackages.isEmpty()이면 삭제하지 않도록 이중 보호하고 테스트를 추가했습니다.
+- Android PackageManager/실기기 OEM 검증은 미실행입니다.
