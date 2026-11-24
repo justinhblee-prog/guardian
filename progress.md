@@ -323,3 +323,8 @@
 
 ## 2026-11-24 — 자동 보안 프로필 판정 범위 공개
 - UI가 현재 실제 연결 상태를 과장하지 않도록 trusted Wi-Fi/업무망 및 roaming은 자동 감지되지 않는다는 제한을 명시했습니다. 집·업무·여행 프로필은 수동 선택이며, 자동 필터 다운로드 스케줄러도 미연결입니다.
+
+
+## 2026-11-24 — 수동 보안 프로필 적용 경쟁 상태 방지
+- 수동 프로필 Apply가 automatic switch를 끈 직후 늦게 도착한 NetworkCallback이 선택을 덮어쓰지 않도록, switch 변경/수동 적용/자동 적용 메서드를 같은 store monitor로 직렬화했습니다.
+- 자동 적용은 switch가 현재 false면 즉시 반환하고, 수동 적용만 공통 profile write/reload 함수를 직접 호출합니다. 순수 gate policy 테스트 추가. Android callback race 및 실기기 network handover 검증은 미실행입니다.
