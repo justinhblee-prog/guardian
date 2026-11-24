@@ -444,3 +444,8 @@
 - DoT invalid response length 및 transaction/question mismatch와 DoH invalid TLS host/request format/HTTP status-header-content-type-body framing/DNS response mismatch를 구분해 lastUpstreamFailure에 기록합니다.
 - TCP upstream의 DNS 질의 길이 검증 실패 진단도 추가했습니다. TLS host verification, SNI, manual HTTP response parser, redirect rejection 및 payload bound는 변경하지 않았습니다.
 - Android Gradle/JUnit·에뮬레이터·실기기 업스트림 연결 검증은 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP 중복 ACK 빠른 재전송
+- 세 번의 중복 누적 ACK가 현재 serverAcknowledged에서 반복되고 미확인 서버 응답이 남아 있으면 첫 outstanding packet을 재전송합니다. ACK 진행 시 중복 횟수는 초기화됩니다.
+- 최초 손실 세그먼트와 부분 ACK 이후 다음 세그먼트 재전송 테스트를 추가했습니다. 타이머 기반 RTO는 별도 미완료이며 Android Gradle/JUnit·실기기 검증은 미실행입니다.
