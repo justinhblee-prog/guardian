@@ -8,6 +8,32 @@ object DnsDohHttpCodec {
     private const val MAX_HEADER_BYTES = 8192
     private const val MAX_DNS_BYTES = 65535
 
+    fun readDnsTcpResponse(input: InputStream, beforeRead: () -> Unit = {}): ByteArray? {
+        fun readExactly(length: Int): ByteArray? {
+            val result = ByteArray(length)
+            var offset = 0
+            while (offset < length) {
+                beforeRead()
+                val count = input.read(result, offset, length - offset)
+                if (count < 0) return null
+                if (count == 0) {
+                    beforeRead()
+                    val value = input.read()
+                    if (value < 0) return null
+                    result[offset++] = value.toByte()
+                } else {
+                    offset += count
+                }
+            }
+            return result
+        }
+
+        val prefix = readExactly(2) ?: return null
+        val length = ((prefix[0].toInt() and 0xff) shl 8) or (prefix[1].toInt() and 0xff)
+        if (length !in 17..MAX_DNS_BYTES) return null
+        return readExactly(length)
+    }
+
     fun buildPostRequest(host: String, path: String, query: ByteArray): ByteArray? {
         val normalizedHost = DnsTlsHostValidator.normalize(host) ?: return null
         if (path.isEmpty() || !path.startsWith("/") || path.contains("..") ||
