@@ -1,12 +1,12 @@
 # Guardian Android — Progress Tracker
 
-- **전체 상태**: 개발 진행 중. 무료 Android 출시와 PRO 병렬 개발 모두 미완료입니다.
+- **전체 상태**: 개발 진행 중. Android 무료판 출시 전이며 PRO 기능은 별도 트랙에서 병행 구현 중입니다.
 - **무료 트랙**: `work/android-free-release-20261124` — 2026-11-24 원격 compare 기준 164 commits ahead, 0 behind.
-- **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 별도 브랜치. 모든 PRO 기능은 Android 통합/단말 검증 전까지 Release 권한 비활성입니다.
-- **PR #290**: open, unmerged 상태 유지. 이 작업은 별도 브랜치에서 수행합니다.
-- **검증**: 최신 소스 반영·정적 재검토는 수행했습니다. 일부 순수 Kotlin/JVM 정책 스모크를 별도 실행했으나 최신 DNS TCP RTO/RST 변경은 아직 실행 검증되지 않았습니다. Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행이며 APK도 아직 생성·검증되지 않았습니다.
-- **실행 제약**: GitHub Actions·runner/billing 설정 변경 및 유료 실행은 승인 없이 시작하지 않습니다. 미실행 검증은 통과로 표시하지 않습니다.
-- **완료 게이트**: 실제 Android 빌드·JUnit·lint·에뮬레이터·Samsung 실기기, APK 파일/크기/SHA-256/서명과 설치 검증 및 배포 문서가 확보되어야 완료 판정합니다.
+- **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. 실제 Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
+- **PR #290**: open, unmerged 상태를 유지합니다. 작업은 독립 branch에서 수행합니다.
+- **검증**: 최신 소스/테스트 존재를 재조회하고 일부 순수 Kotlin/JVM smoke를 실행했습니다. Android Gradle/JUnit·lint·emulator·실기기 테스트는 미실행이며 APK도 아직 생성·검증되지 않았습니다.
+- **실행 제약**: GitHub Actions 실행, runner/billing 설정 변경 및 유료 사용량 발생 작업은 사용자 승인 없이 하지 않습니다.
+- **완료 게이트**: Android 빌드·JUnit·lint·에뮬레이터·Samsung 실기기 검증, APK 존재/크기/SHA-256/서명·설치 확인, 한국어 배포/복구 문서 확보 전에는 완료로 판정하지 않습니다.
 
 ## 2026-11-24 — DNS TCP 수신 윈도 순서 검증 강화
 - 클라이언트의 다음 수신 시퀀스 위치와 일치하는 세그먼트만 광고 수신 윈도 업데이트에 반영하도록 제한했습니다.
@@ -19,16 +19,6 @@
 - 재전송 요청에는 미확인(outstanding) 서버 패킷만 재전송하고, 모두 ACK된 경우 현재 수신 위치를 담은 ACK만 반환합니다.
 - 누적 ACK 후 지연 중복 요청이 응답 payload를 재생하지 않는 회귀 테스트를 추가했습니다.
 - 소스/테스트 정적 반영만 수행했습니다. Android Gradle/JUnit, 에뮬레이터 및 실기기 검증은 미실행이며 Actions 실행은 시작하지 않았습니다.
-
-# Guardian Android — Progress Tracker
-
-- **전체 상태**: 개발 진행 중 — Android 무료 기능과 PRO 기능을 별도 브랜치에서 병렬 개발 중이며, 출시 완료 상태가 아닙니다.
-- **기준일**: 2026-11-24 (KST)
-- **무료 Android 트랙**: work/android-free-release-20261124 — DNS/VPN·필터·업데이트·보호 UI 구현 진행. 최신 코드 변경의 Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행이며 APK도 아직 생성·검증하지 않았습니다.
-- **PRO Android 트랙**: work/android-pro-premium-20261124 — 리포트 수집·집계·CSV 공유 경로 구현 진행. 실제 Android 검증 전까지 PremiumEntitlementPolicy.productionReadyFeatures는 비어 있어 PRO 기능 권한 게이트를 닫아 둡니다.
-- **PR #290**: 열린 상태·미병합으로 유지합니다. 무료/PRO 작업은 별도 브랜치에서 수행합니다.
-- **실행 제약**: GitHub Actions 실행, runner/billing 설정 변경 및 유료 사용량 발생 작업은 사용자 승인 없이 시작하지 않습니다. 실행하지 않은 검증은 통과로 표시하지 않습니다.
-- **출시 게이트**: 실제 Android 빌드·JUnit·lint·에뮬레이터·실기기 검증, APK 존재/크기/SHA-256/서명 확인 및 배포 문서 검증 전에는 완료로 판정하지 않습니다.
 
 - **2026-11-24 TCP 핸드셰이크 검증**: SYN-ACK 직후 오래된 ACK 번호로 전송된 DNS 데이터가 resolver에 도달하지 않도록 정확한 ACK 일치를 요구하도록 수정하고 회귀 테스트를 추가했습니다. Gradle/JUnit·실기기 검증 미실행.
 - **2026-11-24 IPv6 파서 재확인**: 확장 헤더 파서는 누락된 것이 아니라 `DnsTcpPacket.kt`에 이미 공유 구현으로 존재했습니다. 별도 중복 파일 추가 시도는 제거했습니다. 컴파일 차단 이슈로 분류하지 않습니다.
@@ -448,7 +438,7 @@
 
 ## 2026-11-24 — DNS TCP 중복 ACK 빠른 재전송
 - 세 번의 중복 누적 ACK가 현재 serverAcknowledged에서 반복되고 미확인 서버 응답이 남아 있으면 첫 outstanding packet을 재전송합니다. ACK 진행 시 중복 횟수는 초기화됩니다.
-- 최초 손실 세그먼트와 부분 ACK 이후 다음 세그먼트 재전송 테스트를 추가했습니다. 타이머 기반 RTO는 별도 미완료이며 Android Gradle/JUnit·실기기 검증은 미실행입니다.
+- 최초 손실 세그먼트와 부분 ACK 이후 다음 세그먼트 재전송 테스트를 추가했습니다. 당시 RTO는 별도 미완료였으나, 후속 `retransmitDue()`·서비스 스케줄러 구현 항목에서 보강했습니다. Android Gradle/JUnit·실기기 검증은 미실행입니다.
 
 
 ## 2026-11-24 — Fast retransmit 1회 발사 제한
@@ -476,3 +466,9 @@
 ## 2026-11-24 — DNS TCP RST sequence validation
 - RST 세그먼트가 4-tuple만 일치해도 세션을 삭제하던 경로를 현재 clientNext sequence 일치 조건으로 제한했습니다.
 - stale RST 이후 세션 및 outstanding answer 재전송이 유지되는 테스트와 exact-current-sequence RST 종료 테스트를 추가했습니다. Android Gradle/JUnit·단말 검증은 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP 타이머 기반 RTO 및 서비스 스케줄러 반영 확인
+- 현재 `DnsTcpSessionManager`는 세션별 oldest outstanding 응답/FIN의 송신 시각과 재전송 횟수를 보관하며 1s→2s→4s→8s backoff를 사용합니다. 최대 5회 재전송 후 세션을 정리합니다.
+- `GuardianVpnService.packetLoop`는 250ms 간격 스케줄러로 `retransmitDue()`를 호출하고, 패킷 출력 스트림 접근을 동기화합니다. packet loop 종료 시 스케줄러를 종료합니다.
+- deterministic clock 테스트는 RTO backoff/재시도 한도와 누적 ACK 이후 기존 타이머 취소 및 다음 미확인 세그먼트 타이머 재시작을 확인합니다. 소스/테스트 정적 재조회만 수행했으며 Android Gradle/JUnit·실기기 실행은 미실행입니다.
