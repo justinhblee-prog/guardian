@@ -35,7 +35,9 @@ internal object ThreatAnalyticsSummaryPolicy {
             high = saturatingAdd(stored.high, pending.high),
             informational = saturatingAdd(stored.informational, pending.informational),
             unassessed = saturatingAdd(stored.unassessed, pending.unassessed),
-            recent = (pending.recent + stored.recent).take(maxRecent)
+            recent = (pending.recent + stored.recent)
+                .sortedByDescending { it.timestampEpochMillis }
+                .take(maxRecent)
         )
     }
 
