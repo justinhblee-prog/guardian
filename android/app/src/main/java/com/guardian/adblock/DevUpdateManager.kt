@@ -10,6 +10,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 import java.security.MessageDigest
@@ -144,8 +146,10 @@ internal object DevUpdateManager {
             verifyDownloadedPackage(context, temporary, update)
             // Preserve the previous verified APK until the replacement has
             // passed length, hash, package, version and signer validation.
-            if (target.exists()) check(target.delete()) { "이전 개발 APK 캐시를 교체할 수 없습니다." }
-            check(temporary.renameTo(target)) { "검증된 개발 APK를 캐시 위치로 이동하지 못했습니다." }
+            Files.move(
+                temporary.toPath(), target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+            )
             return target
         } catch (error: Exception) {
             temporary.delete()
