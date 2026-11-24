@@ -1,3 +1,9 @@
+## 2026-11-24 — WorkManager 예약 필터 갱신을 비종량제 네트워크로 제한
+
+- 프로필/Scheduler/Worker 내부 게이트는 자동 업데이트를 비종량제 네트워크에서만 허용하지만, WorkManager 작업 제약은 `CONNECTED`여서 실행 도중 네트워크가 종량제로 바뀌면 작업 자체가 계속 살아 있을 수 있었습니다.
+- 예약 작업의 OS 제약도 `NetworkType.UNMETERED`로 강화했습니다. 프로필 게이트와 WorkManager 제약이 같은 정책 경계를 적용하며, 수동 즉시 업데이트와 초기 보호 시작의 필수 필터 설정 경로는 변경하지 않았습니다.
+- Scheduler가 사용하는 required network type을 테스트하는 단위 테스트를 추가했습니다. WorkManager 실제 중단/재예약 동작은 Android 실행 환경에서 미검증입니다.
+
 ## 2026-11-24 — 로밍 정책 Kotlin/JVM 독립 검증
 
 - 순수 `SecurityProfilePolicy` 실제 정책 로직을 Kotlin/JVM으로 컴파일해 roaming capability API 28 경계, API 27 legacy fallback, Wi-Fi 비로밍, 자동 프로필·업데이트 허용 조건까지 15/15 통과했습니다.
