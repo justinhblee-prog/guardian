@@ -100,12 +100,15 @@ internal object GuardianStableUpdateManager {
         require(update.signerSha256 == installedSignerSha256(context)) {
             "정식 업데이트 서명 인증서가 현재 설치된 앱과 다릅니다. 기존 개발판에서 정식판으로 전환하려면 백업 후 정식 APK를 새로 설치해야 합니다."
         }
-        val directory = File(context.cacheDir, GuardianUpdateCachePaths.STABLE_DIRECTORY).apply { mkdirs() }
+        val directory = File(context.cacheDir, GuardianUpdateCachePaths.STABLE_DIRECTORY)
+        check(directory.isDirectory || directory.mkdirs()) { "정식 APK 캐시 폴더를 만들 수 없습니다." }
         val target = File(directory, "guardian-${update.versionCode}.apk")
-        val connection = openAllowedHttpsConnection(
-            update.apkUrl, 15000, 45000, "application/octet-stream", ::isAllowedReleaseDownloadUrl
-        )
+        val temporary = File.createTempFile("guardian-${update.versionCode}-", ".apk.part", directory)
+        var connection: HttpsURLConnection? = null
         try {
+            connection = openAllowedHttpsConnection(
+                update.apkUrl, 15000, 45000, "application/octet-stream", ::isAllowedReleaseDownloadUrl
+            )
             check(isAllowedReleaseDownloadUrl(connection.url.toString())) {
                 "정식 APK 다운로드가 허용되지 않은 서버로 리디렉션되었습니다."
             }
@@ -113,7 +116,7 @@ internal object GuardianStableUpdateManager {
             val expectedLength = connection.contentLengthLong
             check(expectedLength in 1..MAX_APK_BYTES) { "정식 APK 파일 크기가 허용 범위를 벗어났습니다." }
             connection.inputStream.use { input ->
-                FileOutputStream(target).use { output ->
+                FileOutputStream(temporary).use { output ->
                     val buffer = ByteArray(64 * 1024); var total = 0L
                     while (true) {
                         val count = input.read(buffer); if (count < 0) break
@@ -125,22 +128,20 @@ internal object GuardianStableUpdateManager {
                     check(total == expectedLength) { "정식 APK 다운로드 크기가 일치하지 않습니다." }
                 }
             }
-        } catch (error: Exception) {
-            target.delete(); throw error
-        } finally { connection.disconnect() }
-
-        try {
-            check(sha256(target).equals(update.sha256, ignoreCase = true)) {
+            check(sha256(temporary).equals(update.sha256, ignoreCase = true)) {
                 "다운로드한 정식 APK의 SHA-256 검증에 실패했습니다."
             }
-            verifyDownloadedPackage(context, target, update)
+            verifyDownloadedPackage(context, temporary, update)
+            // Keep the prior verified cache intact until all checks pass.
+            if (target.exists()) check(target.delete()) { "이전 정식 APK 캐시를 교체할 수 없습니다." }
+            check(temporary.renameTo(target)) { "검증된 정식 APK를 캐시 위치로 이동하지 못했습니다." }
+            return target
         } catch (error: Exception) {
-            // A file that failed package/version/signer verification must never
-            // remain available as a later install candidate in the cache.
-            target.delete()
+            temporary.delete()
             throw error
+        } finally {
+            connection?.disconnect()
         }
-        return target
     }
 
     fun install(context: Context, apk: File): Boolean {
