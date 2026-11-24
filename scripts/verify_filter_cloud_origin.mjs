@@ -4,115 +4,115 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export async function verifyFilterCloudOrigin(rootDirectory = process.cwd()) {
-const root = path.resolve(rootDirectory);
-const publicKeyText = (await readFile(path.join(root, 'guardian-filter-public-key.x509.b64'), 'ascii')).trim();
-const publicKey = createPublicKey({
-  key: Buffer.from(publicKeyText, 'base64'),
-  format: 'der',
-  type: 'spki',
-});
-if (publicKey.asymmetricKeyType !== 'rsa' || (publicKey.asymmetricKeyDetails?.modulusLength ?? 0) < 2048) {
-  throw new Error('Cloud origin public key is not a sufficiently strong RSA key.');
-}
-
-async function walk(dir, prefix = '') {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const relative = prefix ? prefix + '/' + entry.name : entry.name;
-    const absolute = path.join(dir, entry.name);
-    const info = await lstat(absolute);
-    if (info.isSymbolicLink()) throw new Error('Symlink is not allowed: ' + relative);
-    if (info.isDirectory()) files.push(...await walk(absolute, relative));
-    else if (info.isFile()) files.push(relative);
-    else throw new Error('Unsupported filesystem entry: ' + relative);
-  }
-  return files;
-}
-
-const files = await walk(root);
-const allowed = /^(guardian-filter-public-key\\.x509\\.b64|[A-Za-z0-9_.+-]+\\.manifest|[A-Za-z0-9_.+-]+\\.[A-Za-z0-9_.+-]+\\.[0-9]+\\.sig|filters\\/[A-Za-z0-9_-]{1,64}\\/[A-Za-z0-9_.+-]{1,64}\\.txt)$/;
-for (const file of files) {
-  if (!allowed.test(file)) throw new Error('Unexpected cloud file: ' + file);
-}
-
-const manifests = files.filter(file => file.endsWith('.manifest'));
-if (manifests.length === 0) throw new Error('No signed manifests found.');
-
-for (const manifestPath of manifests) {
-  const bytes = await readFile(path.join(root, manifestPath));
-  if (bytes.length === 0 || bytes.length > 16 * 1024) throw new Error('Invalid manifest size: ' + manifestPath);
-  const text = bytes.toString('utf8');
-  if (!Buffer.from(text, 'utf8').equals(bytes) || text.includes('\\0')) {
-    throw new Error('Invalid manifest UTF-8: ' + manifestPath);
-  }
-  const values = Object.create(null);
-  for (const line of text.split(/\\r?\\n/).filter(Boolean)) {
-    const separator = line.indexOf('=');
-    if (separator < 1) throw new Error('Malformed manifest line: ' + manifestPath);
-    const key = line.slice(0, separator);
-    if (Object.hasOwn(values, key)) throw new Error('Duplicate manifest field: ' + key);
-    values[key] = line.slice(separator + 1);
-  }
-  const required = ['manifestVersion', 'generatedAt', 'sourceId', 'sourceVersion', 'url', 'sha256', 'minimumRules'];
-  if (Object.keys(values).length !== required.length || required.some(key => !values[key])) {
-    throw new Error('Manifest fields are incomplete: ' + manifestPath);
+  const root = path.resolve(rootDirectory);
+  const publicKeyText = (await readFile(path.join(root, 'guardian-filter-public-key.x509.b64'), 'ascii')).trim();
+  const publicKey = createPublicKey({
+    key: Buffer.from(publicKeyText, 'base64'),
+    format: 'der',
+    type: 'spki',
+  });
+  if (publicKey.asymmetricKeyType !== 'rsa' || (publicKey.asymmetricKeyDetails?.modulusLength ?? 0) < 2048) {
+    throw new Error('Cloud origin public key is not a sufficiently strong RSA key.');
   }
 
-  const sourceId = path.basename(manifestPath, '.manifest');
-  const expectedUrl = 'https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data/filters/' +
-    sourceId + '/' + values.sourceVersion + '.txt';
-  const generatedAt = Number(values.generatedAt);
-  const minimumRules = Number(values.minimumRules);
-  const now = Math.floor(Date.now() / 1000);
-  if (values.manifestVersion !== '1' || values.sourceId !== sourceId ||
-      !/^[A-Za-z0-9_.+-]{1,64}$/.test(values.sourceVersion) ||
-      !/^[1-9][0-9]{0,15}$/.test(values.generatedAt) ||
-      !Number.isSafeInteger(generatedAt) || generatedAt > now + 600 ||
-      !/^[a-f0-9]{64}$/.test(values.sha256) ||
-      !/^[1-9][0-9]{0,8}$/.test(values.minimumRules) ||
-      !Number.isSafeInteger(minimumRules) ||
-      values.url !== expectedUrl) {
-    throw new Error('Manifest metadata rejected: ' + manifestPath);
+  async function walk(dir, prefix = '') {
+    const entries = await readdir(dir, { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+      const relative = prefix ? prefix + '/' + entry.name : entry.name;
+      const absolute = path.join(dir, entry.name);
+      const info = await lstat(absolute);
+      if (info.isSymbolicLink()) throw new Error('Symlink is not allowed: ' + relative);
+      if (info.isDirectory()) files.push(...await walk(absolute, relative));
+      else if (info.isFile()) files.push(relative);
+      else throw new Error('Unsupported filesystem entry: ' + relative);
+    }
+    return files;
   }
 
-  const signaturePath = sourceId + '.' + values.sourceVersion + '.' + values.generatedAt + '.sig';
-  const filterPath = 'filters/' + sourceId + '/' + values.sourceVersion + '.txt';
-  if (!files.includes(signaturePath) || !files.includes(filterPath)) {
-    throw new Error('Manifest references missing assets: ' + sourceId);
-  }
-  const signatureText = (await readFile(path.join(root, signaturePath), 'ascii')).trim();
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(signatureText)) {
-    throw new Error('Invalid signature encoding: ' + signaturePath);
-  }
-  const signature = Buffer.from(signatureText, 'base64');
-  if (signature.length < 256 || signature.length > 512 ||
-      signature.toString('base64') !== signatureText ||
-      !verify('RSA-SHA256', bytes, publicKey, signature)) {
-    throw new Error('RSA manifest signature verification failed: ' + sourceId);
+  const files = await walk(root);
+  const allowed = /^(guardian-filter-public-key\.x509\.b64|[A-Za-z0-9_.+-]+\.manifest|[A-Za-z0-9_.+-]+\.[A-Za-z0-9_.+-]+\.[0-9]+\.sig|filters\/[A-Za-z0-9_-]{1,64}\/[A-Za-z0-9_.+-]{1,64}\.txt)$/;
+  for (const file of files) {
+    if (!allowed.test(file)) throw new Error('Unexpected cloud file: ' + file);
   }
 
-  const filter = await readFile(path.join(root, filterPath));
-  const hash = createHash('sha256').update(filter).digest('hex');
-  if (hash !== values.sha256) throw new Error('Filter SHA-256 mismatch: ' + sourceId);
-  if (filter.length === 0 || filter.length > 10 * 1024 * 1024 || filter.includes(0)) {
-    throw new Error('Invalid filter content size/encoding: ' + sourceId);
+  const manifests = files.filter(file => file.endsWith('.manifest'));
+  if (manifests.length === 0) throw new Error('No signed manifests found.');
+
+  for (const manifestPath of manifests) {
+    const bytes = await readFile(path.join(root, manifestPath));
+    if (bytes.length === 0 || bytes.length > 16 * 1024) throw new Error('Invalid manifest size: ' + manifestPath);
+    const text = bytes.toString('utf8');
+    if (!Buffer.from(text, 'utf8').equals(bytes) || text.includes('\u0000')) {
+      throw new Error('Invalid manifest UTF-8: ' + manifestPath);
+    }
+    const values = Object.create(null);
+    for (const line of text.split(/\r?\n/).filter(Boolean)) {
+      const separator = line.indexOf('=');
+      if (separator < 1) throw new Error('Malformed manifest line: ' + manifestPath);
+      const key = line.slice(0, separator);
+      if (Object.hasOwn(values, key)) throw new Error('Duplicate manifest field: ' + key);
+      values[key] = line.slice(separator + 1);
+    }
+    const required = ['manifestVersion', 'generatedAt', 'sourceId', 'sourceVersion', 'url', 'sha256', 'minimumRules'];
+    if (Object.keys(values).length !== required.length || required.some(key => !values[key])) {
+      throw new Error('Manifest fields are incomplete: ' + manifestPath);
+    }
+
+    const sourceId = path.basename(manifestPath, '.manifest');
+    const expectedUrl = 'https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data/filters/' +
+      sourceId + '/' + values.sourceVersion + '.txt';
+    const generatedAt = Number(values.generatedAt);
+    const minimumRules = Number(values.minimumRules);
+    const now = Math.floor(Date.now() / 1000);
+    if (values.manifestVersion !== '1' || values.sourceId !== sourceId ||
+        !/^[A-Za-z0-9_.+-]{1,64}$/.test(values.sourceVersion) ||
+        !/^[1-9][0-9]{0,15}$/.test(values.generatedAt) ||
+        !Number.isSafeInteger(generatedAt) || generatedAt > now + 600 ||
+        !/^[a-f0-9]{64}$/.test(values.sha256) ||
+        !/^[1-9][0-9]{0,8}$/.test(values.minimumRules) ||
+        !Number.isSafeInteger(minimumRules) ||
+        values.url !== expectedUrl) {
+      throw new Error('Manifest metadata rejected: ' + manifestPath);
+    }
+
+    const signaturePath = sourceId + '.' + values.sourceVersion + '.' + values.generatedAt + '.sig';
+    const filterPath = 'filters/' + sourceId + '/' + values.sourceVersion + '.txt';
+    if (!files.includes(signaturePath) || !files.includes(filterPath)) {
+      throw new Error('Manifest references missing assets: ' + sourceId);
+    }
+    const signatureText = (await readFile(path.join(root, signaturePath), 'ascii')).trim();
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(signatureText)) {
+      throw new Error('Invalid signature encoding: ' + signaturePath);
+    }
+    const signature = Buffer.from(signatureText, 'base64');
+    if (signature.length < 256 || signature.length > 512 ||
+        signature.toString('base64') !== signatureText ||
+        !verify('RSA-SHA256', bytes, publicKey, signature)) {
+      throw new Error('RSA manifest signature verification failed: ' + sourceId);
+    }
+
+    const filter = await readFile(path.join(root, filterPath));
+    const hash = createHash('sha256').update(filter).digest('hex');
+    if (hash !== values.sha256) throw new Error('Filter SHA-256 mismatch: ' + sourceId);
+    if (filter.length === 0 || filter.length > 10 * 1024 * 1024 || filter.includes(0)) {
+      throw new Error('Invalid filter content size/encoding: ' + sourceId);
+    }
+    const filterText = filter.toString('utf8');
+    if (!Buffer.from(filterText, 'utf8').equals(filter)) {
+      throw new Error('Filter is not valid UTF-8: ' + sourceId);
+    }
+    const ruleCount = filterText.split(/\r?\n/).filter(line => {
+      const trimmed = line.trim();
+      return trimmed && !trimmed.startsWith('!') && !trimmed.startsWith('#') &&
+        !trimmed.startsWith('[') && !trimmed.startsWith('//');
+    }).length;
+    if (ruleCount < minimumRules) {
+      throw new Error('Filter has ' + ruleCount + ' rules; minimumRules requires ' + minimumRules + ': ' + sourceId);
+    }
+    console.log('Verified', sourceId, values.sourceVersion, filter.length, 'bytes,', ruleCount, 'rules');
   }
-  const filterText = filter.toString('utf8');
-  if (!Buffer.from(filterText, 'utf8').equals(filter)) {
-    throw new Error('Filter is not valid UTF-8: ' + sourceId);
-  }
-  const ruleCount = filterText.split(/\\r?\\n/).filter(line => {
-    const trimmed = line.trim();
-    return trimmed && !trimmed.startsWith('!') && !trimmed.startsWith('#') &&
-      !trimmed.startsWith('[') && !trimmed.startsWith('//');
-  }).length;
-  if (ruleCount < minimumRules) {
-    throw new Error('Filter has ' + ruleCount + ' rules; minimumRules requires ' + minimumRules + ': ' + sourceId);
-  }
-  console.log('Verified', sourceId, values.sourceVersion, filter.length, 'bytes,', ruleCount, 'rules');
-}
-console.log('All', manifests.length, 'signed filter manifests passed cloud-origin verification.');
+  console.log('All', manifests.length, 'signed filter manifests passed cloud-origin verification.');
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
