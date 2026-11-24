@@ -1,3 +1,10 @@
+## 2026-11-24 — 보안 프로필의 자동 필터 업데이트 권한 실제 적용
+
+- 보안 프로필이 종량제·수동 모드에서 `automaticFilterUpdates=false`를 저장해도 FilterUpdateScheduler/Worker가 해당 값을 읽지 않아 백그라운드 예약 갱신이 계속될 수 있었습니다.
+- 예약 등록 시 사용자 자동 업데이트 opt-in과 현재 보안 프로필의 허용 플래그를 모두 확인하고, 둘 중 하나라도 false이면 유일 예약 작업을 취소합니다. Worker도 실행 직전과 각 feed 다운로드 시작 전 다시 확인하고, 중간에 모드가 바뀌거나 Worker가 stop되면 남은 feed 갱신을 시작하지 않습니다.
+- 자동 프로필의 update permission이 바뀌면 scheduler를 취소/재등록합니다. 첫 설치 시 보호 시작에 필요한 필수 초기 필터 로드는 기존처럼 별도 startup path에서 계속 허용합니다.
+- 사용자 opt-in/profile permission 4가지 조합 테스트를 추가했습니다. Android WorkManager·네트워크 변경·실기기 실행 검증은 미실행입니다.
+
 
 
 ## 2026-11-24 — 보안 프로필 최신 정책 JVM smoke 재실행
