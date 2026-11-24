@@ -120,6 +120,15 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - 원격 소스 재조회로 변경 내용을 확인했습니다. Android JUnit/Gradle 실행, 에뮬레이터 및 실기기 VPN 재연결 검증은 아직 수행하지 않았습니다.
 - 네트워크 전환은 현재 서비스가 매 DNS 전달마다 실제 네트워크 DNS 후보를 다시 조회하고 upstream 소켓을 새로 생성하는 구조입니다. 다만 Wi-Fi↔모바일 데이터 전환 중 기존 TUN/라우팅의 OEM별 동작은 기기 E2E 검증이 필요하며, 이를 소스 검토만으로 완료 처리하지 않습니다.
 
+
+### 앱 제외 적용 상태의 세션 커밋 일치성 (2026-11-25)
+
+- 기존에는 `Builder.establish()`가 TUN descriptor를 반환한 직후 `KEY_EXCLUDED_APPS_APPLIED`와 `KEY_EXCLUDED_APPS_ERROR`를 저장했습니다. 이후 start generation 검증에서 취소되면 descriptor는 닫히지만, 적용 목록은 성공한 VPN 세션이 없는 상태로 남을 수 있었습니다.
+- 새 시작 세대가 소유권을 얻으면 이전 세션의 적용/실패 목록을 먼저 비우고, 새 TUN이 `tryCommitStart` 및 `tunnelSessionGuard.activate`를 통과한 뒤에만 적용/실패 목록을 기록하도록 순서를 변경했습니다.
+- 변경 커밋: `7c1feba16c06434636612173d4cbd005601c5fdc`
+- 원격 파일 재조회에서 이전의 establish 직후 저장 구문이 제거되고, 세션 활성화 커밋 경로에 저장이 위치하는 것을 확인했습니다. JUnit/Gradle 및 기기 검증은 아직 실행하지 않았습니다.
+
+
 ---
 
 **완료 판정:** 소스 구현, 자동화 테스트, 에뮬레이터, 실기기, 운영환경, Production 산출물의 증거가 각각 확보되어야 해당 단계만 완료 처리합니다. Android 1.0 필수 조건이 모두 충족되기 전에는 정식 출시 완료라고 선언하지 않습니다.
