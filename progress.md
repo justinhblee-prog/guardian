@@ -559,3 +559,9 @@
 ## 2026-11-24 — DNS TCP sequence wrap-around 테스트 추가
 - 클라이언트와 서버 순번을 0xFFFFFFFF 부근에서 시작해 양쪽 sequence space가 0을 넘는 DNS 응답 및 부분 누적 ACK/fast retransmit 동작을 검증하는 JUnit 소스를 추가했습니다.
 - Android Gradle/JUnit 실행은 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP wrap-around 보조 Kotlin/JVM 실험
+- client ISN=`0xFFFFFFFC`, server ISN=`0xFFFFFFFE`로 고정해 clientNext가 28로, server response sequence가 `0xFFFFFFFF`에서 0을 지나도록 구성했습니다.
+- PASS 11개 wrap 전용 assertion 포함 전체 36/36: 3개 MSS 응답 분할, 첫 세그먼트 끝 ACK가 1199로 wrap, 해당 ACK 수락, 첫 outstanding segment 제거, 중복 ACK 세 번 뒤 두 번째 segment 재전송.
+- 이 harness는 이전에 로컬 추출한 Kotlin/JVM codec/session 스냅샷으로 실행했으며 최신 원격 blob과 바이트 동일성은 확인하지 않았습니다. 최신 branch에는 같은 시나리오의 JUnit 테스트 소스를 추가했지만 Android Gradle/JUnit·emulator·실기기 테스트는 미실행입니다.
