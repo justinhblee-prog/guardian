@@ -1,7 +1,7 @@
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. 무료 Android 출시와 PRO 기능 완성 모두 미완료입니다.
-- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 255 commits ahead, 0 behind.
+- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 277 commits ahead, 0 behind.
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
 - **PR #290**: open, unmerged 상태 유지. 무료/PRO 작업은 별도 브랜치입니다.
 - **격리 Kotlin/JVM 검증**: DNS 업스트림 진단 ThreadLocal 3/3, DNS TCP 정책/타이머/프레임/시퀀스 하네스 기록, 필터/앱 목록 정리 정책, DEX 041 헤더/컨테이너 11/11, 앱별 정리 12/12 등. 각 결과는 해당 순수 정책만 검증하며 Android 앱 빌드 통과를 의미하지 않습니다.
@@ -661,3 +661,9 @@
 - SHA-256 이후 APK package/version/signer 검증이 실패하면 cache/stable-updates의 실패 APK 파일을 삭제하도록 변경했습니다.
 - Manifest의 signerSha256 하나로 모든 서명자를 비교할 수 없으므로 APK content signer가 정확히 1개인지 확인하고, 설치된 앱도 단일 signer일 때만 자동 업데이트합니다.
 - 단일/다중/빈 signer 정책 테스트를 추가했습니다. Android Gradle/JUnit·PackageManager/실제 설치 테스트는 미실행입니다.
+
+
+## 2026-11-24 — 저장된 앱 제외 항목 검증 및 오류 격리
+- VPN Builder에 저장된 앱 제외 항목을 적용하기 전 package ID 형식/길이와 Guardian 자기 자신 여부를 확인하도록 했습니다.
+- PackageManager의 앱 조회에서 발생하는 모든 Exception을 해당 제외 항목만 미적용 처리하도록 격리해, 깨진 설정 하나가 VPN TUN 생성 전체를 막지 않게 했습니다.
+- 순수 package-ID 정책 테스트 추가. Android Gradle/JUnit·OEM PackageManager·Samsung 실기기 VPN 검증은 미실행입니다.
