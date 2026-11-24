@@ -1,3 +1,8 @@
+## 2026-11-24 — DEX 041 논리 파일 크기 경계 테스트
+
+- DEX 041 컨테이너에서 첫 논리 DEX의 `file_size`가 물리 컨테이너보다 작은 합법적인 형식을 검증하는 fixture를 추가했습니다. 두 논리 DEX header의 container_size와 header_offset을 컨테이너 전체/각 시작 위치에 맞춰 생성합니다.
+- 단일 DEX fixture 통과뿐 아니라 logical file_size < physical container_size 상황에서 현재 검사기가 유효한 컨테이너를 거부하지 않는지 확인하도록 테스트 소스를 보강했습니다. 전체 논리 헤더 순회는 여전히 정식 DEX 컨테이너 검증 범위 밖입니다.
+
 ## 2026-11-24 — DEX 041 컨테이너 헤더 지원
 
 - 기존 DEX 검사기가 모든 버전에 header_size 0x70과 file_size=물리 파일 길이를 요구해 Android 16 실험 형식인 DEX 041을 거부할 수 있었습니다.
