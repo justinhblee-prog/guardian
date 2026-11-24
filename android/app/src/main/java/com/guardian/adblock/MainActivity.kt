@@ -2272,14 +2272,15 @@ class MainActivity : Activity() {
                 )
             }
         }
-        container.addView(Button(this).apply {
+        val saveButton = Button(this@MainActivity).apply {
             text = "선택 앱에 추가 차단 규칙 저장"
             isAllCaps = false
             setTextColor(bg)
             background = shape(accent, 9)
             setOnClickListener {
+                val rawRules = rulesInput.text.toString()
                 val parsed = runCatching {
-                    PerAppDnsRulePolicy.parse(rulesInput.text.toString())
+                    PerAppDnsRulePolicy.parse(rawRules)
                 }.getOrElse {
                     Toast.makeText(this@MainActivity, it.message ?: "규칙 입력을 확인해 주세요.", Toast.LENGTH_LONG).show()
                     return@setOnClickListener
@@ -2290,23 +2291,46 @@ class MainActivity : Activity() {
                         "잘못된 도메인: ${parsed.invalidLines.take(2).joinToString(", ")}",
                         Toast.LENGTH_LONG
                     ).show()
-                } else {
-                    runCatching {
+                    return@setOnClickListener
+                }
+
+                // Capture the selected app and editor contents before leaving the
+                // UI thread. SharedPreferences commit() must not block interaction.
+                val packageToSave = selectedPackage
+                isEnabled = false
+                text = "저장 중…"
+                appSpinner.isEnabled = false
+                rulesInput.isEnabled = false
+                thread(name = "guardian-app-dns-policy-save") {
+                    val result = runCatching {
                         PerAppDnsPolicyStore.replaceRules(
-                            this@MainActivity, selectedPackage, rulesInput.text.toString()
+                            applicationContext, packageToSave, rawRules
                         )
-                    }.onSuccess { count ->
-                        Toast.makeText(
-                            this@MainActivity,
-                            "${selectedPackage}: 앱별 규칙 ${count}개 저장 · 다음 UDP DNS 요청부터 적용",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }.onFailure {
-                        Toast.makeText(this@MainActivity, it.message ?: "앱별 규칙 저장에 실패했습니다.", Toast.LENGTH_LONG).show()
+                    }
+                    runOnUiThread {
+                        if (isFinishing || isDestroyed || saveButton.parent == null) return@runOnUiThread
+                        saveButton.isEnabled = true
+                        saveButton.text = "선택 앱에 추가 차단 규칙 저장"
+                        appSpinner.isEnabled = true
+                        rulesInput.isEnabled = true
+                        result.onSuccess { count ->
+                            Toast.makeText(
+                                this@MainActivity,
+                                "${packageToSave}: 앱별 규칙 ${count}개 저장 · 다음 UDP DNS 요청부터 적용",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }.onFailure { error ->
+                            Toast.makeText(
+                                this@MainActivity,
+                                error.message ?: "앱별 규칙 저장에 실패했습니다.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 }
             }
-        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+        }
+        container.addView(saveButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
     }
 
     private fun buildSettingsPremium(body: LinearLayout) {
