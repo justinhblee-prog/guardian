@@ -1068,13 +1068,13 @@ class GuardianVpnService : VpnService() {
             minimumRuleCounts.add(0)
         }
 
-        val mainCacheReady = runCatching {
+        val mainCacheReady = FilterStartupGate.isOptionalCacheReady {
             FilterListManager.isCacheValid(
                 FilterListManager.hasCachedFile(this),
                 FilterListManager.cachedBlockCount(this),
                 selectedProfile.minimumRules
             ) && selectedProfile.key == cachedProfile.key
-        }.getOrDefault(false)
+        }
         addOptionalCache(
             "광고·추적",
             "adguard_dns_filter.txt",
@@ -1084,9 +1084,9 @@ class GuardianVpnService : VpnService() {
 
         val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
         if (securityEnabled) {
-            val securityReady = runCatching {
+            val securityReady = FilterStartupGate.isOptionalCacheReady {
                 FilterListManager.hasCachedSecurityList(this)
-            }.getOrDefault(false)
+            }
             addOptionalCache(
                 "보안",
                 "hagezi_threat_intelligence.txt",
@@ -1097,9 +1097,9 @@ class GuardianVpnService : VpnService() {
 
         val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
         if (androidAdsEnabled) {
-            val androidAdsReady = runCatching {
+            val androidAdsReady = FilterStartupGate.isOptionalCacheReady {
                 FilterListManager.hasCachedAndroidAdsList(this)
-            }.getOrDefault(false)
+            }
             addOptionalCache(
                 "Android 앱 광고",
                 "awavenue_android_ads.txt",
