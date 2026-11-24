@@ -87,7 +87,7 @@ internal object SecurityProfileStore {
         val profilePrefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val previousProfileId = profilePrefs.getString(KEY_ACTIVE_PROFILE, SecurityProfilePolicy.Id.STRICT.name)
             ?: SecurityProfilePolicy.Id.STRICT.name
-        val previousAutomaticUpdatesAllowed = profilePrefs.getBoolean(KEY_AUTO_UPDATE_ALLOWED, false)
+        val previousAutomaticUpdatesAllowed = automaticUpdatesAllowed(context)
         val profileStateChanged = SecurityProfilePolicy.hasProfileStateChanged(
             previousProfileId, previousAutomaticUpdatesAllowed, profile
         )
