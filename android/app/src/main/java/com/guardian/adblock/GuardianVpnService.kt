@@ -23,6 +23,9 @@ import java.io.DataOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 class GuardianVpnService : VpnService() {
@@ -654,11 +657,34 @@ class GuardianVpnService : VpnService() {
 
     private fun packetLoop(descriptor: ParcelFileDescriptor) {
         var loopFailure: Throwable? = null
+        val retransmissionFailure = AtomicReference<Throwable?>(null)
+        var retransmissionScheduler: ScheduledExecutorService? = null
         try {
             val input = FileInputStream(descriptor.fileDescriptor)
             val output = FileOutputStream(descriptor.fileDescriptor)
             val buffer = ByteArray(32767)
             val tcpDns = DnsTcpSessionManager()
+            retransmissionScheduler = Executors.newSingleThreadScheduledExecutor { task ->
+                Thread(task, "GuardianDnsTcpRto").apply { isDaemon = true }
+            }
+            retransmissionScheduler!!.scheduleAtFixedRate({
+                if (!running.get() || retransmissionFailure.get() != null) return@scheduleAtFixedRate
+                try {
+                    val due = tcpDns.retransmitDue()
+                    if (due.isNotEmpty()) {
+                        synchronized(output) {
+                            due.forEach(output::write)
+                            output.flush()
+                        }
+                    }
+                } catch (error: Exception) {
+                    retransmissionFailure.compareAndSet(null, error)
+                    try { descriptor.close() } catch (_: Exception) { }
+                } catch (error: LinkageError) {
+                    retransmissionFailure.compareAndSet(null, error)
+                    try { descriptor.close() } catch (_: Exception) { }
+                }
+            }, 250L, 250L, TimeUnit.MILLISECONDS)
             while (running.get()) {
                 try {
                     val length = input.read(buffer)
@@ -724,6 +750,8 @@ class GuardianVpnService : VpnService() {
         } catch (e: LinkageError) {
             if (running.get()) loopFailure = e
         } finally {
+            retransmissionScheduler?.shutdownNow()
+            loopFailure = loopFailure ?: retransmissionFailure.get()
             // A dead packet loop must never leave the UI claiming protection is active.
             if (running.compareAndSet(true, false)) {
                 tunnelActive = false
