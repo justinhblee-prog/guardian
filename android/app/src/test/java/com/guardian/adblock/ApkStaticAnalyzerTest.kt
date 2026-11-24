@@ -188,6 +188,20 @@ class ApkStaticAnalyzerTest {
         assertTrue(first.size < container.size)
         val result = ApkStaticAnalyzer.analyze(ByteArrayInputStream(apkWithRawDex(container)))
         assertEquals(ApkStaticAnalyzer.Status.SCANNED, result.status)
+        assertEquals(2, result.dexCount)
+    }
+
+    @Test fun rejectsMalformedSecondDex041LogicalHeader() {
+        val first = dexFixture("Lcom/example/First;", version = "041")
+        val second = dexFixture("Lcom/example/Second;", version = "041")
+        val malformed = dex041Container(first, second).also { container ->
+            // Corrupt the second logical header's declared offset.
+            container[first.size + 116] = (first.size + 1).toByte()
+        }
+        assertEquals(
+            ApkStaticAnalyzer.Status.INVALID_APK,
+            ApkStaticAnalyzer.analyze(ByteArrayInputStream(apkWithRawDex(malformed))).status
+        )
     }
 
     @Test fun acceptsDex041ContainerHeaderAndRejectsInvalidContainerBounds() {
