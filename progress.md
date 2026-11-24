@@ -348,3 +348,7 @@
 - 현재 `ApkStaticAnalyzer`의 bounded tail ring 및 EOCD validator 로직을 kotlinc로 컴파일해 ZIP 생성 fixture로 실행했습니다.
 - PASS 8/8: 일반 EOCD, 최대 65,535-byte ZIP comment로 tail buffer wrap-around, EOCD 누락, comment length 변조, EOF 뒤 trailing bytes, 다중 디스크 EOCD, central directory entry count 불일치, central directory size 불일치.
 - Android SAF/Gradle/JUnit·실제 APK 서명/설치·실기기 검증은 미실행입니다. ZIP/DEX 구조 확인은 전체 Android APK 무결성 또는 악성코드 판정이 아닙니다.
+
+
+## 2026-11-24 — APK ZIP 항목 수 제한 테스트 추가
+- 10,001개 ZIP entry가 10,000개 한도를 넘으면 ApkStaticAnalyzer가 LIMIT_EXCEEDED를 반환하는 회귀 테스트를 추가했습니다. Android Gradle/JUnit 실행은 미실행입니다.
