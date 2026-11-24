@@ -733,3 +733,5 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 
 - 선택 필터 피드 로더의 예외 경계를 정리했습니다. 기존 `runCatching`은 `OutOfMemoryError` 같은 VM 치명 오류까지 삼켜 빈 규칙으로 계속 진행할 수 있었습니다. 이제 일반 예외와 선택 구성요소의 `LinkageError`만 해당 선택 피드 실패로 격리하고, VM 치명 오류는 상위 오류 처리로 전파합니다.
 - 회귀 테스트 추가: `skipsOptionalFeedWhenParserLinkageFailsButKeepsVpnStartupAvailable`, `doesNotSwallowVirtualMachineFatalErrorsFromOptionalFeed`. 코드 커밋: `09d056590f15cb5c7df7f68e48c93613f5f7a3d0`, 테스트 커밋: `b274bfe9ef0677b39d7f5afc646d1cb639486000`. Android Gradle/JUnit 실행은 미실행입니다.
+
+- 로컬 Kotlin/JVM 격리 스모크 실행 결과: `PASS skipsOptionalFeedWhenParserLinkageFailsButKeepsVpnStartupAvailable`, `PASS doesNotSwallowVirtualMachineFatalErrorsFromOptionalFeed`. 추가로 정상 피드 수용 및 최소 규칙 수 미달 피드 제외 경로도 PASS. 실행 환경에 JUnit/Android SDK/Gradle 프로젝트 런타임이 없어 실제 Android JUnit 클래스나 Gradle 테스트 태스크 실행은 아직 아닙니다. 이 결과는 격리된 Kotlin/JVM 실행 검증으로만 분류합니다.
