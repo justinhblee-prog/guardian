@@ -43,6 +43,18 @@ class ApkStaticAnalyzerTest {
         return out.toByteArray()
     }
 
+    @Test fun rejectsArchivesThatExceedTheEntryCountLimit() {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            repeat(10_001) { index ->
+                zip.putNextEntry(ZipEntry("assets/entry-$index"))
+                zip.closeEntry()
+            }
+        }
+        val result = ApkStaticAnalyzer.analyze(ByteArrayInputStream(out.toByteArray()))
+        assertEquals(ApkStaticAnalyzer.Status.LIMIT_EXCEEDED, result.status)
+    }
+
     @Test fun cleanDexDoesNotClaimThatApkIsSafe() {
         val r = ApkStaticAnalyzer.analyze(ByteArrayInputStream(apk("Lcom/example/NormalActivity;")))
         assertEquals(ApkStaticAnalyzer.Status.SCANNED, r.status)
