@@ -842,3 +842,4 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 개발 updater는 새 manifest의 스키마 버전이 1인지 검사합니다. 기존에 이미 게시된 버전 필드 없는 개발 manifest는 업데이트 호환성을 위해 계속 읽을 수 있고, 알 수 없는 명시적 스키마 버전은 거부합니다.
 - 정식 manifest 생성 스크립트도 `01.2.3` 등 선행 0 버전을 거부하도록 바꾸고 Node 회귀 테스트를 추가했습니다. 개발 updater 테스트의 누락된 JUnit 정적 import도 함께 수정했습니다.
 - 관련 변경 커밋 `bdc97510`, `36138fc5`, `19426647`, `bd8af3a6`, `a03199b9`. 원격 소스 반영 확인. Node/Android 테스트와 CI 실행은 아직 하지 않았습니다.
+- 정식 Release manifest 생성 스크립트의 `versionCode`도 Android `Int` 상한(2,147,483,647)까지로 제한하고 상한 초과 회귀 테스트를 추가했습니다. 커밋 `934053bd`, `628898eb`.
