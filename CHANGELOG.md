@@ -1,3 +1,9 @@
+## 2026-11-24 — 업데이트 작업 스레드의 Activity 참조 해제
+
+- 업데이트 작업은 화면이 이동/재생성되어도 계속 실행해야 하므로 `applicationContext`로 다운로드합니다. 다만 백그라운드 람다에서 Activity 인스턴스 메서드 `broadcastAppUpdateState()`를 호출해 이전 `MainActivity`를 계속 캡처할 여지가 있었습니다.
+- 작업 시작 전에 applicationContext를 지역 변수로 잡고, 다운로드와 진행/완료/오류 브로드캐스트를 모두 해당 컨텍스트에서 수행하도록 변경했습니다. 이전 화면 참조를 가진 객체는 상태 수신용 뷰 필드뿐이며 worker 람다 자체는 Activity에 접근하지 않습니다.
+- 순수 상태 정책 JVM smoke 5/5는 유지됩니다. 실제 Android Activity destroy/rotate, 메모리 추적 및 PackageInstaller 호출 검증은 미실행입니다.
+
 ## 2026-11-24 — 앱 업데이트 상태 조정 JVM smoke 5/5
 
 - `GuardianAppUpdateState`의 실제 상태/AtomicReference 전이 소스를 kotlinc/JRE 21로 분리 컴파일·실행했습니다. PASS 5/5: 중복 확인 차단, 재생성된 화면에서 검증 APK 경로 복원, 개발/정식 빌드 타입 일치 검사, 최신 응답 시 stale 설치 대상 제거, 재확인 실패 시 이전의 유효한 검증 APK 유지, 동시 12개 탭 요청 중 한 작업만 획득.
