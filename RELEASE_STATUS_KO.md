@@ -589,3 +589,6 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 
 
 - 필터 업데이트 UI에서 Android 런타임 구성요소 로딩 실패가 발생할 경우 진행 플래그·컨트롤이 고정될 수 있는 경로를 보완했습니다. 선택 필터의 기존 캐시 보존 및 재시도 UI 복구를 반영했습니다.
+
+
+- WorkManager 예약 필터 갱신에도 Android 구성요소 로딩 실패 처리 및 재시도/상태 알림 경로를 추가했습니다. 실제 WorkManager 실행 검증은 미실행입니다.
