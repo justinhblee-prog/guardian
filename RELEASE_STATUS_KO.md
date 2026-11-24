@@ -690,3 +690,10 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 회귀 테스트 `permanentLinkageFailureDoesNotScheduleImmediateOptionalRetry` 추가.
 - 변경 커밋: `4de637922f98bac41efdcda9013fd104176d6834` (Worker/policy), `d78435360afcfa70e647b038f7f86576e12bb915` (테스트).
 - 독립 Kotlin/JVM 정책 smoke: `FILTER_LINKAGE_RETRY_POLICY_SMOKE=PASS`. Android Gradle/JUnit, APK 및 실기기 검증은 미실행.
+
+## 2026-11-24 — 무료 Android 멀티 트랙 수정: DNS probe 및 앱 업데이트 동시성
+- DNS/VPN 시작 검증 트랙: 완전한 A 응답처럼 보이더라도 DNS TC(Truncated) 플래그가 설정된 응답은 정상 IPv4 DNS probe 성공으로 인정하지 않도록 수정했습니다. 잘린 UDP 응답으로 DNS 경로를 정상 판정하지 않고 TCP fallback 경로가 처리하도록 합니다.
+- 회귀 테스트 `rejectsTruncatedFlagEvenWhenTheIncludedAnswerLooksComplete` 추가.
+- 앱 업데이트 트랙: 여러 화면/스레드에서 동시에 업데이트 확인을 시작해도 AtomicReference CAS gate가 단 하나의 실행만 허용하는지 확인하는 동시성 회귀 테스트 `concurrentUpdateChecksAllowExactlyOneOwner` 추가.
+- 변경 커밋: `671bfb89ecc314eba745d5e44919de3a3cabcaa9` (DNS probe), `53e2d39196899fe9fe55d177a0fc7de1bc689937` (DNS 테스트), `de6473bc21c29ce758c56f6179759125c32a205e` (업데이트 동시성 테스트).
+- 세 파일 모두 원격 브랜치 재조회로 변경 반영을 확인했습니다. Android Gradle/JUnit, 전체 APK 빌드 및 실기기 검증은 미실행입니다.
