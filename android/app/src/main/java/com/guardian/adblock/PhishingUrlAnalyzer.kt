@@ -82,9 +82,16 @@ internal object PhishingUrlAnalyzer {
         }
         if (host.isBlank() || host.length > 253) return invalid()
         if (port != null && port !in 1..65535) return invalid()
+        // A single terminal dot is the valid absolute-DNS-name form. Trimming
+        // every trailing dot would silently turn malformed `example.com..`
+        // into a different, apparently valid hostname.
+        if (!host.contains(':') && host.endsWith("..")) return invalid()
+        val normalizedHostInput = if (!host.contains(':') && host.endsWith('.')) {
+            host.dropLast(1)
+        } else host
         val asciiHost = runCatching {
-            if (host.contains(':')) host.lowercase(Locale.ROOT)
-            else IDN.toASCII(host.trimEnd('.'), IDN.USE_STD3_ASCII_RULES).lowercase(Locale.ROOT)
+            if (normalizedHostInput.contains(':')) normalizedHostInput.lowercase(Locale.ROOT)
+            else IDN.toASCII(normalizedHostInput, IDN.USE_STD3_ASCII_RULES).lowercase(Locale.ROOT)
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: return invalid()
         if (asciiHost.split('.').any { it.isBlank() || it.length > 63 }) return invalid()
         if (asciiHost.length > 253) return invalid()
