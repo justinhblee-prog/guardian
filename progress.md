@@ -530,5 +530,5 @@
 
 
 ## 2026-11-24 — 기본 필터 asset Gradle preBuild guard
-- Android assets가 `../../shared`를 사용하므로 필수 파일은 repo root `shared/filter_rules.txt`입니다. Gradle `preBuild` 전에 존재·크기·차단 규칙 포함 여부를 확인하도록 validation task를 연결했습니다.
+- Android assets가 `../../shared`를 사용하므로 필수 파일은 repo root `shared/filter_rules.txt`입니다. Gradle `preBuild` 전에 존재·크기·유효한 DNS label을 가진 `block=`/`block-important=` 규칙 포함 여부를 확인하도록 validation task를 연결했습니다.
 - 파일 누락/빈 파일/유효 block 규칙 부재는 빌드 오류가 됩니다. sourceSet 및 task 소스는 반영했으나 Android Gradle 실행·APK asset 내부 확인은 미실행입니다.
