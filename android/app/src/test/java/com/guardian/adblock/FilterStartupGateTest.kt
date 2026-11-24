@@ -1,6 +1,8 @@
 package com.guardian.adblock
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -27,6 +29,24 @@ class FilterStartupGateTest {
         assertTrue(FilterStartupGate.hasUsableBundledBaseline(Int.MAX_VALUE, 1))
         assertTrue(FilterStartupGate.hasUsableBundledBaseline(0, Int.MAX_VALUE))
         assertFalse(FilterStartupGate.hasUsableBundledBaseline(Int.MIN_VALUE, Int.MIN_VALUE))
+    }
+
+    @Test
+    fun optionalCacheResultReturnsValuesAndSkipsOrdinaryOrLinkageFailures() {
+        assertEquals("ready", FilterStartupGate.optionalCacheResult { "ready" })
+        assertNull(FilterStartupGate.optionalCacheResult<String> { throw IllegalStateException("cache unavailable") })
+        assertNull(FilterStartupGate.optionalCacheResult<String> { throw NoClassDefFoundError("optional provider missing") })
+    }
+
+    @Test
+    fun optionalCacheResultDoesNotSwallowVirtualMachineFatalErrors() {
+        val fatal = OutOfMemoryError("simulated cosmetic cache memory exhaustion")
+        try {
+            FilterStartupGate.optionalCacheResult<String> { throw fatal }
+            throw AssertionError("Expected OutOfMemoryError to propagate")
+        } catch (actual: OutOfMemoryError) {
+            assertTrue(actual === fatal)
+        }
     }
 
     @Test
