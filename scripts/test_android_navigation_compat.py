@@ -87,6 +87,24 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         self.assertIn("} catch (error: Exception) {", handler)
         self.assertIn("오류 내용 복사 실패:", handler)
 
+    def test_stable_apk_is_verified_before_atomic_cache_commit(self):
+        root = Path(__file__).resolve().parents[1]
+        manager = (
+            root / "android/app/src/main/java/com/guardian/adblock/GuardianStableUpdateManager.kt"
+        ).read_text(encoding="utf-8")
+        cache_store = (
+            root / "android/app/src/main/java/com/guardian/adblock/GuardianApkCacheStore.kt"
+        ).read_text(encoding="utf-8")
+        download = manager.split("fun download(context: Context, update: GuardianStableUpdate)", 1)[1].split(
+            "fun install(context: Context, apk: File)", 1
+        )[0]
+        self.assertIn('File(directory, ".guardian-${update.versionCode}.apk.part")', download)
+        self.assertLess(download.index("sha256(temporary)"), download.index("verifyDownloadedPackage(context, temporary, update)"))
+        self.assertLess(download.index("verifyDownloadedPackage(context, temporary, update)"), download.index("GuardianApkCacheStore.commit(temporary, target)"))
+        self.assertIn("StandardCopyOption.ATOMIC_MOVE", cache_store)
+        self.assertIn("val backup = File(directory, "${target.name}.bak")", cache_store)
+        self.assertIn("move(backup, target)", cache_store)
+
     def test_customer_support_exposes_working_recent_error_copy_action(self):
         source_path = (
             Path(__file__).resolve().parents[1]
