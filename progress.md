@@ -4,7 +4,7 @@
 - **상태**: 개발 진행 중 — 완료/상용 공개 단계가 아닙니다.
 - **브랜치**: `work/pro-advanced-filtering-20261124`
 - **기준일**: 2026-11-24 (KST)
-- **현재 구현**: 현재 원격 비교에서 공통 PRO 보고서/entitlement 기반 외에 고급 필터 엔진 구현이 확인되지 않았습니다. 이슈는 열린 상태로 유지하고 실제 엔진 통합·UI·회귀 검증이 필요합니다.
+- **현재 구현**: DNS 필터 병합에서 기본·광고/추적·보안 인텔리전스·Android 앱 광고·사용자 규칙의 출처 집합을 보존하고, 실제 차단 결과에 출처/범주를 연결했습니다. 허용/중요 차단 우선순위는 유지하고 DEBUG 최근 DNS 이력과 Premium 미리보기에 출처 정보를 표시합니다. Release entitlement는 계속 비활성입니다.
 - **공통 권한 정책**: 유효한 서명 entitlement만으로 기능을 열지 않습니다. Android 통합·회귀·단말 검증을 통과하고 parent entitlement policy의 production-ready 목록에 등록되기 전까지 Release 접근은 비활성입니다.
 - **검증 제약**: 최신 코드에 대한 Android Gradle/JUnit·lint·에뮬레이터·실기기 검증은 별도로 수행한 증거가 없으면 미검증으로 표시합니다. GitHub Actions/runner/billing 설정 및 유료 실행은 사용자 승인 없이 시작하지 않습니다.
 
@@ -266,3 +266,11 @@
 - 문의 조회 화면뿐 아니라 `LicenseApiClient.lookupSupportTicket()` 진입점에서도 접수 번호와 조회 코드를 검증해 다른 호출 경로에서 잘못된 요청이 전송되지 않도록 했습니다.
 - 테스트에 조회 코드 최소/최대 길이, 잘못된 패딩 및 공백 문자를 추가했습니다.
 - 실제 `SupportInputPolicy.kt`와 동등한 독립 Kotlin/JVM 하네스를 `kotlinc`로 컴파일·실행해 이메일, 접수 번호, 조회 코드 검증 3개 시나리오를 통과했습니다. Android Gradle/JUnit 및 실제 API/DB는 미실행입니다.
+
+
+## 2026-11-24 — DNS 필터 출처·범주 기반 고급 정책 엔진
+- FilterRuleParser 결과를 로딩하는 각 feed에 RuleSource를 연결하고, DomainFilter가 원천별 ordinary/important rule set을 보존합니다. 동일 도메인이 다수 피드에 있으면 모든 출처를 보존합니다.
+- blockAttribution은 실제 차단인 경우에만 결과를 반환합니다. global allow가 ordinary block을 허용 처리하면 attribution도 null이며, important rule은 기존 우선순위대로 유지됩니다.
+- DEBUG 최근 DNS 차단 이력에 출처/범주를 표시하고 Premium 미리보기에서 현재 로드된 source rule counts를 제공합니다.
+- 회귀 테스트: built-in/main/security/android-app-ads/user source, 중첩 source, allow override, important precedence, 잘못된 source metadata cardinality.
+- Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행입니다. productionReadyFeatures는 계속 비어 있어 PRO Release 권한을 열지 않았습니다.
