@@ -1080,7 +1080,10 @@ class GuardianVpnService : VpnService() {
             socket.connect(InetSocketAddress(upstreamAddress, 53), 3500)
             socket.soTimeout = 3500
             val output = DataOutputStream(socket.getOutputStream())
-            if (query.size !in 17..65535) return null
+            if (query.size !in 17..65535) {
+                lastUpstreamFailure = "TCP: DNS 질의 길이 검증 실패"
+                return null
+            }
             output.writeShort(query.size)
             output.write(query)
             output.flush()
@@ -1137,8 +1140,14 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun forwardDnsOverTls(query: ByteArray, upstreamAddress: String): ByteArray? {
-        if (query.size !in 17..65535) return null
-        val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
+        if (query.size !in 17..65535) {
+            lastUpstreamFailure = "DoT: DNS 질의 길이 검증 실패"
+            return null
+        }
+        val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: run {
+            lastUpstreamFailure = "DoT: TLS 호스트명이 유효하지 않습니다"
+            return null
+        }
         var socket: SSLSocket? = null
         return try {
             val address = InetAddress.getByName(upstreamAddress)
@@ -1163,10 +1172,16 @@ class GuardianVpnService : VpnService() {
 
             val input = DataInputStream(socket.inputStream)
             val length = input.readUnsignedShort()
-            if (length !in 17..65535) return null
+            if (length !in 17..65535) {
+                lastUpstreamFailure = "DoT: DNS 응답 길이가 유효하지 않습니다"
+                return null
+            }
             val answer = ByteArray(length)
             input.readFully(answer)
-            if (DomainFilter.isMatchingResponse(query, answer)) answer else null
+            if (DomainFilter.isMatchingResponse(query, answer)) answer else {
+                lastUpstreamFailure = "DoT: DNS 트랜잭션 ID 또는 질문이 일치하지 않는 응답"
+                null
+            }
         } catch (error: Exception) {
             lastUpstreamFailure = "DoT: ${SafeFailureSummary.describe(error)}"
             null
@@ -1176,9 +1191,18 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun forwardDnsOverHttps(query: ByteArray, upstreamAddress: String): ByteArray? {
-        if (query.size !in 17..65535) return null
-        val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: return null
-        val request = DnsDohHttpCodec.buildPostRequest(tlsHost, "/dns-query", query) ?: return null
+        if (query.size !in 17..65535) {
+            lastUpstreamFailure = "DoH: DNS 질의 길이 검증 실패"
+            return null
+        }
+        val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: run {
+            lastUpstreamFailure = "DoH: TLS 호스트명이 유효하지 않습니다"
+            return null
+        }
+        val request = DnsDohHttpCodec.buildPostRequest(tlsHost, "/dns-query", query) ?: run {
+            lastUpstreamFailure = "DoH: HTTP 요청 형식 검증 실패"
+            return null
+        }
         var socket: SSLSocket? = null
         return try {
             val address = InetAddress.getByName(upstreamAddress)
@@ -1198,8 +1222,14 @@ class GuardianVpnService : VpnService() {
 
             socket.outputStream.write(request)
             socket.outputStream.flush()
-            val answer = DnsDohHttpCodec.readResponse(socket.inputStream) ?: return null
-            if (DomainFilter.isMatchingResponse(query, answer)) answer else null
+            val answer = DnsDohHttpCodec.readResponse(socket.inputStream) ?: run {
+                lastUpstreamFailure = "DoH: HTTP 상태·헤더·Content-Type 또는 DNS 본문 검증 실패"
+                return null
+            }
+            if (DomainFilter.isMatchingResponse(query, answer)) answer else {
+                lastUpstreamFailure = "DoH: DNS 트랜잭션 ID 또는 질문이 일치하지 않는 응답"
+                null
+            }
         } catch (error: Exception) {
             lastUpstreamFailure = "DoH: ${SafeFailureSummary.describe(error)}"
             null
