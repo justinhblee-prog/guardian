@@ -13,6 +13,13 @@ class FilterUpdatePolicyTest {
 
 
     @Test
+    fun linkageFailureDisablesOnlyEnabledOptionalFilterWithoutUsableCache() {
+        assertTrue(FilterUpdatePolicy.shouldDisableOptionalFilter(true, false))
+        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(true, true))
+        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(false, false))
+    }
+
+    @Test
     fun optionalFilterRetriesContinueAfterMainCacheRetryBudgetWhenMainCacheIsReady() {
         assertFalse(FilterUpdatePolicy.shouldFailInitialRetryBudget(
             forceInitialRefresh = true,
