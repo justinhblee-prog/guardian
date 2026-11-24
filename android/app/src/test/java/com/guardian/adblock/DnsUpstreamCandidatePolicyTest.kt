@@ -44,6 +44,11 @@ class DnsUpstreamCandidatePolicyTest {
         )
     }
 
+    @Test fun truncatedFallbackResolverNeedsTcpUnlessItsTcpAttemptIsAlreadyQueued() {
+        assertTrue(DnsUpstreamCandidatePolicy.needsTcpRetryAfterUdpTruncation(false))
+        assertFalse(DnsUpstreamCandidatePolicy.needsTcpRetryAfterUdpTruncation(true))
+    }
+
     @Test fun explicitTcpDotAndDohDoNotDowngradeToUdp() {
         listOf("tcp", "dot", "doh").forEach { transport ->
             assertEquals(listOf(transport), DnsUpstreamCandidatePolicy.transports(transport))
