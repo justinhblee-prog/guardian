@@ -4,7 +4,7 @@
 - **상태**: 개발 진행 중 — 완료/상용 공개 단계가 아닙니다.
 - **브랜치**: `work/pro-security-profiles-20261124`
 - **기준일**: 2026-11-24 (KST)
-- **현재 구현**: 6개 정책 프로필과 DEBUG NetworkCallback 전환, 수동 프로필 선택 UI를 추가했습니다. 사용자 opt-in과 프로필 허용값을 Scheduler/Worker 모두 확인하고, metered/captive/unvalidated 네트워크에서는 예약 필터 업데이트를 막으며, 초기 프로필 미설정 상태는 기존 무료 auto-update 기본값을 유지합니다. 실제 SIM 로밍·기기 네트워크 전환·PRO entitlement 게이트 검증은 미완료입니다.
+- **현재 구현**: 6개 정책 프로필과 DEBUG NetworkCallback 전환, 수동 프로필 선택 UI를 추가했습니다. 사용자 opt-in과 프로필 허용값을 Scheduler/Worker 모두 확인하고, metered/captive/unvalidated 네트워크에서는 예약 필터 업데이트를 막으며, 초기 프로필 미설정 상태는 기존 무료 auto-update 기본값을 유지합니다. 실제 SIM 로밍·OEM별 NetworkCallback 전환·PRO entitlement 게이트 단말 검증은 미완료입니다.
 - **공통 권한 정책**: 유효한 서명 entitlement만으로 기능을 열지 않습니다. Android 통합·회귀·단말 검증을 통과하고 parent entitlement policy의 production-ready 목록에 등록되기 전까지 Release 접근은 비활성입니다.
 - **검증 제약**: 최신 코드에 대한 Android Gradle/JUnit·lint·에뮬레이터·실기기 검증은 별도로 수행한 증거가 없으면 미검증으로 표시합니다. GitHub Actions/runner/billing 설정 및 유료 실행은 사용자 승인 없이 시작하지 않습니다.
 
@@ -367,3 +367,9 @@
 - API 28+ `NET_CAPABILITY_NOT_ROAMING`과 API 26–27 `NetworkInfo.isRoaming` legacy fallback을 사용해 실제 선택 네트워크의 roaming 여부를 `SecurityProfilePolicy.NetworkContext`에 전달합니다.
 - VPN capability가 보고될 때 단일 물리 네트워크를 선택한 경우 Network 객체도 함께 보존해 pre-28 fallback 조회가 올바른 물리 경로를 사용합니다. 불명확한 다중 네트워크는 기존 strict 정책을 유지합니다.
 - API 27/28 기준 pure policy 테스트 추가. Android API 26–27 OEM fallback·SIM 로밍·실기기 callback 검증은 미실행입니다.
+
+
+## 2026-11-24 — 셀룰러 로밍 API별 정책 smoke 및 초기 콜백 경로 재검토
+- API 28+ capability 및 API 26–27 legacy roaming source를 분리한 순수 `SecurityProfilePolicy.isCellularRoaming` 테스트를 추가했습니다. API 27/28 경계, Wi-Fi 비로밍, 모바일/여행 프로필 분기를 포함한 Kotlin/JVM smoke 15/15 통과.
+- NetworkCallback의 onAvailable/onCapabilitiesChanged/onLost와 등록 직후 active network 동기 적용이 모두 `Network` 객체 + capabilities를 새 시그니처로 전달하는지 재검토하고, 초기 동기 적용의 누락 인자를 수정했습니다.
+- Android SDK compile/JUnit 및 실제 SIM roaming·OEM callback 검증은 미실행입니다.
