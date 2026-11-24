@@ -57,6 +57,11 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_premium_category('<hierarchy><node text="일반" /></hierarchy>')
 
+    def test_hidden_premium_category_is_not_selected(self):
+        xml = '<hierarchy><node text="라이선스 및 프리미엄" visible-to-user="false" /><node text="일반" visible-to-user="true" /></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_premium_category(xml)
+
 
     def test_support_diagnostics_copy_recovers_after_collection_exception(self):
         source_path = (
