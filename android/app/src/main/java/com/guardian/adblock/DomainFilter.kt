@@ -149,6 +149,9 @@ object DomainFilter {
         val qdCount = u16(message, 4)
         if ((flags and 0x8000) != 0) return null // response, not query
         if ((flags and 0x7800) != 0) return null // standard QUERY opcode only
+        // AA, TC, RA and the reserved Z bit are response-only/reserved in a
+        // standard client query. RD, AD and CD remain valid query flags.
+        if ((flags and 0x06c0) != 0) return null
         if (qdCount != 1) return null
         var p = 12
         var labels = 0
