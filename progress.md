@@ -290,3 +290,9 @@
 - 개발 미리보기에 여섯 가지 수동 프로필 선택/적용 UI를 추가했습니다.
 - 수동 프로필 적용 시 저장된 자동 전환 설정을 해제하고 NetworkCallback을 정리한 뒤 실제 필터 설정 및 실행 중 VPN 규칙 reload 경로에 반영합니다.
 - Release/PRO entitlement는 아직 닫혀 있습니다. Android Gradle/JUnit·에뮬레이터·실기기 검증 전입니다.
+
+
+## 2026-11-24 — VPN underlying physical network 판정 보수화
+- VPN capability에서 여러 물리 네트워크 중 임의의 최고점 후보를 선택하던 코드를 제거했습니다. allNetworks는 실제 default underlying route를 보장하지 않으므로, 후보가 정확히 1개일 때만 자동 프로필을 분류합니다.
+- 물리 후보가 0개 또는 2개 이상이면 reported VPN capability를 유지해 OTHER/strict로 처리합니다. 수동 HOME/WORK 등 직접 선택은 그대로 유지합니다.
+- candidate count 0/1/2/negative 검증 테스트 추가. 실제 Android API/OEM/실기기 network handover 테스트는 미실행입니다.
