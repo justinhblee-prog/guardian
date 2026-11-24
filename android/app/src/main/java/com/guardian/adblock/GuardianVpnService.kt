@@ -254,6 +254,17 @@ class GuardianVpnService : VpnService() {
                 "GuardianProtection",
                 "Could not initialize app compatibility monitor: ${SafeFailureSummary.codeFor(error)}"
             )
+            compatibilityMonitorGeneration.incrementAndGet()
+            val failedMonitor = foregroundAppMonitor
+            foregroundAppMonitor = null
+            try {
+                failedMonitor?.stop()
+            } catch (cleanupError: Exception) {
+                android.util.Log.w(
+                    "GuardianProtection",
+                    "Could not stop partially initialized app monitor: ${SafeFailureSummary.codeFor(cleanupError)}"
+                )
+            }
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                 .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
                 .putString(
