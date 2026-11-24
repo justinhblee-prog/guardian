@@ -8,7 +8,7 @@ class ActivityScreenStateTest {
         listOf(
             "home", "protection", "app-exclusions", "activity", "premium",
             "settings", "updates", "settings-general", "settings-filtering",
-            "settings-premium", "settings-support", "settings-about", "settings-exit"
+            "settings-premium", "settings-support", "settings-about", "settings-updates", "settings-exit"
         ).forEach { tab ->
             assertEquals(tab, ActivityScreenState.restoreTab(tab))
         }
