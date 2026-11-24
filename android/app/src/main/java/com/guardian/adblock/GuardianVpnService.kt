@@ -348,10 +348,27 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun stopForegroundAppMonitor() {
+        // Invalidate callbacks before detaching the monitor. Cleanup of this
+        // optional feature must not abort an explicit VPN start/stop request.
         compatibilityMonitorGeneration.incrementAndGet()
         val monitor = foregroundAppMonitor
         foregroundAppMonitor = null
-        monitor?.stop()
+        try {
+            monitor?.stop()
+        } catch (error: Exception) {
+            android.util.Log.w(
+                "GuardianProtection",
+                "Could not stop app compatibility monitor: ${SafeFailureSummary.codeFor(error)}"
+            )
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                .putString(
+                    AppForegroundPauseSettings.KEY_ERROR,
+                    "자동 일시중지 감시를 정상 종료하지 못했습니다. ${SafeFailureSummary.describe(error)}"
+                )
+                .apply()
+            sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
+        }
     }
 
     @Synchronized
