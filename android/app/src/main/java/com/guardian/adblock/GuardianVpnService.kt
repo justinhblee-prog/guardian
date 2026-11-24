@@ -1096,16 +1096,16 @@ class GuardianVpnService : VpnService() {
             .getString(KEY_UPSTREAM_TLS_HOST, DEFAULT_UPSTREAM_TLS_HOST)
             ?: DEFAULT_UPSTREAM_TLS_HOST
 
-    private fun systemDnsServers(): List<String> {
+    private fun systemDnsServers(): List<String> = try {
         val manager = getSystemService(ConnectivityManager::class.java) ?: return emptyList()
         val networks = buildList {
             manager.activeNetwork?.let(::add)
             addAll(manager.allNetworks)
         }.distinct()
-        return networks.asSequence()
+        networks.asSequence()
             .filter { network ->
-                manager.getNetworkCapabilities(network)
-                    ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true
+                val capabilities = manager.getNetworkCapabilities(network) ?: return@filter false
+                !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
             }
             .flatMap { network ->
                 manager.getLinkProperties(network)?.dnsServers.orEmpty().asSequence()
@@ -1114,6 +1114,11 @@ class GuardianVpnService : VpnService() {
             .distinct()
             .take(2)
             .toList()
+    } catch (error: Exception) {
+        // Device DNS discovery is an optional fallback. A permission or
+        // transient connectivity error must not abort the DNS packet worker.
+        android.util.Log.w("GuardianProtection", "Could not inspect physical DNS servers: ${SafeFailureSummary.codeFor(error)}")
+        emptyList()
     }
 
     private fun forwardDns(query: ByteArray, requireSuccessfulResolution: Boolean = false): ByteArray? {
@@ -1139,7 +1144,11 @@ class GuardianVpnService : VpnService() {
                 virtualDns = setOf(VIRTUAL_DNS, VIRTUAL_DNS_V6)
             )
         } else {
-            candidates.map { address -> DnsUpstreamCandidatePolicy.Attempt(address, transport) }
+            candidates.flatMap { address ->
+                DnsUpstreamCandidatePolicy.transports(transport).map { selected ->
+                    DnsUpstreamCandidatePolicy.Attempt(address, selected)
+                }
+            }
         }
         val candidateFailures = mutableListOf<String>()
         for ((index, attempt) in attempts.withIndex()) {
