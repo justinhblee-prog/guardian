@@ -297,3 +297,10 @@
 ## 2026-11-24 — 위협 인텔리전스와 사용자 규칙 중첩 증거 검증 추가
 - `DomainFilter.blockEvidence`가 같은 도메인에 SECURITY_INTELLIGENCE_LIST와 USER_BLOCK_RULE을 함께 반환하고, ThreatAnalyticsEngine이 HIGH 분류를 유지하는지 검증하는 테스트를 추가했습니다.
 - Android Gradle/JUnit 및 서비스 SharedPreferences 통합 실행은 미실행입니다.
+
+
+## 2026-11-24 — Threat evidence와 실제 필터 우선순위 독립 Kotlin/JVM 검증
+- 현재 FilterRuleParser/DomainFilter.blockEvidence/ThreatAnalyticsEngine 정책을 반영한 harness를 `kotlinc`로 컴파일해 실행했습니다.
+- PASS 7/7: 중요 보안 목록+사용자 차단 증거 동시 보존, 동시 증거에서 HIGH 우선, 허용 규칙이 일반 피드 증거를 억제, 광고는 INFORMATIONAL, 사용자 전용 차단은 UNASSESSED, 비차단 요청은 assessment 없음.
+- 최초 한 번은 harness에서 사용자 허용까지 함께 넣어 새 회귀 테스트 입력과 달랐으므로 실패했습니다. 테스트와 동일한 입력(중요 차단+사용자 차단, allow 없음)으로 정정해 재실행했고 7/7 통과했습니다. 제품 코드 실패로 분류하지 않습니다.
+- 이 결과는 순수 Kotlin/JVM 정책 smoke이며 Android Gradle/JUnit, DNS 서비스 통합/SharedPreferences/실기기 테스트를 의미하지 않습니다.
