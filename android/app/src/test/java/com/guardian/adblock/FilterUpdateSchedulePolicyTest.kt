@@ -104,6 +104,14 @@ class FilterUpdateSchedulePolicyTest {
         assertFalse(FilterUpdatePolicy.shouldRunUpdates(autoUpdateEnabled = false, forceInitialRefresh = false))
     }
 
+    @Test fun initialRetryIsBoundedButNormalPeriodicUpdatesAreNotLimitedByThatBudget() {
+        assertTrue(FilterUpdatePolicy.shouldContinueInitialRetry(true, 0, FilterUpdateWorker.MAX_INITIAL_CACHE_ATTEMPTS))
+        assertTrue(FilterUpdatePolicy.shouldContinueInitialRetry(true, 5, FilterUpdateWorker.MAX_INITIAL_CACHE_ATTEMPTS))
+        assertFalse(FilterUpdatePolicy.shouldContinueInitialRetry(true, 6, FilterUpdateWorker.MAX_INITIAL_CACHE_ATTEMPTS))
+        assertFalse(FilterUpdatePolicy.shouldContinueInitialRetry(true, 0, 0))
+        assertTrue(FilterUpdatePolicy.shouldContinueInitialRetry(false, 100, FilterUpdateWorker.MAX_INITIAL_CACHE_ATTEMPTS))
+    }
+
     @Test fun initialCacheRetryUsesShortBackoffBeforeNetworkWork() {
         assertEquals(30_000L, FilterUpdateScheduler.INITIAL_CACHE_RETRY_DELAY_MS)
     }
