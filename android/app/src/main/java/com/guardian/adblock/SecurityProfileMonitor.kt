@@ -34,9 +34,16 @@ internal object SecurityProfileStore {
             )
         }.getOrDefault(SecurityProfilePolicy.Id.STRICT)
 
-    fun automaticUpdatesAllowed(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_AUTO_UPDATE_ALLOWED, false)
+    fun automaticUpdatesAllowed(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        // Preserve the existing free auto-update behavior until the user has
+        // explicitly selected a profile or automatic mode writes a decision.
+        return if (prefs.contains(KEY_AUTO_UPDATE_ALLOWED)) {
+            prefs.getBoolean(KEY_AUTO_UPDATE_ALLOWED, false)
+        } else {
+            SecurityProfilePolicy.profile(activeProfileId(context)).automaticFilterUpdates
+        }
+    }
 
     /**
      * Serialize explicit choices with queued network callbacks. A callback that
