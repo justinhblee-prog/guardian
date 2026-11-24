@@ -135,6 +135,17 @@ class DnsTcpPacketTest {
     }
 
 
+    @Test fun responseRejectsMalformedParsedAddressLengths() {
+        val ipv4 = DnsTcpPacket.parse(ipv4Request(), ipv4Request().size)!!
+        val ipv6 = DnsTcpPacket.parse(ipv6Request(), ipv6Request().size)!!
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            DnsTcpPacket.response(ipv4.copy(destination = byteArrayOf(10, 0, 0)), 1L, 1L, DnsTcpPacket.ACK)
+        }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            DnsTcpPacket.response(ipv6.copy(source = ByteArray(4)), 1L, 1L, DnsTcpPacket.ACK)
+        }
+    }
+
     @Test fun enforcesVersionSpecificMaximumIpPacketLengths() {
         val ipv4 = DnsTcpPacket.parse(ipv4Request(), ipv4Request().size)!!
         val maxIpv4Payload = ByteArray(65535 - 20 - 20)
