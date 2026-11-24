@@ -443,6 +443,35 @@ class DnsTcpSessionManagerTest {
         assertArrayEquals(first, replay)
     }
 
+    @Test fun exactDuplicateRequestRestartsRtoAndConsumesRetransmissionBudget() {
+        var now = 0L
+        val manager = DnsTcpSessionManager(clock = { now }, random = deterministicRandom())
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 7700)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 7701, acknowledgment = serverStart, payload = framedQuery)
+        val answer = ByteArray(5000) { (it and 0xff).toByte() }
+        val sent = manager.handle(request, request.size) { answer }
+        assertTrue(sent.size > 1)
+
+        now = 500L
+        val replayed = manager.handle(request, request.size) { error("Exact retransmission must not resolve DNS again") }
+        assertEquals(sent.size, replayed.size)
+        replayed.zip(sent).forEach { (actual, expected) -> assertArrayEquals(expected, actual) }
+
+        // The duplicate-request replay consumed retry #1 and reset the timer:
+        // initial 1s RTO is replaced by the 2s backoff measured from t=500ms.
+        now = 1_499L
+        assertTrue(manager.retransmitDue().isEmpty())
+        now = 2_499L
+        assertTrue(manager.retransmitDue().isEmpty())
+        now = 2_500L
+        assertArrayEquals(sent.first(), manager.retransmitDue().single())
+    }
+
     @Test fun delayedDuplicateRequestDoesNotReplayAlreadyAcknowledgedDnsAnswer() {
         val manager = newManager()
         val query = dnsQuery()
