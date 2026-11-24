@@ -48,6 +48,9 @@ internal object SecurityProfilePolicy {
      */
     fun hasUnambiguousUnderlyingNetwork(candidateCount: Int): Boolean = candidateCount == 1
 
+    /** Ignore late network callbacks once the user has disabled automatic switching. */
+    fun shouldApplyAutomaticProfile(automaticSwitchEnabled: Boolean): Boolean = automaticSwitchEnabled
+
     /** Manual selection has no trusted metering facts; never silently opt into downloads. */
     fun manualSelection(id: Id): Profile = profile(id).copy(automaticFilterUpdates = false)
 
