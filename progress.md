@@ -459,3 +459,10 @@
 ## 2026-11-24 — DNS TCP duplicate ACK 조건 정밀화
 - 빠른 재전송 duplicate ACK 조건에 동일한 광고 수신 윈도와 payload/FIN 부재를 추가했습니다. 윈도 변경 또는 데이터 포함 ACK는 duplicate ACK 연속 횟수를 초기화합니다.
 - 윈도 변경 패킷 자체는 카운트하지 않고 이후 동일 윈도 ACK 3회 이후 재전송하는 테스트를 추가했습니다. Android Gradle/JUnit 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP timer-based retransmission
+- 세션별 oldest outstanding response/FIN의 송신 시각을 기록하고 1s -> 2s -> 4s -> 8s RTO backoff를 적용합니다. 최대 5회 재전송 후 해당 TCP 세션을 정리합니다.
+- 세션당 한 번에 가장 오래된 미확인 segment만 재전송하며, fast retransmit도 타이머/attempt 상태를 공유합니다. 누적 ACK는 확인된 패킷을 제거합니다.
+- Android VPN packet loop와 별도 daemon scheduler(250ms tick)를 연결하고, 같은 TUN descriptor output을 synchronized block으로 직렬화합니다. loop 종료 때 scheduler를 종료합니다.
+- RTO deterministic clock 테스트 2개를 추가했습니다. Android Gradle/JUnit·lint·emulator·실기기 검증은 아직 미실행입니다.
