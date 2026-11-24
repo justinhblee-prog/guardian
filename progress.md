@@ -292,3 +292,8 @@
 - 최신 앱별 정책 branch 커밋 `38b5617b36a26340b69023a0c59a54f2092f1900`.
 - per-app DNS stats는 5초 단위 버퍼링으로 디스크 쓰기를 줄이고, 화면 snapshot/서비스 종료 시 flush합니다. 앱별 package 기록 최대 200개, 도메인/URL 비저장 원칙 유지.
 - SharedPreferences stub Kotlin smoke 통과: 질의/차단/전달/실패/광고/추적 합계, flush, clear.
+
+
+## 2026-11-24 — 앱별 규칙 오류 메시지 수정
+- 잘못된 도메인 규칙을 저장할 때 리터럴 템플릿이 노출되던 문자열 이스케이프 오류를 수정했습니다.
+- 첫 세 개 invalid line을 실제 입력 내용으로 표시하는 순수 함수와 회귀 테스트를 추가했습니다. Android Gradle/JUnit 및 기기 검증은 미실행입니다.
