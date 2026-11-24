@@ -712,3 +712,8 @@
 - 이제 별도 .part 파일에 다운로드하고 크기·SHA-256·APK package/version·manifest signer·현재 설치 signer를 검증한 후에만 최종 APK 경로로 원자적 이동합니다.
 - 이전 정상 APK는 백업 경로에 보존하고, 교체가 중단된 경우 다음 커밋에서 복구합니다. 실패 시 임시 파일을 제거합니다.
 - GuardianApkCacheStoreTest 3건과 다운로드 검증 순서를 확인하는 Python 정적 회귀 검사를 추가했습니다. Android Gradle/JUnit 및 Python 테스트 실행, lint, 에뮬레이터, 실기기/APK 배포 검증은 미실행입니다.
+
+## 2026-11-24 — APK 캐시 교체 실패 롤백 테스트 보강
+- 원자적 이동 실패 상황을 주입할 수 있도록 캐시 helper 내부에 이동 전략을 주입 가능하게 했습니다(기본 실행은 기존 atomic move 구현 유지).
+- 교체 중 임시 APK 이동이 실패하면 이전 정상 APK가 원래 경로로 복원되고 백업/임시 파일이 남지 않는지 검증하는 Kotlin 테스트 1건을 추가했습니다.
+- Kotlin 테스트는 총 4건으로 확장했습니다. Android Gradle/JUnit 및 Python 테스트 실행은 아직 하지 않았습니다.
