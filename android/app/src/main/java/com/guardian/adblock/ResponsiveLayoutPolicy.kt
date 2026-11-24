@@ -14,6 +14,8 @@ internal object ResponsiveLayoutPolicy {
     }
 
     fun usesNavigationRail(screenWidthDp: Int): Boolean = screenWidthDp >= 840
+    /** The root owns the bottom system inset only when there is no bottom navigation bar. */
+    fun rootHandlesBottomSystemInset(screenWidthDp: Int): Boolean = usesNavigationRail(screenWidthDp)
 
     fun usesTwoColumnDashboard(screenWidthDp: Int): Boolean =
         screenWidthDp >= WIDE_DASHBOARD_BREAKPOINT_DP
