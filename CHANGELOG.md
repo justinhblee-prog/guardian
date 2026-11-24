@@ -1,3 +1,9 @@
+
+
+## 2026-11-24 — DEX 041 논리 헤더 JVM smoke
+- DEX header/container 순회 helper를 kotlinc 1.9.0/JRE 21로 분리 컴파일·실행했습니다.
+- PASS 8/8: DEX 035 little-endian/reverse-endian, DEX 041 단일/복수 논리 DEX 개수, container_size 불일치, 두 번째 logical header_offset 불일치, truncated logical file, 미지원 버전 거부.
+- 이는 헤더 판정 로직 smoke입니다. APK ZIP parser·전체 DEX scanner·Android Gradle/JUnit·실제 APK/SAF 검증은 미실행입니다.
 ## 2026-11-24 — DEX 041 논리 헤더 전체 순회 및 개수 정합성
 
 - 이전 041 검사는 첫 컨테이너 헤더만 확인하고 ZIP 엔트리 수를 DEX 파일 수로 표시했습니다. 여러 논리 DEX가 한 컨테이너에 들어가는 경우 실제 논리 파일 수가 잘못 표시되고 후속 헤더 오프셋/크기 손상도 확인하지 못했습니다.
