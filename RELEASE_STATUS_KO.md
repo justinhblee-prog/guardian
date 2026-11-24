@@ -836,3 +836,9 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - Android Gradle 설정의 `guardianVersionName` 검증은 숫자 구성요소의 선행 0을 허용했지만, 정식/개발 업데이트 경로는 canonical numeric version을 요구했습니다. 빌드 시점과 업데이트 시점의 허용 규칙이 달랐습니다.
 - Gradle versionName 검증도 각 숫자 구성요소의 선행 0을 거부하도록 통일했습니다. 정식 `x.y.z` 및 개발/프리릴리스 접미사 형식은 유지합니다. 커밋 `a465daa9`.
 - 원격 Gradle 설정 반영 확인. 실제 Gradle 구성 실행 및 Android 빌드는 현재 브랜치에서 미실행입니다.
+
+## 2026-11-24 — 개발 업데이트 manifest 스키마 및 버전 규칙 통일
+- 개발판 manifest 생성 단계에 `manifestVersion: 1`을 추가하고 CI 내 APK/manifest 일치 검사도 스키마 버전과 canonical `x.y.z-dev`를 확인하도록 보강했습니다.
+- 개발 updater는 새 manifest의 스키마 버전이 1인지 검사합니다. 기존에 이미 게시된 버전 필드 없는 개발 manifest는 업데이트 호환성을 위해 계속 읽을 수 있고, 알 수 없는 명시적 스키마 버전은 거부합니다.
+- 정식 manifest 생성 스크립트도 `01.2.3` 등 선행 0 버전을 거부하도록 바꾸고 Node 회귀 테스트를 추가했습니다. 개발 updater 테스트의 누락된 JUnit 정적 import도 함께 수정했습니다.
+- 관련 변경 커밋 `bdc97510`, `36138fc5`, `19426647`, `bd8af3a6`, `a03199b9`. 원격 소스 반영 확인. Node/Android 테스트와 CI 실행은 아직 하지 않았습니다.
