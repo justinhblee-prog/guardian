@@ -47,15 +47,12 @@ object FilterUpdateScheduler {
         return if (index >= 0) index else defaultIndex.coerceIn(0, (supportedIntervals.size - 1).coerceAtLeast(0))
     }
 
-    internal fun shouldSchedule(userOptedIn: Boolean, profileAllowsUpdates: Boolean): Boolean =
-        userOptedIn && profileAllowsUpdates
-
     fun sync(context: Context) {
         val appContext = context.applicationContext
         val prefs = appContext.getSharedPreferences(GuardianVpnService.PREFS, Context.MODE_PRIVATE)
         val userOptedIn = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
         val profileAllowsUpdates = SecurityProfileStore.automaticUpdatesAllowed(appContext)
-        if (!shouldSchedule(userOptedIn, profileAllowsUpdates)) {
+        if (!FilterUpdateSchedulingPolicy.shouldSchedule(userOptedIn, profileAllowsUpdates)) {
             WorkManager.getInstance(appContext).cancelUniqueWork(UNIQUE_WORK_NAME)
             return
         }
