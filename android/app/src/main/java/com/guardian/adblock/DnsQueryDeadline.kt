@@ -1,20 +1,27 @@
 package com.guardian.adblock
 
 import java.net.SocketTimeoutException
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * One monotonic time budget shared by every resolver candidate and transport
- * used to answer a single DNS question.
+ * used to answer a single DNS question. Explicit cancellation closes any
+ * currently registered socket instead of waiting for the deadline to expire.
  */
 internal class DnsQueryDeadline private constructor(
     private val startedAtNanos: Long,
     private val budgetNanos: Long,
     private val nanoTime: () -> Long
 ) {
+    private val cancelled = AtomicBoolean(false)
+    private val activeClosers = CopyOnWriteArrayList<() -> Unit>()
+
     fun remainingTimeoutMillis(): Int? {
+        if (cancelled.get()) return null
         val elapsedNanos = nanoTime() - startedAtNanos
         val remainingNanos = budgetNanos - elapsedNanos
         if (remainingNanos <= 0L) return null
@@ -24,7 +31,15 @@ internal class DnsQueryDeadline private constructor(
     }
 
     fun requireRemainingTimeoutMillis(): Int =
-        remainingTimeoutMillis() ?: throw SocketTimeoutException("DNS query deadline exceeded")
+        remainingTimeoutMillis() ?: throw SocketTimeoutException(
+            if (cancelled.get()) "DNS query cancelled" else "DNS query deadline exceeded"
+        )
+
+    /** Immediately closes active upstream sockets and prevents another candidate from starting. */
+    fun cancel() {
+        if (!cancelled.compareAndSet(false, true)) return
+        activeClosers.forEach { closer -> runCatching(closer) }
+    }
 
     /**
      * SO_TIMEOUT alone is insufficient for TLS handshakes: each successful
@@ -32,13 +47,29 @@ internal class DnsQueryDeadline private constructor(
      * at the shared absolute deadline also bounds handshake and blocked writes.
      */
     fun closeOnExpiry(closeSocket: () -> Unit): AutoCloseable {
-        val remaining = requireRemainingTimeoutMillis()
+        val closer: () -> Unit = { runCatching(closeSocket) }
+        activeClosers.add(closer)
+        if (cancelled.get()) closer()
+
+        val remaining = remainingTimeoutMillis()
+        if (remaining == null) {
+            activeClosers.remove(closer)
+            closer()
+            throw SocketTimeoutException(
+                if (cancelled.get()) "DNS query cancelled" else "DNS query deadline exceeded"
+            )
+        }
         val future: ScheduledFuture<*> = EXPIRY_EXECUTOR.schedule(
-            { runCatching(closeSocket) },
+            {
+                if (activeClosers.remove(closer)) closer()
+            },
             remaining.toLong(),
             TimeUnit.MILLISECONDS
         )
-        return AutoCloseable { future.cancel(false) }
+        return AutoCloseable {
+            future.cancel(false)
+            activeClosers.remove(closer)
+        }
     }
 
     companion object {
