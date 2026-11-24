@@ -155,7 +155,7 @@ class DomainFilterTest {
     @Test fun userAllowOverridesUserAndOrdinaryFeedBlocksButNotImportantBlocks() {
         DomainFilter.loadParsedRuleSources(
             sources = listOf({ FilterRuleParser.parse(
-                "block=ordinary.example\\nblock-important=critical.example"
+                "block=ordinary.example\nblock-important=critical.example"
             ) }),
             minimumRuleCounts = listOf(1),
             userBlockDomains = listOf("user-only.example", "shared.example", "critical.example"),
