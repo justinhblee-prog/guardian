@@ -3,25 +3,12 @@ package com.guardian.adblock
 import android.content.Context
 import android.net.ConnectivityManager
 import android.os.Build
-import android.os.SystemClock
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.util.concurrent.ConcurrentHashMap
 
 /** Resolves UDP DNS socket ownership for an active VpnService (Android 10+). */
 internal object AppTrafficAttribution {
     private const val UDP_PROTOCOL = 17
-    private const val CACHE_TTL_MILLIS = 1_000L
-    private const val MAX_CACHE_ENTRIES = 2_048
-
-    private data class FlowKey(
-        val source: String,
-        val sourcePort: Int,
-        val destination: String,
-        val destinationPort: Int
-    )
-    private data class CachedOwner(val packageName: String, val expiresAt: Long)
-    private val cache = ConcurrentHashMap<FlowKey, CachedOwner>()
 
     fun resolveUdpDnsPackage(
         context: Context,
@@ -34,16 +21,10 @@ internal object AppTrafficAttribution {
         if (sourcePort !in 1..65535 || destinationPort != 53) return null
         if (sourceAddress.size !in setOf(4, 16) || destinationAddress.size != sourceAddress.size) return null
 
-        val key = FlowKey(
-            sourceAddress.toHex(), sourcePort,
-            destinationAddress.toHex(), destinationPort
-        )
-        val now = SystemClock.elapsedRealtime()
-        cache[key]?.let { cached ->
-            if (cached.expiresAt > now) return cached.packageName
-            cache.remove(key, cached)
-        }
-
+        // Do not cache by the 4-tuple: UDP source ports can be reused by a
+        // different app immediately after a socket closes. Resolve the owner
+        // for each datagram so a stale package policy cannot be applied to a
+        // later app that inherits the same local/remote address and port.
         return runCatching {
             val manager = context.getSystemService(ConnectivityManager::class.java) ?: return null
             val local = InetSocketAddress(InetAddress.getByAddress(sourceAddress), sourcePort)
@@ -51,16 +32,9 @@ internal object AppTrafficAttribution {
             val uid = manager.getConnectionOwnerUid(UDP_PROTOCOL, local, remote)
             if (uid < 0) return null
             val packages = context.packageManager.getPackagesForUid(uid).orEmpty()
-            val packageName = AppPackageIdentityPolicy.singleOwnerPackage(packages) ?: return null
-            if (cache.size >= MAX_CACHE_ENTRIES) cache.clear()
-            cache[key] = CachedOwner(packageName, now + CACHE_TTL_MILLIS)
-            packageName
+            AppPackageIdentityPolicy.singleOwnerPackage(packages)
         }.getOrNull()
     }
-
-    internal fun clearCacheForTest() = cache.clear()
-
-    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 }
 
 /** Shared UIDs are deliberately not attributed to an arbitrary package. */
