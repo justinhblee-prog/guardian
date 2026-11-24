@@ -316,3 +316,9 @@
 - `ThreatAnalyticsSummaryPolicy`가 persisted summary와 pending accumulator snapshot을 병합합니다. 카운터는 0 미만 방어 및 saturating Long add, 최근 항목은 pending 최신순 + 저장된 이전 항목 순서로 최대 20개를 유지합니다.
 - Store summary는 5초 flush window를 우회하지 않고 정책 helper를 사용합니다. 저장/대기 결합, 중첩 이벤트, cap, overflow/negative 및 invalid limit 테스트를 추가했습니다.
 - Android Gradle/JUnit, SharedPreferences 실제 저장 및 VPN Service 수명주기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 위협 분석 live preview·집계 병합 JVM smoke
+- ThreatAnalyticsEngine/ThreatAnalyticsModels의 정책 경로를 kotlinc 1.9.0/JRE 21로 컴파일한 분리 harness 실행 결과 PASS 18/18.
+- snapshot non-destructive, drain, persisted+pending counts/recent merge, pending newest-first, recent 20 cap, negative/Long.MAX saturation, security HIGH, ad/tracker INFORMATIONAL, user/unknown UNASSESSED, unblocked no assessment 및 fixed label no domain/URL을 확인했습니다.
+- Android Gradle/JUnit, SharedPreferences/WorkManager, MainActivity broadcast render, GuardianVpnService end-to-end 및 실기기 실행은 미실행입니다.
