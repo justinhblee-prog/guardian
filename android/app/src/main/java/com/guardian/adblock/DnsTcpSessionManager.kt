@@ -15,7 +15,12 @@ class DnsTcpSessionManager(
     private data class Key(
         val version: Int, val source: String, val destination: String, val sourcePort: Int
     )
-    private data class OutstandingServerPacket(val endSequence: Long, val packet: ByteArray)
+    private data class OutstandingServerPacket(
+        val endSequence: Long,
+        val packet: ByteArray,
+        var lastSentAtMs: Long,
+        var retransmissionCount: Int = 0
+    )
     private data class Session(
         val clientInitialSequence: Long,
         var clientNext: Long,
@@ -137,7 +142,7 @@ class DnsTcpSessionManager(
                 // Fire fast retransmit once per ACK number; further duplicate ACKs
                 // must not repeatedly flood the same oldest segment.
                 if (session.duplicateAckCount == 3) {
-                    fastRetransmit = session.outstandingServerPackets.firstOrNull()?.packet?.copyOf()
+                    fastRetransmit = markRetransmitted(session.outstandingServerPackets.firstOrNull(), now)
                 }
             } else {
                 // A payload-bearing ACK or a receive-window update is not a
@@ -305,7 +310,9 @@ class DnsTcpSessionManager(
         val finPacket = DnsTcpPacket.response(packet, session.serverNext, session.clientNext,
             DnsTcpPacket.FIN or DnsTcpPacket.ACK)
         session.serverNext = (session.serverNext + 1L) and MASK
-        session.outstandingServerPackets.add(OutstandingServerPacket(session.serverNext, finPacket.copyOf()))
+        session.outstandingServerPackets.add(
+            OutstandingServerPacket(session.serverNext, finPacket.copyOf(), clock())
+        )
         replies.add(finPacket)
         session.serverFinSent = true
     }
@@ -325,7 +332,7 @@ class DnsTcpSessionManager(
                 DnsTcpPacket.ACK or DnsTcpPacket.PSH, segment)
             session.serverNext = (session.serverNext + count) and MASK
             session.outstandingServerPackets.add(
-                OutstandingServerPacket(session.serverNext, responsePacket.copyOf())
+                OutstandingServerPacket(session.serverNext, responsePacket.copyOf(), clock())
             )
             replies.add(responsePacket)
             offset += count
@@ -333,6 +340,46 @@ class DnsTcpSessionManager(
         session.pendingServerData.reset()
         session.pendingServerData.write(pending, sendBytes, pending.size - sendBytes)
         return replies
+    }
+
+    /**
+     * Returns TCP retransmissions that have reached their retransmission timeout.
+     * Only the oldest unacknowledged segment per session is retried at a time.
+     * Sessions are discarded after the bounded retry budget is exhausted.
+     */
+    @Synchronized
+    fun retransmitDue(): List<ByteArray> {
+        val now = clock()
+        sessions.entries.removeAll { now - it.value.lastActivity > idleTimeoutMs }
+        val expired = mutableListOf<Key>()
+        val packets = mutableListOf<ByteArray>()
+        sessions.forEach { (key, session) ->
+            val oldest = session.outstandingServerPackets.firstOrNull() ?: return@forEach
+            val timeout = retransmissionTimeoutMs(oldest.retransmissionCount)
+            if (now - oldest.lastSentAtMs < timeout) return@forEach
+            if (oldest.retransmissionCount >= MAX_RETRANSMISSIONS) {
+                expired.add(key)
+            } else {
+                packets.add(markRetransmitted(oldest, now)!!)
+            }
+        }
+        expired.forEach { key -> sessions.remove(key) }
+        return packets
+    }
+
+    private fun markRetransmitted(packet: OutstandingServerPacket?, now: Long): ByteArray? {
+        packet ?: return null
+        if (packet.retransmissionCount >= MAX_RETRANSMISSIONS) return null
+        packet.retransmissionCount++
+        packet.lastSentAtMs = now
+        return packet.packet.copyOf()
+    }
+
+    private fun retransmissionTimeoutMs(retryCount: Int): Long = when (retryCount) {
+        0 -> INITIAL_RETRANSMISSION_TIMEOUT_MS
+        1 -> INITIAL_RETRANSMISSION_TIMEOUT_MS * 2L
+        2 -> INITIAL_RETRANSMISSION_TIMEOUT_MS * 4L
+        else -> MAX_RETRANSMISSION_TIMEOUT_MS
     }
 
     @Synchronized
@@ -351,5 +398,8 @@ class DnsTcpSessionManager(
 
     companion object {
         private const val MASK = 0xffffffffL
+        private const val INITIAL_RETRANSMISSION_TIMEOUT_MS = 1_000L
+        private const val MAX_RETRANSMISSION_TIMEOUT_MS = 8_000L
+        private const val MAX_RETRANSMISSIONS = 5
     }
 }
