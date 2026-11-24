@@ -211,12 +211,18 @@ internal object DevUpdateManager {
         val uri = java.net.URI(address)
         uri.scheme.equals("https", true) &&
             (uri.port == -1 || uri.port == 443) &&
-            uri.host?.lowercase() in setOf(
-                "api.github.com",
-                "github.com",
+            uri.userInfo == null && uri.fragment == null &&
+            when (uri.host?.lowercase()) {
+                "api.github.com" ->
+                    uri.path == "/repos/justinhblee-prog/guardian/releases"
+                "github.com" ->
+                    uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
+                        uri.path.removePrefix("/justinhblee-prog/guardian/releases/download/")
+                            .split('/').filter { it.isNotEmpty() }.size >= 2
                 "release-assets.githubusercontent.com",
-                "objects.githubusercontent.com"
-            ) && uri.userInfo == null
+                "objects.githubusercontent.com" -> !uri.path.isNullOrBlank()
+                else -> false
+            }
     }.getOrDefault(false)
 
     /** Validate every redirect target before opening a connection to it. */
