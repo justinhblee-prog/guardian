@@ -28,14 +28,12 @@ class SecurityProfilePolicyTest {
     }
 
     @Test fun captivePortalAndUnvalidatedNetworksUseStrictProfile() {
-        assertEquals(
-            SecurityProfilePolicy.Id.STRICT,
-            SecurityProfilePolicy.resolveAutomatic(network(captive = true)).id
-        )
-        assertEquals(
-            SecurityProfilePolicy.Id.STRICT,
-            SecurityProfilePolicy.resolveAutomatic(network(validated = false)).id
-        )
+        val captivePortal = SecurityProfilePolicy.resolveAutomatic(network(captive = true))
+        assertEquals(SecurityProfilePolicy.Id.STRICT, captivePortal.id)
+        assertFalse(captivePortal.automaticFilterUpdates)
+        val unvalidated = SecurityProfilePolicy.resolveAutomatic(network(validated = false))
+        assertEquals(SecurityProfilePolicy.Id.STRICT, unvalidated.id)
+        assertFalse(unvalidated.automaticFilterUpdates)
     }
 
     @Test fun roamingTakesPrecedenceOverTransportProfile() {
