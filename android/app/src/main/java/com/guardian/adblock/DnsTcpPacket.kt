@@ -17,6 +17,7 @@ object DnsTcpPacket {
         val acknowledgement: Long,
         val flags: Int,
         val window: Int,
+        val maximumSegmentSize: Int?,
         val payload: ByteArray
     ) {
         val syn: Boolean get() = flags and SYN != 0
@@ -64,6 +65,7 @@ object DnsTcpPacket {
         if (headerLength < 20 || headerLength > tcpLength) return null
         val checksum = u16(packet, tcpOffset + 16)
         if (checksum == 0 || !tcpChecksumValid(packet, version, tcpOffset, tcpLength, source, destination)) return null
+        val tcpOptions = parseTcpOptions(packet, tcpOffset + 20, tcpOffset + headerLength) ?: return null
         val destinationPort = u16(packet, tcpOffset + 2)
         if (destinationPort != expectedDestinationPort) return null
         val flags = packet[tcpOffset + 13].toInt() and 0xff
@@ -74,9 +76,38 @@ object DnsTcpPacket {
         return Parsed(
             version, source, destination, u16(packet, tcpOffset), destinationPort,
             u32(packet, tcpOffset + 4), u32(packet, tcpOffset + 8),
-            flags, u16(packet, tcpOffset + 14),
+            flags, u16(packet, tcpOffset + 14), tcpOptions.maximumSegmentSize,
             packet.copyOfRange(tcpOffset + headerLength, length)
         )
+    }
+
+    
+    private data class TcpOptions(val maximumSegmentSize: Int?)
+
+    /** Parse bounded TCP options; malformed option lengths must not shift payload parsing. */
+    private fun parseTcpOptions(packet: ByteArray, start: Int, end: Int): TcpOptions? {
+        var offset = start
+        var maximumSegmentSize: Int? = null
+        while (offset < end) {
+            val kind = packet[offset].toInt() and 0xff
+            when (kind) {
+                0 -> break // End of option list; remaining bytes are padding.
+                1 -> offset++ // No-operation padding.
+                else -> {
+                    if (offset + 1 >= end) return null
+                    val optionLength = packet[offset + 1].toInt() and 0xff
+                    if (optionLength < 2 || offset + optionLength > end) return null
+                    if (kind == 2) {
+                        if (optionLength != 4 || maximumSegmentSize != null) return null
+                        val value = u16(packet, offset + 2)
+                        if (value == 0) return null
+                        maximumSegmentSize = value
+                    }
+                    offset += optionLength
+                }
+            }
+        }
+        return TcpOptions(maximumSegmentSize)
     }
 
     fun response(request: Parsed, sequence: Long, acknowledgement: Long,
