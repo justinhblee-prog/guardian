@@ -3,6 +3,9 @@ package com.guardian.adblock
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 class VpnTunnelSessionGuardTest {
     @Test
@@ -51,6 +54,36 @@ class VpnTunnelSessionGuardTest {
         assertTrue(guard.hasActiveSession())
         guard.invalidate()
         assertFalse(guard.hasActiveSession())
+    }
+
+    @Test
+    fun newSessionActivationWaitsUntilOldSessionCleanupIsFinished() {
+        val guard = VpnTunnelSessionGuard()
+        val cleanupEntered = CountDownLatch(1)
+        val allowCleanupToFinish = CountDownLatch(1)
+        val newSessionActivated = CountDownLatch(1)
+        guard.activate(10L) {}
+
+        val oldLoop = thread(name = "test-old-vpn-loop") {
+            assertTrue(guard.release(10L) {
+                cleanupEntered.countDown()
+                assertTrue(allowCleanupToFinish.await(2, TimeUnit.SECONDS))
+            })
+        }
+        assertTrue(cleanupEntered.await(2, TimeUnit.SECONDS))
+
+        val newStart = thread(name = "test-new-vpn-start") {
+            guard.activate(11L) { newSessionActivated.countDown() }
+        }
+        assertFalse(newSessionActivated.await(100, TimeUnit.MILLISECONDS))
+        allowCleanupToFinish.countDown()
+        oldLoop.join(2_000L)
+        newStart.join(2_000L)
+
+        assertFalse(oldLoop.isAlive)
+        assertFalse(newStart.isAlive)
+        assertTrue(newSessionActivated.count == 0L)
+        assertTrue(guard.isOwner(11L))
     }
 
     @Test
