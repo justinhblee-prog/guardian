@@ -353,6 +353,8 @@ class ProtectionDiagnosticsTest {
         assertTrue(!report.contains("/private/path"))
         assertTrue(!report.contains("privatepath"))
         assertTrue(!report.contains("secret.example.com"))
+        assertTrue(!report.contains("secret.example.com:443"))
+        assertTrue(!report.contains("resolver.private.invalid:853"))
         assertTrue(!report.contains("bad code with spaces"))
     }
 
@@ -436,7 +438,7 @@ class ProtectionDiagnosticsTest {
             signedFilterDeliveryConfigured = false,
             licenseApiConfigured = false,
             filterUpdateErrorPresent = false,
-            lastStartupTrace = "IllegalStateException <- FileNotFoundException | com.guardian.Main.load:42 <- /data/user/0/private/libx.so <- https://resolver.private.invalid <- secret.example.com"
+            lastStartupTrace = "IllegalStateException <- FileNotFoundException | com.guardian.Main.load:42 <- /data/user/0/private/libx.so <- https://resolver.private.invalid <- secret.example.com <- secret.example.com:443 <- resolver.private.invalid:853"
         )
 
         assertTrue(report.contains("IllegalStateException <- FileNotFoundException"))
