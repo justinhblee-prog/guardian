@@ -39,7 +39,9 @@ internal object InstalledAppInventory {
         } else true
         val apps = linkedMapOf<String, String>()
         var installedQuerySucceeded = false
-        var installedQueryReturnedEntries = false
+        val applicationPackages = linkedSetOf<String>()
+        var installedPackagesQuerySucceeded = false
+        val packageInfoPackages = linkedSetOf<String>()
         var installedQueryError: String? = null
 
         fun addApplication(info: ApplicationInfo?) {
@@ -54,26 +56,31 @@ internal object InstalledAppInventory {
         try {
             val installed = packageManager.getInstalledApplications(PackageManager.MATCH_DISABLED_COMPONENTS)
             installedQuerySucceeded = true
-            installedQueryReturnedEntries = installed.isNotEmpty()
-            installed.forEach(::addApplication)
+            installed.forEach { info ->
+                if (info.packageName != context.packageName) applicationPackages.add(info.packageName)
+                addApplication(info)
+            }
             android.util.Log.i("GuardianApps", "getInstalledApplications returned ${installed.size} entries")
         } catch (error: Exception) {
             installedQueryError = "${error.javaClass.simpleName}: ${error.message ?: "알 수 없는 오류"}"
             android.util.Log.e("GuardianApps", "Installed-app inventory query failed", error)
         }
 
-        // Try PackageInfo as a second PackageManager enumeration path. Some OEM
-        // PackageManager implementations behave differently for these two APIs.
-        if (apps.isEmpty()) {
-            try {
-                val installedPackages = packageManager.getInstalledPackages(PackageManager.MATCH_DISABLED_COMPONENTS)
-                installedPackages.forEach { addApplication(it.applicationInfo) }
-                android.util.Log.i("GuardianApps", "getInstalledPackages fallback returned ${installedPackages.size} entries")
-            } catch (error: Exception) {
-                android.util.Log.e("GuardianApps", "Installed-package fallback query failed", error)
-                if (installedQueryError == null) {
-                    installedQueryError = "${error.javaClass.simpleName}: ${error.message ?: "패키지 목록 조회 실패"}"
-                }
+        // Always run an independent PackageInfo enumeration as a cleanup guard.
+        // If the two PackageManager APIs disagree, retain every stored app record:
+        // OEMs can return partial inventories without throwing an exception.
+        try {
+            val installedPackages = packageManager.getInstalledPackages(PackageManager.MATCH_DISABLED_COMPONENTS)
+            installedPackagesQuerySucceeded = true
+            installedPackages.forEach { packageInfo ->
+                if (packageInfo.packageName != context.packageName) packageInfoPackages.add(packageInfo.packageName)
+                addApplication(packageInfo.applicationInfo)
+            }
+            android.util.Log.i("GuardianApps", "getInstalledPackages returned ${installedPackages.size} entries")
+        } catch (error: Exception) {
+            android.util.Log.e("GuardianApps", "Installed-package cross-check failed", error)
+            if (installedQueryError == null) {
+                installedQueryError = "${error.javaClass.simpleName}: ${error.message ?: "패키지 목록 교차 확인 실패"}"
             }
         }
 
@@ -109,11 +116,16 @@ internal object InstalledAppInventory {
         // visibility failures return an empty list without throwing. Require the
         // primary enumeration to return entries, the full visibility grant and a
         // non-empty final inventory before treating omissions as uninstalled apps.
-        if (snapshot.queryAllPackagesGranted && snapshot.installedQuerySucceeded &&
-            installedQueryReturnedEntries && snapshot.apps.isNotEmpty()) {
-            val installedPackageNames = snapshot.apps.mapTo(linkedSetOf()) { it.first }
-            AppDnsActivityStore.pruneUninstalled(context, installedPackageNames, inventoryComplete = true)
-            PerAppDnsPolicyStore.pruneUninstalled(context, installedPackageNames, inventoryComplete = true)
+        val cleanupInventoryComplete = InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
+            queryAllPackagesGranted = snapshot.queryAllPackagesGranted,
+            applicationQuerySucceeded = snapshot.installedQuerySucceeded,
+            packageInfoQuerySucceeded = installedPackagesQuerySucceeded,
+            applicationPackages = applicationPackages,
+            packageInfoPackages = packageInfoPackages
+        )
+        if (cleanupInventoryComplete) {
+            AppDnsActivityStore.pruneUninstalled(context, applicationPackages, inventoryComplete = true)
+            PerAppDnsPolicyStore.pruneUninstalled(context, applicationPackages, inventoryComplete = true)
         }
         return snapshot
     }
