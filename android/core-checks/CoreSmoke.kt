@@ -72,5 +72,33 @@ fun main() {
     verify(((v6Reply[0].toInt() ushr 4) and 15) == 6 && (v6Reply[6].toInt() and 255) == 17, "IPv6 response header")
     verify(Ipv6Udp.parseDns(v6Query.copyOf().also { it[47] = (it[47].toInt() xor 1).toByte() }, v6Query.size) == null, "IPv6 bad checksum rejected")
 
+
+    // Adblock/hosts parser regressions: sink IPs are not DNS rules, badfilter
+    // disables only the matching rule, and important blocks outrank exceptions.
+    val parsedFeeds = FilterRuleParser.parse(listOf(
+        "0.0.0.0 ads.example.test 127.0.0.1",
+        "127.0.0.1 tracker.example.test ::1",
+        "0.0.0.0 127.0.0.1",
+        "||disabled.example.test^",
+        "||disabled.example.test^$badfilter",
+        "||ads.example.test^",
+        "@@||trusted.ads.example.test^",
+        "||critical.example.test^$important",
+        "@@||critical.example.test^",
+        "||unsupported.example.test^$script"
+    ))
+    verify("ads.example.test" in parsedFeeds.blocked, "hosts and Adblock block rules parsed")
+    verify("tracker.example.test" in parsedFeeds.blocked, "loopback hosts aliases parsed")
+    verify("127.0.0.1" !in parsedFeeds.blocked && "::1" !in parsedFeeds.blocked, "sink IP aliases ignored")
+    verify("disabled.example.test" !in parsedFeeds.blocked, "badfilter disables matching block rule")
+    verify("trusted.ads.example.test" in parsedFeeds.allowed, "Adblock exception parsed")
+    verify("critical.example.test" in parsedFeeds.importantBlocked, "important block parsed")
+    verify("unsupported.example.test" !in parsedFeeds.blocked, "unsupported network modifier ignored")
+    DomainFilter.loadRuleSources(listOf({ parsedFeeds }), listOf(1))
+    verify(DomainFilter.isBlocked("sub.ads.example.test"), "parsed hosts/adblock suffix blocks")
+    verify(!DomainFilter.isBlocked("trusted.ads.example.test"), "ordinary exception overrides ordinary block")
+    verify(DomainFilter.isBlocked("critical.example.test"), "important block cannot be overridden")
+    verify(parsedFeeds.ignored >= 3, "invalid, sink-only and unsupported rules counted as ignored")
+
     println("Guardian DNS core Kotlin smoke checks: PASS ($assertions assertions)")
 }
