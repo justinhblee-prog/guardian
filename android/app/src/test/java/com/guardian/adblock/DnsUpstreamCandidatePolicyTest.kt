@@ -5,8 +5,9 @@ import org.junit.Test
 
 class DnsUpstreamCandidatePolicyTest {
     @Test fun udpCandidatesPreferConfiguredThenPhysicalDnsThenPublicFallback() {
+        val normalizedIpv6 = DnsAddressValidator.normalize("2001:db8::53")!!
         assertEquals(
-            listOf("192.0.2.53", "10.0.0.1", "2001:db8::53", "1.1.1.1", "8.8.8.8"),
+            listOf("192.0.2.53", "10.0.0.1", normalizedIpv6, "1.1.1.1", "8.8.8.8"),
             DnsUpstreamCandidatePolicy.udpCandidates(
                 configured = "192.0.2.53",
                 systemDns = listOf("10.0.0.1", "2001:db8::53", "192.0.2.53"),
