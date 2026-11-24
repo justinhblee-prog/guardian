@@ -47,6 +47,17 @@ class PhishingUrlAnalyzerTest {
         assertTrue(httpOnHttpsPort.signals.contains(PhishingUrlAnalyzer.Signal.UNUSUAL_PORT))
     }
 
+    @Test fun validatesBracketedIpv6LiteralsInsteadOfAcceptingDnsNames() {
+        val valid = PhishingUrlAnalyzer.analyze("https://[2001:db8::1]:443/")
+        val invalidDnsName = PhishingUrlAnalyzer.analyze("https://[example.com]/")
+        val invalidIpv6 = PhishingUrlAnalyzer.analyze("https://[2001:db8:::1]/")
+
+        assertTrue(valid.inputAccepted)
+        assertTrue(valid.signals.contains(PhishingUrlAnalyzer.Signal.IP_LITERAL_HOST))
+        assertEquals(PhishingUrlAnalyzer.Risk.INVALID, invalidDnsName.risk)
+        assertEquals(PhishingUrlAnalyzer.Risk.INVALID, invalidIpv6.risk)
+    }
+
     @Test fun userInformationAndExecutableDownloadsRaiseRisk() {
         val result = PhishingUrlAnalyzer.analyze("http://trusted.example@192.0.2.10:8080/download.apk")
         assertTrue(result.signals.contains(PhishingUrlAnalyzer.Signal.EMBEDDED_CREDENTIALS))
