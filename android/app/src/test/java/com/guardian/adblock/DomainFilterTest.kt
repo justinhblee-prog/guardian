@@ -183,6 +183,43 @@ class DomainFilterTest {
         assertFalse(DomainFilter.isMatchingResponse(query, response.copyOf().also { it[2] = 0x83.toByte() }))
     }
 
+    @Test fun validatesCompleteUpstreamDnsResourceRecordSections() {
+        val query = DnsProbe.buildQuery("example.com")
+        val valid = ByteArray(query.size + 16)
+        System.arraycopy(query, 0, valid, 0, query.size)
+        valid[2] = 0x81.toByte()
+        valid[3] = 0x80.toByte()
+        valid[6] = 0
+        valid[7] = 1 // One answer record.
+        val rr = query.size
+        valid[rr] = 0xc0.toByte()
+        valid[rr + 1] = 0x0c // Owner name points back to QNAME.
+        valid[rr + 2] = 0
+        valid[rr + 3] = 1 // A
+        valid[rr + 4] = 0
+        valid[rr + 5] = 1 // IN
+        valid[rr + 9] = 60 // TTL
+        valid[rr + 10] = 0
+        valid[rr + 11] = 4 // RDLENGTH
+        valid[rr + 12] = 1
+        valid[rr + 13] = 2
+        valid[rr + 14] = 3
+        valid[rr + 15] = 4
+
+        assertTrue(DomainFilter.isMatchingResponse(query, valid))
+        assertFalse(DomainFilter.isMatchingResponse(query, valid.copyOf(valid.size - 1)))
+        assertFalse(DomainFilter.isMatchingResponse(query, valid.copyOf().also {
+            it[rr + 11] = 5 // RDLENGTH extends beyond the packet.
+        }))
+        assertFalse(DomainFilter.isMatchingResponse(query, valid.copyOf().also {
+            it[rr + 1] = 0x7f // Forward/out-of-range compression target.
+        }))
+        assertFalse(DomainFilter.isMatchingResponse(query, valid.copyOf().also {
+            it[7] = 2 // Header advertises a second, missing answer.
+        }))
+        assertFalse(DomainFilter.isMatchingResponse(query, valid + byteArrayOf(0)))
+    }
+
     @Test fun matchesDnsQuestionNameCaseInsensitivelyButKeepsTypeAndClassExact() {
         val query = intArrayOf(
             0x12,0x34,0x01,0x00,0x00,0x01,0,0,0,0,0,0,
