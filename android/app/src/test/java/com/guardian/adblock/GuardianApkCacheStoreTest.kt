@@ -55,8 +55,17 @@ class GuardianApkCacheStoreTest {
                 writeBytes("new-verified-apk".toByteArray())
             }
 
-            GuardianApkCacheStore.commit(temporary, target)
+            val moves = mutableListOf<Pair<File, File>>()
+            GuardianApkCacheStore.commit(temporary, target) { source, destination ->
+                moves += source to destination
+                Files.move(
+                    source.toPath(),
+                    destination.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                )
+            }
 
+            assertEquals(backup to target, moves.first())
             assertArrayEquals("new-verified-apk".toByteArray(), target.readBytes())
             assertFalse(backup.exists())
             assertFalse(temporary.exists())
