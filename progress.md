@@ -328,3 +328,8 @@
 ## 2026-11-24 — 수동 보안 프로필 적용 경쟁 상태 방지
 - 수동 프로필 Apply가 automatic switch를 끈 직후 늦게 도착한 NetworkCallback이 선택을 덮어쓰지 않도록, switch 변경/수동 적용/자동 적용 메서드를 같은 store monitor로 직렬화했습니다.
 - 자동 적용은 switch가 현재 false면 즉시 반환하고, 수동 적용만 공통 profile write/reload 함수를 직접 호출합니다. 순수 gate policy 테스트 추가. Android callback race 및 실기기 network handover 검증은 미실행입니다.
+
+
+## 2026-11-24 — 자동 전환 스위치 변경 동기화 보강
+- 사용자 체크박스 ON/OFF setter도 자동 적용/수동 적용과 같은 `SecurityProfileStore` monitor를 사용하도록 수정했습니다. setter OFF가 late callback의 상태 검사보다 먼저 완료되면 콜백은 적용되지 않습니다.
+- 실제 ConnectivityManager callback race 재현 및 Android 기기 검증은 미실행입니다.
