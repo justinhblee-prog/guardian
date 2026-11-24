@@ -914,6 +914,9 @@ class DnsTcpSessionManagerTest {
         val retransmitted = manager.handle(thirdDuplicateAck, thirdDuplicateAck.size) { null }
         assertEquals(1, retransmitted.size)
         assertArrayEquals(sent.first(), retransmitted.single())
+        val fourthDuplicateAck = packet(flags = DnsTcpPacket.ACK,
+            seq = clientNext, acknowledgment = serverStart)
+        assertTrue(manager.handle(fourthDuplicateAck, fourthDuplicateAck.size) { null }.isEmpty())
 
         val firstPayloadSize = DnsTcpPacket.parse(sent.first(), sent.first().size, 53000)!!.payload.size
         val partialAckNumber = (serverStart + firstPayloadSize) and 0xffffffffL
