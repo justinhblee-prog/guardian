@@ -2,10 +2,27 @@ package com.guardian.adblock
 
 object DomainFilter {
     // Bootstrap defaults are replaced only after a valid shared rule asset is loaded.
+    // Keep this emergency set aligned with shared/filter_rules.txt. It is used
+    // when the packaged baseline cannot be read or a first-run filter download
+    // is unavailable, so it must provide meaningful coverage rather than only
+    // the original ten demonstration domains.
     private val bootstrapBlocked = setOf(
         "doubleclick.net", "googlesyndication.com", "googleadservices.com",
         "adnxs.com", "adform.net", "taboola.com", "outbrain.com",
-        "criteo.com", "scorecardresearch.com", "quantserve.com"
+        "criteo.com", "scorecardresearch.com", "quantserve.com",
+        "adservice.google.com", "pagead2.googlesyndication.com",
+        "pagead2.googleadservices.com", "securepubads.g.doubleclick.net",
+        "partner.googleadservices.com", "ads.yahoo.com", "advertising.yahoo.com",
+        "adserver.yahoo.com", "adsystem.com", "adroll.com", "rubiconproject.com",
+        "pubmatic.com", "openx.net", "casalemedia.com", "appnexus.com",
+        "bidswitch.net", "smartadserver.com", "serving-sys.com", "exoclick.com",
+        "popads.net", "popcash.net", "propellerads.com", "trafficjunky.net",
+        "mgid.com", "revcontent.com", "analytics.google.com",
+        "google-analytics.com", "googletagmanager.com", "hotjar.com",
+        "mixpanel.com", "amplitude.com", "segment.io", "segment.com",
+        "fullstory.com", "mouseflow.com", "clarity.ms", "newrelic.com",
+        "nr-data.net", "sentry.io", "bugsnag.com", "branch.io",
+        "adjust.com", "appsflyer.com", "kochava.com"
     )
     private data class RuleSet(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>)
     @Volatile private var activeRules = RuleSet(bootstrapBlocked, emptySet(), emptySet())
