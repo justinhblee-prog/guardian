@@ -24,6 +24,9 @@ internal object PerAppDnsRulePolicy {
 
     fun isValidPackageName(value: String): Boolean =
         value.length in 3..255 && value.matches(Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+"))
+
+    fun invalidRulesMessage(invalidLines: List<String>): String =
+        "잘못된 도메인 규칙: ${invalidLines.take(3).joinToString(", ")}"
 }
 
 /** Per-package extra block rules. These only add protection and never override global allow rules. */
@@ -49,7 +52,7 @@ internal object PerAppDnsPolicyStore {
         require(PerAppDnsRulePolicy.isValidPackageName(packageName)) { "앱 패키지 ID가 올바르지 않습니다." }
         val parsed = PerAppDnsRulePolicy.parse(rawRules)
         require(parsed.invalidLines.isEmpty()) {
-            "잘못된 도메인 규칙: \${parsed.invalidLines.take(3).joinToString(", ")}"
+            PerAppDnsRulePolicy.invalidRulesMessage(parsed.invalidLines)
         }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val editor = prefs.edit()
