@@ -376,6 +376,37 @@ class DnsTcpSessionManagerTest {
         assertArrayEquals(first, replay)
     }
 
+    @Test fun delayedDuplicateRequestDoesNotReplayAlreadyAcknowledgedDnsAnswer() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 6100)
+        val synAckBytes = manager.handle(syn, syn.size) { null }.single()
+        val synAck = DnsTcpPacket.parse(synAckBytes, synAckBytes.size, 53000)!!
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 6101, acknowledgment = (synAck.sequence + 1L) and 0xffffffffL,
+            payload = framed)
+        var calls = 0
+        val answerBytes = manager.handle(request, request.size) {
+            calls++
+            DomainFilter.makeServfail(it)
+        }.single()
+        val answer = DnsTcpPacket.parse(answerBytes, answerBytes.size, 53000)!!
+        assertTrue(answer.payload.isNotEmpty())
+
+        val responseAck = packet(flags = DnsTcpPacket.ACK,
+            seq = 6101L + framed.size,
+            acknowledgment = (answer.sequence + answer.payload.size) and 0xffffffffL)
+        assertTrue(manager.handle(responseAck, responseAck.size) { null }.isEmpty())
+
+        val delayedDuplicate = manager.handle(request, request.size) { calls++; null }.single()
+        val duplicateAck = DnsTcpPacket.parse(delayedDuplicate, delayedDuplicate.size, 53000)!!
+        assertTrue(duplicateAck.ack)
+        assertTrue(duplicateAck.payload.isEmpty())
+        assertEquals(6101L + framed.size, duplicateAck.acknowledgement)
+        assertEquals(1, calls)
+    }
+
     @Test fun retransmittedDataAndFinReplaysRepliesUntilClientAcknowledgesServerFin() {
         val manager = newManager()
         val query = dnsQuery()
