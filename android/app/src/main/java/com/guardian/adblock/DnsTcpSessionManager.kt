@@ -27,6 +27,7 @@ class DnsTcpSessionManager(
         var serverNext: Long,
         val serverInitial: Long,
         var serverAcknowledged: Long,
+        val maxSegmentPayload: Int,
         var peerWindow: Int = 65535,
         var peerWindowSequence: Long,
         var peerWindowAcknowledgement: Long,
@@ -49,9 +50,10 @@ class DnsTcpSessionManager(
     // DNS-over-TCP uses a 16-bit length prefix; retain one maximum-sized frame plus its prefix.
     private val maxDnsMessage = 65535
     private val maxBufferedBytes = 65537
-    // Conservative default MSS when the client did not negotiate TCP options.
-    // 1200 bytes keeps the synthesized IPv6 packet below the 1280-byte minimum MTU.
-    private val maxSegmentPayload = 1200
+    // Cap each synthesized packet below the IPv6 minimum MTU and bound work
+    // per drain even if a peer advertises an unusually small MSS.
+    private val maxSegmentPayloadLimit = 1200
+    private val maxSegmentsPerDrain = 64
 
     @Synchronized
     fun handle(packet: ByteArray, length: Int, resolve: (ByteArray) -> ByteArray?): List<ByteArray> {
@@ -85,6 +87,10 @@ class DnsTcpSessionManager(
             val session = Session(tcp.sequence, expectedClientNext,
                 (serverInitial + 1L) and MASK, serverInitial,
                 serverAcknowledged = (serverInitial + 1L) and MASK,
+                maxSegmentPayload = minOf(
+                    tcp.maximumSegmentSize ?: if (tcp.version == 4) 536 else 1220,
+                    maxSegmentPayloadLimit
+                ),
                 peerWindow = tcp.window, peerWindowSequence = tcp.sequence,
                 peerWindowAcknowledgement = tcp.acknowledgement, lastActivity = now)
             sessions[key] = session
@@ -338,11 +344,13 @@ class DnsTcpSessionManager(
         val available = (session.peerWindow.toLong() - outstanding).coerceAtLeast(0L).toInt()
         if (available == 0 || session.pendingServerData.size() == 0) return emptyList()
         val pending = session.pendingServerData.toByteArray()
-        val sendBytes = minOf(available, pending.size)
+        val sendBytes = minOf(
+            available, pending.size, session.maxSegmentPayload * maxSegmentsPerDrain
+        )
         val replies = ArrayList<ByteArray>()
         var offset = 0
         while (offset < sendBytes) {
-            val count = minOf(maxSegmentPayload, sendBytes - offset)
+            val count = minOf(session.maxSegmentPayload, sendBytes - offset)
             val segment = pending.copyOfRange(offset, offset + count)
             val responsePacket = DnsTcpPacket.response(packet, session.serverNext, session.clientNext,
                 DnsTcpPacket.ACK or DnsTcpPacket.PSH, segment)
