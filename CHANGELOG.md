@@ -1,3 +1,10 @@
+## 2026-11-24 — DEX 041 컨테이너 헤더 지원
+
+- 기존 DEX 검사기가 모든 버전에 header_size 0x70과 file_size=물리 파일 길이를 요구해 Android 16 실험 형식인 DEX 041을 거부할 수 있었습니다.
+- 지원 버전을 035·037~041로 명시하고, 035~040은 0x70 헤더/파일 크기 규칙을, 041은 0x78 헤더와 container_size 및 최초 header_offset=0을 검증하도록 분기했습니다. 041의 file_size는 논리 DEX 범위이므로 물리 컨테이너보다 작을 수 있습니다.
+- DEX 041 정상 컨테이너 헤더, 잘못된 container_size, 잘못된 header_offset 및 미지원 버전 거부 테스트를 추가했습니다. 이는 전체 DEX 컨테이너의 모든 논리 헤더/섹션을 검증하는 정식 parser가 아니며 문자열 triage 범위입니다.
+- Android Gradle/JUnit 및 실 APK 검증은 미실행입니다.
+
 ## 2026-11-24 — 피싱 URL 호스트 끝점 정규화 검증
 
 - URL 호스트를 `trimEnd('.')`로 정규화해 `example.com..`의 연속된 마지막 점이 제거되고 정상 주소로 오인될 수 있던 문제를 수정했습니다.
