@@ -821,3 +821,8 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 정식판 updater는 `Content-Length = -1`인 chunked/streaming 응답을 실제 수신 바이트 상한(150 MiB)으로 제한해 허용하지만, 개발판 updater는 같은 정상 HTTP 응답을 즉시 거부하고 있었습니다. 개발판 다운로드도 알 수 없는 길이를 허용하되 실제 수신 크기 1~100 MiB를 강제하고, Content-Length가 알려진 경우에는 실제 길이와 정확히 일치하는지 검증하도록 통일했습니다.
 - `DevUpdateManagerTest.acceptsUnknownLengthDevelopmentApkStreamsButBoundsActualBytes` 회귀 테스트 추가. 커밋 `c9b3cf4d`, `39f36cb6`.
 - 이 테스트는 소스에 추가만 했으며 현재 브랜치의 Android JUnit/Gradle 실행 결과는 아닙니다.
+
+## 2026-11-24 — 개발판 업데이트 버전 표기 정규화
+- 개발판 updater는 Release tag의 숫자 버전과 manifest `versionCode` 일치 여부를 확인했지만, `guardian-dev-v048` 같은 선행 0 tag와 `01.2.3-dev` 같은 비정규 versionName을 허용하고 있었습니다. 정식판 updater의 canonical SemVer 검사와 기준이 달랐습니다.
+- 개발판 tag는 `guardian-dev-v0` 또는 선행 0 없는 양의 정수만 허용하고, versionName도 각 숫자 구성요소의 선행 0을 거부하도록 통일했습니다. 정수 오버플로 tag도 거부합니다. `DevUpdateManagerTest.developmentTagsAndVersionNamesMustUseCanonicalNumericComponents` 추가. 커밋 `2a0bb7ee`, `ecb811a2`.
+- 원격 코드와 테스트 소스 반영 확인 완료. 이 브랜치의 Android JUnit/Gradle 실행은 아직 하지 않았습니다.
