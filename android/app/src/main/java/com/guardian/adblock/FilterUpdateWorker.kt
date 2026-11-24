@@ -20,7 +20,10 @@ class FilterUpdateWorker(
             )
         ) return Result.success()
 
-        if (forceInitialRefresh && runAttemptCount >= MAX_INITIAL_CACHE_ATTEMPTS) {
+        if (!FilterUpdatePolicy.shouldContinueInitialRetry(
+                forceInitialRefresh, runAttemptCount, MAX_INITIAL_CACHE_ATTEMPTS
+            )
+        ) {
             android.util.Log.e("Guardian", "Initial filter cache retry budget exhausted after $runAttemptCount attempts")
             applicationContext.sendBroadcast(
                 Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
