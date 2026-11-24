@@ -3649,6 +3649,9 @@ class MainActivity : Activity() {
             setFilterUpdateStatus("필터 목록을 이미 다운로드하고 있습니다.")
             return
         }
+        // A new foreground attempt supersedes a queued first-run recovery request.
+        runCatching { FilterUpdateScheduler.cancelInitialCacheRetry(applicationContext) }
+            .onFailure { android.util.Log.w("Guardian", "Initial filter retry cancellation failed: ${SafeFailureSummary.codeFor(it)}") }
         filterUpdateButton?.isEnabled = false
         filterUpdateButton?.text = "필터 다운로드 및 검증 중…"
         homeFilterUpdateButton?.isEnabled = false
