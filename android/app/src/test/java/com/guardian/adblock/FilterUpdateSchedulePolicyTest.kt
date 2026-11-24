@@ -13,6 +13,14 @@ class FilterUpdateSchedulePolicyTest {
         assertFalse(FilterUpdateScheduler.shouldSchedule(userOptedIn = false, profileAllowsUpdates = false))
     }
 
+    @Test fun periodicWorkerRequiresUnmeteredNetworkEvenForManualProfile() {
+        assertTrue(FilterUpdateSchedulingPolicy.shouldRun(true, true, true))
+        assertFalse(FilterUpdateSchedulingPolicy.shouldRun(true, true, false))
+        assertFalse(FilterUpdateSchedulingPolicy.shouldRun(false, true, true))
+        assertFalse(FilterUpdateSchedulingPolicy.shouldRun(true, false, true))
+        assertFalse(FilterUpdateSchedulingPolicy.shouldRun(false, false, false))
+    }
+
     @Test fun mandatoryInitialFilterPopulationIsNotGatedByProfileUpdatePermission() {
         assertTrue(FilterStartupPolicy.shouldRefresh(
             mainCacheMissing = true,
