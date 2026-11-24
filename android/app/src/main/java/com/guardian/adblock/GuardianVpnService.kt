@@ -673,7 +673,7 @@ class GuardianVpnService : VpnService() {
                     val due = tcpDns.retransmitDue()
                     if (due.isNotEmpty()) {
                         synchronized(output) {
-                            due.forEach(output::write)
+                            due.forEach { packet -> output.write(packet) }
                             output.flush()
                         }
                     }
@@ -751,7 +751,7 @@ class GuardianVpnService : VpnService() {
             if (running.get()) loopFailure = e
         } finally {
             retransmissionScheduler?.shutdownNow()
-            loopFailure = loopFailure ?: retransmissionFailure.get()
+            loopFailure = retransmissionFailure.get() ?: loopFailure
             // A dead packet loop must never leave the UI claiming protection is active.
             if (running.compareAndSet(true, false)) {
                 tunnelActive = false
