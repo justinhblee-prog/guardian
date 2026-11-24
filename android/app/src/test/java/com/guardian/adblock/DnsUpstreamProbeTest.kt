@@ -57,6 +57,21 @@ class DnsUpstreamProbeTest {
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
     }
 
+    @Test fun rejectsCompleteNonAddressAnswerAsProofOfUsableIpv4Dns() {
+        val query = DnsUpstreamProbe.query()
+        val txtOnly = successfulResponse(query).also {
+            it[questionEnd(query) + 1] = 0x10
+        }
+        val shortAddress = successfulResponse(query).copyOf(successfulResponse(query).size - 1).also {
+            it[it.size - 6] = 0
+            it[it.size - 5] = 3
+        }
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, txtOnly))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, shortAddress))
+    }
+
+    private fun questionEnd(query: ByteArray): Int = 12 + 1 + 7 + 1 + 3 + 1 + 4
+
     @Test fun rejectsSelfReferencingCompressionPointerInAnswerOwnerName() {
         val query = DnsUpstreamProbe.query()
         val response = successfulResponse(query)
