@@ -6,16 +6,23 @@ import java.net.InetAddress
 internal object DnsUpstreamCandidatePolicy {
     data class Attempt(val address: String, val transport: String)
 
+    fun udpCandidates(
+        configured: String,
+        systemDns: List<String>,
+        publicFallback: List<String>,
+        virtualDns: Set<String>
+    ): List<String> = (listOf(configured) + systemDns + publicFallback)
+        .mapNotNull(::usableResolverAddress)
+        .filterNot { it in virtualDns }
+        .distinct()
+
     fun udpAttempts(
         configured: String,
         systemDns: List<String>,
         publicFallback: List<String>,
         virtualDns: Set<String>
     ): List<Attempt> {
-        val candidates = (listOf(configured) + systemDns + publicFallback)
-            .mapNotNull(::usableResolverAddress)
-            .filterNot { it in virtualDns }
-            .distinct()
+        val candidates = udpCandidates(configured, systemDns, publicFallback, virtualDns)
         return buildList {
             candidates.forEachIndexed { index, address ->
                 add(Attempt(address, "udp"))
