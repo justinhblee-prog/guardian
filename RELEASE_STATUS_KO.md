@@ -610,3 +610,5 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 사용자가 TCP/DoT/DoH를 명시 선택한 경우 UDP로 강등하지 않습니다. UDP의 TC 응답도 중복 TCP 소켓을 열지 않고 상위 fallback 순서에서 TCP를 한 번만 시도하도록 정리했습니다.
 - Android `ConnectivityManager`에서 물리 DNS를 읽기 위해 `ACCESS_NETWORK_STATE` 권한을 선언했습니다. 네트워크 정보 조회 실패는 보호 패킷 처리 중단 대신 기기 DNS fallback 생략으로 처리합니다.
 - 순수 DNS 후보/순서 정책 테스트 4개를 추가했고 별도 Kotlin/JVM smoke harness에서 주소 정규화·IPv6 가상 DNS 제외·후보 순서·전송방식 보존을 실행 확인했습니다(`DNS_UPSTREAM_FALLBACK_POLICY_SMOKE=PASS`). Android Gradle/JUnit, 실제 Wi-Fi/모바일 DNS 연결은 미검증입니다.
+
+- Android 필터 캐시 교체에서 백업 복구 이동 자체가 실패하는 경우, `.bak` 파일을 보존해 다음 프로세스 시작 시 `recover()`가 이전 정상 세대를 복구하는 회귀 테스트를 추가했습니다. 테스트 소스 반영이며 Android JUnit/Gradle 실행은 아직 미실시입니다.
