@@ -661,3 +661,8 @@
 - `DnsUpstreamFailurePolicy` 실제 순수 Kotlin 소스를 kotlinc/JRE 21로 분리 컴파일·실행했습니다. PASS 5/5: 후보별 원인 병합, 공백 제거, 최대 6개 후보, 항목 240자/전체 1,200자 상한, 원인 없는 경우 null 반환.
 - Android VPN packet loop에서 실제 업스트림 fallback 및 SharedPreferences 진단 표시까지 통합 검증한 것은 아닙니다. Android Gradle/JUnit·실기기 DNS는 미실행입니다.
 
+
+
+## 2026-11-24 — 정식 APK 검증 실패 캐시 삭제
+- 다운로드 후 package ID/version/signature 검사에서 실패한 APK는 캐시에 남지 않도록 즉시 삭제하고 원래 예외를 다시 전달합니다. SHA-256 실패 시 기존 삭제 경로도 유지합니다.
+- Android PackageManager archive parsing·실제 파일/설치 흐름은 미검증입니다.
