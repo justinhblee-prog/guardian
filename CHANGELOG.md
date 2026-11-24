@@ -1,3 +1,9 @@
+## 2026-11-24 — 앱별 규칙과 전역 allow/important 우선순위 회귀 테스트
+
+- DNS 질의 정책에 앱별 추가 차단 규칙이 전역 허용 규칙을 무시하지 않는지, 전역 중요 차단이 앱별 규칙과 동일한 도메인에서 계속 우선하는지 회귀 테스트를 추가했습니다.
+- 전역 `allow=trusted.example` 아래의 하위 도메인에 앱별 추가 차단이 있어도 upstream으로 전달되는 경우와, `block-important=critical.example`가 앱별 추가 규칙과 겹쳐도 upstream 호출 없이 NXDOMAIN 차단되는 경우를 확인합니다.
+- Android Gradle/JUnit 실행은 미실행입니다.
+
 ## 2026-11-24 — 앱 목록 정리 게이트 초기화 순서 수정
 
 - 정적 재검토에서 `InstalledAppInventory.load`가 `Snapshot` 변수를 선언하기 전에 `snapshot.queryAllPackagesGranted` 및 `snapshot.installedQuerySucceeded`를 참조하는 컴파일 오류를 발견했습니다.
