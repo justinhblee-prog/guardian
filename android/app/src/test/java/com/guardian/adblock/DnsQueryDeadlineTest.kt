@@ -48,3 +48,30 @@ class DnsQueryDeadlineTest {
         }
     }
 }
+
+    @Test fun explicitCancellationClosesRegisteredSocketImmediately() {
+        val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+        val deadline = DnsQueryDeadline.afterMillis(5_000L)
+        val registration = deadline.closeOnExpiry { closed.set(true) }
+
+        deadline.cancel()
+
+        assertTrue("cancel must close the active upstream socket", closed.get())
+        assertNull(deadline.remainingTimeoutMillis())
+        assertThrows(java.net.SocketTimeoutException::class.java) {
+            deadline.requireRemainingTimeoutMillis()
+        }
+        registration.close()
+    }
+
+    @Test fun cancellationBeforeSocketRegistrationRejectsAndClosesLateSocket() {
+        val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+        val deadline = DnsQueryDeadline.afterMillis(5_000L)
+        deadline.cancel()
+
+        assertThrows(java.net.SocketTimeoutException::class.java) {
+            deadline.closeOnExpiry { closed.set(true) }
+        }
+        assertTrue("late socket registration must be closed immediately", closed.get())
+    }
+
