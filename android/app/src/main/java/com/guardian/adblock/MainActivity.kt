@@ -3667,8 +3667,11 @@ class MainActivity : Activity() {
         android.util.Log.i("Guardian", "Starting filter update for ${FilterListManager.selectedProfile(this).key}")
         thread(name = "guardian-filter-update") {
             val hadPreviousMainCache = runCatching {
-                FilterListManager.hasCachedList(this) &&
-                    FilterListManager.selectedProfile(this).key == FilterListManager.cachedProfile(this).key
+                FilterUpdatePolicy.hasUsableMainCache(
+                    cacheValid = FilterListManager.hasCachedList(this),
+                    selectedProfileKey = FilterListManager.selectedProfile(this).key,
+                    cachedProfileKey = FilterListManager.cachedProfile(this).key
+                )
             }.getOrDefault(false)
             try {
                 android.util.Log.i("Guardian", "Base filter update request entered")
