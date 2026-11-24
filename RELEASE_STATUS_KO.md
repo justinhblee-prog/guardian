@@ -756,3 +756,11 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 실행 환경 한계: 저장소에 Gradle Wrapper(`gradlew`)가 없고 이 실행 환경에 Gradle, Android SDK, adb가 없습니다. 따라서 `testDebugUnitTest`, `assembleDebug`, Android lint, APK 생성/설치, 에뮬레이터·실기기 VPN/DNS E2E는 실행할 수 없습니다. 네트워크 DNS 해석도 차단되어 원격 Gradle 배포판/Android SDK를 설치할 수 없었습니다.
 - GitHub Actions는 과거 최소 워크플로까지 runner 배정 전 단계에서 실패한 것으로 진단되어 이번에는 재실행하지 않았습니다. Actions 설정/과금은 변경하지 않았습니다.
 - 이 결과는 Android 전체 테스트 통과나 릴리스 승인으로 간주하지 않습니다.
+
+
+## 2026-11-24 — Android UI 자동화의 실제 클릭 가능성 검증 보강
+- UIAutomator 계층에서 텍스트/접근성 라벨이 보이고 enabled 상태라는 사실만으로 실제 탭 동작이 가능하다고 판단하던 자동화 결함을 수정했습니다.
+- Premium 탭, 라이선스 카테고리, 앱 제외/필터 설정 항목은 해당 노드 또는 상위 노드가 visible + enabled + clickable인 경우에만 탐색 대상으로 인정합니다. 숨김/비활성 부모의 자식 노드도 거부합니다.
+- 회귀 사례: 클릭 불가능한 Premium 항목 거부, 클릭 불가능한 설정 항목 거부, 비활성 카테고리 부모 거부, 클릭 가능한 부모 아래 텍스트 자식 허용.
+- 코드 커밋: `3d50fc8aab0d7c93d58dcf28109f78e91484ab2a`; 테스트 커밋: `993984de9bd5f67860ab92316c6167f2e24df1ad`.
+- 원격 파일 재조회로 두 변경의 반영을 확인했습니다. Python unittest, Android JUnit/Lint, APK 빌드 및 에뮬레이터/실기기 실행은 아직 수행하지 않았습니다.
