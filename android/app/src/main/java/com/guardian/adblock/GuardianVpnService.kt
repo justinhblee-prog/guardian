@@ -1174,8 +1174,34 @@ class GuardianVpnService : VpnService() {
                     ": resolver returned an unusable response (RCODE=" +
                     DnsUpstreamProbe.responseCode(response) + ")"
             }
-            val detail = lastUpstreamFailure
+            var detail = lastUpstreamFailure
                 ?: (attempt.transport.uppercase() + ": DNS 응답 없음 또는 검증 실패")
+            if (attempt.transport == "udp" &&
+                lastUpstreamFailure?.startsWith("UDP: 잘린 응답") == true
+            ) {
+                val following = attempts.getOrNull(index + 1)
+                val alreadyScheduledTcp = following?.address == attempt.address &&
+                    following.transport == "tcp"
+                if (DnsUpstreamCandidatePolicy.needsTcpRetryAfterUdpTruncation(alreadyScheduledTcp)) {
+                    // DNS requires TCP when a resolver sets TC. The configured
+                    // resolver already has a queued TCP attempt; apply the same
+                    // protocol fallback to system/public candidates as well.
+                    lastUpstreamFailure = null
+                    val tcpResponse = forwardDnsTcp(query, attempt.address)
+                    if (tcpResponse != null && DomainFilter.isMatchingResponse(query, tcpResponse)) {
+                        val tcpUsable = if (requireSuccessfulResolution) {
+                            DnsUpstreamProbe.isSuccessfulResolution(query, tcpResponse)
+                        } else {
+                            !DnsUpstreamProbe.isRetryableResolverError(tcpResponse)
+                        }
+                        if (tcpUsable) return tcpResponse
+                        lastUpstreamFailure = "TCP: resolver returned an unusable response (RCODE=" +
+                            DnsUpstreamProbe.responseCode(tcpResponse) + ")"
+                    }
+                    val tcpDetail = lastUpstreamFailure ?: "TCP: DNS 응답 없음 또는 검증 실패"
+                    detail += "; TCP 재시도: $tcpDetail"
+                }
+            }
             candidateFailures += "${attempt.transport.uppercase()} 후보 ${index + 1} (${attempt.address}): $detail"
         }
         lastUpstreamFailure = DnsUpstreamFailurePolicy.summarize(candidateFailures)
