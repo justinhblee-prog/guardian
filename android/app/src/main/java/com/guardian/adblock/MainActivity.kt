@@ -3666,7 +3666,10 @@ class MainActivity : Activity() {
         setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} 목록을 내려받아 규칙을 검증합니다.")
         android.util.Log.i("Guardian", "Starting filter update for ${FilterListManager.selectedProfile(this).key}")
         thread(name = "guardian-filter-update") {
-            val hadPreviousMainCache = try { FilterListManager.hasCachedList(this) } catch (_: Exception) { false }
+            val hadPreviousMainCache = runCatching {
+                FilterListManager.hasCachedList(this) &&
+                    FilterListManager.selectedProfile(this).key == FilterListManager.cachedProfile(this).key
+            }.getOrDefault(false)
             try {
                 android.util.Log.i("Guardian", "Base filter update request entered")
                 val result = FilterListManager.update(this)
