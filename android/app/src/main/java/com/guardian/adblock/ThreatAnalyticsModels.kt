@@ -51,6 +51,14 @@ internal class ThreatAnalyticsAccumulator(private val maxRecent: Int = 20) {
         if (recent.size > maxRecent) recent.removeAt(recent.lastIndex)
     }
 
+    /** Returns a non-destructive view for live UI refresh without forcing disk flushes. */
+    fun snapshot(): ThreatAnalyticsBatch = ThreatAnalyticsBatch(
+        high = high,
+        informational = informational,
+        unassessed = unassessed,
+        recent = recent.toList()
+    )
+
     fun drain(): ThreatAnalyticsBatch {
         val batch = ThreatAnalyticsBatch(high, informational, unassessed, recent.toList())
         high = 0L
