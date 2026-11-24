@@ -2227,7 +2227,7 @@ class MainActivity : Activity() {
                 10f, muted, false
             ).withTop(4))
             addView(text(
-                "제한: 로밍 자동 감지와 필터 자동 다운로드 스케줄러는 아직 연결되지 않았습니다. 이 개발 미리보기는 PRO 권한을 부여하지 않으며 Release 빌드에서는 자동 전환이 비활성입니다.",
+                "제한: 로밍 판정은 Android 9 이상 셀룰러 네트워크 capability에 의존하며, 통신사/OEM별 실제 전환은 기기 검증이 필요합니다. 주기 필터 갱신은 사용자 설정과 프로필 허용값을 모두 확인하지만 최초 필수 필터 준비는 별도입니다. 이 미리보기는 PRO 권한을 부여하지 않으며 Release 자동 전환은 entitlement 및 검증 전까지 비활성입니다.",
                 10f, Color.rgb(238, 176, 82), false
             ).withTop(8))
         }
