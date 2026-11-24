@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.net.VpnService
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import java.io.FileInputStream
@@ -1094,6 +1096,26 @@ class GuardianVpnService : VpnService() {
             .getString(KEY_UPSTREAM_TLS_HOST, DEFAULT_UPSTREAM_TLS_HOST)
             ?: DEFAULT_UPSTREAM_TLS_HOST
 
+    private fun systemDnsServers(): List<String> {
+        val manager = getSystemService(ConnectivityManager::class.java) ?: return emptyList()
+        val networks = buildList {
+            manager.activeNetwork?.let(::add)
+            addAll(manager.allNetworks)
+        }.distinct()
+        return networks.asSequence()
+            .filter { network ->
+                manager.getNetworkCapabilities(network)
+                    ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) != true
+            }
+            .flatMap { network ->
+                manager.getLinkProperties(network)?.dnsServers.orEmpty().asSequence()
+            }
+            .mapNotNull { address -> DnsAddressValidator.normalize(address.hostAddress.orEmpty()) }
+            .distinct()
+            .take(2)
+            .toList()
+    }
+
     private fun forwardDns(query: ByteArray, requireSuccessfulResolution: Boolean = false): ByteArray? {
         lastUpstreamFailure = null
         val configured = configuredUpstreamDns()
@@ -1106,18 +1128,29 @@ class GuardianVpnService : VpnService() {
                     listOf(configured, "1.1.1.1", "1.0.0.1").distinct()
                 } else listOf(configured)
             }
-            else -> listOf(configured, "1.1.1.1", "8.8.8.8").distinct()
+            "tcp" -> listOf(configured, "1.1.1.1", "8.8.8.8").distinct()
+            else -> emptyList()
+        }
+        val attempts = if (transport == "udp") {
+            DnsUpstreamCandidatePolicy.udpAttempts(
+                configured = configured,
+                systemDns = systemDnsServers(),
+                publicFallback = listOf("1.1.1.1", "8.8.8.8"),
+                virtualDns = setOf(VIRTUAL_DNS, VIRTUAL_DNS_V6)
+            )
+        } else {
+            candidates.map { address -> DnsUpstreamCandidatePolicy.Attempt(address, transport) }
         }
         val candidateFailures = mutableListOf<String>()
-        for ((index, address) in candidates.withIndex()) {
-            // Keep each fallback candidate's diagnostic isolated so a failure
-            // from a previous server cannot be mistaken for this attempt.
+        for ((index, attempt) in attempts.withIndex()) {
+            // Each fallback attempt gets an isolated diagnostic so a failure
+            // from an earlier resolver is never attributed to this one.
             lastUpstreamFailure = null
-            val response = when (transport) {
-                "tcp" -> forwardDnsTcp(query, address)
-                "dot" -> forwardDnsOverTls(query, address)
-                "doh" -> forwardDnsOverHttps(query, address)
-                else -> forwardDnsUdp(query, address)
+            val response = when (attempt.transport) {
+                "tcp" -> forwardDnsTcp(query, attempt.address)
+                "dot" -> forwardDnsOverTls(query, attempt.address)
+                "doh" -> forwardDnsOverHttps(query, attempt.address)
+                else -> forwardDnsUdp(query, attempt.address)
             }
             if (response != null && DomainFilter.isMatchingResponse(query, response)) {
                 val usable = if (requireSuccessfulResolution) {
@@ -1126,13 +1159,13 @@ class GuardianVpnService : VpnService() {
                     !DnsUpstreamProbe.isRetryableResolverError(response)
                 }
                 if (usable) return response
-                lastUpstreamFailure = transport.uppercase() +
+                lastUpstreamFailure = attempt.transport.uppercase() +
                     ": resolver returned an unusable response (RCODE=" +
                     DnsUpstreamProbe.responseCode(response) + ")"
             }
             val detail = lastUpstreamFailure
-                ?: (transport.uppercase() + ": DNS 응답 없음 또는 검증 실패")
-            candidateFailures += "${transport.uppercase()} 후보 ${index + 1}: $detail"
+                ?: (attempt.transport.uppercase() + ": DNS 응답 없음 또는 검증 실패")
+            candidateFailures += "${attempt.transport.uppercase()} 후보 ${index + 1} (${attempt.address}): $detail"
         }
         lastUpstreamFailure = DnsUpstreamFailurePolicy.summarize(candidateFailures)
         return null
@@ -1160,7 +1193,10 @@ class GuardianVpnService : VpnService() {
             }
             val received = response.copyOf(packet.length)
             if (received.size >= 4 && (received[2].toInt() and 0x02) != 0) {
-                forwardDnsTcp(query, upstreamAddress)
+                // The caller owns the ordered TCP fallback; do not open a second
+                // TCP socket here and repeat the same resolver attempt on failure.
+                lastUpstreamFailure = "UDP: 잘린 응답으로 TCP/53 재시도가 필요합니다"
+                null
             } else if (DomainFilter.isMatchingResponse(query, received)) received else {
                 lastUpstreamFailure = "UDP: DNS 트랜잭션 ID 또는 질문이 일치하지 않는 응답"
                 null
