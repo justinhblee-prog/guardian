@@ -21,11 +21,11 @@ class DevUpdateManagerTest {
     }
     @Test fun refusesRedirectTargetsOutsideTheHttpsHostAllowlist() {
         assertTrue(DevUpdateManagerPolicy.isAllowedReleaseDownloadUrl("https://release-assets.githubusercontent.com/release/apk"))
-        assertTrue(DevUpdateManager.isAllowedReleaseDownloadUrl("https://objects.githubusercontent.com/release/apk"))
-        assertFalse(DevUpdateManager.isAllowedReleaseDownloadUrl("https://evil.example/release/apk"))
-        assertFalse(DevUpdateManager.isAllowedReleaseDownloadUrl("http://release-assets.githubusercontent.com/release/apk"))
-        assertFalse(DevUpdateManager.isAllowedReleaseDownloadUrl("https://github.com:444/release/apk"))
-        assertFalse(DevUpdateManager.isAllowedReleaseDownloadUrl("https://api.github.com/repos/guardian"))
+        assertTrue(DevUpdateManagerPolicy.isAllowedReleaseDownloadUrl("https://objects.githubusercontent.com/release/apk"))
+        assertFalse(DevUpdateManagerPolicy.isAllowedReleaseDownloadUrl("https://evil.example/release/apk"))
+        assertFalse(DevUpdateManagerPolicy.isAllowedReleaseDownloadUrl("http://release-assets.githubusercontent.com/release/apk"))
+        assertFalse(DevUpdateManagerPolicy.isAllowedReleaseDownloadUrl("https://github.com:444/release/apk"))
+        assertFalse(DevUpdateManagerPolicy.isAllowedReleaseDownloadUrl("https://api.github.com/repos/guardian"))
     }
 
     @Test fun developmentManifestMustMatchExactlyOneApkContentSigner() {
@@ -42,29 +42,29 @@ class DevUpdateManagerTest {
             "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk",
             "guardian-android-dev.apk", 48
         ))
-        assertTrue(DevUpdateManager.isGuardianReleaseAssetUrl(
+        assertTrue(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(
             "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.json",
             "guardian-android-dev.json", 48
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+        assertFalse(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(
             "http://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+        assertFalse(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(
             "https://evil.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+        assertFalse(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(
             "https://github.com.attacker.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+        assertFalse(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(
             "https://user@github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+        assertFalse(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(
             "https://github.com:444/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+        assertFalse(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(
             "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/other.apk"
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+        assertFalse(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(
             "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v49/guardian-android-dev.apk",
             "guardian-android-dev.apk", 48
         ))
