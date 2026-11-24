@@ -247,7 +247,8 @@ object ProtectionDiagnostics {
         securityRuleCount: Int? = null,
         androidAdsCacheReady: Boolean? = null,
         androidAdsRuleCount: Int? = null,
-        filterReadiness: String? = null
+        filterReadiness: String? = null,
+        lastDnsDiagnostic: String? = null
     ): String {
         fun cacheState(enabled: Boolean, bytes: Long): String = when {
             !enabled -> "사용 안 함"
@@ -259,6 +260,7 @@ object ProtectionDiagnostics {
             appendLine("앱 버전: $appVersion")
             appendLine("Android: $androidRelease (API $apiLevel)")
             appendLine("VPN 보호 상태: ${if (protectionActive) "활성" else "비활성"}")
+            appendLine("마지막 DNS 진단: ${dnsDiagnosticSummary(lastDnsDiagnostic)}")
             val assetDescription = when {
                 !bundledRuleAssetAvailable -> "누락 또는 읽기 실패"
                 bundledRuleAssetBytes >= 0L -> "정상 (${bundledRuleAssetBytes} bytes)"
