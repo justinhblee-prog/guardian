@@ -1,3 +1,9 @@
+## 2026-11-24 — DNS TCP 재전송 스케줄러 종료 동기화
+
+- VPN packet loop 종료 시 재전송 스케줄러 `shutdownNow()`만 호출하던 것을 보강해 최대 500ms 동안 작업 종료를 기다린 뒤 TUN descriptor 정리로 넘어가도록 했습니다.
+- 종료 대기 중 인터럽트가 발생하면 인터럽트 상태를 복원합니다. 이는 서비스 정지 직후 background RTO worker가 descriptor에 늦게 쓰는 경합을 줄이기 위한 정리입니다.
+- Android service lifecycle 및 실기기 네트워크 검증은 미실행입니다.
+
 ## 2026-11-24 — 모바일 하단 내비게이션 인셋 중복 제거
 
 - 휴대전화 화면에서 root layout과 bottom navigation이 모두 navigation-bar bottom inset을 padding에 반영하던 중복을 제거했습니다.
