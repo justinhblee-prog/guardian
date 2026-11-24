@@ -383,3 +383,8 @@
 - per-app rule 입력은 UI에서 먼저 파싱/검증하고, 저장 패키지·원문을 캡처한 뒤 `PerAppDnsPolicyStore.replaceRules`/SharedPreferences commit을 background thread로 이동했습니다.
 - 저장 중 save 버튼, 앱 selector, EditText를 잠그고 저장 성공/실패 시 UI thread에서 상태를 복원합니다. Activity 종료/preview detach 이후 callback은 무시합니다.
 - Android UI/SharedPreferences·실기기 응답성 검증은 미실행입니다.
+
+
+## 2026-11-24 — 앱별 백그라운드 작업 UI 수명주기 보호
+- per-app DNS stats snapshot, installed-app inventory, per-app rules save가 완료될 때 Activity가 살아 있어도 기존 preview card가 이미 detach된 경우 UI를 갱신하지 않도록 `isAttachedToWindow` 조건을 추가했습니다.
+- 새 화면은 SharedPreferences/저장 cache에서 최신 값을 다시 읽습니다. Android 회전·탭 전환·화면 재구성 실기기 검증은 미실행입니다.
