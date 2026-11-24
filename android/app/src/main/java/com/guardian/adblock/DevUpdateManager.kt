@@ -142,6 +142,9 @@ internal object DevUpdateManager {
                     check(total == expectedLength) { "APK 다운로드 크기가 일치하지 않습니다." }
                 }
             }
+        } catch (error: Exception) {
+            temporary.delete()
+            throw error
         } finally {
             connection.disconnect()
         }
