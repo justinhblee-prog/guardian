@@ -655,3 +655,9 @@
 ## 2026-11-24 — DNS TCP 제로 윈도우 fast retransmit 예외
 - 수신 윈도우가 0인 상태에서 반복 ACK를 fast retransmit 신호로 해석하지 않도록 제한했습니다. receiver의 zero-window flow control과 loss indication을 구분합니다.
 - zero-window update 이후 반복 ACK에 재전송이 발생하지 않는 테스트를 추가했습니다. Android Gradle/JUnit·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 정식 APK 검증 실패 캐시 제거 및 단일 서명 강제
+- SHA-256 이후 APK package/version/signer 검증이 실패하면 cache/stable-updates의 실패 APK 파일을 삭제하도록 변경했습니다.
+- Manifest의 signerSha256 하나로 모든 서명자를 비교할 수 없으므로 APK content signer가 정확히 1개인지 확인하고, 설치된 앱도 단일 signer일 때만 자동 업데이트합니다.
+- 단일/다중/빈 signer 정책 테스트를 추가했습니다. Android Gradle/JUnit·PackageManager/실제 설치 테스트는 미실행입니다.
