@@ -348,16 +348,17 @@ class DomainFilterTest {
     }
 
     @Test fun acceptsNonZeroDnsQuestionTypesAndClasses() {
-        val query = DnsProbe.buildQuery("example.com").also {
-            val end = it.size
-            // AAAA / IN, then an uncommon but non-reserved QTYPE/QCLASS pair.
-            it[end - 4] = 0
-            it[end - 3] = 28
-            it[end - 2] = 0
-            it[end - 1] = 1
+        listOf(28 to 1, 255 to 3).forEach { (type, recordClass) ->
+            val query = DnsProbe.buildQuery("example.com").also {
+                val end = it.size
+                it[end - 4] = (type ushr 8).toByte()
+                it[end - 3] = type.toByte()
+                it[end - 2] = (recordClass ushr 8).toByte()
+                it[end - 1] = recordClass.toByte()
+            }
+            assertEquals("example.com", DomainFilter.readQuestionName(query))
+            assertNotNull(DomainFilter.makeNxdomain(query))
         }
-        assertEquals("example.com", DomainFilter.readQuestionName(query))
-        assertNotNull(DomainFilter.makeNxdomain(query))
     }
 
 }
