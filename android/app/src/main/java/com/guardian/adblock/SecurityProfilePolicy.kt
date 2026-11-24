@@ -78,7 +78,8 @@ internal object SecurityProfilePolicy {
         }
         // Never download large filter updates automatically over a metered link.
         return selected.copy(
-            automaticFilterUpdates = selected.automaticFilterUpdates && !context.metered
+            automaticFilterUpdates = selected.automaticFilterUpdates &&
+                context.validated && !context.captivePortal && !context.metered
         )
     }
 }
