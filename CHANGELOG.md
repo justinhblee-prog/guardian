@@ -1,3 +1,9 @@
+## 2026-11-24 — 앱별 정리 정책 Kotlin/JVM 실행 검증
+
+- 새 이중 PackageManager inventory 정책의 실제 Kotlin 소스를 kotlinc 1.9.0/JRE 21로 컴파일하고 독립 실행했습니다.
+- PASS 8/8: 두 API 패키지 집합 일치, 목록 불일치, QUERY_ALL_PACKAGES 미허용, 각 API 단독 실패, 빈 목록, 제거 대상만 선택, 불완전 inventory 보존.
+- 이는 순수 Kotlin 정책 로직 검증입니다. Android PackageManager, SharedPreferences, OEM 기기·Android JUnit 통합은 검증하지 않았습니다.
+
 ## 2026-11-24 — 앱 제거 데이터 정리용 이중 PackageManager 검증
 
 - QUERY_ALL_PACKAGES 허용 및 `getInstalledApplications()` 단일 성공만으로는 OEM이 정상 응답처럼 반환한 일부 앱 목록을 완전 목록으로 오인할 수 있었습니다.
