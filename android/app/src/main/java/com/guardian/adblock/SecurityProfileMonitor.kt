@@ -138,15 +138,15 @@ internal object SecurityProfileMonitor {
         val manager = app.getSystemService(ConnectivityManager::class.java) ?: return
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                manager.getNetworkCapabilities(network)?.let { apply(app, it, manager) }
+                manager.getNetworkCapabilities(network)?.let { apply(app, network, it, manager) }
             }
             override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                apply(app, capabilities, manager)
+                apply(app, network, capabilities, manager)
             }
             override fun onLost(network: Network) {
                 val activeNetwork = manager.activeNetwork
                 val capabilities = activeNetwork?.let(manager::getNetworkCapabilities)
-                if (capabilities == null) applyUnknown(app) else apply(app, capabilities, manager)
+                if (capabilities == null) applyUnknown(app) else apply(app, activeNetwork!!, capabilities, manager)
             }
         }
         runCatching { manager.registerDefaultNetworkCallback(callback) }.onSuccess {
@@ -180,16 +180,22 @@ internal object SecurityProfileMonitor {
 
     private fun apply(
         context: Context,
+        reportedNetwork: Network,
         reportedCapabilities: NetworkCapabilities,
         manager: ConnectivityManager
     ) {
-        // The default route can be Guardian's own VPN interface. Prefer a physical
-        // underlying network when Android exposes one, otherwise use the reported facts.
+        // The default route can be Guardian's own VPN interface. Keep the Network
+        // paired with its capabilities so API 26–27 can use its legacy roaming fact.
+        var selectedNetwork = reportedNetwork
         val capabilities = if (reportedCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-            val physicalNetworks = manager.allNetworks.mapNotNull(manager::getNetworkCapabilities)
-                .filterNot { it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) }
+            val physicalNetworks = manager.allNetworks.mapNotNull { network ->
+                manager.getNetworkCapabilities(network)?.let { network to it }
+            }.filterNot { (_, candidate) ->
+                candidate.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+            }
             if (SecurityProfilePolicy.hasUnambiguousUnderlyingNetwork(physicalNetworks.size)) {
-                physicalNetworks.single()
+                selectedNetwork = physicalNetworks.single().first
+                physicalNetworks.single().second
             } else {
                 // The VPN is active but its physical default cannot be inferred
                 // unambiguously. Keep it UNKNOWN/strict rather than trusting a
@@ -203,14 +209,25 @@ internal object SecurityProfileMonitor {
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> SecurityProfilePolicy.Transport.ETHERNET
             else -> SecurityProfilePolicy.Transport.OTHER
         }
+        val notRoamingCapability = Build.VERSION.SDK_INT >= 28 &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)
+        val legacyRoaming = if (Build.VERSION.SDK_INT < 28 &&
+            transport == SecurityProfilePolicy.Transport.CELLULAR
+        ) legacyIsRoaming(manager, selectedNetwork) else false
         val network = SecurityProfilePolicy.NetworkContext(
             transport = transport,
             validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
             captivePortal = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
             metered = !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
-            roaming = false,
+            roaming = SecurityProfilePolicy.isCellularRoaming(
+                transport, Build.VERSION.SDK_INT, notRoamingCapability, legacyRoaming
+            ),
             trustedNetwork = false
         )
         SecurityProfileStore.applyAutomaticProfile(context, SecurityProfilePolicy.resolveAutomatic(network))
     }
+
+    @Suppress("DEPRECATION")
+    private fun legacyIsRoaming(manager: ConnectivityManager, network: Network): Boolean =
+        runCatching { manager.getNetworkInfo(network)?.isRoaming == true }.getOrDefault(false)
 }
