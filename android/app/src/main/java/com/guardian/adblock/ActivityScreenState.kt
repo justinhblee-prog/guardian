@@ -5,7 +5,7 @@ internal object ActivityScreenState {
     private val supportedTabs = setOf(
         "home", "protection", "app-exclusions", "activity", "premium",
         "rules", "settings", "updates", "settings-general", "settings-filtering",
-        "settings-premium", "settings-support", "settings-about", "settings-exit"
+        "settings-premium", "settings-support", "settings-about", "settings-updates", "settings-exit"
     )
 
     fun restoreTab(savedTab: String?, persistedTab: String? = null): String {
