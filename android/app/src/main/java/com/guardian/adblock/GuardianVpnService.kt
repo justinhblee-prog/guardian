@@ -110,6 +110,7 @@ class GuardianVpnService : VpnService() {
     private data class PendingStart(val generation: Long, val startId: Int)
     private val pendingStart = AtomicReference<PendingStart?>(null)
     private val startCancellation = VpnStartCancellationGate()
+    private val ruleReloadGate = CoalescingTaskGate()
     private val lastStatsBroadcastAt = AtomicLong(0L)
     @Volatile private var lastStartId = 0
     @Volatile private var foregroundAppMonitor: ForegroundAppMonitor? = null
@@ -145,7 +146,7 @@ class GuardianVpnService : VpnService() {
                     thread(name = "guardian-vpn-start") { startProtection(generation, startId) }
                 }
             }
-            ACTION_RELOAD_RULES -> thread(name = "guardian-vpn-rule-reload") { reloadUserRules() }
+            ACTION_RELOAD_RULES -> requestRuleReload()
             ACTION_RECONFIGURE_EXCLUDED_APPS -> thread(name = "guardian-vpn-exclusion-reconfigure") {
                 reconfigureExcludedApplications(startId)
             }
@@ -1127,6 +1128,23 @@ class GuardianVpnService : VpnService() {
             if (unavailable.isEmpty()) "모든 선택 필터가 준비되었습니다."
             else "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: ${unavailable.joinToString()}"
         ).apply()
+    }
+
+    private fun requestRuleReload() {
+        if (!ruleReloadGate.request()) return
+        thread(name = "guardian-vpn-rule-reload") {
+            try {
+                do {
+                    reloadUserRules()
+                } while (running.get() && ruleReloadGate.completePass())
+            } finally {
+                // If the service stops or an unexpected Error escapes, do not leave
+                // the gate permanently occupied. Preserve one queued request only.
+                if (ruleReloadGate.releaseAfterFailure() && running.get()) {
+                    requestRuleReload()
+                }
+            }
+        }
     }
 
     private fun reloadUserRules() {
