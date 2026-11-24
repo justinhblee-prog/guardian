@@ -647,16 +647,26 @@ class GuardianVpnService : VpnService() {
                 running.set(true)
                 tunnelActive = true
             }
-            val filterNotice = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getString(KEY_FILTER_READINESS, null)
-                ?.takeIf { it.isNotBlank() && it != "모든 선택 필터가 준비되었습니다." }
-            val activeMessage = if (filterNotice == null) {
-                "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다."
-            } else {
-                "DNS 보호가 실행 중입니다. $filterNotice"
+            try {
+                val filterNotice = getSharedPreferences(PREFS, MODE_PRIVATE)
+                    .getString(KEY_FILTER_READINESS, null)
+                    ?.takeIf { it.isNotBlank() && it != "모든 선택 필터가 준비되었습니다." }
+                val activeMessage = if (filterNotice == null) {
+                    "DNS 보호가 실행 중입니다. IPv4/IPv6 DNS 광고·추적 도메인 질의를 필터링합니다."
+                } else {
+                    "DNS 보호가 실행 중입니다. $filterNotice"
+                }
+                publishState(true, activeMessage)
+                packetWorker = thread(name = "guardian-vpn-dns") {
+                    packetLoop(descriptor, requestGeneration, startId)
+                }
+            } catch (error: Exception) {
+                rollbackCommittedTunnel(requestGeneration, descriptor)
+                throw error
+            } catch (error: LinkageError) {
+                rollbackCommittedTunnel(requestGeneration, descriptor)
+                throw error
             }
-            publishState(true, activeMessage)
-            packetWorker = thread(name = "guardian-vpn-dns") { packetLoop(descriptor, requestGeneration, startId) }
         }
         if (!committed) {
             try { descriptor.close() } catch (_: Exception) { }
@@ -667,6 +677,24 @@ class GuardianVpnService : VpnService() {
                 stopSelf(startId)
             }
         }
+    }
+
+    /**
+     * If publishing the active state or starting the packet worker fails after
+     * the TUN was committed, roll back that exact generation before surfacing
+     * the startup error. Otherwise the service can report a live tunnel with no
+     * packet reader attached.
+     */
+    private fun rollbackCommittedTunnel(
+        requestGeneration: Long,
+        descriptor: ParcelFileDescriptor
+    ) {
+        tunnelSessionGuard.release(requestGeneration) {
+            running.set(false)
+            tunnelActive = false
+            if (tun === descriptor) tun = null
+        }
+        try { descriptor.close() } catch (_: Exception) { }
     }
 
     private fun packetLoop(descriptor: ParcelFileDescriptor, requestGeneration: Long, startId: Int) {
