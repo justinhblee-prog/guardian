@@ -158,3 +158,12 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - 일반 DNS-over-TCP와 DoT 경로가 새 공통 reader를 사용하도록 변경했습니다. UDP 경로와 연결 수립 시간 제한은 변경하지 않았습니다.
 - 정상 프레임, 잘못된 길이, 공유 기한 만료 테스트를 추가했습니다. 기존 DNS 응답 트랜잭션/질문 검증은 읽기 완료 후 그대로 수행합니다.
 - 이 변경은 소스·테스트 반영 확인이며 Android JUnit/Gradle, Lint, APK, 실제 TCP/DoT 네트워크 시험은 실행하지 않았습니다.
+
+
+### Upstream 후보 순회 지연 상한 분석 (2026-11-25)
+
+- UDP 모드 후보는 설정 DNS 1개 + 물리 네트워크 DNS 최대 2개 + 공개 fallback 2개로 최대 5개입니다. 중복 주소는 제거됩니다.
+- 기본 시도는 설정 DNS의 UDP/TCP 2회와 나머지 후보의 UDP 최대 4회로 최대 6회입니다. 각 후속 UDP 후보가 TC(truncated) 응답을 반환하면 해당 주소에 TCP 재시도를 추가할 수 있어 최대 10회까지 늘어납니다.
+- 일반 TCP 시도는 connect 3500ms와 응답 읽기 3500ms가 별도 구간입니다. 따라서 단순히 10회 × 3500ms로 전체 지연을 계산하면 실제 최악 지연을 과소평가합니다. TCP 재시도가 모두 필요한 상황은 이론상 약 52.5초 수준까지 누적될 수 있습니다(각 TCP connect/read가 모두 timeout이고 4개 후속 UDP 후보가 모두 TC를 반환하는 보수적 상한).
+- 이번 변경은 DoH, DoT, 일반 TCP의 개별 응답 읽기 구간을 각각 3.5초 단일 예산으로 제한했지만, 후보 전체를 묶는 전역 deadline은 아직 적용하지 않았습니다.
+- 전역 deadline은 남은 시간을 UDP receive, TCP connect/read, TLS connect/handshake/read에 일관되게 전달해야 하므로 단순히 후보 수를 자르거나 모든 socket timeout을 낮추는 방식으로 처리하지 않습니다. 다음 작업에서 전송별 timeout 인자와 TLS handshake 구간을 함께 설계·검증합니다.
