@@ -1,3 +1,9 @@
+## 2026-11-24 — 런처 보완 앱 발견 시 앱 데이터 정리 차단
+
+- PackageManager의 전체 앱 두 조회가 서로 일치하더라도 런처 쿼리에서 별도 앱이 추가 발견되면 기본 목록이 일부 누락됐을 가능성이 있습니다. 이때 기존 per-app 규칙/통계를 삭제하면 추가로 발견된 앱의 데이터까지 제거될 수 있습니다.
+- `launcherFallbackCount == 0`을 authoritative inventory 조건에 추가했습니다. 런처 보완 조회가 단 한 앱이라도 추가하면 정리 대신 모든 기존 앱별 데이터를 보존합니다.
+- 동일한 두 PackageManager 집합이라도 launcher fallback count가 1이면 cleanup이 거부되는 정책 테스트를 추가했습니다.
+
 ## 2026-11-24 — 앱별 정책 캐시 읽기/저장 경합 방지
 
 - DNS worker의 `rules()`가 cache miss 후 SharedPreferences를 읽는 동안 UI의 `replaceRules()`가 새 정책을 commit/cache 갱신하면, 먼저 시작한 낡은 읽기 작업이 새 캐시를 뒤늦게 덮어쓸 수 있었습니다.
