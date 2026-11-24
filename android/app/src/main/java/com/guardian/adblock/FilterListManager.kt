@@ -258,25 +258,25 @@ object FilterListManager {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val cacheNames = buildList {
             val baseProfileMatches = selectedProfile(context).key == cachedProfile(context).key
-            if (baseProfileMatches && runCatching { hasCachedList(context) }.getOrDefault(false)) {
+            if (baseProfileMatches && FilterStartupGate.isOptionalCacheReady { hasCachedList(context) }) {
                 add(CACHE_FILE)
             }
             if (prefs.getBoolean(KEY_SECURITY_ENABLED, false) &&
-                runCatching { hasCachedSecurityList(context) }.getOrDefault(false)) {
+                FilterStartupGate.isOptionalCacheReady { hasCachedSecurityList(context) }) {
                 add(SECURITY_CACHE_FILE)
             }
             if (prefs.getBoolean(KEY_ANDROID_ADS_ENABLED, true) &&
-                runCatching { hasCachedAndroidAdsList(context) }.getOrDefault(false)) {
+                FilterStartupGate.isOptionalCacheReady { hasCachedAndroidAdsList(context) }) {
                 add(ANDROID_ADS_CACHE_FILE)
             }
         }
         val sources = mutableListOf(CosmeticFilterEngine.parse(CosmeticFilterEngine.DEFAULT_RULES))
         for (cacheName in cacheNames) {
-            val parsed = runCatching {
+            val parsed = FilterStartupGate.optionalCacheResult {
                 val file = recoverCache(context, cacheName)
                 if (!file.isFile || file.length() <= 0L) null
                 else file.bufferedReader(Charsets.UTF_8).use { CosmeticFilterEngine.parse(it) }
-            }.getOrNull()
+            } ?: continue
             if (parsed != null) sources.add(parsed)
         }
         return CosmeticFilterEngine.merge(sources)
