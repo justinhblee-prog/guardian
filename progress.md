@@ -283,3 +283,9 @@
 ## 2026-11-24 — 사용자 차단/허용 정책 중첩 회귀 테스트
 - user block + user allow 동일 도메인, feed ordinary block + user allow, security important block + user block/allow가 겹치는 네 가지 동작을 확인하는 테스트를 추가했습니다.
 - 허용 가능한 일반 차단은 isBlocked=false 및 attribution=null, 중요 차단은 허용보다 우선하고 SECURITY_INTELLIGENCE 출처만 반환해야 합니다. Android Gradle/JUnit 미실행입니다.
+
+
+## 2026-11-24 — DNS 필터 출처/사용자 정책 독립 Kotlin/JVM 실행 검증
+- 현재 `FilterRuleParser.kt`와 provenance/policy 로직을 반영한 Kotlin/JVM smoke harness를 kotlinc로 컴파일하고 실행했습니다.
+- PASS 12/12: 기본/일반/보안/Android 앱 광고/사용자 출처, 광고·추적·보안·앱 광고·사용자 범주, user-only block+allow override, normal feed block+user allow override, important block 우선순위, important attribution에서 비실행 user-block 제외, 다중 feed 중첩 출처 보존, source metadata 개수 불일치 거부.
+- 결과는 순수 parser/provenance policy subset의 isolated Kotlin/JVM smoke PASS입니다. Android Gradle/JUnit, VPN 패킷 경로, UI 및 실기기 동작 검증은 미실행입니다.
