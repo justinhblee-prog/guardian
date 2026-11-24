@@ -1102,109 +1102,121 @@ class MainActivity : Activity() {
         button.isEnabled = false
         button.text = "진단 정보 준비 중..."
         thread(name = "guardian-support-diagnostics") {
-            val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-            fun cacheBytes(name: String): Long = File(filesDir, name)
-                .takeIf { it.isFile && it.length() > 0L }
-                ?.length() ?: 0L
-            var assetBytes = -1L
-            val assetAvailable = try {
-                assetBytes = assets.open("filter_rules.txt").use { input ->
-                    var total = 0L
-                    val buffer = ByteArray(4096)
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        total += count
+            try {
+                val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+                fun cacheBytes(name: String): Long = File(filesDir, name)
+                    .takeIf { it.isFile && it.length() > 0L }
+                    ?.length() ?: 0L
+                var assetBytes = -1L
+                val assetAvailable = try {
+                    assetBytes = assets.open("filter_rules.txt").use { input ->
+                        var total = 0L
+                        val buffer = ByteArray(4096)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            total += count
+                        }
+                        total
                     }
-                    total
+                    assetBytes > 0L
+                } catch (_: Exception) {
+                    false
+                } catch (_: LinkageError) {
+                    false
                 }
-                assetBytes > 0L
-            } catch (_: Exception) {
-                false
-            } catch (_: LinkageError) {
-                false
-            }
-            val nativeLibraryDirectory = File(applicationInfo.nativeLibraryDir)
-            val nativeLibraryFiles = try {
-                nativeLibraryDirectory.listFiles()
-                    ?.filter { it.isFile && it.name.matches(Regex("lib[A-Za-z0-9_+.-]+\\.so")) }
-                    ?.map { it.name }
-                    .orEmpty()
-            } catch (_: SecurityException) {
-                emptyList()
-            }
-            val nativeLibraryDirectoryReadable = nativeLibraryDirectory.isDirectory &&
-                nativeLibraryDirectory.canRead()
-            val selectedProfile = try {
-                FilterListManager.selectedProfile(this).key
-            } catch (_: Exception) {
-                "unknown"
-            }
-            val cachedProfile = try {
-                FilterListManager.cachedProfile(this).key
-            } catch (_: Exception) {
-                null
-            }
-            val baseCacheReady = runCatching { FilterListManager.hasCachedList(this) }.getOrNull()
-            val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-            val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-            val securityCacheReady = runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrNull()
-            val androidAdsCacheReady = runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrNull()
-            val intervalMs = FilterUpdateScheduler.normalizeInterval(
-                prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, FilterUpdateScheduler.DEFAULT_INTERVAL_MS)
-            )
-            val report = ProtectionDiagnostics.supportReport(
-                appVersion = BuildConfig.VERSION_NAME,
-                androidRelease = Build.VERSION.RELEASE ?: "unknown",
-                apiLevel = Build.VERSION.SDK_INT,
-                protectionActive = ProtectionState.isActive(
-                    prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
-                    GuardianVpnService.isTunnelActive()
-                ),
-                bundledRuleAssetAvailable = assetAvailable,
-                selectedProfile = selectedProfile,
-                baseCacheBytes = cacheBytes("adguard_dns_filter.txt"),
-                securityFilterEnabled = securityEnabled,
-                securityCacheBytes = cacheBytes("hagezi_threat_intelligence.txt"),
-                androidAdsFilterEnabled = androidAdsEnabled,
-                androidAdsCacheBytes = cacheBytes("awavenue_android_ads.txt"),
-                autoUpdateEnabled = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true),
-                updateIntervalHours = intervalMs / 3_600_000L,
-                hasBaseUpdateTimestamp = FilterListManager.lastUpdatedAt(this) > 0L,
-                signedFilterDeliveryConfigured = FilterDistributionSettings.requiresSignedDelivery(
-                    FilterDistributionSettings.configuredBaseUrl(this),
-                    BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
-                ),
-                licenseApiConfigured = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
-                    BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank(),
-                filterUpdateErrorPresent = listOf(
-                    FilterListManager.KEY_LAST_ERROR,
-                    FilterListManager.KEY_SECURITY_LAST_ERROR,
-                    FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
-                ).any { !prefs.getString(it, null).isNullOrBlank() },
-                lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null),
-                lastStartupTrace = prefs.getString(GuardianVpnService.KEY_STARTUP_TRACE, null),
-                bundledRuleAssetBytes = assetBytes,
-                nativeLibraryDirectoryReadable = nativeLibraryDirectoryReadable,
-                nativeLibraryNames = nativeLibraryFiles,
-                supportedAbis = Build.SUPPORTED_ABIS.toList(),
-                baseCacheReady = baseCacheReady,
-                cachedProfile = cachedProfile,
-                cachedRuleCount = FilterListManager.cachedBlockCount(this),
-                securityCacheReady = securityCacheReady,
-                securityRuleCount = FilterListManager.cachedSecurityBlockCount(this),
-                androidAdsCacheReady = androidAdsCacheReady,
-                androidAdsRuleCount = FilterListManager.cachedAndroidAdsBlockCount(this),
-                filterReadiness = prefs.getString(GuardianVpnService.KEY_FILTER_READINESS, null)
-            )
-            runOnUiThread {
-                try {
-                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian diagnostics", report))
-                    android.widget.Toast.makeText(this, "개인정보를 제외한 진단 정보를 복사했습니다.", android.widget.Toast.LENGTH_SHORT).show()
-                } catch (error: Exception) {
-                    android.widget.Toast.makeText(this, "진단 정보 복사 실패: ${error.javaClass.simpleName}", android.widget.Toast.LENGTH_LONG).show()
-                } finally {
+                val nativeLibraryDirectory = File(applicationInfo.nativeLibraryDir)
+                val nativeLibraryFiles = try {
+                    nativeLibraryDirectory.listFiles()
+                        ?.filter { it.isFile && it.name.matches(Regex("lib[A-Za-z0-9_+.-]+\\.so")) }
+                        ?.map { it.name }
+                        .orEmpty()
+                } catch (_: SecurityException) {
+                    emptyList()
+                }
+                val nativeLibraryDirectoryReadable = nativeLibraryDirectory.isDirectory &&
+                    nativeLibraryDirectory.canRead()
+                val selectedProfile = try {
+                    FilterListManager.selectedProfile(this).key
+                } catch (_: Exception) {
+                    "unknown"
+                }
+                val cachedProfile = try {
+                    FilterListManager.cachedProfile(this).key
+                } catch (_: Exception) {
+                    null
+                }
+                val baseCacheReady = runCatching { FilterListManager.hasCachedList(this) }.getOrNull()
+                val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                val securityCacheReady = runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrNull()
+                val androidAdsCacheReady = runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrNull()
+                val intervalMs = FilterUpdateScheduler.normalizeInterval(
+                    prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, FilterUpdateScheduler.DEFAULT_INTERVAL_MS)
+                )
+                val report = ProtectionDiagnostics.supportReport(
+                    appVersion = BuildConfig.VERSION_NAME,
+                    androidRelease = Build.VERSION.RELEASE ?: "unknown",
+                    apiLevel = Build.VERSION.SDK_INT,
+                    protectionActive = ProtectionState.isActive(
+                        prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                        GuardianVpnService.isTunnelActive()
+                    ),
+                    bundledRuleAssetAvailable = assetAvailable,
+                    selectedProfile = selectedProfile,
+                    baseCacheBytes = cacheBytes("adguard_dns_filter.txt"),
+                    securityFilterEnabled = securityEnabled,
+                    securityCacheBytes = cacheBytes("hagezi_threat_intelligence.txt"),
+                    androidAdsFilterEnabled = androidAdsEnabled,
+                    androidAdsCacheBytes = cacheBytes("awavenue_android_ads.txt"),
+                    autoUpdateEnabled = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true),
+                    updateIntervalHours = intervalMs / 3_600_000L,
+                    hasBaseUpdateTimestamp = FilterListManager.lastUpdatedAt(this) > 0L,
+                    signedFilterDeliveryConfigured = FilterDistributionSettings.requiresSignedDelivery(
+                        FilterDistributionSettings.configuredBaseUrl(this),
+                        BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
+                    ),
+                    licenseApiConfigured = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
+                        BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank(),
+                    filterUpdateErrorPresent = listOf(
+                        FilterListManager.KEY_LAST_ERROR,
+                        FilterListManager.KEY_SECURITY_LAST_ERROR,
+                        FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
+                    ).any { !prefs.getString(it, null).isNullOrBlank() },
+                    lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null),
+                    lastStartupTrace = prefs.getString(GuardianVpnService.KEY_STARTUP_TRACE, null),
+                    bundledRuleAssetBytes = assetBytes,
+                    nativeLibraryDirectoryReadable = nativeLibraryDirectoryReadable,
+                    nativeLibraryNames = nativeLibraryFiles,
+                    supportedAbis = Build.SUPPORTED_ABIS.toList(),
+                    baseCacheReady = baseCacheReady,
+                    cachedProfile = cachedProfile,
+                    cachedRuleCount = FilterListManager.cachedBlockCount(this),
+                    securityCacheReady = securityCacheReady,
+                    securityRuleCount = FilterListManager.cachedSecurityBlockCount(this),
+                    androidAdsCacheReady = androidAdsCacheReady,
+                    androidAdsRuleCount = FilterListManager.cachedAndroidAdsBlockCount(this),
+                    filterReadiness = prefs.getString(GuardianVpnService.KEY_FILTER_READINESS, null)
+                )
+                runOnUiThread {
+                    try {
+                        val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian diagnostics", report))
+                        android.widget.Toast.makeText(this, "개인정보를 제외한 진단 정보를 복사했습니다.", android.widget.Toast.LENGTH_SHORT).show()
+                    } catch (error: Exception) {
+                        android.widget.Toast.makeText(this, "진단 정보 복사 실패: ${error.javaClass.simpleName}", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    android.widget.Toast.makeText(
+                        this,
+                        "진단 정보 생성 실패: ${error.javaClass.simpleName}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            } finally {
+                runOnUiThread {
                     button.isEnabled = true
                     button.text = "개인정보 제외 진단 정보 복사"
                 }
