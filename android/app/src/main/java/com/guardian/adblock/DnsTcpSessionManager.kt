@@ -61,7 +61,10 @@ class DnsTcpSessionManager(
         val key = Key(tcp.version, tcp.source.joinToString("") { "%02x".format(it) },
             tcp.destination.joinToString("") { "%02x".format(it) }, tcp.sourcePort)
         if (tcp.rst) {
-            sessions.remove(key)
+            val existing = sessions[key] ?: return emptyList()
+            // A reset must belong to the current receive sequence. A delayed or
+            // forged stale RST must not tear down a live DNS TCP stream.
+            if (tcp.sequence == existing.clientNext) sessions.remove(key)
             return emptyList()
         }
 
