@@ -521,3 +521,9 @@
 ## 2026-11-24 — DNS 통계 카운터 overflow 방어
 - `recordDnsActivity`와 `recordIgnoredPacket`의 모든 Long 누적을 포화형 non-negative `DnsStatsCounterPolicy`로 통일했습니다.
 - 손상/음수 저장값은 0 기준으로 복구하고 Long.MAX_VALUE를 넘지 않도록 합니다. pure policy 테스트를 추가했으며 Android SharedPreferences/JUnit은 미실행입니다.
+
+
+## 2026-11-24 — DNS 통계 카운터 독립 Kotlin/JVM smoke
+- 현재 `DnsStatsCounterPolicy.kt`를 kotlinc로 컴파일하고 실행했습니다.
+- PASS 8/8: 0→1 증가, 일반 증가, zero increment, 음수 저장값 복구, Long.MIN_VALUE 복구, Long.MAX_VALUE 유지, 상한 근접 포화, 음수 증가량 무시.
+- GuardianVpnService의 `recordIgnoredPacket` 및 `recordDnsActivity`가 모두 해당 helper를 사용하도록 연결된 것을 원격 소스에서 재확인했습니다. Android SharedPreferences/JUnit·실기기 통계 검증은 미실행입니다.
