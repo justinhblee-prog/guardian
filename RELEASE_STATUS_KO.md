@@ -725,3 +725,7 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 
 - DNS 처리 트랙에서 업스트림 resolver 호출 중 `LinkageError`가 발생하면 기존에는 일반 예외 처리 경계를 벗어나 DNS 패킷 워커 전체가 종료될 수 있었습니다. 이를 요청 단위 실패로 격리해 해당 질의에는 SERVFAIL을 반환하고 VPN 패킷 루프는 계속 유지하도록 수정했습니다.
 - 회귀 테스트 `upstreamLinkageErrorReturnsServfailWithoutEscapingPacketHandler` 추가. 코드 커밋: `607b4f6fc9f856311db502336f5b60d99cf85330`, 테스트 커밋: `93e1d278f5a8ef1f2634b61a513c40a9f21816a7`. Android Gradle/JUnit 실행은 아직 미실행입니다.
+
+
+- VPN 시작 시 필터 적재와 사용자 규칙 재적용이 서로 다른 worker thread에서 겹칠 수 있는 경로를 보완했습니다. 전체 설정 읽기·캐시 파싱·규칙 스냅샷 교체를 서비스 인스턴스 단위로 직렬화해, 느리게 끝난 이전 로드가 다른 로드와 진단 상태를 교차 변경하지 않도록 했습니다. `DomainFilter`의 단일 volatile 규칙 스냅샷 교체 방식은 유지합니다.
+- 코드 커밋: `7a027cc6a0361a0eb3c332743c22e358b68e1996`. Android 서비스 통합 테스트/실기기 동시 갱신 검증은 미실행입니다.
