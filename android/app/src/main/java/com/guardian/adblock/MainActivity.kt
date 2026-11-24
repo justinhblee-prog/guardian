@@ -2148,7 +2148,6 @@ class MainActivity : Activity() {
     }
 
     private fun buildAppDnsStatsPreview(): LinearLayout {
-        val entries = AppDnsActivityStore.snapshot(this, 10)
         return card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("앱별 DNS 활동 · 개발 미리보기", 15f, white, true))
@@ -2156,23 +2155,48 @@ class MainActivity : Activity() {
                 "Android 10+에서 Guardian VPN이 소유 UID를 확인한 UDP DNS 요청만 앱에 연결합니다. DNS-over-TCP, DoH/DoT, UID 확인 불가 및 공유 UID 앱은 포함되지 않을 수 있습니다.",
                 10f, muted, false
             ).withTop(5))
-            if (entries.isEmpty()) {
-                addView(text("아직 연결된 앱별 DNS 기록이 없습니다. 보호를 시작하고 앱에서 DNS 요청을 발생시켜 주세요.", 11f, muted, false).withTop(12))
-            } else {
-                entries.forEach { entry ->
-                    addView(View(this@MainActivity).apply {
-                        setBackgroundColor(panel2)
-                    }, LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(8) })
-                    val label = runCatching {
-                        val info = packageManager.getApplicationInfo(entry.packageName, 0)
-                        packageManager.getApplicationLabel(info).toString()
-                    }.getOrDefault(entry.packageName)
-                    addView(text(label, 12f, white, true).withTop(8))
-                    addView(text(entry.packageName, 9f, muted, false).withTop(2))
-                    addView(text(
-                        "질의 ${entry.queries} · 차단 ${entry.blocked} · 광고 ${entry.ads} · 추적 ${entry.trackers} · 실패 ${entry.failed}",
-                        10f, accent, false
-                    ).withTop(4))
+            val statsContainer = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+            val statsStatus = text("앱별 DNS 통계를 불러오고 있습니다…", 10f, muted, false).withTop(10) as TextView
+            statsContainer.addView(statsStatus)
+            addView(statsContainer, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(2) })
+            // snapshot() flushes the small pending buffer and reads per-package
+            // SharedPreferences. Keep the whole operation off the Activity thread.
+            thread(name = "guardian-app-dns-stats") {
+                val result = runCatching { AppDnsActivityStore.snapshot(applicationContext, 10) }
+                runOnUiThread {
+                    if (isFinishing || isDestroyed || statsContainer.parent == null) return@runOnUiThread
+                    statsContainer.removeAllViews()
+                    result.onSuccess { entries ->
+                        if (entries.isEmpty()) {
+                            statsContainer.addView(text(
+                                "아직 연결된 앱별 DNS 기록이 없습니다. 보호를 시작하고 앱에서 DNS 요청을 발생시켜 주세요.",
+                                11f, muted, false
+                            ).withTop(12))
+                        } else {
+                            entries.forEach { entry ->
+                                statsContainer.addView(View(this@MainActivity).apply {
+                                    setBackgroundColor(panel2)
+                                }, LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(8) })
+                                val label = runCatching {
+                                    val info = packageManager.getApplicationInfo(entry.packageName, 0)
+                                    packageManager.getApplicationLabel(info).toString()
+                                }.getOrDefault(entry.packageName)
+                                statsContainer.addView(text(label, 12f, white, true).withTop(8))
+                                statsContainer.addView(text(entry.packageName, 9f, muted, false).withTop(2))
+                                statsContainer.addView(text(
+                                    "질의 ${entry.queries} · 차단 ${entry.blocked} · 광고 ${entry.ads} · 추적 ${entry.trackers} · 실패 ${entry.failed}",
+                                    10f, accent, false
+                                ).withTop(4))
+                            }
+                        }
+                    }.onFailure { error ->
+                        statsContainer.addView(text(
+                            "앱별 통계 조회 실패: ${SafeFailureSummary.describe(error)}",
+                            10f, muted, false
+                        ).withTop(8))
+                    }
                 }
             }
             addView(text("앱별 추가 차단 규칙", 13f, white, true).withTop(16))
