@@ -105,6 +105,10 @@ class DnsTcpSessionManager(
         }
 
         val session = sessions[key] ?: return emptyList()
+        // A SYN is valid only when opening a session. Accepting SYN|ACK on an
+        // established stream would let a malformed segment advance DNS framing
+        // state while renegotiating sequence space that Guardian never supports.
+        if (tcp.syn) return listOf(ack(tcp, session))
         // Every segment after the SYN handshake must carry ACK. Ignore
         // malformed ACK-less data/FIN so it cannot mutate the DNS stream.
         if (!tcp.ack) return emptyList()
