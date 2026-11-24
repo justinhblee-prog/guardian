@@ -771,3 +771,11 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 추가 사례: 숨겨진 부모 아래 Premium 카테고리 거부, 숨겨진 부모 아래 앱 제외 설정 거부, 비활성 중간 부모 아래 설정 탐색 라벨 거부.
 - 테스트 커밋: `bc710e62891c8243bb76fef26f1d541b57f5ef7b`.
 - Android APK 워크플로 정의에서 이 Python unittest 파일이 기존 검증 단계에 이미 포함되어 있음을 확인했습니다. 현재 브랜치 워크플로를 실행한 것은 아니며 테스트 결과는 미확인입니다.
+
+
+## 2026-11-24 — 무료 Android 필터 시작 캐시 진단의 치명 오류 경계 수정
+- VPN 시작 시 선택 필터 캐시의 준비 상태를 확인하는 세 경로(광고·추적, 보안, Android 앱 광고)가 Kotlin `runCatching`을 사용해 `OutOfMemoryError` 등 VM 치명 오류까지 일반 캐시 미준비로 삼킬 수 있음을 확인했습니다.
+- 이를 `FilterStartupGate.isOptionalCacheReady`로 통일했습니다. 일반 예외와 선택 구성요소 `LinkageError`만 해당 선택 피드를 사용할 수 없는 상태로 처리하고, VM 치명 오류는 상위 런타임으로 전파합니다. 필수 번들 기준 규칙과 기존 활성 규칙을 이 검사에서 변경하지 않습니다.
+- 회귀 테스트 추가: 정상 true/false, 일반 예외, `NoClassDefFoundError` 격리 및 `OutOfMemoryError` 동일 인스턴스 전파.
+- 커밋: `f6266d012f72040e056df15c33fcee581ef8161a` (정책), `f00c0f985b77ab45733a600e1708ff71cdc460d8` (테스트), `bb3d51f0f31550b3189911c57cf48a8f662751f9` (VPN 시작 경로 적용).
+- 원격 브랜치 재조회로 세 파일의 반영과 서비스 내 세 호출 지점을 확인했습니다. Android JUnit/Gradle, Lint, APK 빌드 및 에뮬레이터·실기기 검증은 실행하지 않았으며, 이 수정은 해당 검증을 통과한 것으로 간주하지 않습니다.
