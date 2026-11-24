@@ -73,7 +73,7 @@ object DnsUpstreamProbe {
                 (length and 0xc0) == 0xc0 -> {
                     if (offset + 1 >= message.size) return null
                     val target = ((length and 0x3f) shl 8) or (message[offset + 1].toInt() and 0xff)
-                    if (target >= offset || !visited.add(target)) return null
+                    if (target < 12 || target >= offset || !visited.add(target)) return null
                     if (encodedEnd < 0) encodedEnd = offset + 2
                     offset = target
                 }
