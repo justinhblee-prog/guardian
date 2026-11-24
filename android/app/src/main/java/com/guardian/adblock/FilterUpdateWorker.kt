@@ -2,6 +2,8 @@ package com.guardian.adblock
 
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 
@@ -13,9 +15,7 @@ class FilterUpdateWorker(
 
     override fun doWork(): Result {
         val prefs = applicationContext.getSharedPreferences(GuardianVpnService.PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true) ||
-            !SecurityProfileStore.automaticUpdatesAllowed(applicationContext)
-        ) return Result.success()
+        if (!updatesAllowed(prefs)) return Result.success()
 
         return try {
             val now = System.currentTimeMillis()
@@ -34,6 +34,7 @@ class FilterUpdateWorker(
             )
             var baseUpdateSucceeded = false
             if (baseUpdateDue) {
+                if (!updatesAllowed(prefs)) return Result.success()
                 FilterListManager.update(applicationContext)
                 baseUpdateSucceeded = true
             }
@@ -42,6 +43,7 @@ class FilterUpdateWorker(
             }
 
             var optionalFailure = false
+            if (!updatesAllowed(prefs)) return Result.success()
             val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
             val securityCacheReady = FilterListManager.hasCachedSecurityList(applicationContext)
             if (securityEnabled &&
@@ -64,6 +66,7 @@ class FilterUpdateWorker(
                     editor.apply()
                 }
             }
+            if (!updatesAllowed(prefs)) return Result.success()
             val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
             val androidAdsCacheReady = FilterListManager.hasCachedAndroidAdsList(applicationContext)
             if (androidAdsEnabled &&
@@ -112,6 +115,20 @@ class FilterUpdateWorker(
             )
             Result.retry()
         }
+    }
+
+    /** Repeat the policy at each source boundary; WorkManager also enforces UNMETERED. */
+    private fun updatesAllowed(prefs: android.content.SharedPreferences): Boolean {
+        if (isStopped) return false
+        val manager = applicationContext.getSystemService(ConnectivityManager::class.java) ?: return false
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        val networkUnmetered = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+        return FilterUpdateSchedulingPolicy.shouldRun(
+            userOptedIn = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true),
+            profileAllowsUpdates = SecurityProfileStore.automaticUpdatesAllowed(applicationContext),
+            networkUnmetered = networkUnmetered
+        )
     }
 
     companion object {
