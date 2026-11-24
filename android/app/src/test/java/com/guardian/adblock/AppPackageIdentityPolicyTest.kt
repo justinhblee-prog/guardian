@@ -30,6 +30,41 @@ class AppPackageIdentityPolicyTest {
             arrayOf("com.example;injected")
         ).forEach { assertNull(AppPackageIdentityPolicy.singleOwnerPackage(it)) }
     }
+    @Test fun cleanupRequiresBothPackageManagerInventoriesToAgree() {
+        val installed = setOf("com.example.mail", "com.example.calendar")
+        assertTrue(
+            InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
+                queryAllPackagesGranted = true,
+                applicationQuerySucceeded = true,
+                packageInfoQuerySucceeded = true,
+                applicationPackages = installed,
+                packageInfoPackages = installed
+            )
+        )
+        assertFalse(
+            InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
+                queryAllPackagesGranted = true,
+                applicationQuerySucceeded = true,
+                packageInfoQuerySucceeded = true,
+                applicationPackages = installed,
+                packageInfoPackages = setOf("com.example.mail")
+            )
+        )
+    }
+
+    @Test fun cleanupDoesNotRunWhenEitherPackageManagerQueryFailsOrReturnsEmpty() {
+        val installed = setOf("com.example.mail")
+        assertFalse(InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
+            true, false, true, installed, installed
+        ))
+        assertFalse(InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
+            true, true, false, installed, installed
+        ))
+        assertFalse(InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
+            true, true, true, emptySet(), emptySet()
+        ))
+    }
+
     @Test fun doesNotPruneAnyAppDataFromAnIncompleteInventory() {
         assertTrue(
             InstalledAppDataCleanupPolicy.stalePackages(
