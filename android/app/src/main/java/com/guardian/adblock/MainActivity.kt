@@ -162,6 +162,7 @@ class MainActivity : Activity() {
             "settings-premium" -> "settings-premium"
             "settings-support" -> "settings-support"
             "settings-about" -> "settings-about"
+            "settings-updates" -> "settings-updates"
             "settings-exit" -> "settings-exit"
             else -> restoredTab.takeIf { it.startsWith("settings-") } ?: "settings-general"
         }
@@ -1706,7 +1707,8 @@ class MainActivity : Activity() {
             SettingsEntry("◈", "필터링", "광고·추적 차단, 보호 정책과 사용자 규칙", "settings-filtering"),
             SettingsEntry("◇", "라이선스 및 프리미엄", "이용 기간, 허용 기기와 프리미엄 기능", "settings-premium"),
             SettingsEntry("✉", "고객 지원", "도움말, 시스템 진단과 오류 내용 복사", "settings-support"),
-            SettingsEntry("ⓘ", "정보", "제품 정보, 개인정보 및 앱 업데이트", "settings-about"),
+            SettingsEntry("⇧", "앱 업데이트", "Guardian 앱 버전 확인 및 안전한 업데이트 설치", "settings-updates"),
+            SettingsEntry("ⓘ", "정보", "제품 정보 및 개인정보 고지", "settings-about"),
             SettingsEntry("⏻", "종료", "앱 종료 및 백그라운드 보호 안내", "settings-exit")
         )
         val screenWidthDp = resources.configuration.screenWidthDp
@@ -1784,6 +1786,7 @@ class MainActivity : Activity() {
                     detailPanel.addView(text("진단 정보와 오류 내용은 직접 확인하고 복사할 수 있습니다.", 11f, muted, false).withTop(10))
                 }
                 "settings-about" -> buildSettingsAbout(detailPanel)
+                "settings-updates" -> buildUpdates(detailPanel)
                 "settings-exit" -> {
                     detailPanel.addView(text("종료", 25f, white, true))
                     detailPanel.addView(text("앱을 닫아도 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다.", 12f, muted, false).withTop(8))
@@ -1817,7 +1820,7 @@ class MainActivity : Activity() {
         }
 
         // Phone layout deliberately avoids a cramped side-by-side rail.
-        // Show the six settings categories at full width, then open the selected
+        // Show all settings categories at full width, then open the selected
         // category as a full-width detail page with a clear back-to-menu action.
         if (!phoneSettingsShowingDetail) {
             sections.forEach { (symbol, title, description, target) ->
@@ -1876,6 +1879,7 @@ class MainActivity : Activity() {
                 phoneDetail.addView(text("진단 정보와 오류 내용은 직접 확인하고 복사할 수 있습니다.", 11f, muted, false).withTop(8))
             }
             "settings-about" -> buildSettingsAbout(phoneDetail)
+            "settings-updates" -> buildUpdates(phoneDetail)
             "settings-exit" -> {
                 phoneDetail.addView(text("종료", 21f, white, true))
                 phoneDetail.addView(text("앱을 닫아도 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다.", 11f, muted, false).withTop(8))
