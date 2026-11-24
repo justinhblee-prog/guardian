@@ -60,7 +60,7 @@ class DnsUpstreamProbeTest {
     @Test fun rejectsCompleteNonAddressAnswerAsProofOfUsableIpv4Dns() {
         val query = DnsUpstreamProbe.query()
         val txtOnly = successfulResponse(query).also {
-            it[questionEnd(query) + 2] = 0x10
+            it[questionEnd(query) + 3] = 0x10
         }
         val shortAddress = successfulResponse(query).copyOf(successfulResponse(query).size - 1).also {
             it[it.size - 5] = 0
