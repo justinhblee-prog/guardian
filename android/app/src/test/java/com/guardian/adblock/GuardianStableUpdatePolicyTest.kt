@@ -12,6 +12,9 @@ class GuardianStableUpdatePolicyTest {
         assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "guardian-dev-v30"))
         assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "v1.0.0-rc1"))
         assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "v1.0"))
+        assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "v01.0.0"))
+        assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "v1.00.0"))
+        assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "v1.0.00"))
     }
 
     @Test fun updateMustHaveStrictlyHigherVersionCode() {
