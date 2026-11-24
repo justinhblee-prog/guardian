@@ -352,3 +352,9 @@
 
 ## 2026-11-24 — APK ZIP 항목 수 제한 테스트 추가
 - 10,001개 ZIP entry가 10,000개 한도를 넘으면 ApkStaticAnalyzer가 LIMIT_EXCEEDED를 반환하는 회귀 테스트를 추가했습니다. Android Gradle/JUnit 실행은 미실행입니다.
+
+
+## 2026-11-24 — percent-encoded 실행 파일 URL 확장자 탐지
+- raw path suffix 검사만으로는 `%2Eapk`, `.%61%70%6b`, `%252Eapk` 인코딩 우회 가능성이 있어 최대 3회 bounded URL path decoding 후 확장자를 검사하도록 변경했습니다.
+- query string은 path 검사에서 제외하며, 인코딩 확장자/대소문자/중첩 인코딩 탐지와 query-only 비탐지 테스트를 추가했습니다.
+- Android Gradle/JUnit 및 실제 브라우저/서버 URL 정규화 통합 검증은 미실행입니다.
