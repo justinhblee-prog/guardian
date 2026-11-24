@@ -39,6 +39,10 @@ object Ipv4Udp {
     }
 
     fun response(request: Parsed, dns: ByteArray): ByteArray {
+        // IPv4's 16-bit total-length field includes the 20-byte IP header.
+        // Reject DNS bodies that would otherwise wrap that field and emit an
+        // invalid packet (IPv6 UDP has a larger 65,527-byte payload ceiling).
+        require(dns.size <= MAX_DNS_RESPONSE_BYTES) { "DNS response exceeds IPv4 UDP packet limit" }
         val udpLength = 8 + dns.size
         val totalLength = 20 + udpLength
         val out = ByteArray(totalLength)
@@ -57,6 +61,8 @@ object Ipv4Udp {
         System.arraycopy(dns, 0, out, 28, dns.size)
         return out
     }
+
+    private const val MAX_DNS_RESPONSE_BYTES = 65_507
 
     fun u16(b: ByteArray, i: Int) = ((b[i].toInt() and 0xff) shl 8) or (b[i + 1].toInt() and 0xff)
     private fun put16(b: ByteArray, i: Int, v: Int) { b[i] = (v ushr 8).toByte(); b[i + 1] = v.toByte() }
