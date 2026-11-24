@@ -41,6 +41,8 @@ object FilterUpdateScheduler {
      */
     internal fun initialDelayMs(intervalMs: Long): Long = normalizeInterval(intervalMs)
 
+    internal fun requiredNetworkType(): NetworkType = NetworkType.UNMETERED
+
     /** Preserve any supported interval in the settings spinner; use the daily default only for unknown values. */
     internal fun selectionIndex(intervalMs: Long, supportedIntervals: List<Long>, defaultIndex: Int): Int {
         val index = supportedIntervals.indexOf(intervalMs)
@@ -59,8 +61,11 @@ object FilterUpdateScheduler {
 
         val interval = prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, DEFAULT_INTERVAL_MS)
             .let(::normalizeInterval)
+        // Automatic profiles only permit recurring refreshes on a validated,
+        // unmetered network. Enforce the same boundary in WorkManager so a
+        // network becoming metered also invalidates the running work constraint.
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiredNetworkType(requiredNetworkType())
             .build()
         val request = PeriodicWorkRequestBuilder<FilterUpdateWorker>(interval, TimeUnit.MILLISECONDS)
             .setInitialDelay(initialDelayMs(interval), TimeUnit.MILLISECONDS)
