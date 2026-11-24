@@ -1368,7 +1368,11 @@ class GuardianVpnService : VpnService() {
                     // under the same absolute deadline as every other attempt.
                     lastUpstreamFailure = null
                     val tcpResponse = forwardDnsTcp(query, attempt.address, deadline)
-                    if (tcpResponse != null && DomainFilter.isMatchingResponse(query, tcpResponse)) {
+                    if (deadline.remainingTimeoutMillis() == null) {
+                        // The explicit TC fallback path must enforce the same
+                        // late-response rejection as the ordinary candidate path.
+                        lastUpstreamFailure = "TCP: DNS 질의 전체 시간 예산(${DNS_QUERY_DEADLINE_MS}ms) 초과"
+                    } else if (tcpResponse != null && DomainFilter.isMatchingResponse(query, tcpResponse)) {
                         val tcpUsable = if (requireSuccessfulResolution) {
                             DnsUpstreamProbe.isSuccessfulResolution(query, tcpResponse)
                         } else {
