@@ -63,6 +63,7 @@ class GuardianVpnService : VpnService() {
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
         private const val MAX_UDP_DNS_RESPONSE_BYTES = 1232
         private const val MAX_DNS_MESSAGE_BYTES = 65535
+        private const val DNS_QUERY_DEADLINE_MS = 8000L
         const val KEY_UPSTREAM_DNS = "upstream_dns"
         const val KEY_UPSTREAM_TRANSPORT = "upstream_transport"
         const val KEY_UPSTREAM_TLS_HOST = "upstream_tls_host"
@@ -1291,169 +1292,129 @@ class GuardianVpnService : VpnService() {
 
     private fun forwardDns(query: ByteArray, requireSuccessfulResolution: Boolean = false): ByteArray? {
         lastUpstreamFailure = null
+        val deadline = DnsQueryDeadline.afterMillis(DNS_QUERY_DEADLINE_MS)
         val configured = configuredUpstreamDns()
         val transport = configuredUpstreamTransport()
         val candidates = when (transport) {
-            "dot", "doh" -> {
-                // A TLS resolver address may only be substituted when it belongs
-                // to the configured Cloudflare TLS hostname.
-                if (configuredUpstreamTlsHost().equals("cloudflare-dns.com", ignoreCase = true)) {
-                    listOf(configured, "1.1.1.1", "1.0.0.1").distinct()
-                } else listOf(configured)
-            }
+            "dot", "doh" -> if (configuredUpstreamTlsHost().equals("cloudflare-dns.com", ignoreCase = true)) listOf(configured, "1.1.1.1", "1.0.0.1").distinct() else listOf(configured)
             "tcp" -> listOf(configured, "1.1.1.1", "8.8.8.8").distinct()
             else -> emptyList()
         }
-        val attempts = if (transport == "udp") {
-            DnsUpstreamCandidatePolicy.udpAttempts(
-                configured = configured,
-                systemDns = systemDnsServers(),
-                publicFallback = listOf("1.1.1.1", "8.8.8.8"),
-                virtualDns = setOf(VIRTUAL_DNS, VIRTUAL_DNS_V6)
-            )
-        } else {
-            candidates.flatMap { address ->
-                DnsUpstreamCandidatePolicy.transports(transport).map { selected ->
-                    DnsUpstreamCandidatePolicy.Attempt(address, selected)
-                }
-            }
-        }
+        val attempts = if (transport == "udp") DnsUpstreamCandidatePolicy.udpAttempts(configured, systemDnsServers(), listOf("1.1.1.1", "8.8.8.8"), setOf(VIRTUAL_DNS, VIRTUAL_DNS_V6)) else candidates.flatMap { address -> DnsUpstreamCandidatePolicy.transports(transport).map { selected -> DnsUpstreamCandidatePolicy.Attempt(address, selected) } }
         val candidateFailures = mutableListOf<String>()
         for ((index, attempt) in attempts.withIndex()) {
-            // Each fallback attempt gets an isolated diagnostic so a failure
-            // from an earlier resolver is never attributed to this one.
+            if (deadline.remainingTimeoutMillis() == null) { candidateFailures += "DNS 질의 전체 시간 예산 소진"; break }
             lastUpstreamFailure = null
             val response = when (attempt.transport) {
-                "tcp" -> forwardDnsTcp(query, attempt.address)
-                "dot" -> forwardDnsOverTls(query, attempt.address)
-                "doh" -> forwardDnsOverHttps(query, attempt.address)
-                else -> forwardDnsUdp(query, attempt.address)
+                "tcp" -> forwardDnsTcp(query, attempt.address, deadline)
+                "dot" -> forwardDnsOverTls(query, attempt.address, deadline)
+                "doh" -> forwardDnsOverHttps(query, attempt.address, deadline)
+                else -> forwardDnsUdp(query, attempt.address, deadline)
             }
             if (response != null && DomainFilter.isMatchingResponse(query, response)) {
-                val usable = if (requireSuccessfulResolution) {
-                    DnsUpstreamProbe.isSuccessfulResolution(query, response)
-                } else {
-                    !DnsUpstreamProbe.isRetryableResolverError(response)
-                }
+                val usable = if (requireSuccessfulResolution) DnsUpstreamProbe.isSuccessfulResolution(query, response) else !DnsUpstreamProbe.isRetryableResolverError(response)
                 if (usable) return response
-                lastUpstreamFailure = attempt.transport.uppercase() +
-                    ": resolver returned an unusable response (RCODE=" +
-                    DnsUpstreamProbe.responseCode(response) + ")"
+                lastUpstreamFailure = attempt.transport.uppercase() + ": resolver returned an unusable response (RCODE=" + DnsUpstreamProbe.responseCode(response) + ")"
             }
-            var detail = lastUpstreamFailure
-                ?: (attempt.transport.uppercase() + ": DNS 응답 없음 또는 검증 실패")
-            if (attempt.transport == "udp" &&
-                lastUpstreamFailure?.startsWith("UDP: 잘린 응답") == true
-            ) {
+            var detail = lastUpstreamFailure ?: (attempt.transport.uppercase() + ": DNS 응답 없음 또는 검증 실패")
+            if (attempt.transport == "udp" && lastUpstreamFailure?.startsWith("UDP: 잘린 응답") == true) {
                 val following = attempts.getOrNull(index + 1)
-                val alreadyScheduledTcp = following != null &&
-                    following.address == attempt.address && following.transport == "tcp"
+                val alreadyScheduledTcp = following != null && following.address == attempt.address && following.transport == "tcp"
                 if (DnsUpstreamCandidatePolicy.needsTcpRetryAfterUdpTruncation(alreadyScheduledTcp)) {
-                    // DNS requires TCP when a resolver sets TC. The configured
-                    // resolver already has a queued TCP attempt; apply the same
-                    // protocol fallback to system/public candidates as well.
                     lastUpstreamFailure = null
-                    val tcpResponse = forwardDnsTcp(query, attempt.address)
+                    val tcpResponse = forwardDnsTcp(query, attempt.address, deadline)
                     if (tcpResponse != null && DomainFilter.isMatchingResponse(query, tcpResponse)) {
-                        val tcpUsable = if (requireSuccessfulResolution) {
-                            DnsUpstreamProbe.isSuccessfulResolution(query, tcpResponse)
-                        } else {
-                            !DnsUpstreamProbe.isRetryableResolverError(tcpResponse)
-                        }
+                        val tcpUsable = if (requireSuccessfulResolution) DnsUpstreamProbe.isSuccessfulResolution(query, tcpResponse) else !DnsUpstreamProbe.isRetryableResolverError(tcpResponse)
                         if (tcpUsable) return tcpResponse
-                        lastUpstreamFailure = "TCP: resolver returned an unusable response (RCODE=" +
-                            DnsUpstreamProbe.responseCode(tcpResponse) + ")"
+                        lastUpstreamFailure = "TCP: resolver returned an unusable response (RCODE=" + DnsUpstreamProbe.responseCode(tcpResponse) + ")"
                     }
-                    val tcpDetail = lastUpstreamFailure ?: "TCP: DNS 응답 없음 또는 검증 실패"
-                    detail += "; TCP 재시도: $tcpDetail"
+                    detail += "; TCP 재시도: " + (lastUpstreamFailure ?: "TCP: DNS 응답 없음 또는 검증 실패")
                 }
             }
             candidateFailures += "${attempt.transport.uppercase()} 후보 ${index + 1} (${attempt.address}): $detail"
         }
-        lastUpstreamFailure = DnsUpstreamFailurePolicy.summarize(candidateFailures)
+        lastUpstreamFailure = if (deadline.remainingTimeoutMillis() == null) "DNS 질의 전체 시간 예산(8000ms) 소진. " + DnsUpstreamFailurePolicy.summarize(candidateFailures) else DnsUpstreamFailurePolicy.summarize(candidateFailures)
         return null
     }
 
-    private fun forwardDnsUdp(query: ByteArray, upstreamAddress: String): ByteArray? {
+    private fun forwardDnsUdp(query: ByteArray, upstreamAddress: String, deadline: DnsQueryDeadline): ByteArray? {
         var socket: DatagramSocket? = null
+        var deadlineGuard: AutoCloseable? = null
         return try {
             socket = DatagramSocket()
-            if (!protect(socket)) {
-                lastUpstreamFailure = "UDP: VPN 소켓 우회 설정 실패"
-                return null
-            }
-            socket.soTimeout = 3500
+            val activeSocket = socket
+            if (!protect(activeSocket)) { lastUpstreamFailure = "UDP: VPN 소켓 우회 설정 실패"; return null }
+            deadlineGuard = deadline.closeOnExpiry { activeSocket.close() }
+            activeSocket.soTimeout = deadline.requireRemainingTimeoutMillis()
             val address = InetAddress.getByName(upstreamAddress)
-            socket.send(DatagramPacket(query, query.size, address, 53))
-            // DNS UDP payloads may use the full 16-bit DNS message length.
-            // Do not silently truncate large upstream replies at an arbitrary 4 KiB cap.
+            activeSocket.send(DatagramPacket(query, query.size, address, 53))
             val response = ByteArray(MAX_DNS_MESSAGE_BYTES)
             val packet = DatagramPacket(response, response.size)
-            socket.receive(packet)
-            if (packet.address != address || packet.port != 53) {
-                lastUpstreamFailure = "UDP: 예상하지 않은 DNS 응답 주소 또는 포트"
-                return null
-            }
+            activeSocket.soTimeout = deadline.requireRemainingTimeoutMillis()
+            activeSocket.receive(packet)
+            if (packet.address != address || packet.port != 53) { lastUpstreamFailure = "UDP: 예상하지 않은 DNS 응답 주소 또는 포트"; return null }
             val received = response.copyOf(packet.length)
-            if (received.size >= 4 && (received[2].toInt() and 0x02) != 0) {
-                // The caller owns the ordered TCP fallback; do not open a second
-                // TCP socket here and repeat the same resolver attempt on failure.
-                lastUpstreamFailure = "UDP: 잘린 응답으로 TCP/53 재시도가 필요합니다"
-                null
-            } else if (DomainFilter.isMatchingResponse(query, received)) received else {
-                lastUpstreamFailure = "UDP: DNS 트랜잭션 ID 또는 질문이 일치하지 않는 응답"
-                null
-            }
-        } catch (error: Exception) {
-            lastUpstreamFailure = "UDP: ${SafeFailureSummary.describe(error)}"
-            null
-        } finally {
-            socket?.close()
-        }
+            if (received.size >= 4 && (received[2].toInt() and 0x02) != 0) { lastUpstreamFailure = "UDP: 잘린 응답으로 TCP/53 재시도가 필요합니다"; null }
+            else if (DomainFilter.isMatchingResponse(query, received)) received else { lastUpstreamFailure = "UDP: DNS 트랜잭션 ID 또는 질문이 일치하지 않는 응답"; null }
+        } catch (error: Exception) { lastUpstreamFailure = "UDP: ${SafeFailureSummary.describe(error)}"; null }
+        finally { try { deadlineGuard?.close() } catch (_: Exception) { }; socket?.close() }
     }
 
-    private fun forwardDnsTcp(query: ByteArray, upstreamAddress: String): ByteArray? {
+    private fun forwardDnsTcp(query: ByteArray, upstreamAddress: String, deadline: DnsQueryDeadline): ByteArray? {
         var socket: Socket? = null
+        var deadlineGuard: AutoCloseable? = null
         return try {
             socket = Socket()
-            if (!protect(socket)) {
-                lastUpstreamFailure = "TCP: VPN 소켓 우회 설정 실패"
-                return null
-            }
-            socket.connect(InetSocketAddress(upstreamAddress, 53), 3500)
-            socket.soTimeout = 3500
-            val output = DataOutputStream(socket.getOutputStream())
-            if (query.size !in 17..65535) {
-                lastUpstreamFailure = "TCP: DNS 질의 길이 검증 실패"
-                return null
-            }
-            output.writeShort(query.size)
-            output.write(query)
-            output.flush()
-            val responseReadStartedAt = System.nanoTime()
-            val answer = DnsDohHttpCodec.readDnsTcpResponse(socket.getInputStream()) {
-                val elapsedMs = (System.nanoTime() - responseReadStartedAt) / 1_000_000L
-                val remainingMs = 3500L - elapsedMs
-                if (remainingMs <= 0L) {
-                    throw java.net.SocketTimeoutException("TCP DNS response read deadline exceeded")
-                }
-                socket?.soTimeout = remainingMs.toInt().coerceAtLeast(1)
-            } ?: run {
-                lastUpstreamFailure = "TCP: DNS 응답 길이 또는 읽기 기한 검증 실패"
-                return null
-            }
-            if (DomainFilter.isMatchingResponse(query, answer)) answer else {
-                lastUpstreamFailure = "TCP: DNS 응답 검증 실패"
-                null
-            }
-        } catch (error: Exception) {
-            lastUpstreamFailure = "TCP: ${SafeFailureSummary.describe(error)}"
-            null
-        } finally {
-            try { socket?.close() } catch (_: Exception) { }
-        }
+            val activeSocket = socket
+            if (!protect(activeSocket)) { lastUpstreamFailure = "TCP: VPN 소켓 우회 설정 실패"; return null }
+            deadlineGuard = deadline.closeOnExpiry { activeSocket.close() }
+            activeSocket.connect(InetSocketAddress(upstreamAddress, 53), deadline.requireRemainingTimeoutMillis())
+            activeSocket.soTimeout = deadline.requireRemainingTimeoutMillis()
+            if (query.size !in 17..65535) { lastUpstreamFailure = "TCP: DNS 질의 길이 검증 실패"; return null }
+            val output = DataOutputStream(activeSocket.getOutputStream()); output.writeShort(query.size); output.write(query); output.flush()
+            val answer = DnsDohHttpCodec.readDnsTcpResponse(activeSocket.getInputStream()) { activeSocket.soTimeout = deadline.requireRemainingTimeoutMillis() } ?: run { lastUpstreamFailure = "TCP: DNS 응답 길이 또는 전체 질의 기한 검증 실패"; return null }
+            if (DomainFilter.isMatchingResponse(query, answer)) answer else { lastUpstreamFailure = "TCP: DNS 응답 검증 실패"; null }
+        } catch (error: Exception) { lastUpstreamFailure = "TCP: ${SafeFailureSummary.describe(error)}"; null }
+        finally { try { deadlineGuard?.close() } catch (_: Exception) { }; try { socket?.close() } catch (_: Exception) { } }
     }
 
+    private fun forwardDnsOverTls(query: ByteArray, upstreamAddress: String, deadline: DnsQueryDeadline): ByteArray? {
+        if (query.size !in 17..65535) { lastUpstreamFailure = "DoT: DNS 질의 길이 검증 실패"; return null }
+        val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: run { lastUpstreamFailure = "DoT: TLS 호스트명이 유효하지 않습니다"; return null }
+        var socket: SSLSocket? = null; var deadlineGuard: AutoCloseable? = null
+        return try {
+            val address = InetAddress.getByName(upstreamAddress); val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
+            socket = factory.createSocket() as SSLSocket; val activeSocket = socket
+            if (!protect(activeSocket)) { lastUpstreamFailure = "DoT: VPN 소켓 우회 설정 실패"; return null }
+            deadlineGuard = deadline.closeOnExpiry { activeSocket.close() }
+            activeSocket.connect(InetSocketAddress(address, 853), deadline.requireRemainingTimeoutMillis()); activeSocket.soTimeout = deadline.requireRemainingTimeoutMillis()
+            val parameters = activeSocket.sslParameters; parameters.endpointIdentificationAlgorithm = "HTTPS"; parameters.serverNames = listOf(SNIHostName(tlsHost)); activeSocket.sslParameters = parameters
+            activeSocket.startHandshake()
+            val output = DataOutputStream(activeSocket.outputStream); output.writeShort(query.size); output.write(query); output.flush()
+            val answer = DnsDohHttpCodec.readDnsTcpResponse(activeSocket.inputStream) { activeSocket.soTimeout = deadline.requireRemainingTimeoutMillis() } ?: run { lastUpstreamFailure = "DoT: DNS 응답 길이 또는 전체 질의 기한 검증 실패"; return null }
+            if (DomainFilter.isMatchingResponse(query, answer)) answer else { lastUpstreamFailure = "DoT: DNS 트랜잭션 ID 또는 질문이 일치하지 않는 응답"; null }
+        } catch (error: Exception) { lastUpstreamFailure = "DoT: ${SafeFailureSummary.describe(error)}"; null }
+        finally { try { deadlineGuard?.close() } catch (_: Exception) { }; try { socket?.close() } catch (_: Exception) { } }
+    }
+
+    private fun forwardDnsOverHttps(query: ByteArray, upstreamAddress: String, deadline: DnsQueryDeadline): ByteArray? {
+        if (query.size !in 17..65535) { lastUpstreamFailure = "DoH: DNS 질의 길이 검증 실패"; return null }
+        val tlsHost = DnsTlsHostValidator.normalize(configuredUpstreamTlsHost()) ?: run { lastUpstreamFailure = "DoH: TLS 호스트명이 유효하지 않습니다"; return null }
+        val request = DnsDohHttpCodec.buildPostRequest(tlsHost, "/dns-query", query) ?: run { lastUpstreamFailure = "DoH: HTTP 요청 형식 검증 실패"; return null }
+        var socket: SSLSocket? = null; var deadlineGuard: AutoCloseable? = null
+        return try {
+            val address = InetAddress.getByName(upstreamAddress); val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
+            socket = factory.createSocket() as SSLSocket; val activeSocket = socket
+            if (!protect(activeSocket)) { lastUpstreamFailure = "DoH: VPN 소켓 우회 설정 실패"; return null }
+            deadlineGuard = deadline.closeOnExpiry { activeSocket.close() }
+            activeSocket.connect(InetSocketAddress(address, 443), deadline.requireRemainingTimeoutMillis()); activeSocket.soTimeout = deadline.requireRemainingTimeoutMillis()
+            val parameters = activeSocket.sslParameters; parameters.endpointIdentificationAlgorithm = "HTTPS"; parameters.serverNames = listOf(SNIHostName(tlsHost)); activeSocket.sslParameters = parameters
+            activeSocket.startHandshake(); activeSocket.outputStream.write(request); activeSocket.outputStream.flush()
+            val answer = DnsDohHttpCodec.readResponse(activeSocket.inputStream) { activeSocket.soTimeout = deadline.requireRemainingTimeoutMillis() } ?: run { lastUpstreamFailure = "DoH: HTTP 상태·헤더·Content-Type 또는 DNS 본문 검증 실패"; return null }
+            if (DomainFilter.isMatchingResponse(query, answer)) answer else { lastUpstreamFailure = "DoH: DNS 트랜잭션 ID 또는 질문이 일치하지 않는 응답"; null }
+        } catch (error: Exception) { lastUpstreamFailure = "DoH: ${SafeFailureSummary.describe(error)}"; null }
+        finally { try { deadlineGuard?.close() } catch (_: Exception) { }; try { socket?.close() } catch (_: Exception) { } }
+    }
     private fun runUpstreamConnectivityTest(startId: Int) {
         val query = DnsUpstreamProbe.query()
         val transport = configuredUpstreamTransport()
