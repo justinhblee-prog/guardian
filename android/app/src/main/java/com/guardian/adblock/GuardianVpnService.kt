@@ -94,6 +94,33 @@ class GuardianVpnService : VpnService() {
         )
         private val DNS_STATS_LOCK = Any()
         private const val DNS_STATS_BROADCAST_INTERVAL_MS = 500L
+
+        /**
+         * Reset persisted DNS counters under the same lock used by packet workers.
+         * SharedPreferences.apply() updates the in-memory snapshot synchronously;
+         * serializing the clear with recordDnsActivity prevents an in-flight query
+         * from restoring pre-reset totals or having its post-reset increment lost.
+         */
+        fun resetDnsStatistics(context: android.content.Context) {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS, MODE_PRIVATE)
+            synchronized(DNS_STATS_LOCK) {
+                prefs.edit()
+                    .putLong(KEY_DNS_QUERIES, 0L)
+                    .putLong(KEY_DNS_BLOCKED, 0L)
+                    .putLong(KEY_DNS_FORWARDED, 0L)
+                    .putLong(KEY_DNS_FAILED, 0L)
+                    .putLong(KEY_DNS_IGNORED, 0L)
+                    .putLong(KEY_DNS_AD_BLOCKED, 0L)
+                    .putLong(KEY_DNS_TRACKER_BLOCKED, 0L)
+                    .putLong(KEY_DNS_OTHER_BLOCKED, 0L)
+                    .putString(KEY_DNS_RECENT, "")
+                    .putString(KEY_DNS_DIAGNOSTIC, "")
+                    .apply()
+            }
+            context.applicationContext.sendBroadcast(
+                Intent(ACTION_STATUS_CHANGED).setPackage(context.packageName)
+            )
+        }
         @Volatile private var tunnelActive = false
         fun isTunnelActive(): Boolean = tunnelActive
     }
