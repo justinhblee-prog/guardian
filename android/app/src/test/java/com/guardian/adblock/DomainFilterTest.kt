@@ -304,4 +304,29 @@ class DomainFilterTest {
         assertTrue(DomainFilter.isBlocked("sub.adform.net"))
     }
 
+    @Test fun rejectsResponseOnlyAndReservedFlagsInClientDnsQueries() {
+        val valid = DnsProbe.buildQuery("example.com")
+        // AA, TC, RA and reserved Z are not valid in a standard client query.
+        listOf(0x0400, 0x0200, 0x0080, 0x0040).forEach { invalidFlag ->
+            val malformed = valid.copyOf().also {
+                val flags = ((it[2].toInt() and 0xff) shl 8) or (it[3].toInt() and 0xff)
+                val updated = flags or invalidFlag
+                it[2] = (updated ushr 8).toByte()
+                it[3] = updated.toByte()
+            }
+            assertNull("flag 0x${invalidFlag.toString(16)} must be rejected",
+                DomainFilter.readQuestionName(malformed))
+            assertNull(DomainFilter.makeNxdomain(malformed))
+        }
+    }
+
+    @Test fun acceptsDnssecAndCheckingDisabledQueryFlags() {
+        val query = DnsProbe.buildQuery("example.com").also {
+            // AD and CD are legitimate query flags and must not be rejected.
+            it[3] = (it[3].toInt() or 0x30).toByte()
+        }
+        assertEquals("example.com", DomainFilter.readQuestionName(query))
+        assertNotNull(DomainFilter.makeServfail(query))
+    }
+
 }
