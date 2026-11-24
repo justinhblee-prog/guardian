@@ -19,6 +19,21 @@ class DevUpdateManagerTest {
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 49, 48))
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 48, 49))
     }
+    @Test fun developmentTagsAndVersionNamesMustUseCanonicalNumericComponents() {
+        assertEquals(48, DevUpdateManager.parseDevelopmentTagVersion("guardian-dev-v48"))
+        assertEquals(0, DevUpdateManager.parseDevelopmentTagVersion("guardian-dev-v0"))
+        assertEquals(null, DevUpdateManager.parseDevelopmentTagVersion("guardian-dev-v048"))
+        assertEquals(null, DevUpdateManager.parseDevelopmentTagVersion("guardian-dev-v+48"))
+        assertEquals(null, DevUpdateManager.parseDevelopmentTagVersion("guardian-dev-v2147483648"))
+
+        assertTrue(DevUpdateManager.isCanonicalDevelopmentVersionName("0.7.49-dev"))
+        assertTrue(DevUpdateManager.isCanonicalDevelopmentVersionName("12.0.3-dev"))
+        assertFalse(DevUpdateManager.isCanonicalDevelopmentVersionName("00.7.49-dev"))
+        assertFalse(DevUpdateManager.isCanonicalDevelopmentVersionName("0.07.49-dev"))
+        assertFalse(DevUpdateManager.isCanonicalDevelopmentVersionName("0.7.049-dev"))
+        assertFalse(DevUpdateManager.isCanonicalDevelopmentVersionName("0.7.49"))
+    }
+
     @Test fun acceptsUnknownLengthDevelopmentApkStreamsButBoundsActualBytes() {
         val maximum = 100L * 1024L * 1024L
         assertTrue(DevUpdateManager.isAcceptableDownloadLength(-1L, maximum))
