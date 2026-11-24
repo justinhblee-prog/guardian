@@ -70,6 +70,17 @@ class DnsUpstreamProbeTest {
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, shortAddress))
     }
 
+    @Test fun rejectsARecordOnlyInAdditionalSection() {
+        val query = DnsUpstreamProbe.query()
+        val additionalOnly = successfulResponse(query).also {
+            it[6] = 0
+            it[7] = 0
+            it[10] = 0
+            it[11] = 1
+        }
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, additionalOnly))
+    }
+
     private fun questionEnd(query: ByteArray): Int = 12 + 1 + 7 + 1 + 3 + 1 + 4
 
     @Test fun rejectsSelfReferencingCompressionPointerInAnswerOwnerName() {
