@@ -5,6 +5,65 @@ import org.junit.Test
 import java.security.SecureRandom
 
 class DnsTcpSessionManagerTest {
+    @Test fun tinyPeerMssCannotGrowOutstandingPacketQueueWithoutBound() {
+        val manager = newManager()
+        val syn = packet(
+            flags = DnsTcpPacket.SYN,
+            seq = 9900,
+            window = 8192,
+            tcpOptions = byteArrayOf(2, 4, 0, 1)
+        )
+        val synAck = DnsTcpPacket.parse(
+            manager.handle(syn, syn.size) { null }.single(), 40, 53000
+        )!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val request = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 9901,
+            acknowledgment = serverStart,
+            window = 8192,
+            payload = framedQuery
+        )
+        val emitted = mutableListOf<ByteArray>()
+        emitted += manager.handle(request, request.size) { ByteArray(1000) }
+        assertEquals(64, emitted.size)
+
+        val clientNext = (9901L + framedQuery.size) and 0xffffffffL
+        repeat(4) {
+            val ack = packet(
+                flags = DnsTcpPacket.ACK,
+                seq = clientNext,
+                acknowledgment = serverStart,
+                window = 8192
+            )
+            emitted += manager.handle(ack, ack.size) { null }
+        }
+        val uniqueSequences = emitted.map {
+            DnsTcpPacket.parse(it, it.size, 53000)!!.sequence
+        }.distinct()
+        assertEquals(256, uniqueSequences.size)
+
+        val noCapacityAck = packet(
+            flags = DnsTcpPacket.ACK,
+            seq = clientNext,
+            acknowledgment = serverStart,
+            window = 8192
+        )
+        assertTrue(manager.handle(noCapacityAck, noCapacityAck.size) { null }.isEmpty())
+
+        // A cumulative ACK frees packet slots and allows the queued DNS frame to drain.
+        val freeingAck = packet(
+            flags = DnsTcpPacket.ACK,
+            seq = clientNext,
+            acknowledgment = (serverStart + 64L) and 0xffffffffL,
+            window = 8192
+        )
+        val resumed = manager.handle(freeingAck, freeingAck.size) { null }
+        assertEquals(64, resumed.size)
+    }
+
     @Test fun responseSegmentsRespectAdvertisedClientMss() {
         val manager = newManager()
         // MSS option: kind=2, length=4, value=512 bytes.
