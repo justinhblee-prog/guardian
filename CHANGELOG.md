@@ -1,3 +1,10 @@
+## 2026-11-24 — APK DEX 헤더 검증 강화
+
+- APK 내 classes*.dex를 첫 네 바이트의 매직 문자열만으로 인정하던 검증을 강화했습니다.
+- DEX 고정 헤더 최소 크기, 버전 숫자/널 종료, 선언된 file_size 일치, header_size(0x70), endian tag를 확인한 뒤에만 문자열 분석을 수행합니다. 전체 DEX 검증기나 악성코드 판정으로 과장하지 않도록 범위를 명시했습니다.
+- 테스트용 APK fixture를 최소 DEX 헤더 구조로 바꾸고, 짧은 가짜 DEX·잘못된 file_size·잘못된 header_size 거부 테스트를 추가했습니다.
+- Android Gradle/JUnit 및 실기기 APK 선택 검증은 미실행입니다.
+
 ## 2026-11-24 — 피싱 URL 스킴별 기본 포트 판별
 
 - 기존 분석기는 HTTP/HTTPS 모두 80·443 포트를 기본 포트로 취급해 HTTPS:80 및 HTTP:443을 일반 포트로 오인했습니다.
