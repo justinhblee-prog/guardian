@@ -592,3 +592,6 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 
 
 - WorkManager 예약 필터 갱신에도 Android 구성요소 로딩 실패 처리 및 재시도/상태 알림 경로를 추가했습니다. 실제 WorkManager 실행 검증은 미실행입니다.
+
+
+- TUN 커밋 이후 상태 게시/패킷 스레드 시작 실패 시 해당 세션을 롤백하는 처리를 추가했습니다. 이 변경은 코드 검토 반영이며 Android 빌드·실기기 검증은 미실행입니다.
