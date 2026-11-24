@@ -266,6 +266,7 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 ### 확인된 문제와 수정
 - 이전에는 시작 세대가 취소되어도 DNS 사전검사 함수가 반환될 때까지 이전 resolver socket이 최대 8초의 전체 질의 제한시간 동안 살아 있을 수 있었습니다. 결과를 받은 뒤 세대를 검사해 오래된 TUN 커밋은 막았지만, 중지/새 시작에 대한 네트워크 작업 자체는 즉시 취소되지 않았습니다.
 - 시작 전용 DnsQueryDeadline 참조를 서비스에 추가했습니다. 새 시작 세대 발급, 명시적 중지, 자동 호환성 일시중지 및 앱 제외 재구성 시 이전 preflight deadline을 취소합니다.
+- 취소 순서는 먼저 시작 세대를 무효화하고 그다음 소켓을 닫도록 했습니다. 소켓 종료 예외가 이전 worker에 전달되는 순간과 세대 무효화 사이의 틈에서 오래된 요청이 실패 상태를 게시하지 못하게 합니다.
 - DnsQueryDeadline.cancel()은 해당 질의에 등록된 현재 UDP/TCP/DoT/DoH 소켓을 닫고, 남은 시간 검사를 실패시켜 다음 resolver 후보가 시작되지 않게 합니다. 소켓 등록과 취소가 동시에 일어나는 경우에도 늦게 등록된 소켓을 즉시 닫도록 했습니다.
 - deadline watchdog 등록과 취소가 교차하는 경합도 보강했습니다. CopyOnWriteArrayList를 Kotlin toList()로 인덱싱하는 기존 보조 구현에서 실제 동시 제거 시 ArrayIndexOutOfBoundsException이 발생하는 것을 20,000회 하네스에서 발견했고, 안정적인 iterator 순회로 수정했습니다. watchdog 미래 작업도 취소 경합에서 정리되도록 했습니다.
 - 일반 패킷 처리의 DNS 쿼리는 기존 8초 전체 예산을 그대로 사용합니다. 서비스 시작 preflight만 외부에서 소유한 취소 가능한 deadline을 전달합니다. 이전 시작의 finally는 compareAndSet으로 자기 deadline만 제거하므로 새 참조를 지우지 않습니다.
