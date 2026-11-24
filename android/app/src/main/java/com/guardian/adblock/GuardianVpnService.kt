@@ -133,7 +133,7 @@ class GuardianVpnService : VpnService() {
                 // process death cannot lose the user's explicit request to keep protection on.
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                     .putBoolean(KEY_RESTORE_REQUESTED, true).commit()
-                ensureForegroundServiceNotification()
+                if (!ensureForegroundServiceNotification(startId)) return START_NOT_STICKY
                 val foregroundTarget = startForegroundAppMonitor()
                 if (foregroundTarget != null) {
                     pauseProtectionForCompatibility(foregroundTarget)
@@ -163,7 +163,7 @@ class GuardianVpnService : VpnService() {
                     restoreRequested = restoreRequested
                 )
                 if (shouldRestore) {
-                    ensureForegroundServiceNotification()
+                    if (!ensureForegroundServiceNotification(startId)) return START_NOT_STICKY
                     val foregroundTarget = startForegroundAppMonitor()
                     if (foregroundTarget != null) {
                         pauseProtectionForCompatibility(foregroundTarget)
@@ -183,9 +183,46 @@ class GuardianVpnService : VpnService() {
         return START_STICKY
     }
 
-    private fun ensureForegroundServiceNotification() {
-        createNotificationChannel()
-        startForeground(41, buildNotification())
+    /**
+     * Foreground promotion happens before the asynchronous VPN setup. Android can
+     * reject it (for example, a background-start restriction or notification
+     * permission/platform failure). Do not let that exception escape onStartCommand:
+     * it otherwise leaves the durable restore flag set and causes a sticky restart
+     * loop with no user-visible failure state.
+     */
+    private fun ensureForegroundServiceNotification(startId: Int): Boolean {
+        return try {
+            createNotificationChannel()
+            startForeground(41, buildNotification())
+            true
+        } catch (error: Exception) {
+            android.util.Log.e(
+                "GuardianProtection",
+                "Foreground service promotion failed: ${SafeFailureSummary.codeFor(error)}"
+            )
+            val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+            prefs.edit()
+                .putBoolean(KEY_RESTORE_REQUESTED, false)
+                .putBoolean(KEY_ACTIVE, false)
+                .putBoolean(KEY_RECOVERY_PENDING, false)
+                .putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error))
+                .commit()
+            try {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } catch (cleanupError: Exception) {
+                android.util.Log.w(
+                    "GuardianProtection",
+                    "Could not remove failed foreground notification: ${SafeFailureSummary.codeFor(cleanupError)}"
+                )
+            }
+            publishState(
+                false,
+                "보호 서비스를 Android 백그라운드 실행 상태로 등록하지 못했습니다 " +
+                    "(${ProtectionDiagnostics.exceptionTypeChain(error)}): ${SafeFailureSummary.describe(error)}"
+            )
+            stopSelf(startId)
+            false
+        }
     }
 
     private fun handleCompatibilitySettingsChanged(startId: Int) {
@@ -195,7 +232,7 @@ class GuardianVpnService : VpnService() {
             stopSelf(startId)
             return
         }
-        ensureForegroundServiceNotification()
+        if (!ensureForegroundServiceNotification(startId)) return
         val foregroundTarget = startForegroundAppMonitor()
         if (foregroundTarget != null) {
             pauseProtectionForCompatibility(foregroundTarget)
