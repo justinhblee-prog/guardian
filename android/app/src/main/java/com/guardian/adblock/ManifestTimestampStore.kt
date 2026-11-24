@@ -19,10 +19,7 @@ internal class ManifestTimestampStore(private val stateFile: File) {
         if (!stateFile.isFile) return 0L
         val properties = Properties()
         stateFile.inputStream().use(properties::load)
-        return properties.getProperty(sourceId)?.toLongOrNull()
-            ?: if (properties.containsKey(sourceId)) {
-                throw IllegalStateException("저장된 manifest 시각 데이터가 손상되었습니다.")
-            } else 0L
+        return parseStoredTimestamp(properties.getProperty(sourceId), sourceId)
     }
 
     @Synchronized
@@ -31,8 +28,7 @@ internal class ManifestTimestampStore(private val stateFile: File) {
         require(generatedAt > 0L) { "manifest 생성 시각은 양수여야 합니다." }
         val properties = readProperties()
         val stored = properties.getProperty(sourceId)
-        val previous = stored?.toLongOrNull()
-            ?: if (stored == null) 0L else throw IllegalStateException("저장된 manifest 시각 데이터가 손상되었습니다.")
+        val previous = parseStoredTimestamp(stored, sourceId)
         require(generatedAt > previous) { "이전 manifest보다 오래되었거나 동일한 버전입니다." }
         properties.setProperty(sourceId, generatedAt.toString())
         persist(properties)
