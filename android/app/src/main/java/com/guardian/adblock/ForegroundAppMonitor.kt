@@ -190,15 +190,21 @@ internal class ForegroundAppMonitor(
         return activeTarget
     }
 
-    fun stop() {
+    fun stop(waitForExit: Boolean = true) {
         running.set(false)
-        monitorThread?.interrupt()
-        try {
-            monitorThread?.join(MONITOR_STOP_JOIN_MS)
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
+        val threadToStop = monitorThread
+        threadToStop?.interrupt()
+        if (waitForExit && threadToStop != null && threadToStop !== Thread.currentThread()) {
+            try {
+                threadToStop.join(MONITOR_STOP_JOIN_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
         }
-        monitorThread = null
+        // A non-blocking stop is used by VPN teardown while the service monitor is
+        // held. The daemon worker will observe running=false after any in-flight
+        // UsageStats query/callback returns; its generation guard makes callbacks inert.
+        if (monitorThread === threadToStop) monitorThread = null
         activeTarget = null
     }
 
