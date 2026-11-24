@@ -76,15 +76,12 @@ class FilterUpdateWorker(
                 } catch (e: Exception) {
                     // A failed first download is just as retry-worthy as a failed refresh:
                     // without a cache, this enabled protection layer is not active yet.
-                    optionalFailure = true
-                    val editor = prefs.edit().putString(
+                    optionalFailure = FilterUpdatePolicy.shouldRetryOptionalUpdate(securityEnabled)
+                    // Keep the user's enabled preference; retry until this first cache is available.
+                    prefs.edit().putString(
                         FilterListManager.KEY_SECURITY_LAST_ERROR,
                         SafeFailureSummary.codeFor(e)
-                    )
-                    if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityEnabled, securityCacheReady)) {
-                        editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                    }
-                    editor.apply()
+                    ).apply()
                 } catch (e: LinkageError) {
                     optionalFailure = securityCacheReady
                     val editor = prefs.edit().putString(
@@ -110,15 +107,12 @@ class FilterUpdateWorker(
                 } catch (e: Exception) {
                     // Retry initial population too; otherwise WorkManager would mark the
                     // run successful and leave this enabled protection layer absent.
-                    optionalFailure = true
-                    val editor = prefs.edit().putString(
+                    optionalFailure = optionalFailure || FilterUpdatePolicy.shouldRetryOptionalUpdate(androidAdsEnabled)
+                    // Keep the user's enabled preference; retry until this first cache is available.
+                    prefs.edit().putString(
                         FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                         SafeFailureSummary.codeFor(e)
-                    )
-                    if (FilterUpdatePolicy.shouldDisableOptionalFilter(androidAdsEnabled, androidAdsCacheReady)) {
-                        editor.putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
-                    }
-                    editor.apply()
+                    ).apply()
                 } catch (e: LinkageError) {
                     optionalFailure = optionalFailure || androidAdsCacheReady
                     val editor = prefs.edit().putString(
@@ -194,9 +188,8 @@ internal object FilterUpdatePolicy {
     fun shouldContinueInitialRetry(forceInitialRefresh: Boolean, runAttemptCount: Int, maxAttempts: Int): Boolean =
         !forceInitialRefresh || (maxAttempts > 0 && runAttemptCount >= 0 && runAttemptCount < maxAttempts)
 
-    /** Disable an optional source only when its first download failed and no trusted cache exists. */
-    fun shouldDisableOptionalFilter(wasEnabled: Boolean, hadValidCache: Boolean): Boolean =
-        wasEnabled && !hadValidCache
+    /** An enabled optional source remains eligible for retry until its first cache is installed. */
+    fun shouldRetryOptionalUpdate(wasEnabled: Boolean): Boolean = wasEnabled
 
     /** Do not claim an old list is active when the selected profile has no valid cache. */
     fun mainErrorStatus(errorCode: String?, hasUsableCache: Boolean): String? {
