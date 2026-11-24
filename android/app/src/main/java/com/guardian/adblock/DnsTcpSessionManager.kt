@@ -184,14 +184,14 @@ class DnsTcpSessionManager(
             session.lastClientSegmentStart = tcp.sequence
             session.lastClientPayload = tcp.payload.copyOf()
             session.lastClientFin = tcp.fin
-            if (session.received.size() + tcp.payload.size > maxBufferedBytes) {
-                sessions.remove(key)
-                return listOf(DnsTcpPacket.response(tcp, session.serverNext,
-                    session.clientNext, DnsTcpPacket.RST or DnsTcpPacket.ACK))
-            }
             session.clientNext = (session.clientNext + tcp.payload.size) and MASK
-            session.received.write(tcp.payload)
-            val buffered = session.received.toByteArray()
+            // Parse the complete bounded input chunk before applying the
+            // per-frame remainder limit. A nearly complete maximum-sized DNS
+            // frame may finish in this segment with another query behind it.
+            val previous = session.received.toByteArray()
+            val buffered = ByteArray(previous.size + tcp.payload.size)
+            System.arraycopy(previous, 0, buffered, 0, previous.size)
+            System.arraycopy(tcp.payload, 0, buffered, previous.size, tcp.payload.size)
             var offset = 0
             val replies = mutableListOf<ByteArray>()
             while (buffered.size - offset >= 2) {
@@ -225,6 +225,11 @@ class DnsTcpSessionManager(
                 offset += messageLength + 2
             }
             val remainder = buffered.copyOfRange(offset, buffered.size)
+            if (remainder.size > maxBufferedBytes) {
+                sessions.remove(key)
+                return listOf(DnsTcpPacket.response(tcp, session.serverNext,
+                    session.clientNext, DnsTcpPacket.RST or DnsTcpPacket.ACK))
+            }
             session.received.reset()
             session.received.write(remainder)
             if (tcp.fin && remainder.isNotEmpty()) {
