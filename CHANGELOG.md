@@ -1,3 +1,9 @@
+## 2026-11-24 — 저장된 앱 제외 항목 검증 및 PackageManager 오류 격리
+
+- 저장된 VPN 앱 제외 항목은 self-package와 `NameNotFoundException`만 분기했기 때문에 malformed package ID 또는 OEM PackageManager의 다른 예외가 VPN 전체 TUN 생성 실패로 번질 수 있었습니다.
+- 제외 등록 전 package ID 형식/길이와 Guardian 자기 자신인지 순수 정책으로 검증하고, `getApplicationInfo`의 모든 Exception은 해당 항목만 미적용 목록에 기록한 뒤 다음 제외 항목과 VPN 생성은 계속하도록 수정했습니다.
+- 정상 외부 패키지·self-package·빈 값·세그먼트 오류·구분자 삽입·경계 초과 입력에 대한 정책 테스트를 추가했습니다. Android PackageManager/OEM 실기기 검증은 미실행입니다.
+
 ## 2026-11-24 — 정식 APK 검증 실패 파일 정리 및 단일 서명 강제
 
 - 다운로드 이후 SHA-256은 통과했지만 APK package/version/signing certificate 검증에서 실패하면 파일이 cache/stable-updates에 남을 수 있던 경로를 수정했습니다. 사후 검증 단계가 예외를 던지면 해당 APK 파일을 삭제하고 원래 오류를 다시 전달합니다.
