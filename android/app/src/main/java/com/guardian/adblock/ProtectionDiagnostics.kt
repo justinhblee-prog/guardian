@@ -138,6 +138,38 @@ object ProtectionDiagnostics {
         else "기본 규칙으로 시작 · ${details.joinToString(" · ")}"
     }
 
+    /** Builds a copyable recent-error report without exposing raw exception messages, paths, URLs, domains or user rules. */
+    fun recentErrorReport(
+        lastServiceStatus: String?,
+        lastStartupTrace: String?,
+        filterErrorCodes: List<String>,
+        filterReadiness: String?
+    ): String {
+        val startup = startupFailureSummary(lastServiceStatus)
+        val safeTrace = lastStartupTrace.orEmpty()
+            .split(" | ")
+            .take(2)
+            .joinToString(" | ")
+            .filter { it.isLetterOrDigit() || it in " ._$<>:-|" }
+            .take(1800)
+        val safeCodes = filterErrorCodes
+            .map { it.trim().uppercase(java.util.Locale.ROOT) }
+            .filter { it.matches(Regex("[A-Z0-9_]{1,64}")) }
+            .distinct()
+            .take(3)
+        return buildString {
+            appendLine("Guardian 최근 오류 정보")
+            appendLine("보호 시작: $startup")
+            appendLine("호출 경로: ${safeTrace.ifBlank { "기록 없음" }}")
+            appendLine("필터 오류:")
+            if (safeCodes.isEmpty()) appendLine("기록 없음")
+            else safeCodes.forEach { code -> appendLine("- ${SafeFailureSummary.describeCode(code)} ($code)") }
+            appendLine("필터 준비 상태: ${filterReadinessSummary(filterReadiness)}")
+            appendLine()
+            appendLine("개인정보 보호: 원본 오류 메시지, 로컬 경로, 서버 URL/IP, 방문 도메인, 사용자 규칙 및 라이선스 키·토큰은 포함하지 않았습니다.")
+        }
+    }
+
     fun supportReport(
         appVersion: String,
         androidRelease: String,
