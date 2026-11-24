@@ -123,7 +123,9 @@ internal object DevUpdateManager {
             }
             check(connection.responseCode in 200..299) { "APK 다운로드 실패: HTTP ${connection.responseCode}" }
             val expectedLength = connection.contentLengthLong
-            check(expectedLength in 1..MAX_APK_BYTES) { "APK 파일 크기가 허용 범위를 벗어났습니다." }
+            check(isAcceptableDownloadLength(expectedLength, MAX_APK_BYTES)) {
+                "APK 파일 크기가 허용 범위를 벗어났습니다."
+            }
             connection.inputStream.use { input ->
                 FileOutputStream(temporary).use { output ->
                     val buffer = ByteArray(64 * 1024)
@@ -136,7 +138,9 @@ internal object DevUpdateManager {
                         output.write(buffer, 0, count)
                     }
                     output.fd.sync()
-                    check(total == expectedLength) { "APK 다운로드 크기가 일치하지 않습니다." }
+                    check(matchesDownloadedLength(expectedLength, total, MAX_APK_BYTES)) {
+                        "APK 다운로드 크기가 일치하지 않거나 비어 있습니다."
+                    }
                 }
             }
         } catch (error: Exception) {
@@ -177,6 +181,13 @@ internal object DevUpdateManager {
         context.startActivity(intent)
         return true
     }
+
+    /** Content-Length -1 is valid for a bounded chunked/streaming APK response. */
+    internal fun isAcceptableDownloadLength(contentLength: Long, maximumBytes: Long): Boolean =
+        maximumBytes > 0L && (contentLength == -1L || contentLength in 1L..maximumBytes)
+
+    internal fun matchesDownloadedLength(expectedLength: Long, actualLength: Long, maximumBytes: Long): Boolean =
+        actualLength in 1L..maximumBytes && (expectedLength == -1L || actualLength == expectedLength)
 
     internal fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
         val uri = java.net.URI(address)
