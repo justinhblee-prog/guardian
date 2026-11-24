@@ -241,3 +241,21 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - 재전송 스케줄러는 daemon thread이며 출력은 패킷 워커와 동일한 output monitor로 직렬화된다. 패킷 워커 finally는 output monitor를 보유하지 않은 상태에서 scheduler 종료를 기다리므로 확인한 범위에서 역방향 잠금 대기는 없다.
 - 명시적 종료는 TUN close로 blocking packet read를 해제하고 generation을 무효화한다. 이전 패킷 워커의 늦은 finally가 새 VPN 세션의 상태를 변경하지 못하도록 하는 기존 session guard가 유지된다.
 - 이 부분은 소스 경로 분석에서 추가 수정이 필요한 확정 결함을 찾지 못했다. Android 기기에서 descriptor close/read 해제 타이밍과 실제 재시작 연속 동작은 통합 검증이 필요하다.
+
+
+## Android VPN 시작 요청·취소·세션 재시작 경합 점검 (2026-11-25)
+
+### 점검 범위와 결과
+- onStartCommand()의 ACTION_START / ACTION_STOP / START_STICKY 복구 경로, startProtection()의 단일 시작 작업자 및 pendingStart 합류, startCancellation 세대, tunnelSessionGuard의 패킷 루프 소유권, 시작 실패 정리와 패킷 루프 finally를 다시 대조했습니다.
+- 새 시작 요청은 시작 세대를 먼저 발급합니다. 이미 시작 작업자가 있으면 가장 최신의 현재 세대만 pending 슬롯에 보관하고, 시작 작업자 종료 시 세대가 여전히 유효한 요청만 재시도합니다. 중지는 pending을 비우고 세대를 취소하므로 이전 요청은 TUN 커밋을 통과할 수 없습니다.
+- TUN 커밋은 tryCommitStart 게이트 안에서 수행되고, 활성 패킷 루프의 generation 소유권은 VpnTunnelSessionGuard가 별도로 보호합니다. 중지와 자동 일시중지 모두 취소 게이트 → 세션 가드 순서로 무효화합니다. 패킷 루프 finally는 세션 가드 소유권을 얻은 경우에만 현재 세션의 상태와 descriptor를 정리하므로 오래된 worker가 새 TUN을 닫지 않습니다.
+- 시작 실패 정리도 현재 요청 세대의 게이트 안에서 실행됩니다. 따라서 오래된 실패 경로가 새 요청의 foreground 알림, 상태, descriptor 또는 stopSelf(startId)를 덮어쓰지 않습니다. stopSelf(startId)는 더 최신 startId가 들어온 경우 Android가 서비스를 종료하지 않는 startId 조건도 확인했습니다.
+- 시작 작업자의 starting=false와 pending 인계 사이에 새 요청이 끼어들 수는 있지만, 단일 CAS와 세대 검사가 겹친 작업자를 직렬화합니다. 경쟁에서 밀린 오래된 pending은 현재 세대 검사를 통과하지 못하며 최신 요청이 기존 요청을 대체합니다. 소스에서 중복 TUN 생성 또는 오래된 worker의 새 세션 정리를 허용하는 확정 결함은 찾지 못했습니다.
+
+### 추가 테스트 및 실행
+- VpnStartCancellationGateTest.stopCancellationWaitsForAnInFlightTunnelCommit를 추가했습니다. 시작 커밋이 게이트를 점유한 동안 중지 취소가 중간에 끼어들지 못하고, 커밋 직후 세션 소유권을 무효화하는 순서를 검사합니다.
+- 독립 Kotlin 하네스에서 저장소의 두 순수 Kotlin 게이트 구현을 그대로 컴파일·실행했습니다.
+  - PASS: stop cancellation serializes after an in-flight TUN commit and leaves no owned session
+  - PASS: 20,000 concurrent start/cancel/commit attempts remain serialized (커밋 9,411회, 거부 10,589회)
+- 테스트 파일은 저장소에 반영했지만 Android JUnit/Gradle로 실행한 결과는 아닙니다. 하네스는 Android Service lifecycle, Android VpnService.Builder, foreground service 정책 또는 실제 TUN descriptor 동작을 검증하지 않습니다.
+- **검증 잔여:** Android 전체 컴파일 및 JUnit/Lint, APK 빌드, 에뮬레이터/실기기의 빠른 시작-중지 반복, 시작 중 취소, sticky 재시작, 자동 일시중지와 재개 동시 실행은 통합 QA 단계에서 실행해야 합니다. GitHub Actions는 실행하지 않았습니다.
