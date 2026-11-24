@@ -1,8 +1,12 @@
-# Guardian Android 1.0 — Progress Tracker
+# Guardian Android — Progress Tracker
 
-- **전체 상태**: 진행 중 — 외부 실행/운영 증거 대기 (완료율: 30%)
-- **마지막 업데이트**: Step 3 — 필터 무결성 정적 감사 및 외부 실행 차단 요인 기록
-- **기준일**: 2026-11-20 (KST)
+- **전체 상태**: 개발 진행 중 — Android 무료 기능과 PRO 기능을 별도 브랜치에서 병렬 개발 중이며, 출시 완료 상태가 아닙니다.
+- **기준일**: 2026-11-24 (KST)
+- **무료 Android 트랙**: work/android-free-release-20261124 — DNS/VPN·필터·업데이트·보호 UI 구현 진행. 최신 코드 변경의 Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행이며 APK도 아직 생성·검증하지 않았습니다.
+- **PRO Android 트랙**: work/android-pro-premium-20261124 — 리포트 수집·집계·CSV 공유 경로 구현 진행. 실제 Android 검증 전까지 PremiumEntitlementPolicy.productionReadyFeatures는 비어 있어 PRO 기능 권한 게이트를 닫아 둡니다.
+- **PR #290**: 열린 상태·미병합으로 유지합니다. 무료/PRO 작업은 별도 브랜치에서 수행합니다.
+- **실행 제약**: GitHub Actions 실행, runner/billing 설정 변경 및 유료 사용량 발생 작업은 사용자 승인 없이 시작하지 않습니다. 실행하지 않은 검증은 통과로 표시하지 않습니다.
+- **출시 게이트**: 실제 Android 빌드·JUnit·lint·에뮬레이터·실기기 검증, APK 존재/크기/SHA-256/서명 확인 및 배포 문서 검증 전에는 완료로 판정하지 않습니다.
 - **저장소**: https://github.com/justinhblee-prog/guardian
 - **작업 브랜치**: `feature/android-support-center-mainline`
 - **제품 목표**: Android 1.0의 VPN/DNS 광고·추적 차단, 필터 무결성/갱신, 앱별 보호 제외, 라이선스·고객지원, 복구 동작을 통합하고 검증 가능한 운영 서명 APK와 설치·복구 문서를 확보한다. 이후 Windows 정식 버전을 진행한다.
@@ -302,4 +306,4 @@
 ## 2026-11-24 — PRO 리포트 90일 보관 정책 보강
 - PremiumReportRetentionPolicy를 분리해 최근 90일의 유효한 ISO 날짜만 보존하도록 했습니다. 보관 경계일은 포함하고 1일 초과 만료·형식 오류·미래 날짜는 제거합니다.
 - 새 집계 저장뿐 아니라 리포트 조회와 앱 시작 때도 보관 정리를 수행해 DNS 트래픽이 끊긴 장기 유휴 기간에도 앱을 다시 열면 만료된 집계가 정리됩니다.
-- 경계일/오래된 날짜/잘못된 날짜/미래 날짜/0일 보관 기간 테스트를 추가했습니다. Android Gradle/JUnit 및 단말 실행 검증은 아직 수행하지 않았습니다.
+- 경계일/오래된 날짜/잘못된 날짜/미래 날짜/0일 보관 기간 테스트를 추가했습니다. 보관 정책 로직의 독립 Kotlin/JVM smoke 3/3 통과. Android Gradle/JUnit 및 단말 실행 검증은 아직 수행하지 않았습니다.
