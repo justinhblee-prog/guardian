@@ -2756,7 +2756,9 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setBackgroundColor(Color.rgb(15, 23, 39))
             setPadding(if (asRail) dp(7) else dp(4), dp(6), if (asRail) dp(7) else dp(4), dp(6))
-            if (horizontal) minimumHeight = dp(72)
+            // Reserve enough vertical room for both icon and full label, then
+            // let the navigation-bar inset extend the container below the touch targets.
+            if (horizontal) minimumHeight = dp(82)
             // Keep labels above Android's gesture/navigation area on edge-to-edge devices.
             if (horizontal) {
                 setOnApplyWindowInsetsListener { view, insets ->
@@ -2783,7 +2785,7 @@ class MainActivity : Activity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(if (asRail) dp(4) else dp(2), if (asRail) dp(12) else dp(5), if (asRail) dp(4) else dp(2), if (asRail) dp(12) else dp(5))
+                setPadding(if (asRail) dp(4) else dp(2), if (asRail) dp(12) else dp(7), if (asRail) dp(4) else dp(2), if (asRail) dp(12) else dp(7))
                 contentDescription = label
                 isSelected = active
                 setOnClickListener { navigateToTab(id) }
@@ -2799,7 +2801,7 @@ class MainActivity : Activity() {
             if (asRail) {
                 nav.addView(item, LinearLayout.LayoutParams(-1, dp(68)))
             } else {
-                nav.addView(item, LinearLayout.LayoutParams(0, dp(58), 1f))
+                nav.addView(item, LinearLayout.LayoutParams(0, dp(66), 1f))
             }
         }
         return nav
