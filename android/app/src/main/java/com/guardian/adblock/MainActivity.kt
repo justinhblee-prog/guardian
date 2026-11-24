@@ -1494,7 +1494,7 @@ class MainActivity : Activity() {
         blockRulesInput = domainEditor("ads.example.com\ntracker.example.net")
         body.addView(blockRulesInput, editorHeight().apply { topMargin = dp(10) })
         body.addView(text("허용 도메인", 16f, white, true).withTop(20))
-        body.addView(text("차단 목록보다 허용 규칙이 우선 적용됩니다.", 12f, muted, false).withTop(5))
+        body.addView(text("일반 차단 규칙보다 우선 적용됩니다. 다만 보안상 중요 차단 규칙은 허용 목록으로 해제되지 않습니다.", 12f, muted, false).withTop(5))
         allowRulesInput = domainEditor("trusted.example.com")
         body.addView(allowRulesInput, editorHeight().apply { topMargin = dp(10) })
         body.addView(Button(this).apply {
