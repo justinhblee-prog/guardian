@@ -1138,9 +1138,21 @@ class GuardianVpnService : VpnService() {
                 else -> "DNS 보호 실행 중 · 사용자 규칙을 적용했습니다. $filterReadiness"
             }
             publishState(true, status)
-        } catch (_: Exception) {
+        } catch (error: Exception) {
             // Keep the previously loaded in-memory rules if the replacement is invalid.
+            android.util.Log.w(
+                "GuardianProtection",
+                "Could not reload DNS filter rules: ${SafeFailureSummary.codeFor(error)}"
+            )
             publishState(true, "DNS 보호 실행 중 · 새 규칙 적용에 실패해 기존 규칙을 유지합니다.")
+        } catch (error: LinkageError) {
+            // Optional parser/runtime linkage failures must not terminate the
+            // rule-reload worker or disturb the already active VPN session.
+            android.util.Log.e(
+                "GuardianProtection",
+                "DNS filter rule reload linkage failure: ${SafeFailureSummary.codeFor(error)}"
+            )
+            publishState(true, "DNS 보호 실행 중 · 필터 구성요소 오류로 새 규칙을 적용하지 못해 기존 규칙을 유지합니다.")
         }
     }
 
