@@ -1458,7 +1458,10 @@ class MainActivity : Activity() {
     }
 
     private fun broadcastAppUpdateState() {
-        applicationContext.sendBroadcast(Intent(GuardianAppUpdateState.ACTION_STATE_CHANGED).setPackage(packageName))
+        val appContext = applicationContext
+        appContext.sendBroadcast(
+            Intent(GuardianAppUpdateState.ACTION_STATE_CHANGED).setPackage(appContext.packageName)
+        )
     }
 
     private fun syncAppUpdateViews() {
@@ -1550,6 +1553,7 @@ class MainActivity : Activity() {
                 }
                 broadcastAppUpdateState()
                 syncAppUpdateViews()
+                val appContext = applicationContext
                 thread(name = "guardian-app-update-menu") {
                     try {
                         if (developmentBuild) {
@@ -1560,8 +1564,8 @@ class MainActivity : Activity() {
                                 GuardianAppUpdateState.updateStatus(
                                     "새 개발 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
                                 )
-                                broadcastAppUpdateState()
-                                val apk = DevUpdateManager.download(applicationContext, update)
+                                appContext.sendBroadcast(Intent(GuardianAppUpdateState.ACTION_STATE_CHANGED).setPackage(appContext.packageName))
+                                val apk = DevUpdateManager.download(appContext, update)
                                 GuardianAppUpdateState.complete(
                                     apk, true,
                                     "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 개발 서명 인증서 검증 통과."
@@ -1575,8 +1579,8 @@ class MainActivity : Activity() {
                                 GuardianAppUpdateState.updateStatus(
                                     "새 정식 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
                                 )
-                                broadcastAppUpdateState()
-                                val apk = GuardianStableUpdateManager.download(applicationContext, update)
+                                appContext.sendBroadcast(Intent(GuardianAppUpdateState.ACTION_STATE_CHANGED).setPackage(appContext.packageName))
+                                val apk = GuardianStableUpdateManager.download(appContext, update)
                                 GuardianAppUpdateState.complete(
                                     apk, false,
                                     "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
@@ -1595,7 +1599,7 @@ class MainActivity : Activity() {
                         if (GuardianAppUpdateState.snapshot().checkInProgress) {
                             GuardianAppUpdateState.fail("업데이트 확인 작업이 중단되었습니다.")
                         }
-                        broadcastAppUpdateState()
+                        appContext.sendBroadcast(Intent(GuardianAppUpdateState.ACTION_STATE_CHANGED).setPackage(appContext.packageName))
                     }
                 }
             }
