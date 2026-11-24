@@ -683,3 +683,10 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 회귀 테스트 `refusesToPublishMissingOrEmptyApkAsInstallable` 추가.
 - 변경 커밋: `22930aa0090f424a438fbb4f4ff16352ad080a60` (상태 검증), `30d4032d4536026a6fdc5495ebf8a24d9bd7c613` (회귀 테스트).
 - 독립 Kotlin/JVM smoke harness: `UPDATE_APK_STATE_SMOKE=PASS` (빈 파일 거부, 유효한 비어 있지 않은 파일 수락). Android Gradle/JUnit, APK 빌드, 실기기 설치 검증은 아직 실행하지 않았습니다.
+
+## 2026-11-24 — 무료 Android 필터 업데이트의 영구 LinkageError 즉시 재시도 루프 방지
+- 선택형 보안/Android 광고 필터 갱신 중 `LinkageError`는 네트워크 일시 실패가 아닌 런타임 기능 로딩 실패이므로, 같은 WorkManager 실행에서 즉시 재시도하도록 표시하지 않게 수정했습니다.
+- 기존 유효 캐시가 있으면 이를 유지하고, 캐시가 없으면 기존 정책대로 해당 선택형 필터를 비활성화합니다. 일반 `Exception`의 일시 실패 재시도 동작은 유지합니다.
+- 회귀 테스트 `permanentLinkageFailureDoesNotScheduleImmediateOptionalRetry` 추가.
+- 변경 커밋: `4de637922f98bac41efdcda9013fd104176d6834` (Worker/policy), `d78435360afcfa70e647b038f7f86576e12bb915` (테스트).
+- 독립 Kotlin/JVM 정책 smoke: `FILTER_LINKAGE_RETRY_POLICY_SMOKE=PASS`. Android Gradle/JUnit, APK 및 실기기 검증은 미실행.
