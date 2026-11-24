@@ -289,3 +289,8 @@
 - 현재 `FilterRuleParser.kt`와 provenance/policy 로직을 반영한 Kotlin/JVM smoke harness를 kotlinc로 컴파일하고 실행했습니다.
 - PASS 12/12: 기본/일반/보안/Android 앱 광고/사용자 출처, 광고·추적·보안·앱 광고·사용자 범주, user-only block+allow override, normal feed block+user allow override, important block 우선순위, important attribution에서 비실행 user-block 제외, 다중 feed 중첩 출처 보존, source metadata 개수 불일치 거부.
 - 결과는 순수 parser/provenance policy subset의 isolated Kotlin/JVM smoke PASS입니다. Android Gradle/JUnit, VPN 패킷 경로, UI 및 실기기 동작 검증은 미실행입니다.
+
+
+## 2026-11-24 — 고급 필터 줄바꿈 테스트 픽스처 정정
+- 중요 차단 우선순위 테스트의 이중 이스케이프 문자열을 실제 두 줄 입력으로 수정했습니다.
+- ordinary/important 규칙이 각각 해당 집합으로 정확히 분리되는 파서 회귀 테스트를 추가했습니다. Android Gradle/JUnit 실행은 미실행입니다.
