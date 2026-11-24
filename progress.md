@@ -10,11 +10,15 @@
 - 누적 ACK 후 지연 중복 요청이 응답 payload를 재생하지 않는 회귀 테스트를 추가했습니다.
 - 소스/테스트 정적 반영만 수행했습니다. Android Gradle/JUnit, 에뮬레이터 및 실기기 검증은 미실행이며 Actions 실행은 시작하지 않았습니다.
 
-# Guardian Android 1.0 — Progress Tracker
+# Guardian Android — Progress Tracker
 
-- **전체 상태**: 진행 중 — 외부 실행/운영 증거 대기 (완료율: 30%)
-- **마지막 업데이트**: Step 3 — 필터 무결성 정적 감사 및 외부 실행 차단 요인 기록
-- **기준일**: 2026-11-20 (KST)
+- **전체 상태**: 개발 진행 중 — Android 무료 기능과 PRO 기능을 별도 브랜치에서 병렬 개발 중이며, 출시 완료 상태가 아닙니다.
+- **기준일**: 2026-11-24 (KST)
+- **무료 Android 트랙**: work/android-free-release-20261124 — DNS/VPN·필터·업데이트·보호 UI 구현 진행. 최신 코드 변경의 Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행이며 APK도 아직 생성·검증하지 않았습니다.
+- **PRO Android 트랙**: work/android-pro-premium-20261124 — 리포트 수집·집계·CSV 공유 경로 구현 진행. 실제 Android 검증 전까지 PremiumEntitlementPolicy.productionReadyFeatures는 비어 있어 PRO 기능 권한 게이트를 닫아 둡니다.
+- **PR #290**: 열린 상태·미병합으로 유지합니다. 무료/PRO 작업은 별도 브랜치에서 수행합니다.
+- **실행 제약**: GitHub Actions 실행, runner/billing 설정 변경 및 유료 사용량 발생 작업은 사용자 승인 없이 시작하지 않습니다. 실행하지 않은 검증은 통과로 표시하지 않습니다.
+- **출시 게이트**: 실제 Android 빌드·JUnit·lint·에뮬레이터·실기기 검증, APK 존재/크기/SHA-256/서명 확인 및 배포 문서 검증 전에는 완료로 판정하지 않습니다.
 - **2026-11-24 TCP 핸드셰이크 검증**: SYN-ACK 직후 오래된 ACK 번호로 전송된 DNS 데이터가 resolver에 도달하지 않도록 정확한 ACK 일치를 요구하도록 수정하고 회귀 테스트를 추가했습니다. Gradle/JUnit·실기기 검증 미실행.
 - **2026-11-24 IPv6 파서 재확인**: 확장 헤더 파서는 누락된 것이 아니라 `DnsTcpPacket.kt`에 이미 공유 구현으로 존재했습니다. 별도 중복 파일 추가 시도는 제거했습니다. 컴파일 차단 이슈로 분류하지 않습니다.
 - **2026-11-24 UDP 업스트림 보완**: 업스트림 UDP DNS 응답 수신 버퍼도 65,535바이트로 확장했습니다. 클라이언트 측 UDP 응답은 1,232바이트 안전 한도를 유지하고 초과 시 TC 응답으로 TCP 재시도를 유도합니다. 소켓 통합/실기기 검증은 미실행입니다.
