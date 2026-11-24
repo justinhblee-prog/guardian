@@ -2168,7 +2168,7 @@ class MainActivity : Activity() {
             }
             threatAnalyticsRecentContainer = recentContainer
             addView(recentContainer, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
-            addView(text("이 개발 미리보기의 위협 이벤트에는 도메인·URL을 별도로 저장하지 않습니다. PRO 권한은 부여되지 않습니다.", 10f, Color.rgb(238, 176, 82), false).withTop(9))
+            addView(text("위협 분석 전용 집계 저장소에는 도메인·URL을 저장하지 않습니다. 일반 DNS 최근 활동 기록은 별도 화면·저장 항목으로 관리됩니다. PRO 권한은 부여되지 않습니다.", 10f, Color.rgb(238, 176, 82), false).withTop(9))
         }
         refreshThreatAnalyticsPreview()
         return previewCard
