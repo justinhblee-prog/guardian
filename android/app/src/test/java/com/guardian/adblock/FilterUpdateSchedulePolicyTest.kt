@@ -122,6 +122,26 @@ class FilterUpdateSchedulePolicyTest {
         assertEquals(30_000L, FilterUpdateScheduler.INITIAL_CACHE_RETRY_DELAY_MS)
     }
 
+    @Test fun mainFilterErrorStatusDistinguishesUsableCacheFromMissingCache() {
+        val error = "network-unavailable"
+        assertEquals(
+            "광고 필터 업데이트 실패(이전 목록 유지): network-unavailable",
+            FilterUpdatePolicy.mainErrorStatus(error, hasUsableCache = true)
+        )
+        assertEquals(
+            "광고 필터 다운로드 실패(선택한 목록 없음 · 내장 기본 규칙으로 제한 보호 중): network-unavailable",
+            FilterUpdatePolicy.mainErrorStatus(error, hasUsableCache = false)
+        )
+        assertEquals(
+            "초기 필터 복구 재시도 한도 초과 · 선택한 필터 캐시 없음 · 내장 기본 규칙으로 제한 보호 중 · 네트워크 확인 후 다시 시도하세요.",
+            FilterUpdatePolicy.mainErrorStatus(
+                FilterUpdateWorker.ERROR_INITIAL_CACHE_RETRY_EXHAUSTED,
+                hasUsableCache = false
+            )
+        )
+        assertEquals(null, FilterUpdatePolicy.mainErrorStatus(null, hasUsableCache = false))
+    }
+
     @Test fun clearsBaseErrorOnlyAfterASuccessfulDueRefresh() {
         assertFalse(FilterUpdatePolicy.shouldClearBaseError(updateWasDue = false, updateSucceeded = false))
         assertFalse(FilterUpdatePolicy.shouldClearBaseError(updateWasDue = false, updateSucceeded = true))
