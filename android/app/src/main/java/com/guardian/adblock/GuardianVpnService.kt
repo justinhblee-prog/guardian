@@ -1180,8 +1180,8 @@ class GuardianVpnService : VpnService() {
                 lastUpstreamFailure?.startsWith("UDP: 잘린 응답") == true
             ) {
                 val following = attempts.getOrNull(index + 1)
-                val alreadyScheduledTcp = following?.address == attempt.address &&
-                    following.transport == "tcp"
+                val alreadyScheduledTcp = following != null &&
+                    following.address == attempt.address && following.transport == "tcp"
                 if (DnsUpstreamCandidatePolicy.needsTcpRetryAfterUdpTruncation(alreadyScheduledTcp)) {
                     // DNS requires TCP when a resolver sets TC. The configured
                     // resolver already has a queued TCP attempt; apply the same
