@@ -1,3 +1,7 @@
+## 2026-11-24 — Android 업데이트 캐시 경로 정책 JVM smoke 3/3
+
+- 공통 `GuardianUpdateCachePaths`를 kotlinc/JRE 21로 분리 컴파일·실행했습니다. PASS 3/3: 개발판 `updates`, 정식판 `stable-updates`, 두 경로의 분리.
+- XML resource의 실제 FileProvider URI 처리, Android 설치 시스템 화면 및 APK 재설치는 Android 환경/실기기에서 아직 미검증입니다.
 ## 2026-11-24 — 정식 APK FileProvider 캐시 경로 등록
 
 - 정식 업데이트 관리자는 검증한 APK를 `cache/stable-updates/`에 저장하지만 `guardian_file_paths.xml`에는 개발판 `cache/updates/`만 등록되어 있었습니다. APK 다운로드/해시/서명 검증 이후 `FileProvider.getUriForFile()`가 경로를 거부해 Android 설치 확인 화면을 열 수 있는 실제 경로 불일치였습니다.
