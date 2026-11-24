@@ -1311,6 +1311,10 @@ class GuardianVpnService : VpnService() {
                 "doh" -> forwardDnsOverHttps(query, attempt.address, deadline)
                 else -> forwardDnsUdp(query, attempt.address, deadline)
             }
+            if (deadline.remainingTimeoutMillis() == null) {
+                candidateFailures += "DNS 질의 전체 시간 예산(8000ms) 소진"
+                break
+            }
             if (response != null && DomainFilter.isMatchingResponse(query, response)) {
                 val usable = if (requireSuccessfulResolution) DnsUpstreamProbe.isSuccessfulResolution(query, response) else !DnsUpstreamProbe.isRetryableResolverError(response)
                 if (usable) return response
