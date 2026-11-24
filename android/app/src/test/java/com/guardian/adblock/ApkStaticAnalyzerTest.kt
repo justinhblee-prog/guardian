@@ -39,6 +39,30 @@ class ApkStaticAnalyzerTest {
         return bytes
     }
 
+    private fun dex041Container(vararg logicalDexFiles: ByteArray): ByteArray {
+        require(logicalDexFiles.isNotEmpty())
+        val totalSize = logicalDexFiles.sumOf { it.size }
+        val container = ByteArray(totalSize)
+        var offset = 0
+        logicalDexFiles.forEach { logicalDex ->
+            require(logicalDex.size >= 0x78 && logicalDex.copyOfRange(0, 8)
+                .contentEquals(byteArrayOf(100, 101, 120, 10, 48, 52, 49, 0)))
+            logicalDex.copyInto(container, offset)
+            fun putLittleEndianInt(position: Int, value: Int) {
+                repeat(4) { index ->
+                    container[position + index] = (value ushr (index * 8)).toByte()
+                }
+            }
+            putLittleEndianInt(offset + 32, logicalDex.size)
+            putLittleEndianInt(offset + 36, 0x78)
+            putLittleEndianInt(offset + 40, 0x12345678)
+            putLittleEndianInt(offset + 112, totalSize)
+            putLittleEndianInt(offset + 116, offset)
+            offset += logicalDex.size
+        }
+        return container
+    }
+
     private fun apk(vararg contents: String): ByteArray =
         apkWithRawDex(*contents.map(::dexFixture).toTypedArray())
 
@@ -155,6 +179,15 @@ class ApkStaticAnalyzerTest {
         )
         assertEquals(ApkStaticAnalyzer.Status.SCANNED, littleEndian.status)
         assertEquals(ApkStaticAnalyzer.Status.SCANNED, reverseEndian.status)
+    }
+
+    @Test fun acceptsDex041LogicalFileSizeSmallerThanPhysicalContainer() {
+        val first = dexFixture("Lcom/example/First;", version = "041")
+        val second = dexFixture("Lcom/example/Second;", version = "041")
+        val container = dex041Container(first, second)
+        assertTrue(first.size < container.size)
+        val result = ApkStaticAnalyzer.analyze(ByteArrayInputStream(apkWithRawDex(container)))
+        assertEquals(ApkStaticAnalyzer.Status.SCANNED, result.status)
     }
 
     @Test fun acceptsDex041ContainerHeaderAndRejectsInvalidContainerBounds() {
