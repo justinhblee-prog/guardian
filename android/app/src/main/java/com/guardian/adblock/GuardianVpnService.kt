@@ -584,7 +584,7 @@ class GuardianVpnService : VpnService() {
                 // Android does not permit a VPN to exclude its own package. Treat
                 // legacy/corrupt saved entries as unapplied instead of failing the
                 // entire VPN tunnel for one invalid exclusion.
-                if (excludedPackage == packageName) {
+                if (!VpnAppExclusionPolicy.isEligible(excludedPackage, packageName)) {
                     staleExclusions.add(excludedPackage)
                     return@forEach
                 }
@@ -593,8 +593,14 @@ class GuardianVpnService : VpnService() {
                         excludedPackage,
                         android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS
                     )
-                } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+                } catch (error: Exception) {
+                    // A corrupt package ID or OEM PackageManager failure applies
+                    // only to this exclusion; it must not abort the VPN builder.
                     staleExclusions.add(excludedPackage)
+                    android.util.Log.w(
+                        "GuardianProtection",
+                        "Could not verify a saved VPN app exclusion: ${SafeFailureSummary.codeFor(error)}"
+                    )
                     return@forEach
                 }
                 try {
