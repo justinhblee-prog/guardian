@@ -40,6 +40,19 @@ internal object SecurityProfilePolicy {
 
     fun profile(id: Id): Profile = profiles.getValue(id)
 
+    /**
+     * On API 28+, absence of NET_CAPABILITY_NOT_ROAMING on cellular is treated
+     * conservatively as roaming. Before API 28 there is no capability signal.
+     */
+    fun isCellularRoaming(
+        transport: Transport,
+        supportsNotRoamingCapability: Boolean,
+        hasNotRoamingCapability: Boolean
+    ): Boolean =
+        transport == Transport.CELLULAR &&
+            supportsNotRoamingCapability &&
+            !hasNotRoamingCapability
+
     fun resolveAutomatic(context: NetworkContext): Profile {
         // Captive portals and unvalidated networks are treated as untrusted.
         val selected = when {
