@@ -11,6 +11,16 @@ class FilterUpdatePolicyTest {
         assertFalse(FilterUpdatePolicy.shouldRetryOptionalUpdate(wasEnabled = false))
     }
 
+
+    @Test
+    fun optionalFilterRetriesAreNotStoppedByMainCacheRetryBudgetOnceMainCacheIsReady() {
+        // The one-shot retry cap is applied only while the required main cache
+        // is missing. Optional enabled sources have their own retry lifecycle.
+        assertTrue(FilterUpdatePolicy.shouldContinueInitialRetry(
+            forceInitialRefresh = true, runAttemptCount = 99, maxAttempts = 6
+        ))
+    }
+
     @Test
     fun clockRollbackMakesRefreshDueUntilSuccessfulRefreshResetsTimestamp() {
         val interval = 24L * 60L * 60L * 1000L
