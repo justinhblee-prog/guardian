@@ -51,6 +51,13 @@ internal object SecurityProfilePolicy {
     /** Manual selection has no trusted metering facts; never silently opt into downloads. */
     fun manualSelection(id: Id): Profile = profile(id).copy(automaticFilterUpdates = false)
 
+    fun hasProfileStateChanged(
+        previousProfileId: String,
+        previousAutomaticUpdatesAllowed: Boolean,
+        nextProfile: Profile
+    ): Boolean = previousProfileId != nextProfile.id.name ||
+        previousAutomaticUpdatesAllowed != nextProfile.automaticFilterUpdates
+
     fun resolveAutomatic(context: NetworkContext): Profile {
         // Captive portals and unvalidated networks are treated as untrusted.
         val selected = when {
