@@ -307,3 +307,9 @@
 - DNS/VPN status broadcast 및 화면 재진입 시 active profile label, auto-switch checkbox, automatic-filter-update flag 표시를 갱신합니다.
 - Spinner의 미적용 사용자 선택은 dirty flag로 보호해 자동 profile callback이 선택값을 덮어쓰지 않습니다. 수동 Apply 시 자동 전환을 끄고, metering 정보가 없는 수동 선택은 automatic filter downloads를 허용하지 않습니다.
 - 순수 SecurityProfilePolicy JVM smoke PASS 16/16. Android Gradle/JUnit, Android NetworkCallback 및 OEM/실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — SecurityProfileChanged 브로드캐스트 추가
+- 자동 network profile 전환에서 필터 설정이 같아 VPN reload가 생략되더라도, profile ID 또는 automatic updates permission이 바뀌면 별도 package-scoped `ACTION_PROFILE_CHANGED` broadcast를 전송하도록 했습니다.
+- MainActivity는 해당 action을 등록해 현재 프로필/업데이트 허용 표시를 갱신합니다. HOME→MOBILE처럼 filter key가 동일한 ID 전환도 알립니다.
+- 동일 상태에는 알림이 없고 profile ID/automatic-update permission 차이만 알리는 순수 policy 테스트 추가. Android Broadcast/OEM 기기 검증은 미실행입니다.
