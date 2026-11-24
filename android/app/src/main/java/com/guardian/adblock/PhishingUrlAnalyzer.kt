@@ -96,7 +96,8 @@ internal object PhishingUrlAnalyzer {
         if (labels.any { label -> deceptiveTerms.any { term -> label == term || label.contains("$term-") || label.contains("-$term") } }) {
             signals.add(Signal.DECEPTIVE_HOST_WORDS)
         }
-        if (port != null && port !in setOf(80, 443)) signals.add(Signal.UNUSUAL_PORT)
+        val schemeDefaultPort = if (scheme == "https") 443 else 80
+        if (port != null && port != schemeDefaultPort) signals.add(Signal.UNUSUAL_PORT)
         val path = uri.rawPath.orEmpty().lowercase(Locale.ROOT)
         if (executableExtensions.any { path.endsWith(it) }) signals.add(Signal.EXECUTABLE_DOWNLOAD)
 
