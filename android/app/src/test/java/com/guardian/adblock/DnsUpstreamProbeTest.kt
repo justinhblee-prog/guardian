@@ -51,6 +51,15 @@ class DnsUpstreamProbeTest {
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, null))
     }
 
+    @Test fun rejectsTruncatedFlagEvenWhenTheIncludedAnswerLooksComplete() {
+        val query = DnsUpstreamProbe.query()
+        val response = successfulResponse(query).also {
+            it[2] = (it[2].toInt() or 0x02).toByte()
+        }
+        assertTrue(DnsUpstreamProbe.isValidResponse(query, response))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
+    }
+
     @Test fun rejectsAdvertisedAnswerWhenResourceRecordIsTruncated() {
         val query = DnsUpstreamProbe.query()
         val response = successfulResponse(query).copyOf(successfulResponse(query).size - 1)
