@@ -704,3 +704,4 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 회귀 테스트는 오래된 시도의 실패/최신 응답이 새 확인 상태를 덮어쓰지 않는지, 동시 8개 시작 요청 중 하나만 소유권을 획득하는지, APK 상태 유지 및 비어 있는 APK 거부를 검사합니다.
 - 커밋: `35ddb58e7e0b2a35335adf905d2a00f1d9ba3d27`, `9057ebc09c704be98365dfad19a729c0ade023d6`, `3e2a42efd51a537030f024857a0e5cb038c861e9`, `e11cd87ca46273f90a822fe92d0c79712e662a73`.
 - 원격 소스 재조회 완료. 상태 소유권 핵심 로직을 복제한 격리 Kotlin/JVM 동시성 smoke: `APP_UPDATE_ATTEMPT_OWNERSHIP_SMOKE=PASS`. 이는 Android 모듈 컴파일/JUnit/Gradle/APK/실기기 검증을 대체하지 않습니다.
+- 추가 회귀 범위: 이전 시도의 늦은 진행 상태, APK 완료, 실패, 최신 응답 콜백이 새 시도 상태를 덮어쓰지 않는지 모두 테스트하도록 확장했습니다. 테스트 커밋 `567f3c8afe16e4790879444acc143f52b5f3e0ea`.
