@@ -1,3 +1,9 @@
+## 2026-11-24 — DNS-over-TCP 클라이언트 MSS 협상 반영
+- SYN 패킷의 TCP 옵션을 길이 경계 검증 후 파싱하고, 유효한 MSS(Maximum Segment Size)를 세션별 응답 세그먼트 크기에 반영합니다. IPv4 기본 MSS 536, IPv6 기본 MSS 1220을 적용하고 Guardian의 패킷 크기 상한 1200바이트를 유지합니다.
+- MSS 옵션 길이 오류·중복·0 값은 세션 생성 전에 거부합니다. 매우 작은 MSS가 응답 패킷 수를 폭증시키지 않도록 한 번의 drain에서 최대 64개 세그먼트만 배출하고 나머지는 후속 ACK/윈도 갱신 시 처리합니다.
+- 회귀 테스트 추가: MSS 512 협상 시 모든 응답 payload가 512바이트 이하인지, 잘못된 MSS 옵션이 세션을 만들지 않는지 확인하도록 작성했습니다.
+- 원격 브랜치에 소스/테스트 반영 및 재조회 확인. Android Gradle/JUnit 실행, 에뮬레이터·실기기 검증은 미실행이며 GitHub Actions는 실행하지 않았습니다.
+
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. 무료 Android 출시와 PRO 기능 완성 모두 미완료입니다.
