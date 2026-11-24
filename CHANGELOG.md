@@ -1,3 +1,7 @@
+## 2026-11-24 — 앱 업데이트 상태 조정 JVM smoke 5/5
+
+- `GuardianAppUpdateState`의 실제 상태/AtomicReference 전이 소스를 kotlinc/JRE 21로 분리 컴파일·실행했습니다. PASS 5/5: 중복 확인 차단, 재생성된 화면에서 검증 APK 경로 복원, 개발/정식 빌드 타입 일치 검사, 최신 응답 시 stale 설치 대상 제거, 재확인 실패 시 이전의 유효한 검증 APK 유지, 동시 12개 탭 요청 중 한 작업만 획득.
+- Android Activity lifecycle/브로드캐스트 receiver/실제 다운로더/FileProvider·PackageInstaller 연결은 미실행이며 Android Gradle/JUnit도 실행하지 않았습니다.
 ## 2026-11-24 — 업데이트 확인/다운로드 상태 화면 재생성 간 유지
 
 - 기존 업데이트 화면은 확인 작업·다운로드 결과를 로컬 버튼/변수에만 보관했습니다. 메뉴를 이동하거나 Activity가 재생성되면 이전 작업은 계속 실행되지만 새 화면에서는 작업 중 상태를 모르고 다시 확인을 시작할 수 있었고, 이미 검증된 APK도 새 화면에서 설치할 수 없었습니다.
