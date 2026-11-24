@@ -179,12 +179,19 @@ internal object DevUpdateManager {
         return true
     }
 
+    private val guardianReleaseAssetPath = Regex(
+        "^/justinhblee-prog/guardian/releases/download/guardian-dev-v[1-9][0-9]*/guardian-android-dev\\.(?:apk|json)$"
+    )
+
     internal fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
         val uri = java.net.URI(address)
         uri.scheme.equals("https", true) &&
             uri.host.equals("github.com", true) &&
-            uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
-            uri.userInfo == null && uri.query == null && uri.fragment == null
+            uri.port in setOf(-1, 443) &&
+            uri.rawUserInfo == null &&
+            uri.rawQuery == null &&
+            uri.rawFragment == null &&
+            guardianReleaseAssetPath.matches(uri.rawPath.orEmpty())
     }.getOrDefault(false)
 
     private fun isAllowedHttpsHost(url: URL): Boolean =
