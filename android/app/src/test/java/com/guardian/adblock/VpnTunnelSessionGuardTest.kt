@@ -35,6 +35,16 @@ class VpnTunnelSessionGuardTest {
     }
 
     @Test
+    fun newStartIsIgnoredOnlyWhileAnOwnedTunnelIsActive() {
+        val guard = VpnTunnelSessionGuard()
+        guard.activate(4L) {}
+        assertTrue(guard.shouldIgnoreStart(running = true))
+        guard.invalidate()
+        assertFalse(guard.shouldIgnoreStart(running = true))
+        assertFalse(guard.shouldIgnoreStart(running = false))
+    }
+
+    @Test
     fun invalidatedSessionIsNotReportedAsActiveDuringItsShutdownWindow() {
         val guard = VpnTunnelSessionGuard()
         guard.activate(4L) {}
