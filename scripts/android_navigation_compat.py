@@ -16,11 +16,15 @@ def _root(hierarchy: str) -> ET.Element:
 def resolve_premium_entry(hierarchy: str) -> str:
     """Return a stable route for the Premium screen from a UIAutomator dump."""
     root = _root(hierarchy)
+    # A nested Settings label may remain visible inside a detail page. Only
+    # clickable, enabled navigation controls can identify a route; otherwise
+    # the emulator can falsely accept the current page without changing tabs.
     descriptions = {
         node.attrib.get("content-desc", "").strip()
         for node in root.iter("node")
         if node.attrib.get("visible-to-user", "true") == "true"
         and node.attrib.get("enabled", "true") == "true"
+        and node.attrib.get("clickable", "false") == "true"
     }
     # Legacy releases expose Premium as a direct bottom-navigation tab.
     for label in ("Premium", "프리미엄"):
