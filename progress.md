@@ -1,10 +1,10 @@
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. 무료 Android 출시와 PRO 기능 완성 모두 미완료입니다.
-- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 277 commits ahead, 0 behind.
+- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 298 commits ahead, 0 behind.
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
 - **PR #290**: open, unmerged 상태 유지. 무료/PRO 작업은 별도 브랜치입니다.
-- **격리 Kotlin/JVM 검증**: DNS 업스트림 진단 ThreadLocal 3/3, DNS TCP 정책/타이머/프레임/시퀀스 하네스 기록, 필터/앱 목록 정리 정책, DEX 041 헤더/컨테이너 11/11, 앱별 정리 12/12 등. 각 결과는 해당 순수 정책만 검증하며 Android 앱 빌드 통과를 의미하지 않습니다.
+- **격리 Kotlin/JVM 검증**: DNS 업스트림 진단 ThreadLocal 3/3, DNS TCP 정책/타이머/프레임/시퀀스 하네스 기록, 필터/앱 목록 정리 정책, DEX 041 헤더/컨테이너 11/11, 앱별 정리 12/12, VPN 앱 제외·개발/정식 업데이트 정책 smoke 31/31 등. 각 결과는 해당 순수 정책만 검증하며 Android 앱 빌드 통과를 의미하지 않습니다.
 - **미실행 검증**: 최신 브랜치 Android Gradle/JUnit 전체, lint, emulator, 실기기 네트워크 및 UI, APK 생성·크기·SHA-256·서명·설치 검증은 미실행입니다.
 - **실행 제약**: GitHub Actions 실행, runner/billing 설정 변경 및 유료 사용량 발생 작업은 사용자 승인 없이 하지 않습니다.
 - **완료 게이트**: Android 빌드·JUnit·lint·에뮬레이터·Samsung 실기기 검증, APK 파일/서명/해시/설치 증거 및 한국어 배포·복구 문서 확보 전에는 완료로 판정하지 않습니다.
@@ -679,3 +679,9 @@
 ## 2026-11-24 — 개발판 업데이트 정책 로직 분리
 - 공식 dev release asset URL/path/tag/asset name, HTTPS host allowlist, redirect CDN allowlist, signer cardinality, tag-version binding을 순수 DevUpdateManagerPolicy로 분리했습니다.
 - DevUpdateManager와 단위 테스트가 동일 정책 객체를 호출하도록 연결했습니다. Android Gradle/JUnit 미실행; 정책 단독 Kotlin/JVM smoke를 별도 수행합니다.
+
+
+## 2026-11-24 — 개발판 업데이트 및 VPN 제외 정책 독립 검증
+- 개발판 updater는 자동 redirect를 중지하고 각 Location을 허용 HTTPS 호스트로 검증한 뒤 연결합니다. APK의 공식 저장소/tag/asset/versionCode 확인, post-download package/version/signer 실패 파일 제거, 단일 content signer 확인을 적용했습니다.
+- VPN app exclusion 저장값은 package ID 형식/길이·자기 앱 여부를 확인하고 PackageManager 오류는 해당 제외만 보류해 VPN 생성 전체와 분리합니다.
+- `DevUpdateManagerPolicy`와 `VpnAppExclusionPolicy` Kotlin/JVM smoke 31/31 통과. Android Gradle/JUnit·lint·emulator·실기기·실제 HTTPS redirect/설치 검증은 미실행입니다.
