@@ -11,7 +11,11 @@ import java.nio.file.StandardCopyOption
  */
 internal object GuardianApkCacheStore {
     @Synchronized
-    fun commit(temporary: File, target: File) {
+    fun commit(
+        temporary: File,
+        target: File,
+        moveFile: (File, File) -> Unit = ::move
+    ) {
         require(temporary.isFile && temporary.length() > 0L) {
             "검증된 APK 임시 파일이 없습니다."
         }
@@ -20,17 +24,17 @@ internal object GuardianApkCacheStore {
             "APK 캐시 디렉터리를 만들 수 없습니다."
         }
         val backup = File(directory, "${target.name}.bak")
-        recover(target, backup)
+        recover(target, backup, moveFile)
         val hadPrevious = target.isFile
-        if (hadPrevious) move(target, backup)
+        if (hadPrevious) moveFile(target, backup)
         try {
-            move(temporary, target)
+            moveFile(temporary, target)
             backup.delete()
         } catch (failure: Exception) {
             target.delete()
             if (hadPrevious && backup.isFile) {
                 try {
-                    move(backup, target)
+                    moveFile(backup, target)
                 } catch (restoreFailure: Exception) {
                     failure.addSuppressed(restoreFailure)
                 }
@@ -42,12 +46,12 @@ internal object GuardianApkCacheStore {
     }
 
     @Synchronized
-    private fun recover(target: File, backup: File) {
+    private fun recover(target: File, backup: File, moveFile: (File, File) -> Unit) {
         if (!backup.isFile) return
         if (target.isFile) {
             backup.delete()
         } else {
-            move(backup, target)
+            moveFile(backup, target)
         }
     }
 
