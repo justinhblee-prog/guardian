@@ -525,7 +525,6 @@ class GuardianVpnService : VpnService() {
      * changed on an established TUN. Rebuild the tunnel so a saved selection is
      * actually reflected by Android's VPN routing policy.
      */
-    @Synchronized
     private fun reconfigureExcludedApplications(startId: Int) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) {
@@ -560,8 +559,22 @@ class GuardianVpnService : VpnService() {
             publishState(false, "이전 VPN 패킷 처리가 종료되지 않아 제외 설정을 재적용하지 못했습니다. 보호 상태를 확인해 주세요.")
             return
         }
-        prefs.edit().putBoolean(KEY_ACTIVE, false).commit()
-        val generation = startCancellation.onStartRequested()
+        // Do not hold the service monitor while waiting for the packet worker
+        // or running DNS preflight (which has an 8-second global deadline). Only
+        // the final intent check and generation issuance need to serialize with stop.
+        val generation = synchronized(this@GuardianVpnService) {
+            val latestPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+            if (!latestPrefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+                latestPrefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+            ) {
+                null
+            } else {
+                latestPrefs.edit().putBoolean(KEY_ACTIVE, false).commit()
+                startCancellation.onStartRequested()
+            }
+        } ?: return
+        // If explicit stop arrives after this point, it cancels this generation
+        // before its TUN can be committed.
         startProtection(generation, startId)
     }
 
