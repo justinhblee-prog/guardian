@@ -107,6 +107,13 @@ class SecurityProfilePolicyTest {
         assertFalse(SecurityProfilePolicy.shouldApplyAutomaticProfile(false))
     }
 
+    @Test fun scheduledUpdatesRequireBothUserOptInAndProfilePermission() {
+        assertTrue(SecurityProfilePolicy.shouldScheduleAutomaticUpdates(true, true))
+        assertFalse(SecurityProfilePolicy.shouldScheduleAutomaticUpdates(false, true))
+        assertFalse(SecurityProfilePolicy.shouldScheduleAutomaticUpdates(true, false))
+        assertFalse(SecurityProfilePolicy.shouldScheduleAutomaticUpdates(false, false))
+    }
+
     @Test fun manualSelectionDoesNotAssumeNetworkIsUnmeteredForFilterDownloads() {
         SecurityProfilePolicy.Id.values().forEach { id ->
             val manual = SecurityProfilePolicy.manualSelection(id)
