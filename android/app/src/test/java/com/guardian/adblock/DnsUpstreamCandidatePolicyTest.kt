@@ -17,6 +17,31 @@ class DnsUpstreamCandidatePolicyTest {
         )
     }
 
+    @Test fun systemDnsOrderingPrefersActivePhysicalNetworkThenValidatedNetworks() {
+        assertEquals(
+            listOf("192.0.2.10", "192.0.2.20"),
+            DnsUpstreamCandidatePolicy.orderedSystemDns(
+                listOf(
+                    DnsUpstreamCandidatePolicy.PhysicalDnsCandidate(listOf("192.0.2.20"), false, true, true),
+                    DnsUpstreamCandidatePolicy.PhysicalDnsCandidate(listOf("192.0.2.10"), true, false, true),
+                    DnsUpstreamCandidatePolicy.PhysicalDnsCandidate(listOf("192.0.2.30"), false, false, false)
+                )
+            )
+        )
+    }
+
+    @Test fun systemDnsOrderingSkipsInvalidAndDuplicateAddressesAndHonorsLimit() {
+        assertEquals(
+            listOf("192.0.2.53", "2001:db8::53"),
+            DnsUpstreamCandidatePolicy.orderedSystemDns(
+                listOf(
+                    DnsUpstreamCandidatePolicy.PhysicalDnsCandidate(listOf("bad", "192.0.2.53", "192.0.2.53"), false, true, true),
+                    DnsUpstreamCandidatePolicy.PhysicalDnsCandidate(listOf("2001:db8::53"), false, false, true)
+                ),
+                maxServers = 2
+            )
+        )
+    }
     @Test fun udpCandidatesRejectInvalidAndGuardianVirtualDnsAddresses() {
         assertEquals(
             listOf("1.1.1.1"),
