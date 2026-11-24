@@ -250,7 +250,9 @@ val validateGuardianSharedFilterAsset by tasks.registering {
                     rule.startsWith("block=", ignoreCase = true) -> rule.substringAfter('=')
                     else -> null
                 }
-                domain != null && validDomain.matches(domain.trim().trimEnd('.'))
+                val normalizedDomain = domain?.trim()?.trimEnd('.')
+                normalizedDomain != null && normalizedDomain.length in 1..253 &&
+                    validDomain.matches(normalizedDomain)
             }
         }
         check(hasBlockRule) {
