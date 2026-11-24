@@ -329,4 +329,35 @@ class DomainFilterTest {
         assertNotNull(DomainFilter.makeServfail(query))
     }
 
+    @Test fun rejectsReservedZeroDnsQuestionTypeAndClass() {
+        val valid = DnsProbe.buildQuery("example.com")
+        // QNAME is followed by the four-byte QTYPE/QCLASS tuple.
+        val questionEnd = valid.size
+        val invalidType = valid.copyOf().also {
+            it[questionEnd - 4] = 0
+            it[questionEnd - 3] = 0
+        }
+        val invalidClass = valid.copyOf().also {
+            it[questionEnd - 2] = 0
+            it[questionEnd - 1] = 0
+        }
+        assertNull(DomainFilter.readQuestionName(invalidType))
+        assertNull(DomainFilter.makeNxdomain(invalidType))
+        assertNull(DomainFilter.readQuestionName(invalidClass))
+        assertNull(DomainFilter.makeServfail(invalidClass))
+    }
+
+    @Test fun acceptsNonZeroDnsQuestionTypesAndClasses() {
+        val query = DnsProbe.buildQuery("example.com").also {
+            val end = it.size
+            // AAAA / IN, then an uncommon but non-reserved QTYPE/QCLASS pair.
+            it[end - 4] = 0
+            it[end - 3] = 28
+            it[end - 2] = 0
+            it[end - 1] = 1
+        }
+        assertEquals("example.com", DomainFilter.readQuestionName(query))
+        assertNotNull(DomainFilter.makeNxdomain(query))
+    }
+
 }
