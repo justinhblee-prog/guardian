@@ -441,7 +441,17 @@ class GuardianVpnService : VpnService() {
 
     private fun startProtection(requestGeneration: Long, startId: Int) {
         if (!startCancellation.isCurrent(requestGeneration)) return
-        if (running.get()) return
+        if (running.get()) {
+            // The old packet reader may have claimed termination and invalidated
+            // its session immediately before clearing the shared running flag.
+            // Queue the newer start instead of silently dropping the tap.
+            if (!tunnelSessionGuard.hasActiveSession() &&
+                startCancellation.isCurrent(requestGeneration)
+            ) {
+                pendingStart.set(PendingStart(requestGeneration, startId))
+            }
+            return
+        }
         if (!starting.compareAndSet(false, true)) {
             if (startCancellation.isCurrent(requestGeneration)) {
                 pendingStart.set(PendingStart(requestGeneration, startId))
@@ -770,7 +780,7 @@ class GuardianVpnService : VpnService() {
             }
             loopFailure = retransmissionFailure.get() ?: loopFailure
             // A dead packet loop must never leave the UI claiming protection is active.
-            tunnelSessionGuard.release(requestGeneration) {
+            val released = tunnelSessionGuard.release(requestGeneration) {
                 if (running.compareAndSet(true, false)) {
                     tunnelActive = false
                     try { descriptor.close() } catch (_: Exception) { }
@@ -779,6 +789,16 @@ class GuardianVpnService : VpnService() {
                     val detail = loopFailure?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${SafeFailureSummary.describe(it)})" }.orEmpty()
                     publishState(false, "DNS 패킷 처리 중단$detail. 보호를 다시 시작해 주세요.")
                     stopSelf()
+                }
+            }
+            if (released) {
+                val pending = pendingStart.getAndSet(null)
+                if (pending != null && !running.get() &&
+                    startCancellation.isCurrent(pending.generation)
+                ) {
+                    thread(name = "guardian-vpn-start-after-loop-exit") {
+                        startProtection(pending.generation, pending.startId)
+                    }
                 }
             }
         }
