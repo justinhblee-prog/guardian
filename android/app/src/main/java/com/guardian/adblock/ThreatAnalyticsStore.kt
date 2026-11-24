@@ -54,12 +54,13 @@ internal object ThreatAnalyticsStore {
                 ThreatAnalyticsEvent(timestamp, severity, parts[2])
             }.toList()
         val pendingSnapshot = pending.snapshot()
-        return ThreatAnalyticsSummary(
-            high = saturatingAdd(prefs.getLong(KEY_HIGH, 0L).coerceAtLeast(0L), pendingSnapshot.high),
-            informational = saturatingAdd(prefs.getLong(KEY_INFORMATIONAL, 0L).coerceAtLeast(0L), pendingSnapshot.informational),
-            unassessed = saturatingAdd(prefs.getLong(KEY_UNASSESSED, 0L).coerceAtLeast(0L), pendingSnapshot.unassessed),
-            recent = (pendingSnapshot.recent + storedRecent).take(MAX_RECENT)
+        val storedSummary = ThreatAnalyticsSummary(
+            high = prefs.getLong(KEY_HIGH, 0L).coerceAtLeast(0L),
+            informational = prefs.getLong(KEY_INFORMATIONAL, 0L).coerceAtLeast(0L),
+            unassessed = prefs.getLong(KEY_UNASSESSED, 0L).coerceAtLeast(0L),
+            recent = storedRecent
         )
+        return ThreatAnalyticsSummaryPolicy.merge(storedSummary, pendingSnapshot, MAX_RECENT)
     }
 
     @Synchronized
