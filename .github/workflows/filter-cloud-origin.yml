@@ -3,13 +3,17 @@ name: Guardian Filter Cloud Origin
 on:
   push:
     branches: [guardian-filter-data]
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/filter-cloud-origin.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: guardian-filter-cloud-origin
+  group: guardian-filter-cloud-origin-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
