@@ -87,4 +87,12 @@ class ResponsiveLayoutPolicyTest {
         assertEquals(true, ResponsiveLayoutPolicy.usesSettingsSplitPane(600))
         assertEquals(true, ResponsiveLayoutPolicy.usesSettingsSplitPane(840))
     }
+
+    @Test
+    fun bottomSystemInsetHasExactlyOneOwnerForPhoneAndTabletNavigation() {
+        assertEquals(false, ResponsiveLayoutPolicy.rootHandlesBottomSystemInset(393))
+        assertEquals(false, ResponsiveLayoutPolicy.rootHandlesBottomSystemInset(839))
+        assertEquals(true, ResponsiveLayoutPolicy.rootHandlesBottomSystemInset(840))
+        assertEquals(true, ResponsiveLayoutPolicy.rootHandlesBottomSystemInset(1200))
+    }
 }
