@@ -26,6 +26,19 @@ internal object GuardianStableUpdatePolicy {
     fun isNewerVersion(installedVersionCode: Int, candidateVersionCode: Int): Boolean =
         candidateVersionCode > installedVersionCode
 
+    /** Accept only positive integral manifest/PackageInfo version codes representable by Android's versionCode. */
+    fun parseSupportedVersionCode(value: Any?): Int? {
+        val number = value as? Number ?: return null
+        val numeric = number.toDouble()
+        if (!numeric.isFinite()) return null
+        val longValue = number.toLong()
+        if (numeric != longValue.toDouble() || longValue !in 1L..Int.MAX_VALUE.toLong()) return null
+        return longValue.toInt()
+    }
+
+    fun parseArchiveVersionCode(longVersionCode: Long): Int? =
+        if (longVersionCode in 1L..Int.MAX_VALUE.toLong()) longVersionCode.toInt() else null
+
     /** Content-Length -1 means a valid streaming response with unknown length. */
     fun isAcceptableDownloadLength(contentLength: Long, maximumBytes: Long): Boolean =
         maximumBytes > 0L && (contentLength == -1L || contentLength in 1L..maximumBytes)
