@@ -24,11 +24,68 @@ object DnsUpstreamProbe {
     fun isRetryableResolverError(response: ByteArray): Boolean =
         responseCode(response) == 2 || responseCode(response) == 5
 
-    /** Require NOERROR and at least one answer, not merely a matching DNS error packet. */
+    /**
+     * A positive answer count alone is not proof of usable DNS: a truncated packet
+     * can advertise answers while containing no complete resource record. Validate
+     * every answer/authority/additional record boundary before accepting the probe.
+     */
     fun isSuccessfulResolution(query: ByteArray, response: ByteArray?): Boolean {
         if (response == null || !DomainFilter.isMatchingResponse(query, response)) return false
-        if (response.size < 12) return false
-        val answerCount = ((response[6].toInt() and 0xff) shl 8) or (response[7].toInt() and 0xff)
-        return responseCode(response) == 0 && answerCount > 0
+        if (response.size < 12 || responseCode(response) != 0) return false
+        val answerCount = u16(response, 6)
+        if (answerCount == 0) return false
+        val questionEnd = rawQuestionEnd(response) ?: return false
+        val recordCount = answerCount.toLong() + u16(response, 8) + u16(response, 10)
+        if (recordCount > response.size.toLong()) return false
+        var offset = questionEnd
+        repeat(recordCount.toInt()) {
+            offset = skipName(response, offset) ?: return false
+            if (offset + 10 > response.size) return false
+            val dataLength = u16(response, offset + 8)
+            offset += 10
+            if (dataLength > response.size - offset) return false
+            offset += dataLength
+        }
+        return offset == response.size
     }
+
+    private fun rawQuestionEnd(message: ByteArray): Int? {
+        var offset = 12
+        while (offset < message.size) {
+            val length = message[offset++].toInt() and 0xff
+            if (length == 0) return if (offset + 4 <= message.size) offset + 4 else null
+            if ((length and 0xc0) != 0 || length > 63 || offset + length > message.size) return null
+            offset += length
+        }
+        return null
+    }
+
+    /** Returns the byte after the encoded name; compression targets are bounds-checked. */
+    private fun skipName(message: ByteArray, start: Int): Int? {
+        var offset = start
+        var encodedEnd = -1
+        var steps = 0
+        val visited = HashSet<Int>()
+        while (offset < message.size && steps++ < 128) {
+            val length = message[offset].toInt() and 0xff
+            when {
+                length == 0 -> return if (encodedEnd >= 0) encodedEnd else offset + 1
+                (length and 0xc0) == 0xc0 -> {
+                    if (offset + 1 >= message.size) return null
+                    val target = ((length and 0x3f) shl 8) or (message[offset + 1].toInt() and 0xff)
+                    if (target >= message.size || !visited.add(target)) return null
+                    if (encodedEnd < 0) encodedEnd = offset + 2
+                    offset = target
+                }
+                (length and 0xc0) != 0 || length > 63 || offset + 1 + length > message.size -> return null
+                else -> {
+                    offset += length + 1
+                }
+            }
+        }
+        return null
+    }
+
+    private fun u16(bytes: ByteArray, offset: Int): Int =
+        ((bytes[offset].toInt() and 0xff) shl 8) or (bytes[offset + 1].toInt() and 0xff)
 }
