@@ -280,3 +280,9 @@
 ## 2026-11-24 — Threat Analytics 보안 피드 연결 수정
 - GuardianVpnService가 security feed를 실제 추가한 시점의 source index를 보존해 DomainFilter.loadParsedRuleSources에 넘기도록 연결했습니다. 기존에는 기본 인자(emptySet)로 넘겨 보안 목록 근거가 일반 필터로 잘못 분류될 수 있었습니다.
 - 캐시 미준비 시 source와 index 모두 생략되며, 선택된 보안 feed index는 list 위치에 맞게 기록됩니다. Android Gradle/JUnit 및 기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — PRO 위협 분석 저장 버퍼링
+- ThreatAnalyticsAccumulator에서 심각도별 카운터와 최근 20개 고정 이벤트 라벨을 버퍼링하고 ThreatAnalyticsStore가 5초 단위로 일괄 저장합니다.
+- 화면 조회와 서비스 종료 시 pending 데이터를 flush합니다. 도메인/URL 비저장 원칙을 유지하며 pure accumulator 경계 테스트를 추가했습니다.
+- Android SharedPreferences 및 Service 수명주기 JUnit 검증은 미실행입니다.
