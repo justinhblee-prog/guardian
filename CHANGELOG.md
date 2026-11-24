@@ -1,3 +1,8 @@
+## 2026-11-24 — APK ZIP 항목 수 상한 회귀 테스트
+
+- APK 정적 검사기의 ZIP 항목 수 10,000개 제한을 회귀 테스트로 고정했습니다. 10,001개 항목을 가진 작은 ZIP이 `LIMIT_EXCEEDED`로 종료되는지 확인합니다.
+- APK 입력은 항목 수 외에도 전체 archive byte, 전체 uncompressed byte, DEX byte 상한을 각각 적용합니다. 128MiB/64MiB 대용량 한도 테스트는 기기 테스트 비용을 고려해 현재 JVM 회귀에는 추가하지 않았습니다.
+
 ## 2026-11-24 — 최대 ZIP 주석 길이 tail ring 경계 테스트
 
 - EOCD 검증 tail ring이 최대 ZIP comment 길이 65,535바이트와 22바이트 EOCD를 담아 정확히 한 바퀴 도는 경계에서 정상 APK를 허용하는지 테스트를 추가했습니다.
