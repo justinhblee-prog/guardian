@@ -116,19 +116,32 @@ internal object PremiumReportStore {
 
         val dates = prefs.getStringSet(KEY_DATES, emptySet()).orEmpty().toMutableSet()
         dates.add(key)
-        val oldest = counters.date.minusDays((RETENTION_DAYS - 1).toLong())
-        dates.toList().forEach { stored ->
-            val parsed = runCatching { LocalDate.parse(stored, formatter) }.getOrNull()
-            if (parsed == null || parsed.isBefore(oldest)) {
-                dates.remove(stored)
-                listOf("queries", "blocked", "forwarded", "failed", "ads", "trackers", "other")
-                    .forEach { editor.remove("day.$stored.$it") }
-            }
+        val retainedDates = PremiumReportRetentionPolicy.retainDates(dates, counters.date, RETENTION_DAYS)
+        (dates - retainedDates).forEach { expired ->
+            listOf("queries", "blocked", "forwarded", "failed", "ads", "trackers", "other")
+                .forEach { editor.remove("day.$expired.$it") }
         }
-        editor.putStringSet(KEY_DATES, dates)
+        editor.putStringSet(KEY_DATES, retainedDates)
         editor.apply()
         pending = null
         lastFlushAtMillis = nowEpochMillis
+    }
+
+    /** Prunes expired/corrupt aggregate dates even when no new DNS event arrives. */
+    @Synchronized
+    fun pruneExpired(context: Context, nowEpochMillis: Long = System.currentTimeMillis()) {
+        val currentDate = Instant.ofEpochMilli(nowEpochMillis)
+            .atZone(ZoneId.systemDefault()).toLocalDate()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val dates = prefs.getStringSet(KEY_DATES, emptySet()).orEmpty().toSet()
+        val retainedDates = PremiumReportRetentionPolicy.retainDates(dates, currentDate, RETENTION_DAYS)
+        if (retainedDates == dates) return
+        val editor = prefs.edit()
+        (dates - retainedDates).forEach { expired ->
+            listOf("queries", "blocked", "forwarded", "failed", "ads", "trackers", "other")
+                .forEach { editor.remove("day.$expired.$it") }
+        }
+        editor.putStringSet(KEY_DATES, retainedDates).apply()
     }
 
     @Synchronized
@@ -139,6 +152,7 @@ internal object PremiumReportStore {
     ): PremiumReportSummary? {
         require(windowDays in 1..MAX_WINDOW_DAYS) { "리포트 기간은 1~90일이어야 합니다." }
         flushPendingLocked(context, nowEpochMillis)
+        pruneExpired(context, nowEpochMillis)
         val nowSeconds = nowEpochMillis / 1000L
         val entitlement = LicenseEntitlementStore.current(context, nowSeconds) ?: return null
         if (!PremiumEntitlementPolicy.canUse(
