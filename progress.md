@@ -854,3 +854,8 @@
 - 사용자가 TCP/DoT/DoH를 명시 선택한 경우 UDP로 강등하지 않습니다. UDP의 TC 응답도 중복 TCP 소켓을 열지 않고 상위 fallback 순서에서 TCP를 한 번만 시도하도록 정리했습니다.
 - Android `ConnectivityManager`에서 물리 DNS를 읽기 위해 `ACCESS_NETWORK_STATE` 권한을 선언했습니다. 네트워크 정보 조회 실패는 보호 패킷 처리 중단 대신 기기 DNS fallback 생략으로 처리합니다.
 - 순수 DNS 후보/순서 정책 테스트 4개를 추가했고 별도 Kotlin/JVM smoke harness에서 주소 정규화·IPv6 가상 DNS 제외·후보 순서·전송방식 보존을 실행 확인했습니다(`DNS_UPSTREAM_FALLBACK_POLICY_SMOKE=PASS`). Android Gradle/JUnit, 실제 Wi-Fi/모바일 DNS 연결은 미검증입니다.
+
+## 2026-11-24 — 개발판 APK 다운로드 캐시 원자적 교체
+- 개발 업데이트 다운로드가 최종 설치 경로에 직접 기록하던 문제를 수정했습니다. 다운로드 중 앱 프로세스가 종료되면 부분 APK가 최종 파일명으로 남을 수 있었습니다.
+- 이제 임시 .part 파일에 다운로드하고 크기·SHA-256·패키지·버전·서명 검증을 모두 통과한 뒤 GuardianApkCacheStore로 원자적 교체합니다. 기존 검증 APK는 새 파일 커밋 전까지 백업으로 보존됩니다.
+- 캐시 디렉터리 생성 실패도 조기에 명시적으로 처리합니다. Android Gradle/JUnit, APK 다운로드 및 실기기 설치 검증은 실행하지 않았습니다.
