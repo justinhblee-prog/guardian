@@ -18,6 +18,15 @@ class PerAppDnsRulePolicyTest {
         assertEquals(listOf("not a domain"), parsed.invalidLines)
     }
 
+    @Test fun formatsOnlyTheFirstThreeInvalidRulesInSaveError() {
+        assertEquals(
+            "잘못된 도메인 규칙: not a domain, https://bad, *invalid*",
+            PerAppDnsRulePolicy.invalidRulesMessage(
+                listOf("not a domain", "https://bad", "*invalid*", "fourth.invalid")
+            )
+        )
+    }
+
     @Test fun rejectsMoreThanTwoHundredRules() {
         try {
             PerAppDnsRulePolicy.parse((1..201).joinToString("\n") { "host$it.example.com" })
