@@ -1,3 +1,10 @@
+## 2026-11-24 — 수동 보안 프로필에서도 종량제 자동 갱신 차단
+
+- 자동 네트워크 프로필은 metered 링크에서 자동 갱신을 비활성화하지만, 수동 프로필은 고정 허용값을 사용해 WorkManager `CONNECTED` 조건만으로 종량제 모바일망에서 갱신할 수 있었습니다.
+- 주기 Worker constraint를 `UNMETERED`로 강화하고, Worker 시작 시 실제 active NetworkCapabilities의 `NET_CAPABILITY_NOT_METERED`도 확인합니다. 사용자 전역 설정/프로필 허용값과 세 조건이 모두 true일 때만 실행합니다.
+- Worker는 각 필터 원천 처리 경계에서도 `isStopped` 및 네트워크/프로필 gate를 재확인해 프로필 전환이나 constraint 취소 이후 다음 필터 다운로드를 시작하지 않도록 했습니다. 첫 실행 수동 필터 준비 경로에는 영향을 주지 않습니다.
+- 사용자/프로필/네트워크 3중 게이트 정책 테스트를 추가했습니다. Android WorkManager/ConnectivityManager 및 기기 네트워크 전환은 미실행입니다.
+
 ## 2026-11-24 — 보안 프로필 미리보기 제한 안내 정합성
 
 - 보안 프로필 UI에 로밍 감지와 반복 필터 갱신 스케줄러가 아직 미연결이라는 오래된 안내가 남아 있어 현재 구현과 일치하도록 수정했습니다.
