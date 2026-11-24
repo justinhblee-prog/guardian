@@ -358,3 +358,8 @@
 - raw path suffix 검사만으로는 `%2Eapk`, `.%61%70%6b`, `%252Eapk` 인코딩 우회 가능성이 있어 최대 3회 bounded URL path decoding 후 확장자를 검사하도록 변경했습니다.
 - query string은 path 검사에서 제외하며, 인코딩 확장자/대소문자/중첩 인코딩 탐지와 query-only 비탐지 테스트를 추가했습니다.
 - Android Gradle/JUnit 및 실제 브라우저/서버 URL 정규화 통합 검증은 미실행입니다.
+
+
+## 2026-11-24 — URL 호스트 끝점 정규화 강화
+- 마지막 DNS 점을 모두 제거하던 정규화가 연속된 끝점 입력까지 허용하던 문제를 수정했습니다. 끝점 한 개는 absolute DNS name으로 허용하고 두 개 이상은 거부합니다.
+- 정상 absolute name 및 malformed multiple-dot host 회귀 테스트를 추가했습니다. Android JUnit·단말 검증은 미실행입니다.
