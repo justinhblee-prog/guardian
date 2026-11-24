@@ -327,3 +327,7 @@
 ## 2026-11-24 — 위협 분석 개인정보 안내 범위
 - 위협 전용 집계 저장소와 일반 DNS 최근 기록의 저장 범위를 분리해 설명하도록 변경했습니다. 일반 DNS 최근 활동 기록에는 도메인이 별도 저장될 수 있음을 명확히 했습니다.
 - PRO 권한 게이트 및 Android 검증 미완료 표시는 유지합니다.
+
+
+## 2026-11-24 — 위협 분석 분류 엔진 Kotlin/JVM 스모크
+- Security intelligence HIGH, 광고/추적 INFORMATIONAL, 사용자 규칙 UNASSESSED, unknown source UNASSESSED, evidence precedence, 허용 요청 제외를 순수 분류 로직으로 분리 실행해 7/7 통과했습니다. ThreatAnalyticsStore/Android SharedPreferences 및 단말 검증은 미실행입니다.
