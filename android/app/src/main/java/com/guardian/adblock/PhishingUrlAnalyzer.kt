@@ -86,7 +86,7 @@ internal object PhishingUrlAnalyzer {
         }.getOrNull()?.takeIf { it.isNotBlank() } ?: return invalid()
         if (asciiHost.split('.').any { it.isBlank() || it.length > 63 }) return invalid()
         if (asciiHost.length > 253) return invalid()
-        if (host.all { it.isDigit() || it == '.' } && host.contains('.') && !isIpLiteral(asciiHost)) return invalid()
+        if (isAmbiguousNumericHost(asciiHost) && !isIpLiteral(asciiHost)) return invalid()
 
         if (scheme == "http") signals.add(Signal.INSECURE_HTTP)
         if (isIpLiteral(asciiHost)) signals.add(Signal.IP_LITERAL_HOST)
@@ -122,6 +122,18 @@ internal object PhishingUrlAnalyzer {
     private fun isValidIpv6Literal(host: String): Boolean {
         if (!host.contains(':') || host.contains('%')) return false
         return runCatching { InetAddress.getByName(host) }.isSuccess
+    }
+
+    /** Reject non-canonical numeric forms that browser URL parsers may treat as IPv4. */
+    private fun isAmbiguousNumericHost(host: String): Boolean {
+        val labels = host.trimEnd('.').lowercase(Locale.ROOT).split('.')
+        if (labels.isEmpty()) return false
+        return labels.all { label ->
+            label.isNotEmpty() && (
+                label.all { it in '0'..'9' } ||
+                    (label.startsWith("0x") && label.drop(2).all { it in '0'..'9' || it in 'a'..'f' })
+            )
+        }
     }
 
     private fun isIpLiteral(host: String): Boolean {
