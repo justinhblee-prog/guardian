@@ -1,3 +1,9 @@
+## 2026-11-24 — 위협 분석 중첩 증거·최근 시각 JVM smoke
+
+- `ThreatAnalyticsEngine` 분류 순수 로직을 kotlinc/JRE로 분리 실행해 PASS 8/8: 보안 인텔리전스 HIGH, 광고/추적 INFORMATIONAL, 사용자 단독 UNASSESSED, USER+AD 중첩 INFORMATIONAL 및 evidence 보존, Security+다중 evidence HIGH, unknown source UNASSESSED, 비차단 요청 제외.
+- `ThreatAnalyticsSummaryPolicy` 최근 목록 병합도 분리 실행해 PASS 2/2: 시스템 시각 역행 시에도 timestamp 내림차순 정렬 및 집계 카운터 결합.
+- 독립 Kotlin/JVM 정책 smoke만 의미하며 Android Gradle/JUnit, SharedPreferences 및 실기기 DNS 통합은 미실행입니다.
+
 ## 2026-11-24 — 위협 분석 중첩 출처 분류 우선순위
 
 - 같은 도메인이 사용자의 추가 차단 규칙과 광고/추적 필터에도 동시에 일치하면 기존 순서에서는 사용자 규칙 근거가 먼저 적용되어 `미평가`로 분류됐습니다. 알려진 광고·추적 출처가 확인되어도 정보가 과소 표시될 수 있었습니다.
