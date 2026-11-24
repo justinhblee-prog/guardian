@@ -683,3 +683,8 @@
 
 - `GuardianAppUpdateState`의 실제 상태/AtomicReference 전이 소스를 kotlinc/JRE 21로 분리 컴파일·실행했습니다. PASS 5/5: 중복 확인 차단, 재생성된 화면에서 검증 APK 경로 복원, 개발/정식 빌드 타입 일치 검사, 최신 응답 시 stale 설치 대상 제거, 재확인 실패 시 이전의 유효한 검증 APK 유지, 동시 12개 탭 요청 중 한 작업만 획득.
 - Android Activity lifecycle/브로드캐스트 receiver/실제 다운로더/FileProvider·PackageInstaller 연결은 미실행이며 Android Gradle/JUnit도 실행하지 않았습니다.
+
+
+## 2026-11-24 — 업데이트 작업 스레드 Activity 캡처 제거
+- background update worker에서 Activity helper를 호출해 Activity 참조를 보유할 수 있던 경로를 제거했습니다. 다운로드와 상태 브로드캐스트는 시작 시 캡처한 applicationContext로 수행합니다.
+- 화면/Activity 수명과 업데이트 작업을 분리했습니다. Android rotation/destroy lifecycle·메모리 및 실제 다운로드 테스트는 미실행입니다.
