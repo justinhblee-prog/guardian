@@ -333,3 +333,8 @@
 ## 2026-11-24 — 자동 전환 스위치 변경 동기화 보강
 - 사용자 체크박스 ON/OFF setter도 자동 적용/수동 적용과 같은 `SecurityProfileStore` monitor를 사용하도록 수정했습니다. setter OFF가 late callback의 상태 검사보다 먼저 완료되면 콜백은 적용되지 않습니다.
 - 실제 ConnectivityManager callback race 재현 및 Android 기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 보안 프로필 잠금 순서 교착 방지
+- NetworkCallback monitor lock과 profile store lock이 반대 순서로 중첩될 수 있어 수동 Apply가 store lock을 보유한 상태에서 callback unregister를 호출하지 않도록 잠금 구간을 분리했습니다.
+- manual OFF 상태를 먼저 store lock 아래 확정, callback 해제, 사용자 선택 프로필 적용 순서로 처리합니다. 대기 콜백은 automatic OFF gate에서 거부합니다. 실기기 concurrency 검증은 미실행입니다.
