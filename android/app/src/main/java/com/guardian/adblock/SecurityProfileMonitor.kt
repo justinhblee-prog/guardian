@@ -142,14 +142,16 @@ internal object SecurityProfileMonitor {
         // The default route can be Guardian's own VPN interface. Prefer a physical
         // underlying network when Android exposes one, otherwise use the reported facts.
         val capabilities = if (reportedCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-            manager.allNetworks.asSequence()
-                .mapNotNull(manager::getNetworkCapabilities)
+            val physicalNetworks = manager.allNetworks.mapNotNull(manager::getNetworkCapabilities)
                 .filterNot { it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) }
-                .maxByOrNull { candidate ->
-                    (if (candidate.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) 4 else 0) +
-                        (if (candidate.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) 2 else 0) +
-                        (if (candidate.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)) 1 else 0)
-                } ?: reportedCapabilities
+            if (SecurityProfilePolicy.hasUnambiguousUnderlyingNetwork(physicalNetworks.size)) {
+                physicalNetworks.single()
+            } else {
+                // The VPN is active but its physical default cannot be inferred
+                // unambiguously. Keep it UNKNOWN/strict rather than trusting a
+                // merely high-scoring, possibly non-default secondary network.
+                reportedCapabilities
+            }
         } else reportedCapabilities
         val transport = when {
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> SecurityProfilePolicy.Transport.WIFI
