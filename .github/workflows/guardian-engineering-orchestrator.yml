@@ -105,6 +105,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Checkout signed filter cloud origin
+        uses: actions/checkout@v4
+        with:
+          ref: guardian-filter-data
+          path: .guardian-filter-data
+      - name: Verify signed filter cloud origin
+        run: node scripts/verify_filter_cloud_origin.mjs .guardian-filter-data
       - name: Discover and run package test suites
         shell: bash
         run: |
