@@ -747,3 +747,9 @@
 ## 2026-11-24 — DNS policy invalid-upstream fallback coverage
 - Added `upstreamResponseWithReservedDnsZFlagIsRejectedAndReturnsServfail` to verify the shared UDP/TCP policy does not forward an upstream reply carrying the reserved DNS Z bit and returns a valid SERVFAIL instead.
 - This complements the low-level response validator regression test. Kotlin test execution, Android build, emulator/device verification, and APK generation remain unexecuted; GitHub Actions was not run.
+
+
+## 2026-11-24 — DNS 업스트림 사전 점검 응답 구조 검증
+- 성공 응답의 ANCOUNT만 확인하던 판정을 강화했습니다. 실제 answer/authority/additional RR의 owner name(압축 포인터 포함), 고정 헤더, RDLENGTH 및 패킷 경계를 끝까지 검증해야 DNS 사전 점검 성공으로 인정합니다.
+- 잘린 RR, RDLENGTH가 패킷을 벗어나는 응답, 전방/순환 압축 포인터를 거부하도록 했습니다. 유효한 압축 QNAME을 사용하는 A 레코드 회귀 테스트를 추가했습니다.
+- 원격 소스와 테스트 반영을 확인했습니다. Kotlin/JUnit 및 Android Gradle/lint, 에뮬레이터·실기기, APK 검증은 미실행이며 GitHub Actions는 실행하지 않았습니다.
