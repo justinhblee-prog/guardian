@@ -1,3 +1,9 @@
+## 2026-11-24 — 퓨니코드가 아닌 percent-encoded 실행 파일 경로 탐지
+
+- 피싱 URL 분석기가 `URI.rawPath`만 검사해 `%2Eapk`, `.%61%70%6b`처럼 percent-encoded 확장자를 놓칠 수 있던 우회 경계를 수정했습니다.
+- raw path에서 최대 3회까지 제한적으로 percent decoding을 수행해 대소문자·인코딩된 실행 파일 확장자를 검사합니다. query string은 경로로 오인하지 않도록 계속 제외합니다.
+- 단일/다중 인코딩된 `.apk`, 대소문자 `.exe` 탐지와 query parameter에만 `.apk`가 있는 정상 경로 비탐지 테스트를 추가했습니다. Android Gradle/JUnit 실행은 미실행입니다.
+
 ## 2026-11-24 — APK ZIP 항목 수 상한 회귀 테스트
 
 - APK 정적 검사기의 ZIP 항목 수 10,000개 제한을 회귀 테스트로 고정했습니다. 10,001개 항목을 가진 작은 ZIP이 `LIMIT_EXCEEDED`로 종료되는지 확인합니다.
