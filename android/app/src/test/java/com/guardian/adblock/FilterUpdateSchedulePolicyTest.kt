@@ -97,6 +97,12 @@ class FilterUpdateSchedulePolicyTest {
         assertEquals(2, FilterUpdateScheduler.selectionIndex(123L, intervals, 2))
     }
 
+    @Test fun cachedMainFilterIsReusableOnlyForTheSelectedProfile() {
+        assertTrue(FilterUpdatePolicy.hasUsableMainCache(true, "adguard", "adguard"))
+        assertFalse(FilterUpdatePolicy.hasUsableMainCache(true, "hagezi_pro", "adguard"))
+        assertFalse(FilterUpdatePolicy.hasUsableMainCache(false, "adguard", "adguard"))
+    }
+
     @Test fun initialCacheRecoveryRunsEvenWhenRecurringUpdatesAreDisabled() {
         assertTrue(FilterUpdatePolicy.shouldRunUpdates(autoUpdateEnabled = false, forceInitialRefresh = true))
         assertTrue(FilterUpdatePolicy.shouldRunUpdates(autoUpdateEnabled = true, forceInitialRefresh = false))
