@@ -1227,6 +1227,7 @@ class GuardianVpnService : VpnService() {
         explicitStop: Boolean = false,
         preserveRestoreIntent: Boolean = false
     ) {
+        if (BuildConfig.DEBUG) ThreatAnalyticsStore.flushPending(this)
         stopForegroundAppMonitor()
         if (explicitStop) {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
