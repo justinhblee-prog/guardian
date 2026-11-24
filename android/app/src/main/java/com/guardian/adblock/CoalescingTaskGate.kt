@@ -36,7 +36,7 @@ internal class CoalescingTaskGate {
         if (!pending) return false
         pending = false
         if (!allowRetry) return false
-        active = true
+        // Leave the gate free so the caller can reacquire it through request().
         return true
     }
 }
