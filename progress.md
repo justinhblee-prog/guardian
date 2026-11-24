@@ -336,3 +336,8 @@
 ## 2026-11-24 — 위협 분석 최근 이벤트 시각 정렬
 - persisted/pending summary를 합칠 때 수집 버퍼가 항상 더 최신이라고 가정하던 코드를 timestamp 내림차순 정렬로 바꿨습니다. 기기 시계 변경으로 pending timestamp가 작아져도 최근 이력이 시간순으로 표시됩니다.
 - 시계 역행 경계 테스트를 추가했습니다. Android store/실기기 시계 변경 검증은 미실행입니다.
+
+
+## 2026-11-24 — 위협 분석 중첩 출처 분류 우선순위
+- security intelligence가 항상 최우선 HIGH이며, 광고/추적 출처가 사용자 차단 규칙과 겹치면 INFORMATIONAL로 분류하도록 순서를 조정했습니다. USER_BLOCK_RULE 단독일 때만 UNASSESSED이며 전체 evidence set은 유지합니다.
+- USER + AD/Tracker 중첩 evidence 회귀 테스트 추가. Android Gradle/JUnit·기기 검증 미실행입니다.
