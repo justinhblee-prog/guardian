@@ -1,3 +1,9 @@
+## 2026-11-24 — 프로필 미설정 기본값 및 자동 업데이트 게이트 검증
+
+- Worker/Scheduler 게이트 연결 후 미설정 키의 유효 기본값을 기존 STRICT 프로필 설정으로 계산하도록 수정했습니다. 저장된 설정이 없는 초기/기존 사용자는 기존 자동 업데이트 기본값을 유지하고, 수동 프로필의 명시적 false는 계속 우선합니다.
+- Strict profile policy를 포함한 순수 Kotlin/JVM smoke 10/10 통과. 캡티브 포털·미검증 네트워크 자동 업데이트 거부, 사용자 opt-in/profile allow 4가지 조합 및 수동 선택 차단을 확인했습니다.
+- Android Gradle/JUnit·WorkManager 통합·실제 네트워크 콜백·실기기 검증은 미실행입니다.
+
 ## 2026-11-24 — 인터넷 미검증·캡티브 포털 자동 업데이트 차단
 
 - 캡티브 포털·인터넷 미검증 네트워크는 STRICT 프로필로 선택되지만, 종량제가 아닌 경우 `automaticFilterUpdates`가 true로 남아 WorkManager 예약 다운로드가 시도될 수 있었습니다.
