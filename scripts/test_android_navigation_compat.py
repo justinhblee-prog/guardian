@@ -102,7 +102,7 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         self.assertLess(download.index("sha256(temporary)"), download.index("verifyDownloadedPackage(context, temporary, update)"))
         self.assertLess(download.index("verifyDownloadedPackage(context, temporary, update)"), download.index("GuardianApkCacheStore.commit(temporary, target)"))
         self.assertIn("StandardCopyOption.ATOMIC_MOVE", cache_store)
-        self.assertIn("val backup = File(directory, "${target.name}.bak")", cache_store)
+        self.assertIn('val backup = File(directory, "${target.name}.bak")', cache_store)
         self.assertIn("move(backup, target)", cache_store)
 
     def test_customer_support_exposes_working_recent_error_copy_action(self):
