@@ -449,3 +449,8 @@
 ## 2026-11-24 — DNS TCP 중복 ACK 빠른 재전송
 - 세 번의 중복 누적 ACK가 현재 serverAcknowledged에서 반복되고 미확인 서버 응답이 남아 있으면 첫 outstanding packet을 재전송합니다. ACK 진행 시 중복 횟수는 초기화됩니다.
 - 최초 손실 세그먼트와 부분 ACK 이후 다음 세그먼트 재전송 테스트를 추가했습니다. 타이머 기반 RTO는 별도 미완료이며 Android Gradle/JUnit·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — Fast retransmit 1회 발사 제한
+- 같은 누적 ACK에 대해 세 번째 duplicate ACK에서만 빠른 재전송을 실행하고, 네 번째 이후 반복 ACK로 같은 패킷을 연속 송신하지 않도록 카운터를 4에서 제한합니다.
+- 네 번째 duplicate ACK 무재전송 회귀 검증을 추가했습니다. Android Gradle/JUnit 미실행입니다.
