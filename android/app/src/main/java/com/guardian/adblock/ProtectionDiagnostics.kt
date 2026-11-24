@@ -165,6 +165,37 @@ object ProtectionDiagnostics {
         }
     }
 
+    /**
+     * Accepts only the exception type chain and stack-frame tokens emitted by
+     * exceptionTraceSummary. Character filtering alone is insufficient: it can
+     * leave hostnames and path fragments in a copied support report.
+     */
+    private fun safeStartupTraceSummary(value: String?): String {
+        val sections = value.orEmpty().split(" | ").take(2)
+        val safeTypes = sections.getOrNull(0).orEmpty()
+            .split(" <- ")
+            .mapNotNull { token ->
+                token.trim().takeIf {
+                    it.matches(Regex("[A-Za-z][A-Za-z0-9_]*(?:Exception|Error)"))
+                }
+            }
+            .take(8)
+            .joinToString(" <- ")
+        val safeFrames = sections.getOrNull(1).orEmpty()
+            .split(" <- ")
+            .mapNotNull { token ->
+                token.trim().takeIf {
+                    it.matches(Regex("[A-Za-z][A-Za-z0-9_$.<>]{0,179}:[0-9]{1,8}"))
+                }
+            }
+            .take(16)
+            .joinToString(" <- ")
+        return listOf(safeTypes, safeFrames)
+            .filter { it.isNotBlank() }
+            .joinToString(" | ")
+            .take(1800)
+    }
+
     fun recentErrorReport(
         lastServiceStatus: String?,
         lastStartupTrace: String?,
@@ -174,22 +205,7 @@ object ProtectionDiagnostics {
     ): String {
         val startup = startupFailureSummary(lastServiceStatus)
         val dnsDiagnostic = dnsDiagnosticSummary(lastDnsDiagnostic)
-        val safeTrace = lastStartupTrace.orEmpty()
-            .split(" | ")
-            .take(2)
-            .mapNotNull { section ->
-                section.split(" <- ")
-                    .mapNotNull { frame ->
-                        frame.trim().takeIf {
-                            it.matches(Regex("[A-Za-z][A-Za-z0-9_$.<>]{0,179}(?::[0-9]{1,8})?"))
-                        }
-                    }
-                    .take(16)
-                    .joinToString(" <- ")
-                    .takeIf { it.isNotBlank() }
-            }
-            .joinToString(" | ")
-            .take(1800)
+        val safeTrace = safeStartupTraceSummary(lastStartupTrace)
         val safeCodes = filterErrorCodes
             .map { it.trim().uppercase(java.util.Locale.ROOT) }
             .filter { it.matches(Regex("[A-Z0-9_-]{1,64}")) }
@@ -302,8 +318,7 @@ object ProtectionDiagnostics {
             appendLine("최근 필터 업데이트 오류 기록: ${if (filterUpdateErrorPresent) "있음" else "없음"}")
             appendLine("필터 시작 준비 상태: ${filterReadinessSummary(filterReadiness)}")
             appendLine("최근 보호 시작 오류: ${startupFailureSummary(lastServiceStatus)}")
-            val safeTrace = lastStartupTrace.orEmpty().split(" | ").take(2).joinToString(" | ")
-                .filter { it.isLetterOrDigit() || it in " ._$<>:-|" }.take(1800)
+            val safeTrace = safeStartupTraceSummary(lastStartupTrace)
             appendLine("최근 오류 호출 스택(메시지/경로 제외): ${safeTrace.ifBlank { "기록 없음" }}")
             appendLine()
             appendLine("개인정보 보호: DNS 요청/방문 도메인, 사용자 지정 차단·허용 규칙, 라이선스 키·토큰, 서버 주소 및 공개키는 이 보고서에 포함하지 않았습니다.")
