@@ -107,6 +107,11 @@ class SecurityProfilePolicyTest {
         assertFalse(SecurityProfilePolicy.shouldApplyAutomaticProfile(false))
     }
 
+    @Test fun unconfiguredProfileUsesExistingStrictProfileUpdateDefault() {
+        assertTrue(SecurityProfilePolicy.profile(SecurityProfilePolicy.Id.STRICT).automaticFilterUpdates)
+        assertFalse(SecurityProfilePolicy.manualSelection(SecurityProfilePolicy.Id.STRICT).automaticFilterUpdates)
+    }
+
     @Test fun scheduledUpdatesRequireBothUserOptInAndProfilePermission() {
         assertTrue(SecurityProfilePolicy.shouldScheduleAutomaticUpdates(true, true))
         assertFalse(SecurityProfilePolicy.shouldScheduleAutomaticUpdates(false, true))
