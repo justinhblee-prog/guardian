@@ -94,7 +94,7 @@ fun main() {
     verify("trusted.ads.example.test" in parsedFeeds.allowed, "Adblock exception parsed")
     verify("critical.example.test" in parsedFeeds.importantBlocked, "important block parsed")
     verify("unsupported.example.test" !in parsedFeeds.blocked, "unsupported network modifier ignored")
-    DomainFilter.loadRuleSources(listOf({ parsedFeeds }), listOf(1))
+    DomainFilter.loadParsedRuleSources(listOf({ parsedFeeds }), listOf(1))
     verify(DomainFilter.isBlocked("sub.ads.example.test"), "parsed hosts/adblock suffix blocks")
     verify(!DomainFilter.isBlocked("trusted.ads.example.test"), "ordinary exception overrides ordinary block")
     verify(DomainFilter.isBlocked("critical.example.test"), "important block cannot be overridden")
