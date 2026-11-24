@@ -319,3 +319,7 @@
 - 최신 SecurityProfilePolicy helpers를 kotlinc 1.9.0/JRE 21로 컴파일·실행했습니다.
 - PASS 19/19: 자동 프로필 분류, captive/unvalidated strict, roaming, metered download 제한, physical candidate ambiguity, manual profile auto-download opt-out, 같은 filter key 내 profile ID 변경 알림, 상태 불변 무알림, automatic update permission 변화 알림.
 - Android `ACTION_PROFILE_CHANGED` broadcast 수신, ConnectivityManager, VPN 활성 중 OEM network handover, Android Gradle/JUnit·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 자동 보안 프로필 판정 범위 공개
+- UI가 현재 실제 연결 상태를 과장하지 않도록 trusted Wi-Fi/업무망 및 roaming은 자동 감지되지 않는다는 제한을 명시했습니다. 집·업무·여행 프로필은 수동 선택이며, 자동 필터 다운로드 스케줄러도 미연결입니다.
