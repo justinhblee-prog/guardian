@@ -87,6 +87,12 @@ class MainActivity : Activity() {
     private var trackerBlockedValue: TextView? = null
     private var savedDataValue: TextView? = null
     private var activityChart: ActivityStatsChart? = null
+    private var securityProfileAutoSwitch: CheckBox? = null
+    private var securityProfileStatusText: TextView? = null
+    private var securityProfileUpdateStatusText: TextView? = null
+    private var securityProfileSpinner: Spinner? = null
+    private var securityProfileIds: List<SecurityProfilePolicy.Id>? = null
+    private var syncingSecurityProfileSwitch = false
     private var receiverRegistered = false
     private var currentTab = "home"
     private var selectedSettingsCategory = "settings-general"
@@ -107,6 +113,7 @@ class MainActivity : Activity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             refreshStatus()
             refreshAppExclusionsAppliedStatus()
+            refreshSecurityProfilePreview()
             when (intent?.action) {
                 FilterUpdateWorker.ACTION_FILTERS_CHANGED -> {
                     syncFilterOptionControls()
@@ -351,6 +358,7 @@ class MainActivity : Activity() {
         ContextCompat.registerReceiver(this, stateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
         refreshStatus()
+        refreshSecurityProfilePreview()
         // A background worker may disable an optional source while this Activity
         // is stopped. Reconcile any already-created controls with persisted state.
         syncFilterOptionControls()
@@ -551,6 +559,11 @@ class MainActivity : Activity() {
         trackerBlockedValue = null
         savedDataValue = null
         activityChart = null
+        securityProfileAutoSwitch = null
+        securityProfileStatusText = null
+        securityProfileUpdateStatusText = null
+        securityProfileSpinner = null
+        securityProfileIds = null
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
@@ -2161,8 +2174,10 @@ class MainActivity : Activity() {
                 buttonTintList = ColorStateList.valueOf(accent)
                 isChecked = SecurityProfileStore.automaticSwitchEnabled(this@MainActivity)
                 setOnCheckedChangeListener { _, checked ->
+                    if (syncingSecurityProfileSwitch) return@setOnCheckedChangeListener
                     SecurityProfileStore.setAutomaticSwitchEnabled(this@MainActivity, checked)
                     SecurityProfileMonitor.refresh(this@MainActivity)
+                    refreshSecurityProfilePreview()
                     Toast.makeText(
                         this@MainActivity,
                         if (checked) "보호가 실행 중이면 네트워크 상태에 따라 프로필을 전환합니다."
@@ -2171,6 +2186,7 @@ class MainActivity : Activity() {
                     ).show()
                 }
             }
+            securityProfileAutoSwitch = autoSwitch
             addView(autoSwitch, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
 
             addView(text("수동 보안 프로필", 13f, white, true).withTop(16))
@@ -2179,6 +2195,7 @@ class MainActivity : Activity() {
                 10f, muted, false
             ).withTop(4))
             val profileIds = SecurityProfilePolicy.Id.values().toList()
+            securityProfileIds = profileIds
             var selectedManualProfile = SecurityProfileStore.activeProfileId(this@MainActivity)
             val profileSpinner = Spinner(this@MainActivity).apply {
                 adapter = darkSpinnerAdapter(profileIds.map {
@@ -2191,10 +2208,12 @@ class MainActivity : Activity() {
             addView(profileSpinner, LinearLayout.LayoutParams(-1, dp(46)).apply {
                 topMargin = dp(8)
             })
+            securityProfileSpinner = profileSpinner
             val profileStatus = text(
                 "현재 적용 프로필: ${active.label}",
                 11f, accent, true
             ).withTop(8) as TextView
+            securityProfileStatusText = profileStatus
             profileSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onNothingSelected(parent: AdapterView<*>?) = Unit
                 override fun onItemSelected(
@@ -2210,9 +2229,7 @@ class MainActivity : Activity() {
                 background = shape(accent, 9)
                 setOnClickListener {
                     SecurityProfileStore.applyManualProfile(this@MainActivity, selectedManualProfile)
-                    autoSwitch.isChecked = false
-                    val selected = SecurityProfilePolicy.profile(selectedManualProfile)
-                    profileStatus.text = "현재 적용 프로필: ${selected.label} · 수동"
+                    refreshSecurityProfilePreview()
                     Toast.makeText(
                         this@MainActivity,
                         "${selected.label} 보안 프로필을 적용했습니다.",
@@ -2221,16 +2238,42 @@ class MainActivity : Activity() {
                 }
             }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
             addView(profileStatus)
-            addView(text(
-                "요금제 연결 자동 필터 업데이트 허용 정책: " +
-                    if (SecurityProfileStore.automaticUpdatesAllowed(this@MainActivity)) "허용" else "제한",
-                10f, muted, false
-            ).withTop(4))
+            val updatePolicyStatus = text("", 10f, muted, false).withTop(4) as TextView
+            securityProfileUpdateStatusText = updatePolicyStatus
+            addView(updatePolicyStatus)
             addView(text(
                 "제한: 로밍 자동 감지와 필터 자동 다운로드 스케줄러는 아직 연결되지 않았습니다. 이 개발 미리보기는 PRO 권한을 부여하지 않으며 Release 빌드에서는 자동 전환이 비활성입니다.",
                 10f, Color.rgb(238, 176, 82), false
             ).withTop(8))
         }
+        refreshSecurityProfilePreview()
+        return card
+    }
+
+    /** Keep the visible preview consistent with service-driven network profile changes. */
+    private fun refreshSecurityProfilePreview() {
+        if (!BuildConfig.DEBUG) return
+        val switchView = securityProfileAutoSwitch ?: return
+        val statusView = securityProfileStatusText ?: return
+        val updateView = securityProfileUpdateStatusText ?: return
+        val automatic = SecurityProfileStore.automaticSwitchEnabled(this)
+        if (switchView.isChecked != automatic) {
+            syncingSecurityProfileSwitch = true
+            switchView.isChecked = automatic
+            syncingSecurityProfileSwitch = false
+        }
+        val activeId = SecurityProfileStore.activeProfileId(this)
+        val activeProfile = SecurityProfilePolicy.profile(activeId)
+        val mode = if (automatic) "자동 전환" else "수동/고정"
+        statusView.text = "현재 적용 프로필: ${activeProfile.label} · $mode"
+        val profileIds = securityProfileIds.orEmpty()
+        val spinner = securityProfileSpinner
+        val selectedIndex = profileIds.indexOf(activeId)
+        if (spinner != null && selectedIndex >= 0 && spinner.selectedItemPosition != selectedIndex) {
+            spinner.setSelection(selectedIndex)
+        }
+        updateView.text = "요금제 연결 자동 필터 업데이트 허용 정책: " +
+            if (SecurityProfileStore.automaticUpdatesAllowed(this)) "허용" else "제한"
     }
 
     private fun buildSettingsPremium(body: LinearLayout) {
