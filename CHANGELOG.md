@@ -1,3 +1,8 @@
+## 2026-11-24 — DEX 041 logical container JVM smoke 11/11
+
+- 최신 header traversal helper를 kotlinc 1.9.0/JRE 21로 분리 컴파일·실행했습니다. PASS 11/11: 035 little/reverse endian, 041 단일/복수 논리 DEX count, container 크기 mismatch, second header offset mismatch, truncated logical file, unsupported version, logical file boundary 초과, 최소 header size 미만, trailing partial header.
+- 순수 DEX header/container policy smoke이며 APK ZIP analyzer의 전체 실행, Android Gradle/JUnit·SAF·실제 APK 검증은 미실행입니다.
+
 ## 2026-11-24 — DEX 041 논리 파일 범위 회귀 테스트 확장
 
 - DEX 041 복수 논리 DEX 컨테이너 테스트에 논리 file_size가 전체 컨테이너 경계를 넘는 경우, 두 번째 논리 헤더의 file_size가 최소 0x78 헤더보다 작은 경우, 두 번째 논리 DEX 뒤에 불완전한 헤더 바이트가 남는 경우의 거부 테스트를 추가했습니다.
