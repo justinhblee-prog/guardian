@@ -1066,7 +1066,36 @@ class MainActivity : Activity() {
             setOnClickListener { copySupportDiagnostics(this) }
         }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(14) })
         body.addView(text("진단 보고서에는 필터 파일/캐시 상태와 앱 환경만 포함됩니다. 최근 방문 도메인, 사용자 규칙, 라이선스 비밀값은 복사하지 않습니다.", 10f, muted, false).withTop(7))
+        body.addView(Button(this).apply {
+            text = "최근 오류 내용 복사"
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            background = shape(panel2, 12)
+            contentDescription = "최근 오류 내용 복사"
+            setOnClickListener { copyRecentErrors() }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(9) })
         body.addView(text("이 화면은 DNS 암호화 또는 VPN 우회 트래픽을 집계하지 않습니다.", 11f, muted, false).withTop(14))
+    }
+
+    private fun copyRecentErrors() {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val report = ProtectionDiagnostics.recentErrorReport(
+            lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null),
+            lastStartupTrace = prefs.getString(GuardianVpnService.KEY_STARTUP_TRACE, null),
+            filterErrorCodes = listOf(
+                FilterListManager.KEY_LAST_ERROR,
+                FilterListManager.KEY_SECURITY_LAST_ERROR,
+                FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
+            ).mapNotNull { prefs.getString(it, null) },
+            filterReadiness = prefs.getString(GuardianVpnService.KEY_FILTER_READINESS, null)
+        )
+        try {
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian recent errors", report))
+            Toast.makeText(this, "최근 오류 내용과 안전한 호출 경로를 복사했습니다.", Toast.LENGTH_SHORT).show()
+        } catch (error: Exception) {
+            Toast.makeText(this, "오류 내용 복사 실패: ${error.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun copySupportDiagnostics(button: Button) {
