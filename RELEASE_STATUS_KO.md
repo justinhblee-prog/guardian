@@ -569,6 +569,7 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 
 ### 이번 개발 반영
 - VPN TUN 세션 소유권 generation guard를 추가했습니다. 이전 패킷 스레드가 늦게 종료되어 새 세션의 `running` 상태를 해제하거나 보호 상태를 중지시키는 교차 세션 정리 경쟁을 차단합니다.
+- 패킷 루프 종료 요청을 해당 세션의 `startId`에 한정해 새 보호 시작 요청을 이전 종료가 취소하지 않도록 했습니다.
 - 서명 필터 manifest timestamp의 복구 경로도 fsync 후 atomic publish로 통일했습니다.
 - 휴대폰 설정 상세 화면에서 Android 시스템 뒤로가기가 설정 카테고리 목록으로 돌아오도록 수정했습니다.
 - VPN session guard는 독립 Kotlin smoke test에서 PASS했습니다. Android Gradle/JUnit·lint·에뮬레이터·실기기 검증은 아직 실행하지 않았고, 이번 변경의 APK도 생성하지 않았습니다.
