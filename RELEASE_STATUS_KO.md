@@ -1,3 +1,8 @@
+## 2026-11-24 DNS probe 회귀 테스트 fixture 정합성 보정
+- 잘못된 A 레코드 길이 테스트의 RDLENGTH 바이트 위치를 DNS RR 헤더 기준으로 다시 맞췄습니다. 테스트 응답은 RDLENGTH=3 및 실제 RDATA 3바이트가 되도록 구성되어, 단순 패킷 절단과 구분해 잘못된 A 레코드 길이 자체를 검증합니다.
+- 변경 커밋: `619bb4a838bfe3c1cf1be2c50f3a08471c31b6b6`.
+- 테스트 소스 수정만 원격 반영 확인했으며 JUnit 실행은 하지 않았습니다.
+
 ## 2026-11-24 Android DNS 시작 전 업스트림 응답 검증 보강
 - `DnsUpstreamProbe.isSuccessfulResolution`이 DNS 패킷 구조와 응답 레코드 경계만 확인하던 부분을 보완했습니다. 시작 전 probe는 A/IN 질의이므로, 완전한 TXT 응답이나 CNAME만 있는 응답을 IPv4 DNS 사용 가능 상태로 오인하지 않고 Answer 섹션에 실제 A/IN 주소 레코드(RDLENGTH=4)가 있는지 확인합니다.
 - CNAME 체인은 최종 A 레코드가 Answer 섹션에 포함된 경우 계속 허용합니다. Authority/Additional 섹션의 A 레코드만으로 성공 처리하지 않습니다.
