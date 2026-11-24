@@ -151,9 +151,9 @@ class GuardianVpnService : VpnService() {
                 handleCompatibilitySettingsChanged(startId)
             }
             ACTION_STOP -> {
-                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                    .putBoolean(KEY_RESTORE_REQUESTED, false).commit()
-                stopForegroundAppMonitor()
+                // stopProtection serializes this durable intent change with VPN
+                // exclusion reconfiguration, so a queued rebuild cannot revive
+                // the tunnel after an explicit stop.
                 stopProtection(explicitStop = true)
             }
             ACTION_START -> {
@@ -514,6 +514,7 @@ class GuardianVpnService : VpnService() {
      * changed on an established TUN. Rebuild the tunnel so a saved selection is
      * actually reflected by Android's VPN routing policy.
      */
+    @Synchronized
     private fun reconfigureExcludedApplications(startId: Int) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) {
