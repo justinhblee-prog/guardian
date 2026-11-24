@@ -15,7 +15,7 @@ class DnsUpstreamProbeTest {
         assertArrayEquals("com".toByteArray(), query.copyOfRange(21, 24))
     }
 
-    @Test fun acceptsMatchingSuccessfulResolution() {
+    @Test fun acceptsMatchingSuccessfulResolutionWithCompleteAnswer() {
         val query = DnsUpstreamProbe.query()
         val response = successfulResponse(query)
         assertTrue(DnsUpstreamProbe.isValidResponse(query, response))
@@ -51,12 +51,31 @@ class DnsUpstreamProbeTest {
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, null))
     }
 
+    @Test fun rejectsAdvertisedAnswerWhenResourceRecordIsTruncated() {
+        val query = DnsUpstreamProbe.query()
+        val response = successfulResponse(query).copyOf().also { it[it.lastIndex] = 0 }
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
+    }
+
+    @Test fun rejectsResourceRecordWhoseRdataLengthExceedsPacket() {
+        val query = DnsUpstreamProbe.query()
+        val response = successfulResponse(query)
+        response[response.size - 3] = 0x7f
+        response[response.size - 2] = 0xff.toByte()
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
+    }
+
     private fun successfulResponse(query: ByteArray): ByteArray {
-        val response = DomainFilter.makeServfail(query)!!
-        response[2] = (response[2].toInt() and 0xff).toByte()
-        response[3] = ((response[3].toInt() and 0xff) and 0xf0).toByte()
-        response[6] = 0
-        response[7] = 1
-        return response
+        val headerAndQuestion = DomainFilter.makeServfail(query)!!
+        headerAndQuestion[2] = (headerAndQuestion[2].toInt() and 0xff).toByte()
+        headerAndQuestion[3] = ((headerAndQuestion[3].toInt() and 0xff) and 0xf0).toByte()
+        headerAndQuestion[6] = 0
+        headerAndQuestion[7] = 1
+        // Compressed owner name (pointer to QNAME), A/IN, TTL=60, RDLENGTH=4, 93.184.216.34.
+        return headerAndQuestion + byteArrayOf(
+            0xc0.toByte(), 0x0c, 0x00, 0x01, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x3c, 0x00, 0x04,
+            0x5d, 0xb8.toByte(), 0xd8.toByte(), 0x22
+        )
     }
 }
