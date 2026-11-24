@@ -1,13 +1,12 @@
-# Guardian Android 1.0 — Progress Tracker
+# Guardian Android — PRO 병렬 트랙 진행 추적
 
-- **전체 상태**: 진행 중 — 외부 실행/운영 증거 대기 (완료율: 30%)
-- **마지막 업데이트**: Step 3 — 필터 무결성 정적 감사 및 외부 실행 차단 요인 기록
-- **기준일**: 2026-11-20 (KST)
-- **저장소**: https://github.com/justinhblee-prog/guardian
-- **작업 브랜치**: `feature/android-support-center-mainline`
-- **제품 목표**: Android 1.0의 VPN/DNS 광고·추적 차단, 필터 무결성/갱신, 앱별 보호 제외, 라이선스·고객지원, 복구 동작을 통합하고 검증 가능한 운영 서명 APK와 설치·복구 문서를 확보한다. 이후 Windows 정식 버전을 진행한다.
-- **최종 산출물**: 운영 서명 APK 및 SHA-256/서명 지문/버전 기록, 소스 커밋, 테스트·에뮬레이터·Samsung 실기기 검증 기록, 한국어 설치·복구 가이드, 본 진행 추적 파일.
-- **제약**: GitHub Actions 실행·유료 사용량 발생·runner/billing 설정 변경 금지. 운영 개인키/토큰/고객정보를 저장소에 기록하지 않는다. 외부 실기기·노트북에서만 가능한 작업은 실행한 것처럼 표시하지 않는다. 검증하지 않은 테스트는 통과로 표기하지 않는다.
+- **트랙**: 고급 필터링 · issue #297
+- **상태**: 개발 진행 중 — 완료/상용 공개 단계가 아닙니다.
+- **브랜치**: `work/pro-advanced-filtering-20261124`
+- **기준일**: 2026-11-24 (KST)
+- **현재 구현**: 현재 원격 비교에서 공통 PRO 보고서/entitlement 기반 외에 고급 필터 엔진 구현이 확인되지 않았습니다. 이슈는 열린 상태로 유지하고 실제 엔진 통합·UI·회귀 검증이 필요합니다.
+- **공통 권한 정책**: 유효한 서명 entitlement만으로 기능을 열지 않습니다. Android 통합·회귀·단말 검증을 통과하고 parent entitlement policy의 production-ready 목록에 등록되기 전까지 Release 접근은 비활성입니다.
+- **검증 제약**: 최신 코드에 대한 Android Gradle/JUnit·lint·에뮬레이터·실기기 검증은 별도로 수행한 증거가 없으면 미검증으로 표시합니다. GitHub Actions/runner/billing 설정 및 유료 실행은 사용자 승인 없이 시작하지 않습니다.
 
 ## 1. 워크플로우 체크리스트
 
