@@ -151,5 +151,13 @@ class FilterRuleParserTest {
         assertEquals(setOf("same.example"), importantDisabled.blocked)
         assertTrue(importantDisabled.importantBlocked.isEmpty())
     }
+    @Test fun separatesOrdinaryAndImportantRulesAcrossActualLines() {
+        val parsed = FilterRuleParser.parse(
+            "block=ordinary.example\nblock-important=critical.example"
+        )
+        assertEquals(setOf("ordinary.example"), parsed.blocked)
+        assertEquals(setOf("critical.example"), parsed.importantBlocked)
+        assertTrue(parsed.invalidLines.isEmpty())
+    }
 
 }
