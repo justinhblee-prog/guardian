@@ -181,8 +181,11 @@ internal object DevUpdateManager {
     internal fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
         val uri = java.net.URI(address)
         uri.scheme.equals("https", true) &&
+            (uri.port == -1 || uri.port == 443) &&
             uri.host.equals("github.com", true) &&
             uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
+            uri.path.removePrefix("/justinhblee-prog/guardian/releases/download/")
+                .split('/').filter { it.isNotEmpty() }.size >= 2 &&
             uri.userInfo == null && uri.query == null && uri.fragment == null
     }.getOrDefault(false)
 
@@ -190,11 +193,18 @@ internal object DevUpdateManager {
         val uri = java.net.URI(address)
         uri.scheme.equals("https", true) &&
             (uri.port == -1 || uri.port == 443) &&
-            uri.host?.lowercase() in setOf(
-                "github.com",
+            uri.userInfo == null && uri.fragment == null &&
+            when (uri.host?.lowercase()) {
+                // GitHub itself is permitted only for the repository's release asset path.
+                "github.com" ->
+                    uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
+                        uri.path.removePrefix("/justinhblee-prog/guardian/releases/download/")
+                            .split('/').filter { it.isNotEmpty() }.size >= 2
+                // GitHub's signed release-asset CDN uses query parameters, so retain them.
                 "release-assets.githubusercontent.com",
-                "objects.githubusercontent.com"
-            ) && uri.userInfo == null
+                "objects.githubusercontent.com" -> !uri.path.isNullOrBlank()
+                else -> false
+            }
     }.getOrDefault(false)
 
     private fun isAllowedHttpsUrl(address: String): Boolean = runCatching {
