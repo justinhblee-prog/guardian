@@ -79,11 +79,17 @@ class DnsTcpSessionManager(
             if (tcp.payload.isNotEmpty()) return emptyList()
             val existing = sessions[key]
             val expectedClientNext = (tcp.sequence + 1L) and MASK
-            if (existing != null && existing.clientInitialSequence == tcp.sequence) {
-                existing.lastActivity = now
-                return listOf(DnsTcpPacket.response(tcp, existing.serverInitial,
-                    (existing.clientInitialSequence + 1L) and MASK,
-                    DnsTcpPacket.SYN or DnsTcpPacket.ACK))
+            if (existing != null) {
+                if (existing.clientInitialSequence == tcp.sequence) {
+                    existing.lastActivity = now
+                    return listOf(DnsTcpPacket.response(tcp, existing.serverInitial,
+                        (existing.clientInitialSequence + 1L) and MASK,
+                        DnsTcpPacket.SYN or DnsTcpPacket.ACK))
+                }
+                // A new SYN on an established four-tuple is not a new
+                // connection. Do not replace the live session or reset its
+                // sequence space; acknowledge the current receive position.
+                return listOf(ack(tcp, existing))
             }
             if (sessions.size >= maxSessions && existing == null) {
                 val oldest = sessions.minByOrNull { it.value.lastActivity }?.key
