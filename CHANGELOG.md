@@ -1,3 +1,9 @@
+## 2026-11-24 — 앱별 정책 캐시 읽기/저장 경합 방지
+
+- DNS worker의 `rules()`가 cache miss 후 SharedPreferences를 읽는 동안 UI의 `replaceRules()`가 새 정책을 commit/cache 갱신하면, 먼저 시작한 낡은 읽기 작업이 새 캐시를 뒤늦게 덮어쓸 수 있었습니다.
+- `rules()` 읽기도 저장·삭제·앱 제거 정리와 동일한 store monitor로 직렬화해, 오래된 SharedPreferences snapshot이 최신 cache를 되돌리지 않도록 수정했습니다.
+- 규칙 파서 자체는 순수 policy로 유지합니다. Android SharedPreferences concurrency 및 패킷 스레드/설정 UI 경합은 단말에서 아직 검증하지 않았습니다.
+
 ## 2026-11-24 — 앱별 규칙과 전역 allow/important 우선순위 회귀 테스트
 
 - DNS 질의 정책에 앱별 추가 차단 규칙이 전역 허용 규칙을 무시하지 않는지, 전역 중요 차단이 앱별 규칙과 동일한 도메인에서 계속 우선하는지 회귀 테스트를 추가했습니다.
