@@ -1044,7 +1044,11 @@ class GuardianVpnService : VpnService() {
             }
             else -> listOf(configured, "1.1.1.1", "8.8.8.8").distinct()
         }
-        for (address in candidates) {
+        val candidateFailures = mutableListOf<String>()
+        for ((index, address) in candidates.withIndex()) {
+            // Keep each fallback candidate's diagnostic isolated so a failure
+            // from a previous server cannot be mistaken for this attempt.
+            lastUpstreamFailure = null
             val response = when (transport) {
                 "tcp" -> forwardDnsTcp(query, address)
                 "dot" -> forwardDnsOverTls(query, address)
@@ -1061,12 +1065,12 @@ class GuardianVpnService : VpnService() {
                 lastUpstreamFailure = transport.uppercase() +
                     ": resolver returned an unusable response (RCODE=" +
                     DnsUpstreamProbe.responseCode(response) + ")"
-                continue
             }
-            if (lastUpstreamFailure == null) {
-                lastUpstreamFailure = transport.uppercase() + ": DNS 응답 없음 또는 검증 실패"
-            }
+            val detail = lastUpstreamFailure
+                ?: (transport.uppercase() + ": DNS 응답 없음 또는 검증 실패")
+            candidateFailures += "${transport.uppercase()} 후보 ${index + 1}: $detail"
         }
+        lastUpstreamFailure = DnsUpstreamFailurePolicy.summarize(candidateFailures)
         return null
     }
 
