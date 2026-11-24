@@ -377,3 +377,9 @@
 - AppDnsActivityStore.snapshot()과 pending flush는 최대 200 package 항목을 읽으므로 MainActivity UI build에서 분리해 `guardian-app-dns-stats` thread로 이동했습니다.
 - 화면은 즉시 로딩 상태를 표시하고 성공/빈 데이터/오류 상태를 main thread에서 갱신합니다. Activity 종료 또는 preview view detach 이후 도착한 callback은 무시합니다.
 - Android UI/SharedPreferences thread safety, Gradle/JUnit 및 실기기 렌더링 검증은 미실행입니다.
+
+
+## 2026-11-24 — 앱별 규칙 저장 UI 비동기화
+- per-app rule 입력은 UI에서 먼저 파싱/검증하고, 저장 패키지·원문을 캡처한 뒤 `PerAppDnsPolicyStore.replaceRules`/SharedPreferences commit을 background thread로 이동했습니다.
+- 저장 중 save 버튼, 앱 selector, EditText를 잠그고 저장 성공/실패 시 UI thread에서 상태를 복원합니다. Activity 종료/preview detach 이후 callback은 무시합니다.
+- Android UI/SharedPreferences·실기기 응답성 검증은 미실행입니다.
