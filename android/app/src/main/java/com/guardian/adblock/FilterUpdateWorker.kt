@@ -20,21 +20,6 @@ class FilterUpdateWorker(
             )
         ) return Result.success()
 
-        if (!FilterUpdatePolicy.shouldContinueInitialRetry(
-                forceInitialRefresh, runAttemptCount, MAX_INITIAL_CACHE_ATTEMPTS
-            )
-        ) {
-            android.util.Log.e("Guardian", "Initial filter cache retry budget exhausted after $runAttemptCount attempts")
-            prefs.edit().putString(
-                FilterListManager.KEY_LAST_ERROR,
-                ERROR_INITIAL_CACHE_RETRY_EXHAUSTED
-            ).apply()
-            applicationContext.sendBroadcast(
-                Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
-            )
-            return Result.failure()
-        }
-
         return try {
             val now = System.currentTimeMillis()
             val interval = FilterUpdateScheduler.normalizeInterval(
@@ -47,6 +32,25 @@ class FilterUpdateWorker(
                 selectedProfileKey = selectedProfile.key,
                 cachedProfileKey = cachedProfile.key
             )
+
+            // The bounded first-install retry budget protects only the mandatory
+            // main filter cache. Once that cache is ready, an enabled optional
+            // security/Android-ads source must keep retrying independently; otherwise
+            // a transient optional-feed outage silently exhausts the shared budget.
+            if (!baseCacheReady && !FilterUpdatePolicy.shouldContinueInitialRetry(
+                    forceInitialRefresh, runAttemptCount, MAX_INITIAL_CACHE_ATTEMPTS
+                )
+            ) {
+                android.util.Log.e("Guardian", "Initial main filter cache retry budget exhausted after $runAttemptCount attempts")
+                prefs.edit().putString(
+                    FilterListManager.KEY_LAST_ERROR,
+                    ERROR_INITIAL_CACHE_RETRY_EXHAUSTED
+                ).apply()
+                applicationContext.sendBroadcast(
+                    Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
+                )
+                return Result.failure()
+            }
 
             // A retry caused by an optional list failure must not download the
             // already successful base list again. Each source has its own age.
