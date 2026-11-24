@@ -89,6 +89,19 @@ class ResponsiveLayoutPolicyTest {
     }
 
     @Test
+    fun phoneSystemBackReturnsFromSettingsDetailToCategoryIndex() {
+        assertEquals(true, ResponsiveLayoutPolicy.shouldReturnToPhoneSettingsIndex(393, "settings", true))
+        assertEquals(false, ResponsiveLayoutPolicy.shouldReturnToPhoneSettingsIndex(393, "settings", false))
+    }
+
+    @Test
+    fun settingsBackPolicyDoesNotInterceptTabletSplitPaneOrOtherTabs() {
+        assertEquals(false, ResponsiveLayoutPolicy.shouldReturnToPhoneSettingsIndex(600, "settings", true))
+        assertEquals(false, ResponsiveLayoutPolicy.shouldReturnToPhoneSettingsIndex(393, "home", true))
+        assertEquals(false, ResponsiveLayoutPolicy.shouldReturnToPhoneSettingsIndex(393, "settings-filtering", true))
+    }
+
+    @Test
     fun bottomSystemInsetHasExactlyOneOwnerForPhoneAndTabletNavigation() {
         assertEquals(false, ResponsiveLayoutPolicy.rootHandlesBottomSystemInset(393))
         assertEquals(false, ResponsiveLayoutPolicy.rootHandlesBottomSystemInset(839))
