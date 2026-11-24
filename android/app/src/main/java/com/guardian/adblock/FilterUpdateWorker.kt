@@ -13,7 +13,11 @@ class FilterUpdateWorker(
 
     override fun doWork(): Result {
         val prefs = applicationContext.getSharedPreferences(GuardianVpnService.PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)) return Result.success()
+        fun automaticUpdatesAllowed(): Boolean = SecurityProfilePolicy.shouldScheduleAutomaticUpdates(
+            prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true),
+            SecurityProfileStore.automaticUpdatesAllowed(applicationContext)
+        )
+        if (!automaticUpdatesAllowed()) return Result.success()
 
         return try {
             val now = System.currentTimeMillis()
@@ -32,6 +36,7 @@ class FilterUpdateWorker(
             )
             var baseUpdateSucceeded = false
             if (baseUpdateDue) {
+                if (!automaticUpdatesAllowed() || isStopped) return Result.success()
                 FilterListManager.update(applicationContext)
                 baseUpdateSucceeded = true
             }
@@ -42,7 +47,7 @@ class FilterUpdateWorker(
             var optionalFailure = false
             val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
             val securityCacheReady = FilterListManager.hasCachedSecurityList(applicationContext)
-            if (securityEnabled &&
+            if (securityEnabled && automaticUpdatesAllowed() && !isStopped &&
                 FilterUpdatePolicy.isDue(
                     securityCacheReady,
                     FilterListManager.lastSecurityUpdatedAt(applicationContext), interval, now
@@ -64,7 +69,7 @@ class FilterUpdateWorker(
             }
             val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
             val androidAdsCacheReady = FilterListManager.hasCachedAndroidAdsList(applicationContext)
-            if (androidAdsEnabled &&
+            if (androidAdsEnabled && automaticUpdatesAllowed() && !isStopped &&
                 FilterUpdatePolicy.isDue(
                     androidAdsCacheReady,
                     FilterListManager.lastAndroidAdsUpdatedAt(applicationContext), interval, now
