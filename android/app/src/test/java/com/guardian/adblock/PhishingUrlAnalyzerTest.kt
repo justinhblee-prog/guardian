@@ -35,6 +35,18 @@ class PhishingUrlAnalyzerTest {
         assertTrue(short.signals.contains(PhishingUrlAnalyzer.Signal.URL_SHORTENER))
     }
 
+    @Test fun onlyTheSchemeMatchingDefaultPortIsTreatedAsOrdinary() {
+        val ordinaryHttp = PhishingUrlAnalyzer.analyze("http://example.com:80/")
+        val ordinaryHttps = PhishingUrlAnalyzer.analyze("https://example.com:443/")
+        val httpsOnHttpPort = PhishingUrlAnalyzer.analyze("https://example.com:80/")
+        val httpOnHttpsPort = PhishingUrlAnalyzer.analyze("http://example.com:443/")
+
+        assertFalse(ordinaryHttp.signals.contains(PhishingUrlAnalyzer.Signal.UNUSUAL_PORT))
+        assertFalse(ordinaryHttps.signals.contains(PhishingUrlAnalyzer.Signal.UNUSUAL_PORT))
+        assertTrue(httpsOnHttpPort.signals.contains(PhishingUrlAnalyzer.Signal.UNUSUAL_PORT))
+        assertTrue(httpOnHttpsPort.signals.contains(PhishingUrlAnalyzer.Signal.UNUSUAL_PORT))
+    }
+
     @Test fun userInformationAndExecutableDownloadsRaiseRisk() {
         val result = PhishingUrlAnalyzer.analyze("http://trusted.example@192.0.2.10:8080/download.apk")
         assertTrue(result.signals.contains(PhishingUrlAnalyzer.Signal.EMBEDDED_CREDENTIALS))
