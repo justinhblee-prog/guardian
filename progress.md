@@ -472,3 +472,8 @@
 - 현재 `DnsTcpSessionManager`는 세션별 oldest outstanding 응답/FIN의 송신 시각과 재전송 횟수를 보관하며 1s→2s→4s→8s backoff를 사용합니다. 최대 5회 재전송 후 세션을 정리합니다.
 - `GuardianVpnService.packetLoop`는 250ms 간격 스케줄러로 `retransmitDue()`를 호출하고, 패킷 출력 스트림 접근을 동기화합니다. packet loop 종료 시 스케줄러를 종료합니다.
 - deterministic clock 테스트는 RTO backoff/재시도 한도와 누적 ACK 이후 기존 타이머 취소 및 다음 미확인 세그먼트 타이머 재시작을 확인합니다. 소스/테스트 정적 재조회만 수행했으며 Android Gradle/JUnit·실기기 실행은 미실행입니다.
+
+
+## 2026-11-24 — 하단 내비게이션 시스템 인셋 단일 소유
+- 휴대전화·콤팩트 태블릿에서 root와 bottomNav가 bottom system inset을 이중 반영하는 경로를 제거했습니다. bottom navigation은 839dp 이하에서만 인셋을 처리하고, navigation rail 사용 840dp 이상은 root가 처리합니다.
+- API 30+ systemBars 및 레거시 systemWindowInset 구현에 동일 정책을 적용하고 breakpoint 단위 테스트를 추가했습니다. 실제 화면/에뮬레이터 검증은 미실행입니다.
