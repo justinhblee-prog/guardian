@@ -1,10 +1,10 @@
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. Android 무료판 출시 전이며 PRO 기능은 별도 트랙에서 병행 구현 중입니다.
-- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 234 commits ahead, 0 behind.
+- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 240 commits ahead, 0 behind.
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. 실제 Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
 - **PR #290**: open, unmerged 상태를 유지합니다. 작업은 독립 branch에서 수행합니다.
-- **검증**: 최신 소스·테스트 원격 반영을 재조회했습니다. ResponsiveLayoutPolicy의 하단 인셋 단일 소유 경계 JVM smoke 4/4 통과(독립 정책 검증)이며, DNS TCP RTO/RST 최신 Android JUnit은 미실행입니다. Android Gradle/JUnit·lint·emulator·실기기 테스트는 미실행이며 APK도 아직 생성·검증되지 않았습니다.
+- **검증**: ResponsiveLayoutPolicy smoke 4/4, 앱별 정리 정책 Kotlin/JVM smoke 8/8, 최초 필터 복구 정책 Kotlin/JVM smoke 12/12 통과(모두 격리된 순수 정책 검증). 최신 DNS TCP RTO/RST 및 Android UI 소스의 Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행이며 APK도 아직 생성·검증되지 않았습니다.
 - **실행 제약**: GitHub Actions 실행, runner/billing 설정 변경 및 유료 사용량 발생 작업은 사용자 승인 없이 하지 않습니다.
 - **완료 게이트**: Android 빌드·JUnit·lint·에뮬레이터·Samsung 실기기 검증, APK 존재/크기/SHA-256/서명·설치 확인, 한국어 배포/복구 문서 확보 전에는 완료로 판정하지 않습니다.
 
@@ -598,3 +598,9 @@
 ## 2026-11-24 — 앱 업데이트 독립 설정 메뉴
 - `설정 > 앱 업데이트`를 별도 카테고리로 추가해 휴대전화 설정 목록 및 태블릿/넓은 화면 사이드바에서 직접 접근하게 했습니다. 기존 정보 화면 바로가기와 업데이트 확인·다운로드/검증·설치 기능은 유지합니다.
 - 설정 화면 상태 복원에도 `settings-updates` 경로를 포함했습니다. Android UI/emulator/실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 업데이트 설정 메뉴 및 배포 유형별 안내 정합성
+- `설정 > 앱 업데이트`를 휴대전화 메뉴/태블릿 사이드바의 독립 진입점으로 추가하고 설정 복원 경로를 연결했습니다. 정보 화면의 기존 바로가기도 유지합니다.
+- 직접 배포(direct)는 서명 manifest 검증 업데이트를 앱 안에서 확인하도록 하고, 스토어 release는 설치한 공식 스토어에서 관리된다는 문구를 표시합니다. REQUEST_INSTALL_PACKAGES 권한은 기존대로 debug/direct source manifest에만 존재하고 공통 main/release manifest에는 포함되지 않습니다.
+- 화면 소스 재조회로 메뉴·상태 복원·버튼 상태를 확인했습니다. Android UI/emulator/실기기 및 manifest merge 검증은 미실행입니다.
