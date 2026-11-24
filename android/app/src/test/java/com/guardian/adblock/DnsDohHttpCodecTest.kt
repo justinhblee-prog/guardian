@@ -5,6 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
+import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
 
 class DnsDohHttpCodecTest {
@@ -122,6 +123,26 @@ class DnsDohHttpCodecTest {
         assertArrayEquals(dnsMessage, DnsDohHttpCodec.readResponse(
             ByteArrayInputStream(responseWithTrailer("X-Meta: verified"))
         ))
+    }
+
+    @Test fun invokesReadGuardForEveryHttpParserRead() {
+        val response = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nContent-Length: 29\\r\\n\\r\\n"
+            .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
+        var guardedReads = 0
+        assertArrayEquals(
+            dnsMessage,
+            DnsDohHttpCodec.readResponse(ByteArrayInputStream(response)) { guardedReads++ }
+        )
+        assertTrue(guardedReads > response.size)
+    }
+
+    @Test(expected = SocketTimeoutException::class)
+    fun abortsResponseParsingWhenReadDeadlineExpires() {
+        val response = "HTTP/1.1 200 OK\\r\\nContent-Type: application/dns-message\\r\\nContent-Length: 29\\r\\n\\r\\n"
+            .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
+        DnsDohHttpCodec.readResponse(ByteArrayInputStream(response)) {
+            throw SocketTimeoutException("deadline")
+        }
     }
 
     @Test fun handlesStreamsThatTemporarilyReturnZeroForBulkReads() {
