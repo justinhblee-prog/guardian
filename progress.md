@@ -331,3 +331,8 @@
 
 ## 2026-11-24 — 위협 분석 분류 엔진 Kotlin/JVM 스모크
 - Security intelligence HIGH, 광고/추적 INFORMATIONAL, 사용자 규칙 UNASSESSED, unknown source UNASSESSED, evidence precedence, 허용 요청 제외를 순수 분류 로직으로 분리 실행해 7/7 통과했습니다. ThreatAnalyticsStore/Android SharedPreferences 및 단말 검증은 미실행입니다.
+
+
+## 2026-11-24 — 위협 분석 최근 이벤트 시각 정렬
+- persisted/pending summary를 합칠 때 수집 버퍼가 항상 더 최신이라고 가정하던 코드를 timestamp 내림차순 정렬로 바꿨습니다. 기기 시계 변경으로 pending timestamp가 작아져도 최근 이력이 시간순으로 표시됩니다.
+- 시계 역행 경계 테스트를 추가했습니다. Android store/실기기 시계 변경 검증은 미실행입니다.
