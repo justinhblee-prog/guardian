@@ -40,6 +40,30 @@ class ThreatAnalyticsAccumulatorTest {
         assertEquals(5L, batch.recent.last().timestampEpochMillis)
     }
 
+    @Test fun snapshotIncludesPendingEventsWithoutDrainingThem() {
+        val accumulator = ThreatAnalyticsAccumulator()
+        accumulator.add(assessment(ThreatAnalyticsEngine.Severity.HIGH, "위협 목록 일치"), 100L)
+        val snapshot = accumulator.snapshot()
+        assertEquals(1L, snapshot.high)
+        assertEquals(100L, snapshot.recent.single().timestampEpochMillis)
+        assertTrue(accumulator.hasPending)
+        assertEquals(1L, accumulator.drain().high)
+        assertFalse(accumulator.hasPending)
+    }
+
+    @Test fun repeatedSnapshotsDoNotDuplicateOrDropPendingEvents() {
+        val accumulator = ThreatAnalyticsAccumulator()
+        accumulator.add(assessment(ThreatAnalyticsEngine.Severity.HIGH, "첫 번째"), 100L)
+        val first = accumulator.snapshot()
+        val second = accumulator.snapshot()
+        assertEquals(first, second)
+        accumulator.add(assessment(ThreatAnalyticsEngine.Severity.INFORMATIONAL, "두 번째"), 200L)
+        val latest = accumulator.snapshot()
+        assertEquals(1L, latest.high)
+        assertEquals(1L, latest.informational)
+        assertEquals(listOf("두 번째", "첫 번째"), latest.recent.map { it.title })
+    }
+
     @Test fun ignoresNullAssessmentAndRejectsInvalidRecentLimit() {
         val accumulator = ThreatAnalyticsAccumulator()
         accumulator.add(null, 123L)
