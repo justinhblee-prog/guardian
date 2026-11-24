@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 /** Persists automatic profile state without storing SSIDs, BSSIDs or network identifiers. */
 internal object SecurityProfileStore {
+    const val ACTION_PROFILE_CHANGED = "com.guardian.adblock.SECURITY_PROFILE_CHANGED"
     private const val PREFS = "guardian_security_profiles_v1"
     private const val KEY_AUTO_SWITCH = "automatic_profile_switch"
     private const val KEY_ACTIVE_PROFILE = "active_profile_id"
@@ -57,10 +58,22 @@ internal object SecurityProfileStore {
             .putBoolean(FilterListManager.KEY_SECURITY_ENABLED, profile.securityFilterEnabled)
             .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, profile.androidAdsFilterEnabled)
             .apply()
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val profilePrefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val previousProfileId = profilePrefs.getString(KEY_ACTIVE_PROFILE, SecurityProfilePolicy.Id.STRICT.name)
+            ?: SecurityProfilePolicy.Id.STRICT.name
+        val previousAutomaticUpdatesAllowed = profilePrefs.getBoolean(KEY_AUTO_UPDATE_ALLOWED, false)
+        val profileStateChanged = SecurityProfilePolicy.hasProfileStateChanged(
+            previousProfileId, previousAutomaticUpdatesAllowed, profile
+        )
+        profilePrefs.edit()
             .putString(KEY_ACTIVE_PROFILE, profile.id.name)
             .putBoolean(KEY_AUTO_UPDATE_ALLOWED, profile.automaticFilterUpdates)
             .apply()
+        if (profileStateChanged) {
+            context.sendBroadcast(
+                Intent(ACTION_PROFILE_CHANGED).setPackage(context.packageName)
+            )
+        }
 
         if (changed && prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)) {
             runCatching {
