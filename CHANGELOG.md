@@ -1,3 +1,8 @@
+## 2026-11-24 — 자동 필터 갱신 허용 정책 순수 함수 분리
+
+- WorkManager 의존성을 가진 scheduler 객체에서 사용자 opt-in과 프로필 허용값의 AND gate를 순수 `FilterUpdateSchedulingPolicy`로 분리했습니다. 실제 예약/worker는 동일 helper의 정책 결과를 사용합니다.
+- 기존 정책 테스트를 Android WorkManager 구현 대신 순수 helper에 직접 연결해 독립 Kotlin/JVM 실행이 가능하도록 했습니다.
+
 ## 2026-11-24 — 보안 프로필 기반 자동 필터 갱신 스케줄러 연결
 
 - 종량제 네트워크에서 프로필이 `automaticFilterUpdates=false`를 저장했지만 WorkManager 예약/실행에는 반영되지 않던 미연결 경로를 보완했습니다.
