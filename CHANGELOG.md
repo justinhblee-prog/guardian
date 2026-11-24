@@ -1,3 +1,9 @@
+## 2026-11-24 — 보안 프로필 정책 Kotlin/JVM 회귀 검증
+
+- `SecurityProfilePolicy`의 자동 네트워크 분류, 종량제 다운로드 제한, VPN underlying network 후보 개수에 따른 fail-closed 동작 및 수동 프로필 정책을 Kotlin/JVM harness로 컴파일·실행했습니다.
+- PASS 16/16: unknown/trusted Wi-Fi, captive portal, unvalidated, roaming 우선순위, cellular, metered/unmetered, trusted Ethernet, OTHER/UNKNOWN strict, 물리 후보 0/1/2/negative 판정, 6개 수동 프로필 모두 automatic filter downloads disabled.
+- 이는 순수 정책 로직 검증이며 Android ConnectivityManager callback, Guardian VPN 활성 중 `allNetworks`, 실제 OEM Wi-Fi/cellular handover, Android Gradle/JUnit 및 실기기 검증은 아닙니다.
+
 ## 2026-11-24 — VPN 자동 프로필의 물리 네트워크 오분류 방지
 
 - VPN이 기본 네트워크로 보고될 때 `ConnectivityManager.allNetworks`에서 validated/Wi-Fi/not-metered 점수가 가장 높은 항목을 실제 기본 물리 경로로 간주하던 로직을 제거했습니다. 여러 물리 네트워크가 동시에 연결된 경우 보조 네트워크를 잘못 선택할 수 있었습니다.
