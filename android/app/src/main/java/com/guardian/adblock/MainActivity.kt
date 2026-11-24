@@ -947,7 +947,7 @@ class MainActivity : Activity() {
         val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
         val chartCard = card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("차단 활동 그래프", 14f, white, true))
+            addView(text("DNS 처리 결과 그래프", 14f, white, true))
             activityChart = ActivityStatsChart()
             addView(activityChart, LinearLayout.LayoutParams(-1, dp(178)).apply { topMargin = dp(12) })
             val categories = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
@@ -4040,7 +4040,9 @@ class MainActivity : Activity() {
         adBlockedValue?.text = String.format(Locale.getDefault(), "%,d", adCount)
         trackerBlockedValue?.text = String.format(Locale.getDefault(), "%,d", trackerCount)
         savedDataValue?.text = estimatedSavedDataLabel(blockedQueries)
-        activityChart?.update(adCount, trackerCount, otherCount, prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))
+        activityChart?.update(adCount, trackerCount, otherCount,
+            prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L))
         recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
         diagnosticText?.text = "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}"
         updateCompatibilityPauseStatus()
@@ -4193,15 +4195,16 @@ class MainActivity : Activity() {
             textSize = dp(11).toFloat()
             typeface = Typeface.DEFAULT
         }
-        private val values = LongArray(4)
-        private val labels = arrayOf("광고 차단", "추적 차단", "기타 차단", "정상 전달")
-        private val colors = intArrayOf(Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), accent, muted)
+        private val values = LongArray(5)
+        private val labels = arrayOf("광고 차단", "추적 차단", "기타 차단", "정상 전달", "업스트림 실패")
+        private val colors = intArrayOf(Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), accent, muted, Color.rgb(255, 105, 105))
 
-        fun update(ads: Long, trackers: Long, other: Long, forwarded: Long) {
+        fun update(ads: Long, trackers: Long, other: Long, forwarded: Long, failed: Long) {
             values[0] = ads.coerceAtLeast(0L)
             values[1] = trackers.coerceAtLeast(0L)
             values[2] = other.coerceAtLeast(0L)
             values[3] = forwarded.coerceAtLeast(0L)
+            values[4] = failed.coerceAtLeast(0L)
             invalidate()
         }
 
@@ -4211,7 +4214,7 @@ class MainActivity : Activity() {
             val labelWidth = dp(76).toFloat()
             val rightPadding = dp(38).toFloat()
             val barWidth = (width - labelWidth - rightPadding).coerceAtLeast(dp(20).toFloat())
-            val rowHeight = height / 4f
+            val rowHeight = height / values.size.toFloat()
             for (i in values.indices) {
                 val top = i * rowHeight + dp(7)
                 textPaint.color = muted
