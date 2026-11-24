@@ -971,7 +971,9 @@ class DnsTcpSessionManagerTest {
         val ack = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
             acknowledgment = (serverStart + firstSize) and 0xffffffffL)
         assertTrue(manager.handle(ack, ack.size) { null }.isEmpty())
-        now = 1_001L
+        now = 1_999L
+        assertTrue(manager.retransmitDue().isEmpty())
+        now = 2_000L
         assertArrayEquals(sent[1], manager.retransmitDue().single())
     }
 
