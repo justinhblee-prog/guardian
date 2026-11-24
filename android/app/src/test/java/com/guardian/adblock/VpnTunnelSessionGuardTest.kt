@@ -5,6 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 class VpnTunnelSessionGuardTest {
@@ -62,12 +63,13 @@ class VpnTunnelSessionGuardTest {
         val cleanupEntered = CountDownLatch(1)
         val allowCleanupToFinish = CountDownLatch(1)
         val newSessionActivated = CountDownLatch(1)
+        val cleanupWaitSucceeded = AtomicBoolean(false)
         guard.activate(10L) {}
 
         val oldLoop = thread(name = "test-old-vpn-loop") {
             assertTrue(guard.release(10L) {
                 cleanupEntered.countDown()
-                assertTrue(allowCleanupToFinish.await(2, TimeUnit.SECONDS))
+                cleanupWaitSucceeded.set(allowCleanupToFinish.await(2, TimeUnit.SECONDS))
             })
         }
         assertTrue(cleanupEntered.await(2, TimeUnit.SECONDS))
@@ -82,6 +84,7 @@ class VpnTunnelSessionGuardTest {
 
         assertFalse(oldLoop.isAlive)
         assertFalse(newStart.isAlive)
+        assertTrue(cleanupWaitSucceeded.get())
         assertTrue(newSessionActivated.count == 0L)
         assertTrue(guard.isOwner(11L))
     }
