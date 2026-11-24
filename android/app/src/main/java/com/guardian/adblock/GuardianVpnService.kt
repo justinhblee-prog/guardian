@@ -1147,7 +1147,7 @@ class GuardianVpnService : VpnService() {
                 // Do not release a gate already handed to a newer worker after a
                 // normal completion. Unexpected exits release ownership and retain
                 // at most one coalesced follow-up request.
-                if (!completedNormally && ruleReloadGate.releaseAfterFailure() && running.get()) {
+                if (!completedNormally && ruleReloadGate.releaseAfterFailure(running.get())) {
                     requestRuleReload()
                 }
             }
