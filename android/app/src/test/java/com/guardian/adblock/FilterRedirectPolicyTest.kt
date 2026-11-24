@@ -28,6 +28,12 @@ class FilterRedirectPolicyTest {
         assertNull(FilterRedirectPolicy.resolve(base, 302, "https://user:pass@example.com/filter.txt", 0))
     }
 
+    @Test fun rejectsNonStandardTlsPortsAndFragments() {
+        assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com:8443/filter.txt", 0))
+        assertNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/filter.txt#section", 0))
+        assertNotNull(FilterRedirectPolicy.resolve(base, 302, "https://example.com/filter.txt", 0))
+    }
+
     @Test fun rejectsMissingLocationAndUnsupportedStatus() {
         assertNull(FilterRedirectPolicy.resolve(base, 302, null, 0))
         assertNull(FilterRedirectPolicy.resolve(base, 304, "https://example.com/filter.txt", 0))
