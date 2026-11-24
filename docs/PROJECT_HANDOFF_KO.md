@@ -259,3 +259,25 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
   - PASS: 20,000 concurrent start/cancel/commit attempts remain serialized (커밋 9,411회, 거부 10,589회)
 - 테스트 파일은 저장소에 반영했지만 Android JUnit/Gradle로 실행한 결과는 아닙니다. 하네스는 Android Service lifecycle, Android VpnService.Builder, foreground service 정책 또는 실제 TUN descriptor 동작을 검증하지 않습니다.
 - **검증 잔여:** Android 전체 컴파일 및 JUnit/Lint, APK 빌드, 에뮬레이터/실기기의 빠른 시작-중지 반복, 시작 중 취소, sticky 재시작, 자동 일시중지와 재개 동시 실행은 통합 QA 단계에서 실행해야 합니다. GitHub Actions는 실행하지 않았습니다.
+
+
+## Android VPN 시작 DNS 사전검사 취소 및 소켓 정리 (2026-11-25)
+
+### 확인된 문제와 수정
+- 이전에는 시작 세대가 취소되어도 DNS 사전검사 함수가 반환될 때까지 이전 resolver socket이 최대 8초의 전체 질의 제한시간 동안 살아 있을 수 있었습니다. 결과를 받은 뒤 세대를 검사해 오래된 TUN 커밋은 막았지만, 중지/새 시작에 대한 네트워크 작업 자체는 즉시 취소되지 않았습니다.
+- 시작 전용 DnsQueryDeadline 참조를 서비스에 추가했습니다. 새 시작 세대 발급, 명시적 중지, 자동 호환성 일시중지 및 앱 제외 재구성 시 이전 preflight deadline을 취소합니다.
+- DnsQueryDeadline.cancel()은 해당 질의에 등록된 현재 UDP/TCP/DoT/DoH 소켓을 닫고, 남은 시간 검사를 실패시켜 다음 resolver 후보가 시작되지 않게 합니다. 소켓 등록과 취소가 동시에 일어나는 경우에도 늦게 등록된 소켓을 즉시 닫도록 했습니다.
+- deadline watchdog 등록과 취소가 교차하는 경합도 보강했습니다. CopyOnWriteArrayList를 Kotlin toList()로 인덱싱하는 기존 보조 구현에서 실제 동시 제거 시 ArrayIndexOutOfBoundsException이 발생하는 것을 20,000회 하네스에서 발견했고, 안정적인 iterator 순회로 수정했습니다. watchdog 미래 작업도 취소 경합에서 정리되도록 했습니다.
+- 일반 패킷 처리의 DNS 쿼리는 기존 8초 전체 예산을 그대로 사용합니다. 서비스 시작 preflight만 외부에서 소유한 취소 가능한 deadline을 전달합니다. 이전 시작의 finally는 compareAndSet으로 자기 deadline만 제거하므로 새 참조를 지우지 않습니다.
+
+### 테스트 및 실행 결과
+- DnsQueryDeadlineTest에 다음을 추가했습니다.
+  - 명시적 취소가 등록된 소켓을 즉시 닫는지
+  - 이미 취소된 deadline에 늦게 등록된 소켓도 닫히는지
+  - 취소와 소켓 등록 경합에서 close callback이 정확히 한 번 실행되는지(100회)
+- 실제 DnsQueryDeadline 순수 Kotlin 구현을 kotlinc로 컴파일하고 JVM 하네스를 실행했습니다.
+  - PASS: explicit cancellation closes active upstream socket immediately
+  - PASS: socket registered after cancellation is closed exactly once
+  - PASS: 20,000 concurrent cancel/socket-registration races close exactly once
+- 이 하네스는 순수 Kotlin deadline/소켓 정리 동작만 검증합니다. Android VpnService lifecycle, 실제 기기 네트워크 변경, VPN 소켓 보호 동작 또는 DNS upstream 연결성은 검증하지 않습니다.
+- Android Gradle/JUnit/Lint/APK/에뮬레이터/실기기 검증은 아직 실행하지 않았습니다. GitHub Actions도 실행하지 않았습니다.
