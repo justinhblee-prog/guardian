@@ -71,7 +71,7 @@ object FilterRuleParser {
                             // Some generated hosts files accidentally repeat the sink
                             // address as an alias. It is not a DNS hostname and must not
                             // become a synthetic rule for a numeric reverse lookup.
-                            if (host != "localhost" && !isIpv4Address(host) &&
+                            if (host != "localhost" && !isIpv4AddressLike(host) &&
                                 addDomain(host, blocked)
                             ) added = true
                         }
@@ -121,7 +121,7 @@ object FilterRuleParser {
         return normalize(host, requireDomainName = true)
     }
 
-    private fun isIpv4Address(value: String): Boolean {
+    private fun isIpv4AddressLike(value: String): Boolean {
         val octets = value.split('.')
         return octets.size == 4 && octets.all { part ->
             part.isNotEmpty() && part.length <= 3 &&
