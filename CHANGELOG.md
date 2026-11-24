@@ -1,3 +1,9 @@
+## 2026-11-24 — APK ZIP 중앙 디렉터리·EOCD 종료 검증
+
+- `ZipInputStream`은 local file header만으로 항목을 읽고 ZIP 중앙 디렉터리/EOCD가 누락된 잘린 아카이브도 끝까지 읽은 것처럼 반환할 수 있었습니다.
+- 입력 스트림 끝의 최대 ZIP comment 포함 65,557바이트를 제한적으로 추적하고, EOF까지 남은 바이트를 읽은 뒤 EOCD signature/comment length·단일 디스크·중앙 디렉터리 항목 수·central directory offset/size의 EOF 직전 연속성을 확인하도록 강화했습니다. ZIP64 sentinel은 현재 APK 검사 상한과 맞지 않아 거부합니다.
+- 정상 APK 픽스처 외에 EOCD 제거, comment length 변조, EOCD 뒤 trailing bytes가 있는 파일을 거부하는 테스트를 추가했습니다. Android SAF/실제 APK 통합 검증은 미실행입니다.
+
 ## 2026-11-24 — 비표준 숫자 IPv4 호스트 거부
 
 - URL 호스트를 일반 DNS 이름으로 받아들일 수 있던 정수형·16진수형·축약형 IPv4 표현을 식별하도록 보강했습니다.
