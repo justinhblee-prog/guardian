@@ -774,7 +774,7 @@ class GuardianVpnService : VpnService() {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         synchronized(DNS_STATS_LOCK) {
             prefs.edit()
-                .putLong(KEY_DNS_IGNORED, prefs.getLong(KEY_DNS_IGNORED, 0L) + 1L)
+                .putLong(KEY_DNS_IGNORED, DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_IGNORED, 0L)))
                 .putString(KEY_DNS_DIAGNOSTIC, reason)
                 .apply()
         }
@@ -789,17 +789,17 @@ class GuardianVpnService : VpnService() {
     private fun recordDnsActivity(domain: String, blocked: Boolean, forwarded: Boolean) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         synchronized(DNS_STATS_LOCK) {
-            val queries = prefs.getLong(KEY_DNS_QUERIES, 0L) + 1L
-            val blockedCount = prefs.getLong(KEY_DNS_BLOCKED, 0L) + if (blocked) 1L else 0L
-            val forwardedCount = prefs.getLong(KEY_DNS_FORWARDED, 0L) + if (forwarded) 1L else 0L
-            val failedCount = prefs.getLong(KEY_DNS_FAILED, 0L) + if (!blocked && !forwarded) 1L else 0L
+            val queries = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_QUERIES, 0L))
+            val blockedCount = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_BLOCKED, 0L), if (blocked) 1L else 0L)
+            val forwardedCount = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_FORWARDED, 0L), if (forwarded) 1L else 0L)
+            val failedCount = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_FAILED, 0L), if (!blocked && !forwarded) 1L else 0L)
             val category = if (blocked) DomainFilter.classifyBlockedDomain(domain) else null
-            val adBlocked = prefs.getLong(KEY_DNS_AD_BLOCKED, 0L) +
-                if (category == DomainFilter.BlockCategory.AD) 1L else 0L
-            val trackerBlocked = prefs.getLong(KEY_DNS_TRACKER_BLOCKED, 0L) +
-                if (category == DomainFilter.BlockCategory.TRACKER) 1L else 0L
-            val otherBlocked = prefs.getLong(KEY_DNS_OTHER_BLOCKED, 0L) +
-                if (category == DomainFilter.BlockCategory.OTHER) 1L else 0L
+            val adBlocked = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_AD_BLOCKED, 0L),
+                if (category == DomainFilter.BlockCategory.AD) 1L else 0L)
+            val trackerBlocked = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_TRACKER_BLOCKED, 0L),
+                if (category == DomainFilter.BlockCategory.TRACKER) 1L else 0L)
+            val otherBlocked = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_OTHER_BLOCKED, 0L),
+                if (category == DomainFilter.BlockCategory.OTHER) 1L else 0L)
             val outcome = when {
                 blocked -> "차단"
                 forwarded -> "전달"
