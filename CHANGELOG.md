@@ -1,3 +1,10 @@
+## 2026-11-24 — DEX 041 논리 헤더 전체 순회 및 개수 정합성
+
+- 이전 041 검사는 첫 컨테이너 헤더만 확인하고 ZIP 엔트리 수를 DEX 파일 수로 표시했습니다. 여러 논리 DEX가 한 컨테이너에 들어가는 경우 실제 논리 파일 수가 잘못 표시되고 후속 헤더 오프셋/크기 손상도 확인하지 못했습니다.
+- 이제 container_size를 기준으로 모든 논리 헤더를 순회하며 041 magic/version, endian tag, 0x78 header_size, 각 logical file_size 범위, 공통 container_size 및 현재 위치와 일치하는 header_offset을 검증합니다. `Result.dexCount`는 ZIP DEX 엔트리 수가 아니라 검증된 논리 DEX 헤더 수를 반영합니다.
+- 두 논리 DEX의 정상 container 결과 count=2, 두 번째 헤더의 잘못된 header_offset 거부 회귀 테스트를 추가했습니다. 여전히 DEX section/class/code item 검증이나 전체 bytecode verifier는 아닙니다.
+- Android Gradle/JUnit·실제 APK 검증은 미실행입니다.
+
 ## 2026-11-24 — DEX 041 논리 파일 크기 경계 테스트
 
 - DEX 041 컨테이너에서 첫 논리 DEX의 `file_size`가 물리 컨테이너보다 작은 합법적인 형식을 검증하는 fixture를 추가했습니다. 두 논리 DEX header의 container_size와 header_offset을 컨테이너 전체/각 시작 위치에 맞춰 생성합니다.
