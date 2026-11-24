@@ -86,7 +86,13 @@ class DnsTcpSessionManager(
         // Every segment after the SYN handshake must carry ACK. Ignore
         // malformed ACK-less data/FIN so it cannot mutate the DNS stream.
         if (!tcp.ack) return emptyList()
-        // A client cannot acknowledge server sequence space that Guardian has
+        // A future client sequence is outside the in-order receive point. Do not
+        // accept its ACK field: otherwise an out-of-order segment can falsely
+        // acknowledge response bytes and remove packets needed for retransmission.
+        if (sequenceAfter(tcp.sequence, session.clientNext)) {
+            return listOf(ack(tcp, session))
+        }
+        // A client cannot acknowledge server sequence space that Guardian has server sequence space that Guardian has
         // not transmitted. Reject future ACKs before accepting any DNS payload;
         // otherwise an invalid segment can mutate the request stream state.
         if (sequenceAfter(tcp.acknowledgement, session.serverNext)) {
