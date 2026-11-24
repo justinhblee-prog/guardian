@@ -83,6 +83,16 @@ class FilterUpdateWorker(
                         editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
                     }
                     editor.apply()
+                } catch (e: LinkageError) {
+                    optionalFailure = securityCacheReady
+                    val editor = prefs.edit().putString(
+                        FilterListManager.KEY_SECURITY_LAST_ERROR,
+                        SafeFailureSummary.codeFor(e)
+                    )
+                    if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityEnabled, securityCacheReady)) {
+                        editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                    }
+                    editor.apply()
                 }
             }
             val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
@@ -96,6 +106,16 @@ class FilterUpdateWorker(
                     FilterListManager.updateAndroidAds(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                 } catch (e: Exception) {
+                    optionalFailure = optionalFailure || androidAdsCacheReady
+                    val editor = prefs.edit().putString(
+                        FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
+                        SafeFailureSummary.codeFor(e)
+                    )
+                    if (FilterUpdatePolicy.shouldDisableOptionalFilter(androidAdsEnabled, androidAdsCacheReady)) {
+                        editor.putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false)
+                    }
+                    editor.apply()
+                } catch (e: LinkageError) {
                     optionalFailure = optionalFailure || androidAdsCacheReady
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
@@ -123,16 +143,29 @@ class FilterUpdateWorker(
             )
             if (optionalFailure) Result.retry() else Result.success()
         } catch (e: Exception) {
-            android.util.Log.e("Guardian", "Scheduled filter update failed: ${SafeFailureSummary.codeFor(e)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(e)}")
-            prefs.edit().putString(
-                FilterListManager.KEY_LAST_ERROR,
-                SafeFailureSummary.codeFor(e)
-            ).apply()
-            applicationContext.sendBroadcast(
-                Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
-            )
+            recordScheduledFailure(prefs, e)
+            Result.retry()
+        } catch (e: LinkageError) {
+            recordScheduledFailure(prefs, e)
             Result.retry()
         }
+    }
+
+    private fun recordScheduledFailure(
+        prefs: android.content.SharedPreferences,
+        error: Throwable
+    ) {
+        android.util.Log.e(
+            "Guardian",
+            "Scheduled filter update failed: ${SafeFailureSummary.codeFor(error)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(error)}"
+        )
+        prefs.edit().putString(
+            FilterListManager.KEY_LAST_ERROR,
+            SafeFailureSummary.codeFor(error)
+        ).apply()
+        applicationContext.sendBroadcast(
+            Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
+        )
     }
 
     companion object {
