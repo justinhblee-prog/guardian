@@ -830,3 +830,8 @@
 - 검증: 원격 UI 소스와 문서 반영 확인. Android 컴파일/테스트 및 화면 실기기 검증은 미실행입니다.
 
 - DNS 통계 화면에 실패(SERVFAIL)와 무시(형식/질문 검증 실패)의 의미를 설명해 두 수치가 혼동되지 않도록 했습니다.
+
+
+### 2026-11-24 — Reject reserved DNS response flags
+- Upstream DNS response validation now rejects the reserved Z bit while continuing to accept legitimate AD/CD response flags.
+- Added a regression test proving a matching response is accepted and the same response with the reserved Z bit is rejected.
