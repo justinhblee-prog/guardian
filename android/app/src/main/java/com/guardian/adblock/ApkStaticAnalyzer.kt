@@ -31,6 +31,8 @@ internal object ApkStaticAnalyzer {
     private const val MAX_DEX = 64L * 1024 * 1024
     private const val MAX_ENTRIES = 10_000
     private const val DEX_HEADER_SIZE = 0x70
+    private const val DEX_041_HEADER_SIZE = 0x78
+    private val supportedDexVersions = setOf("035", "037", "038", "039", "040", "041")
     private val dexName = Regex("classes(?:[2-9]|[1-9][0-9]+)?\\.dex")
 
     fun analyze(input: InputStream): Result {
@@ -98,16 +100,25 @@ internal object ApkStaticAnalyzer {
     private fun hasValidDexHeader(bytes: ByteArray): Boolean {
         if (bytes.size < DEX_HEADER_SIZE) return false
         if (!bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(100, 101, 120, 10))) return false
-        if ((4..6).any { bytes[it].toInt() !in 0x30..0x39 } || bytes[7].toInt() != 0) return false
+        val version = String(bytes, 4, 3, Charsets.US_ASCII)
+        if (bytes[7].toInt() != 0 || version !in supportedDexVersions) return false
         val endianTag = littleEndianInt(bytes, 40)
         val littleEndian = when (endianTag) {
             0x12345678 -> true
             0x78563412 -> false
             else -> return false
         }
-        val declaredFileSize = headerInt(bytes, 32, littleEndian)
+        val declaredFileSize = headerInt(bytes, 32, littleEndian).toLong() and 0xffffffffL
         val headerSize = headerInt(bytes, 36, littleEndian)
-        return declaredFileSize == bytes.size && headerSize == DEX_HEADER_SIZE
+        return if (version == "041") {
+            if (headerSize != DEX_041_HEADER_SIZE || bytes.size < DEX_041_HEADER_SIZE) return false
+            val containerSize = headerInt(bytes, 112, littleEndian).toLong() and 0xffffffffL
+            val headerOffset = headerInt(bytes, 116, littleEndian).toLong() and 0xffffffffL
+            declaredFileSize in DEX_041_HEADER_SIZE.toLong()..bytes.size.toLong() &&
+                containerSize == bytes.size.toLong() && headerOffset == 0L
+        } else {
+            headerSize == DEX_HEADER_SIZE && declaredFileSize == bytes.size.toLong()
+        }
     }
 
     private fun headerInt(bytes: ByteArray, offset: Int, littleEndian: Boolean): Int {
