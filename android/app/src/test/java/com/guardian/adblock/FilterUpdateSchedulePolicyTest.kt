@@ -6,6 +6,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FilterUpdateSchedulePolicyTest {
+    @Test fun recurringUpdatesRequireBothUserOptInAndProfilePermission() {
+        assertTrue(FilterUpdateScheduler.shouldSchedule(userOptedIn = true, profileAllowsUpdates = true))
+        assertFalse(FilterUpdateScheduler.shouldSchedule(userOptedIn = false, profileAllowsUpdates = true))
+        assertFalse(FilterUpdateScheduler.shouldSchedule(userOptedIn = true, profileAllowsUpdates = false))
+        assertFalse(FilterUpdateScheduler.shouldSchedule(userOptedIn = false, profileAllowsUpdates = false))
+    }
+
+    @Test fun mandatoryInitialFilterPopulationIsNotGatedByProfileUpdatePermission() {
+        assertTrue(FilterStartupPolicy.shouldRefresh(
+            mainCacheMissing = true,
+            securityCacheMissing = false,
+            securityEnabled = true,
+            androidAdsCacheMissing = false,
+            androidAdsEnabled = true,
+            scheduledRefreshDue = false
+        ))
+    }
+
     @Test fun firstRunFilterSetupRunsEvenWhenAutomaticUpdatesAreDisabled() {
         assertTrue(
             FilterStartupPolicy.shouldRefresh(
