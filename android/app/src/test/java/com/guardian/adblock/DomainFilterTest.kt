@@ -361,4 +361,17 @@ class DomainFilterTest {
         }
     }
 
+    @Test fun rejectsUpstreamDnsResponseWithReservedZFlag() {
+        val query = DnsProbe.buildQuery("example.com")
+        val validResponse = query.copyOf().also {
+            it[2] = 0x81.toByte() // QR + RD
+            it[3] = 0x80.toByte() // RA
+        }
+        assertTrue(DomainFilter.isMatchingResponse(query, validResponse))
+        val reservedFlagResponse = validResponse.copyOf().also {
+            it[3] = (it[3].toInt() or 0x40).toByte()
+        }
+        assertFalse(DomainFilter.isMatchingResponse(query, reservedFlagResponse))
+    }
+
 }
