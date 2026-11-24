@@ -595,3 +595,6 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 
 
 - TUN 커밋 이후 상태 게시/패킷 스레드 시작 실패 시 해당 세션을 롤백하는 처리를 추가했습니다. 이 변경은 코드 검토 반영이며 Android 빌드·실기기 검증은 미실행입니다.
+
+
+- 취소된 VPN 시작 작업의 지연된 오류가 새 시작 요청의 TUN/상태/foreground 알림을 정리할 수 있는 경합을 보완했습니다. 시작 세대 게이트로 실패 게시 및 descriptor 정리를 직렬화하고 회귀 테스트 2개를 추가했습니다. Android Gradle/JUnit 및 기기 검증은 미실행입니다.
