@@ -44,6 +44,11 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_premium_entry(xml)
 
+    def test_hidden_legacy_premium_tab_is_not_a_navigation_route(self):
+        xml = '<hierarchy><node content-desc="Premium" clickable="true" enabled="true" visible-to-user="false" /></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_premium_entry(xml)
+
     def test_english_premium_category_label_is_supported(self):
         xml = '<hierarchy><node text="라이선스 및 Premium" /></hierarchy>'
         self.assertEqual(resolve_premium_category(xml), "라이선스 및 Premium")
