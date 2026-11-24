@@ -359,3 +359,8 @@
 ## 2026-11-24 — 앱별 정책 캐시 읽기/저장 직렬화
 - cache miss 시 읽은 오래된 SharedPreferences 값이 동시 규칙 저장 후 새 cache를 덮어쓸 수 있는 race를 수정했습니다. `rules()` 읽기에도 같은 store synchronization을 적용해 read/replace/prune/clear를 직렬화합니다.
 - Android SharedPreferences/packet thread/UI thread 동시 실행 검증은 미실행입니다.
+
+
+## 2026-11-24 — 런처 보완 조회 시 앱 데이터 정리 차단
+- 설치 앱 기본/교차 조회가 일치해도 launcher fallback에서 추가 앱이 보이면 inventory가 부분 목록일 수 있으므로 authoritative cleanup을 금지합니다.
+- launcherFallbackCount가 0일 때만 destructive cleanup을 허용하도록 하고, 추가 발견 앱 1개인 경우 삭제 금지 테스트를 추가했습니다.
