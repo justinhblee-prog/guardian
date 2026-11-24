@@ -100,8 +100,12 @@ internal object GuardianStableUpdateManager {
         require(update.signerSha256 == installedSignerSha256(context)) {
             "정식 업데이트 서명 인증서가 현재 설치된 앱과 다릅니다. 기존 개발판에서 정식판으로 전환하려면 백업 후 정식 APK를 새로 설치해야 합니다."
         }
-        val directory = File(context.cacheDir, GuardianUpdateCachePaths.STABLE_DIRECTORY).apply { mkdirs() }
+        val directory = File(context.cacheDir, GuardianUpdateCachePaths.STABLE_DIRECTORY).apply {
+            check(isDirectory || mkdirs()) { "정식 업데이트 캐시 디렉터리를 만들 수 없습니다." }
+        }
         val target = File(directory, "guardian-${update.versionCode}.apk")
+        val temporary = File(directory, ".guardian-${update.versionCode}.apk.part")
+        temporary.delete()
         val connection = openAllowedHttpsConnection(
             update.apkUrl, 15000, 45000, "application/octet-stream", ::isAllowedReleaseDownloadUrl
         )
@@ -113,7 +117,7 @@ internal object GuardianStableUpdateManager {
             val expectedLength = connection.contentLengthLong
             check(expectedLength in 1..MAX_APK_BYTES) { "정식 APK 파일 크기가 허용 범위를 벗어났습니다." }
             connection.inputStream.use { input ->
-                FileOutputStream(target).use { output ->
+                FileOutputStream(temporary).use { output ->
                     val buffer = ByteArray(64 * 1024); var total = 0L
                     while (true) {
                         val count = input.read(buffer); if (count < 0) break
@@ -125,22 +129,16 @@ internal object GuardianStableUpdateManager {
                     check(total == expectedLength) { "정식 APK 다운로드 크기가 일치하지 않습니다." }
                 }
             }
-        } catch (error: Exception) {
-            target.delete(); throw error
-        } finally { connection.disconnect() }
-
-        if (!sha256(target).equals(update.sha256, ignoreCase = true)) {
-            target.delete(); error("다운로드한 정식 APK의 SHA-256 검증에 실패했습니다.")
+            check(sha256(temporary).equals(update.sha256, ignoreCase = true)) {
+                "다운로드한 정식 APK의 SHA-256 검증에 실패했습니다."
+            }
+            verifyDownloadedPackage(context, temporary, update)
+            GuardianApkCacheStore.commit(temporary, target)
+            return target
+        } finally {
+            connection.disconnect()
+            temporary.delete()
         }
-        try {
-            verifyDownloadedPackage(context, target, update)
-        } catch (error: Exception) {
-            // A correctly hashed but invalid package/signature must not remain
-            // in the installable update cache after verification fails.
-            target.delete()
-            throw error
-        }
-        return target
     }
 
     fun install(context: Context, apk: File): Boolean {
