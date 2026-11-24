@@ -297,3 +297,7 @@
 - `FilterUpdateWorker.doWork` 시작 시에도 프로필 gate를 재검사해 취소와 실행 사이의 경합을 방어합니다. profile update permission 변경 시에만 scheduler를 동기화합니다.
 - first-run missing-cache population은 별도 FilterStartupPolicy에 남겨 recurring update gate에 의해 차단되지 않음을 테스트합니다.
 - 정책 JUnit 테스트 소스 추가/수정은 완료. Android Gradle/JUnit·WorkManager 통합/실기기 네트워크 전환 검증은 미실행입니다.
+
+
+## 2026-11-24 — FilterUpdateSchedulingPolicy 분리
+- 반복 필터 갱신의 이중 허용 조건을 순수 FilterUpdateSchedulingPolicy로 분리하고 scheduler와 JUnit에서 공유합니다. Android WorkManager 호출은 scheduler에 유지합니다.
