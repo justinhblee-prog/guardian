@@ -20,6 +20,21 @@ class GuardianStableUpdatePolicyTest {
         assertFalse(GuardianStableUpdatePolicy.isNewerVersion(30, 29))
     }
 
+    @Test fun acceptsUnknownStreamingLengthButEnforcesActualByteBounds() {
+        val maximum = 150L * 1024L * 1024L
+        assertTrue(GuardianStableUpdatePolicy.isAcceptableDownloadLength(-1L, maximum))
+        assertTrue(GuardianStableUpdatePolicy.isAcceptableDownloadLength(1024L, maximum))
+        assertFalse(GuardianStableUpdatePolicy.isAcceptableDownloadLength(0L, maximum))
+        assertFalse(GuardianStableUpdatePolicy.isAcceptableDownloadLength(maximum + 1L, maximum))
+        assertFalse(GuardianStableUpdatePolicy.isAcceptableDownloadLength(-1L, 0L))
+
+        assertTrue(GuardianStableUpdatePolicy.matchesDownloadedLength(-1L, 1024L, maximum))
+        assertTrue(GuardianStableUpdatePolicy.matchesDownloadedLength(1024L, 1024L, maximum))
+        assertFalse(GuardianStableUpdatePolicy.matchesDownloadedLength(2048L, 1024L, maximum))
+        assertFalse(GuardianStableUpdatePolicy.matchesDownloadedLength(-1L, 0L, maximum))
+        assertFalse(GuardianStableUpdatePolicy.matchesDownloadedLength(-1L, maximum + 1L, maximum))
+    }
+
     @Test fun semanticReleaseOrderingDoesNotDependOnGithubPublicationOrder() {
         assertTrue(GuardianStableUpdatePolicy.compareVersionTags("v1.10.0", "v1.9.9") > 0)
         assertTrue(GuardianStableUpdatePolicy.compareVersionTags("v2.0.0", "v1.99.99") > 0)
