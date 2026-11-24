@@ -353,6 +353,7 @@ jobs:
           SIGNER_SHA256='edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c'
           cat > release/guardian-android-dev.json <<EOF
           {
+            "manifestVersion": 1,
             "packageName": "com.guardian.adblock",
             "versionName": "${GUARDIAN_VERSION_NAME}",
             "versionCode": ${GUARDIAN_VERSION_CODE},
@@ -371,10 +372,11 @@ jobs:
           import hashlib, json, pathlib, re
           apk = pathlib.Path("android/app/build/outputs/apk/debug/app-debug.apk")
           manifest = json.loads(pathlib.Path("release/guardian-android-dev.json").read_text())
+          assert manifest["manifestVersion"] == 1
           assert manifest["packageName"] == "com.guardian.adblock"
           assert manifest["versionCode"] == int("${{ env.GUARDIAN_VERSION_CODE }}")
           assert manifest["versionName"] == "${{ env.GUARDIAN_VERSION_NAME }}"
-          assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-dev", manifest["versionName"])
+          assert re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-dev", manifest["versionName"])
           assert manifest["sha256"] == hashlib.sha256(apk.read_bytes()).hexdigest()
           assert manifest["signerSha256"] == "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
           print("Development update manifest exactly matches the built APK.")
