@@ -356,6 +356,33 @@ class ProtectionDiagnosticsTest {
         assertTrue(!report.contains("bad code with spaces"))
     }
 
+    @Test fun supportDiagnosticsIncludeSafeDnsSummaryWithoutResolverAddressOrUrl() {
+        val report = ProtectionDiagnostics.supportReport(
+            appVersion = "1.0",
+            androidRelease = "15",
+            apiLevel = 35,
+            protectionActive = true,
+            bundledRuleAssetAvailable = true,
+            selectedProfile = "adguard",
+            baseCacheBytes = 100L,
+            securityFilterEnabled = false,
+            securityCacheBytes = 0L,
+            androidAdsFilterEnabled = false,
+            androidAdsCacheBytes = 0L,
+            autoUpdateEnabled = true,
+            updateIntervalHours = 24L,
+            hasBaseUpdateTimestamp = true,
+            signedFilterDeliveryConfigured = false,
+            licenseApiConfigured = false,
+            filterUpdateErrorPresent = false,
+            lastDnsDiagnostic = "업스트림 DNS 오류: DoT 후보 1 (203.0.113.8): https://resolver.private.invalid"
+        )
+        assertTrue(report.contains("마지막 DNS 진단: 업스트림 DNS 실패 (DOT)"))
+        assertTrue(!report.contains("203.0.113.8"))
+        assertTrue(!report.contains("resolver.private.invalid"))
+        assertTrue(!report.contains("https://"))
+    }
+
     @Test fun recentErrorCopyIncludesSafeDnsDiagnosticWithoutLeakingResolverDetails() {
         val report = ProtectionDiagnostics.recentErrorReport(
             lastServiceStatus = null,
