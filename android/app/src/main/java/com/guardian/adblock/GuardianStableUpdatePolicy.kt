@@ -26,6 +26,13 @@ internal object GuardianStableUpdatePolicy {
     fun isNewerVersion(installedVersionCode: Int, candidateVersionCode: Int): Boolean =
         candidateVersionCode > installedVersionCode
 
+    /** Content-Length -1 means a valid streaming response with unknown length. */
+    fun isAcceptableDownloadLength(contentLength: Long, maximumBytes: Long): Boolean =
+        maximumBytes > 0L && (contentLength == -1L || contentLength in 1L..maximumBytes)
+
+    fun matchesDownloadedLength(expectedLength: Long, actualLength: Long, maximumBytes: Long): Boolean =
+        actualLength in 1L..maximumBytes && (expectedLength == -1L || actualLength == expectedLength)
+
     fun isSha256(value: String): Boolean = Regex("^[a-fA-F0-9]{64}$").matches(value)
 
     fun isOfficialReleaseAssetUrl(address: String, tag: String, assetName: String): Boolean = runCatching {
