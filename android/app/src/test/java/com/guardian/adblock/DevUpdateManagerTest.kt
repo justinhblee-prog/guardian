@@ -1,5 +1,6 @@
 package com.guardian.adblock
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,4 +38,25 @@ class DevUpdateManagerTest {
         ))
     }
 
+
+    @Test fun readsOnlyExactGuardianDevelopmentTagsFromAtomFeedAndSortsNumerically() {
+        val feed = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <entry><link rel="alternate" href="https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v57"/></entry>
+              <entry><link rel="alternate" href="https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v58"/></entry>
+              <entry><link rel="alternate" href="https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v9"/></entry>
+              <entry><link rel="alternate" href="https://github.com/other/guardian/releases/tag/guardian-dev-v999"/></entry>
+              <entry><link rel="alternate" href="https://github.com.attacker.example/justinhblee-prog/guardian/releases/tag/guardian-dev-v999"/></entry>
+              <entry><link rel="alternate" href="https://github.com/justinhblee-prog/guardian/releases/tag/v999"/></entry>
+            </feed>
+        """.trimIndent()
+
+        assertEquals(listOf(58, 57, 9), DevUpdateManager.developmentReleaseVersionsFromAtom(feed))
+    }
+
+    @Test fun rejectsNonAtomPayloadEvenWhenItContainsAReleaseLookingUrl() {
+        val html = """<html><a href="https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v999">release</a></html>"""
+        assertTrue(DevUpdateManager.developmentReleaseVersionsFromAtom(html).isEmpty())
+    }
 }
