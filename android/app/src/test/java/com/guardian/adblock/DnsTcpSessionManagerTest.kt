@@ -696,6 +696,47 @@ class DnsTcpSessionManagerTest {
         assertArrayEquals(largeAnswer, framedAnswer.copyOfRange(2, framedAnswer.size))
     }
 
+    @Test fun staleTcpSegmentsCannotOverwriteNewerPeerReceiveWindow() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 8500, window = 0)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val clientNext = 8501L + framedQuery.size
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 8501, acknowledgment = serverStart, payload = framedQuery, window = 0)
+        val answer = ByteArray(5000) { (it and 0xff).toByte() }
+        assertTrue(manager.handle(request, request.size) { answer }.isEmpty())
+
+        val firstWindow = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = serverStart, window = 2048)
+        val first = manager.handle(firstWindow, firstWindow.size) { null }
+        assertEquals(2048, first.sumOf { DnsTcpPacket.parse(it, it.size, 53000)!!.payload.size })
+
+        // This packet is older in both sequence and ACK space. Its zero window
+        // must not replace the more recent 2048-byte advertisement.
+        val staleWindow = packet(flags = DnsTcpPacket.ACK, seq = clientNext - 1L,
+            acknowledgment = serverStart, window = 0)
+        manager.handle(staleWindow, staleWindow.size) { null }
+
+        val secondWindow = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = (serverStart + 2048L) and 0xffffffffL, window = 2048)
+        val second = manager.handle(secondWindow, secondWindow.size) { null }
+        assertEquals(2048, second.sumOf { DnsTcpPacket.parse(it, it.size, 53000)!!.payload.size })
+
+        // Same SEG.SEQ with an older SEG.ACK is also not allowed to shrink
+        // the window after the newer ACK/window pair has been accepted.
+        val staleAckWindow = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = serverStart, window = 0)
+        manager.handle(staleAckWindow, staleAckWindow.size) { null }
+
+        val finalWindow = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = (serverStart + 4096L) and 0xffffffffL, window = 2048)
+        val last = manager.handle(finalWindow, finalWindow.size) { null }
+        assertEquals(906, last.sumOf { DnsTcpPacket.parse(it, it.size, 53000)!!.payload.size })
+    }
+
     @Test fun largeDnsResponseWaitsForAndFollowsPeerReceiveWindowUpdates() {
         val manager = newManager()
         val query = dnsQuery()
