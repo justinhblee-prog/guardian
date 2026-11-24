@@ -62,6 +62,7 @@ class VpnTunnelSessionGuardTest {
         val guard = VpnTunnelSessionGuard()
         val cleanupEntered = CountDownLatch(1)
         val allowCleanupToFinish = CountDownLatch(1)
+        val newStartAttempted = CountDownLatch(1)
         val newSessionActivated = CountDownLatch(1)
         val cleanupWaitSucceeded = AtomicBoolean(false)
         guard.activate(10L) {}
@@ -75,8 +76,10 @@ class VpnTunnelSessionGuardTest {
         assertTrue(cleanupEntered.await(2, TimeUnit.SECONDS))
 
         val newStart = thread(name = "test-new-vpn-start") {
+            newStartAttempted.countDown()
             guard.activate(11L) { newSessionActivated.countDown() }
         }
+        assertTrue(newStartAttempted.await(2, TimeUnit.SECONDS))
         assertFalse(newSessionActivated.await(100, TimeUnit.MILLISECONDS))
         allowCleanupToFinish.countDown()
         oldLoop.join(2_000L)
