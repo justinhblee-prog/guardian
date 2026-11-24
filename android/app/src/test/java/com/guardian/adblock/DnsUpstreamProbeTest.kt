@@ -60,8 +60,8 @@ class DnsUpstreamProbeTest {
     @Test fun rejectsResourceRecordWhoseRdataLengthExceedsPacket() {
         val query = DnsUpstreamProbe.query()
         val response = successfulResponse(query)
-        response[response.size - 3] = 0x7f
-        response[response.size - 2] = 0xff.toByte()
+        response[response.size - 6] = 0x7f
+        response[response.size - 5] = 0xff.toByte()
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
     }
 
