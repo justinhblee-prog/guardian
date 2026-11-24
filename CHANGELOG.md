@@ -1,3 +1,9 @@
+## 2026-11-24 — DNS packet worker 진단 ThreadLocal 정리
+
+- `recordDnsActivity`가 실패 원인을 SharedPreferences에 저장한 뒤에도 packet worker의 ThreadLocal에 문자열이 남아 다음 패킷까지 보관될 수 있었습니다.
+- DNS 활동 이벤트를 기록한 직후 현재 worker 스레드의 진단 값을 제거하도록 수정했습니다. 차단/정상 전달 이벤트도 이전 실패 값이 남지 않도록 동일 정리 경로를 사용합니다. 다른 스레드의 preflight/UI 업스트림 테스트 진단에는 영향을 주지 않습니다.
+- ThreadLocal helper 격리 테스트 3/3는 앞서 별도 JVM에서 통과했습니다. Android service thread 실행 검증은 미실행입니다.
+
 ## 2026-11-24 — 검증 실패 정식 APK 캐시 삭제
 
 - SHA-256이 일치하더라도 APK packageName/version/signing certificate 검증에서 실패하면 이전에는 해당 파일이 `cache/stable-updates/`에 남을 수 있었습니다. 설치 UI는 비활성 처리되지만 불량 파일은 캐시에 잔존했습니다.
