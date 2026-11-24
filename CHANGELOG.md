@@ -1,3 +1,9 @@
+## 2026-11-24 — 앱 제거 데이터 정리용 이중 PackageManager 검증
+
+- QUERY_ALL_PACKAGES 허용 및 `getInstalledApplications()` 단일 성공만으로는 OEM이 정상 응답처럼 반환한 일부 앱 목록을 완전 목록으로 오인할 수 있었습니다.
+- 앱 목록 화면은 두 API 결과를 병합하되, 제거된 앱의 규칙·통계 삭제는 `getInstalledApplications()`와 `getInstalledPackages()`가 모두 성공하고 패키지 집합이 정확히 일치하는 경우에만 수행합니다. 한쪽 실패·빈 결과·목록 불일치에서는 데이터를 보존합니다.
+- 두 API 일치, 불일치, 양쪽/한쪽 실패, 양쪽 빈 결과 테스트를 추가했습니다. Android OEM PackageManager 및 SharedPreferences 실기기 검증은 미실행입니다.
+
 ## 2026-11-24 — 앱별 설치 앱 조회 결과 상태 표시 유지
 
 - 비동기 앱 인벤토리 완료 시 로딩 TextView를 삭제하던 순서를 수정했습니다. 동일 상태 행을 재사용해 조회 완료 수·fallback 상태 또는 조회 오류가 실제 화면에 유지되고, 그 아래에 앱 선택기/규칙 편집기가 추가됩니다.
