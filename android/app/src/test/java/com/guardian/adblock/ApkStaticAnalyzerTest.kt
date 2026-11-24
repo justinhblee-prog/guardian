@@ -8,13 +8,29 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 class ApkStaticAnalyzerTest {
-    private fun apk(vararg contents: String): ByteArray {
+    private fun dexFixture(text: String): ByteArray {
+        val payload = text.toByteArray(Charsets.ISO_8859_1)
+        val bytes = ByteArray(0x70 + payload.size)
+        byteArrayOf(100, 101, 120, 10, 48, 51, 53, 0).copyInto(bytes)
+        fun putInt(offset: Int, value: Int) {
+            repeat(4) { index -> bytes[offset + index] = (value ushr (index * 8)).toByte() }
+        }
+        putInt(32, bytes.size)
+        putInt(36, 0x70)
+        putInt(40, 0x12345678)
+        payload.copyInto(bytes, 0x70)
+        return bytes
+    }
+
+    private fun apk(vararg contents: String): ByteArray =
+        apkWithRawDex(*contents.map(::dexFixture).toTypedArray())
+
+    private fun apkWithRawDex(vararg dexFiles: ByteArray): ByteArray {
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
-            contents.forEachIndexed { i, text ->
+            dexFiles.forEachIndexed { i, bytes ->
                 zip.putNextEntry(ZipEntry(if (i == 0) "classes.dex" else "classes" + (i + 1) + ".dex"))
-                zip.write(byteArrayOf(100, 101, 120, 10, 48, 51, 53, 0))
-                zip.write(text.toByteArray(Charsets.ISO_8859_1))
+                zip.write(bytes)
                 zip.closeEntry()
             }
         }
@@ -61,13 +77,31 @@ class ApkStaticAnalyzerTest {
     }
 
     @Test fun rejectsMalformedDexHeader() {
-        val out = ByteArrayOutputStream()
-        ZipOutputStream(out).use { zip ->
-            zip.putNextEntry(ZipEntry("classes.dex"))
-            zip.write("not dex".toByteArray())
-            zip.closeEntry()
+        assertEquals(
+            ApkStaticAnalyzer.Status.INVALID_APK,
+            ApkStaticAnalyzer.analyze(ByteArrayInputStream(apkWithRawDex("not dex".toByteArray()))).status
+        )
+        assertEquals(
+            ApkStaticAnalyzer.Status.INVALID_APK,
+            ApkStaticAnalyzer.analyze(ByteArrayInputStream(
+                apkWithRawDex(byteArrayOf(100, 101, 120, 10, 48, 51, 53, 0))
+            )).status
+        )
+    }
+
+    @Test fun rejectsDexHeaderWithWrongDeclaredFileSizeOrHeaderSize() {
+        val wrongFileSize = dexFixture("Lcom/example/App;").also { bytes ->
+            val value = bytes.size - 1
+            repeat(4) { index -> bytes[32 + index] = (value ushr (index * 8)).toByte() }
         }
-        assertEquals(ApkStaticAnalyzer.Status.INVALID_APK,
-            ApkStaticAnalyzer.analyze(ByteArrayInputStream(out.toByteArray())).status)
+        val wrongHeaderSize = dexFixture("Lcom/example/App;").also { bytes ->
+            bytes[36] = 0x68
+        }
+        listOf(wrongFileSize, wrongHeaderSize).forEach { malformed ->
+            assertEquals(
+                ApkStaticAnalyzer.Status.INVALID_APK,
+                ApkStaticAnalyzer.analyze(ByteArrayInputStream(apkWithRawDex(malformed))).status
+            )
+        }
     }
 }
