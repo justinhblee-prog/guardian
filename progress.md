@@ -301,3 +301,9 @@
 - 최신 SecurityProfilePolicy의 자동 분류·종량제·underlying-network ambiguity·manual selection 경로를 kotlinc 1.9.0/JRE 21로 컴파일·실행했습니다.
 - PASS 16/16: Wi-Fi trust, captive/unvalidated, roaming, cellular/ethernet, metered update disable, unknown strict, physical network count 0/1/2/negative, 수동 6개 프로필 모두 automatic filter downloads disabled.
 - Android ConnectivityManager/NetworkCallback, VPN underlying route, OEM 전환, Android Gradle/JUnit·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 보안 프로필 UI live state 동기화
+- DNS/VPN status broadcast 및 화면 재진입 시 active profile label, auto-switch checkbox, automatic-filter-update flag 표시를 갱신합니다.
+- Spinner의 미적용 사용자 선택은 dirty flag로 보호해 자동 profile callback이 선택값을 덮어쓰지 않습니다. 수동 Apply 시 자동 전환을 끄고, metering 정보가 없는 수동 선택은 automatic filter downloads를 허용하지 않습니다.
+- 순수 SecurityProfilePolicy JVM smoke PASS 16/16. Android Gradle/JUnit, Android NetworkCallback 및 OEM/실기기 검증은 미실행입니다.
