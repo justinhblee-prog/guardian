@@ -15,7 +15,7 @@ export async function createGuardianUpdateManifest({
     throw new Error('versionName must be a stable semantic version in x.y.z form.');
   }
   const parsedVersionCode = Number(versionCode);
-  if (!Number.isSafeInteger(parsedVersionCode) || parsedVersionCode < 1) {
+  if (!Number.isSafeInteger(parsedVersionCode) || parsedVersionCode < 1 || parsedVersionCode > 2147483647) {
     throw new Error('versionCode must be a positive safe integer.');
   }
 
