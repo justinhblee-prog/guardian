@@ -300,3 +300,8 @@
 - DEX 매직 문자열만으로 검사 가능한 파일로 인정하던 문제를 수정했습니다. 헤더 최소 길이·버전/종료 바이트·file_size·header_size·endian tag를 확인합니다.
 - 테스트 APK fixture를 DEX 고정 헤더 구조로 변경하고 짧은 가짜 DEX/잘못된 선언 크기/헤더 크기 회귀 테스트를 추가했습니다.
 - 정적 검사기 전체 검증이나 Android Gradle/JUnit·SAF·실기기 검증은 아직 수행하지 않았습니다.
+
+
+## 2026-11-24 — URL 대괄호 IPv6 구문 검증
+- URL 대괄호 호스트를 DNS 이름으로 오인해 허용할 수 있던 경로를 막았습니다. IPv6 리터럴 파싱에 성공하는 주소만 허용하고 zone-id 형식은 입력 단계에서 거부합니다.
+- 정상 IPv6, 잘못된 대괄호 DNS 이름, malformed IPv6 테스트를 추가했습니다. Android Gradle/JUnit·실기기 검증은 미실행입니다.
