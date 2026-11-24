@@ -218,8 +218,24 @@ object FilterListManager {
     internal fun isCacheValid(fileExists: Boolean, blockCount: Int, minimumRules: Int): Boolean =
         fileExists && minimumRules > 0 && blockCount >= minimumRules
 
-    fun hasCachedList(context: Context): Boolean =
-        isCacheValid(hasCachedFile(context), cachedBlockCount(context), selectedProfile(context).minimumRules)
+    fun hasCachedList(context: Context): Boolean {
+        val selected = selectedProfile(context)
+        val cached = cachedProfile(context)
+        val validForSelectedProfile = isCacheValid(
+            hasCachedFile(context),
+            cachedBlockCount(context),
+            selected.minimumRules
+        )
+        // A cache downloaded for a different profile is never a substitute,
+        // even when its rule count happens to exceed the newly selected profile's
+        // threshold. This also makes first-run/profile-change recovery mandatory
+        // when recurring updates are disabled.
+        return isProfileCacheCurrent(
+            hasCache = validForSelectedProfile,
+            selectedKey = selected.key,
+            cachedKey = cached.key
+        )
+    }
 
     fun hasCachedSecurityList(context: Context): Boolean {
         val fileExists = recoverCache(context, SECURITY_CACHE_FILE).let { it.isFile && it.length() > 0L }
