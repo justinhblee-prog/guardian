@@ -125,7 +125,7 @@ object FilterRuleParser {
         val octets = value.split('.')
         return octets.size == 4 && octets.all { part ->
             part.isNotEmpty() && part.length <= 3 &&
-                part.all { it in '0'..'9' } && part.toIntOrNull() in 0..255
+                part.all { it in '0'..'9' }
         }
     }
 
