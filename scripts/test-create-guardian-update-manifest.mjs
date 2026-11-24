@@ -19,6 +19,7 @@ test('creates stable manifest from the actual APK bytes and signer report', asyn
       apkPath, signatureReportPath: signaturePath,
       versionName: '1.2.3', versionCode: 42, outputPath
     });
+    assert.equal(manifest.manifestVersion, 1);
     assert.equal(manifest.packageName, 'com.guardian.adblock');
     assert.equal(manifest.versionName, '1.2.3');
     assert.equal(manifest.versionCode, 42);
