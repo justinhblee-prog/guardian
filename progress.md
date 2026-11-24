@@ -736,3 +736,9 @@
 ## 2026-11-24 — DNS 질문 타입/클래스 검증
 - 예약된 QTYPE=0, QCLASS=0을 거부합니다. AAAA/IN과 QTYPE=255/QCLASS=3 조합은 허용하도록 했습니다.
 - 관련 회귀 테스트 2건 추가. JUnit/Gradle/실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — Upstream DNS response reserved-bit validation
+- Updated `DomainFilter.isMatchingResponse` to reject upstream DNS replies with the reserved Z bit set.
+- Added `rejectsUpstreamDnsResponseWithReservedZFlag` regression coverage.
+- Source and test changes committed. Kotlin tests, Android Gradle build, emulator/device DNS validation, and APK generation remain unexecuted; GitHub Actions was not run.
