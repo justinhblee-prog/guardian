@@ -26,7 +26,7 @@ class DnsUpstreamFailurePolicyTest {
 
     @Test fun boundsEachEntryAndTheOverallSummaryLength() {
         val long = "x".repeat(5000)
-        val result = DnsUpstreamFailurePolicy.summarize(listOf(long, long))!!
+        val result = DnsUpstreamFailurePolicy.summarize(List(6) { long })!!
         assertEquals(DnsUpstreamFailurePolicy.MAX_SUMMARY_CHARS, result.length)
     }
 
