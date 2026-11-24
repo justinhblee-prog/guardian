@@ -2521,6 +2521,14 @@ class MainActivity : Activity() {
                 background = shape(panel2, 11)
                 setOnClickListener { showSupportLookupDialog() }
             }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            addView(Button(this@MainActivity).apply {
+                text = "최근 오류 내용 복사"
+                isAllCaps = false
+                setTextColor(white)
+                background = shape(panel2, 11)
+                contentDescription = "최근 오류 내용 복사"
+                setOnClickListener { copyRecentErrors() }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
         }
     }
 
