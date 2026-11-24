@@ -125,7 +125,8 @@ internal object InstalledAppInventory {
             applicationQuerySucceeded = installedQuerySucceeded,
             packageInfoQuerySucceeded = installedPackagesQuerySucceeded,
             applicationPackages = applicationPackages,
-            packageInfoPackages = packageInfoPackages
+            packageInfoPackages = packageInfoPackages,
+            launcherFallbackCount = launcherFallbackCount
         )
         val snapshot = Snapshot(
             sorted, allPackagesGranted, installedQuerySucceeded, launcherFallbackCount,
