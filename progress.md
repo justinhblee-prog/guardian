@@ -1,7 +1,7 @@
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. Android 무료판 출시 전이며 PRO 기능은 별도 트랙에서 병행 구현 중입니다.
-- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 192 commits ahead, 0 behind.
+- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 201 commits ahead, 0 behind.
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. 실제 Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
 - **PR #290**: open, unmerged 상태를 유지합니다. 작업은 독립 branch에서 수행합니다.
 - **검증**: 최신 소스·테스트 원격 반영을 재조회했습니다. ResponsiveLayoutPolicy의 하단 인셋 단일 소유 경계 JVM smoke 4/4 통과(독립 정책 검증)이며, DNS TCP RTO/RST 최신 Android JUnit은 미실행입니다. Android Gradle/JUnit·lint·emulator·실기기 테스트는 미실행이며 APK도 아직 생성·검증되지 않았습니다.
@@ -532,3 +532,9 @@
 ## 2026-11-24 — 기본 필터 asset Gradle preBuild guard
 - Android assets가 `../../shared`를 사용하므로 필수 파일은 repo root `shared/filter_rules.txt`입니다. Gradle `preBuild` 전에 존재·크기·유효한 DNS label을 가진 `block=`/`block-important=` 규칙 포함 여부를 확인하도록 validation task를 연결했습니다.
 - 파일 누락/빈 파일/유효 block 규칙 부재는 빌드 오류가 됩니다. sourceSet 및 task 소스는 반영했으나 Android Gradle 실행·APK asset 내부 확인은 미실행입니다.
+
+
+## 2026-11-24 — 기본 DNS 필터 asset 빌드 가드 독립 검증
+- `android/app/build.gradle.kts`의 `preBuild` guard가 repo root `shared/filter_rules.txt`를 asset 경로와 같은 상대 경로로 확인하고, 파일 존재/비어 있지 않음/유효한 DNS block 도메인을 검사합니다.
+- Gradle Kotlin validator와 동일한 정규식·BOM 제거 로직을 Kotlin/JVM으로 시험했습니다. PASS 5/5: 공유 asset 10개 규칙, UTF-8 BOM 포함 규칙, 주석/allow만 존재하는 파일 거부, 공백 포함 잘못된 도메인 거부, 연속 점 도메인 거부.
+- `GuardianVpnService` 및 `MainActivity`는 asset 부재/손상 시 emergency baseline으로 보호 시작을 시도하고, optional 다운로드 캐시는 시작 필수 조건으로 취급하지 않음을 재확인했습니다. 실제 Gradle `preBuild`, APK 내부 asset 존재, Android 단말 동작은 아직 미실행입니다.
