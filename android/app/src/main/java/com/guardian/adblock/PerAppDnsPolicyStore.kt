@@ -35,6 +35,7 @@ internal object PerAppDnsPolicyStore {
     private const val MAX_CACHED_PACKAGES = 200
     private val cache = ConcurrentHashMap<String, Set<String>>()
 
+    @Synchronized
     fun rules(context: Context, packageName: String?): Set<String> {
         val safePackage = packageName?.takeIf(PerAppDnsRulePolicy::isValidPackageName) ?: return emptySet()
         cache[safePackage]?.let { return it }
