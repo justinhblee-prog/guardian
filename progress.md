@@ -1,7 +1,7 @@
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. 무료 Android 출시와 PRO 기능 완성 모두 미완료입니다.
-- **무료 트랙**: `work/android-free-release-followup-20261124` — 최신 GitHub compare 기준 273 commits ahead, 0 behind. 기존 `work/android-free-release-20261124`를 기준으로 한 후속 개발 브랜치입니다.
+- **무료 트랙**: `work/android-free-release-followup-20261124` — 최신 GitHub compare 기준 292 commits ahead, 0 behind. 기존 `work/android-free-release-20261124`의 후속 개발 브랜치입니다.
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
 - **PR #290**: open, unmerged 상태 유지. 무료/PRO 작업은 별도 브랜치입니다.
 - **격리 Kotlin/JVM 검증**: DNS 업스트림 진단 ThreadLocal 3/3, DNS TCP 정책/타이머/프레임/시퀀스 하네스 기록, 필터/앱 목록 정리 정책, DEX 041 헤더/컨테이너 11/11, 앱별 정리 12/12 등. 각 결과는 해당 순수 정책만 검증하며 Android 앱 빌드 통과를 의미하지 않습니다.
@@ -677,3 +677,9 @@
 - 앱 업데이트 확인 작업을 화면 지역 변수에서 process-wide AtomicReference 상태로 옮겼습니다. 한 프로세스에서 중복 확인을 막고, 메뉴 전환/Activity 재생성 뒤에도 다운로드된 개발/정식 APK 경로와 검증 결과를 복원합니다.
 - MainActivity는 상태 변경 브로드캐스트를 받아 현재 화면만 갱신하고, 작업 스레드는 applicationContext로 다운로드해 이전 Activity를 보유하지 않습니다. 검증된 APK는 빌드 종류가 일치할 때만 설치 가능하며, 서버가 최신이라고 응답하면 오래된 pending APK 정보를 비웁니다.
 - 상태 전이 순수 JVM 테스트 4건 추가. Android Activity recreation/DownloadManager/FileProvider/PackageInstaller·Gradle/JUnit 검증은 미실행입니다.
+
+
+## 2026-11-24 — 앱 업데이트 상태 조정 JVM smoke 5/5
+
+- `GuardianAppUpdateState`의 실제 상태/AtomicReference 전이 소스를 kotlinc/JRE 21로 분리 컴파일·실행했습니다. PASS 5/5: 중복 확인 차단, 재생성된 화면에서 검증 APK 경로 복원, 개발/정식 빌드 타입 일치 검사, 최신 응답 시 stale 설치 대상 제거, 재확인 실패 시 이전의 유효한 검증 APK 유지, 동시 12개 탭 요청 중 한 작업만 획득.
+- Android Activity lifecycle/브로드캐스트 receiver/실제 다운로더/FileProvider·PackageInstaller 연결은 미실행이며 Android Gradle/JUnit도 실행하지 않았습니다.
