@@ -290,3 +290,10 @@
 - 개발 미리보기에 여섯 가지 수동 프로필 선택/적용 UI를 추가했습니다.
 - 수동 프로필 적용 시 저장된 자동 전환 설정을 해제하고 NetworkCallback을 정리한 뒤 실제 필터 설정 및 실행 중 VPN 규칙 reload 경로에 반영합니다.
 - Release/PRO entitlement는 아직 닫혀 있습니다. Android Gradle/JUnit·에뮬레이터·실기기 검증 전입니다.
+
+
+## 2026-11-24 — 보안 프로필 기반 자동 필터 갱신 스케줄러 연결
+- `FilterUpdateScheduler.sync`는 전역 자동 업데이트 사용자 opt-in과 SecurityProfileStore의 현재 프로필 허용 값이 모두 true일 때만 예약합니다. 거부 시 unique periodic worker를 취소합니다.
+- `FilterUpdateWorker.doWork` 시작 시에도 프로필 gate를 재검사해 취소와 실행 사이의 경합을 방어합니다. profile update permission 변경 시에만 scheduler를 동기화합니다.
+- first-run missing-cache population은 별도 FilterStartupPolicy에 남겨 recurring update gate에 의해 차단되지 않음을 테스트합니다.
+- 정책 JUnit 테스트 소스 추가/수정은 완료. Android Gradle/JUnit·WorkManager 통합/실기기 네트워크 전환 검증은 미실행입니다.
