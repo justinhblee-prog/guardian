@@ -2172,7 +2172,55 @@ class MainActivity : Activity() {
                 }
             }
             addView(autoSwitch, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
-            addView(text("현재 적용 프로필: ${active.label}", 12f, accent, true).withTop(8))
+
+            addView(text("수동 보안 프로필", 13f, white, true).withTop(16))
+            addView(text(
+                "자동 전환을 끄고 보호 정책을 직접 선택합니다. 수동 적용은 다음에 네트워크가 바뀌어도 유지됩니다.",
+                10f, muted, false
+            ).withTop(4))
+            val profileIds = SecurityProfilePolicy.Id.values().toList()
+            var selectedManualProfile = SecurityProfileStore.activeProfileId(this@MainActivity)
+            val profileSpinner = Spinner(this@MainActivity).apply {
+                adapter = darkSpinnerAdapter(profileIds.map {
+                    SecurityProfilePolicy.profile(it).label
+                })
+                background = shape(panel2, 10)
+                setPopupBackgroundDrawable(shape(panel, 10))
+                setSelection(profileIds.indexOf(selectedManualProfile).coerceAtLeast(0))
+            }
+            addView(profileSpinner, LinearLayout.LayoutParams(-1, dp(46)).apply {
+                topMargin = dp(8)
+            })
+            val profileStatus = text(
+                "현재 적용 프로필: ${active.label}",
+                11f, accent, true
+            ).withTop(8) as TextView
+            profileSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                override fun onItemSelected(
+                    parent: AdapterView<*>?, view: View?, position: Int, id: Long
+                ) {
+                    selectedManualProfile = profileIds[position]
+                }
+            }
+            addView(Button(this@MainActivity).apply {
+                text = "선택한 보안 프로필 적용"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 9)
+                setOnClickListener {
+                    SecurityProfileStore.applyManualProfile(this@MainActivity, selectedManualProfile)
+                    autoSwitch.isChecked = false
+                    val selected = SecurityProfilePolicy.profile(selectedManualProfile)
+                    profileStatus.text = "현재 적용 프로필: ${selected.label} · 수동"
+                    Toast.makeText(
+                        this@MainActivity,
+                        "${selected.label} 보안 프로필을 적용했습니다.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            addView(profileStatus)
             addView(text(
                 "요금제 연결 자동 필터 업데이트 허용 정책: " +
                     if (SecurityProfileStore.automaticUpdatesAllowed(this@MainActivity)) "허용" else "제한",
