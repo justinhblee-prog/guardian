@@ -890,6 +890,36 @@ class DnsTcpSessionManagerTest {
         }
     }
 
+    @Test fun receiveWindowUpdatesDoNotCountAsDuplicateAcks() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 9200)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 9201, acknowledgment = serverStart, payload = framedQuery)
+        val sent = manager.handle(request, request.size) { ByteArray(5000) }
+        assertTrue(sent.size > 1)
+        val clientNext = (9201L + framedQuery.size) and 0xffffffffL
+
+        // First change the advertised window, then keep it stable. Only the
+        // three subsequent identical ACK/window pairs count toward fast retransmit.
+        val windowChange = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = serverStart, window = 32768)
+        assertTrue(manager.handle(windowChange, windowChange.size) { null }.isEmpty())
+        repeat(2) {
+            val duplicate = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+                acknowledgment = serverStart, window = 32768)
+            assertTrue(manager.handle(duplicate, duplicate.size) { null }.isEmpty())
+        }
+        val thirdStableDuplicate = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = serverStart, window = 32768)
+        assertArrayEquals(sent.first(), manager.handle(
+            thirdStableDuplicate, thirdStableDuplicate.size
+        ) { null }.single())
+    }
+
     @Test fun retransmitsOldestOutstandingDnsAnswerAfterThreeDuplicateAcks() {
         val manager = newManager()
         val query = dnsQuery()
