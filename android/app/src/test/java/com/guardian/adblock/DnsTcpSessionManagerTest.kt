@@ -5,6 +5,28 @@ import org.junit.Test
 import java.security.SecureRandom
 
 class DnsTcpSessionManagerTest {
+    @Test fun rejectsTcpFastOpenSynPayloadWithoutCreatingSession() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val synWithData = packet(
+            flags = DnsTcpPacket.SYN,
+            seq = 10_500,
+            payload = framedQuery
+        )
+
+        assertTrue(manager.handle(synWithData, synWithData.size) { null }.isEmpty())
+        assertEquals(0, manager.activeSessionCount())
+
+        // A normal three-way handshake remains available after the rejected
+        // unsupported Fast Open attempt.
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 10_500)
+        val synAck = manager.handle(syn, syn.size) { null }.single()
+        assertEquals(DnsTcpPacket.SYN or DnsTcpPacket.ACK,
+            DnsTcpPacket.parse(synAck, synAck.size, 53000)!!.flags)
+        assertEquals(1, manager.activeSessionCount())
+    }
+
     @Test fun tinyPeerMssCannotGrowOutstandingPacketQueueWithoutBound() {
         val manager = newManager()
         val syn = packet(
