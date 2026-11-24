@@ -32,6 +32,9 @@ object DnsUpstreamProbe {
     fun isSuccessfulResolution(query: ByteArray, response: ByteArray?): Boolean {
         if (response == null || !DomainFilter.isMatchingResponse(query, response)) return false
         if (response.size < 12 || responseCode(response) != 0) return false
+        // A TC-marked UDP response is not proof of usable resolution; the caller
+        // must retry over TCP instead of installing routes based on a partial answer.
+        if ((u16(response, 2) and 0x0200) != 0) return false
         val answerCount = u16(response, 6)
         if (answerCount == 0) return false
         val questionEnd = rawQuestionEnd(response) ?: return false
