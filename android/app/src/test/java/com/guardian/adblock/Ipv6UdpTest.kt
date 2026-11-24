@@ -58,6 +58,33 @@ class Ipv6UdpTest {
         assertArrayEquals(byteArrayOf(1, 2, 3, 4), parsed.payload)
     }
 
+    @Test fun rejectsMisplacedOrRepeatedHopByHopOptionsHeaders() {
+        val base = queryPacket()
+        fun packetWithTwoExtensionHeaders(first: Int, second: Int): ByteArray {
+            val packet = ByteArray(base.size + 16)
+            System.arraycopy(base, 0, packet, 0, 40)
+            packet[4] = 0
+            packet[5] = 28 // Two 8-byte extension headers + 12-byte UDP datagram
+            packet[6] = first
+            packet[40] = second
+            packet[41] = 0
+            packet[48] = 17
+            packet[49] = 0
+            System.arraycopy(base, 40, packet, 56, 12)
+            packet[62] = 0
+            packet[63] = 0
+            val checksum = udpChecksum(packet, 56, 12)
+            packet[62] = (checksum ushr 8).toByte()
+            packet[63] = checksum.toByte()
+            return packet
+        }
+
+        // Hop-by-Hop Options is valid only immediately after the IPv6 base header.
+        assertNull(Ipv6Udp.parseDns(packetWithTwoExtensionHeaders(60, 0), base.size + 16))
+        // It may occur only once in the extension-header chain.
+        assertNull(Ipv6Udp.parseDns(packetWithTwoExtensionHeaders(0, 0), base.size + 16))
+    }
+
     @Test fun rejectsActiveIpv6RoutingHeaderButAcceptsCompletedRoute() {
         val base = queryPacket()
         fun packetWithSegmentsLeft(segmentsLeft: Int): ByteArray {
