@@ -1,3 +1,8 @@
+## 2026-11-24 — DNS 업스트림 진단 ThreadLocal JVM smoke 3/3
+
+- `DnsThreadFailureContext` 실제 구현을 kotlinc/JRE 환경에서 컴파일·실행했습니다. PASS 3/3: 동시 DNS 작업별 오류 분리, 한 스레드의 clear가 다른 스레드 값을 유지, null 설정 시 현재 스레드 값 제거.
+- 이는 ThreadLocal helper의 독립 Kotlin/JVM 검증입니다. Android Service 통합 컴파일, 실제 packet worker/preflight/UI test 동시 실행 및 Android Gradle/JUnit은 미실행입니다.
+
 ## 2026-11-24 — DNS 업스트림 진단 스레드 간 오염 차단
 
 - 보호 시작 전 DNS 사전검사, 수동 업스트림 테스트, 실제 앱 DNS packet worker가 공유하던 전역 `lastUpstreamFailure` 값은 동시에 실행되는 작업끼리 실패 원인을 덮어쓸 수 있었습니다.
