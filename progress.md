@@ -691,3 +691,8 @@
 - 두 업데이터 모두 최종 `guardian-version.apk` 대신 unique `.apk.part` 임시 파일로 내려받고, 길이/해시/package/version/single signer 확인 뒤 기존 최종 파일을 교체합니다.
 - 네트워크/검증 실패는 임시 파일만 제거해 이전 검증 APK를 보존합니다. HTTPS connection의 획득 실패/예외 해제도 finally에서 처리합니다.
 - Android PackageManager·cache filesystem atomicity·실제 CDN download/install 실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — APK 캐시 원자 교체
+- 정식/개발 APK는 길이·SHA-256·PackageManager·버전·단일 서명 검증 후 `Files.move(ATOMIC_MOVE, REPLACE_EXISTING)`로 최종 cache 파일을 교체합니다.
+- Atomic move 미지원 시 예외를 반환하고 이전 검증 APK는 유지하도록 합니다. API 26+ 파일 API입니다. 실제 기기 파일시스템 지원/Android 빌드 검증은 미실행입니다.
