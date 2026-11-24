@@ -729,3 +729,7 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 
 - VPN 시작 시 필터 적재와 사용자 규칙 재적용이 서로 다른 worker thread에서 겹칠 수 있는 경로를 보완했습니다. 전체 설정 읽기·캐시 파싱·규칙 스냅샷 교체를 서비스 인스턴스 단위로 직렬화해, 느리게 끝난 이전 로드가 다른 로드와 진단 상태를 교차 변경하지 않도록 했습니다. `DomainFilter`의 단일 volatile 규칙 스냅샷 교체 방식은 유지합니다.
 - 코드 커밋: `7a027cc6a0361a0eb3c332743c22e358b68e1996`. Android 서비스 통합 테스트/실기기 동시 갱신 검증은 미실행입니다.
+
+
+- 선택 필터 피드 로더의 예외 경계를 정리했습니다. 기존 `runCatching`은 `OutOfMemoryError` 같은 VM 치명 오류까지 삼켜 빈 규칙으로 계속 진행할 수 있었습니다. 이제 일반 예외와 선택 구성요소의 `LinkageError`만 해당 선택 피드 실패로 격리하고, VM 치명 오류는 상위 오류 처리로 전파합니다.
+- 회귀 테스트 추가: `skipsOptionalFeedWhenParserLinkageFailsButKeepsVpnStartupAvailable`, `doesNotSwallowVirtualMachineFatalErrorsFromOptionalFeed`. 코드 커밋: `09d056590f15cb5c7df7f68e48c93613f5f7a3d0`, 테스트 커밋: `b274bfe9ef0677b39d7f5afc646d1cb639486000`. Android Gradle/JUnit 실행은 미실행입니다.
