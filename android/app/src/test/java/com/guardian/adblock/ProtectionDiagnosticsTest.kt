@@ -350,6 +350,7 @@ class ProtectionDiagnosticsTest {
         assertTrue(report.contains("광고·추적"))
         assertTrue(!report.contains("/data/user/0"))
         assertTrue(!report.contains("/private/path"))
+        assertTrue(!report.contains("privatepath"))
         assertTrue(!report.contains("secret.example.com"))
         assertTrue(!report.contains("bad code with spaces"))
     }
