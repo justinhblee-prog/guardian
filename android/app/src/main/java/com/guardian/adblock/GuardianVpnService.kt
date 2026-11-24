@@ -826,6 +826,10 @@ class GuardianVpnService : VpnService() {
                     "업스트림 DNS 오류: " + (lastUpstreamFailure ?: "응답 시간 초과, 연결 실패 또는 DNS 응답 검증 실패")
                 ).apply()
             }
+            // The current DNS event has consumed its diagnostic. Remove the
+            // ThreadLocal value so a long-lived packet worker retains no stale
+            // failure detail between packets.
+            lastUpstreamFailure = null
         }
         // Persist every query, but coalesce UI refresh broadcasts to avoid flooding
         // the main thread when an app generates many DNS requests in a short burst.
