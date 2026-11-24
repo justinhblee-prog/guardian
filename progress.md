@@ -466,3 +466,8 @@
 - 세션당 한 번에 가장 오래된 미확인 segment만 재전송하며, fast retransmit도 타이머/attempt 상태를 공유합니다. 누적 ACK는 확인된 패킷을 제거합니다.
 - Android VPN packet loop와 별도 daemon scheduler(250ms tick)를 연결하고, 같은 TUN descriptor output을 synchronized block으로 직렬화합니다. loop 종료 때 scheduler를 종료합니다.
 - RTO deterministic clock 테스트 2개를 추가했습니다. Android Gradle/JUnit·lint·emulator·실기기 검증은 아직 미실행입니다.
+
+
+## 2026-11-24 — TCP ACK progress에 따른 RTO timer restart
+- 서버가 여러 segment를 동시에 보낸 경우 누적 ACK 진행 후 다음 oldest outstanding의 timer 기준을 ACK 시각으로 재설정합니다. 전송 직후 첫 segment가 ACK되었다고 다음 segment를 즉시 오재전송하지 않도록 했습니다.
+- deterministic test를 1,999ms까지 무재전송, 2,000ms에서 다음 segment 재전송으로 보정했습니다. scheduler write lambda 및 background failure 우선순위도 정리했습니다.
