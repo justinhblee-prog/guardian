@@ -1,10 +1,10 @@
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. 무료 Android 출시와 PRO 병렬 개발 모두 미완료입니다.
-- **무료 트랙**: `work/android-free-release-20261124` — 2026-11-24 원격 compare 기준 149 commits ahead, 0 behind.
+- **무료 트랙**: `work/android-free-release-20261124` — 2026-11-24 원격 compare 기준 164 commits ahead, 0 behind.
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 별도 브랜치. 모든 PRO 기능은 Android 통합/단말 검증 전까지 Release 권한 비활성입니다.
 - **PR #290**: open, unmerged 상태 유지. 이 작업은 별도 브랜치에서 수행합니다.
-- **검증**: 최신 소스 반영·정적 재검토는 수행했습니다. 일부 독립 Kotlin/JVM smoke만 분리 실행했으며, Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행입니다. APK는 아직 생성·검증되지 않았습니다.
+- **검증**: 최신 소스 반영·정적 재검토는 수행했습니다. 일부 순수 Kotlin/JVM 정책 스모크를 별도 실행했으나 최신 DNS TCP RTO/RST 변경은 아직 실행 검증되지 않았습니다. Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행이며 APK도 아직 생성·검증되지 않았습니다.
 - **실행 제약**: GitHub Actions·runner/billing 설정 변경 및 유료 실행은 승인 없이 시작하지 않습니다. 미실행 검증은 통과로 표시하지 않습니다.
 - **완료 게이트**: 실제 Android 빌드·JUnit·lint·에뮬레이터·Samsung 실기기, APK 파일/크기/SHA-256/서명과 설치 검증 및 배포 문서가 확보되어야 완료 판정합니다.
 
