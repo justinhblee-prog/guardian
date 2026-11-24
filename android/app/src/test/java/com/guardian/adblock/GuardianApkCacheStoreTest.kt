@@ -44,6 +44,28 @@ class GuardianApkCacheStoreTest {
     }
 
     @Test
+    fun recoveryRestoresBackupWhenTargetExistsButIsEmpty() {
+        val directory = Files.createTempDirectory("guardian-apk-cache").toFile()
+        try {
+            val target = File(directory, "guardian-45.apk").apply { createNewFile() }
+            val backup = File(directory, "guardian-45.apk.bak").apply {
+                writeBytes("last-known-good-apk".toByteArray())
+            }
+            val temporary = File(directory, ".guardian-45.apk.part").apply {
+                writeBytes("new-verified-apk".toByteArray())
+            }
+
+            GuardianApkCacheStore.commit(temporary, target)
+
+            assertArrayEquals("new-verified-apk".toByteArray(), target.readBytes())
+            assertFalse(backup.exists())
+            assertFalse(temporary.exists())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun commitRecoversPreviousApkAfterInterruptedReplacement() {
         val directory = Files.createTempDirectory("guardian-apk-cache").toFile()
         try {
