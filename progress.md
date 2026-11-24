@@ -342,3 +342,9 @@
 
 ## 2026-11-24 — ZIP 최대 주석 길이 EOCD tail ring 테스트
 - 65,535-byte ZIP comment가 EOCD tail ring 전체 길이(65,557 bytes)를 정확히 채우는 경우 정상 DEX APK가 SCANNED로 판정되는 테스트를 추가했습니다.
+
+
+## 2026-11-24 — ZIP EOCD tail/중앙 디렉터리 경계 Kotlin/JVM 확장 검증
+- 현재 `ApkStaticAnalyzer`의 bounded tail ring 및 EOCD validator 로직을 kotlinc로 컴파일해 ZIP 생성 fixture로 실행했습니다.
+- PASS 8/8: 일반 EOCD, 최대 65,535-byte ZIP comment로 tail buffer wrap-around, EOCD 누락, comment length 변조, EOF 뒤 trailing bytes, 다중 디스크 EOCD, central directory entry count 불일치, central directory size 불일치.
+- Android SAF/Gradle/JUnit·실제 APK 서명/설치·실기기 검증은 미실행입니다. ZIP/DEX 구조 확인은 전체 Android APK 무결성 또는 악성코드 판정이 아닙니다.
