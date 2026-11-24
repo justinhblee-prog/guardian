@@ -166,12 +166,18 @@ internal object SecurityProfileMonitor {
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> SecurityProfilePolicy.Transport.ETHERNET
             else -> SecurityProfilePolicy.Transport.OTHER
         }
+        val supportsNotRoamingCapability = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
         val network = SecurityProfilePolicy.NetworkContext(
             transport = transport,
             validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
             captivePortal = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
             metered = !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
-            roaming = false,
+            roaming = SecurityProfilePolicy.isCellularRoaming(
+                transport = transport,
+                supportsNotRoamingCapability = supportsNotRoamingCapability,
+                hasNotRoamingCapability = supportsNotRoamingCapability &&
+                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)
+            ),
             trustedNetwork = false
         )
         SecurityProfileStore.applyAutomaticProfile(context, SecurityProfilePolicy.resolveAutomatic(network))
