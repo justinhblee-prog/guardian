@@ -7,6 +7,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicInteger
 
 class GuardianAppUpdateStateTest {
     @After fun reset() = GuardianAppUpdateState.resetForTest()
@@ -16,6 +18,25 @@ class GuardianAppUpdateStateTest {
         assertFalse(GuardianAppUpdateState.begin("중복 확인"))
         assertTrue(GuardianAppUpdateState.snapshot().checkInProgress)
         assertEquals("확인 중", GuardianAppUpdateState.snapshot().status)
+    }
+
+    @Test fun concurrentUpdateChecksAllowExactlyOneOwner() {
+        val workers = 8
+        val ready = CountDownLatch(workers)
+        val start = CountDownLatch(1)
+        val winners = AtomicInteger(0)
+        val threads = (0 until workers).map { index ->
+            Thread {
+                ready.countDown()
+                start.await()
+                if (GuardianAppUpdateState.begin("확인 중 $index")) winners.incrementAndGet()
+            }.apply { start() }
+        }
+        ready.await()
+        start.countDown()
+        threads.forEach { it.join() }
+        assertEquals(1, winners.get())
+        assertTrue(GuardianAppUpdateState.snapshot().checkInProgress)
     }
 
     @Test fun verifiedApkStateSurvivesNewScreenSnapshot() {
