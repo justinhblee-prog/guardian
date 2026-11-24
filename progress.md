@@ -454,3 +454,8 @@
 ## 2026-11-24 — Fast retransmit 1회 발사 제한
 - 같은 누적 ACK에 대해 세 번째 duplicate ACK에서만 빠른 재전송을 실행하고, 네 번째 이후 반복 ACK로 같은 패킷을 연속 송신하지 않도록 카운터를 4에서 제한합니다.
 - 네 번째 duplicate ACK 무재전송 회귀 검증을 추가했습니다. Android Gradle/JUnit 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP duplicate ACK 조건 정밀화
+- 빠른 재전송 duplicate ACK 조건에 동일한 광고 수신 윈도와 payload/FIN 부재를 추가했습니다. 윈도 변경 또는 데이터 포함 ACK는 duplicate ACK 연속 횟수를 초기화합니다.
+- 윈도 변경 패킷 자체는 카운트하지 않고 이후 동일 윈도 ACK 3회 이후 재전송하는 테스트를 추가했습니다. Android Gradle/JUnit 미실행입니다.
