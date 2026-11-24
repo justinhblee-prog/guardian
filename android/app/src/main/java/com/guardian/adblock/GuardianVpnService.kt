@@ -1566,7 +1566,18 @@ class GuardianVpnService : VpnService() {
 
             socket.outputStream.write(request)
             socket.outputStream.flush()
-            val answer = DnsDohHttpCodec.readResponse(socket.inputStream) ?: run {
+            val responseReadStartedAt = System.nanoTime()
+            val answer = DnsDohHttpCodec.readResponse(socket.inputStream) {
+                // SO_TIMEOUT is per blocking read. Recompute it before every HTTP
+                // parser read so a peer cannot keep the response alive by trickling
+                // one header/chunk byte just before each individual timeout.
+                val elapsedMs = (System.nanoTime() - responseReadStartedAt) / 1_000_000L
+                val remainingMs = 3500L - elapsedMs
+                if (remainingMs <= 0L) {
+                    throw java.net.SocketTimeoutException("DoH response read deadline exceeded")
+                }
+                socket.soTimeout = remainingMs.toInt().coerceAtLeast(1)
+            } ?: run {
                 lastUpstreamFailure = "DoH: HTTP 상태·헤더·Content-Type 또는 DNS 본문 검증 실패"
                 return null
             }
