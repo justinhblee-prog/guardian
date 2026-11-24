@@ -6,7 +6,7 @@ import org.junit.Test
 
 class DevUpdateManagerTest {
     @Test fun acceptsOnlyNewerReleaseWhoseTagMatchesManifest() {
-        assertTrue(DevUpdateManager.isNewerMatchingRelease(47, 48, 48))
+        assertTrue(DevUpdateManagerPolicy.isNewerMatchingRelease(47, 48, 48))
         assertTrue(DevUpdateManager.isNewerMatchingRelease(47, 120, 120))
     }
 
@@ -20,7 +20,7 @@ class DevUpdateManagerTest {
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 48, 49))
     }
     @Test fun refusesRedirectTargetsOutsideTheHttpsHostAllowlist() {
-        assertTrue(DevUpdateManager.isAllowedReleaseDownloadUrl("https://release-assets.githubusercontent.com/release/apk"))
+        assertTrue(DevUpdateManagerPolicy.isAllowedReleaseDownloadUrl("https://release-assets.githubusercontent.com/release/apk"))
         assertTrue(DevUpdateManager.isAllowedReleaseDownloadUrl("https://objects.githubusercontent.com/release/apk"))
         assertFalse(DevUpdateManager.isAllowedReleaseDownloadUrl("https://evil.example/release/apk"))
         assertFalse(DevUpdateManager.isAllowedReleaseDownloadUrl("http://release-assets.githubusercontent.com/release/apk"))
@@ -38,7 +38,7 @@ class DevUpdateManagerTest {
     }
 
     @Test fun acceptsOnlyOfficialHttpsReleaseAssetUrls() {
-        assertTrue(DevUpdateManager.isGuardianReleaseAssetUrl(
+        assertTrue(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(
             "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk",
             "guardian-android-dev.apk", 48
         ))
