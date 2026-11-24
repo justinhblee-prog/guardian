@@ -143,7 +143,8 @@ class DnsTcpSessionManager(
                 val unacknowledged = session.outstandingServerPackets.map { it.packet.copyOf() }
                 return when {
                     unacknowledged.isNotEmpty() -> unacknowledged
-                    session.lastServerReplies.isNotEmpty() -> session.lastServerReplies
+                    // A delayed duplicate after cumulative ACK must not replay
+                    // data the peer has already confirmed; answer with current ACK.
                     else -> listOf(ack(tcp, session))
                 }
             }
