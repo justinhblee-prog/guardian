@@ -43,11 +43,18 @@ internal object SecurityProfileStore {
      * arrives after this method disables automatic mode must not overwrite the
      * user's selected profile.
      */
-    @Synchronized
     fun applyManualProfile(context: Context, profileId: SecurityProfilePolicy.Id) {
-        setAutomaticSwitchEnabled(context, false)
+        // Commit manual mode under this store lock, then release it before
+        // unregistering the network callback. The monitor can call back into
+        // this store while holding its own lock, so never nest the locks in
+        // the inverse order.
+        synchronized(this) {
+            setAutomaticSwitchEnabled(context, false)
+        }
         SecurityProfileMonitor.stop()
-        applyProfile(context, SecurityProfilePolicy.manualSelection(profileId))
+        synchronized(this) {
+            applyProfile(context, SecurityProfilePolicy.manualSelection(profileId))
+        }
     }
 
     @Synchronized
