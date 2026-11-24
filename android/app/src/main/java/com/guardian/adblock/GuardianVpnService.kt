@@ -399,47 +399,66 @@ class GuardianVpnService : VpnService() {
         }
     }
 
-    @Synchronized
     private fun pauseProtectionForCompatibility(packageName: String) {
-        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) return
-        if (prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
-            prefs.edit().putString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, packageName).apply()
-            return
+        // Serialize only the pause decision and TUN detachment with explicit stop.
+        // Never hold the service monitor while closing the descriptor or joining
+        // the packet worker: stopProtection() must remain responsive during teardown.
+        var oldTun: ParcelFileDescriptor? = null
+        val workerToJoin = synchronized(this@GuardianVpnService) {
+            val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+            if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) {
+                return
+            }
+            if (prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
+                prefs.edit().putString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, packageName).apply()
+                return
+            }
+
+            startCancellation.cancel()
+            pendingStart.set(null)
+            tunnelSessionGuard.invalidate {
+                running.set(false)
+                tunnelActive = false
+                oldTun = tun
+                tun = null
+            }
+            // Publish the paused intent before releasing the monitor. This makes
+            // duplicate foreground callbacks idempotent while the old worker exits.
+            prefs.edit()
+                .putBoolean(KEY_ACTIVE, false)
+                .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, true)
+                .putString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, packageName)
+                .commit()
+            packetWorker
         }
 
-        startCancellation.cancel()
-        pendingStart.set(null)
-        var oldTun: ParcelFileDescriptor? = null
-        tunnelSessionGuard.invalidate {
-            running.set(false)
-            tunnelActive = false
-            oldTun = tun
-            tun = null
-        }
         try {
             oldTun?.close()
         } catch (error: Exception) {
             android.util.Log.w("GuardianProtection", "Could not close TUN for app compatibility pause: ${SafeFailureSummary.codeFor(error)}")
         }
         try {
-            packetWorker?.join(5_000L)
+            workerToJoin?.join(5_000L)
         } catch (error: InterruptedException) {
             Thread.currentThread().interrupt()
             android.util.Log.w("GuardianProtection", "Interrupted while waiting for DNS worker to pause: ${SafeFailureSummary.codeFor(error)}")
         }
 
-        if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) return
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val stillPaused = synchronized(this@GuardianVpnService) {
+            // An explicit stop or a concurrent compatibility resume may have
+            // superseded this callback while the packet worker was terminating.
+            prefs.getBoolean(KEY_RESTORE_REQUESTED, false) &&
+                prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false) &&
+                prefs.getString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, null) == packageName
+        }
+        if (!stillPaused) return
+
         val stillSelected = prefs.getBoolean(AppForegroundPauseSettings.KEY_ENABLED, false) &&
             packageName in prefs.getStringSet(
                 AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
             ).orEmpty()
         if (!stillSelected) {
-            prefs.edit()
-                .putBoolean(KEY_ACTIVE, false)
-                .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, true)
-                .putString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, packageName)
-                .commit()
             resumeProtectionAfterCompatibility()
             return
         }
@@ -449,13 +468,22 @@ class GuardianVpnService : VpnService() {
         } catch (_: Exception) {
             packageName
         }
-        prefs.edit()
-            .putBoolean(KEY_ACTIVE, false)
-            .putBoolean(KEY_RECOVERY_PENDING, false)
-            .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, true)
-            .putString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, packageName)
-            .putString(KEY_STATUS, "$appLabel 실행 중 · 기기 전체 VPN 보호가 일시 중지되었습니다. 앱을 닫으면 자동으로 다시 연결됩니다.")
-            .commit()
+        val statusCommitted = synchronized(this@GuardianVpnService) {
+            if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+                !prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false) ||
+                prefs.getString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, null) != packageName
+            ) {
+                false
+            } else {
+                prefs.edit()
+                    .putBoolean(KEY_ACTIVE, false)
+                    .putBoolean(KEY_RECOVERY_PENDING, false)
+                    .putString(KEY_STATUS, "$appLabel 실행 중 · 기기 전체 VPN 보호가 일시 중지되었습니다. 앱을 닫으면 자동으로 다시 연결됩니다.")
+                    .commit()
+            }
+        }
+        if (!statusCommitted) return
+
         try {
             createNotificationChannel()
             startForeground(41, buildNotification())
