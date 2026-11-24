@@ -1,3 +1,9 @@
+## 2026-11-24 — 보안 프로필 잠금 순서 교착 방지
+
+- SecurityProfileMonitor.refresh는 monitor lock을 가진 채 현재 network를 즉시 분류해 SecurityProfileStore에 접근할 수 있습니다. 수동 Apply 전체가 store lock을 보유한 채 `SecurityProfileMonitor.stop()`을 호출하면 반대 잠금 순서로 교착될 가능성이 있었습니다.
+- 수동 Apply는 store lock 아래 automatic switch OFF만 먼저 확정하고 잠금을 놓은 뒤 NetworkCallback 등록 해제를 호출합니다. 그 다음 store lock을 다시 얻어 사용자가 선택한 프로필을 반영합니다. 대기 중인 콜백은 OFF gate에서 무시됩니다.
+- 실제 스레드 경쟁/OEM NetworkCallback 실기기 검증은 미실행입니다.
+
 ## 2026-11-24 — 자동 전환 스위치 쓰기 직렬화 보강
 
 - 수동 적용 경쟁 상태 수정 후 setter의 마지막 코드 경로를 다시 확인했습니다. 자동 전환 체크박스에서 호출되는 `setAutomaticSwitchEnabled`에도 동일한 `SecurityProfileStore` monitor를 적용해, UI의 OFF 쓰기와 in-flight 자동 콜백의 상태 확인/정책 쓰기가 서로 교차하지 않도록 했습니다.
