@@ -1,3 +1,9 @@
+## 2026-11-24 — 앱별 추가 차단 규칙 저장 백그라운드 처리
+
+- 앱별 규칙 저장은 200개 제한의 작은 입력이라도 SharedPreferences `commit()`을 클릭 리스너 안에서 동기 실행해 디스크 상태에 따라 UI 스레드를 잠글 수 있었습니다.
+- 입력 검증 후 패키지 ID와 규칙 내용을 고정해 background thread에서 저장하고, 저장 중 버튼·앱 선택·입력창을 잠급니다. 완료/실패 결과만 UI 스레드에서 복구·표시하며 Activity 종료 또는 카드 제거 이후의 callback은 무시합니다.
+- Android UI/SharedPreferences 통합 테스트 및 실기기 응답성 검증은 미실행입니다.
+
 ## 2026-11-24 — 앱별 DNS 통계 snapshot 백그라운드 처리
 
 - 앱별 설치 앱 inventory는 이미 별도 thread로 조회하고 있었지만, 앱별 DNS 통계 `snapshot()`은 화면 생성 중 메인 스레드에서 SharedPreferences flush 및 최대 200개 패키지 카운터를 읽고 있었습니다.
