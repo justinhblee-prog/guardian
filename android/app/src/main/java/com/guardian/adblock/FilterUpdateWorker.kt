@@ -57,9 +57,20 @@ class FilterUpdateWorker(
                 baseCacheReady, FilterListManager.lastUpdatedAt(applicationContext), interval, now
             )
             var baseUpdateSucceeded = false
+            var baseUpdateFailed = false
             if (baseUpdateDue) {
-                FilterListManager.update(applicationContext)
-                baseUpdateSucceeded = true
+                try {
+                    FilterListManager.update(applicationContext)
+                    baseUpdateSucceeded = true
+                } catch (error: Exception) {
+                    // The optional feeds are independent sources. A failed base refresh
+                    // must not prevent security/Android-ads feeds from refreshing in this run.
+                    baseUpdateFailed = true
+                    recordScheduledFailure(prefs, error)
+                } catch (error: LinkageError) {
+                    baseUpdateFailed = true
+                    recordScheduledFailure(prefs, error)
+                }
             }
             if (FilterUpdatePolicy.shouldClearBaseError(baseUpdateDue, baseUpdateSucceeded)) {
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
@@ -142,7 +153,8 @@ class FilterUpdateWorker(
             applicationContext.sendBroadcast(
                 Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
             )
-            if (optionalFailure) Result.retry() else Result.success()
+            if (FilterUpdatePolicy.shouldRetryWorker(baseUpdateFailed, optionalFailure)) Result.retry()
+            else Result.success()
         } catch (e: Exception) {
             recordScheduledFailure(prefs, e)
             Result.retry()
@@ -203,6 +215,10 @@ internal object FilterUpdatePolicy {
     /** An enabled optional source remains eligible for retry until its first cache is installed. */
     fun shouldRetryOptionalUpdate(wasEnabled: Boolean, failureRetryable: Boolean = true): Boolean =
         wasEnabled && failureRetryable
+
+    /** Retry the worker when any independent filter source failed, without short-circuiting others. */
+    fun shouldRetryWorker(baseUpdateFailed: Boolean, optionalUpdateFailed: Boolean): Boolean =
+        baseUpdateFailed || optionalUpdateFailed
 
     /**
      * Disable an optional source only when a runtime linkage failure makes it
