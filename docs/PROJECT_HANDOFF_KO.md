@@ -179,3 +179,13 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - **실행 상태:** 별도 Kotlin 컴파일러로 `DnsQueryDeadline.kt`를 컴파일하고 시간 예산 감소·만료·watchdog 소켓 종료·watchdog 취소를 실행하는 독립 하네스를 통과시켰습니다. Android SDK/Gradle 실행기가 없어 저장소 JUnit은 실행하지 않았고, Android 앱 전체 컴파일도 미실행입니다. GitHub Actions도 과거 runner 할당 단계 실패가 재현된 이력이 있어 이번 변경에서는 실행하지 않았습니다.
 - **기기 검증 잔여:** Android에서 실제 UDP/TCP/DoT/DoH timeout, TLS handshake 중단, 네트워크 전환 및 정상 응답 지연을 측정해야 합니다. 8초는 전체 질의 상한이며 실제 단말에서 성공률/지연을 측정한 값은 아닙니다.
 
+
+## Android 보호 시작의 기본 필터 라이브러리 로딩 경로 점검 (2026-11-25)
+
+- Android Gradle main assets source는 `android/app/../../shared`이며, 이는 저장소 루트의 `shared/` 디렉터리입니다. `preBuild`에 연결된 `validateGuardianSharedFilterAsset`가 `shared/filter_rules.txt`의 존재·비어 있지 않음·유효한 block 규칙 포함 여부를 검사합니다.
+- 현재 브랜치에서 `shared/filter_rules.txt`가 존재하며 1,308 bytes입니다. 실제 파일 내용을 독립 Kotlin 컴파일러로 `FilterRuleParser`에 넣어 확인했고, 54개 차단 도메인이 파싱되며 무시된 줄은 0개였습니다.
+- 홈 화면의 시작 전 점검과 서비스의 `loadConfiguredRules()`는 내장 asset을 읽지 못하거나 규칙이 비어 있으면 `DomainFilter.bootstrapRuleLines()`의 긴급 기본 규칙으로 전환합니다. 다운로드 캐시 및 보안/Android 광고 필터는 선택 사항이며, 사용할 수 없어도 기본 규칙으로 VPN 시작을 진행하도록 구성되어 있습니다.
+- `loadConfiguredRules()`는 `@Synchronized`로 보호되어 시작 로딩과 사용자 규칙 재적용이 동시에 규칙 스냅샷을 교체하지 않습니다.
+- **현재 판단:** 저장소 소스에서 기본 asset 누락이 보호 시작을 반드시 중단시키는 경로는 확인되지 않았습니다. 실제 APK에 asset이 패키징되었는지와 단말의 로더 오류는 APK 빌드·설치·진단 로그 없이는 확정할 수 없습니다. 사용자가 이전에 본 “Library file not found” 메시지의 실제 발생 지점도 현재 소스만으로 특정하지 못했습니다.
+- **검증 상태:** Gradle asset 검증 task와 Android 시작 경로는 소스 점검만 했으며 실행하지 않았습니다. 별도 Kotlin parser 하네스에서 공유 baseline 54개 규칙 파싱은 통과했습니다. APK 내부 asset 확인과 실기기 시작 테스트는 통합 검증 단계에 남아 있습니다.
+
