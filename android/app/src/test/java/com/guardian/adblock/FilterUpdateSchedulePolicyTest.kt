@@ -7,7 +7,7 @@ import org.junit.Test
 
 class FilterUpdateSchedulePolicyTest {
     @Test fun recurringUpdatesRequireBothUserOptInAndProfilePermission() {
-        assertTrue(FilterUpdateScheduler.shouldSchedule(userOptedIn = true, profileAllowsUpdates = true))
+        assertTrue(FilterUpdateSchedulingPolicy.shouldSchedule(userOptedIn = true, profileAllowsUpdates = true))
         assertFalse(FilterUpdateScheduler.shouldSchedule(userOptedIn = false, profileAllowsUpdates = true))
         assertFalse(FilterUpdateScheduler.shouldSchedule(userOptedIn = true, profileAllowsUpdates = false))
         assertFalse(FilterUpdateScheduler.shouldSchedule(userOptedIn = false, profileAllowsUpdates = false))
