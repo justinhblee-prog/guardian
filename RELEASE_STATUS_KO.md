@@ -807,3 +807,7 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 회귀 테스트에 이전 시도와 새 시도의 상태 문구가 동일한 경우도 추가했습니다. 코드 커밋 `4a5ab6ab`, 테스트 커밋 `417c3065`.
 - 정식 업데이트 태그와 manifest versionName에서 `01.0.0`, `1.00.0` 등 선행 0이 있는 SemVer 숫자 요소를 거부하도록 정책과 manifest 검증을 통일했습니다. 테스트 커밋 `64a1eef2`, `04c21ff0`, manifest 검증 커밋 `fa063ee3`.
 - 원격 소스·테스트 반영을 재조회할 예정이며, 이 변경들의 Android JUnit/Gradle 실행은 아직 하지 않았습니다. 기존 PR #290의 PASS는 다른 브랜치 결과이므로 이 변경에 대한 실행 검증으로 간주하지 않습니다.
+
+## 2026-11-24 — 필터 캐시 트랜잭션 복구 보강
+- 서명 manifest 업데이트에서 캐시 파일·SharedPreferences 메타데이터·anti-rollback timestamp가 하나의 논리적 커밋으로 유지되어야 함을 확인했습니다. 실패 복구 시 SharedPreferences 복구가 예외를 내면 timestamp 복구가 건너뛰어질 수 있어, timestamp 복구를 `finally`로 이동했습니다. 따라서 메타데이터 복구 실패 상황에서도 anti-rollback watermark 복구를 시도합니다. 커밋 `f18926c6`.
+- 기존 `FilterCacheStoreTest`는 파일 복구 및 metadata rollback callback 경로를 다루지만, 이 특정 Android 통합 경로의 테스트 실행은 아직 하지 않았습니다. 원격 코드 반영 확인과 테스트 소스 점검만 완료했습니다.
