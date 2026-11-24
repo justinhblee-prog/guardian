@@ -47,6 +47,20 @@ class PhishingUrlAnalyzerTest {
         assertTrue(httpOnHttpsPort.signals.contains(PhishingUrlAnalyzer.Signal.UNUSUAL_PORT))
     }
 
+    @Test fun rejectsNonCanonicalNumericIpv4HostForms() {
+        listOf(
+            "https://2130706433/",
+            "https://0x7f000001/",
+            "https://0x7f.1/",
+            "https://127.1/",
+            "https://999.999.999.999/"
+        ).forEach { raw ->
+            assertEquals(raw, PhishingUrlAnalyzer.Risk.INVALID, PhishingUrlAnalyzer.analyze(raw).risk)
+        }
+        val conventional = PhishingUrlAnalyzer.analyze("https://192.0.2.1/")
+        assertTrue(conventional.signals.contains(PhishingUrlAnalyzer.Signal.IP_LITERAL_HOST))
+    }
+
     @Test fun validatesBracketedIpv6LiteralsInsteadOfAcceptingDnsNames() {
         val valid = PhishingUrlAnalyzer.analyze("https://[2001:db8::1]:443/")
         val invalidDnsName = PhishingUrlAnalyzer.analyze("https://[example.com]/")
