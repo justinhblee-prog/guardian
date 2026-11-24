@@ -244,7 +244,26 @@ class GuardianVpnService : VpnService() {
     private fun startForegroundAppMonitor(): String? {
         stopForegroundAppMonitor()
         val generation = compatibilityMonitorGeneration.get()
-        return startWalletMonitorIfConfigured(generation)
+        return try {
+            startWalletMonitorIfConfigured(generation)
+        } catch (error: Exception) {
+            // App-usage monitoring is optional. A package-manager/permission or
+            // monitor initialization failure must never prevent the core VPN
+            // protection request from reaching startProtection().
+            android.util.Log.w(
+                "GuardianProtection",
+                "Could not initialize app compatibility monitor: ${SafeFailureSummary.codeFor(error)}"
+            )
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                .putString(
+                    AppForegroundPauseSettings.KEY_ERROR,
+                    "자동 일시중지 기능을 시작하지 못해 껐습니다. ${SafeFailureSummary.describe(error)}"
+                )
+                .apply()
+            sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
+            null
+        }
     }
 
     private fun startWalletMonitorIfConfigured(generation: Long): String? {
