@@ -1,7 +1,7 @@
 package com.guardian.adblock
 
 internal object GuardianStableUpdatePolicy {
-    private val stableTagPattern = Regex("^v[0-9]+\\.[0-9]+\\.[0-9]+$")
+    private val stableTagPattern = Regex("^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")
 
     fun isStableRelease(draft: Boolean, prerelease: Boolean, tag: String): Boolean =
         !draft && !prerelease && runCatching { compareVersionTags(tag, tag) }.isSuccess
