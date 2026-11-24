@@ -86,6 +86,14 @@ class SecurityProfilePolicyTest {
         }
     }
 
+    @Test fun manualProfileChoicesExposeAllSixDistinctUserFacingProfiles() {
+        val labels = SecurityProfilePolicy.Id.values()
+            .map { SecurityProfilePolicy.profile(it).label }
+        assertEquals(6, labels.size)
+        assertEquals(6, labels.toSet().size)
+        assertTrue(labels.containsAll(listOf("집", "업무", "공용 Wi-Fi", "모바일 데이터", "여행", "엄격 보호")))
+    }
+
     @Test fun everyProfileUsesAnExistingFilterProfileKey() {
         val available = FilterListManager.availableProfiles().map { it.key }.toSet()
         SecurityProfilePolicy.Id.values().forEach { id ->
