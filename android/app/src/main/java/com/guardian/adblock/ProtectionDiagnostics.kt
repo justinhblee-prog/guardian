@@ -149,8 +149,18 @@ object ProtectionDiagnostics {
         val safeTrace = lastStartupTrace.orEmpty()
             .split(" | ")
             .take(2)
+            .mapNotNull { section ->
+                section.split(" <- ")
+                    .mapNotNull { frame ->
+                        frame.trim().takeIf {
+                            it.matches(Regex("[A-Za-z][A-Za-z0-9_$.<>]{0,179}(?::[0-9]{1,8})?"))
+                        }
+                    }
+                    .take(16)
+                    .joinToString(" <- ")
+                    .takeIf { it.isNotBlank() }
+            }
             .joinToString(" | ")
-            .filter { it.isLetterOrDigit() || it in " ._$<>:-|" }
             .take(1800)
         val safeCodes = filterErrorCodes
             .map { it.trim().uppercase(java.util.Locale.ROOT) }
