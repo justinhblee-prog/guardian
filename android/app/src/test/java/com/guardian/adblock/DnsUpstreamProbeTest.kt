@@ -65,6 +65,15 @@ class DnsUpstreamProbeTest {
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
     }
 
+
+    @Test fun rejectsCompressionPointerIntoDnsHeader() {
+        val query = DnsUpstreamProbe.query()
+        val response = successfulResponse(query)
+        response[29] = 0xc0.toByte()
+        response[30] = 0x04
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
+    }
+
     @Test fun rejectsResourceRecordWhoseRdataLengthExceedsPacket() {
         val query = DnsUpstreamProbe.query()
         val response = successfulResponse(query)
