@@ -1,3 +1,9 @@
+## 2026-11-24 — DNS 통계 카운터 오버플로/손상값 방어
+
+- 요청·차단·전달·실패·광고·추적·기타 및 형식 오류 DNS 카운터가 단순 `Long + 1`을 사용해 Long.MAX_VALUE에서 음수로 overflow하거나 저장값이 음수일 때 계속 음수로 유지될 수 있던 경로를 보완했습니다.
+- 모든 통계 증가에 `DnsStatsCounterPolicy.add`를 사용해 음수 기존값은 0으로 복구하고, 음수 증가량은 무시하며, Long.MAX_VALUE에서 포화하도록 했습니다.
+- 일반 증가, 0 증가, 음수 저장값 복구, Long 경계 포화, 음수 증가량 테스트를 추가했습니다. Android SharedPreferences/JUnit 통합은 미실행입니다.
+
 ## 2026-11-24 — TCP 응답 주소 길이 입력 검증
 
 - `DnsTcpPacket.response()`가 source 주소 길이만 확인하고 destination 주소 길이는 `arraycopy` 중 예외에 맡기던 부분을 보강했습니다. IPv4는 source/destination 모두 4바이트, IPv6는 모두 16바이트여야 합니다.
