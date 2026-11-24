@@ -10,6 +10,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import javax.net.ssl.HttpsURLConnection
 import java.net.URL
 import java.security.MessageDigest
@@ -133,8 +135,10 @@ internal object GuardianStableUpdateManager {
             }
             verifyDownloadedPackage(context, temporary, update)
             // Keep the prior verified cache intact until all checks pass.
-            if (target.exists()) check(target.delete()) { "이전 정식 APK 캐시를 교체할 수 없습니다." }
-            check(temporary.renameTo(target)) { "검증된 정식 APK를 캐시 위치로 이동하지 못했습니다." }
+            Files.move(
+                temporary.toPath(), target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING
+            )
             return target
         } catch (error: Exception) {
             temporary.delete()
