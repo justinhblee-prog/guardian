@@ -364,3 +364,9 @@
 - Client FIN processing is ordered after pending DNS response bytes; the server FIN is deferred until queued data has been sent and window capacity is available.
 - Added a regression test for a 5KB response held at zero window and delivered over three 2,048-byte window openings.
 - Source/test/docs committed remotely. Android Gradle/JUnit, lint, emulator, and physical-device tests have not run. No Actions run or APK build was started.
+
+
+## 2026-11-24 — DNS TCP 윈도우 업데이트 순서 보호
+- `DnsTcpSessionManager`에 마지막으로 수락한 peer window의 SEG.SEQ/SEG.ACK 기준을 저장하고, TCP serial-number ordering에 따라 오래된 윈도우 광고를 무시하도록 보완했습니다.
+- 낮은 SEG.SEQ 및 동일 SEG.SEQ + 낮은 SEG.ACK 조합으로 수신 윈도우가 축소되지 않는 회귀 테스트를 추가했습니다.
+- 원격 반영 확인 후 Android Gradle/JUnit 실행은 하지 않았습니다. CI/비용 발생 작업도 실행하지 않았습니다.
