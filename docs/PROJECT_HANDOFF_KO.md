@@ -189,6 +189,13 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - **현재 판단:** 저장소 소스에서 기본 asset 누락이 보호 시작을 반드시 중단시키는 경로는 확인되지 않았습니다. 실제 APK에 asset이 패키징되었는지와 단말의 로더 오류는 APK 빌드·설치·진단 로그 없이는 확정할 수 없습니다. 사용자가 이전에 본 “Library file not found” 메시지의 실제 발생 지점도 현재 소스만으로 특정하지 못했습니다.
 - **검증 상태:** Gradle asset 검증 task와 Android 시작 경로는 소스 점검만 했으며 실행하지 않았습니다. 별도 Kotlin parser 하네스에서 공유 baseline 54개 규칙 파싱은 통과했습니다. APK 내부 asset 확인과 실기기 시작 테스트는 통합 검증 단계에 남아 있습니다.
 
+## Android VPN 중지 메서드 중복 어노테이션 컴파일 결함 수정 (2026-11-25)
+
+- 생명주기 소스 점검 중 `GuardianVpnService.stopProtection()` 선언에 `@Synchronized`가 연속으로 두 번 붙은 것을 발견했습니다. Kotlin의 `Synchronized` 어노테이션은 반복 적용할 수 없어 Android 앱 소스 컴파일을 차단하는 결함입니다.
+- 저장소 전체 Android 빌드가 아닌 최소 재현 Kotlin 파일에서 동일한 중복 선언을 `kotlinc`로 컴파일했고, `this annotation is not repeatable` 오류를 확인했습니다.
+- 중복 어노테이션 한 개를 제거해 수정했습니다. 원격 브랜치에서 파일을 다시 읽어 중복이 사라진 것을 확인했습니다.
+- **검증 한계:** 최소 재현 컴파일은 결함을 입증했지만, 수정된 Android 앱 전체 컴파일·JUnit·Lint·APK 빌드는 실행하지 않았습니다. GitHub Actions도 실행하지 않았습니다.
+
 ## Android VPN 명시적 중지와 앱 제외 재구성의 직렬화 (2026-11-25)
 
 - 기존 `reconfigureExcludedApplications()` 전체에 `@Synchronized`가 적용된 것만으로는 중지 경로와 일관된 직렬화가 보장되지 않았다. 명시적 중지의 복원 의도 변경과 재구성의 마지막 복원 의도 확인/시작 세대 발급이 동일한 서비스 모니터를 사용하도록 경계를 조정했다.
