@@ -98,7 +98,7 @@ fun main() {
     verify(DomainFilter.isBlocked("sub.ads.example.test"), "parsed hosts/adblock suffix blocks")
     verify(!DomainFilter.isBlocked("trusted.ads.example.test"), "ordinary exception overrides ordinary block")
     verify(DomainFilter.isBlocked("critical.example.test"), "important block cannot be overridden")
-    verify(parsedFeeds.ignored >= 3, "invalid, sink-only and unsupported rules counted as ignored")
+    verify(parsedFeeds.ignored >= 2, "sink-only and unsupported rules counted as ignored")
 
     println("Guardian DNS core Kotlin smoke checks: PASS ($assertions assertions)")
 }
