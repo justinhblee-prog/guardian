@@ -147,6 +147,66 @@ class Ipv4UdpTest {
         assertNotNull(Ipv4Udp.parseDns(dontFragment, dontFragment.size))
     }
 
+    @Test fun acceptsValidNonzeroIpv4UdpChecksumAndBuildsValidResponse() {
+        val packet = ByteArray(40)
+        packet[0] = 0x45
+        packet[2] = 0
+        packet[3] = 40
+        packet[9] = 17
+        packet[12] = 10
+        packet[15] = 1
+        packet[16] = 10
+        packet[19] = 2
+        packet[20] = 0xCF.toByte()
+        packet[21] = 0x08.toByte()
+        packet[22] = 0
+        packet[23] = 53
+        packet[24] = 0
+        packet[25] = 20
+        for (i in 28 until 40) packet[i] = (i - 27).toByte()
+        val requestChecksum = ipv4UdpChecksum(packet, 20, 20)
+        packet[26] = (requestChecksum ushr 8).toByte()
+        packet[27] = requestChecksum.toByte()
+        sealHeader(packet, 20)
+
+        val parsed = Ipv4Udp.parseDns(packet, packet.size)
+        assertNotNull(parsed)
+        val response = Ipv4Udp.response(parsed!!, ByteArray(32) { it.toByte() })
+        assertEquals(0, ipv4HeaderChecksum(response, 20))
+        assertTrue(ipv4UdpChecksum(response, 20, response.size - 20) == 0)
+        assertEquals(53, Ipv4Udp.u16(response, 20))
+        assertEquals(parsed.sourcePort, Ipv4Udp.u16(response, 22))
+    }
+
+    private fun ipv4UdpChecksum(packet: ByteArray, offset: Int, length: Int): Int {
+        var sum = 0L
+        for (i in 12 until 20 step 2) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or (packet[i + 1].toInt() and 0xff)).toLong()
+        }
+        sum += 17L + length
+        var i = offset
+        val end = offset + length
+        while (i + 1 < end) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or (packet[i + 1].toInt() and 0xff)).toLong()
+            i += 2
+        }
+        if (i < end) sum += ((packet[i].toInt() and 0xff) shl 8).toLong()
+        while ((sum ushr 16) != 0L) sum = (sum and 0xffff) + (sum ushr 16)
+        val result = sum.inv().toInt() and 0xffff
+        return if (result == 0) 0xffff else result
+    }
+
+    private fun ipv4HeaderChecksum(packet: ByteArray, length: Int): Int {
+        var sum = 0L
+        var i = 0
+        while (i < length) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or (packet[i + 1].toInt() and 0xff)).toLong()
+            i += 2
+        }
+        while ((sum ushr 16) != 0L) sum = (sum and 0xffff) + (sum ushr 16)
+        return sum.toInt() and 0xffff
+    }
+
     private fun sealHeader(packet: ByteArray, headerLength: Int) {
         packet[10] = 0
         packet[11] = 0
