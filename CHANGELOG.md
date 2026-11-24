@@ -1,3 +1,9 @@
+## 2026-11-24 — DNS TCP 32비트 sequence wrap-around 회귀 테스트
+
+- 클라이언트 ISN과 서버 ISN을 각각 0xFFFFFFFF 경계에 배치하고 DNS 질의 수신/응답 분할이 32비트 순번 0을 넘어가는 경우를 검증하는 회귀 테스트를 추가했습니다.
+- 서버 첫 응답 세그먼트가 sequence `0xFFFFFFFF`에서 시작해 0을 지나고, 누적 ACK가 1199로 wrap된 뒤 첫 outstanding 패킷을 제거하고 다음 세그먼트의 fast retransmit 대상으로 선택하는지 확인합니다.
+- 실제 Android Gradle/JUnit은 미실행이며, 독립 Kotlin/JVM 세션 하네스에도 같은 경계 시나리오를 실행할 예정입니다.
+
 ## 2026-11-24 — 필수 필터 asset 도메인 길이 상한 일치
 
 - Gradle preBuild validator도 런타임 `FilterRuleParser`와 같이 정규화된 DNS 이름 전체 길이를 253자로 제한하도록 보강했습니다. 라벨별 63자 제한과 연속 점/공백/잘못된 문자 거부는 기존 도메인 정규식이 확인합니다.
