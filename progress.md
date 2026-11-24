@@ -674,3 +674,8 @@
 - APK/manifest asset 이름과 guardian-dev-vN tag 및 manifest versionCode 일치를 다운로드 전에 검사합니다.
 - post-download APK 검증 실패 시 파일 삭제, 단일 content signer 검증 및 설치된 개발판 signer 1개 조건을 추가했습니다.
 - 순수 URL allowlist/tag binding/signer policy 테스트 추가. Android Gradle/JUnit·실제 HTTPS redirect·실기기 업데이트는 미실행입니다.
+
+
+## 2026-11-24 — 개발판 업데이트 정책 로직 분리
+- 공식 dev release asset URL/path/tag/asset name, HTTPS host allowlist, redirect CDN allowlist, signer cardinality, tag-version binding을 순수 DevUpdateManagerPolicy로 분리했습니다.
+- DevUpdateManager와 단위 테스트가 동일 정책 객체를 호출하도록 연결했습니다. Android Gradle/JUnit 미실행; 정책 단독 Kotlin/JVM smoke를 별도 수행합니다.
