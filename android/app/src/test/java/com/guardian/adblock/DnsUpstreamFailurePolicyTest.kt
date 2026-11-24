@@ -9,9 +9,9 @@ class DnsUpstreamFailurePolicyTest {
     @Test fun summarizesEachFallbackCandidateWithoutExposingAddresses() {
         val result = DnsUpstreamFailurePolicy.summarize(
             listOf("UDP 후보 1: 응답 시간 초과", "UDP 후보 2: 소켓 우회 실패")
-        )
+        ) ?: error("Expected a non-empty fallback diagnostic")
         assertEquals("UDP 후보 1: 응답 시간 초과 · UDP 후보 2: 소켓 우회 실패", result)
-        assertTrue(result!!.contains("후보 1"))
+        assertTrue(result.contains("후보 1"))
         assertTrue(result.contains("후보 2"))
     }
 
