@@ -1,3 +1,8 @@
+## 2026-11-24 — 역엔디안 DEX 테스트 픽스처 정정
+
+- 역엔디안 DEX 테스트의 endian_tag 숫자 값과 기록 바이트 순서를 혼동한 픽스처를 수정했습니다. 역엔디안 파일은 32비트 헤더 필드를 big-endian으로 기록하되, marker 바이트를 little-endian으로 읽었을 때 reverse constant가 되도록 생성합니다.
+- 검사기 로직은 변경하지 않았으며 테스트 데이터의 엔디안 표현만 바로잡았습니다.
+
 ## 2026-11-24 — DEX 헤더 엔디안 판독 일치
 
 - DEX 헤더에서 reverse-endian tag를 허용하면서 file_size/header_size는 항상 little-endian으로 읽던 불일치를 수정했습니다.
