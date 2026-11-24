@@ -1,3 +1,9 @@
+## 2026-11-24 — 정식 APK FileProvider 캐시 경로 등록
+
+- 정식 업데이트 관리자는 검증한 APK를 `cache/stable-updates/`에 저장하지만 `guardian_file_paths.xml`에는 개발판 `cache/updates/`만 등록되어 있었습니다. APK 다운로드/해시/서명 검증 이후 `FileProvider.getUriForFile()`가 경로를 거부해 Android 설치 확인 화면을 열 수 있는 실제 경로 불일치였습니다.
+- XML에 정식 업데이트 전용 cache-path를 추가하고, 개발/정식 업데이트가 각자의 디렉터리를 공통 경로 상수로 사용하도록 정리했습니다. 두 디렉터리는 분리 유지합니다.
+- 캐시 디렉터리 정책 테스트를 추가했습니다. Android FileProvider URI 생성 및 시스템 설치 화면은 실기기/Android 환경에서 아직 검증하지 않았습니다.
+
 ## 2026-11-24 — 정식 Android 업데이트 정책 JVM smoke 16/16
 
 - `GuardianStableUpdatePolicy`에 대해 kotlinc/JRE 21 독립 컴파일·실행 PASS 16/16: stable/draft/prerelease 구분, semantic tag 순서, versionCode 비교, SHA-256 형식, 정확한 공식 저장소/tag/manifest·APK 자산 경로, tag·asset·query 불일치 거부.
