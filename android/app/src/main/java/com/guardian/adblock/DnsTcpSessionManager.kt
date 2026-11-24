@@ -41,6 +41,7 @@ class DnsTcpSessionManager(
         var lastClientFin: Boolean = false,
         var clientFinReceived: Boolean = false,
         var serverFinSent: Boolean = false,
+        var handshakeCompleted: Boolean = false,
         val outstandingServerPackets: MutableList<OutstandingServerPacket> = mutableListOf()
     )
 
@@ -82,9 +83,16 @@ class DnsTcpSessionManager(
             if (existing != null) {
                 if (existing.clientInitialSequence == tcp.sequence) {
                     existing.lastActivity = now
-                    return listOf(DnsTcpPacket.response(tcp, existing.serverInitial,
-                        (existing.clientInitialSequence + 1L) and MASK,
-                        DnsTcpPacket.SYN or DnsTcpPacket.ACK))
+                    // Retransmit SYN-ACK only while the handshake is pending.
+                    // Once synchronized, a delayed SYN must not roll the peer
+                    // back to the initial sequence space; answer with current ACK.
+                    return if (existing.handshakeCompleted) {
+                        listOf(ack(tcp, existing))
+                    } else {
+                        listOf(DnsTcpPacket.response(tcp, existing.serverInitial,
+                            (existing.clientInitialSequence + 1L) and MASK,
+                            DnsTcpPacket.SYN or DnsTcpPacket.ACK))
+                    }
                 }
                 // A new SYN on an established four-tuple is not a new
                 // connection. Do not replace the live session or reset its
@@ -143,6 +151,9 @@ class DnsTcpSessionManager(
             tcp.acknowledgement != initialServerNext) {
             return listOf(ack(tcp, session))
         }
+        // A valid ACK in the server's initial sequence space completes the
+        // three-way handshake, including a third packet carrying DNS payload.
+        session.handshakeCompleted = true
         // Track cumulative acknowledgements and the peer's currently advertised
         // receive window. Window scaling is not negotiated, so this is the raw
         // 16-bit window from the TCP header.
