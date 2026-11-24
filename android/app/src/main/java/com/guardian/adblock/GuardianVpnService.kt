@@ -656,7 +656,7 @@ class GuardianVpnService : VpnService() {
                 "DNS 보호가 실행 중입니다. $filterNotice"
             }
             publishState(true, activeMessage)
-            packetWorker = thread(name = "guardian-vpn-dns") { packetLoop(descriptor, requestGeneration) }
+            packetWorker = thread(name = "guardian-vpn-dns") { packetLoop(descriptor, requestGeneration, startId) }
         }
         if (!committed) {
             try { descriptor.close() } catch (_: Exception) { }
@@ -669,7 +669,7 @@ class GuardianVpnService : VpnService() {
         }
     }
 
-    private fun packetLoop(descriptor: ParcelFileDescriptor, requestGeneration: Long) {
+    private fun packetLoop(descriptor: ParcelFileDescriptor, requestGeneration: Long, startId: Int) {
         var loopFailure: Throwable? = null
         val retransmissionFailure = AtomicReference<Throwable?>(null)
         var retransmissionScheduler: ScheduledExecutorService? = null
@@ -780,7 +780,9 @@ class GuardianVpnService : VpnService() {
                     try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
                     val detail = loopFailure?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${SafeFailureSummary.describe(it)})" }.orEmpty()
                     publishState(false, "DNS 패킷 처리 중단$detail. 보호를 다시 시작해 주세요.")
-                    stopSelf()
+                    // Do not stop a newer ACTION_START request that arrived while
+                    // this generation was unwinding.
+                    stopSelf(startId)
                 }
             }
         }
