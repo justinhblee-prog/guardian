@@ -60,9 +60,14 @@ internal object GuardianApkCacheStore {
     @Synchronized
     private fun recover(target: File, backup: File, moveFile: (File, File) -> Unit) {
         if (!backup.isFile) return
-        if (target.isFile) {
+        if (target.isFile && target.length() > 0L) {
+            // A non-empty target means the replacement rename completed before
+            // the process stopped; it is newer than the backup generation.
             backup.delete()
         } else {
+            // An empty target is not an installable APK. Prefer the last
+            // known-good backup instead of discarding it during recovery.
+            target.delete()
             moveFile(backup, target)
         }
     }
