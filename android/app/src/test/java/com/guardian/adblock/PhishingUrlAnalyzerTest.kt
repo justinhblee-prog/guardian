@@ -92,6 +92,14 @@ class PhishingUrlAnalyzerTest {
         assertFalse(queryOnly.signals.contains(PhishingUrlAnalyzer.Signal.EXECUTABLE_DOWNLOAD))
     }
 
+    @Test fun acceptsOneTerminalDnsDotButRejectsMultipleTerminalDots() {
+        val absoluteName = PhishingUrlAnalyzer.analyze("https://example.com./")
+        val malformedName = PhishingUrlAnalyzer.analyze("https://example.com../")
+        assertTrue(absoluteName.inputAccepted)
+        assertEquals("example.com", absoluteName.normalizedHost)
+        assertEquals(PhishingUrlAnalyzer.Risk.INVALID, malformedName.risk)
+    }
+
     @Test fun rejectsUnsupportedSchemesMalformedHostsAndOversizedInput() {
         listOf(
             "javascript:alert(1)",
