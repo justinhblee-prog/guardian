@@ -65,16 +65,33 @@ internal class DnsQueryDeadline private constructor(
                 if (cancelled.get()) "DNS query cancelled" else "DNS query deadline exceeded"
             )
         }
-        val future: ScheduledFuture<*> = EXPIRY_EXECUTOR.schedule(
+        val futureRef = java.util.concurrent.atomic.AtomicReference<ScheduledFuture<*>?>(null)
+        val cancellableCloser: () -> Unit = {
+            futureRef.get()?.cancel(false)
+            closer()
+        }
+        // Replace the plain closer before scheduling so explicit cancellation
+        // can also remove a watchdog that races its own registration.
+        activeClosers.remove(closer)
+        activeClosers.add(cancellableCloser)
+        if (cancelled.get()) {
+            if (activeClosers.remove(cancellableCloser)) cancellableCloser()
+            throw SocketTimeoutException("DNS query cancelled")
+        }
+        val future = EXPIRY_EXECUTOR.schedule(
             {
-                if (activeClosers.remove(closer)) closer()
+                if (activeClosers.remove(cancellableCloser)) cancellableCloser()
             },
             remaining.toLong(),
             TimeUnit.MILLISECONDS
         )
+        futureRef.set(future)
+        if (cancelled.get() && activeClosers.remove(cancellableCloser)) {
+            cancellableCloser()
+        }
         return AutoCloseable {
             future.cancel(false)
-            activeClosers.remove(closer)
+            activeClosers.remove(cancellableCloser)
         }
     }
 
