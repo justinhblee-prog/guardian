@@ -354,3 +354,8 @@
 
 ## 2026-11-24 — 앱별 설치 목록 정리 정책 Kotlin/JVM 스모크
 - 설치 앱 조회 권한·두 PackageManager API 성공·비어 있지 않은 결과·집합 완전 일치, stale package 계산 경계 등을 Android 의존성 없이 분리 실행해 9/9 통과했습니다. 이는 정책 로직 smoke이며 Android SharedPreferences/PackageManager 통합이나 단말 검증은 아닙니다.
+
+
+## 2026-11-24 — 앱별 정책 캐시 읽기/저장 직렬화
+- cache miss 시 읽은 오래된 SharedPreferences 값이 동시 규칙 저장 후 새 cache를 덮어쓸 수 있는 race를 수정했습니다. `rules()` 읽기에도 같은 store synchronization을 적용해 read/replace/prune/clear를 직렬화합니다.
+- Android SharedPreferences/packet thread/UI thread 동시 실행 검증은 미실행입니다.
