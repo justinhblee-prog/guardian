@@ -305,3 +305,8 @@
 ## 2026-11-24 — URL 대괄호 IPv6 구문 검증
 - URL 대괄호 호스트를 DNS 이름으로 오인해 허용할 수 있던 경로를 막았습니다. IPv6 리터럴 파싱에 성공하는 주소만 허용하고 zone-id 형식은 입력 단계에서 거부합니다.
 - 정상 IPv6, 잘못된 대괄호 DNS 이름, malformed IPv6 테스트를 추가했습니다. Android Gradle/JUnit·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — DEX 헤더 엔디안 판독 보강
+- DEX reverse-endian tag가 있을 때 file_size/header_size 필드도 big-endian으로 읽도록 수정했습니다. endian tag/숫자 필드의 바이트 순서가 불일치하지 않도록 정리했습니다.
+- little-endian/reverse-endian 두 픽스처의 APK 검사 성공 상태 테스트를 추가했습니다. Android Gradle/JUnit 및 실제 APK 검사는 미실행입니다.
