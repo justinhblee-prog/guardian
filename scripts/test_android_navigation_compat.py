@@ -24,6 +24,26 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         xml = '<hierarchy><node content-desc="전체 메뉴" clickable="true" enabled="true" /></hierarchy>'
         self.assertEqual(resolve_premium_entry(xml), "all-menu")
 
+    def test_non_clickable_nested_settings_label_is_not_a_navigation_route(self):
+        xml = '<hierarchy><node content-desc="설정" clickable="false" enabled="true" /></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_premium_entry(xml)
+
+    def test_disabled_settings_navigation_item_is_not_a_route(self):
+        xml = '<hierarchy><node content-desc="설정" clickable="true" enabled="false" /></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_premium_entry(xml)
+
+    def test_hidden_settings_navigation_item_is_not_a_route(self):
+        xml = '<hierarchy><node content-desc="설정" clickable="true" enabled="true" visible-to-user="false" /></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_premium_entry(xml)
+
+    def test_non_clickable_legacy_premium_label_is_not_a_navigation_route(self):
+        xml = '<hierarchy><node content-desc="Premium" clickable="false" enabled="true" /></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_premium_entry(xml)
+
     def test_english_premium_category_label_is_supported(self):
         xml = '<hierarchy><node text="라이선스 및 Premium" /></hierarchy>'
         self.assertEqual(resolve_premium_category(xml), "라이선스 및 Premium")
@@ -33,15 +53,15 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         self.assertEqual(resolve_premium_category(xml), "라이선스 및 프리미엄")
 
     def test_current_app_exclusion_settings_label_is_supported(self):
-        xml = '<hierarchy><node text="앱 제외 관리" visible-to-user="true" /></hierarchy>'
+        xml = '<hierarchy><node text="앱 제외 관리" visible-to-user="true" />'
         self.assertEqual(resolve_settings_item(xml, "앱 제외 관리"), "앱 제외 관리")
 
     def test_legacy_app_exclusion_settings_label_is_supported(self):
-        xml = '<hierarchy><node text="앱 제외" visible-to-user="true" /></hierarchy>'
+        xml = '<hierarchy><node text="앱 제외" visible-to-user="true" />'
         self.assertEqual(resolve_settings_item(xml, "앱 제외 관리"), "앱 제외")
 
     def test_legacy_filter_settings_label_is_supported(self):
-        xml = '<hierarchy><node content-desc="필터 규칙" visible-to-user="true" /></hierarchy>'
+        xml = '<hierarchy><node content-desc="필터 규칙" visible-to-user="true" />'
         self.assertEqual(resolve_settings_item(xml, "필터 관리"), "필터 규칙")
 
     def test_missing_settings_item_fails_closed(self):
