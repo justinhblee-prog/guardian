@@ -53,7 +53,15 @@ class DnsUpstreamProbeTest {
 
     @Test fun rejectsAdvertisedAnswerWhenResourceRecordIsTruncated() {
         val query = DnsUpstreamProbe.query()
-        val response = successfulResponse(query).copyOf().also { it[it.lastIndex] = 0 }
+        val response = successfulResponse(query).copyOf(successfulResponse(query).size - 1)
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
+    }
+
+    @Test fun rejectsSelfReferencingCompressionPointerInAnswerOwnerName() {
+        val query = DnsUpstreamProbe.query()
+        val response = successfulResponse(query)
+        response[29] = 0xc0.toByte()
+        response[30] = 0x1d
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
     }
 
