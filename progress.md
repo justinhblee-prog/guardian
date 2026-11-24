@@ -285,3 +285,9 @@
 - 기본 네트워크 callback이 Guardian VPN 인터페이스(TRANSPORT_VPN)를 반환할 경우, `ConnectivityManager.allNetworks`에서 VPN이 아닌 물리 네트워크를 찾아 validated/Wi-Fi/not-metered capability를 판별합니다.
 - 물리 네트워크를 찾지 못하면 VPN capability를 사용하고 OTHER/strict 보호로 보수 처리합니다.
 - Android API signature stub 기반 Kotlin compile smoke 통과. 실제 VPN 활성 중 물리 network enumeration과 OEM별 callback은 아직 검증되지 않았습니다.
+
+
+## 2026-11-24 — 보안 프로필 수동 적용 UI
+- 개발 미리보기에 여섯 가지 수동 프로필 선택/적용 UI를 추가했습니다.
+- 수동 프로필 적용 시 저장된 자동 전환 설정을 해제하고 NetworkCallback을 정리한 뒤 실제 필터 설정 및 실행 중 VPN 규칙 reload 경로에 반영합니다.
+- Release/PRO entitlement는 아직 닫혀 있습니다. Android Gradle/JUnit·에뮬레이터·실기기 검증 전입니다.
