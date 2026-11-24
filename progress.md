@@ -325,3 +325,7 @@
 ## 2026-11-24 — 앱별 DNS 규칙 화면 PackageManager 비동기 조회
 - 앱별 DNS 미리보기의 설치 앱 전체 조회 및 label loading을 UI thread에서 background inventory worker로 옮겼습니다. 초기 화면은 로딩 문구를 표시하고 결과는 Activity 생존 확인 후 UI thread에 반영합니다.
 - 선택 앱 전환, 저장된 규칙 로드, 사용자 규칙 저장 및 조회 오류 표시를 유지하는 editor builder를 분리했습니다. Android UI/ANR/emulator/실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 앱 인벤토리 비동기 결과 문구 유지
+- 비동기 응답 처리에서 placeholder 컨테이너 전체를 지우지 않고 기존 상태 TextView를 유지하도록 수정했습니다. 조회 완료/오류 문구가 보인 상태로 규칙 편집기를 추가합니다.
