@@ -1,12 +1,13 @@
 # Guardian Android — Progress Tracker
 
-- **전체 상태**: 개발 진행 중. Android 무료판 출시 전이며 PRO 기능은 별도 트랙에서 병행 구현 중입니다.
-- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 248 commits ahead, 0 behind.
-- **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. 실제 Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
-- **PR #290**: open, unmerged 상태를 유지합니다. 작업은 독립 branch에서 수행합니다.
-- **검증**: ResponsiveLayoutPolicy smoke 4/4, 앱별 정리 정책 Kotlin/JVM smoke 8/8, 최초 필터 복구 정책 Kotlin/JVM smoke 12/12, 필터 복구·캐시 상태 표시 정책 Kotlin/JVM smoke 19/19 통과(모두 격리된 순수 정책 검증). 최신 DNS TCP RTO/RST 및 Android UI 소스의 Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행이며 APK도 아직 생성·검증되지 않았습니다.
+- **전체 상태**: 개발 진행 중. 무료 Android 출시와 PRO 기능 완성 모두 미완료입니다.
+- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 255 commits ahead, 0 behind.
+- **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
+- **PR #290**: open, unmerged 상태 유지. 무료/PRO 작업은 별도 브랜치입니다.
+- **격리 Kotlin/JVM 검증**: DNS 업스트림 진단 ThreadLocal 3/3, DNS TCP 정책/타이머/프레임/시퀀스 하네스 기록, 필터/앱 목록 정리 정책, DEX 041 헤더/컨테이너 11/11, 앱별 정리 12/12 등. 각 결과는 해당 순수 정책만 검증하며 Android 앱 빌드 통과를 의미하지 않습니다.
+- **미실행 검증**: 최신 브랜치 Android Gradle/JUnit 전체, lint, emulator, 실기기 네트워크 및 UI, APK 생성·크기·SHA-256·서명·설치 검증은 미실행입니다.
 - **실행 제약**: GitHub Actions 실행, runner/billing 설정 변경 및 유료 사용량 발생 작업은 사용자 승인 없이 하지 않습니다.
-- **완료 게이트**: Android 빌드·JUnit·lint·에뮬레이터·Samsung 실기기 검증, APK 존재/크기/SHA-256/서명·설치 확인, 한국어 배포/복구 문서 확보 전에는 완료로 판정하지 않습니다.
+- **완료 게이트**: Android 빌드·JUnit·lint·에뮬레이터·Samsung 실기기 검증, APK 파일/서명/해시/설치 증거 및 한국어 배포·복구 문서 확보 전에는 완료로 판정하지 않습니다.
 
 ## 2026-11-24 — DNS TCP 수신 윈도 순서 검증 강화
 - 클라이언트의 다음 수신 시퀀스 위치와 일치하는 세그먼트만 광고 수신 윈도 업데이트에 반영하도록 제한했습니다.
@@ -622,3 +623,8 @@
 - preflight, 수동 업스트림 연결 테스트, VPN packet worker가 공유하던 `lastUpstreamFailure` 전역 변수의 동시 쓰기 오염 가능성을 수정했습니다.
 - 기존 call-site는 유지하고 ThreadLocal backing context를 사용합니다. `forwardDns()` 작업 초기화는 현재 스레드 값만 삭제하므로 다른 DNS 작업의 오류 원인을 보존합니다.
 - 동시 작업 간 오류 격리·스레드별 clear 테스트를 추가했습니다. Android service thread, 실기기 네트워크, Android Gradle/JUnit은 미실행입니다.
+
+
+## 2026-11-24 — DNS 업스트림 진단 ThreadLocal JVM smoke 3/3
+- `DnsThreadFailureContext` 실제 구현과 동일한 코드를 kotlinc/JRE 환경에서 컴파일·실행했습니다. PASS 3/3: 동시 요청의 실패 원인 격리, 스레드별 clear 격리, null 제거 동작.
+- Android Service 통합 컴파일, actual packet/preflight/upstream-test thread 실행 및 Android Gradle/JUnit은 미실행입니다.
