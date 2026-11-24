@@ -1600,7 +1600,7 @@ class MainActivity : Activity() {
             background = shape(accent, 12)
             setOnClickListener {
                 val initialMessage = if (developmentBuild) "공식 개발 릴리스 확인 중…" else "공식 정식 릴리스 확인 중…"
-                if (!GuardianAppUpdateState.begin(initialMessage)) {
+                val updateAttemptId = GuardianAppUpdateState.begin(initialMessage) ?: run {
                     syncAppUpdateViews()
                     return@setOnClickListener
                 }
@@ -1612,45 +1612,49 @@ class MainActivity : Activity() {
                         if (developmentBuild) {
                             val update = DevUpdateManager.checkForUpdate()
                             if (update == null) {
-                                GuardianAppUpdateState.noUpdate("현재 설치된 개발 버전이 최신입니다.")
+                                GuardianAppUpdateState.noUpdate(updateAttemptId, "현재 설치된 개발 버전이 최신입니다.")
                             } else {
                                 GuardianAppUpdateState.updateStatus(
+                                    updateAttemptId,
                                     "새 개발 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
                                 )
                                 appContext.sendBroadcast(Intent(GuardianAppUpdateState.ACTION_STATE_CHANGED).setPackage(appContext.packageName))
                                 val apk = DevUpdateManager.download(appContext, update)
                                 GuardianAppUpdateState.complete(
-                                    apk, true,
+                                    updateAttemptId, apk, true,
                                     "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 개발 서명 인증서 검증 통과."
                                 )
                             }
                         } else {
                             val update = GuardianStableUpdateManager.checkForUpdate()
                             if (update == null) {
-                                GuardianAppUpdateState.noUpdate("설치된 정식 버전이 최신 공개 버전 이상입니다.")
+                                GuardianAppUpdateState.noUpdate(updateAttemptId, "설치된 정식 버전이 최신 공개 버전 이상입니다.")
                             } else {
                                 GuardianAppUpdateState.updateStatus(
+                                    updateAttemptId,
                                     "새 정식 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
                                 )
                                 appContext.sendBroadcast(Intent(GuardianAppUpdateState.ACTION_STATE_CHANGED).setPackage(appContext.packageName))
                                 val apk = GuardianStableUpdateManager.download(appContext, update)
                                 GuardianAppUpdateState.complete(
-                                    apk, false,
+                                    updateAttemptId, apk, false,
                                     "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
                                 )
                             }
                         }
                     } catch (error: Exception) {
                         GuardianAppUpdateState.fail(
+                            updateAttemptId,
                             "업데이트 확인 또는 다운로드 실패: " + SafeFailureSummary.describe(error)
                         )
                     } catch (error: LinkageError) {
                         GuardianAppUpdateState.fail(
+                            updateAttemptId,
                             "업데이트 기능을 불러오지 못했습니다: " + SafeFailureSummary.describe(error)
                         )
                     } finally {
-                        if (GuardianAppUpdateState.snapshot().checkInProgress) {
-                            GuardianAppUpdateState.fail("업데이트 확인 작업이 중단되었습니다.")
+                        if (GuardianAppUpdateState.snapshot().activeAttemptId == updateAttemptId) {
+                            GuardianAppUpdateState.fail(updateAttemptId, "업데이트 확인 작업이 중단되었습니다.")
                         }
                         appContext.sendBroadcast(Intent(GuardianAppUpdateState.ACTION_STATE_CHANGED).setPackage(appContext.packageName))
                     }
