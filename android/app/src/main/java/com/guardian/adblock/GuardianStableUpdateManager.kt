@@ -77,7 +77,7 @@ internal object GuardianStableUpdateManager {
         }
         val versionName = manifest.optString("versionName")
         val versionCode = manifest.optInt("versionCode", 0)
-        require(versionName.matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+$")) && versionCode > 0) {
+        require(versionName.matches(Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")) && versionCode > 0) {
             "정식 업데이트 버전 정보가 올바르지 않습니다."
         }
         require(tag == "v$versionName") { "정식 Release 태그와 manifest 버전이 일치하지 않습니다." }
