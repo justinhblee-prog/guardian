@@ -487,15 +487,26 @@ class GuardianVpnService : VpnService() {
                     retryResume = true
                     return@thread
                 }
-                val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-                if (!currentPrefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
-                    !currentPrefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
-                ) return@thread
-                currentPrefs.edit()
-                    .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
-                    .remove(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE)
-                    .commit()
-                val generation = startCancellation.onStartRequested()
+                // Share the service monitor with @Synchronized stopProtection().
+                // The durable-intent check and generation issuance must be atomic
+                // with explicit stop; otherwise a stale compatibility-resume worker
+                // could issue a fresh generation immediately after stop cancelled it.
+                val generation = synchronized(this@GuardianVpnService) {
+                    val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+                    if (!currentPrefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+                        !currentPrefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+                    ) {
+                        null
+                    } else {
+                        currentPrefs.edit()
+                            .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
+                            .remove(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE)
+                            .commit()
+                        startCancellation.onStartRequested()
+                    }
+                } ?: return@thread
+                // Start outside the monitor: a stop arriving now invalidates this
+                // generation through the cancellation gate before it can commit.
                 startProtection(generation, lastStartId)
             } finally {
                 compatibilityResumeInProgress.set(false)
