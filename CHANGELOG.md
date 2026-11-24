@@ -845,3 +845,9 @@
 - DNS 사전 점검에서 응답 헤더의 ANCOUNT만 보고 성공으로 판단하던 경로를 보강했습니다.
 - Answer/Authority/Additional 섹션의 각 RR owner name(압축 포인터 포함), 고정 필드 및 RDLENGTH가 실제 패킷 범위 안에 있는지 확인하고, 모든 레코드가 정확히 끝까지 파싱되어야 성공 처리합니다.
 - 잘린 레코드, 초과 RDLENGTH, 전방/순환 압축 포인터를 거부하는 회귀 테스트를 추가했습니다. Android Gradle/JUnit·lint·실기기 검증과 APK 생성은 미실행입니다.
+
+
+## 2026-11-24 Android 무료 버전 — 서명 필터 anti-rollback 상태 복구 강화
+- manifest timestamp를 롤백할 때 기존에는 임시 파일을 기록한 뒤 fsync 없이 원자적 교체를 수행했습니다. 정상 수락 기록과 복구 경로를 동일한 fsync 후 atomic publish 절차로 통합했습니다.
+- 특정 필터 source의 timestamp 복구가 다른 source의 기록을 보존하는지, 오래된 임시 파일이 정리되는지 회귀 테스트를 추가했습니다.
+- 테스트 소스 및 문서 반영 확인. 실제 JUnit/Gradle, lint, 에뮬레이터·실기기 검증 및 APK 생성은 미실행입니다.
