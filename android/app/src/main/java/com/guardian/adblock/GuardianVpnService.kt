@@ -467,7 +467,7 @@ class GuardianVpnService : VpnService() {
                 AppForegroundPauseSettings.KEY_PACKAGES, emptySet()
             ).orEmpty()
         if (!stillSelected) {
-            resumeProtectionAfterCompatibility()
+            resumeProtectionAfterCompatibility(expectedMonitorGeneration)
             return
         }
 
