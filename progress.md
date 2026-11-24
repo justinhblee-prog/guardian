@@ -628,3 +628,9 @@
 ## 2026-11-24 — DNS 업스트림 진단 ThreadLocal JVM smoke 3/3
 - `DnsThreadFailureContext` 실제 구현과 동일한 코드를 kotlinc/JRE 환경에서 컴파일·실행했습니다. PASS 3/3: 동시 요청의 실패 원인 격리, 스레드별 clear 격리, null 제거 동작.
 - Android Service 통합 컴파일, actual packet/preflight/upstream-test thread 실행 및 Android Gradle/JUnit은 미실행입니다.
+
+
+## 2026-11-24 — 정식 Android 업데이트 정책 JVM smoke 16/16
+
+- `GuardianStableUpdatePolicy`에 대해 kotlinc/JRE 21 독립 컴파일·실행 PASS 16/16: stable/draft/prerelease 구분, semantic tag 순서, versionCode 비교, SHA-256 형식, 정확한 공식 저장소/tag/manifest·APK 자산 경로, tag·asset·query 불일치 거부.
+- 이는 순수 버전·URL 정책 검증입니다. Android HTTPS 연결·리디렉션 실제 서버 통신, manifest 서명/키 운영, APK 다운로드·서명/설치 및 Android Gradle/JUnit은 미실행입니다.
