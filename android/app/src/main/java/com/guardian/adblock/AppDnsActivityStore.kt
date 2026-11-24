@@ -93,6 +93,35 @@ internal object AppDnsActivityStore {
         }.sortedByDescending { it.queries }.take(limit)
     }
 
+    /** Remove orphaned per-app counters only after a complete installed-app inventory. */
+    @Synchronized
+    fun pruneUninstalled(
+        context: Context,
+        installedPackages: Set<String>,
+        inventoryComplete: Boolean
+    ): Set<String> {
+        if (!inventoryComplete) return emptySet()
+        flushPendingLocked(context, System.currentTimeMillis())
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val tracked = prefs.getStringSet(KEY_PACKAGES, emptySet()).orEmpty().toSet()
+        val stale = InstalledAppDataCleanupPolicy.stalePackages(tracked, installedPackages, true)
+        pending.keys.filter { it !in installedPackages }.forEach(pending::remove)
+        if (stale.isEmpty()) {
+            knownPackages = tracked.toMutableSet()
+            return emptySet()
+        }
+        val editor = prefs.edit()
+        val existingKeys = prefs.all.keys
+        stale.forEach { packageName ->
+            val prefix = "app.$packageName."
+            existingKeys.filter { it.startsWith(prefix) }.forEach(editor::remove)
+        }
+        val retained = tracked - stale
+        editor.putStringSet(KEY_PACKAGES, retained).apply()
+        knownPackages = retained.toMutableSet()
+        return stale
+    }
+
     @Synchronized
     fun clear(context: Context) {
         pending.clear()
