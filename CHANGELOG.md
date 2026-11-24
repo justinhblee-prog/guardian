@@ -1,3 +1,11 @@
+## 2026-11-24 — DNS TCP 타이머 기반 재전송(RTO)
+
+- 기존 중복 ACK 빠른 재전송만으로는 마지막 응답 세그먼트 손실처럼 추가 ACK가 도착하지 않는 경우 복구할 수 없었습니다.
+- 세션별 oldest outstanding server packet에 송신 시각과 재전송 횟수를 기록하고, 1초 시작·2/4/8초 지수형 backoff, 최대 5회 재전송 후 세션 제거 정책을 추가했습니다. 한 세션에서 가장 오래된 미확인 세그먼트만 재전송합니다.
+- 빠른 재전송도 같은 타이머 상태를 갱신해 중복 ACK 직후 RTO가 곧바로 중복 송신하지 않도록 했습니다. 누적 ACK로 확인된 패킷은 재전송 목록에서 제거됩니다.
+- GuardianVpnService에 250ms 주기 daemon scheduler를 연결하고 TUN output lock으로 패킷 루프와 쓰기를 직렬화합니다. packet loop 종료 시 scheduler를 정리합니다.
+- 테스트: 1/2/4/8초 backoff, 5회 한도, 세션 종료, ACK 확인 후 oldest packet timer 전환. Android Gradle/JUnit·emulator·실기기 검증은 미실행입니다.
+
 ## 2026-11-24 — DNS TCP 윈도 업데이트와 중복 ACK 구분
 
 - 수신 윈도가 바뀐 ACK도 중복 ACK로 계산할 수 있던 경로를 바로잡았습니다. 빠른 재전송은 ACK 번호와 광고 윈도가 모두 동일하고 payload/FIN이 없는 연속 ACK에서만 계산합니다.
