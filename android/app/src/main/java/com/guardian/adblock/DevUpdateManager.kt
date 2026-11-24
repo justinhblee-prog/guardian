@@ -112,16 +112,19 @@ internal object DevUpdateManager {
         require(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(update.apkUrl, APK_ASSET, update.versionCode)) {
             "개발 APK 주소의 저장소·태그·자산 이름이 업데이트 버전과 일치하지 않습니다."
         }
-        val directory = File(context.cacheDir, GuardianUpdateCachePaths.DEVELOPMENT_DIRECTORY).apply { mkdirs() }
+        val directory = File(context.cacheDir, GuardianUpdateCachePaths.DEVELOPMENT_DIRECTORY)
+        check(directory.isDirectory || directory.mkdirs()) { "개발 APK 캐시 폴더를 만들 수 없습니다." }
         val target = File(directory, "guardian-${update.versionCode}.apk")
-        val connection = openAllowedHttpsConnection(
-            update.apkUrl, 15000, 30000, "application/octet-stream", DevUpdateManagerPolicy::isAllowedReleaseDownloadUrl
-        )
+        val temporary = File.createTempFile("guardian-${update.versionCode}-", ".apk.part", directory)
+        var connection: HttpsURLConnection? = null
         try {
+            connection = openAllowedHttpsConnection(
+                update.apkUrl, 15000, 30000, "application/octet-stream", DevUpdateManagerPolicy::isAllowedReleaseDownloadUrl
+            )
             val expectedLength = connection.contentLengthLong
             check(expectedLength in 1..MAX_APK_BYTES) { "APK 파일 크기가 허용 범위를 벗어났습니다." }
             connection.inputStream.use { input ->
-                FileOutputStream(target).use { output ->
+                FileOutputStream(temporary).use { output ->
                     val buffer = ByteArray(64 * 1024)
                     var total = 0L
                     while (true) {
@@ -135,22 +138,21 @@ internal object DevUpdateManager {
                     check(total == expectedLength) { "APK 다운로드 크기가 일치하지 않습니다." }
                 }
             }
-        } catch (error: Exception) {
-            target.delete()
-            throw error
-        } finally {
-            connection.disconnect()
-        }
-        try {
-            check(sha256(target).equals(update.sha256, ignoreCase = true)) {
+            check(sha256(temporary).equals(update.sha256, ignoreCase = true)) {
                 "다운로드한 APK의 SHA-256 검증에 실패했습니다."
             }
-            verifyDownloadedPackage(context, target, update)
+            verifyDownloadedPackage(context, temporary, update)
+            // Preserve the previous verified APK until the replacement has
+            // passed length, hash, package, version and signer validation.
+            if (target.exists()) check(target.delete()) { "이전 개발 APK 캐시를 교체할 수 없습니다." }
+            check(temporary.renameTo(target)) { "검증된 개발 APK를 캐시 위치로 이동하지 못했습니다." }
+            return target
         } catch (error: Exception) {
-            target.delete()
+            temporary.delete()
             throw error
+        } finally {
+            connection?.disconnect()
         }
-        return target
     }
 
     fun install(context: Context, apk: File): Boolean {
