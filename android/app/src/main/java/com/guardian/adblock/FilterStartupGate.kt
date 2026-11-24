@@ -26,16 +26,25 @@ internal object FilterStartupGate {
         minimumRules: Int,
         load: () -> FilterRuleParser.Parsed,
         onUnavailable: (Throwable) -> Unit
-    ): FilterRuleParser.Parsed = runCatching {
-        require(minimumRules > 0) { "Optional filter minimum must be positive." }
-        load().also { parsed ->
-            val actualRules = parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong()
-            check(meetsMinimumRuleCount(parsed.blocked.size, parsed.importantBlocked.size, minimumRules)) {
-                "Optional filter has too few valid block rules: $actualRules"
-            }
+    ): FilterRuleParser.Parsed {
+        fun unavailable(error: Throwable): FilterRuleParser.Parsed {
+            onUnavailable(error)
+            return FilterRuleParser.parse(emptyList<String>())
         }
-    }.getOrElse { error ->
-        onUnavailable(error)
-        FilterRuleParser.parse(emptyList<String>())
+        return try {
+            require(minimumRules > 0) { "Optional filter minimum must be positive." }
+            load().also { parsed ->
+                val actualRules = parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong()
+                check(meetsMinimumRuleCount(parsed.blocked.size, parsed.importantBlocked.size, minimumRules)) {
+                    "Optional filter has too few valid block rules: $actualRules"
+                }
+            }
+        } catch (error: Exception) {
+            unavailable(error)
+        } catch (error: LinkageError) {
+            // Optional parser/provider linkage failures may skip this feed, but
+            // VM-fatal Errors (for example OutOfMemoryError) must not be swallowed.
+            unavailable(error)
+        }
     }
 }
