@@ -1,3 +1,9 @@
+## 2026-11-24 — 로밍 정책 Kotlin/JVM 독립 검증
+
+- 순수 `SecurityProfilePolicy` 실제 정책 로직을 Kotlin/JVM으로 컴파일해 roaming capability API 28 경계, API 27 legacy fallback, Wi-Fi 비로밍, 자동 프로필·업데이트 허용 조건까지 15/15 통과했습니다.
+- NetworkCallback 4개 적용 경로가 모두 새 Network+NetworkCapabilities 인자를 전달하는지 정적으로 확인했고 등록 직후 active network 경로의 누락 인자를 수정했습니다.
+- Android SDK compile/Gradle/JUnit 및 OEM별 SIM roaming·실기기 네트워크 전환은 미실행입니다.
+
 ## 2026-11-24 — 셀룰러 로밍 감지로 여행 프로필 전환 연결
 
 - `SecurityProfileMonitor`가 모든 네트워크에서 `roaming=false`를 전달해 셀룰러 로밍 중에도 모바일 프로필을 유지하고 여행 프로필로 전환하지 못했습니다.
