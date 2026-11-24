@@ -36,6 +36,13 @@ internal object DnsUpstreamCandidatePolicy {
         }
     }
 
+    /**
+     * The configured resolver already has an ordered TCP attempt in udpAttempts().
+     * Other fallback resolvers need TCP only when their UDP response was truncated.
+     */
+    fun needsTcpRetryAfterUdpTruncation(hasFollowingTcpAttempt: Boolean): Boolean =
+        !hasFollowingTcpAttempt
+
     /** Explicitly selected transports must never be silently downgraded. */
     fun transports(primary: String): List<String> =
         if (primary == "udp") listOf("udp", "tcp") else listOf(primary)
