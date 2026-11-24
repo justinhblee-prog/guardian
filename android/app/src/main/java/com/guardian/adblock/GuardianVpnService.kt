@@ -348,17 +348,13 @@ class GuardianVpnService : VpnService() {
             context = this,
             targetPackages = availableTargets,
             onForegroundTargetChanged = { packageName ->
-                // Re-check the generation while holding the same monitor used by
-                // stopProtection(). A callback that passed an outer check before
-                // shutdown must not pause/resume the VPN after shutdown commits.
-                synchronized(this@GuardianVpnService) {
-                    if (compatibilityMonitorGeneration.get() == generation) {
-                        if (packageName != null) {
-                            pauseProtectionForCompatibility(packageName)
-                        } else {
-                            resumeProtectionAfterCompatibility()
-                        }
-                    }
+                // The target-specific handlers re-check this generation inside
+                // their short state-commit sections. Do not wrap the whole pause
+                // operation in the service monitor: it waits for the packet worker.
+                if (packageName != null) {
+                    pauseProtectionForCompatibility(packageName, generation)
+                } else {
+                    resumeProtectionAfterCompatibility(generation)
                 }
             },
             onPermissionRevoked = {
@@ -406,12 +402,15 @@ class GuardianVpnService : VpnService() {
         }
     }
 
-    private fun pauseProtectionForCompatibility(packageName: String) {
+    private fun pauseProtectionForCompatibility(packageName: String, expectedMonitorGeneration: Long? = null) {
         // Serialize only the pause decision and TUN detachment with explicit stop.
         // Never hold the service monitor while closing the descriptor or joining
         // the packet worker: stopProtection() must remain responsive during teardown.
         var oldTun: ParcelFileDescriptor? = null
         val workerToJoin = synchronized(this@GuardianVpnService) {
+            if (expectedMonitorGeneration != null &&
+                compatibilityMonitorGeneration.get() != expectedMonitorGeneration
+            ) return
             val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
             if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false)) {
                 return
@@ -455,7 +454,9 @@ class GuardianVpnService : VpnService() {
         val stillPaused = synchronized(this@GuardianVpnService) {
             // An explicit stop or a concurrent compatibility resume may have
             // superseded this callback while the packet worker was terminating.
-            prefs.getBoolean(KEY_RESTORE_REQUESTED, false) &&
+            (expectedMonitorGeneration == null ||
+                compatibilityMonitorGeneration.get() == expectedMonitorGeneration) &&
+                prefs.getBoolean(KEY_RESTORE_REQUESTED, false) &&
                 prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false) &&
                 prefs.getString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, null) == packageName
         }
@@ -476,7 +477,9 @@ class GuardianVpnService : VpnService() {
             packageName
         }
         val statusCommitted = synchronized(this@GuardianVpnService) {
-            if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+            if ((expectedMonitorGeneration != null &&
+                    compatibilityMonitorGeneration.get() != expectedMonitorGeneration) ||
+                !prefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
                 !prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false) ||
                 prefs.getString(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE, null) != packageName
             ) {
@@ -505,9 +508,11 @@ class GuardianVpnService : VpnService() {
         sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
     }
 
-    private fun resumeProtectionAfterCompatibility() {
+    private fun resumeProtectionAfterCompatibility(expectedMonitorGeneration: Long? = null) {
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        if (!prefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+        if ((expectedMonitorGeneration != null &&
+                compatibilityMonitorGeneration.get() != expectedMonitorGeneration) ||
+            !prefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
             !prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
         ) return
         if (!compatibilityResumeInProgress.compareAndSet(false, true)) return
@@ -533,7 +538,9 @@ class GuardianVpnService : VpnService() {
                 // could issue a fresh generation immediately after stop cancelled it.
                 val generation = synchronized(this@GuardianVpnService) {
                     val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-                    if (!currentPrefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
+                    if ((expectedMonitorGeneration != null &&
+                            compatibilityMonitorGeneration.get() != expectedMonitorGeneration) ||
+                        !currentPrefs.getBoolean(KEY_RESTORE_REQUESTED, false) ||
                         !currentPrefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
                     ) {
                         null
@@ -552,7 +559,7 @@ class GuardianVpnService : VpnService() {
                 compatibilityResumeInProgress.set(false)
                 if (retryResume) {
                     android.os.Handler(mainLooper).postDelayed(
-                        { resumeProtectionAfterCompatibility() },
+                        { resumeProtectionAfterCompatibility(expectedMonitorGeneration) },
                         1_000L
                     )
                 }
