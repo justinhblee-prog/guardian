@@ -487,3 +487,9 @@
 ## 2026-11-24 — DnsTcpPacket 버전별 응답 길이 상한
 - 응답 빌더가 IPv4 total_length와 IPv6 payload_length를 구분하지 않고 payload 65,515바이트를 공통 허용하던 상한을 수정했습니다. IPv4 65,495, IPv6 65,515바이트가 최대입니다.
 - 최대 경계 응답 생성/길이 필드/재파싱과 각각 1바이트 초과 거부 테스트를 추가했습니다. Android Gradle/JUnit·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — DnsTcpPacket IP별 응답 최대 길이 Kotlin/JVM smoke
+- 현재 수정한 `DnsTcpPacket.response` 경계와 TCP/IP checksum/parser helper를 Kotlin/JVM으로 컴파일해 실행했습니다.
+- PASS 7/7: IPv4 65,495-byte TCP payload로 total_length=65,535 생성 및 재파싱, IPv4 초과 1바이트 거부, IPv6 65,515-byte TCP payload로 payload_length=65,535 생성 및 재파싱, IPv6 초과 1바이트 거부.
+- 이는 DnsTcpPacket codec의 isolated Kotlin/JVM 검증이며 Android Gradle/JUnit, GuardianVpnService 통합 및 실기기 패킷 검증은 미실행입니다.
