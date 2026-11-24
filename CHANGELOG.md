@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-24 — Android 개발 업데이트 URL 허용 범위 강화
+- 업데이트 manifest/APK 주소가 정확한 Guardian 개발 릴리스 태그와 두 허용 파일명에만 일치하도록 경로 검증을 좁혔습니다.
+- 비표준 포트, 사용자 정보, query/fragment, 다른 저장소·태그·파일명 및 경로 탐색 URL을 회귀 테스트로 거부합니다.
+
 ## 2026-11-24 — Android 개발 업데이트 조회 안정화
 - 앱 업데이트 버전 탐색을 인증 없는 GitHub REST 릴리스 목록 API에서 공개 Releases Atom feed로 전환해 API rate-limit 의존성을 제거했습니다.
 - 정확한 Guardian 저장소의 \`guardian-dev-vN\` 태그만 숫자 버전순으로 확인하고, 기존 manifest·패키지·SHA-256·개발 서명 인증서 검증은 유지합니다.
