@@ -102,6 +102,14 @@ internal object InstalledAppInventory {
                 { it.first.lowercase(Locale.ROOT) }
             )
         )
-        return Snapshot(sorted, allPackagesGranted, installedQuerySucceeded, launcherFallbackCount, installedQueryError)
+        val snapshot = Snapshot(sorted, allPackagesGranted, installedQuerySucceeded, launcherFallbackCount, installedQueryError)
+        // Never delete app data from a partial inventory. Prune only when Android
+        // confirms the full package-visibility grant and the primary enumeration succeeded.
+        if (snapshot.queryAllPackagesGranted && snapshot.installedQuerySucceeded) {
+            val installedPackageNames = snapshot.apps.mapTo(linkedSetOf()) { it.first }
+            AppDnsActivityStore.pruneUninstalled(context, installedPackageNames, inventoryComplete = true)
+            PerAppDnsPolicyStore.pruneUninstalled(context, installedPackageNames, inventoryComplete = true)
+        }
+        return snapshot
     }
 }
