@@ -348,26 +348,33 @@ class GuardianVpnService : VpnService() {
             context = this,
             targetPackages = availableTargets,
             onForegroundTargetChanged = { packageName ->
-                if (compatibilityMonitorGeneration.get() == generation) {
-                    if (packageName != null) {
-                        pauseProtectionForCompatibility(packageName)
-                    } else {
-                        resumeProtectionAfterCompatibility()
+                // Re-check the generation while holding the same monitor used by
+                // stopProtection(). A callback that passed an outer check before
+                // shutdown must not pause/resume the VPN after shutdown commits.
+                synchronized(this@GuardianVpnService) {
+                    if (compatibilityMonitorGeneration.get() == generation) {
+                        if (packageName != null) {
+                            pauseProtectionForCompatibility(packageName)
+                        } else {
+                            resumeProtectionAfterCompatibility()
+                        }
                     }
                 }
             },
             onPermissionRevoked = {
-                if (compatibilityMonitorGeneration.get() == generation) {
-                    val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-                    currentPrefs.edit()
-                        .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
-                        .putString(
-                            AppForegroundPauseSettings.KEY_ERROR,
-                            "사용 정보 접근 권한이 해제되어 자동 일시중지를 껐습니다."
-                        )
-                        .apply()
-                    sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
-                    resumeProtectionAfterCompatibility()
+                synchronized(this@GuardianVpnService) {
+                    if (compatibilityMonitorGeneration.get() == generation) {
+                        val currentPrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+                        currentPrefs.edit()
+                            .putBoolean(AppForegroundPauseSettings.KEY_ENABLED, false)
+                            .putString(
+                                AppForegroundPauseSettings.KEY_ERROR,
+                                "사용 정보 접근 권한이 해제되어 자동 일시중지를 껐습니다."
+                            )
+                            .apply()
+                        sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
+                        resumeProtectionAfterCompatibility()
+                    }
                 }
             }
         )
@@ -375,14 +382,14 @@ class GuardianVpnService : VpnService() {
         return monitor.start()
     }
 
-    private fun stopForegroundAppMonitor() {
+    private fun stopForegroundAppMonitor(waitForMonitorExit: Boolean = true) {
         // Invalidate callbacks before detaching the monitor. Cleanup of this
         // optional feature must not abort an explicit VPN start/stop request.
         compatibilityMonitorGeneration.incrementAndGet()
         val monitor = foregroundAppMonitor
         foregroundAppMonitor = null
         try {
-            monitor?.stop()
+            monitor?.stop(waitForExit = waitForMonitorExit)
         } catch (error: Exception) {
             android.util.Log.w(
                 "GuardianProtection",
@@ -1877,7 +1884,10 @@ class GuardianVpnService : VpnService() {
         explicitStop: Boolean = false,
         preserveRestoreIntent: Boolean = false
     ) {
-        stopForegroundAppMonitor()
+        // This method holds the service monitor. Do not join the monitor thread
+        // here: its callback may be waiting for this same monitor. The generation
+        // is invalidated synchronously; stale callbacks re-check it under this lock.
+        stopForegroundAppMonitor(waitForMonitorExit = false)
         if (explicitStop) {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                 .putBoolean(KEY_RESTORE_REQUESTED, false)
