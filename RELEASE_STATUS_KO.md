@@ -826,3 +826,8 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 개발판 updater는 Release tag의 숫자 버전과 manifest `versionCode` 일치 여부를 확인했지만, `guardian-dev-v048` 같은 선행 0 tag와 `01.2.3-dev` 같은 비정규 versionName을 허용하고 있었습니다. 정식판 updater의 canonical SemVer 검사와 기준이 달랐습니다.
 - 개발판 tag는 `guardian-dev-v0` 또는 선행 0 없는 양의 정수만 허용하고, versionName도 각 숫자 구성요소의 선행 0을 거부하도록 통일했습니다. 정수 오버플로 tag도 거부합니다. `DevUpdateManagerTest.developmentTagsAndVersionNamesMustUseCanonicalNumericComponents` 추가. 커밋 `2a0bb7ee`, `ecb811a2`.
 - 원격 코드와 테스트 소스 반영 확인 완료. 이 브랜치의 Android JUnit/Gradle 실행은 아직 하지 않았습니다.
+
+## 2026-11-24 — 업데이트 versionCode 범위 검증
+- 정식판/개발판 APK 검사에서 Android `longVersionCode`를 바로 `Int`로 축소하고 manifest `versionCode`도 `optInt()`로 읽어, 범위를 벗어난 값 또는 소수형 값을 명확히 거부하지 못할 수 있었습니다.
+- 공통 정책에 양의 정수이면서 `Int.MAX_VALUE` 이하인지 검사하는 manifest/아카이브 versionCode 변환을 추가하고 양쪽 updater에 적용했습니다. `GuardianStableUpdatePolicyTest.versionCodesRejectFractionsStringsAndIntegerOverflow`에 정상 경계, 0/음수, 문자열, 소수, NaN/무한대, 오버플로 회귀 사례를 추가했습니다.
+- 원격 코드 및 테스트 반영 확인. Android JUnit/Gradle 실행은 현재 브랜치에서 아직 미실행입니다.
