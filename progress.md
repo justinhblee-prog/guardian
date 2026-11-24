@@ -304,3 +304,9 @@
 - PASS 7/7: 중요 보안 목록+사용자 차단 증거 동시 보존, 동시 증거에서 HIGH 우선, 허용 규칙이 일반 피드 증거를 억제, 광고는 INFORMATIONAL, 사용자 전용 차단은 UNASSESSED, 비차단 요청은 assessment 없음.
 - 최초 한 번은 harness에서 사용자 허용까지 함께 넣어 새 회귀 테스트 입력과 달랐으므로 실패했습니다. 테스트와 동일한 입력(중요 차단+사용자 차단, allow 없음)으로 정정해 재실행했고 7/7 통과했습니다. 제품 코드 실패로 분류하지 않습니다.
 - 이 결과는 순수 Kotlin/JVM 정책 smoke이며 Android Gradle/JUnit, DNS 서비스 통합/SharedPreferences/실기기 테스트를 의미하지 않습니다.
+
+
+## 2026-11-24 — PRO 위협 분석 미리보기 실시간 갱신
+- MainActivity는 DNS status broadcast와 화면 재진입 때 DEBUG 위협 분석 미리보기의 counts/recent events를 갱신하도록 개선했습니다. 페이지를 나가면 해당 view 참조를 해제합니다.
+- ThreatAnalyticsAccumulator.snapshot()은 drain 없이 pending을 읽고, ThreatAnalyticsStore.summary()는 5초 flush 주기를 유지하면서 저장/대기 집계를 결합합니다. 자주 발생하는 상태 브로드캐스트가 디스크 쓰기를 조기 flush하지 않습니다.
+- 새 순수 accumulator snapshot 테스트를 추가했습니다. 도메인/URL 비저장 및 PRO entitlement 비활성 유지. Android Gradle/JUnit·SharedPreferences·실기기 검증은 미실행입니다.
