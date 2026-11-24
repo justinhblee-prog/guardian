@@ -13,7 +13,12 @@ class FilterUpdateWorker(
 
     override fun doWork(): Result {
         val prefs = applicationContext.getSharedPreferences(GuardianVpnService.PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)) return Result.success()
+        val forceInitialRefresh = inputData.getBoolean(KEY_FORCE_INITIAL_REFRESH, false)
+        if (!FilterUpdatePolicy.shouldRunUpdates(
+                autoUpdateEnabled = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true),
+                forceInitialRefresh = forceInitialRefresh
+            )
+        ) return Result.success()
 
         return try {
             val now = System.currentTimeMillis()
@@ -114,11 +119,16 @@ class FilterUpdateWorker(
 
     companion object {
         const val ACTION_FILTERS_CHANGED = "com.guardian.adblock.FILTERS_CHANGED"
+        const val KEY_FORCE_INITIAL_REFRESH = "force_initial_filter_refresh"
     }
 }
 
 /** Pure per-source refresh policy, also used to verify retry behavior. */
 internal object FilterUpdatePolicy {
+    /** A first-run cache repair is mandatory even if recurring refreshes are opted out. */
+    fun shouldRunUpdates(autoUpdateEnabled: Boolean, forceInitialRefresh: Boolean): Boolean =
+        autoUpdateEnabled || forceInitialRefresh
+
     /** Disable an optional source only when its first download failed and no trusted cache exists. */
     fun shouldDisableOptionalFilter(wasEnabled: Boolean, hadValidCache: Boolean): Boolean =
         wasEnabled && !hadValidCache
