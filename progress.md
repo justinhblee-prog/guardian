@@ -427,3 +427,9 @@
 ## 2026-11-24 — DNS TCP 회귀 검증 정밀화
 - 최대 프레임 + 다음 질의 병합 테스트에서 resolver가 받은 첫 메시지의 전체 길이와 두 번째 메시지의 바이트 일치를 확인하도록 강화했습니다.
 - ACK 순번 설명 주석의 중복 텍스트를 정리했습니다. Android Gradle/JUnit·단말 검증은 미실행입니다.
+
+
+## 2026-11-24 — DoT/DoH 업스트림 실패 진단 구분
+- DoT invalid response length 및 transaction/question mismatch와 DoH invalid TLS host/request format/HTTP status-header-content-type-body framing/DNS response mismatch를 구분해 lastUpstreamFailure에 기록합니다.
+- TCP upstream의 DNS 질의 길이 검증 실패 진단도 추가했습니다. TLS host verification, SNI, manual HTTP response parser, redirect rejection 및 payload bound는 변경하지 않았습니다.
+- Android Gradle/JUnit·에뮬레이터·실기기 업스트림 연결 검증은 미실행입니다.
