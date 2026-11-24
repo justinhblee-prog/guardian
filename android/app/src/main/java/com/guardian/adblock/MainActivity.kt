@@ -2193,7 +2193,8 @@ class MainActivity : Activity() {
                 val result = runCatching { InstalledAppInventory.load(this@MainActivity) }
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
-                    inventoryContainer.removeAllViews()
+                    // Keep the existing status row so the resolved inventory
+                    // message (or failure details) remains visible above the editor.
                     result.onSuccess { snapshot ->
                         inventoryStatus.text = snapshot.statusMessage()
                         if (snapshot.apps.isEmpty()) {
