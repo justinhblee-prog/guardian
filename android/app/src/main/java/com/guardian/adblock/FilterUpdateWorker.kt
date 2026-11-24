@@ -214,6 +214,9 @@ internal object FilterUpdatePolicy {
     fun isDue(hasValidCache: Boolean, lastUpdatedAt: Long, intervalMs: Long, now: Long): Boolean {
         if (!hasValidCache || lastUpdatedAt <= 0L) return true
         val interval = FilterUpdateScheduler.normalizeInterval(intervalMs)
-        return now >= lastUpdatedAt && now - lastUpdatedAt >= interval
+        // Wall-clock corrections can move the device time behind the last
+        // successful update. Treat that timestamp as stale once, so a successful
+        // refresh records the corrected clock and restores normal interval checks.
+        return now < lastUpdatedAt || now - lastUpdatedAt >= interval
     }
 }
