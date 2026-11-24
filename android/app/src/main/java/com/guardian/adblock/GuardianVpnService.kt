@@ -1576,7 +1576,7 @@ class GuardianVpnService : VpnService() {
                 if (remainingMs <= 0L) {
                     throw java.net.SocketTimeoutException("DoH response read deadline exceeded")
                 }
-                socket.soTimeout = remainingMs.toInt().coerceAtLeast(1)
+                socket?.soTimeout = remainingMs.toInt().coerceAtLeast(1)
             } ?: run {
                 lastUpstreamFailure = "DoH: HTTP 상태·헤더·Content-Type 또는 DNS 본문 검증 실패"
                 return null
