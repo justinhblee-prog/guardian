@@ -231,6 +231,32 @@ android {
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
+// `GuardianVpnService` opens filter_rules.txt as a root-level APK asset. The
+// source directory is shared/ at the repository root; fail the build before
+// packaging if this mandatory bundled baseline is absent, empty or unusable.
+val guardianSharedFilterAsset = layout.projectDirectory.file("../../shared/filter_rules.txt").asFile
+val validateGuardianSharedFilterAsset by tasks.registering {
+    inputs.file(guardianSharedFilterAsset)
+    doLast {
+        check(guardianSharedFilterAsset.isFile && guardianSharedFilterAsset.length() > 0L) {
+            "Required Guardian asset shared/filter_rules.txt is missing or empty."
+        }
+        val hasBlockRule = guardianSharedFilterAsset.bufferedReader(Charsets.UTF_8).useLines { lines ->
+            lines.any { line ->
+                val rule = line.trim()
+                rule.startsWith("block=") || rule.startsWith("block-important=")
+            }
+        }
+        check(hasBlockRule) {
+            "Required Guardian asset shared/filter_rules.txt contains no block rules."
+        }
+    }
+}
+tasks.matching { it.name == "preBuild" }.configureEach {
+    dependsOn(validateGuardianSharedFilterAsset)
+}
+
+
 dependencies {
     implementation("androidx.work:work-runtime:2.12.0")
     testImplementation("junit:junit:4.13.2")
