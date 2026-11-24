@@ -377,3 +377,8 @@
 ## 2026-11-24 — DEX 041 논리 크기 경계 테스트
 - 두 개의 논리 DEX가 이어진 DEX 041 컨테이너 픽스처를 추가해 첫 논리 file_size가 물리 컨테이너 크기보다 작더라도 초기 컨테이너 헤더가 수용되는 테스트를 추가했습니다.
 - 전체 logical DEX header traversal/DEX verifier가 아니라 header triage 경계 확인입니다. Android Gradle/JUnit 미실행입니다.
+
+
+## 2026-11-24 — DEX 041 논리 헤더 순회
+- 041 컨테이너의 모든 논리 DEX 헤더를 `file_size` 단위로 순회하며 version/magic, endian tag, header_size, container_size, header_offset, 파일 범위를 확인합니다.
+- 2개 논리 DEX 컨테이너의 `dexCount=2` 및 두 번째 header_offset 손상 거부 테스트를 추가했습니다. 전체 DEX sections/bytecode verifier가 아니며 Android Gradle/JUnit·실 APK 검증은 미실행입니다.
