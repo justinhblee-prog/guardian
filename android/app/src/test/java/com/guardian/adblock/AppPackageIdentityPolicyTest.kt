@@ -38,6 +38,16 @@ class AppPackageIdentityPolicyTest {
         )
     }
 
+    @Test fun anEmptyInventoryNeverDeletesPreviouslyStoredAppData() {
+        assertTrue(
+            InstalledAppDataCleanupPolicy.stalePackages(
+                existingPackages = setOf("com.example.mail", "com.example.calendar"),
+                installedPackages = emptySet(),
+                inventoryComplete = true
+            ).isEmpty()
+        )
+    }
+
     @Test fun prunesOnlyPackagesMissingFromACompleteInventory() {
         assertEquals(
             setOf("com.example.removed", "com.example.old"),
