@@ -31,10 +31,11 @@ internal class CoalescingTaskGate {
 
     /** Releases ownership after an unexpected worker exit and preserves a queued request. */
     @Synchronized
-    fun releaseAfterFailure(): Boolean {
+    fun releaseAfterFailure(allowRetry: Boolean): Boolean {
         active = false
         if (!pending) return false
         pending = false
+        if (!allowRetry) return false
         active = true
         return true
     }
