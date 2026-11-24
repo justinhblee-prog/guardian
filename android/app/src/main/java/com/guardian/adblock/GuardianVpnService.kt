@@ -1431,14 +1431,18 @@ class GuardianVpnService : VpnService() {
             output.writeShort(query.size)
             output.write(query)
             output.flush()
-            val input = DataInputStream(socket.getInputStream())
-            val length = input.readUnsignedShort()
-            if (length !in 17..65535) {
-                lastUpstreamFailure = "TCP: DNS 응답 길이가 유효하지 않습니다"
+            val responseReadStartedAt = System.nanoTime()
+            val answer = DnsDohHttpCodec.readDnsTcpResponse(socket.getInputStream()) {
+                val elapsedMs = (System.nanoTime() - responseReadStartedAt) / 1_000_000L
+                val remainingMs = 3500L - elapsedMs
+                if (remainingMs <= 0L) {
+                    throw java.net.SocketTimeoutException("TCP DNS response read deadline exceeded")
+                }
+                socket?.soTimeout = remainingMs.toInt().coerceAtLeast(1)
+            } ?: run {
+                lastUpstreamFailure = "TCP: DNS 응답 길이 또는 읽기 기한 검증 실패"
                 return null
             }
-            val answer = ByteArray(length)
-            input.readFully(answer)
             if (DomainFilter.isMatchingResponse(query, answer)) answer else {
                 lastUpstreamFailure = "TCP: DNS 응답 검증 실패"
                 null
@@ -1514,14 +1518,18 @@ class GuardianVpnService : VpnService() {
             output.write(query)
             output.flush()
 
-            val input = DataInputStream(socket.inputStream)
-            val length = input.readUnsignedShort()
-            if (length !in 17..65535) {
-                lastUpstreamFailure = "DoT: DNS 응답 길이가 유효하지 않습니다"
+            val responseReadStartedAt = System.nanoTime()
+            val answer = DnsDohHttpCodec.readDnsTcpResponse(socket.inputStream) {
+                val elapsedMs = (System.nanoTime() - responseReadStartedAt) / 1_000_000L
+                val remainingMs = 3500L - elapsedMs
+                if (remainingMs <= 0L) {
+                    throw java.net.SocketTimeoutException("DoT response read deadline exceeded")
+                }
+                socket?.soTimeout = remainingMs.toInt().coerceAtLeast(1)
+            } ?: run {
+                lastUpstreamFailure = "DoT: DNS 응답 길이 또는 읽기 기한 검증 실패"
                 return null
             }
-            val answer = ByteArray(length)
-            input.readFully(answer)
             if (DomainFilter.isMatchingResponse(query, answer)) answer else {
                 lastUpstreamFailure = "DoT: DNS 트랜잭션 ID 또는 질문이 일치하지 않는 응답"
                 null
