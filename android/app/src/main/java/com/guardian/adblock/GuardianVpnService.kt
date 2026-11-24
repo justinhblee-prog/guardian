@@ -1133,14 +1133,21 @@ class GuardianVpnService : VpnService() {
     private fun requestRuleReload() {
         if (!ruleReloadGate.request()) return
         thread(name = "guardian-vpn-rule-reload") {
+            var completedNormally = false
             try {
-                do {
+                while (running.get()) {
                     reloadUserRules()
-                } while (running.get() && ruleReloadGate.completePass())
+                    val anotherPassRequested = ruleReloadGate.completePass()
+                    if (!anotherPassRequested) {
+                        completedNormally = true
+                        break
+                    }
+                }
             } finally {
-                // If the service stops or an unexpected Error escapes, do not leave
-                // the gate permanently occupied. Preserve one queued request only.
-                if (ruleReloadGate.releaseAfterFailure() && running.get()) {
+                // Do not release a gate already handed to a newer worker after a
+                // normal completion. Unexpected exits release ownership and retain
+                // at most one coalesced follow-up request.
+                if (!completedNormally && ruleReloadGate.releaseAfterFailure() && running.get()) {
                     requestRuleReload()
                 }
             }
