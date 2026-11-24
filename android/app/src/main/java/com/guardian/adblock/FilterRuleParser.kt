@@ -68,7 +68,12 @@ object FilterRuleParser {
                     if (fields.size >= 2 && fields[0] in setOf("0.0.0.0", "127.0.0.1", "::", "::1")) {
                         var added = false
                         fields.drop(1).forEach { host ->
-                            if (host != "localhost" && addDomain(host, blocked)) added = true
+                            // Some generated hosts files accidentally repeat the sink
+                            // address as an alias. It is not a DNS hostname and must not
+                            // become a synthetic rule for a numeric reverse lookup.
+                            if (host != "localhost" && !isIpv4Address(host) &&
+                                addDomain(host, blocked)
+                            ) added = true
                         }
                         if (!added) ignored++
                     } else ignored++
@@ -114,6 +119,14 @@ object FilterRuleParser {
         if (modifiers.any { it.isNotBlank() && it.lowercase(Locale.ROOT) !in supportedModifiers }) return null
         if (host.isEmpty() || host.contains('*') || host.contains('/') || host.contains('|')) return null
         return normalize(host, requireDomainName = true)
+    }
+
+    private fun isIpv4Address(value: String): Boolean {
+        val octets = value.split('.')
+        return octets.size == 4 && octets.all { part ->
+            part.isNotEmpty() && part.length <= 3 &&
+                part.all { it in '0'..'9' } && part.toIntOrNull() in 0..255
+        }
     }
 
     private fun addDomain(raw: String, destination: MutableSet<String>): Boolean {
