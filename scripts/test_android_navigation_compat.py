@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from scripts.android_navigation_compat import (
     resolve_premium_category,
@@ -56,6 +57,20 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_premium_category('<hierarchy><node text="일반" /></hierarchy>')
 
+
+    def test_customer_support_exposes_working_recent_error_copy_action(self):
+        source_path = (
+            Path(__file__).resolve().parents[1]
+            / "android/app/src/main/java/com/guardian/adblock/MainActivity.kt"
+        )
+        source = source_path.read_text(encoding="utf-8")
+        support_card = source.split("private fun buildSupportCenterCard()", 1)[1].split(
+            "private fun showSupportFaq()", 1
+        )[0]
+        self.assertIn('text = "최근 오류 내용 복사"', support_card)
+        self.assertIn("setOnClickListener { copyRecentErrors() }", support_card)
+        self.assertIn("private fun copyRecentErrors()", source)
+        self.assertIn("ProtectionDiagnostics.recentErrorReport(", source)
 
 if __name__ == "__main__":
     unittest.main()
