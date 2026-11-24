@@ -359,6 +359,36 @@ class DnsTcpSessionManagerTest {
         assertTrue(replies.isNotEmpty())
     }
 
+    @Test fun outOfOrderFutureAckCannotPinReceiveWindowAndBlockDnsResponse() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 7200, window = 0)
+        val synAckBytes = manager.handle(syn, syn.size) { null }.single()
+        val synAck = DnsTcpPacket.parse(synAckBytes, synAckBytes.size, 53000)!!
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 7201, acknowledgment = (synAck.sequence + 1L) and 0xffffffffL,
+            payload = framed, window = 0)
+        assertTrue(manager.handle(request, request.size) {
+            DomainFilter.makeServfail(it)
+        }.isEmpty())
+
+        // This future-sequence segment is outside RCV.NXT and must not
+        // replace the live receive-window update ordering.
+        val future = packet(flags = DnsTcpPacket.ACK,
+            seq = 7202L + framed.size, acknowledgment = synAck.sequence + 1L,
+            window = 0)
+        assertTrue(manager.handle(future, future.size) { null }.isNotEmpty())
+
+        val validWindowUpdate = packet(flags = DnsTcpPacket.ACK,
+            seq = 7201L + framed.size, acknowledgment = synAck.sequence + 1L,
+            window = 4096)
+        val replies = manager.handle(validWindowUpdate, validWindowUpdate.size) { null }
+        assertTrue(replies.isNotEmpty())
+        val parsed = replies.map { DnsTcpPacket.parse(it, it.size, 53000)!! }
+        assertTrue(parsed.any { it.payload.isNotEmpty() })
+    }
+
     @Test fun retransmittedDnsRequestReplaysTheCachedAnswerWithoutResolvingAgain() {
         val manager = newManager()
         val query = dnsQuery()
