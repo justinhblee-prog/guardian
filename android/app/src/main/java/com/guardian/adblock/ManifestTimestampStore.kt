@@ -44,6 +44,19 @@ internal class ManifestTimestampStore(private val stateFile: File) {
         persist(properties)
     }
 
+    /**
+     * Persisted timestamps are security state, not best-effort metadata. Accept only
+     * canonical non-negative decimal Unix seconds; signs, trailing whitespace, overflow and
+     * negative values must not silently weaken anti-rollback protection.
+     */
+    private fun parseStoredTimestamp(value: String?, sourceId: String): Long {
+        if (value == null) return 0L
+        if (!value.matches(Regex("[0-9]{1,16}"))) {
+            throw IllegalStateException("저장된 manifest 시각 데이터가 손상되었습니다: $sourceId")
+        }
+        return value.toLongOrNull()
+            ?: throw IllegalStateException("저장된 manifest 시각 데이터가 손상되었습니다: $sourceId")
+    }
     private fun readProperties(): Properties {
         val properties = Properties()
         if (stateFile.isFile) stateFile.inputStream().use(properties::load)
