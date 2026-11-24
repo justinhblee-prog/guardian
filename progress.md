@@ -742,3 +742,8 @@
 - Updated `DomainFilter.isMatchingResponse` to reject upstream DNS replies with the reserved Z bit set.
 - Added `rejectsUpstreamDnsResponseWithReservedZFlag` regression coverage.
 - Source and test changes committed. Kotlin tests, Android Gradle build, emulator/device DNS validation, and APK generation remain unexecuted; GitHub Actions was not run.
+
+
+## 2026-11-24 — DNS policy invalid-upstream fallback coverage
+- Added `upstreamResponseWithReservedDnsZFlagIsRejectedAndReturnsServfail` to verify the shared UDP/TCP policy does not forward an upstream reply carrying the reserved DNS Z bit and returns a valid SERVFAIL instead.
+- This complements the low-level response validator regression test. Kotlin test execution, Android build, emulator/device verification, and APK generation remain unexecuted; GitHub Actions was not run.
