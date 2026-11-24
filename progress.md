@@ -326,3 +326,9 @@
 - Worker가 `CONNECTED`로 실행되어 수동 프로필에서 자동 업데이트 권한이 true일 경우 metered 네트워크를 사용할 수 있던 위험을 수정했습니다.
 - WorkManager requirement를 `UNMETERED`로 바꾸고 Worker 시작/필터 원천 경계마다 현재 active NetworkCapabilities의 `NET_CAPABILITY_NOT_METERED`, 전역 opt-in, 프로필 허용값 및 `isStopped` 상태를 확인합니다.
 - 순수 `FilterUpdateSchedulingPolicy.shouldRun` 3중 게이트 테스트를 추가했습니다. 자동 first-run filter setup은 WorkManager 주기 Worker와 분리된 기존 경로로 유지합니다. Android WorkManager/ConnectivityManager·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 반복 필터 갱신 3중 게이트 Kotlin/JVM smoke
+- 현재 `FilterUpdateSchedulingPolicy.kt`의 `shouldSchedule` 및 `shouldRun` 순수 함수를 kotlinc로 컴파일하고 실행했습니다.
+- PASS 8/8: user opt-in/profiles true 조합, user off, profile off, metered network, user+profile+unmetered 3중 AND, false 조건 각각 차단.
+- Android 쪽은 WorkManager `UNMETERED` constraint를 예약에 적용하고 Worker 시작/각 source 단계에서 active `NetworkCapabilities.NET_CAPABILITY_NOT_METERED`, user opt-in, profile permission, `isStopped`를 재검사합니다. Android WorkManager/ConnectivityManager/실기기 네트워크 전환은 미실행입니다.
