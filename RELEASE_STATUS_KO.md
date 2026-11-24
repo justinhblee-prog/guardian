@@ -1,3 +1,11 @@
+## 2026-11-24 Android DNS 시작 전 업스트림 응답 검증 보강
+- `DnsUpstreamProbe.isSuccessfulResolution`이 DNS 패킷 구조와 응답 레코드 경계만 확인하던 부분을 보완했습니다. 시작 전 probe는 A/IN 질의이므로, 완전한 TXT 응답이나 CNAME만 있는 응답을 IPv4 DNS 사용 가능 상태로 오인하지 않고 Answer 섹션에 실제 A/IN 주소 레코드(RDLENGTH=4)가 있는지 확인합니다.
+- CNAME 체인은 최종 A 레코드가 Answer 섹션에 포함된 경우 계속 허용합니다. Authority/Additional 섹션의 A 레코드만으로 성공 처리하지 않습니다.
+- 회귀 테스트 추가: 완전한 TXT 응답 거부, 잘못된 길이의 A 응답 거부. 기존 정상 A 응답, truncated RR, 압축 포인터 및 RDATA 경계 테스트를 유지합니다.
+- 변경 커밋: `04f111e58a4246354e90b8e9cdc82b5145cfd3af` (검증 로직), `9b9176021b4da30f71ab4b29cff9b658a6c31fd3` (테스트 fixture 보정).
+- 이 턴에서는 Android Gradle/JUnit 실행, 에뮬레이터 또는 실기기 검증, APK 생성은 수행하지 않았습니다. 따라서 코드/테스트 소스 변경이며 실행 검증 통과로 간주하지 않습니다.
+- GitHub Actions는 실행하지 않았고 runner·billing·repository settings를 변경하지 않았습니다.
+
 ## 2026-11-18 정식 출시 준비 최신 보충 (PR #155 / #156)
 - Main code commit: `794f98f7a5e2acc8443658b599e6ff00eb8a128f`.
 - PR #155 merged: production GitHub Actions now rechecks source-level license ID, explicit redistribution approval and traceable reference from `GUARDIAN_FILTER_APPROVALS_JSON`; it requires the signed static origin branch `guardian-filter-data` before production signing.
