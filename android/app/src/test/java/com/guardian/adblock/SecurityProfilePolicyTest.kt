@@ -102,6 +102,11 @@ class SecurityProfilePolicyTest {
         assertTrue(SecurityProfilePolicy.hasProfileStateChanged(home.id.name, false, home))
     }
 
+    @Test fun queuedAutomaticNetworkCallbacksAreIgnoredAfterManualModeIsSelected() {
+        assertTrue(SecurityProfilePolicy.shouldApplyAutomaticProfile(true))
+        assertFalse(SecurityProfilePolicy.shouldApplyAutomaticProfile(false))
+    }
+
     @Test fun manualSelectionDoesNotAssumeNetworkIsUnmeteredForFilterDownloads() {
         SecurityProfilePolicy.Id.values().forEach { id ->
             val manual = SecurityProfilePolicy.manualSelection(id)
