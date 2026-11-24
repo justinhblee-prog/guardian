@@ -121,8 +121,8 @@ internal object InstalledAppInventory {
         // incomplete non-empty lists without throwing; destructive cleanup requires
         // the full visibility grant and exact agreement from two independent APIs.
         val cleanupInventoryComplete = InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
-            queryAllPackagesGranted = snapshot.queryAllPackagesGranted,
-            applicationQuerySucceeded = snapshot.installedQuerySucceeded,
+            queryAllPackagesGranted = allPackagesGranted,
+            applicationQuerySucceeded = installedQuerySucceeded,
             packageInfoQuerySucceeded = installedPackagesQuerySucceeded,
             applicationPackages = applicationPackages,
             packageInfoPackages = packageInfoPackages
