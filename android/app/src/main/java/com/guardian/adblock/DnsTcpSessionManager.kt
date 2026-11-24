@@ -195,13 +195,21 @@ class DnsTcpSessionManager(
             if (tcp.sequence == session.lastClientSegmentStart &&
                 tcp.payload.contentEquals(session.lastClientPayload) &&
                 tcp.fin == session.lastClientFin) {
-                val unacknowledged = session.outstandingServerPackets.map { it.packet.copyOf() }
-                return when {
-                    unacknowledged.isNotEmpty() -> unacknowledged
-                    // A delayed duplicate after cumulative ACK must not replay
-                    // data the peer has already confirmed; answer with current ACK.
-                    else -> listOf(ack(tcp, session))
+                val outstanding = session.outstandingServerPackets
+                if (outstanding.isNotEmpty()) {
+                    // Replaying an answer is a real retransmission: advance the
+                    // same retry budget and restart each segment's RTO timestamp.
+                    // If any outstanding segment has exhausted its retry budget,
+                    // expire the session rather than bypassing the RTO limit.
+                    if (outstanding.any { it.retransmissionCount >= MAX_RETRANSMISSIONS }) {
+                        sessions.remove(key)
+                        return emptyList()
+                    }
+                    return outstanding.mapNotNull { markRetransmitted(it, now) }
                 }
+                // A delayed duplicate after cumulative ACK must not replay
+                // data the peer has already confirmed; answer with current ACK.
+                return listOf(ack(tcp, session))
             }
             return listOf(ack(tcp, session))
         }
