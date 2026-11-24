@@ -1,3 +1,8 @@
+## 2026-11-24 — Android 업데이트 화면 복원 누락 수정
+- MainActivity는 설정 하위의 `settings-updates`를 저장·복원 대상으로 처리하지만 ActivityScreenState 허용 목록에는 빠져 있어 Activity 재생성 시 홈으로 떨어질 수 있었습니다.
+- 허용 탭 목록과 복원 단위 테스트에 `settings-updates`를 추가했습니다.
+- 소스 및 테스트 파일 원격 반영을 확인했습니다. Android Gradle/JUnit 및 기기 테스트는 실행하지 않았습니다.
+
 ## 2026-11-24 — DNS TCP stale RST 세션 종료 회귀 테스트 추가
 - 연결 직후 지연 도착한 이전 시퀀스의 RST가 현재 DNS TCP 세션을 종료하지 않는지 확인하는 회귀 테스트를 추가했습니다.
 - 같은 테스트에서 정상 clientNext 시퀀스의 RST는 세션을 정리하는지도 함께 확인하도록 구성했습니다.
