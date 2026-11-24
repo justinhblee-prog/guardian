@@ -570,3 +570,8 @@
 ## 2026-11-24 — DNS TCP exact request replay RTO 동기화
 - 원본 DNS 요청 재전송에 따른 응답 replay도 RTO retry count/time을 갱신하도록 했습니다. retry 한도가 지난 미확인 세그먼트가 있으면 세션을 종료해 repeated request로 timer budget을 우회하지 못하게 합니다.
 - fake clock 테스트에서 500ms 시점 exact replay 이후 기존 1초 RTO가 발화하지 않고 2초 backoff가 2,500ms에 도래하는지 확인하도록 했습니다. Android Gradle/JUnit 미실행입니다.
+
+
+## 2026-11-24 — exact DNS 요청 재전송 예산 상한 테스트
+- 원본 DNS 요청 중복 재생 5회까지는 캐시 응답 재전송, 여섯 번째 요청에서는 세션 종료 및 무응답을 확인하는 regression test를 추가했습니다.
+- Android Gradle/JUnit·실기기 테스트는 미실행입니다.
