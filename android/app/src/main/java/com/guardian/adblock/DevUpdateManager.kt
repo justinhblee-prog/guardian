@@ -108,7 +108,7 @@ internal object DevUpdateManager {
         require(update.signerSha256 == installedSignerSha256(context)) {
             "업데이트 서명 인증서가 현재 설치된 개발 버전과 다릅니다. 설치를 중단했습니다."
         }
-        val directory = File(context.cacheDir, "updates").apply { mkdirs() }
+        val directory = File(context.cacheDir, GuardianUpdateCachePaths.DEVELOPMENT_DIRECTORY).apply { mkdirs() }
         val target = File(directory, "guardian-${update.versionCode}.apk")
         val connection = (URL(update.apkUrl).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15000
