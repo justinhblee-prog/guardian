@@ -174,7 +174,7 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - 단일 DNS 질의 시작 시 monotonic clock 기반 `DnsQueryDeadline`을 만들고, 기본 전체 예산을 8,000ms로 설정했습니다.
 - 설정된 리졸버 → 물리 네트워크 DNS → 공개 DNS 후보 순서, UDP 우선/TC 응답의 TCP 재시도, 명시적 TCP·DoT·DoH의 전송 강제 정책은 유지하면서 모든 후보와 재시도가 같은 deadline을 공유합니다.
 - UDP receive timeout, TCP connect/read, DoT·DoH connect/handshake/read가 남은 예산을 사용합니다. TLS 핸드셰이크와 소켓 쓰기는 SO_TIMEOUT만으로 trickle/blocked 동작을 완전히 제한할 수 없으므로, deadline 만료 시 활성 소켓을 닫는 daemon watchdog도 연결했습니다.
-- 후보 실행 전 deadline이 소진되면 추가 연결을 시작하지 않고, 전체 예산 소진을 진단에 남깁니다. 후보마다 3.5초를 새로 부여하던 누적 지연 구조를 제거했습니다.
+- 후보 실행 전 deadline이 소진되면 추가 연결을 시작하지 않고, 전체 예산 소진을 진단에 남깁니다. 후보마다 3.5초를 새로 부여하던 누적 지연 구조를 제거했습니다. 완료된 소켓의 취소된 watchdog 작업은 스케줄러 지연 큐에서 즉시 제거해 DNS 트래픽이 많을 때 작업이 누적되지 않게 했습니다.
 - 순수 Kotlin 테스트 `DnsQueryDeadlineTest`에 남은 시간 감소/올림, 만료 후 재시도 차단, 소켓 timeout 상한, 0 이하 예산 거부 검증을 추가했습니다.
 - **실행 상태:** 이 환경에는 Android SDK/Gradle 실행기가 없어 JUnit은 작성만 했고 실행하지 않았습니다. GitHub Actions도 과거 runner 할당 단계 실패가 재현된 이력이 있어 이번 변경에서는 실행하지 않았습니다. 따라서 컴파일·JUnit 통과를 주장하지 않습니다.
 - **기기 검증 잔여:** Android에서 실제 UDP/TCP/DoT/DoH timeout, TLS handshake 중단, 네트워크 전환 및 정상 응답 지연을 측정해야 합니다. 8초는 전체 질의 상한이며 실제 단말에서 성공률/지연을 측정한 값은 아닙니다.
