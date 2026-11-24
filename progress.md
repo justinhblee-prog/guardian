@@ -575,3 +575,9 @@
 ## 2026-11-24 — exact DNS 요청 재전송 예산 상한 테스트
 - 원본 DNS 요청 중복 재생 5회까지는 캐시 응답 재전송, 여섯 번째 요청에서는 세션 종료 및 무응답을 확인하는 regression test를 추가했습니다.
 - Android Gradle/JUnit·실기기 테스트는 미실행입니다.
+
+
+## 2026-11-24 — 최초 필터 캐시 실패 자동 복구
+- 메인 필터 캐시가 없는 최초 다운로드 실패에서만 one-time WorkManager 복구 작업을 30초 뒤 예약합니다. NetworkType.CONNECTED 및 exponential 30초 backoff가 적용되며 동일 작업은 unique KEEP으로 중복되지 않습니다.
+- 이 작업은 forceInitialRefresh 입력값으로 recurring auto-update opt-out과 분리됩니다. 사용자가 자동 업데이트를 꺼도 최초 필수 메인 캐시 복구는 시도하고, 기존 캐시가 있는 단순 refresh 실패는 예약하지 않습니다.
+- 메인 수동 업데이트가 성공하면 대기 중 복구 작업을 취소합니다. 정책/지연 테스트 소스 추가. Android Gradle/JUnit·WorkManager 통합·네트워크 전환 단말 검증은 미실행입니다.
