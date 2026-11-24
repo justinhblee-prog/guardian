@@ -565,3 +565,8 @@
 - client ISN=`0xFFFFFFFC`, server ISN=`0xFFFFFFFE`로 고정해 clientNext가 28로, server response sequence가 `0xFFFFFFFF`에서 0을 지나도록 구성했습니다.
 - PASS 11개 wrap 전용 assertion 포함 전체 36/36: 3개 MSS 응답 분할, 첫 세그먼트 끝 ACK가 1199로 wrap, 해당 ACK 수락, 첫 outstanding segment 제거, 중복 ACK 세 번 뒤 두 번째 segment 재전송.
 - 이 harness는 이전에 로컬 추출한 Kotlin/JVM codec/session 스냅샷으로 실행했으며 최신 원격 blob과 바이트 동일성은 확인하지 않았습니다. 최신 branch에는 같은 시나리오의 JUnit 테스트 소스를 추가했지만 Android Gradle/JUnit·emulator·실기기 테스트는 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP exact request replay RTO 동기화
+- 원본 DNS 요청 재전송에 따른 응답 replay도 RTO retry count/time을 갱신하도록 했습니다. retry 한도가 지난 미확인 세그먼트가 있으면 세션을 종료해 repeated request로 timer budget을 우회하지 못하게 합니다.
+- fake clock 테스트에서 500ms 시점 exact replay 이후 기존 1초 RTO가 발화하지 않고 2초 backoff가 2,500ms에 도래하는지 확인하도록 했습니다. Android Gradle/JUnit 미실행입니다.
