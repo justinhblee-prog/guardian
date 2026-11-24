@@ -335,3 +335,9 @@
 - 기존에는 전체 앱 조회 권한과 `getInstalledApplications()` 한 번의 non-empty 응답으로 앱 제거 정리를 허용했습니다. 이제 `getInstalledPackages()`를 항상 별도 실행해 두 집합이 정확히 일치할 때만 앱별 정책/통계 정리를 허용합니다.
 - API 둘 중 하나 실패, 목록 불일치 또는 빈 목록이면 기존 데이터를 그대로 보존합니다. 앱 선택 UI는 두 결과를 병합하고 launcher fallback을 계속 사용합니다.
 - 순수 정책 테스트: 양쪽 일치만 승인, 불일치/한쪽 실패/빈 목록 거부. Android PackageManager/OEM/SharedPreferences JUnit·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 이중 앱 인벤토리 정책 JVM smoke
+- `InstalledAppDataCleanupPolicy.kt` 실제 소스를 kotlinc 1.9.0/JRE 21로 컴파일 후 실행했습니다.
+- PASS 8/8: 일치한 두 API만 cleanup 승인, mismatch·permission/query 실패·empty set 거부, complete 목록에서 stale 앱만 선택, incomplete inventory no-op.
+- Android PackageManager/SharedPreferences/OEM 단말 통합 및 Android JUnit은 미실행입니다.
