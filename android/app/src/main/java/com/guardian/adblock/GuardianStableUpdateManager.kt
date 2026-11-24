@@ -115,7 +115,9 @@ internal object GuardianStableUpdateManager {
             }
             check(connection.responseCode in 200..299) { "정식 APK 다운로드 실패: HTTP ${connection.responseCode}" }
             val expectedLength = connection.contentLengthLong
-            check(expectedLength in 1..MAX_APK_BYTES) { "정식 APK 파일 크기가 허용 범위를 벗어났습니다." }
+            check(GuardianStableUpdatePolicy.isAcceptableDownloadLength(expectedLength, MAX_APK_BYTES)) {
+                "정식 APK 파일 크기가 허용 범위를 벗어났습니다."
+            }
             connection.inputStream.use { input ->
                 FileOutputStream(temporary).use { output ->
                     val buffer = ByteArray(64 * 1024); var total = 0L
@@ -126,7 +128,9 @@ internal object GuardianStableUpdateManager {
                         output.write(buffer, 0, count)
                     }
                     output.fd.sync()
-                    check(total == expectedLength) { "정식 APK 다운로드 크기가 일치하지 않습니다." }
+                    check(GuardianStableUpdatePolicy.matchesDownloadedLength(expectedLength, total, MAX_APK_BYTES)) {
+                        "정식 APK 다운로드 크기가 일치하지 않거나 비어 있습니다."
+                    }
                 }
             }
             check(sha256(temporary).equals(update.sha256, ignoreCase = true)) {
