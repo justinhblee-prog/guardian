@@ -1,3 +1,8 @@
+## 2026-11-24 — 보안 프로필 미리보기 제한 안내 정합성
+
+- 보안 프로필 UI에 로밍 감지와 반복 필터 갱신 스케줄러가 아직 미연결이라는 오래된 안내가 남아 있어 현재 구현과 일치하도록 수정했습니다.
+- 실제 남은 제한을 Android 9+ 셀룰러 capability 기반 판정의 OEM/통신사 실기기 검증, first-run filter population과 recurring WorkManager gate의 구분, PRO entitlement/Release 등록 대기로 명확히 표시합니다.
+
 ## 2026-11-24 — 셀룰러 로밍 감지 기반 여행 프로필 자동 적용
 
 - SecurityProfileMonitor가 `roaming=false`를 고정하던 부분을 Android 9(API 28)+ `NET_CAPABILITY_NOT_ROAMING` capability로 대체했습니다.
