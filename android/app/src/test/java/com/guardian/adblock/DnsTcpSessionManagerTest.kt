@@ -1348,6 +1348,31 @@ class DnsTcpSessionManagerTest {
         assertEquals(906, last.sumOf { DnsTcpPacket.parse(it, it.size, 53000)!!.payload.size })
     }
 
+    @Test fun oversizedUpstreamDnsTcpAnswerReturnsServfailInsteadOfSilentAck() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 9750)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val request = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 9751,
+            acknowledgment = serverStart,
+            payload = framedQuery
+        )
+
+        val replies = manager.handle(request, request.size) { ByteArray(65536) }
+        assertEquals(1, replies.size)
+        val response = DnsTcpPacket.parse(replies.single(), replies.single().size, 53000)!!
+        assertTrue(response.ack)
+        assertTrue(response.payload.size >= 14)
+        val frameLength = ((response.payload[0].toInt() and 0xff) shl 8) or
+            (response.payload[1].toInt() and 0xff)
+        assertEquals(frameLength, response.payload.size - 2)
+        assertEquals(2, response.payload[5].toInt() and 0x0f)
+    }
+
     @Test fun largeDnsResponseWaitsForAndFollowsPeerReceiveWindowUpdates() {
         val manager = newManager()
         val query = dnsQuery()
