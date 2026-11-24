@@ -598,3 +598,6 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 
 
 - 취소된 VPN 시작 작업의 지연된 오류가 새 시작 요청의 TUN/상태/foreground 알림을 정리할 수 있는 경합을 보완했습니다. 시작 세대 게이트로 실패 게시 및 descriptor 정리를 직렬화하고 회귀 테스트 2개를 추가했습니다. Android Gradle/JUnit 및 기기 검증은 미실행입니다.
+
+
+- VPN 시작 세대 게이트 동시성 회귀 테스트를 추가하고 순수 Kotlin/JVM smoke harness에서 잠금 직렬화·stale generation 거부를 실행 확인했습니다(`VPN_START_GATE_CONCURRENCY_SMOKE=PASS`). 이는 독립 정책 하네스 결과이며 Android Gradle/JUnit/앱 빌드 검증은 아닙니다.
