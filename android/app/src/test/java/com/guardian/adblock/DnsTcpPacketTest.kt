@@ -45,6 +45,17 @@ class DnsTcpPacketTest {
     }
 
 
+    @Test fun rejectsTcpUrgentDataBecauseDnsStreamDoesNotImplementUrgentPointerSemantics() {
+        val urgent = ipv4Request().also {
+            it[33] = (DnsTcpPacket.SYN or DnsTcpPacket.URG).toByte()
+            it[38] = 0
+            it[39] = 1
+            sealTcp4(it)
+            sealIp4(it)
+        }
+        assertNull(DnsTcpPacket.parse(urgent, urgent.size))
+    }
+
     @Test fun rejectsReservedIpv4FlagAndTcpHeaderBits() {
         val reservedIpFlag = ipv4Request().also {
             it[6] = 0x80.toByte()
