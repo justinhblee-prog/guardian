@@ -82,9 +82,9 @@ internal object PerAppDnsPolicyStore {
         )
         if (stale.isEmpty()) return emptySet()
         val editor = prefs.edit()
-        stale.forEach { editor.remove("rules.$it") }
+        stale.forEach { packageName -> editor.remove("rules.$packageName") }
         editor.apply()
-        stale.forEach(cache::remove)
+        stale.forEach { packageName -> cache.remove(packageName) }
         return stale
     }
 
