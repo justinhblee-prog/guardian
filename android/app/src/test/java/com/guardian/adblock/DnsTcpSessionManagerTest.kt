@@ -5,6 +5,49 @@ import org.junit.Test
 import java.security.SecureRandom
 
 class DnsTcpSessionManagerTest {
+    @Test fun responseSegmentsRespectAdvertisedClientMss() {
+        val manager = newManager()
+        // MSS option: kind=2, length=4, value=512 bytes.
+        val syn = packet(
+            flags = DnsTcpPacket.SYN,
+            seq = 9700,
+            tcpOptions = byteArrayOf(2, 4, 0x02, 0x00)
+        )
+        val synAck = manager.handle(syn, syn.size) { null }.single()
+        assertNotNull(DnsTcpPacket.parse(synAck, synAck.size, 53000))
+
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val request = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 9701,
+            acknowledgment = 1L,
+            payload = framedQuery
+        )
+        val replies = manager.handle(request, request.size) { ByteArray(3000) }
+        assertTrue(replies.size > 1)
+        assertEquals(3000, replies.sumOf {
+            DnsTcpPacket.parse(it, it.size, 53000)!!.payload.size
+        })
+        replies.forEach { response ->
+            val parsed = DnsTcpPacket.parse(response, response.size, 53000)
+            assertNotNull(parsed)
+            assertTrue(parsed!!.payload.size <= 512)
+        }
+    }
+
+    @Test fun malformedTcpMssOptionIsRejectedBeforeSessionCreation() {
+        val malformedSyn = packet(
+            flags = DnsTcpPacket.SYN,
+            seq = 9800,
+            tcpOptions = byteArrayOf(2, 3, 0x02, 0x00)
+        )
+        assertNull(DnsTcpPacket.parse(malformedSyn, malformedSyn.size))
+        val manager = newManager()
+        assertTrue(manager.handle(malformedSyn, malformedSyn.size) { null }.isEmpty())
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     @Test fun completesHandshakeAndAcknowledgesClientData() {
         var now = 1000L
         val manager = DnsTcpSessionManager({ now }, deterministicRandom())
@@ -1234,8 +1277,11 @@ class DnsTcpSessionManagerTest {
     )
 
     private fun packet(flags: Int, seq: Long, payload: ByteArray = byteArrayOf(),
-                       acknowledgment: Long = 0L, window: Int = 8192): ByteArray {
-        val tcpLength = 20 + payload.size
+                       acknowledgment: Long = 0L, window: Int = 8192,
+                       tcpOptions: ByteArray = byteArrayOf()): ByteArray {
+        require(tcpOptions.size <= 40 && tcpOptions.size % 4 == 0)
+        val tcpHeaderLength = 20 + tcpOptions.size
+        val tcpLength = tcpHeaderLength + payload.size
         val p = ByteArray(20 + tcpLength)
         p[0] = 0x45; p[2] = (p.size ushr 8).toByte(); p[3] = p.size.toByte(); p[9] = 6
         p[12] = 10; p[15] = 1; p[16] = 10; p[19] = 2
@@ -1244,9 +1290,10 @@ class DnsTcpSessionManagerTest {
         p[26] = (seq ushr 8).toByte(); p[27] = seq.toByte()
         p[28] = (acknowledgment ushr 24).toByte(); p[29] = (acknowledgment ushr 16).toByte()
         p[30] = (acknowledgment ushr 8).toByte(); p[31] = acknowledgment.toByte()
-        p[32] = 0x50; p[33] = flags.toByte()
+        p[32] = ((tcpHeaderLength / 4) shl 4).toByte(); p[33] = flags.toByte()
         p[34] = (window ushr 8).toByte(); p[35] = window.toByte()
-        System.arraycopy(payload, 0, p, 40, payload.size)
+        System.arraycopy(tcpOptions, 0, p, 40, tcpOptions.size)
+        System.arraycopy(payload, 0, p, 20 + tcpHeaderLength, payload.size)
         sealTcp4(p); sealIp4(p)
         return p
     }
