@@ -3,6 +3,7 @@ package com.guardian.adblock
 import java.net.SocketTimeoutException
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 /**
@@ -43,8 +44,13 @@ internal class DnsQueryDeadline private constructor(
 
     companion object {
         private const val NANOS_PER_MILLI = 1_000_000L
-        private val EXPIRY_EXECUTOR = Executors.newSingleThreadScheduledExecutor { task ->
+        private val EXPIRY_EXECUTOR = ScheduledThreadPoolExecutor(1) { task ->
             Thread(task, "guardian-dns-deadline").apply { isDaemon = true }
+        }.apply {
+            // DNS traffic can be high; do not retain canceled watchdog tasks
+            // in the delayed queue until their original deadline arrives.
+            removeOnCancelPolicy = true
+            setExecuteExistingDelayedTasksAfterShutdownPolicy(false)
         }
 
         fun afterMillis(
