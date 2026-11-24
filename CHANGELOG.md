@@ -1,3 +1,9 @@
+## 2026-11-24 — 앱별 DNS 통계 snapshot 백그라운드 처리
+
+- 앱별 설치 앱 inventory는 이미 별도 thread로 조회하고 있었지만, 앱별 DNS 통계 `snapshot()`은 화면 생성 중 메인 스레드에서 SharedPreferences flush 및 최대 200개 패키지 카운터를 읽고 있었습니다.
+- 통계 snapshot/flush도 전용 background thread에서 실행하고, UI에는 즉시 로딩 상태를 표시한 뒤 결과/빈 기록/안전 요약 오류를 main thread에서 반영합니다. 화면이 닫혔거나 카드가 이미 detach된 경우 오래된 callback은 UI를 변경하지 않습니다.
+- Android UI/SharedPreferences thread-safety 테스트는 미실행이며 Gradle/JUnit·기기 UI 성능 검증은 미완료입니다.
+
 ## 2026-11-24 — 앱 목록 정리 정책 JVM smoke 12/12
 
 - 최신 `InstalledAppDataCleanupPolicy`를 kotlinc 1.9.0/JRE 21로 독립 컴파일·실행했습니다.
