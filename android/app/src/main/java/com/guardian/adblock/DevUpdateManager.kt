@@ -41,18 +41,23 @@ internal object DevUpdateManager {
     internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
         tagVersion > installedVersionCode && manifestVersionCode == tagVersion
 
+    internal fun parseDevelopmentTagVersion(tag: String): Int? =
+        Regex("^guardian-dev-v(0|[1-9][0-9]*)$").matchEntire(tag)
+            ?.groupValues?.getOrNull(1)?.toIntOrNull()
+
+    internal fun isCanonicalDevelopmentVersionName(versionName: String): Boolean =
+        versionName.matches(Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)-dev$"))
+
     fun checkForUpdate(): GuardianDevUpdate? {
         val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
         val candidates = ArrayList<ReleaseCandidate>()
-        val tagPattern = Regex("^guardian-dev-v(\\d+)$")
 
         // GitHub sorts releases by commit-created time, not semantic/version order.
         // Collect all valid development releases and select by the numeric tag version.
         for (index in 0 until releases.length()) {
             val release = releases.optJSONObject(index) ?: continue
             if (release.optBoolean("draft", true) || !release.optBoolean("prerelease", false)) continue
-            val tagVersion = tagPattern.matchEntire(release.optString("tag_name"))
-                ?.groupValues?.getOrNull(1)?.toIntOrNull() ?: continue
+            val tagVersion = parseDevelopmentTagVersion(release.optString("tag_name")) ?: continue
             val assets = release.optJSONArray("assets") ?: continue
             var manifestUrl: String? = null
             var apkUrl: String? = null
@@ -86,7 +91,7 @@ internal object DevUpdateManager {
             // and that build must be newer than the installed application.
             if (!isNewerMatchingRelease(BuildConfig.VERSION_CODE, candidate.tagVersion, versionCode)) continue
             val versionName = manifest.optString("versionName")
-            if (!versionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+-dev"))) continue
+            if (!isCanonicalDevelopmentVersionName(versionName)) continue
 
             val digest = manifest.optString("sha256").lowercase()
             val signer = manifest.optString("signerSha256").lowercase()
