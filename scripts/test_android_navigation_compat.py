@@ -26,23 +26,23 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         self.assertEqual(resolve_premium_entry(xml), "all-menu")
 
     def test_english_premium_category_label_is_supported(self):
-        xml = '<hierarchy><node text="라이선스 및 Premium" /></hierarchy>'
+        xml = '<hierarchy><node clickable="true"><node text="라이선스 및 Premium" /></node></hierarchy>'
         self.assertEqual(resolve_premium_category(xml), "라이선스 및 Premium")
 
     def test_korean_premium_category_label_is_supported(self):
-        xml = '<hierarchy><node text="라이선스 및 프리미엄" /></hierarchy>'
+        xml = '<hierarchy><node clickable="true"><node text="라이선스 및 프리미엄" /></node></hierarchy>'
         self.assertEqual(resolve_premium_category(xml), "라이선스 및 프리미엄")
 
     def test_current_app_exclusion_settings_label_is_supported(self):
-        xml = '<hierarchy><node text="앱 제외 관리" visible-to-user="true" /></hierarchy>'
+        xml = '<hierarchy><node clickable="true"><node text="앱 제외 관리" visible-to-user="true" /></node></hierarchy>'
         self.assertEqual(resolve_settings_item(xml, "앱 제외 관리"), "앱 제외 관리")
 
     def test_legacy_app_exclusion_settings_label_is_supported(self):
-        xml = '<hierarchy><node text="앱 제외" visible-to-user="true" /></hierarchy>'
+        xml = '<hierarchy><node clickable="true"><node text="앱 제외" visible-to-user="true" /></node></hierarchy>'
         self.assertEqual(resolve_settings_item(xml, "앱 제외 관리"), "앱 제외")
 
     def test_legacy_filter_settings_label_is_supported(self):
-        xml = '<hierarchy><node content-desc="필터 규칙" visible-to-user="true" /></hierarchy>'
+        xml = '<hierarchy><node clickable="true"><node content-desc="필터 규칙" visible-to-user="true" /></node></hierarchy>'
         self.assertEqual(resolve_settings_item(xml, "필터 관리"), "필터 규칙")
 
     def test_missing_settings_item_fails_closed(self):
@@ -68,9 +68,23 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
             resolve_premium_category(xml)
 
     def test_disabled_premium_category_is_not_selected(self):
-        xml = '<hierarchy><node text="라이선스 및 프리미엄" visible-to-user="true" enabled="false" /></hierarchy>'
+        xml = '<hierarchy><node clickable="true" enabled="false"><node text="라이선스 및 프리미엄" /></node></hierarchy>'
         with self.assertRaises(ValueError):
             resolve_premium_category(xml)
+
+    def test_non_clickable_premium_tab_is_not_selected(self):
+        xml = '<hierarchy><node content-desc="Premium" visible-to-user="true" enabled="true" /></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_premium_entry(xml)
+
+    def test_non_clickable_settings_item_is_not_selected(self):
+        xml = '<hierarchy><node text="앱 제외 관리" visible-to-user="true" enabled="true" /></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_settings_item(xml, "앱 제외 관리")
+
+    def test_clickable_parent_makes_category_actionable(self):
+        xml = '<hierarchy><node clickable="true" enabled="true"><node text="라이선스 및 프리미엄" /></node></hierarchy>'
+        self.assertEqual(resolve_premium_category(xml), "라이선스 및 프리미엄")
 
 
     def test_support_diagnostics_copy_recovers_after_collection_exception(self):
