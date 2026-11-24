@@ -39,4 +39,9 @@ internal class VpnTunnelSessionGuard {
     fun hasActiveSession(): Boolean = synchronized(lock) {
         activeGeneration > 0L
     }
+
+    /** A running flag is authoritative only while some generation still owns the TUN. */
+    fun shouldIgnoreStart(running: Boolean): Boolean = synchronized(lock) {
+        running && activeGeneration > 0L
+    }
 }
