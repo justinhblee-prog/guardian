@@ -1,3 +1,8 @@
+## 2026-11-24 — 최대 ZIP 주석 길이 tail ring 경계 테스트
+
+- EOCD 검증 tail ring이 최대 ZIP comment 길이 65,535바이트와 22바이트 EOCD를 담아 정확히 한 바퀴 도는 경계에서 정상 APK를 허용하는지 테스트를 추가했습니다.
+- 기존 EOCD 누락/변조/trailing data 거부 테스트와 함께 최대 comment 허용 동작을 확인합니다.
+
 ## 2026-11-24 — APK ZIP 중앙 디렉터리·EOCD 종료 검증
 
 - `ZipInputStream`은 local file header만으로 항목을 읽고 ZIP 중앙 디렉터리/EOCD가 누락된 잘린 아카이브도 끝까지 읽은 것처럼 반환할 수 있었습니다.
