@@ -1,3 +1,11 @@
+## 2026-11-24 — 보안 프로필 미리보기 상태 실시간 동기화
+
+- 자동 네트워크 프로필 변경 후 Premium DEBUG 미리보기의 현재 프로필, 자동 전환 체크박스 및 자동 업데이트 정책 표시가 이전 값으로 남던 문제를 수정했습니다.
+- Guardian VPN 상태 브로드캐스트와 화면 재진입 때 visible preview를 갱신합니다. 화면 이탈 시 View 참조를 해제합니다.
+- 사용자가 Spinner에서 수동 프로필을 선택한 뒤 Apply 전인 상태는 dirty flag로 보호해 DNS 상태 브로드캐스트/자동 프로필 갱신이 pending selection을 덮어쓰지 않습니다. Apply 또는 화면 재생성 시에만 초기화합니다.
+- Manual profile 적용은 네트워크 metering 상태를 알 수 없으므로 automatic filter download를 기본 제한하고 자동 network switching callback을 해제합니다.
+- Kotlin/JVM 정책 smoke PASS 16/16(자동 네트워크 분류, metered update policy, physical candidate ambiguity, manual update restriction). Android UI/NetworkCallback integration 및 실제 기기 검증은 미실행입니다.
+
 ## 2026-11-24 — 보안 프로필 정책 Kotlin/JVM 회귀 검증
 
 - `SecurityProfilePolicy`의 자동 네트워크 분류, 종량제 다운로드 제한, VPN underlying network 후보 개수에 따른 fail-closed 동작 및 수동 프로필 정책을 Kotlin/JVM harness로 컴파일·실행했습니다.
