@@ -69,7 +69,7 @@ internal object GuardianStableUpdateManager {
         }
 
         val manifest = JSONObject(readHttps(manifestUrl, 64 * 1024))
-        require(manifest.optInt("manifestVersion", 0) == 1) {
+        require(GuardianStableUpdatePolicy.parseSupportedVersionCode(manifest.opt("manifestVersion")) == 1) {
             "지원하지 않는 정식 업데이트 manifest 버전입니다."
         }
         require(manifest.optString("packageName") == PACKAGE_NAME) {
