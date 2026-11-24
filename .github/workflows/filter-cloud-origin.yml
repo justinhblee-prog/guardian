@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/filter-cloud-origin.yml"
       - "scripts/verify_filter_cloud_origin.mjs"
+      - "scripts/test_verify_filter_cloud_origin.mjs"
   workflow_dispatch:
 
 permissions:
@@ -24,6 +25,8 @@ jobs:
     steps:
       - name: Checkout verifier source
         uses: actions/checkout@v4
+      - name: Test signed filter cloud-origin verifier
+        run: node --test scripts/test_verify_filter_cloud_origin.mjs
       - name: Checkout static filter origin
         uses: actions/checkout@v4
         with:
