@@ -320,3 +320,8 @@
 - `InstalledAppDataCleanupPolicy`의 현재 순수 Kotlin 로직을 kotlinc로 컴파일하고 실행했습니다.
 - PASS 5/5: 불완전 inventory에서는 삭제 없음, `inventoryComplete=true`여도 빈 설치 앱 목록은 삭제 없음, 실제 비어 있지 않은 완전 목록에서는 제거된 패키지만 stale, 일부 유지/일부 제거 조합, 기존 데이터가 빈 집합일 때 no-op.
 - `InstalledAppInventory`에서 QUERY_ALL_PACKAGES 허용 + primary PackageManager 목록 비어 있지 않음 + final merged inventory 비어 있지 않음 세 조건이 모두 있어야 cleanup 호출하도록 한 코드 연결은 원격 소스에서 반영 확인했습니다. Android PackageManager/SharedPreferences/OEM 기기 통합은 미실행입니다.
+
+
+## 2026-11-24 — 앱별 DNS 규칙 화면 PackageManager 비동기 조회
+- 앱별 DNS 미리보기의 설치 앱 전체 조회 및 label loading을 UI thread에서 background inventory worker로 옮겼습니다. 초기 화면은 로딩 문구를 표시하고 결과는 Activity 생존 확인 후 UI thread에 반영합니다.
+- 선택 앱 전환, 저장된 규칙 로드, 사용자 규칙 저장 및 조회 오류 표시를 유지하는 editor builder를 분리했습니다. Android UI/ANR/emulator/실기기 검증은 미실행입니다.
