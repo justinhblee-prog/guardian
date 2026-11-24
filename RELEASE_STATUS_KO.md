@@ -811,3 +811,8 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 ## 2026-11-24 — 필터 캐시 트랜잭션 복구 보강
 - 서명 manifest 업데이트에서 캐시 파일·SharedPreferences 메타데이터·anti-rollback timestamp가 하나의 논리적 커밋으로 유지되어야 함을 확인했습니다. 실패 복구 시 SharedPreferences 복구가 예외를 내면 timestamp 복구가 건너뛰어질 수 있어, timestamp 복구를 `finally`로 이동했습니다. 따라서 메타데이터 복구 실패 상황에서도 anti-rollback watermark 복구를 시도합니다. 커밋 `f18926c6`.
 - 기존 `FilterCacheStoreTest`는 파일 복구 및 metadata rollback callback 경로를 다루지만, 이 특정 Android 통합 경로의 테스트 실행은 아직 하지 않았습니다. 원격 코드 반영 확인과 테스트 소스 점검만 완료했습니다.
+
+## 2026-11-24 — 시작 시 필터 갱신의 시계 보정 처리
+- `MainActivity.checkStartupFilterReadiness()`가 시작 시점의 필터 만료를 `now - lastUpdatedAt >= interval`로 직접 계산하고 있었습니다. 기기 시계가 마지막 갱신 시각보다 과거로 이동하면 음수 차이가 되어 갱신 필요 상태를 놓칠 수 있었습니다. 동일한 시계 보정 회귀가 `FilterUpdatePolicy.isDue()`에 이미 정의되어 있었지만 시작 화면 경로에는 적용되지 않았습니다.
+- 시작 시 메인·보안·Android 광고 필터 모두 공통 `FilterUpdatePolicy.isDue()`를 사용하도록 통일하고, 검사 시각을 한 번만 캡처하며 업데이트 간격도 스케줄러 정책으로 정규화했습니다. 기존 `FilterUpdatePolicyTest.clockRollbackMakesRefreshDueUntilSuccessfulRefreshResetsTimestamp`가 정책 회귀를 다룹니다. 커밋 `26a2ff89`.
+- 원격 소스 변경 확인 완료. Android JUnit/Lint/Debug APK/에뮬레이터/실기기 검증은 이 브랜치에서 실행하지 않았습니다.
