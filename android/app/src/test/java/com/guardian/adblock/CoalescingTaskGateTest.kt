@@ -58,6 +58,16 @@ class CoalescingTaskGateTest {
     }
 
     @Test
+    fun serviceStopDropsQueuedReloadWithoutLeavingGateOccupied() {
+        val gate = CoalescingTaskGate()
+        assertTrue(gate.request())
+        assertFalse(gate.request())
+        assertFalse(gate.releaseAfterFailure(allowRetry = false))
+        assertTrue(gate.request())
+        assertFalse(gate.completePass())
+    }
+
+    @Test
     fun requestAfterNormalCompletionCanAcquireImmediately() {
         val gate = CoalescingTaskGate()
         assertTrue(gate.request())
