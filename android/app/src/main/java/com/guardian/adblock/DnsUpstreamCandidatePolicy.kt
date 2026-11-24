@@ -11,10 +11,13 @@ internal object DnsUpstreamCandidatePolicy {
         systemDns: List<String>,
         publicFallback: List<String>,
         virtualDns: Set<String>
-    ): List<String> = (listOf(configured) + systemDns + publicFallback)
-        .mapNotNull(::usableResolverAddress)
-        .filterNot { it in virtualDns }
-        .distinct()
+    ): List<String> {
+        val excluded = virtualDns.mapNotNull(DnsAddressValidator::normalize).toSet()
+        return (listOf(configured) + systemDns + publicFallback)
+            .mapNotNull(::usableResolverAddress)
+            .filterNot { it in excluded }
+            .distinct()
+    }
 
     fun udpAttempts(
         configured: String,
