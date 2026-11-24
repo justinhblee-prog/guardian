@@ -209,4 +209,45 @@ class FilterCacheStoreTest {
         assertFalse(File(folder, "filter.txt.tmp").exists())
     }
 
+
+    @Test
+    fun failedBackupRestoreLeavesRecoverableBackupForNextStartup() {
+        val folder = newFolder()
+        val target = File(folder, "filter.txt").apply { writeText("known-good") }
+        var backupRestoreAttempted = false
+
+        try {
+            FilterCacheStore.replace(
+                target,
+                "replacement".toByteArray(),
+                commitMetadata = { },
+                moveFile = { source, destination ->
+                    if (source.name == "filter.txt.bak" && destination == target) {
+                        backupRestoreAttempted = true
+                        throw java.io.IOException("simulated restore failure")
+                    }
+                    Files.move(
+                        source.toPath(), destination.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                    )
+                    if (source == target) {
+                        throw java.io.IOException("simulated post-backup-move failure")
+                    }
+                }
+            )
+            throw AssertionError("Expected replacement failure")
+        } catch (_: java.io.IOException) { }
+
+        assertTrue(backupRestoreAttempted)
+        assertFalse(target.exists())
+        assertTrue(File(folder, "filter.txt.bak").isFile)
+
+        // A later process startup must recover the intact previous generation.
+        FilterCacheStore.recover(target)
+
+        assertArrayEquals("known-good".toByteArray(), target.readBytes())
+        assertFalse(File(folder, "filter.txt.bak").exists())
+        assertFalse(File(folder, "filter.txt.tmp").exists())
+    }
+
 }
