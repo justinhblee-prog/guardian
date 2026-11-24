@@ -590,19 +590,25 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
         }
+        val screenWidthDp = resources.configuration.screenWidthDp.coerceAtLeast(1)
+        val rootOwnsBottomInset = ResponsiveLayoutPolicy.rootHandlesBottomSystemInset(screenWidthDp)
         root.setOnApplyWindowInsetsListener { view, insets ->
             if (Build.VERSION.SDK_INT >= 30) {
                 val bars = insets.getInsets(WindowInsets.Type.systemBars())
-                view.setPadding(0, bars.top, 0, bars.bottom)
+                view.setPadding(0, bars.top, 0, if (rootOwnsBottomInset) bars.bottom else 0)
             } else {
                 @Suppress("DEPRECATION")
-                view.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom)
+                view.setPadding(
+                    0,
+                    insets.systemWindowInsetTop,
+                    0,
+                    if (rootOwnsBottomInset) insets.systemWindowInsetBottom else 0
+                )
             }
             insets
         }
         val scroll = ScrollView(this).apply { isFillViewport = true }
         contentScrollView = scroll
-        val screenWidthDp = resources.configuration.screenWidthDp.coerceAtLeast(1)
         val horizontalPadding = dp(ResponsiveLayoutPolicy.horizontalPaddingDp(screenWidthDp))
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
