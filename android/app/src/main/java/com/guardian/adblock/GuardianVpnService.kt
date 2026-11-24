@@ -479,23 +479,29 @@ class GuardianVpnService : VpnService() {
         error: Throwable
     ) {
         android.util.Log.e("GuardianProtection", "Unexpected VPN startup failure: ${SafeFailureSummary.codeFor(error)}")
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
-        // A stale worker must not overwrite an explicit stop or a newer start request.
-        if (!startCancellation.isCurrent(requestGeneration) || running.get()) return
-        tunnelActive = false
-        try { tun?.close() } catch (closeError: Exception) {
-            android.util.Log.w("GuardianProtection", "Failed to close partial VPN tunnel: ${SafeFailureSummary.codeFor(closeError)}")
+        // Serialize the whole failure publication/cleanup with start requests.
+        // A newer generation arriving between a check and tun.close() must not
+        // let this stale worker close the newer session's descriptor.
+        startCancellation.tryCommitStart(requestGeneration) {
+            if (running.get()) return@tryCommitStart
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error))
+                .commit()
+            tunnelActive = false
+            try { tun?.close() } catch (closeError: Exception) {
+                android.util.Log.w("GuardianProtection", "Failed to close partial VPN tunnel: ${SafeFailureSummary.codeFor(closeError)}")
+            }
+            tun = null
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (stopError: Exception) {
+                android.util.Log.w("GuardianProtection", "Failed to remove startup notification: ${SafeFailureSummary.codeFor(stopError)}")
+            }
+            val detail = SafeFailureSummary.describe(error)
+            publishState(
+                false,
+                "보호 시작 중 예기치 않은 오류가 발생했습니다 (${ProtectionDiagnostics.exceptionTypeChain(error)}): $detail"
+            )
+            stopSelf(startId)
         }
-        tun = null
-        try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (stopError: Exception) {
-            android.util.Log.w("GuardianProtection", "Failed to remove startup notification: ${SafeFailureSummary.codeFor(stopError)}")
-        }
-        val detail = SafeFailureSummary.describe(error)
-        publishState(
-            false,
-            "보호 시작 중 예기치 않은 오류가 발생했습니다 (${ProtectionDiagnostics.exceptionTypeChain(error)}): $detail"
-        )
-        stopSelf(startId)
     }
     private fun startProtectionInternal(requestGeneration: Long, startId: Int) {
         tunnelActive = false
