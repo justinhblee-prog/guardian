@@ -1458,7 +1458,7 @@ class MainActivity : Activity() {
     }
 
     private fun broadcastAppUpdateState() {
-        sendBroadcast(Intent(GuardianAppUpdateState.ACTION_STATE_CHANGED).setPackage(packageName))
+        applicationContext.sendBroadcast(Intent(GuardianAppUpdateState.ACTION_STATE_CHANGED).setPackage(packageName))
     }
 
     private fun syncAppUpdateViews() {
@@ -1558,13 +1558,13 @@ class MainActivity : Activity() {
                                 GuardianAppUpdateState.noUpdate("현재 설치된 개발 버전이 최신입니다.")
                             } else {
                                 GuardianAppUpdateState.updateStatus(
-                                    "새 개발 버전 ${'$'}{update.versionName} 발견 · APK 다운로드 및 검증 중…"
+                                    "새 개발 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
                                 )
                                 broadcastAppUpdateState()
                                 val apk = DevUpdateManager.download(applicationContext, update)
                                 GuardianAppUpdateState.complete(
                                     apk, true,
-                                    "${'$'}{update.versionName} 다운로드 완료 · SHA-256, 패키지 및 개발 서명 인증서 검증 통과."
+                                    "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 개발 서명 인증서 검증 통과."
                                 )
                             }
                         } else {
@@ -1573,13 +1573,13 @@ class MainActivity : Activity() {
                                 GuardianAppUpdateState.noUpdate("설치된 정식 버전이 최신 공개 버전 이상입니다.")
                             } else {
                                 GuardianAppUpdateState.updateStatus(
-                                    "새 정식 버전 ${'$'}{update.versionName} 발견 · APK 다운로드 및 검증 중…"
+                                    "새 정식 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
                                 )
                                 broadcastAppUpdateState()
                                 val apk = GuardianStableUpdateManager.download(applicationContext, update)
                                 GuardianAppUpdateState.complete(
                                     apk, false,
-                                    "${'$'}{update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
+                                    "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
                                 )
                             }
                         }
