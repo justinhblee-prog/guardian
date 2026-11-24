@@ -13,7 +13,8 @@ internal object FilterRedirectPolicy {
         return try {
             val target = URL(URL(currentUrl), destination)
             if (!target.protocol.equals("https", ignoreCase = true) ||
-                target.host.isBlank() || target.userInfo != null) {
+                target.host.isBlank() || target.userInfo != null ||
+                target.ref != null || target.port !in listOf(-1, 443)) {
                 null
             } else {
                 target.toExternalForm()
