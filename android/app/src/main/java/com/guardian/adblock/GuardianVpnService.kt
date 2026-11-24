@@ -1264,22 +1264,24 @@ class GuardianVpnService : VpnService() {
     private fun systemDnsServers(): List<String> {
         return try {
             val manager = getSystemService(ConnectivityManager::class.java) ?: return emptyList()
-            val networks = buildList {
-                manager.activeNetwork?.let(::add)
-                addAll(manager.allNetworks)
-            }.distinct()
-            networks.asSequence()
-                .filter { network ->
-                    val capabilities = manager.getNetworkCapabilities(network) ?: return@filter false
-                    !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+            val activeNetwork = manager.activeNetwork
+            val candidates = manager.allNetworks.mapNotNull { network ->
+                val capabilities = manager.getNetworkCapabilities(network) ?: return@mapNotNull null
+                if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return@mapNotNull null
+                if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                    return@mapNotNull null
                 }
-                .flatMap { network ->
-                    manager.getLinkProperties(network)?.dnsServers.orEmpty().asSequence()
-                }
-                .mapNotNull { address -> DnsAddressValidator.normalize(address.hostAddress.orEmpty()) }
-                .distinct()
-                .take(2)
-                .toList()
+                val servers = manager.getLinkProperties(network)?.dnsServers.orEmpty()
+                    .mapNotNull { address -> DnsAddressValidator.normalize(address.hostAddress.orEmpty()) }
+                if (servers.isEmpty()) return@mapNotNull null
+                DnsUpstreamCandidatePolicy.PhysicalDnsCandidate(
+                    servers = servers,
+                    isActiveNetwork = network == activeNetwork,
+                    isValidated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+                    hasInternet = true
+                )
+            }
+            DnsUpstreamCandidatePolicy.orderedSystemDns(candidates)
         } catch (error: Exception) {
             // Device DNS discovery is an optional fallback. A permission or
             // transient connectivity error must not abort the DNS packet worker.
