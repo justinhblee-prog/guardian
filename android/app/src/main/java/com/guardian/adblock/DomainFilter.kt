@@ -7,21 +7,57 @@ object DomainFilter {
         "adnxs.com", "adform.net", "taboola.com", "outbrain.com",
         "criteo.com", "scorecardresearch.com", "quantserve.com"
     )
-    private data class RuleSet(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>)
-    @Volatile private var activeRules = RuleSet(bootstrapBlocked, emptySet(), emptySet())
+    enum class RuleSource(val label: String) {
+        BUILT_IN("기본 규칙"),
+        PRIMARY_FILTER("광고·추적 필터"),
+        SECURITY_INTELLIGENCE("보안 인텔리전스"),
+        ANDROID_APP_ADS("Android 앱 광고"),
+        USER_RULE("사용자 규칙")
+    }
+
+    enum class RuleCategory(val label: String) {
+        SECURITY("보안 목록"),
+        AD("광고"),
+        TRACKER("추적"),
+        ANDROID_APP_AD("앱 광고"),
+        USER_DEFINED("사용자 지정"),
+        OTHER("기타")
+    }
+
+    data class BlockAttribution(
+        val category: RuleCategory,
+        val sources: Set<RuleSource>
+    )
+
+    private data class RuleSet(
+        val blocked: Set<String>,
+        val allowed: Set<String>,
+        val importantBlocked: Set<String>,
+        val blockedBySource: Map<RuleSource, Set<String>>,
+        val importantBlockedBySource: Map<RuleSource, Set<String>>
+    )
+    @Volatile private var activeRules = RuleSet(
+        bootstrapBlocked,
+        emptySet(),
+        emptySet(),
+        mapOf(RuleSource.BUILT_IN to bootstrapBlocked),
+        emptyMap()
+    )
 
     /** Loads list-backed sources for callers that already hold a small collection. */
     fun loadRuleSources(
         sources: List<() -> List<String>>,
         minimumRuleCounts: List<Int>,
         userBlockDomains: List<String> = emptyList(),
-        userAllowDomains: List<String> = emptyList()
+        userAllowDomains: List<String> = emptyList(),
+        sourceKinds: List<RuleSource> = defaultSourceKinds(sources.size)
     ) {
         loadParsedRuleSources(
             sources.map { load -> { FilterRuleParser.parse(load()) } },
             minimumRuleCounts,
             userBlockDomains,
-            userAllowDomains
+            userAllowDomains,
+            sourceKinds
         )
     }
 
@@ -30,14 +66,20 @@ object DomainFilter {
         sources: List<() -> FilterRuleParser.Parsed>,
         minimumRuleCounts: List<Int>,
         userBlockDomains: List<String> = emptyList(),
-        userAllowDomains: List<String> = emptyList()
+        userAllowDomains: List<String> = emptyList(),
+        sourceKinds: List<RuleSource> = defaultSourceKinds(sources.size)
     ) {
         require(sources.isNotEmpty() && sources.size == minimumRuleCounts.size) {
             "Filter source validation configuration is incomplete"
         }
+        require(sourceKinds.size == sources.size && RuleSource.USER_RULE !in sourceKinds) {
+            "Filter provenance must declare one non-user source for each filter feed"
+        }
         val blocked = HashSet<String>()
         val allowed = HashSet<String>()
         val importantBlocked = HashSet<String>()
+        val blockedBySource = linkedMapOf<RuleSource, MutableSet<String>>()
+        val importantBlockedBySource = linkedMapOf<RuleSource, MutableSet<String>>()
         sources.forEachIndexed { index, load ->
             val parsed = load()
             val count = parsed.blocked.size + parsed.importantBlocked.size
@@ -47,15 +89,32 @@ object DomainFilter {
             blocked.addAll(parsed.blocked)
             allowed.addAll(parsed.allowed)
             importantBlocked.addAll(parsed.importantBlocked)
+            blockedBySource.getOrPut(sourceKinds[index]) { linkedSetOf() }.addAll(parsed.blocked)
+            importantBlockedBySource.getOrPut(sourceKinds[index]) { linkedSetOf() }
+                .addAll(parsed.importantBlocked)
         }
-        userBlockDomains.forEach { DomainFilter.normalizeRuleDomain(it)?.let(blocked::add) }
+        userBlockDomains.forEach { raw ->
+            DomainFilter.normalizeRuleDomain(raw)?.let { domain ->
+                blocked.add(domain)
+                blockedBySource.getOrPut(RuleSource.USER_RULE) { linkedSetOf() }.add(domain)
+            }
+        }
         userAllowDomains.forEach { DomainFilter.normalizeRuleDomain(it)?.let(allowed::add) }
         require(blocked.isNotEmpty() || importantBlocked.isNotEmpty()) {
             "Filter sources contain no valid DNS block rules"
         }
-        // One volatile swap keeps allow/block precedence consistent during live updates.
-        activeRules = RuleSet(blocked, allowed, importantBlocked)
+        // Freeze per-source sets before the same atomic swap used for blocking rules.
+        activeRules = RuleSet(
+            blocked,
+            allowed,
+            importantBlocked,
+            blockedBySource.mapValues { (_, rules) -> rules.toSet() },
+            importantBlockedBySource.mapValues { (_, rules) -> rules.toSet() }
+        )
     }
+
+    private fun defaultSourceKinds(sourceCount: Int): List<RuleSource> =
+        List(sourceCount) { index -> if (index == 0) RuleSource.BUILT_IN else RuleSource.PRIMARY_FILTER }
 
     /** Loads the canonical cross-platform rules shipped as an Android asset. */
     fun loadRules(lines: List<String>) {
@@ -85,6 +144,52 @@ object DomainFilter {
             trackerMarkers.any(value::contains) -> BlockCategory.TRACKER
             else -> BlockCategory.OTHER
         }
+    }
+
+    /**
+     * Returns source/category metadata only for domains that the active precedence
+     * rules actually block. Global allow rules suppress ordinary-source evidence;
+     * important rules retain their existing higher priority.
+     */
+    fun blockAttribution(domain: String): BlockAttribution? {
+        val normalized = domain.trim().trimEnd('.').lowercase(java.util.Locale.ROOT)
+        if (normalized.isEmpty() || normalized.length > 253) return null
+        val snapshot = activeRules
+        val importantSources = snapshot.importantBlockedBySource.filterValues { rules ->
+            matchesDomainOrParent(normalized, rules)
+        }.keys
+        val isImportantBlock = importantSources.isNotEmpty()
+        val isAllowed = matchesDomainOrParent(normalized, snapshot.allowed)
+        if (!isImportantBlock && isAllowed) return null
+
+        val sources = if (isImportantBlock) {
+            importantSources
+        } else {
+            snapshot.blockedBySource.filterValues { rules ->
+                matchesDomainOrParent(normalized, rules)
+            }.keys
+        }.toMutableSet()
+        if (sources.isEmpty()) return null
+
+        val category = when {
+            RuleSource.SECURITY_INTELLIGENCE in sources -> RuleCategory.SECURITY
+            RuleSource.ANDROID_APP_ADS in sources -> RuleCategory.ANDROID_APP_AD
+            RuleSource.USER_RULE in sources && sources.size == 1 -> RuleCategory.USER_DEFINED
+            else -> when (classifyBlockedDomain(normalized)) {
+                BlockCategory.AD -> RuleCategory.AD
+                BlockCategory.TRACKER -> RuleCategory.TRACKER
+                BlockCategory.OTHER -> RuleCategory.OTHER
+            }
+        }
+        return BlockAttribution(category, sources.toList().sortedBy { it.ordinal }.toSet())
+    }
+
+    fun sourceRuleCounts(): Map<RuleSource, Int> {
+        val snapshot = activeRules
+        return RuleSource.values().associateWith { source ->
+            (snapshot.blockedBySource[source].orEmpty() +
+                snapshot.importantBlockedBySource[source].orEmpty()).size
+        }.filterValues { it > 0 }
     }
 
     fun blockedRuleCount(): Int = activeRules.blocked.size + activeRules.importantBlocked.size
