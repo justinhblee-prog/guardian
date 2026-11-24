@@ -28,6 +28,8 @@ class DnsTcpSessionManager(
         val pendingServerData: ByteArrayOutputStream = ByteArrayOutputStream(),
         val received: ByteArrayOutputStream = ByteArrayOutputStream(),
         var lastActivity: Long,
+        var duplicateAckSequence: Long = serverAcknowledged,
+        var duplicateAckCount: Int = 0,
         var lastClientSegmentStart: Long? = null,
         var lastClientPayload: ByteArray = byteArrayOf(),
         var lastClientFin: Boolean = false,
@@ -116,10 +118,24 @@ class DnsTcpSessionManager(
         // 16-bit window from the TCP header.
         val ackDistance = (tcp.acknowledgement - session.serverAcknowledged) and MASK
         val outstanding = (session.serverNext - session.serverAcknowledged) and MASK
+        var fastRetransmit: ByteArray? = null
         if (ackDistance in 1L..outstanding) {
             session.serverAcknowledged = tcp.acknowledgement
             session.outstandingServerPackets.removeAll {
                 sequenceAtOrAfter(session.serverAcknowledged, it.endSequence)
+            }
+            session.duplicateAckSequence = tcp.acknowledgement
+            session.duplicateAckCount = 0
+        } else if (tcp.acknowledgement == session.serverAcknowledged &&
+            outstanding > 0L && tcp.payload.isEmpty() && !tcp.fin) {
+            if (session.duplicateAckSequence != tcp.acknowledgement) {
+                session.duplicateAckSequence = tcp.acknowledgement
+                session.duplicateAckCount = 1
+            } else {
+                session.duplicateAckCount = (session.duplicateAckCount + 1).coerceAtMost(3)
+            }
+            if (session.duplicateAckCount >= 3) {
+                fastRetransmit = session.outstandingServerPackets.firstOrNull()?.packet?.copyOf()
             }
         }
         // RFC 7323-style window update ordering (without window scaling): an older
@@ -138,6 +154,10 @@ class DnsTcpSessionManager(
             session.peerWindowAcknowledgement = tcp.acknowledgement
         }
         session.lastActivity = now
+        // Three duplicate cumulative ACKs indicate a gap in the server response
+        // stream. Retransmit the oldest unacknowledged segment without waiting
+        // for the original request payload to be retransmitted by the client.
+        fastRetransmit?.let { return listOf(it) }
         // Keep a half-closed session until the client acknowledges our FIN.
         // This lets a lost FIN/data response be replayed on an exact retransmission.
         // A FIN is complete only when the ACK belongs to the current client stream.
