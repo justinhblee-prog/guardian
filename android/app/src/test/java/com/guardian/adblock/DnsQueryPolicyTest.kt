@@ -67,6 +67,38 @@ class DnsQueryPolicyTest {
         assertEquals(1, calls)
     }
 
+    @Test fun globalAllowRuleOverridesAppSpecificAdditionalBlock() {
+        DomainFilter.loadRules(listOf("allow=trusted.example"))
+        var calls = 0
+        val result = DnsQueryPolicy.resolve(
+            query("sub.trusted.example"),
+            setOf("sub.trusted.example")
+        ) {
+            calls++
+            DomainFilter.makeServfail(it)
+        }
+        assertNotNull(result)
+        assertFalse(result!!.blocked)
+        assertTrue(result.forwarded)
+        assertEquals(1, calls)
+    }
+
+    @Test fun globalImportantBlockOverridesMatchingAppSpecificAdditionalBlock() {
+        DomainFilter.loadRules(listOf("block-important=critical.example"))
+        var calls = 0
+        val result = DnsQueryPolicy.resolve(
+            query("critical.example"),
+            setOf("critical.example")
+        ) {
+            calls++
+            null
+        }
+        assertNotNull(result)
+        assertTrue(result!!.blocked)
+        assertFalse(result.forwarded)
+        assertEquals(0, calls)
+    }
+
     @Test fun upstreamNullReturnsServfailAndMarksFailure() {
         DomainFilter.loadRules(listOf("block=ads.example"))
         val result = DnsQueryPolicy.resolve(query("news.example")) { null }
