@@ -1,3 +1,10 @@
+## 2026-11-24 — 필터 정책이 같아도 프로필 상태 변경 알림
+
+- 집과 모바일처럼 필터 키·보안 옵션은 동일하지만 active profile ID 또는 자동 업데이트 허용 정책만 달라지는 전환에서는 VPN 규칙 재로드가 일어나지 않아 기존 서비스 상태 브로드캐스트가 발생하지 않을 수 있었습니다.
+- SecurityProfileStore에 명시적인 package-scoped profile-changed broadcast를 추가했습니다. 필터 값이 같아도 profile ID나 자동 업데이트 정책이 바뀌면 MainActivity가 현재 프로필 표시를 갱신합니다. 실제 필터 설정 변경 시 기존 VPN rule reload 경로는 그대로 유지합니다.
+- 동일 필터 프로필을 가진 HOME/MOBILE 사이의 ID 변경, 업데이트 허용 정책 변경, 상태 변화 없음 테스트를 추가했습니다.
+- Android Broadcast/ConnectivityManager·단말 검증은 미실행이며 Release 자동 전환/PRO entitlement는 비활성입니다.
+
 ## 2026-11-24 — 보안 프로필 미리보기 상태 실시간 동기화
 
 - 자동 네트워크 프로필 변경 후 Premium DEBUG 미리보기의 현재 프로필, 자동 전환 체크박스 및 자동 업데이트 정책 표시가 이전 값으로 남던 문제를 수정했습니다.
