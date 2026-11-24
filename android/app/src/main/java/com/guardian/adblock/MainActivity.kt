@@ -1462,7 +1462,7 @@ class MainActivity : Activity() {
             when {
                 developmentBuild -> "개발 버전 업데이트 확인 전"
                 stableUpdaterEnabled -> "정식 업데이트 확인 전"
-                else -> "이 배포 유형에서는 인앱 업데이트가 비활성화되어 있습니다."
+                else -> "스토어 배포판입니다. Google Play 등 앱을 설치한 공식 스토어에서 업데이트를 관리합니다."
             },
             12f, muted, false
         ).withTop(12) as TextView
@@ -1476,7 +1476,11 @@ class MainActivity : Activity() {
             background = shape(accent, 12)
         }
         val checkButton = Button(this).apply {
-            text = if (developmentBuild) "개발 업데이트 확인" else "정식 업데이트 확인"
+            text = when {
+                developmentBuild -> "개발 업데이트 확인"
+                stableUpdaterEnabled -> "정식 업데이트 확인"
+                else -> "공식 스토어에서 업데이트"
+            }
             isAllCaps = false
             isEnabled = developmentBuild || stableUpdaterEnabled
             setTextColor(bg)
