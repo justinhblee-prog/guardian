@@ -341,3 +341,11 @@
 ## 2026-11-24 — 위협 분석 중첩 출처 분류 우선순위
 - security intelligence가 항상 최우선 HIGH이며, 광고/추적 출처가 사용자 차단 규칙과 겹치면 INFORMATIONAL로 분류하도록 순서를 조정했습니다. USER_BLOCK_RULE 단독일 때만 UNASSESSED이며 전체 evidence set은 유지합니다.
 - USER + AD/Tracker 중첩 evidence 회귀 테스트 추가. Android Gradle/JUnit·기기 검증 미실행입니다.
+
+
+## 2026-11-24 — 위협 분석 중첩 증거·최근 시각 JVM smoke
+
+- `ThreatAnalyticsEngine` 분류 순수 로직을 kotlinc/JRE로 분리 실행해 PASS 8/8: 보안 인텔리전스 HIGH, 광고/추적 INFORMATIONAL, 사용자 단독 UNASSESSED, USER+AD 중첩 INFORMATIONAL 및 evidence 보존, Security+다중 evidence HIGH, unknown source UNASSESSED, 비차단 요청 제외.
+- `ThreatAnalyticsSummaryPolicy` 최근 목록 병합도 분리 실행해 PASS 2/2: 시스템 시각 역행 시에도 timestamp 내림차순 정렬 및 집계 카운터 결합.
+- 독립 Kotlin/JVM 정책 smoke만 의미하며 Android Gradle/JUnit, SharedPreferences 및 실기기 DNS 통합은 미실행입니다.
+
