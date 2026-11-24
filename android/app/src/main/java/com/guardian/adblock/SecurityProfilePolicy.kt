@@ -54,6 +54,10 @@ internal object SecurityProfilePolicy {
     /** Manual selection has no trusted metering facts; never silently opt into downloads. */
     fun manualSelection(id: Id): Profile = profile(id).copy(automaticFilterUpdates = false)
 
+    /** Scheduled refresh requires both the user's opt-in and the active profile's permission. */
+    fun shouldScheduleAutomaticUpdates(userOptIn: Boolean, profileAllows: Boolean): Boolean =
+        userOptIn && profileAllows
+
     fun hasProfileStateChanged(
         previousProfileId: String,
         previousAutomaticUpdatesAllowed: Boolean,
