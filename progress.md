@@ -671,3 +671,9 @@
 ## 2026-11-24 — DNS packet worker 진단 ThreadLocal 정리
 - `recordDnsActivity`가 최근 DNS 실패 진단을 저장한 뒤 해당 worker의 ThreadLocal 값을 삭제해 장수명 packet thread에 오래된 오류 문자열이 남지 않게 했습니다. 이 정리는 현재 스레드에만 적용됩니다.
 - Android VPN packet worker 실기기 실행 검증은 미실행입니다.
+
+
+## 2026-11-24 — 앱 업데이트 상태/검증 APK의 화면 재생성 간 유지
+- 앱 업데이트 확인 작업을 화면 지역 변수에서 process-wide AtomicReference 상태로 옮겼습니다. 한 프로세스에서 중복 확인을 막고, 메뉴 전환/Activity 재생성 뒤에도 다운로드된 개발/정식 APK 경로와 검증 결과를 복원합니다.
+- MainActivity는 상태 변경 브로드캐스트를 받아 현재 화면만 갱신하고, 작업 스레드는 applicationContext로 다운로드해 이전 Activity를 보유하지 않습니다. 검증된 APK는 빌드 종류가 일치할 때만 설치 가능하며, 서버가 최신이라고 응답하면 오래된 pending APK 정보를 비웁니다.
+- 상태 전이 순수 JVM 테스트 4건 추가. Android Activity recreation/DownloadManager/FileProvider/PackageInstaller·Gradle/JUnit 검증은 미실행입니다.
