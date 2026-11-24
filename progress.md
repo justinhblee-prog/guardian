@@ -1,12 +1,14 @@
 # Guardian Android — PRO 병렬 트랙 진행 추적
 
 - **트랙**: 보안 프로필 · issue #300
-- **상태**: 개발 진행 중 — 완료/상용 공개 단계가 아닙니다.
-- **브랜치**: `work/pro-security-profiles-20261124`
+- **상태**: 개발 진행 중 — 상용 공개 단계가 아닙니다.
+- **기본 작업 브랜치**: 보호 규칙이 적용된 `work/pro-security-profiles-20261124`.
+- **실제 수정 브랜치**: `autonomous/pro-profile-update-scheduler-20261124` — 기준 main 대비 38 commits ahead / 0 behind; 보호 브랜치 대비 20 commits ahead / 0 behind.
 - **기준일**: 2026-11-24 (KST)
-- **현재 구현**: 6개 정책 프로필과 DEBUG NetworkCallback 전환, 수동 프로필 선택 UI를 추가했습니다. 로밍 감지·실제 기기 네트워크 전환·PRO entitlement 게이트 검증은 미완료입니다.
+- **현재 구현**: 6개 정책 프로필, DEBUG NetworkCallback 전환, 수동 프로필 UI, Android 9+ 셀룰러 NOT_ROAMING capability 기반 여행 프로필 전환, 사용자 전역 설정+프로필 허용값에 따른 WorkManager 반복 갱신 예약/실행 게이트를 연결했습니다. 최초 필수 필터 준비는 반복 갱신 제한과 분리했습니다.
+- **남은 검증**: Android 9+ OEM/통신사 NetworkCapabilities 전달, API 26~27 fallback, WorkManager 예약/취소 및 실기기 네트워크 전환, Android Gradle/JUnit/lint/emulator/Samsung 단말은 미검증입니다. PRO entitlement 등록과 Release 자동 전환은 비활성입니다.
 - **공통 권한 정책**: 유효한 서명 entitlement만으로 기능을 열지 않습니다. Android 통합·회귀·단말 검증을 통과하고 parent entitlement policy의 production-ready 목록에 등록되기 전까지 Release 접근은 비활성입니다.
-- **검증 제약**: 최신 코드에 대한 Android Gradle/JUnit·lint·에뮬레이터·실기기 검증은 별도로 수행한 증거가 없으면 미검증으로 표시합니다. GitHub Actions/runner/billing 설정 및 유료 실행은 사용자 승인 없이 시작하지 않습니다.
+- **실행 제약**: PR을 만들지 않았으며 GitHub Actions/runner/billing 설정 및 유료 실행은 시작하지 않았습니다. 작업은 별도 브랜치에서 유지합니다.
 
 ## 1. 워크플로우 체크리스트
 
