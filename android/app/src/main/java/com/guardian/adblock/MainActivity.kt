@@ -92,6 +92,7 @@ class MainActivity : Activity() {
     private var securityProfileUpdateStatusText: TextView? = null
     private var securityProfileSpinner: Spinner? = null
     private var securityProfileIds: List<SecurityProfilePolicy.Id>? = null
+    private var securityProfileSelectionDirty = false
     private var syncingSecurityProfileSwitch = false
     private var receiverRegistered = false
     private var currentTab = "home"
@@ -564,6 +565,7 @@ class MainActivity : Activity() {
         securityProfileUpdateStatusText = null
         securityProfileSpinner = null
         securityProfileIds = null
+        securityProfileSelectionDirty = false
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
@@ -2220,6 +2222,8 @@ class MainActivity : Activity() {
                     parent: AdapterView<*>?, view: View?, position: Int, id: Long
                 ) {
                     selectedManualProfile = profileIds[position]
+                    securityProfileSelectionDirty =
+                        selectedManualProfile != SecurityProfileStore.activeProfileId(this@MainActivity)
                 }
             }
             addView(Button(this@MainActivity).apply {
@@ -2230,6 +2234,7 @@ class MainActivity : Activity() {
                 setOnClickListener {
                     val selected = SecurityProfilePolicy.profile(selectedManualProfile)
                     SecurityProfileStore.applyManualProfile(this@MainActivity, selectedManualProfile)
+                    securityProfileSelectionDirty = false
                     refreshSecurityProfilePreview()
                     Toast.makeText(
                         this@MainActivity,
@@ -2270,7 +2275,9 @@ class MainActivity : Activity() {
         val profileIds = securityProfileIds.orEmpty()
         val spinner = securityProfileSpinner
         val selectedIndex = profileIds.indexOf(activeId)
-        if (spinner != null && selectedIndex >= 0 && spinner.selectedItemPosition != selectedIndex) {
+        if (!securityProfileSelectionDirty && spinner != null && selectedIndex >= 0 &&
+            spinner.selectedItemPosition != selectedIndex
+        ) {
             spinner.setSelection(selectedIndex)
         }
         updateView.text = "요금제 연결 자동 필터 업데이트 허용 정책: " +
