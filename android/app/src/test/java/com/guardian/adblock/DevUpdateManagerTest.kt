@@ -35,6 +35,12 @@ class DevUpdateManagerTest {
         assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
             "https://user@github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
         ))
+        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+            "https://github.com:444/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        ))
+        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
+            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48"
+        ))
     }
 
     @Test fun developmentApkRedirectsMustStayOnApprovedHttpsAssetHosts() {
@@ -64,6 +70,15 @@ class DevUpdateManagerTest {
         ))
         assertFalse(DevUpdateManager.isAllowedReleaseDownloadUrl(
             "https://github.com/guardian.apk?redirect=https://evil.example"
+        ))
+        assertFalse(DevUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://github.com/attacker/repository/releases/download/v1/guardian.apk"
+        ))
+        assertFalse(DevUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://github.com:444/justinhblee-prog/guardian/releases/download/v1/guardian.apk"
+        ))
+        assertFalse(DevUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://objects.githubusercontent.com/"
         ))
     }
 
