@@ -18,7 +18,8 @@ internal class DnsQueryDeadline private constructor(
         val elapsedNanos = nanoTime() - startedAtNanos
         val remainingNanos = budgetNanos - elapsedNanos
         if (remainingNanos <= 0L) return null
-        val roundedUpMillis = remainingNanos / NANOS_PER_MILLI +\n            if (remainingNanos % NANOS_PER_MILLI == 0L) 0L else 1L
+        val roundedUpMillis = remainingNanos / NANOS_PER_MILLI +
+            if (remainingNanos % NANOS_PER_MILLI == 0L) 0L else 1L
         return roundedUpMillis.coerceAtMost(Int.MAX_VALUE.toLong()).toInt().coerceAtLeast(1)
     }
 
