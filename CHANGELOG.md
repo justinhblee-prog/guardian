@@ -1,3 +1,9 @@
+## 2026-11-24 — 셀룰러 로밍 감지 기반 여행 프로필 자동 적용
+
+- SecurityProfileMonitor가 `roaming=false`를 고정하던 부분을 Android 9(API 28)+ `NET_CAPABILITY_NOT_ROAMING` capability로 대체했습니다.
+- 셀룰러에서 API capability가 있고 NOT_ROAMING도 있으면 비로밍으로 판단합니다. capability가 없거나 셀룰러가 아닌 경우는 별도 규칙으로 처리하며, API 26~27에서는 capability 신호가 없으므로 로밍 판정을 하지 않습니다.
+- Android 9+에서 셀룰러 capability가 확인되지 않으면 여행 프로필을 선택하는 보수 정책 helper와 네 가지 경계 테스트를 추가했습니다. 실제 통신사·OEM capability 전달은 에뮬레이터/실기기 검증이 필요합니다.
+
 ## 2026-11-24 — 자동 필터 갱신 허용 정책 순수 함수 분리
 
 - WorkManager 의존성을 가진 scheduler 객체에서 사용자 opt-in과 프로필 허용값의 AND gate를 순수 `FilterUpdateSchedulingPolicy`로 분리했습니다. 실제 예약/worker는 동일 helper의 정책 결과를 사용합니다.
