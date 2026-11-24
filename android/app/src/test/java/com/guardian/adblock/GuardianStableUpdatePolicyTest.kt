@@ -17,6 +17,25 @@ class GuardianStableUpdatePolicyTest {
         assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "v1.0.00"))
     }
 
+    @Test fun versionCodesRejectFractionsStringsAndIntegerOverflow() {
+        assertEquals(1, GuardianStableUpdatePolicy.parseSupportedVersionCode(1))
+        assertEquals(Int.MAX_VALUE, GuardianStableUpdatePolicy.parseSupportedVersionCode(Int.MAX_VALUE))
+        assertNull(GuardianStableUpdatePolicy.parseSupportedVersionCode(null))
+        assertNull(GuardianStableUpdatePolicy.parseSupportedVersionCode("62"))
+        assertNull(GuardianStableUpdatePolicy.parseSupportedVersionCode(1.5))
+        assertNull(GuardianStableUpdatePolicy.parseSupportedVersionCode(0))
+        assertNull(GuardianStableUpdatePolicy.parseSupportedVersionCode(-1))
+        assertNull(GuardianStableUpdatePolicy.parseSupportedVersionCode(Int.MAX_VALUE.toLong() + 1L))
+        assertNull(GuardianStableUpdatePolicy.parseSupportedVersionCode(Double.NaN))
+        assertNull(GuardianStableUpdatePolicy.parseSupportedVersionCode(Double.POSITIVE_INFINITY))
+
+        assertEquals(62, GuardianStableUpdatePolicy.parseArchiveVersionCode(62L))
+        assertEquals(Int.MAX_VALUE, GuardianStableUpdatePolicy.parseArchiveVersionCode(Int.MAX_VALUE.toLong()))
+        assertNull(GuardianStableUpdatePolicy.parseArchiveVersionCode(0L))
+        assertNull(GuardianStableUpdatePolicy.parseArchiveVersionCode(-1L))
+        assertNull(GuardianStableUpdatePolicy.parseArchiveVersionCode(Int.MAX_VALUE.toLong() + 1L))
+    }
+
     @Test fun updateMustHaveStrictlyHigherVersionCode() {
         assertTrue(GuardianStableUpdatePolicy.isNewerVersion(30, 31))
         assertFalse(GuardianStableUpdatePolicy.isNewerVersion(30, 30))
