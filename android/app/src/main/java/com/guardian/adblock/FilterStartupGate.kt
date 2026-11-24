@@ -13,13 +13,16 @@ internal object FilterStartupGate {
      * Optional cache metadata failures may disable that feed, but must not swallow
      * VM-fatal errors such as OutOfMemoryError during startup.
      */
-    fun isOptionalCacheReady(check: () -> Boolean): Boolean = try {
-        check()
+    fun <T> optionalCacheResult(load: () -> T): T? = try {
+        load()
     } catch (_: Exception) {
-        false
+        null
     } catch (_: LinkageError) {
-        false
+        null
     }
+
+    fun isOptionalCacheReady(check: () -> Boolean): Boolean =
+        optionalCacheResult(check) == true
 
     internal fun meetsMinimumRuleCount(
         blockedRules: Int,
