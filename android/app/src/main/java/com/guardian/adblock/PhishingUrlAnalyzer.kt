@@ -1,6 +1,7 @@
 package com.guardian.adblock
 
 import java.net.IDN
+import java.net.InetAddress
 import java.net.URI
 import java.util.Locale
 
@@ -61,6 +62,7 @@ internal object PhishingUrlAnalyzer {
             val close = hostPort.indexOf(']')
             if (close <= 1) return invalid()
             host = hostPort.substring(1, close)
+            if (!isValidIpv6Literal(host)) return invalid()
             val suffix = hostPort.substring(close + 1)
             if (suffix.isNotEmpty() && !suffix.startsWith(":")) return invalid()
             port = if (suffix.length > 1) suffix.substring(1).toIntOrNull() else null
@@ -114,6 +116,12 @@ internal object PhishingUrlAnalyzer {
             Risk.INVALID -> "HTTP 또는 HTTPS 주소 형식인지 확인해 주세요."
         }
         return Result(true, asciiHost, risk, score, signals.toList(), explanation)
+    }
+
+    /** A bracketed URL host must be a syntactically valid IPv6 literal, not a DNS name. */
+    private fun isValidIpv6Literal(host: String): Boolean {
+        if (!host.contains(':') || host.contains('%')) return false
+        return runCatching { InetAddress.getByName(host) }.isSuccess
     }
 
     private fun isIpLiteral(host: String): Boolean {
