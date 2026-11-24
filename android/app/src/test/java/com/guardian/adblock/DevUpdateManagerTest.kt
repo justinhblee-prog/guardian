@@ -20,22 +20,42 @@ class DevUpdateManagerTest {
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 49, 48))
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 48, 49))
     }
-    @Test fun acceptsOnlyOfficialHttpsReleaseAssetUrls() {
+    @Test fun acceptsOnlyExactOfficialGuardianDevelopmentReleaseAssets() {
         assertTrue(DevUpdateManager.isGuardianReleaseAssetUrl(
             "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
-            "http://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        assertTrue(DevUpdateManager.isGuardianReleaseAssetUrl(
+            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.json"
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
-            "https://evil.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        assertTrue(DevUpdateManager.isGuardianReleaseAssetUrl(
+            "https://github.com:443/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
-            "https://github.com.attacker.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
-        ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
-            "https://user@github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
-        ))
+    }
+
+    @Test fun rejectsNonReleaseHostsSchemesAndCredentials() {
+        val invalid = listOf(
+            "http://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk",
+            "https://evil.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk",
+            "https://github.com.attacker.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk",
+            "https://user@github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk",
+            "https://github.com:8443/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        )
+        invalid.forEach { assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(it)) }
+    }
+
+    @Test fun rejectsNonGuardianTagsAssetsAndPathTraversal() {
+        val invalid = listOf(
+            "https://github.com/other/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk",
+            "https://github.com/justinhblee-prog/guardian/releases/download/v48/guardian-android-dev.apk",
+            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v0/guardian-android-dev.apk",
+            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/other.apk",
+            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/../guardian-android-dev.apk",
+            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/%2e%2e/guardian-android-dev.apk",
+            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk/extra",
+            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk?download=1",
+            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk#fragment"
+        )
+        invalid.forEach { assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(it)) }
     }
 
 
