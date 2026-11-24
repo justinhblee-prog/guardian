@@ -79,6 +79,19 @@ class PhishingUrlAnalyzerTest {
         assertEquals(PhishingUrlAnalyzer.Risk.HIGH, result.risk)
     }
 
+    @Test fun detectsExecutableExtensionsAfterPercentDecodingPathBytes() {
+        val encodedDot = PhishingUrlAnalyzer.analyze("https://example.com/download/payload%2Eapk")
+        val encodedExtension = PhishingUrlAnalyzer.analyze("https://example.com/download/payload.%61%70%6b")
+        val doubleEncodedDot = PhishingUrlAnalyzer.analyze("https://example.com/download/payload%252Eapk")
+        val mixedCase = PhishingUrlAnalyzer.analyze("https://example.com/download/payload.ExE")
+        val queryOnly = PhishingUrlAnalyzer.analyze("https://example.com/download?file=payload.apk")
+
+        listOf(encodedDot, encodedExtension, doubleEncodedDot, mixedCase).forEach { result ->
+            assertTrue(result.signals.contains(PhishingUrlAnalyzer.Signal.EXECUTABLE_DOWNLOAD))
+        }
+        assertFalse(queryOnly.signals.contains(PhishingUrlAnalyzer.Signal.EXECUTABLE_DOWNLOAD))
+    }
+
     @Test fun rejectsUnsupportedSchemesMalformedHostsAndOversizedInput() {
         listOf(
             "javascript:alert(1)",
