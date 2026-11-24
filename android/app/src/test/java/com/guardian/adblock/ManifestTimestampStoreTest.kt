@@ -59,6 +59,22 @@ class ManifestTimestampStoreTest {
     }
 
     @Test
+    fun restoringOneSourcePreservesOtherSourcesAndRemovesTemporaryFile() {
+        val (file, store) = newStore()
+        store.recordAccepted("base-adblock", 3000L)
+        store.recordAccepted("security", 5000L)
+        val temporary = File(file.parentFile, file.name + ".tmp")
+        temporary.writeText("partial-state")
+
+        store.restore("base-adblock", 2000L)
+
+        val reopened = ManifestTimestampStore(file)
+        assertEquals(2000L, reopened.lastAccepted("base-adblock"))
+        assertEquals(5000L, reopened.lastAccepted("security"))
+        assertFalse(temporary.exists())
+    }
+
+    @Test
     fun rejectsSourceIdsOutsideDistributionAllowlist() {
         val (_, store) = newStore()
         listOf("../escape", "source/name", "source.name", ".", "..").forEach { sourceId ->
