@@ -417,4 +417,63 @@ class ProtectionDiagnosticsTest {
         assertTrue(report.contains("기록 없음"))
     }
 
+    @Test fun supportReportRejectsHostnamesPathsAndUrlsInPersistedStartupTrace() {
+        val report = ProtectionDiagnostics.supportReport(
+            appVersion = "1.0",
+            androidRelease = "15",
+            apiLevel = 35,
+            protectionActive = false,
+            bundledRuleAssetAvailable = true,
+            selectedProfile = "adguard",
+            baseCacheBytes = 100L,
+            securityFilterEnabled = false,
+            securityCacheBytes = 0L,
+            androidAdsFilterEnabled = false,
+            androidAdsCacheBytes = 0L,
+            autoUpdateEnabled = true,
+            updateIntervalHours = 24L,
+            hasBaseUpdateTimestamp = true,
+            signedFilterDeliveryConfigured = false,
+            licenseApiConfigured = false,
+            filterUpdateErrorPresent = false,
+            lastStartupTrace = "IllegalStateException <- FileNotFoundException | com.guardian.Main.load:42 <- /data/user/0/private/libx.so <- https://resolver.private.invalid <- secret.example.com"
+        )
+
+        assertTrue(report.contains("IllegalStateException <- FileNotFoundException"))
+        assertTrue(report.contains("com.guardian.Main.load:42"))
+        assertTrue(!report.contains("/data/user/0"))
+        assertTrue(!report.contains("private/libx.so"))
+        assertTrue(!report.contains("https://"))
+        assertTrue(!report.contains("resolver.private.invalid"))
+        assertTrue(!report.contains("secret.example.com"))
+    }
+
+    @Test fun supportReportDoesNotTreatMalformedTraceTextAsStackFrames() {
+        val report = ProtectionDiagnostics.supportReport(
+            appVersion = "1.0",
+            androidRelease = "15",
+            apiLevel = 35,
+            protectionActive = false,
+            bundledRuleAssetAvailable = true,
+            selectedProfile = "adguard",
+            baseCacheBytes = 100L,
+            securityFilterEnabled = false,
+            securityCacheBytes = 0L,
+            androidAdsFilterEnabled = false,
+            androidAdsCacheBytes = 0L,
+            autoUpdateEnabled = true,
+            updateIntervalHours = 24L,
+            hasBaseUpdateTimestamp = true,
+            signedFilterDeliveryConfigured = false,
+            licenseApiConfigured = false,
+            filterUpdateErrorPresent = false,
+            lastStartupTrace = "https://secret.invalid | /private/path <- secret.example.com"
+        )
+
+        assertTrue(report.contains("최근 오류 호출 스택(메시지/경로 제외): 기록 없음"))
+        assertTrue(!report.contains("secret.invalid"))
+        assertTrue(!report.contains("/private/path"))
+        assertTrue(!report.contains("secret.example.com"))
+    }
+
 }
