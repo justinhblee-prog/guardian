@@ -23,6 +23,14 @@ internal object ResponsiveLayoutPolicy {
     fun usesSettingsSplitPane(screenWidthDp: Int): Boolean =
         screenWidthDp >= TABLET_BREAKPOINT_DP
 
+    /** System Back on a phone detail page returns to the settings category index. */
+    fun shouldReturnToPhoneSettingsIndex(
+        screenWidthDp: Int,
+        currentTab: String,
+        showingDetail: Boolean
+    ): Boolean =
+        currentTab == "settings" && !usesSettingsSplitPane(screenWidthDp) && showingDetail
+
     fun contentAreaWidthDp(screenWidthDp: Int): Int {
         require(screenWidthDp > 0) { "screenWidthDp must be positive" }
         val railWidth = if (usesNavigationRail(screenWidthDp)) NAVIGATION_RAIL_WIDTH_DP else 0
