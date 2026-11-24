@@ -13,11 +13,28 @@ class FilterUpdatePolicyTest {
 
 
     @Test
-    fun optionalFilterRetriesAreNotStoppedByMainCacheRetryBudgetOnceMainCacheIsReady() {
-        // The one-shot retry cap is applied only while the required main cache
-        // is missing. Optional enabled sources have their own retry lifecycle.
-        assertTrue(FilterUpdatePolicy.shouldContinueInitialRetry(
-            forceInitialRefresh = true, runAttemptCount = 99, maxAttempts = 6
+    fun optionalFilterRetriesContinueAfterMainCacheRetryBudgetWhenMainCacheIsReady() {
+        assertFalse(FilterUpdatePolicy.shouldFailInitialRetryBudget(
+            forceInitialRefresh = true,
+            runAttemptCount = 99,
+            maxAttempts = 6,
+            mainCacheReady = true
+        ))
+    }
+
+    @Test
+    fun missingMainCacheStillExhaustsBoundedInitialRetryBudget() {
+        assertTrue(FilterUpdatePolicy.shouldFailInitialRetryBudget(
+            forceInitialRefresh = true,
+            runAttemptCount = 6,
+            maxAttempts = 6,
+            mainCacheReady = false
+        ))
+        assertFalse(FilterUpdatePolicy.shouldFailInitialRetryBudget(
+            forceInitialRefresh = true,
+            runAttemptCount = 5,
+            maxAttempts = 6,
+            mainCacheReady = false
         ))
     }
 
