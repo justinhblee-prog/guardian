@@ -39,6 +39,7 @@ internal object InstalledAppInventory {
         } else true
         val apps = linkedMapOf<String, String>()
         var installedQuerySucceeded = false
+        var installedQueryReturnedEntries = false
         var installedQueryError: String? = null
 
         fun addApplication(info: ApplicationInfo?) {
@@ -53,6 +54,7 @@ internal object InstalledAppInventory {
         try {
             val installed = packageManager.getInstalledApplications(PackageManager.MATCH_DISABLED_COMPONENTS)
             installedQuerySucceeded = true
+            installedQueryReturnedEntries = installed.isNotEmpty()
             installed.forEach(::addApplication)
             android.util.Log.i("GuardianApps", "getInstalledApplications returned ${installed.size} entries")
         } catch (error: Exception) {
@@ -103,9 +105,12 @@ internal object InstalledAppInventory {
             )
         )
         val snapshot = Snapshot(sorted, allPackagesGranted, installedQuerySucceeded, launcherFallbackCount, installedQueryError)
-        // Never delete app data from a partial inventory. Prune only when Android
-        // confirms the full package-visibility grant and the primary enumeration succeeded.
-        if (snapshot.queryAllPackagesGranted && snapshot.installedQuerySucceeded) {
+        // Never delete app data from an empty or partial inventory. Some OEM/package
+        // visibility failures return an empty list without throwing. Require the
+        // primary enumeration to return entries, the full visibility grant and a
+        // non-empty final inventory before treating omissions as uninstalled apps.
+        if (snapshot.queryAllPackagesGranted && snapshot.installedQuerySucceeded &&
+            installedQueryReturnedEntries && snapshot.apps.isNotEmpty()) {
             val installedPackageNames = snapshot.apps.mapTo(linkedSetOf()) { it.first }
             AppDnsActivityStore.pruneUninstalled(context, installedPackageNames, inventoryComplete = true)
             PerAppDnsPolicyStore.pruneUninstalled(context, installedPackageNames, inventoryComplete = true)
