@@ -604,3 +604,9 @@
 - `설정 > 앱 업데이트`를 휴대전화 메뉴/태블릿 사이드바의 독립 진입점으로 추가하고 설정 복원 경로를 연결했습니다. 정보 화면의 기존 바로가기도 유지합니다.
 - 직접 배포(direct)는 서명 manifest 검증 업데이트를 앱 안에서 확인하도록 하고, 스토어 release는 설치한 공식 스토어에서 관리된다는 문구를 표시합니다. REQUEST_INSTALL_PACKAGES 권한은 기존대로 debug/direct source manifest에만 존재하고 공통 main/release manifest에는 포함되지 않습니다.
 - 화면 소스 재조회로 메뉴·상태 복원·버튼 상태를 확인했습니다. Android UI/emulator/실기기 및 manifest merge 검증은 미실행입니다.
+
+
+## 2026-11-24 — 최초 필터 복구 종료 상태 및 cache availability 진단
+- 초기 cache retry 예산을 소진하면 Worker가 전용 error code를 저장하고 filter state broadcast를 보내도록 했습니다.
+- UI는 selected profile과 cached profile key가 일치하는 유효 캐시가 있을 때만 '이전 목록 유지'라고 표시합니다. 선택한 main cache가 없으면 내장 10개 기본 규칙 기반 제한 보호 상태를 명확히 표시합니다.
+- retry exhausted/cache present/cache absent/no error 표시 정책 테스트 추가. Android Gradle/JUnit/WorkManager/단말 검증은 미실행입니다.
