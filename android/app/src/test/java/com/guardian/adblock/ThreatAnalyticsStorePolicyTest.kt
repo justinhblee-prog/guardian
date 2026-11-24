@@ -44,6 +44,31 @@ class ThreatAnalyticsStorePolicyTest {
         assertEquals("저장 18", result.recent.last().title)
     }
 
+    @Test fun sortsMergedEventsByTimestampWhenDeviceClockMovesBackwards() {
+        val stored = ThreatAnalyticsSummary(
+            high = 1L,
+            informational = 0L,
+            unassessed = 0L,
+            recent = listOf(
+                ThreatAnalyticsEvent(2_000L, ThreatAnalyticsEngine.Severity.HIGH, "먼저 저장된 최신 이벤트"),
+                ThreatAnalyticsEvent(1_500L, ThreatAnalyticsEngine.Severity.HIGH, "이전 저장 이벤트")
+            )
+        )
+        val pending = ThreatAnalyticsBatch(
+            high = 1L,
+            informational = 0L,
+            unassessed = 0L,
+            recent = listOf(
+                ThreatAnalyticsEvent(1_000L, ThreatAnalyticsEngine.Severity.HIGH, "시계 변경 후 도착한 이벤트")
+            )
+        )
+        val result = ThreatAnalyticsSummaryPolicy.merge(stored, pending)
+        assertEquals(
+            listOf("먼저 저장된 최신 이벤트", "이전 저장 이벤트", "시계 변경 후 도착한 이벤트"),
+            result.recent.map { it.title }
+        )
+    }
+
     @Test fun rejectsInvalidMergedRecentLimit() {
         org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
             ThreatAnalyticsSummaryPolicy.merge(
