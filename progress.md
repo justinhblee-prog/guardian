@@ -634,3 +634,8 @@
 
 - `GuardianStableUpdatePolicy`에 대해 kotlinc/JRE 21 독립 컴파일·실행 PASS 16/16: stable/draft/prerelease 구분, semantic tag 순서, versionCode 비교, SHA-256 형식, 정확한 공식 저장소/tag/manifest·APK 자산 경로, tag·asset·query 불일치 거부.
 - 이는 순수 버전·URL 정책 검증입니다. Android HTTPS 연결·리디렉션 실제 서버 통신, manifest 서명/키 운영, APK 다운로드·서명/설치 및 Android Gradle/JUnit은 미실행입니다.
+
+
+## 2026-11-24 — 정식 APK FileProvider 경로 오류 수정
+- `GuardianStableUpdateManager`가 cache/stable-updates에 APK를 저장했지만 FileProvider XML에는 cache/updates만 등록된 불일치를 수정했습니다. `guardian_stable_updates` cache-path를 등록했고 개발/정식 업데이트 디렉터리 이름을 공통 상수화했습니다.
+- 다운로드 후 FileProvider URI 생성/Android 시스템 설치 화면은 Android Gradle·기기 실행 환경이 없어 미검증 상태입니다.
