@@ -199,6 +199,14 @@ class DnsTcpSessionManager(
                     framed[0] = (answer.size ushr 8).toByte()
                     framed[1] = answer.size.toByte()
                     System.arraycopy(answer, 0, framed, 2, answer.size)
+                    // A single inbound TCP segment can contain thousands of
+                    // minimum-sized DNS frames. Bound queued answers as well as
+                    // the inbound stream so one client cannot grow memory without limit.
+                    if (session.pendingServerData.size() > maxBufferedBytes - framed.size) {
+                        sessions.remove(key)
+                        return listOf(DnsTcpPacket.response(tcp, session.serverNext,
+                            session.clientNext, DnsTcpPacket.RST or DnsTcpPacket.ACK))
+                    }
                     session.pendingServerData.write(framed)
                 }
                 offset += messageLength + 2
