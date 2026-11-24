@@ -100,7 +100,7 @@ internal object GuardianStableUpdateManager {
         require(update.signerSha256 == installedSignerSha256(context)) {
             "정식 업데이트 서명 인증서가 현재 설치된 앱과 다릅니다. 기존 개발판에서 정식판으로 전환하려면 백업 후 정식 APK를 새로 설치해야 합니다."
         }
-        val directory = File(context.cacheDir, "stable-updates").apply { mkdirs() }
+        val directory = File(context.cacheDir, GuardianUpdateCachePaths.STABLE_DIRECTORY).apply { mkdirs() }
         val target = File(directory, "guardian-${update.versionCode}.apk")
         val connection = openAllowedHttpsConnection(
             update.apkUrl, 15000, 45000, "application/octet-stream", ::isAllowedReleaseDownloadUrl
