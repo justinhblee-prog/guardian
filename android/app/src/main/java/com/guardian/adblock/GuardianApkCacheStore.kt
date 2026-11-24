@@ -47,6 +47,9 @@ internal object GuardianApkCacheStore {
                 } catch (restoreFailure: Exception) {
                     failure.addSuppressed(restoreFailure)
                 }
+            } else if (!hadPrevious) {
+                // Do not leave a partial target behind when there was no prior cache.
+                target.delete()
             }
             throw failure
         } finally {
