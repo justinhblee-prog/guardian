@@ -10,6 +10,18 @@ class AppPackageIdentityPolicyTest {
         assertNull(AppPackageIdentityPolicy.singleOwnerPackage(arrayOf("com.example.one", "com.example.two")))
     }
 
+    @Test fun deduplicatesIdenticalPackageEntriesButRejectsAmbiguousOwners() {
+        assertEquals(
+            "com.example.mail",
+            AppPackageIdentityPolicy.singleOwnerPackage(arrayOf("com.example.mail", "com.example.mail"))
+        )
+        assertNull(
+            AppPackageIdentityPolicy.singleOwnerPackage(
+                arrayOf("com.example.mail", "com.example.calendar")
+            )
+        )
+    }
+
     @Test fun rejectsMalformedPackageNames() {
         listOf(
             arrayOf("not a package"),
