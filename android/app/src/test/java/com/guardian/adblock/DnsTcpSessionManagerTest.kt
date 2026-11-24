@@ -261,6 +261,31 @@ class DnsTcpSessionManagerTest {
         assertEquals(4001L + payload.size, second.acknowledgement)
     }
 
+    @Test fun boundsQueuedDnsTcpResponsesAcrossManyQueries() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val frame = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val payload = frame + frame
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 8750, window = 0)
+        manager.handle(syn, syn.size) { null }
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 8751, payload = payload, window = 0)
+        var calls = 0
+        val reset = manager.handle(request, request.size) {
+            calls++
+            ByteArray(40000).also {
+                it[0] = 0x12
+                it[1] = 0x34
+                it[2] = 0x81.toByte()
+                it[3] = 0x80.toByte()
+            }
+        }.single()
+        val parsed = DnsTcpPacket.parse(reset, reset.size, 53000)!!
+        assertTrue(parsed.rst)
+        assertEquals(2, calls)
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     @Test fun segmentsLargeDnsAnswersWithinConservativeTcpMss() {
         val manager = newManager()
         val query = dnsQuery()
