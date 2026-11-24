@@ -23,6 +23,29 @@ internal data class ThreatAnalyticsBatch(
         get() = high == 0L && informational == 0L && unassessed == 0L && recent.isEmpty()
 }
 
+/** Pure composition of persisted aggregates and the non-destructive pending buffer snapshot. */
+internal object ThreatAnalyticsSummaryPolicy {
+    fun merge(
+        stored: ThreatAnalyticsSummary,
+        pending: ThreatAnalyticsBatch,
+        maxRecent: Int = 20
+    ): ThreatAnalyticsSummary {
+        require(maxRecent > 0)
+        return ThreatAnalyticsSummary(
+            high = saturatingAdd(stored.high, pending.high),
+            informational = saturatingAdd(stored.informational, pending.informational),
+            unassessed = saturatingAdd(stored.unassessed, pending.unassessed),
+            recent = (pending.recent + stored.recent).take(maxRecent)
+        )
+    }
+
+    private fun saturatingAdd(left: Long, right: Long): Long {
+        val safeLeft = left.coerceAtLeast(0L)
+        val safeRight = right.coerceAtLeast(0L)
+        return if (Long.MAX_VALUE - safeLeft < safeRight) Long.MAX_VALUE else safeLeft + safeRight
+    }
+}
+
 /** Batches only aggregate severity counters and fixed labels, never domains or URLs. */
 internal class ThreatAnalyticsAccumulator(private val maxRecent: Int = 20) {
     init {
