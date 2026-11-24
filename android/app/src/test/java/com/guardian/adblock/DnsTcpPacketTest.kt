@@ -135,6 +135,26 @@ class DnsTcpPacketTest {
     }
 
 
+    @Test fun enforcesVersionSpecificMaximumIpPacketLengths() {
+        val ipv4 = DnsTcpPacket.parse(ipv4Request(), ipv4Request().size)!!
+        val maxIpv4Payload = ByteArray(65535 - 20 - 20)
+        val ipv4Response = DnsTcpPacket.response(ipv4, 1L, 1L, DnsTcpPacket.ACK, maxIpv4Payload)
+        assertEquals(65535, ((ipv4Response[2].toInt() and 0xff) shl 8) or (ipv4Response[3].toInt() and 0xff))
+        assertNotNull(DnsTcpPacket.parse(ipv4Response, ipv4Response.size, expectedDestinationPort = 53000))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            DnsTcpPacket.response(ipv4, 1L, 1L, DnsTcpPacket.ACK, ByteArray(65535 - 20 - 20 + 1))
+        }
+
+        val ipv6 = DnsTcpPacket.parse(ipv6Request(), ipv6Request().size)!!
+        val maxIpv6Payload = ByteArray(65535 - 20)
+        val ipv6Response = DnsTcpPacket.response(ipv6, 1L, 1L, DnsTcpPacket.ACK, maxIpv6Payload)
+        assertEquals(65535, ((ipv6Response[4].toInt() and 0xff) shl 8) or (ipv6Response[5].toInt() and 0xff))
+        assertNotNull(DnsTcpPacket.parse(ipv6Response, ipv6Response.size, expectedDestinationPort = 53000))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            DnsTcpPacket.response(ipv6, 1L, 1L, DnsTcpPacket.ACK, ByteArray(65535 - 20 + 1))
+        }
+    }
+
     @Test fun parsesAndBuildsIpv6TcpDnsPackets() {
         val request = ipv6Request()
         val parsed = DnsTcpPacket.parse(request, request.size)
