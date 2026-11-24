@@ -737,3 +737,10 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 로컬 Kotlin/JVM 격리 스모크 실행 결과: `PASS skipsOptionalFeedWhenParserLinkageFailsButKeepsVpnStartupAvailable`, `PASS doesNotSwallowVirtualMachineFatalErrorsFromOptionalFeed`. 추가로 정상 피드 수용 및 최소 규칙 수 미달 피드 제외 경로도 PASS. 실행 환경에 JUnit/Android SDK/Gradle 프로젝트 런타임이 없어 실제 Android JUnit 클래스나 Gradle 테스트 태스크 실행은 아직 아닙니다. 이 결과는 격리된 Kotlin/JVM 실행 검증으로만 분류합니다.
 
 - VPN 필터 재적용 요청 폭주를 합치는 게이트를 추가했습니다. 이전에는 `ACTION_RELOAD_RULES`가 호출될 때마다 스레드를 새로 생성했습니다. 이제 동시 요청은 단일 실행 + 최대 1회 후속 재적용으로 합쳐지고, 서비스 종료 시 대기 요청을 버리며, 비정상 워커 종료 시 게이트 소유권을 회수합니다. 코드/테스트: `CoalescingTaskGate`, `CoalescingTaskGateTest`. Kotlin/JVM 격리 스모크 5개 PASS(100회 연속 요청, 32개 동시 요청, 비정상 종료 후 후속 요청, 서비스 종료 시 대기 요청 제거, 정상 종료 후 새 요청 획득). Android JUnit/Gradle 실행은 미실행입니다. 관련 커밋: `c85efdda`, `8209d320`, `8969ccf3`, `34276c0d`, `c69c392d`, `2fdf1d67`, `99e2b6d7`, `73212d52`, `50de2503`, `82c93835`.
+
+## 2026-11-24 로컬 실행 검증 추가 기록
+- 실행 대상: 현재 작업 브랜치의 필터 시작 게이트 회귀 스모크 4개 및 최신 `CoalescingTaskGate.kt` 소스에서 다시 컴파일한 동시성 스모크 5개.
+- 결과: 9개 PASS, 실패 0개. 필터 시작 게이트는 기존 격리 Kotlin/JVM 테스트 산출물로 실행했고, 동시성 게이트는 현재 원격 브랜치의 실제 `CoalescingTaskGate.kt` 내용을 기준으로 Kotlin 1.9.0/JDK 21에서 새로 컴파일해 실행했습니다.
+- 실행 환경 한계: 저장소에 Gradle Wrapper(`gradlew`)가 없고 이 실행 환경에 Gradle, Android SDK, adb가 없습니다. 따라서 `testDebugUnitTest`, `assembleDebug`, Android lint, APK 생성/설치, 에뮬레이터·실기기 VPN/DNS E2E는 실행할 수 없습니다. 네트워크 DNS 해석도 차단되어 원격 Gradle 배포판/Android SDK를 설치할 수 없었습니다.
+- GitHub Actions는 과거 최소 워크플로까지 runner 배정 전 단계에서 실패한 것으로 진단되어 이번에는 재실행하지 않았습니다. Actions 설정/과금은 변경하지 않았습니다.
+- 이 결과는 Android 전체 테스트 통과나 릴리스 승인으로 간주하지 않습니다.
