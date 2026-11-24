@@ -87,6 +87,8 @@ class MainActivity : Activity() {
     private var trackerBlockedValue: TextView? = null
     private var savedDataValue: TextView? = null
     private var activityChart: ActivityStatsChart? = null
+    private var threatAnalyticsSummaryText: TextView? = null
+    private var threatAnalyticsRecentContainer: LinearLayout? = null
     private var receiverRegistered = false
     private var currentTab = "home"
     private var selectedSettingsCategory = "settings-general"
@@ -107,6 +109,7 @@ class MainActivity : Activity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             refreshStatus()
             refreshAppExclusionsAppliedStatus()
+            refreshThreatAnalyticsPreview()
             when (intent?.action) {
                 FilterUpdateWorker.ACTION_FILTERS_CHANGED -> {
                     syncFilterOptionControls()
@@ -351,6 +354,7 @@ class MainActivity : Activity() {
         ContextCompat.registerReceiver(this, stateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
         refreshStatus()
+        refreshThreatAnalyticsPreview()
         // A background worker may disable an optional source while this Activity
         // is stopped. Reconcile any already-created controls with persisted state.
         syncFilterOptionControls()
@@ -551,6 +555,8 @@ class MainActivity : Activity() {
         trackerBlockedValue = null
         savedDataValue = null
         activityChart = null
+        threatAnalyticsSummaryText = null
+        threatAnalyticsRecentContainer = null
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(bg)
@@ -2147,33 +2153,46 @@ class MainActivity : Activity() {
     }
 
     private fun buildThreatAnalyticsPreview(): LinearLayout {
-        val summary = ThreatAnalyticsStore.summary(this)
-        return card(panel, 16).apply {
+        val previewCard = card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("위협 분석 · 개발 미리보기", 15f, white, true))
             addView(text(
                 "실제 필터 출처를 기준으로 위협 인텔리전스, 광고·추적, 사용자 지정 및 출처 미확인 차단을 구분합니다. 목록 일치는 악성 행위 확정 판정이 아닙니다.",
                 10f, muted, false
             ).withTop(5))
-            addView(text(
-                "위협 목록 일치 ${summary.high} · 광고/추적 ${summary.informational} · 미평가 ${summary.unassessed}",
-                12f, accent, true
-            ).withTop(10))
-            if (summary.recent.isEmpty()) {
-                addView(text("아직 분류된 차단 이벤트가 없습니다.", 10f, muted, false).withTop(8))
-            } else {
-                summary.recent.take(8).forEach { event ->
-                    val time = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
-                        .format(Date(event.timestampEpochMillis))
-                    addView(text(
-                        "${time} · ${event.title}",
-                        10f,
-                        if (event.severity == ThreatAnalyticsEngine.Severity.HIGH) Color.rgb(238, 176, 82) else muted,
-                        false
-                    ).withTop(6))
-                }
+            threatAnalyticsSummaryText = text("", 12f, accent, true).withTop(10) as TextView
+            addView(threatAnalyticsSummaryText)
+            threatAnalyticsRecentContainer = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
             }
+            addView(threatAnalyticsRecentContainer, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
             addView(text("이 개발 미리보기의 위협 이벤트에는 도메인·URL을 별도로 저장하지 않습니다. PRO 권한은 부여되지 않습니다.", 10f, Color.rgb(238, 176, 82), false).withTop(9))
+        }
+        refreshThreatAnalyticsPreview()
+        return previewCard
+    }
+
+    /** Refresh the visible preview from stored + buffered aggregates without forcing disk writes. */
+    private fun refreshThreatAnalyticsPreview() {
+        val summaryView = threatAnalyticsSummaryText ?: return
+        val recentContainer = threatAnalyticsRecentContainer ?: return
+        if (!BuildConfig.DEBUG) return
+        val summary = ThreatAnalyticsStore.summary(this)
+        summaryView.text = "위협 목록 일치 ${summary.high} · 광고/추적 ${summary.informational} · 미평가 ${summary.unassessed}"
+        recentContainer.removeAllViews()
+        if (summary.recent.isEmpty()) {
+            recentContainer.addView(text("아직 분류된 차단 이벤트가 없습니다.", 10f, muted, false))
+        } else {
+            summary.recent.take(8).forEach { event ->
+                val time = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
+                    .format(Date(event.timestampEpochMillis))
+                recentContainer.addView(text(
+                    "${time} · ${event.title}",
+                    10f,
+                    if (event.severity == ThreatAnalyticsEngine.Severity.HIGH) Color.rgb(238, 176, 82) else muted,
+                    false
+                ).withTop(6))
+            }
         }
     }
 
