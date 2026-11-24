@@ -139,13 +139,41 @@ object ProtectionDiagnostics {
     }
 
     /** Builds a copyable recent-error report without exposing raw exception messages, paths, URLs, domains or user rules. */
+    /**
+     * Reduces persisted packet diagnostics to fixed labels. Raw text can contain
+     * resolver IPs, URLs, or network response details and must never be copied.
+     */
+    fun dnsDiagnosticSummary(value: String?): String {
+        val message = value?.trim().orEmpty()
+        if (message.isEmpty()) return "기록 없음"
+        return when {
+            message.startsWith("업스트림 DNS 연결 테스트 성공") ->
+                "업스트림 DNS 연결 테스트 성공"
+            message.startsWith("업스트림 DNS 연결 테스트 실패") ||
+                message.startsWith("업스트림 DNS 오류:") -> {
+                val transports = listOf("UDP", "TCP", "DOT", "DOH")
+                    .filter { Regex("(?i)\\b${it}\\b").containsMatchIn(message) }
+                "업스트림 DNS 실패" +
+                    (transports.takeIf { it.isNotEmpty() }?.let { " (${it.joinToString(", ")})" } ?: "") +
+                    " · 상세 정보는 개인정보 보호를 위해 제외"
+            }
+            message == "TCP DNS 질의 형식 또는 질문 영역 검증 실패" ->
+                "TCP DNS 질의 형식 검증 실패"
+            message == "IPv4/IPv6 UDP DNS 질의 형식 또는 질문 영역 검증 실패" ->
+                "UDP DNS 질의 형식 검증 실패"
+            else -> "기록 있음 · 상세 정보는 개인정보 보호를 위해 제외"
+        }
+    }
+
     fun recentErrorReport(
         lastServiceStatus: String?,
         lastStartupTrace: String?,
         filterErrorCodes: List<String>,
-        filterReadiness: String?
+        filterReadiness: String?,
+        lastDnsDiagnostic: String? = null
     ): String {
         val startup = startupFailureSummary(lastServiceStatus)
+        val dnsDiagnostic = dnsDiagnosticSummary(lastDnsDiagnostic)
         val safeTrace = lastStartupTrace.orEmpty()
             .split(" | ")
             .take(2)
@@ -171,6 +199,7 @@ object ProtectionDiagnostics {
             appendLine("Guardian 최근 오류 정보")
             appendLine("보호 시작: $startup")
             appendLine("호출 경로: ${safeTrace.ifBlank { "기록 없음" }}")
+            appendLine("마지막 DNS 진단: $dnsDiagnostic")
             appendLine("필터 오류:")
             if (safeCodes.isEmpty()) appendLine("기록 없음")
             else safeCodes.forEach { code ->
