@@ -223,7 +223,63 @@ object DomainFilter {
         if (u16(query, 4) != 1 || u16(response, 4) != 1) return false
         val queryEnd = questionEnd(query) ?: return false
         val responseEnd = rawQuestionEnd(response) ?: return false
-        return canonicalQuestion(query, queryEnd)?.contentEquals(canonicalQuestion(response, responseEnd) ?: return false) ?: false
+        if (canonicalQuestion(query, queryEnd)?.contentEquals(
+                canonicalQuestion(response, responseEnd) ?: return false
+            ) != true) return false
+        return hasCompleteResourceRecordSections(response, responseEnd)
+    }
+
+    /**
+     * Validate all answer/authority/additional record boundaries before forwarding
+     * an upstream packet. The RDATA remains type-opaque, but owner names, fixed
+     * RR headers, RDLENGTH and the complete message boundary must be well formed.
+     */
+    private fun hasCompleteResourceRecordSections(message: ByteArray, questionEnd: Int): Boolean {
+        val totalRecords = u16(message, 6).toLong() + u16(message, 8) + u16(message, 10)
+        if (totalRecords > message.size.toLong()) return false
+        var offset = questionEnd
+        repeat(totalRecords.toInt()) {
+            offset = skipCompressedName(message, offset) ?: return false
+            if (offset > message.size - 10) return false
+            val dataLength = u16(message, offset + 8)
+            offset += 10
+            if (dataLength > message.size - offset) return false
+            offset += dataLength
+        }
+        return offset == message.size
+    }
+
+    /** Returns the encoded-name end while validating bounded, backward-only compression pointers. */
+    private fun skipCompressedName(message: ByteArray, start: Int): Int? {
+        var offset = start
+        var encodedEnd = -1
+        var expandedLength = 0
+        var steps = 0
+        val visited = HashSet<Int>()
+        while (offset < message.size && steps++ < 128) {
+            val length = message[offset].toInt() and 0xff
+            when {
+                length == 0 -> {
+                    expandedLength++
+                    if (expandedLength > 255) return null
+                    return if (encodedEnd >= 0) encodedEnd else offset + 1
+                }
+                (length and 0xc0) == 0xc0 -> {
+                    if (offset + 1 >= message.size) return null
+                    val target = ((length and 0x3f) shl 8) or (message[offset + 1].toInt() and 0xff)
+                    if (target < 12 || target >= offset || !visited.add(target)) return null
+                    if (encodedEnd < 0) encodedEnd = offset + 2
+                    offset = target
+                }
+                (length and 0xc0) != 0 || length > 63 || offset + 1 + length > message.size -> return null
+                else -> {
+                    expandedLength += length + 1
+                    if (expandedLength > 255) return null
+                    offset += length + 1
+                }
+            }
+        }
+        return null
     }
 
 
