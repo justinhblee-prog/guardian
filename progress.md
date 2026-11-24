@@ -372,3 +372,8 @@
 
 ## 2026-11-24 — DEX 041 헤더 정책 Kotlin/JVM 스모크
 - DEX 035 정상, DEX 041 정상 컨테이너, reverse-endian 035, 잘못된 container_size, 잘못된 header_offset, 미지원 version 거부를 분리한 Kotlin/JVM 헤더 정책 smoke 6/6 통과했습니다. 전체 APK scanner/ZIP 통합 및 Android Gradle/JUnit 검증은 미실행입니다.
+
+
+## 2026-11-24 — DEX 041 논리 크기 경계 테스트
+- 두 개의 논리 DEX가 이어진 DEX 041 컨테이너 픽스처를 추가해 첫 논리 file_size가 물리 컨테이너 크기보다 작더라도 초기 컨테이너 헤더가 수용되는 테스트를 추가했습니다.
+- 전체 logical DEX header traversal/DEX verifier가 아니라 header triage 경계 확인입니다. Android Gradle/JUnit 미실행입니다.
