@@ -373,3 +373,8 @@
 - API 28+ capability 및 API 26–27 legacy roaming source를 분리한 순수 `SecurityProfilePolicy.isCellularRoaming` 테스트를 추가했습니다. API 27/28 경계, Wi-Fi 비로밍, 모바일/여행 프로필 분기를 포함한 Kotlin/JVM smoke 15/15 통과.
 - NetworkCallback의 onAvailable/onCapabilitiesChanged/onLost와 등록 직후 active network 동기 적용이 모두 `Network` 객체 + capabilities를 새 시그니처로 전달하는지 재검토하고, 초기 동기 적용의 누락 인자를 수정했습니다.
 - Android SDK compile/JUnit 및 실제 SIM roaming·OEM callback 검증은 미실행입니다.
+
+
+## 2026-11-24 — 예약 필터 갱신 OS 네트워크 제약 강화
+- Profile/Scheduler/Worker의 로직 게이트에 더해 WorkManager PeriodicWorkRequest도 `NetworkType.UNMETERED`만 요구하도록 변경했습니다. 연결 후 metered로 전환되는 경우 OS 제약이 running work를 stop/재예약할 수 있게 2중으로 보호합니다.
+- 초기 보호 시작의 mandatory feed 및 사용자가 직접 요청하는 즉시 업데이트는 이 예약 제약과 분리되어 있습니다. required network type 정책 테스트 추가; Android WorkManager 실제 상태 전환 검증은 미실행입니다.
