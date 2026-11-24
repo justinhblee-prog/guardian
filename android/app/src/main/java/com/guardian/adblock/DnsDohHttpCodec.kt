@@ -22,8 +22,21 @@ object DnsDohHttpCodec {
         return header.toByteArray(StandardCharsets.ISO_8859_1) + query
     }
 
-    fun readResponse(input: InputStream): ByteArray? {
-        val headerBytes = readHeaders(input) ?: return null
+    fun readResponse(input: InputStream, beforeRead: () -> Unit = {}): ByteArray? {
+        // HTTP parsing performs many small reads (including one-byte header/chunk lines).
+        // Give the caller a chance to enforce one absolute deadline across all of them.
+        val guardedInput = object : java.io.FilterInputStream(input) {
+            override fun read(): Int {
+                beforeRead()
+                return super.read()
+            }
+
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                beforeRead()
+                return super.read(buffer, offset, length)
+            }
+        }
+        val headerBytes = readHeaders(guardedInput) ?: return null
         val headerText = String(headerBytes, StandardCharsets.ISO_8859_1)
         val lines = headerText.split("\r\n")
         val statusLine = lines.firstOrNull() ?: return null
@@ -48,7 +61,7 @@ object DnsDohHttpCodec {
         if (transferEncoding != null && contentLengthHeader != null) return null
         if (transferEncoding != null && !transferEncoding.equals("chunked", ignoreCase = true)) return null
         val body = if (transferEncoding != null) {
-            readChunked(input) ?: return null
+            readChunked(guardedInput) ?: return null
         } else {
             // Content-Length is an unsigned decimal field, not a signed integer.
             if (contentLengthHeader != null && !contentLengthHeader.matches(Regex("[0-9]+"))) return null
@@ -56,9 +69,9 @@ object DnsDohHttpCodec {
             if (contentLengthHeader != null && contentLength == null) return null
             if (contentLength != null) {
                 if (contentLength !in 17..MAX_DNS_BYTES) return null
-                readExactly(input, contentLength) ?: return null
+                readExactly(guardedInput, contentLength) ?: return null
             } else {
-                readUntilEof(input) ?: return null
+                readUntilEof(guardedInput) ?: return null
             }
         }
         return body.takeIf { it.size in 17..MAX_DNS_BYTES }
