@@ -2160,12 +2160,14 @@ class MainActivity : Activity() {
                 "실제 필터 출처를 기준으로 위협 인텔리전스, 광고·추적, 사용자 지정 및 출처 미확인 차단을 구분합니다. 목록 일치는 악성 행위 확정 판정이 아닙니다.",
                 10f, muted, false
             ).withTop(5))
-            threatAnalyticsSummaryText = text("", 12f, accent, true).withTop(10) as TextView
-            addView(threatAnalyticsSummaryText)
-            threatAnalyticsRecentContainer = LinearLayout(this@MainActivity).apply {
+            val summaryText = text("", 12f, accent, true).withTop(10) as TextView
+            threatAnalyticsSummaryText = summaryText
+            addView(summaryText)
+            val recentContainer = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.VERTICAL
             }
-            addView(threatAnalyticsRecentContainer, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+            threatAnalyticsRecentContainer = recentContainer
+            addView(recentContainer, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
             addView(text("이 개발 미리보기의 위협 이벤트에는 도메인·URL을 별도로 저장하지 않습니다. PRO 권한은 부여되지 않습니다.", 10f, Color.rgb(238, 176, 82), false).withTop(9))
         }
         refreshThreatAnalyticsPreview()
