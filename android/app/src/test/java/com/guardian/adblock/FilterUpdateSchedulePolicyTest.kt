@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import androidx.work.NetworkType
 
 class FilterUpdateSchedulePolicyTest {
     @Test fun firstRunFilterSetupRunsEvenWhenAutomaticUpdatesAreDisabled() {
@@ -67,6 +68,10 @@ class FilterUpdateSchedulePolicyTest {
     @Test fun preservesSupportedSixHourAndDailyIntervals() {
         assertEquals(6L * 60L * 60L * 1000L, FilterUpdateScheduler.normalizeInterval(6L * 60L * 60L * 1000L))
         assertEquals(FilterUpdateScheduler.DEFAULT_INTERVAL_MS, FilterUpdateScheduler.normalizeInterval(FilterUpdateScheduler.DEFAULT_INTERVAL_MS))
+    }
+
+    @Test fun recurringFilterRefreshRequiresAnUnmeteredNetwork() {
+        assertEquals(NetworkType.UNMETERED, FilterUpdateScheduler.requiredNetworkType())
     }
 
     @Test fun periodicFirstRunWaitsOneFullConfiguredInterval() {
