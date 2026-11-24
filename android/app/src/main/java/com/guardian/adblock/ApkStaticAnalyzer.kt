@@ -168,11 +168,8 @@ internal object ApkStaticAnalyzer {
         }
 
         fun hasValidZipEndRecord(entriesSeen: Int): Boolean {
-            val bytes = ByteArray(tailSize) { index ->
-                tail[(if (tailSize == tail.size) tailPosition else 0) + index].let { value ->
-                    if (tailSize == tail.size) value else tail[index]
-                }
-            }
+            val tailStart = if (tailSize == tail.size) tailPosition else 0
+            val bytes = ByteArray(tailSize) { index -> tail[(tailStart + index) % tail.size] }
             if (bytes.size < ZIP_END_RECORD_MIN_BYTES) return false
             for (offset in bytes.size - ZIP_END_RECORD_MIN_BYTES downTo 0) {
                 if (unsignedInt(bytes, offset) != ZIP_END_SIGNATURE) continue
