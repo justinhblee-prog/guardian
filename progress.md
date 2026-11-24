@@ -538,3 +538,7 @@
 - `android/app/build.gradle.kts`의 `preBuild` guard가 repo root `shared/filter_rules.txt`를 asset 경로와 같은 상대 경로로 확인하고, 파일 존재/비어 있지 않음/유효한 DNS block 도메인을 검사합니다.
 - Gradle Kotlin validator와 동일한 정규식·BOM 제거 로직을 Kotlin/JVM으로 시험했습니다. PASS 5/5: 공유 asset 10개 규칙, UTF-8 BOM 포함 규칙, 주석/allow만 존재하는 파일 거부, 공백 포함 잘못된 도메인 거부, 연속 점 도메인 거부.
 - `GuardianVpnService` 및 `MainActivity`는 asset 부재/손상 시 emergency baseline으로 보호 시작을 시도하고, optional 다운로드 캐시는 시작 필수 조건으로 취급하지 않음을 재확인했습니다. 실제 Gradle `preBuild`, APK 내부 asset 존재, Android 단말 동작은 아직 미실행입니다.
+
+
+## 2026-11-24 — 필수 필터 asset validator 도메인 길이 일치
+- Gradle preBuild guard가 각 label 63자뿐 아니라 정규화된 DNS 도메인 전체 253자 제한도 확인하도록 보완했습니다. 런타임 FilterRuleParser의 도메인 길이 검증과 일치합니다.
