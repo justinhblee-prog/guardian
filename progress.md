@@ -320,3 +320,9 @@
 ## 2026-11-24 — 보안 프로필 UI 제한 안내 정합성
 - 실제 코드에 연결된 셀룰러 로밍 capability와 사용자/프로필 이중 WorkManager gate를 미구현으로 오해하게 하던 오래된 안내를 갱신했습니다.
 - API 28+ OEM/통신사 네트워크 동작 및 PRO entitlement/Release 등록은 여전히 미완료·미검증으로 명시합니다.
+
+
+## 2026-11-24 — 수동 프로필 종량제 자동 갱신 차단
+- Worker가 `CONNECTED`로 실행되어 수동 프로필에서 자동 업데이트 권한이 true일 경우 metered 네트워크를 사용할 수 있던 위험을 수정했습니다.
+- WorkManager requirement를 `UNMETERED`로 바꾸고 Worker 시작/필터 원천 경계마다 현재 active NetworkCapabilities의 `NET_CAPABILITY_NOT_METERED`, 전역 opt-in, 프로필 허용값 및 `isStopped` 상태를 확인합니다.
+- 순수 `FilterUpdateSchedulingPolicy.shouldRun` 3중 게이트 테스트를 추가했습니다. 자동 first-run filter setup은 WorkManager 주기 Worker와 분리된 기존 경로로 유지합니다. Android WorkManager/ConnectivityManager·실기기 검증은 미실행입니다.
