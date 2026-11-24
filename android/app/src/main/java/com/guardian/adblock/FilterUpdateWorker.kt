@@ -37,10 +37,9 @@ class FilterUpdateWorker(
             // main filter cache. Once that cache is ready, an enabled optional
             // security/Android-ads source must keep retrying independently; otherwise
             // a transient optional-feed outage silently exhausts the shared budget.
-            if (!baseCacheReady && !FilterUpdatePolicy.shouldContinueInitialRetry(
-                    forceInitialRefresh, runAttemptCount, MAX_INITIAL_CACHE_ATTEMPTS
-                )
-            ) {
+            if (FilterUpdatePolicy.shouldFailInitialRetryBudget(
+                    forceInitialRefresh, runAttemptCount, MAX_INITIAL_CACHE_ATTEMPTS, baseCacheReady
+                )) {
                 android.util.Log.e("Guardian", "Initial main filter cache retry budget exhausted after $runAttemptCount attempts")
                 prefs.edit().putString(
                     FilterListManager.KEY_LAST_ERROR,
@@ -191,6 +190,15 @@ internal object FilterUpdatePolicy {
 
     fun shouldContinueInitialRetry(forceInitialRefresh: Boolean, runAttemptCount: Int, maxAttempts: Int): Boolean =
         !forceInitialRefresh || (maxAttempts > 0 && runAttemptCount >= 0 && runAttemptCount < maxAttempts)
+
+    /** Exhaust only when the required main cache is still unavailable. */
+    fun shouldFailInitialRetryBudget(
+        forceInitialRefresh: Boolean,
+        runAttemptCount: Int,
+        maxAttempts: Int,
+        mainCacheReady: Boolean
+    ): Boolean = !mainCacheReady &&
+        !shouldContinueInitialRetry(forceInitialRefresh, runAttemptCount, maxAttempts)
 
     /** An enabled optional source remains eligible for retry until its first cache is installed. */
     fun shouldRetryOptionalUpdate(wasEnabled: Boolean): Boolean = wasEnabled
