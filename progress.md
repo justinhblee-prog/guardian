@@ -685,3 +685,9 @@
 - 개발판 updater는 자동 redirect를 중지하고 각 Location을 허용 HTTPS 호스트로 검증한 뒤 연결합니다. APK의 공식 저장소/tag/asset/versionCode 확인, post-download package/version/signer 실패 파일 제거, 단일 content signer 확인을 적용했습니다.
 - VPN app exclusion 저장값은 package ID 형식/길이·자기 앱 여부를 확인하고 PackageManager 오류는 해당 제외만 보류해 VPN 생성 전체와 분리합니다.
 - `DevUpdateManagerPolicy`와 `VpnAppExclusionPolicy` Kotlin/JVM smoke 31/31 통과. Android Gradle/JUnit·lint·emulator·실기기·실제 HTTPS redirect/설치 검증은 미실행입니다.
+
+
+## 2026-11-24 — 정식·개발 APK 검증 후 캐시 파일 교체
+- 두 업데이터 모두 최종 `guardian-version.apk` 대신 unique `.apk.part` 임시 파일로 내려받고, 길이/해시/package/version/single signer 확인 뒤 기존 최종 파일을 교체합니다.
+- 네트워크/검증 실패는 임시 파일만 제거해 이전 검증 APK를 보존합니다. HTTPS connection의 획득 실패/예외 해제도 finally에서 처리합니다.
+- Android PackageManager·cache filesystem atomicity·실제 CDN download/install 실기기 검증은 미실행입니다.
