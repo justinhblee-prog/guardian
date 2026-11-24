@@ -4,6 +4,20 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class Ipv4UdpTest {
+    @Test fun rejectsDnsResponseThatWouldOverflowIpv4TotalLength() {
+        val request = Ipv4Udp.Parsed(
+            source = byteArrayOf(10, 0, 0, 1),
+            destination = byteArrayOf(10, 0, 0, 2),
+            sourcePort = 53000,
+            destinationPort = 53,
+            payload = ByteArray(12)
+        )
+        assertFailsWith<IllegalArgumentException> {
+            Ipv4Udp.response(request, ByteArray(65_508))
+        }
+        assertEquals(65_535, Ipv4Udp.response(request, ByteArray(65_507)).size)
+    }
+
     @Test fun parsesUdpDnsPacket() {
         val p = ByteArray(20 + 8 + 12)
         p[0] = 0x45
