@@ -51,7 +51,11 @@ internal class DnsQueryDeadline private constructor(
      * at the shared absolute deadline also bounds handshake and blocked writes.
      */
     fun closeOnExpiry(closeSocket: () -> Unit): AutoCloseable {
-        val closer: () -> Unit = { runCatching(closeSocket) }
+        val futureRef = java.util.concurrent.atomic.AtomicReference<ScheduledFuture<*>?>(null)
+        val closer: () -> Unit = {
+            futureRef.get()?.cancel(false)
+            runCatching(closeSocket)
+        }
         activeClosers.add(closer)
         if (cancelled.get()) {
             if (activeClosers.remove(closer)) closer()
@@ -65,33 +69,19 @@ internal class DnsQueryDeadline private constructor(
                 if (cancelled.get()) "DNS query cancelled" else "DNS query deadline exceeded"
             )
         }
-        val futureRef = java.util.concurrent.atomic.AtomicReference<ScheduledFuture<*>?>(null)
-        val cancellableCloser: () -> Unit = {
-            futureRef.get()?.cancel(false)
-            closer()
-        }
-        // Replace the plain closer before scheduling so explicit cancellation
-        // can also remove a watchdog that races its own registration.
-        activeClosers.remove(closer)
-        activeClosers.add(cancellableCloser)
-        if (cancelled.get()) {
-            if (activeClosers.remove(cancellableCloser)) cancellableCloser()
-            throw SocketTimeoutException("DNS query cancelled")
-        }
         val future = EXPIRY_EXECUTOR.schedule(
-            {
-                if (activeClosers.remove(cancellableCloser)) cancellableCloser()
-            },
+            { if (activeClosers.remove(closer)) closer() },
             remaining.toLong(),
             TimeUnit.MILLISECONDS
         )
         futureRef.set(future)
-        if (cancelled.get() && activeClosers.remove(cancellableCloser)) {
-            cancellableCloser()
-        }
+        // Cancellation may have run between registration and future creation.
+        // In that interleaving it already closed the socket, but could not yet
+        // cancel this not-yet-published watchdog future.
+        if (cancelled.get()) future.cancel(false)
         return AutoCloseable {
             future.cancel(false)
-            activeClosers.remove(cancellableCloser)
+            activeClosers.remove(closer)
         }
     }
 
