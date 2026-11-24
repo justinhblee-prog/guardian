@@ -100,7 +100,8 @@ class GuardianVpnService : VpnService() {
     private var lastUpstreamFailure: String?
         get() = lastUpstreamFailureContext.current
         set(value) { lastUpstreamFailureContext.current = value }
-    private var tun: ParcelFileDescriptor? = null
+    @Volatile private var tun: ParcelFileDescriptor? = null
+    private val tunnelSessionGuard = VpnTunnelSessionGuard()
     @Volatile private var packetWorker: Thread? = null
     private val running = AtomicBoolean(false)
     private val starting = AtomicBoolean(false)
@@ -295,10 +296,13 @@ class GuardianVpnService : VpnService() {
 
         startCancellation.cancel()
         pendingStart.set(null)
-        running.set(false)
-        tunnelActive = false
-        val oldTun = tun
-        tun = null
+        var oldTun: ParcelFileDescriptor? = null
+        tunnelSessionGuard.invalidate {
+            running.set(false)
+            tunnelActive = false
+            oldTun = tun
+            tun = null
+        }
         try {
             oldTun?.close()
         } catch (error: Exception) {
@@ -408,10 +412,13 @@ class GuardianVpnService : VpnService() {
         }
         startCancellation.cancel()
         pendingStart.set(null)
-        running.set(false)
-        tunnelActive = false
-        val oldTun = tun
-        tun = null
+        var oldTun: ParcelFileDescriptor? = null
+        tunnelSessionGuard.invalidate {
+            running.set(false)
+            tunnelActive = false
+            oldTun = tun
+            tun = null
+        }
         try { oldTun?.close() } catch (error: Exception) {
             android.util.Log.w("GuardianProtection", "Could not close old TUN before exclusion refresh: ${SafeFailureSummary.codeFor(error)}")
         }
@@ -633,9 +640,11 @@ class GuardianVpnService : VpnService() {
             return
         }
         val committed = startCancellation.tryCommitStart(requestGeneration) {
-            tun = descriptor
-            running.set(true)
-            tunnelActive = true
+            tunnelSessionGuard.activate(requestGeneration) {
+                tun = descriptor
+                running.set(true)
+                tunnelActive = true
+            }
             val filterNotice = getSharedPreferences(PREFS, MODE_PRIVATE)
                 .getString(KEY_FILTER_READINESS, null)
                 ?.takeIf { it.isNotBlank() && it != "모든 선택 필터가 준비되었습니다." }
@@ -645,7 +654,7 @@ class GuardianVpnService : VpnService() {
                 "DNS 보호가 실행 중입니다. $filterNotice"
             }
             publishState(true, activeMessage)
-            packetWorker = thread(name = "guardian-vpn-dns") { packetLoop(descriptor) }
+            packetWorker = thread(name = "guardian-vpn-dns") { packetLoop(descriptor, requestGeneration) }
         }
         if (!committed) {
             try { descriptor.close() } catch (_: Exception) { }
@@ -658,7 +667,7 @@ class GuardianVpnService : VpnService() {
         }
     }
 
-    private fun packetLoop(descriptor: ParcelFileDescriptor) {
+    private fun packetLoop(descriptor: ParcelFileDescriptor, requestGeneration: Long) {
         var loopFailure: Throwable? = null
         val retransmissionFailure = AtomicReference<Throwable?>(null)
         var retransmissionScheduler: ScheduledExecutorService? = null
@@ -761,14 +770,16 @@ class GuardianVpnService : VpnService() {
             }
             loopFailure = retransmissionFailure.get() ?: loopFailure
             // A dead packet loop must never leave the UI claiming protection is active.
-            if (running.compareAndSet(true, false)) {
-                tunnelActive = false
-                try { descriptor.close() } catch (_: Exception) { }
-                if (tun === descriptor) tun = null
-                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-                val detail = loopFailure?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${SafeFailureSummary.describe(it)})" }.orEmpty()
-                publishState(false, "DNS 패킷 처리 중단$detail. 보호를 다시 시작해 주세요.")
-                stopSelf()
+            tunnelSessionGuard.release(requestGeneration) {
+                if (running.compareAndSet(true, false)) {
+                    tunnelActive = false
+                    try { descriptor.close() } catch (_: Exception) { }
+                    if (tun === descriptor) tun = null
+                    try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+                    val detail = loopFailure?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${SafeFailureSummary.describe(it)})" }.orEmpty()
+                    publishState(false, "DNS 패킷 처리 중단$detail. 보호를 다시 시작해 주세요.")
+                    stopSelf()
+                }
             }
         }
     }
@@ -1341,10 +1352,15 @@ class GuardianVpnService : VpnService() {
         }
         pendingStart.set(null)
         startCancellation.cancel()
-        tunnelActive = false
-        val wasActive = running.getAndSet(false) || tun != null
-        try { tun?.close() } catch (_: Exception) { }
-        tun = null
+        var wasActive = false
+        var stoppedTun: ParcelFileDescriptor? = null
+        tunnelSessionGuard.invalidate {
+            tunnelActive = false
+            wasActive = running.getAndSet(false) || tun != null
+            stoppedTun = tun
+            tun = null
+        }
+        try { stoppedTun?.close() } catch (_: Exception) { }
         stopForeground(STOP_FOREGROUND_REMOVE)
         // An explicit user stop must clear the persisted restart intent even
         // when startup was still in flight and no TUN descriptor was committed.
