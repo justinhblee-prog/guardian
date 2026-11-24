@@ -10,8 +10,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
 import java.net.URL
+import javax.net.ssl.HttpsURLConnection
 import java.security.MessageDigest
 
 internal data class GuardianDevUpdate(
@@ -30,6 +30,7 @@ internal object DevUpdateManager {
     private const val MANIFEST_ASSET = "guardian-android-dev.json"
     private const val PACKAGE_NAME = "com.guardian.adblock"
     private const val MAX_APK_BYTES = 100L * 1024L * 1024L
+    private const val MAX_REDIRECTS = 5
 
     private data class ReleaseCandidate(
         val tagVersion: Int,
@@ -73,10 +74,10 @@ internal object DevUpdateManager {
         }
 
         for (candidate in candidates.sortedByDescending { it.tagVersion }) {
-            require(isGuardianReleaseAssetUrl(candidate.manifestUrl)) {
+            require(isGuardianReleaseAssetUrl(candidate.manifestUrl, MANIFEST_ASSET, candidate.tagVersion)) {
                 "개발 업데이트 manifest 주소가 허용된 GitHub Release가 아닙니다."
             }
-            require(isGuardianReleaseAssetUrl(candidate.apkUrl)) {
+            require(isGuardianReleaseAssetUrl(candidate.apkUrl, APK_ASSET, candidate.tagVersion)) {
                 "개발 APK 주소가 허용된 GitHub Release가 아닙니다."
             }
             val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
@@ -108,19 +109,15 @@ internal object DevUpdateManager {
         require(update.signerSha256 == installedSignerSha256(context)) {
             "업데이트 서명 인증서가 현재 설치된 개발 버전과 다릅니다. 설치를 중단했습니다."
         }
+        require(isGuardianReleaseAssetUrl(update.apkUrl, APK_ASSET, update.versionCode)) {
+            "개발 APK 주소의 저장소·태그·자산 이름이 업데이트 버전과 일치하지 않습니다."
+        }
         val directory = File(context.cacheDir, GuardianUpdateCachePaths.DEVELOPMENT_DIRECTORY).apply { mkdirs() }
         val target = File(directory, "guardian-${update.versionCode}.apk")
-        val connection = (URL(update.apkUrl).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 15000
-            readTimeout = 30000
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
-            setRequestProperty("Accept", "application/octet-stream")
-        }
+        val connection = openAllowedHttpsConnection(
+            update.apkUrl, 15000, 30000, "application/octet-stream", ::isAllowedReleaseDownloadUrl
+        )
         try {
-            connection.connect()
-            check(isAllowedReleaseDownloadHost(connection.url)) { "APK 다운로드가 허용되지 않은 서버로 리디렉션되었습니다." }
-            check(connection.responseCode in 200..299) { "APK 다운로드 실패: HTTP ${connection.responseCode}" }
             val expectedLength = connection.contentLengthLong
             check(expectedLength in 1..MAX_APK_BYTES) { "APK 파일 크기가 허용 범위를 벗어났습니다." }
             connection.inputStream.use { input ->
@@ -144,12 +141,15 @@ internal object DevUpdateManager {
         } finally {
             connection.disconnect()
         }
-        val actual = sha256(target)
-        if (!actual.equals(update.sha256, ignoreCase = true)) {
+        try {
+            check(sha256(target).equals(update.sha256, ignoreCase = true)) {
+                "다운로드한 APK의 SHA-256 검증에 실패했습니다."
+            }
+            verifyDownloadedPackage(context, target, update)
+        } catch (error: Exception) {
             target.delete()
-            error("다운로드한 APK의 SHA-256 검증에 실패했습니다.")
+            throw error
         }
-        verifyDownloadedPackage(context, target, update)
         return target
     }
 
@@ -173,23 +173,90 @@ internal object DevUpdateManager {
         return true
     }
 
-    internal fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
+    internal fun isGuardianReleaseAssetUrl(
+        address: String,
+        expectedAssetName: String? = null,
+        expectedTagVersion: Int? = null
+    ): Boolean = runCatching {
         val uri = java.net.URI(address)
+        val parts = uri.path.split('/').filter { it.isNotEmpty() }
+        val tag = parts.getOrNull(4).orEmpty()
+        val tagVersion = Regex("^guardian-dev-v([1-9][0-9]{0,8})$")
+            .matchEntire(tag)?.groupValues?.getOrNull(1)?.toIntOrNull()
+        val assetName = parts.getOrNull(5)
         uri.scheme.equals("https", true) &&
+            (uri.port == -1 || uri.port == 443) &&
             uri.host.equals("github.com", true) &&
-            uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
-            uri.userInfo == null && uri.query == null && uri.fragment == null
+            uri.userInfo == null && uri.query == null && uri.fragment == null &&
+            parts.size == 6 &&
+            parts.take(4) == listOf("justinhblee-prog", "guardian", "releases", "download") &&
+            tagVersion != null &&
+            assetName in setOf(MANIFEST_ASSET, APK_ASSET) &&
+            (expectedAssetName == null || assetName == expectedAssetName) &&
+            (expectedTagVersion == null || tagVersion == expectedTagVersion)
     }.getOrDefault(false)
 
-    private fun isAllowedHttpsHost(url: URL): Boolean =
-        url.protocol.equals("https", true) &&
-            (url.host.equals("api.github.com", true) ||
-                url.host.equals("github.com", true) ||
-                url.host.equals("release-assets.githubusercontent.com", true) ||
-                url.host.equals("objects.githubusercontent.com", true))
+    internal fun isAllowedHttpsUrl(address: String): Boolean = runCatching {
+        val uri = java.net.URI(address)
+        uri.scheme.equals("https", true) &&
+            (uri.port == -1 || uri.port == 443) &&
+            uri.host?.lowercase() in setOf(
+                "api.github.com", "github.com",
+                "release-assets.githubusercontent.com", "objects.githubusercontent.com"
+            ) && uri.userInfo == null
+    }.getOrDefault(false)
 
-    private fun isAllowedReleaseDownloadHost(url: URL): Boolean =
-        isAllowedHttpsHost(url) && !url.host.equals("api.github.com", true)
+    internal fun isAllowedReleaseDownloadUrl(address: String): Boolean =
+        isAllowedHttpsUrl(address) && runCatching {
+            !java.net.URI(address).host.equals("api.github.com", true)
+        }.getOrDefault(false)
+
+    /** Check every redirect destination before connecting to it; automatic redirects are unsafe here. */
+    private fun openAllowedHttpsConnection(
+        address: String,
+        connectTimeoutMillis: Int,
+        readTimeoutMillis: Int,
+        accept: String,
+        isAllowed: (String) -> Boolean
+    ): HttpsURLConnection {
+        var current = URL(address)
+        var redirects = 0
+        while (true) {
+            check(isAllowed(current.toString())) { "업데이트 요청 주소가 허용되지 않은 HTTPS 서버입니다." }
+            val connection = current.openConnection() as? HttpsURLConnection
+                ?: error("HTTPS 업데이트 연결을 만들 수 없습니다.")
+            connection.connectTimeout = connectTimeoutMillis
+            connection.readTimeout = readTimeoutMillis
+            connection.instanceFollowRedirects = false
+            connection.setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
+            connection.setRequestProperty("Accept", accept)
+            try {
+                connection.connect()
+                val response = connection.responseCode
+                if (response in 300..399) {
+                    val location = connection.getHeaderField("Location")
+                    connection.disconnect()
+                    check(redirects < MAX_REDIRECTS) { "업데이트 서버 리디렉션 횟수가 너무 많습니다." }
+                    require(!location.isNullOrBlank()) { "업데이트 서버 리디렉션 주소가 없습니다." }
+                    val next = URL(current, location)
+                    check(isAllowed(next.toString())) {
+                        "업데이트 서버가 허용되지 않은 호스트로 리디렉션하려 했습니다."
+                    }
+                    current = next
+                    redirects += 1
+                    continue
+                }
+                check(response in 200..299) { "업데이트 서버 요청 실패: HTTP $response" }
+                check(isAllowed(connection.url.toString())) {
+                    "업데이트 요청의 최종 주소가 허용된 HTTPS 서버가 아닙니다."
+                }
+                return connection
+            } catch (error: Exception) {
+                connection.disconnect()
+                throw error
+            }
+        }
+    }
 
     private fun verifyDownloadedPackage(context: Context, apk: File, update: GuardianDevUpdate) {
         val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else {
@@ -204,14 +271,14 @@ internal object DevUpdateManager {
         val signatures = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else {
             @Suppress("DEPRECATION") info.signatures
         } ?: error("다운로드한 APK의 서명 정보를 읽을 수 없습니다.")
-        val certificate = signatures.firstOrNull()?.toByteArray()
-            ?: error("다운로드한 APK의 서명 인증서가 없습니다.")
-        val actualSigner = MessageDigest.getInstance("SHA-256").digest(certificate)
-            .joinToString("") { "%02x".format(it) }
-        check(actualSigner.equals(update.signerSha256, true)) {
-            "다운로드한 APK의 서명 인증서가 manifest와 일치하지 않습니다."
+        val signerFingerprints = signatures.map { signature ->
+            MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())
+                .joinToString("") { "%02x".format(it) }
         }
-        check(actualSigner == installedSignerSha256(context)) {
+        check(DevUpdateManagerPolicy.hasSingleExpectedSigner(signerFingerprints, update.signerSha256)) {
+            "다운로드한 APK는 manifest에 선언된 단일 서명 인증서와 일치하지 않습니다."
+        }
+        check(signerFingerprints.single() == installedSignerSha256(context)) {
             "다운로드한 APK의 서명 인증서가 설치된 앱과 다릅니다."
         }
     }
@@ -237,8 +304,10 @@ internal object DevUpdateManager {
             @Suppress("DEPRECATION")
             info.signatures
         } ?: error("현재 설치된 앱의 서명 정보를 읽을 수 없습니다.")
-        val cert = signatures.firstOrNull()?.toByteArray()
-            ?: error("현재 설치된 앱의 서명 인증서가 없습니다.")
+        check(signatures.size == 1) {
+            "현재 설치된 앱이 단일 서명 인증서를 사용하지 않아 자동 업데이트를 진행할 수 없습니다."
+        }
+        val cert = signatures.single().toByteArray()
         return MessageDigest.getInstance("SHA-256").digest(cert)
             .joinToString("") { "%02x".format(it) }
     }
@@ -258,17 +327,10 @@ internal object DevUpdateManager {
 
     private fun readHttps(address: String, maxBytes: Int): String {
         require(address.startsWith("https://", ignoreCase = true)) { "업데이트 서버는 HTTPS만 허용합니다." }
-        val connection = (URL(address).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 12000
-            readTimeout = 15000
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
-            setRequestProperty("Accept", "application/vnd.github+json")
-        }
+        val connection = openAllowedHttpsConnection(
+            address, 12000, 15000, "application/vnd.github+json", ::isAllowedHttpsUrl
+        )
         try {
-            connection.connect()
-            check(isAllowedHttpsHost(connection.url)) { "업데이트 확인 요청이 허용되지 않은 서버로 리디렉션되었습니다." }
-            check(connection.responseCode in 200..299) { "업데이트 확인 실패: HTTP ${connection.responseCode}" }
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
