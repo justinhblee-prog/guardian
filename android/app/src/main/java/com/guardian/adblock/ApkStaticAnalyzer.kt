@@ -164,7 +164,11 @@ internal object ApkStaticAnalyzer {
 
         fun drainToEof() {
             val buffer = ByteArray(16 * 1024)
-            while (read(buffer) >= 0) Unit
+            while (true) {
+                val count = read(buffer)
+                if (count < 0) break
+                if (count == 0 && read() < 0) break
+            }
         }
 
         fun hasValidZipEndRecord(entriesSeen: Int): Boolean {
