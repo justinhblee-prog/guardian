@@ -1,3 +1,9 @@
+## 2026-11-24 — TCP 응답 패킷 IP 버전별 길이 상한 수정
+
+- `DnsTcpPacket.response()`가 IPv4와 IPv6에 동일한 TCP payload 상한 65,515바이트를 적용하던 문제를 수정했습니다. IPv4는 IP 헤더까지 포함하는 16비트 total_length이므로 TCP payload 최대 65,495바이트, IPv6는 TCP 헤더를 포함한 payload_length 한도에 따라 65,515바이트를 허용합니다.
+- IPv4/IPv6 각각 최대 허용 길이에서 생성된 응답의 IP 길이 필드와 재파싱 성공, 1바이트 초과 시 거부를 확인하는 테스트를 추가했습니다. 현재 TCP 세션은 MSS 1,200바이트로 분할하므로 이 수정은 코덱 경계 검증을 강화합니다.
+- Android Gradle/JUnit·기기 패킷 검증은 미실행입니다.
+
 ## 2026-11-24 — DNS TCP 재전송 스케줄러 종료 동기화
 
 - VPN packet loop 종료 시 재전송 스케줄러 `shutdownNow()`만 호출하던 것을 보강해 최대 500ms 동안 작업 종료를 기다린 뒤 TUN descriptor 정리로 넘어가도록 했습니다.
