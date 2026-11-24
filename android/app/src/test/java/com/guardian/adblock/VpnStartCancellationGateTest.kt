@@ -125,3 +125,43 @@ class VpnStartCancellationGateTest {
         assertTrue(gate.isCurrent(second))
     }
 }
+
+    @Test fun stopCancellationWaitsForAnInFlightTunnelCommit() {
+        val gate = VpnStartCancellationGate()
+        val guard = VpnTunnelSessionGuard()
+        val start = gate.onStartRequested()
+        val commitEntered = CountDownLatch(1)
+        val allowCommitToFinish = CountDownLatch(1)
+        val stopReturned = CountDownLatch(1)
+        var committed = false
+
+        val commitThread = thread(name = "vpn-start-commit-test") {
+            assertTrue(gate.tryCommitStart(start) {
+                guard.activate(start) { committed = true }
+                commitEntered.countDown()
+                assertTrue(allowCommitToFinish.await(2, TimeUnit.SECONDS))
+            })
+        }
+        assertTrue(commitEntered.await(2, TimeUnit.SECONDS))
+
+        val stopThread = thread(name = "vpn-stop-cancel-test") {
+            gate.cancel()
+            guard.invalidate()
+            stopReturned.countDown()
+        }
+
+        // Stop cannot invalidate the generation halfway through the atomic
+        // commit; once the commit exits, stop invalidates its session ownership.
+        assertFalse(stopReturned.await(100, TimeUnit.MILLISECONDS))
+        allowCommitToFinish.countDown()
+        commitThread.join(2_000L)
+        stopThread.join(2_000L)
+
+        assertFalse(commitThread.isAlive)
+        assertFalse(stopThread.isAlive)
+        assertTrue(stopReturned.count == 0L)
+        assertTrue(committed)
+        assertFalse(gate.isCurrent(start))
+        assertFalse(guard.hasActiveSession())
+    }
+
