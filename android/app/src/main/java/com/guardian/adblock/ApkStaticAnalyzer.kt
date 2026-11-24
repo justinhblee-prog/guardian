@@ -62,10 +62,9 @@ internal object ApkStaticAnalyzer {
                     }
                     if (capture != null) {
                         val bytes = capture.toByteArray()
-                        if (!hasValidDexHeader(bytes)) {
-                            return invalid(dexCount, dexBytes)
-                        }
-                        dexCount++
+                        val logicalDexCount = countValidDexFiles(bytes)
+                            ?: return invalid(dexCount, dexBytes)
+                        dexCount += logicalDexCount
                         val text = bytes.toString(Charsets.ISO_8859_1)
                         Signal.values().filterTo(signals) { signal -> signal.tokens.all(text::contains) }
                     }
@@ -94,32 +93,53 @@ internal object ApkStaticAnalyzer {
     }
 
     /**
-     * Verify the fixed DEX header before treating a ZIP entry as analyzable code.
-     * This is header validation, not a complete DEX verifier or signature check.
+     * Validate a standard DEX header or every logical header in a DEX 041
+     * container. This is structural header triage, not a bytecode verifier.
      */
-    private fun hasValidDexHeader(bytes: ByteArray): Boolean {
-        if (bytes.size < DEX_HEADER_SIZE) return false
-        if (!bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(100, 101, 120, 10))) return false
-        val version = String(bytes, 4, 3, Charsets.US_ASCII)
-        if (bytes[7].toInt() != 0 || version !in supportedDexVersions) return false
-        val endianTag = littleEndianInt(bytes, 40)
-        val littleEndian = when (endianTag) {
+    private fun countValidDexFiles(bytes: ByteArray): Int? {
+        if (bytes.size < DEX_HEADER_SIZE) return null
+        if (!bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(100, 101, 120, 10))) return null
+        val firstVersion = String(bytes, 4, 3, Charsets.US_ASCII)
+        if (bytes[7].toInt() != 0 || firstVersion !in supportedDexVersions) return null
+        if (firstVersion != "041") {
+            val littleEndian = readDexEndianness(bytes, 0) ?: return null
+            val declaredFileSize = headerInt(bytes, 32, littleEndian).toLong() and 0xffffffffL
+            val headerSize = headerInt(bytes, 36, littleEndian)
+            return if (headerSize == DEX_HEADER_SIZE && declaredFileSize == bytes.size.toLong()) 1 else null
+        }
+
+        val containerSize = bytes.size.toLong()
+        var headerOffset = 0L
+        var logicalCount = 0
+        while (headerOffset < containerSize) {
+            if (containerSize - headerOffset < DEX_041_HEADER_SIZE) return null
+            val offset = headerOffset.toInt()
+            if (!bytes.copyOfRange(offset, offset + 4).contentEquals(byteArrayOf(100, 101, 120, 10))) return null
+            val version = String(bytes, offset + 4, 3, Charsets.US_ASCII)
+            if (version != "041" || bytes[offset + 7].toInt() != 0) return null
+            val littleEndian = readDexEndianness(bytes, offset) ?: return null
+            val logicalFileSize = headerInt(bytes, offset + 32, littleEndian).toLong() and 0xffffffffL
+            val headerSize = headerInt(bytes, offset + 36, littleEndian)
+            val declaredContainerSize = headerInt(bytes, offset + 112, littleEndian).toLong() and 0xffffffffL
+            val declaredHeaderOffset = headerInt(bytes, offset + 116, littleEndian).toLong() and 0xffffffffL
+            if (headerSize != DEX_041_HEADER_SIZE ||
+                logicalFileSize < DEX_041_HEADER_SIZE.toLong() ||
+                declaredContainerSize != containerSize ||
+                declaredHeaderOffset != headerOffset ||
+                logicalFileSize > containerSize - headerOffset
+            ) return null
+            headerOffset += logicalFileSize
+            logicalCount++
+        }
+        return logicalCount.takeIf { headerOffset == containerSize && it > 0 }
+    }
+
+    private fun readDexEndianness(bytes: ByteArray, offset: Int): Boolean? =
+        when (littleEndianInt(bytes, offset + 40)) {
             0x12345678 -> true
             0x78563412 -> false
-            else -> return false
+            else -> null
         }
-        val declaredFileSize = headerInt(bytes, 32, littleEndian).toLong() and 0xffffffffL
-        val headerSize = headerInt(bytes, 36, littleEndian)
-        return if (version == "041") {
-            if (headerSize != DEX_041_HEADER_SIZE || bytes.size < DEX_041_HEADER_SIZE) return false
-            val containerSize = headerInt(bytes, 112, littleEndian).toLong() and 0xffffffffL
-            val headerOffset = headerInt(bytes, 116, littleEndian).toLong() and 0xffffffffL
-            declaredFileSize in DEX_041_HEADER_SIZE.toLong()..bytes.size.toLong() &&
-                containerSize == bytes.size.toLong() && headerOffset == 0L
-        } else {
-            headerSize == DEX_HEADER_SIZE && declaredFileSize == bytes.size.toLong()
-        }
-    }
 
     private fun headerInt(bytes: ByteArray, offset: Int, littleEndian: Boolean): Int {
         if (littleEndian) return littleEndianInt(bytes, offset)
