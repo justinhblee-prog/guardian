@@ -810,3 +810,12 @@
 - 시작 세대 게이트의 현재 요청 실패 처리와 새 시작 요청이 동일한 잠금으로 직렬화되는 동시성 테스트를 추가했습니다. 이전 시작의 실패 정리가 새 요청 generation 발급을 앞지를 수 없음을 검증하는 테스트 소스입니다.
 - 저장소 테스트 클래스에는 VPN 시작 세대 게이트 테스트 8개가 포함됩니다. Android JUnit 실행은 아직 미실행입니다.
 - 별도 Kotlin/JVM smoke harness로 동일한 순수 세대 게이트 잠금/세대 순서를 컴파일·실행했고 `VPN_START_GATE_CONCURRENCY_SMOKE=PASS`를 확인했습니다. 이 결과는 독립 정책 하네스 검증이며 Android 앱 빌드 또는 저장소 JUnit 통과를 의미하지 않습니다.
+
+
+
+## 2026-11-24 — DNS 업스트림 UDP/TCP·기기 DNS 복구 경로
+- 무료 Android 소스 재점검에서 기본 UDP 업스트림이 실패할 때 동일 서버 TCP/53 재시도와 물리 네트워크 DNS 후보 탐색이 실제 `GuardianVpnService` 호출 경로에 연결되어 있지 않은 것을 확인해 복구했습니다.
+- 현재 순서는 선택한 DNS의 UDP/53 → 동일 DNS의 TCP/53 → 물리 네트워크 DNS 최대 2개 → 공용 DNS fallback(Cloudflare/Google)입니다. 각 후보는 주소/응답 검증을 거치며, Guardian 가상 DNS 주소(IPv4/IPv6), loopback, multicast, link-local 및 잘못된 주소는 후보에서 제외합니다.
+- 사용자가 TCP/DoT/DoH를 명시 선택한 경우 UDP로 강등하지 않습니다. UDP의 TC 응답도 중복 TCP 소켓을 열지 않고 상위 fallback 순서에서 TCP를 한 번만 시도하도록 정리했습니다.
+- Android `ConnectivityManager`에서 물리 DNS를 읽기 위해 `ACCESS_NETWORK_STATE` 권한을 선언했습니다. 네트워크 정보 조회 실패는 보호 패킷 처리 중단 대신 기기 DNS fallback 생략으로 처리합니다.
+- 순수 DNS 후보/순서 정책 테스트 4개를 추가했고 별도 Kotlin/JVM smoke harness에서 주소 정규화·IPv6 가상 DNS 제외·후보 순서·전송방식 보존을 실행 확인했습니다(`DNS_UPSTREAM_FALLBACK_POLICY_SMOKE=PASS`). Android Gradle/JUnit, 실제 Wi-Fi/모바일 DNS 연결은 미검증입니다.
