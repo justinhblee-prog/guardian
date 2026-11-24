@@ -1,3 +1,15 @@
+## 2026-11-24 — Android 검증 경로 상세 진단 및 수정 기록
+
+- 현재 작업 브랜치: `work/android-free-release-followup-20261124`. 이 브랜치의 GitHub Actions 실행 기록은 0건입니다. `.github/workflows/android-apk.yml`은 push 검증을 main에 한정하고 feature branch는 pull_request 또는 workflow_dispatch로 검증합니다. 현재 브랜치에는 연결된 PR이 없어 자동 Android CI가 실행되지 않았습니다.
+- 과거 runner 배정 실패 기록은 현재 상태를 대표하지 않습니다. 2026-11-24 최신 PR #290 Android run `45358811892`에서는 JUnit, Android Lint, Debug APK 빌드, APK 메타데이터/체크섬, 에뮬레이터 설치 및 VPN 검증 단계가 모두 성공했습니다. 이는 다른 브랜치의 결과이며 현재 브랜치 검증으로 전용할 수는 없습니다.
+- PR #252 Android run `45361151053`은 JUnit, Lint, APK 빌드 및 설치까지 통과했으나 emulator 수용 테스트가 실패했습니다. 로그와 화면 캡처에서 하단 접근성 이름은 `Premium`인데 해당 PR의 구형 테스트 스크립트가 `프리미엄`을 찾다가 중단한 사실을 확인했습니다. 이 실행은 VPN DNS 차단 검증 단계에 도달하지 못했으므로 VPN 엔진 실패 증거가 아닙니다.
+- 현재 작업 브랜치의 `scripts/verify_android_vpn_emulator.sh`는 실제 UI 접근성 트리에서 `Premium`/구형 한국어 탭/설정 메뉴를 판별하는 `open_license_premium_menu()`를 사용하며, `scripts/android_navigation_compat.py`와 회귀 테스트가 포함되어 있습니다. 다만 이 브랜치에서 에뮬레이터로 실행한 결과는 아직 없습니다.
+- 로컬 컨테이너는 Kotlin 1.9.0 및 Java만 제공하며 Gradle, Android SDK, adb/emulator가 없습니다. 컨테이너 DNS도 외부 도메인을 해석하지 못해 Gradle/SDK를 설치할 수 없습니다. 따라서 이 환경에서 Android Gradle JUnit, lintDebug, assembleDebug, adb 설치 및 VPN E2E를 실행했다고 기록하지 않습니다.
+- 독립 Kotlin smoke 스크립트의 실제 결함을 추가로 발견했습니다. `Ipv6Udp.kt`가 공유 IPv6 extension-header parser를 호출하지만, 그 구현은 `DnsTcpPacket.kt`에 있으면서 `VERIFY_ANDROID_CORE.sh` 컴파일 입력에서 빠져 있었습니다. 이 때문에 standalone compile은 `Unresolved reference: Ipv6ExtensionHeaderParser`로 실패했습니다. `DnsTcpPacket.kt`를 컴파일 입력에 포함하고 shell continuation 주석 위치도 안전하게 수정했습니다. 커밋: `298f3e3c`, `ae13296a`.
+- 수정한 스크립트는 다운로드한 별도 PR #290의 0.7.49-dev 소스 스냅샷(현재 작업 브랜치와 동일한 스크립트 및 Ipv6Udp 파일, 단 현재 Parser/DomainFilter/CoreSmoke와 완전히 같은 스냅샷은 아님)에서 `bash -n` 및 Kotlin 컴파일/실행을 수행해 19개 assertion PASS를 확인했습니다. 이는 현재 작업 브랜치 전체 테스트 통과가 아니라, 빠진 컴파일 의존성 수정 확인으로만 분류합니다.
+- 현재 브랜치에 추가한 parser smoke 회귀 검증은 `9c41f92d`, 호출 타입 수정은 `ed58ff4d`, ignored-count 조건 수정은 `e5ead18a`입니다. 이 세 변경은 원격 반영은 확인했지만 현재 브랜치의 정확한 소스 묶음으로 compile/run 되지 않았으므로 PASS로 표시하지 않습니다.
+- 남은 필수 검증: 현재 브랜치 기준 Android JUnit, lintDebug, assembleDebug, emulator install/upgrade, VPN start/stop, 실 DNS 차단, 네트워크 전환 및 실기기 테스트. 이전 runner 장애 기록을 근거로 현재 CI가 계속 불가능하다고 판단하지 말고, 실제 해당 브랜치 실행 결과로 판정해야 합니다.
+
 ## 2026-11-24 — Android 업데이트 화면 복원 누락 수정
 - MainActivity는 설정 하위의 `settings-updates`를 저장·복원 대상으로 처리하지만 ActivityScreenState 허용 목록에는 빠져 있어 Activity 재생성 시 홈으로 떨어질 수 있었습니다.
 - 허용 탭 목록과 복원 단위 테스트에 `settings-updates`를 추가했습니다.
