@@ -1,3 +1,9 @@
+## 2026-11-24 — 프로필 상태 브로드캐스트 정책 Kotlin/JVM 검증
+
+- 최신 `SecurityProfilePolicy`를 Kotlin/JVM harness로 다시 컴파일해 자동 프로필 판정, underlying-network ambiguity, 수동 선택 다운로드 제한 및 프로필 상태 변경 알림 정책을 검증했습니다.
+- PASS 19/19: Wi-Fi/cellular/Ethernet/captive/validated/roaming, metered update restriction, physical candidate 0/1/2/negative, 수동 프로필 6개 다운로드 제한, HOME→MOBILE처럼 필터 키가 같아도 profile ID 차이 알림, 상태 불변 시 알림 없음, update permission 변경 알림.
+- 이는 순수 정책 코드의 분리 Kotlin/JVM 검증이며 Android BroadcastReceiver/ConnectivityManager/NetworkCallback, Gradle/JUnit 및 실기기 검증은 미실행입니다.
+
 ## 2026-11-24 — 필터 정책이 같아도 프로필 상태 변경 알림
 
 - 집과 모바일처럼 필터 키·보안 옵션은 동일하지만 active profile ID 또는 자동 업데이트 허용 정책만 달라지는 전환에서는 VPN 규칙 재로드가 일어나지 않아 기존 서비스 상태 브로드캐스트가 발생하지 않을 수 있었습니다.
