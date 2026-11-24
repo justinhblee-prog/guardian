@@ -387,3 +387,8 @@
 ## 2026-11-24 — DEX 041 논리 파일 범위 테스트 확장
 - DEX 041 컨테이너에서 첫 logical file_size가 container 경계를 초과, 다음 logical file_size가 최소 header 크기보다 짧음, 컨테이너 끝에 부분 헤더만 남음의 세 회귀 케이스를 추가했습니다.
 - Android Gradle/JUnit·실제 APK scanner 검증은 미실행입니다.
+
+
+## 2026-11-24 — DEX 041 header traversal JVM smoke
+- 최신 논리 DEX 헤더 순회 helper의 독립 Kotlin/JVM smoke PASS 11/11: standard/reverse endian, 041 single/multi logical count, container_size/header_offset/file_size mismatch, unsupported version, truncated/trailing header boundaries.
+- ZIP analyzer, Android Gradle/JUnit, SAF/실제 APK 검증은 미실행입니다.
