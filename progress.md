@@ -667,3 +667,10 @@
 - VPN Builder에 저장된 앱 제외 항목을 적용하기 전 package ID 형식/길이와 Guardian 자기 자신 여부를 확인하도록 했습니다.
 - PackageManager의 앱 조회에서 발생하는 모든 Exception을 해당 제외 항목만 미적용 처리하도록 격리해, 깨진 설정 하나가 VPN TUN 생성 전체를 막지 않게 했습니다.
 - 순수 package-ID 정책 테스트 추가. Android Gradle/JUnit·OEM PackageManager·Samsung 실기기 VPN 검증은 미실행입니다.
+
+
+## 2026-11-24 — 개발판 업데이트 redirect 및 서명 검증 강화
+- 개발판 업데이트 JSON/APK 요청은 자동 redirect를 끄고, 각 Location이 허용된 HTTPS API/GitHub/CDN host인지 접속 전에 검사합니다.
+- APK/manifest asset 이름과 guardian-dev-vN tag 및 manifest versionCode 일치를 다운로드 전에 검사합니다.
+- post-download APK 검증 실패 시 파일 삭제, 단일 content signer 검증 및 설치된 개발판 signer 1개 조건을 추가했습니다.
+- 순수 URL allowlist/tag binding/signer policy 테스트 추가. Android Gradle/JUnit·실제 HTTPS redirect·실기기 업데이트는 미실행입니다.
