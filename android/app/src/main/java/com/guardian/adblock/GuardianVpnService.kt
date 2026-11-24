@@ -506,29 +506,25 @@ class GuardianVpnService : VpnService() {
             createNotificationChannel()
             startForeground(41, buildNotification())
         } catch (e: Exception) {
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(e)).apply()
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            publishState(false, "포그라운드 서비스 시작 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${SafeFailureSummary.describe(e)}")
-            stopSelf(startId)
+            reportStartupFailureIfCurrent(
+                requestGeneration, startId, e,
+                "포그라운드 서비스 시작 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${SafeFailureSummary.describe(e)}"
+            )
             return
         }
         try {
             // Parsing a large downloaded filter list must not block the service main thread.
             loadConfiguredRules()
         } catch (e: Exception) {
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(e)).apply()
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            publishState(false, "필터 규칙 로드 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${SafeFailureSummary.describe(e)}")
-            stopSelf(startId)
+            reportStartupFailureIfCurrent(
+                requestGeneration, startId, e,
+                "필터 규칙 로드 실패 (${ProtectionDiagnostics.exceptionTypeChain(e)}): ${SafeFailureSummary.describe(e)}"
+            )
             return
         }
         if (!startCancellation.isCurrent(requestGeneration)) {
-            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
-            if (!compatibilityPaused) {
-                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-                stopSelf(startId)
-            }
+            // A newer start, explicit stop, or compatibility transition owns
+            // foreground/service cleanup. This stale worker must not touch it.
             return
         }
 
@@ -539,25 +535,17 @@ class GuardianVpnService : VpnService() {
         val preflightQuery = DnsUpstreamProbe.query()
         val preflightResponse = forwardDns(preflightQuery, requireSuccessfulResolution = true)
         if (!startCancellation.isCurrent(requestGeneration)) {
-            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
-            if (!compatibilityPaused) {
-                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-                stopSelf(startId)
-            }
+            // A newer start, explicit stop, or compatibility transition owns
+            // foreground/service cleanup. This stale worker must not touch it.
             return
         }
         if (!DnsUpstreamProbe.isSuccessfulResolution(preflightQuery, preflightResponse)) {
             val detail = lastUpstreamFailure ?: "업스트림 DNS 응답 검증 실패"
-            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                .putString(KEY_DNS_DIAGNOSTIC, "보호 시작 전 DNS 연결 확인 실패: $detail")
-                .apply()
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            publishState(
-                false,
-                "업스트림 DNS 연결을 확인하지 못해 보호를 시작하지 않았습니다. 일반 인터넷 연결은 변경하지 않았습니다. ($detail)"
+            reportStartupFailureIfCurrent(
+                requestGeneration, startId, null,
+                "업스트림 DNS 연결을 확인하지 못해 보호를 시작하지 않았습니다. 일반 인터넷 연결은 변경하지 않았습니다. ($detail)",
+                diagnostic = "보호 시작 전 DNS 연결 확인 실패: $detail"
             )
-            stopSelf(startId)
             return
         }
 
@@ -632,13 +620,11 @@ class GuardianVpnService : VpnService() {
             null
         }
         if (descriptor == null) {
-            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
             val detail = establishError?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${SafeFailureSummary.describe(it)})" }.orEmpty()
-            establishError?.let { error ->
-                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
-            }
-            publishState(false, "VPN 연결 생성 실패$detail. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요.")
-            stopSelf(startId)
+            reportStartupFailureIfCurrent(
+                requestGeneration, startId, establishError,
+                "VPN 연결 생성 실패$detail. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요."
+            )
             return
         }
         val committed = startCancellation.tryCommitStart(requestGeneration) {
@@ -685,6 +671,31 @@ class GuardianVpnService : VpnService() {
      * the startup error. Otherwise the service can report a live tunnel with no
      * packet reader attached.
      */
+    /**
+     * Publishes startup failure only while this request still owns the start
+     * generation. An old preflight/establish operation must not clear a newer
+     * start's foreground notification or overwrite its active UI state.
+     */
+    private fun reportStartupFailureIfCurrent(
+        requestGeneration: Long,
+        startId: Int,
+        error: Throwable?,
+        message: String,
+        diagnostic: String? = null
+    ) {
+        startCancellation.tryCommitStart(requestGeneration) {
+            val editor = getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+            if (error != null) {
+                editor.putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error))
+            }
+            if (diagnostic != null) editor.putString(KEY_DNS_DIAGNOSTIC, diagnostic)
+            editor.commit()
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+            publishState(false, message)
+            stopSelf(startId)
+        }
+    }
+
     private fun rollbackCommittedTunnel(
         requestGeneration: Long,
         descriptor: ParcelFileDescriptor
