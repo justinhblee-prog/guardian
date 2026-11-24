@@ -1019,6 +1019,34 @@ class DnsTcpSessionManagerTest {
         }
     }
 
+    @Test fun staleResetSegmentCannotDestroyActiveDnsTcpSession() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 9500)
+        manager.handle(syn, syn.size) { null }
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 9501, acknowledgment = 1L, payload = framedQuery)
+        val sent = manager.handle(request, request.size) { ByteArray(2000) }
+        assertTrue(sent.isNotEmpty())
+        val clientNext = (9501L + framedQuery.size) and 0xffffffffL
+        val staleReset = packet(flags = DnsTcpPacket.RST, seq = clientNext - 1L)
+        assertTrue(manager.handle(staleReset, staleReset.size) { null }.isEmpty())
+        assertEquals(1, manager.activeSessionCount())
+        val exactRetransmission = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 9501, acknowledgment = 1L, payload = framedQuery)
+        assertEquals(sent.size, manager.handle(exactRetransmission, exactRetransmission.size) { null }.size)
+    }
+
+    @Test fun resetAtCurrentReceiveSequenceClosesDnsTcpSession() {
+        val manager = newManager()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 9600)
+        manager.handle(syn, syn.size) { null }
+        val currentReset = packet(flags = DnsTcpPacket.RST, seq = 9601)
+        assertTrue(manager.handle(currentReset, currentReset.size) { null }.isEmpty())
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     @Test fun staleTcpSegmentsCannotOverwriteNewerPeerReceiveWindow() {
         val manager = newManager()
         val query = dnsQuery()
