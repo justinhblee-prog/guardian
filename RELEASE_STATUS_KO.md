@@ -779,3 +779,6 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 회귀 테스트 추가: 정상 true/false, 일반 예외, `NoClassDefFoundError` 격리 및 `OutOfMemoryError` 동일 인스턴스 전파.
 - 커밋: `f6266d012f72040e056df15c33fcee581ef8161a` (정책), `f00c0f985b77ab45733a600e1708ff71cdc460d8` (테스트), `bb3d51f0f31550b3189911c57cf48a8f662751f9` (VPN 시작 경로 적용).
 - 원격 브랜치 재조회로 세 파일의 반영과 서비스 내 세 호출 지점을 확인했습니다. Android JUnit/Gradle, Lint, APK 빌드 및 에뮬레이터·실기기 검증은 실행하지 않았으며, 이 수정은 해당 검증을 통과한 것으로 간주하지 않습니다.
+
+- 후속 확장: 동일한 오류 경계 정책을 선택형 WebView 화장품 필터 캐시 확인·파싱에도 적용했습니다. 일반 캐시/링크 오류는 해당 선택 필터만 생략하고, VM 치명 오류는 삼키지 않습니다. 공통 정책을 제네릭 `optionalCacheResult`로 통합하고 결과값·일반 예외·링크 오류·`OutOfMemoryError` 전파 테스트를 추가했습니다.
+- 후속 커밋: `913cbb4aecbc6f63cd4651832531716494075d79` (공통 정책), `b09993cd8e78082eb242fc3647315e2551763f77` (회귀 테스트), `25f68a7cc01167acc58261113dc5eef2e90275e3` (화장품 필터 캐시 적용).
