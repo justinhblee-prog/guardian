@@ -19,6 +19,21 @@ class DevUpdateManagerTest {
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 49, 48))
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 48, 49))
     }
+    @Test fun acceptsUnknownLengthDevelopmentApkStreamsButBoundsActualBytes() {
+        val maximum = 100L * 1024L * 1024L
+        assertTrue(DevUpdateManager.isAcceptableDownloadLength(-1L, maximum))
+        assertTrue(DevUpdateManager.isAcceptableDownloadLength(1024L, maximum))
+        assertFalse(DevUpdateManager.isAcceptableDownloadLength(0L, maximum))
+        assertFalse(DevUpdateManager.isAcceptableDownloadLength(maximum + 1L, maximum))
+        assertFalse(DevUpdateManager.isAcceptableDownloadLength(-1L, 0L))
+
+        assertTrue(DevUpdateManager.matchesDownloadedLength(-1L, 1024L, maximum))
+        assertTrue(DevUpdateManager.matchesDownloadedLength(1024L, 1024L, maximum))
+        assertFalse(DevUpdateManager.matchesDownloadedLength(2048L, 1024L, maximum))
+        assertFalse(DevUpdateManager.matchesDownloadedLength(-1L, 0L, maximum))
+        assertFalse(DevUpdateManager.matchesDownloadedLength(-1L, maximum + 1L, maximum))
+    }
+
     @Test fun acceptsOnlyOfficialHttpsReleaseAssetUrls() {
         assertTrue(DevUpdateManager.isGuardianReleaseAssetUrl(
             "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
