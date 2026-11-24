@@ -129,6 +129,11 @@ class DnsTcpSessionManager(
             session.outstandingServerPackets.removeAll {
                 sequenceAtOrAfter(session.serverAcknowledged, it.endSequence)
             }
+            // Restart the single oldest-outstanding-data timer when ACK makes
+            // forward progress. All segments may have been sent together, so
+            // retaining the next packet's original timestamp causes spurious
+            // immediate retransmits after the previous segment is acknowledged.
+            session.outstandingServerPackets.firstOrNull()?.lastSentAtMs = now
             session.duplicateAckSequence = tcp.acknowledgement
             session.duplicateAckCount = 0
         } else if (tcp.acknowledgement == session.serverAcknowledged && outstanding > 0L) {
