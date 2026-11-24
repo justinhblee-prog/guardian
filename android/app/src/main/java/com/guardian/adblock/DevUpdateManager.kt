@@ -108,8 +108,12 @@ internal object DevUpdateManager {
         require(update.signerSha256 == installedSignerSha256(context)) {
             "업데이트 서명 인증서가 현재 설치된 개발 버전과 다릅니다. 설치를 중단했습니다."
         }
-        val directory = File(context.cacheDir, GuardianUpdateCachePaths.DEVELOPMENT_DIRECTORY).apply { mkdirs() }
+        val directory = File(context.cacheDir, GuardianUpdateCachePaths.DEVELOPMENT_DIRECTORY).apply {
+            check(isDirectory || mkdirs()) { "개발 업데이트 캐시 디렉터리를 만들 수 없습니다." }
+        }
         val target = File(directory, "guardian-${update.versionCode}.apk")
+        val temporary = File(directory, ".guardian-${update.versionCode}.apk.part")
+        temporary.delete()
         val connection = (URL(update.apkUrl).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15000
             readTimeout = 30000
@@ -124,7 +128,7 @@ internal object DevUpdateManager {
             val expectedLength = connection.contentLengthLong
             check(expectedLength in 1..MAX_APK_BYTES) { "APK 파일 크기가 허용 범위를 벗어났습니다." }
             connection.inputStream.use { input ->
-                FileOutputStream(target).use { output ->
+                FileOutputStream(temporary).use { output ->
                     val buffer = ByteArray(64 * 1024)
                     var total = 0L
                     while (true) {
@@ -138,19 +142,20 @@ internal object DevUpdateManager {
                     check(total == expectedLength) { "APK 다운로드 크기가 일치하지 않습니다." }
                 }
             }
-        } catch (error: Exception) {
-            target.delete()
-            throw error
         } finally {
             connection.disconnect()
         }
-        val actual = sha256(target)
-        if (!actual.equals(update.sha256, ignoreCase = true)) {
-            target.delete()
-            error("다운로드한 APK의 SHA-256 검증에 실패했습니다.")
+        try {
+            val actual = sha256(temporary)
+            check(actual.equals(update.sha256, ignoreCase = true)) {
+                "다운로드한 APK의 SHA-256 검증에 실패했습니다."
+            }
+            verifyDownloadedPackage(context, temporary, update)
+            GuardianApkCacheStore.commit(temporary, target)
+            return target
+        } finally {
+            temporary.delete()
         }
-        verifyDownloadedPackage(context, target, update)
-        return target
     }
 
     fun install(context: Context, apk: File): Boolean {
