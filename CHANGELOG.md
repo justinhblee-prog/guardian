@@ -1,3 +1,10 @@
+## 2026-11-24 — 빈 설치 앱 목록에서 앱별 데이터 삭제 방지
+
+- `getInstalledApplications()`가 예외 없이 빈 목록을 반환하면 `installedQuerySucceeded=true`가 되어 기존 앱별 규칙/통계를 모두 제거할 수 있는 위험을 수정했습니다.
+- 기본 PackageManager 조회가 실제 항목을 반환했고, QUERY_ALL_PACKAGES 권한이 있으며, 최종 병합 앱 목록도 비어 있지 않을 때만 삭제 정리를 수행합니다. 런처 fallback만으로는 전체 설치 목록이 완전하다고 판단하지 않습니다.
+- 순수 cleanup policy도 `inventoryComplete=true`여도 설치 앱 집합이 비어 있으면 삭제 대상 0개를 반환하도록 이중 보호하고 회귀 테스트를 추가했습니다.
+- Android PackageManager/OEM 실기기 검증은 미실행입니다.
+
 ## 2026-11-24 — 제거된 앱의 앱별 정책·통계 자동 정리
 
 - 전체 앱 조회 권한이 확인되고 PackageManager 전체 설치 앱 목록 조회가 성공했을 때만 제거된 패키지의 앱별 추가 차단 규칙과 DNS 집계 키를 정리하도록 연결했습니다.
