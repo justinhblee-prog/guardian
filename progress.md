@@ -338,3 +338,7 @@
 - PASS 5/5: 중앙 디렉터리와 EOCD가 정상인 APK+DEX 허용, EOCD 제거 거부, EOCD comment length 변조 거부, EOCD 뒤 trailing bytes 거부, ZIP 형식이 아닌 입력 거부.
 - 입력 스트림은 최대 200MiB 한도 내에서 EOF까지 읽고 마지막 65,557바이트만 보존해 EOCD를 확인합니다. 전체 파일을 메모리에 적재하지 않습니다.
 - 결과는 ApkStaticAnalyzer ZIP 구조 검증의 isolated Kotlin/JVM smoke입니다. Android SAF URI/Gradle/JUnit·실제 APK 서명·설치·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — ZIP 최대 주석 길이 EOCD tail ring 테스트
+- 65,535-byte ZIP comment가 EOCD tail ring 전체 길이(65,557 bytes)를 정확히 채우는 경우 정상 DEX APK가 SCANNED로 판정되는 테스트를 추가했습니다.
