@@ -3628,6 +3628,14 @@ class MainActivity : Activity() {
         val securityIgnored = if (securityOn) FilterListManager.cachedSecurityIgnoredCount(this) else 0
         val androidAdsIgnored = if (androidAdsOn) FilterListManager.cachedAndroidAdsIgnoredCount(this) else 0
         val lastError = prefs.getString(FilterListManager.KEY_LAST_ERROR, null)
+        val hasUsableMainCache = runCatching {
+            FilterUpdatePolicy.hasUsableMainCache(
+                cacheValid = FilterListManager.hasCachedList(this),
+                selectedProfileKey = selectedProfile.key,
+                cachedProfileKey = cachedProfile.key
+            )
+        }.getOrDefault(false)
+        val mainErrorStatus = FilterUpdatePolicy.mainErrorStatus(lastError, hasUsableMainCache)
         val securityError = if (securityOn) prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null) else null
         val androidAdsError = if (androidAdsOn) prefs.getString(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR, null) else null
         val selectedProfile = FilterListManager.selectedProfile(this)
@@ -3640,7 +3648,7 @@ class MainActivity : Activity() {
         return listOfNotNull(
             summary,
             signedManifestStatus,
-            lastError?.takeIf { it.isNotBlank() }?.let { "광고 필터 업데이트 실패(이전 목록 유지): ${SafeFailureSummary.describeCode(it)}" },
+            mainErrorStatus,
             securityError?.takeIf { it.isNotBlank() }?.let { "보안 필터 업데이트 실패(이전 목록 유지): ${SafeFailureSummary.describeCode(it)}" },
             androidAdsError?.takeIf { it.isNotBlank() }?.let { "Android 앱 광고 필터 업데이트 실패(이전 목록 유지): ${SafeFailureSummary.describeCode(it)}" }
         ).joinToString(" · ")
