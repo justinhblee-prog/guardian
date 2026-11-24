@@ -73,6 +73,10 @@ class DnsTcpSessionManager(
         }
 
         if (tcp.syn && !tcp.ack) {
+            // TCP Fast Open data is not implemented by this state machine.
+            // Do not establish a session or acknowledge a SYN carrying bytes
+            // that would otherwise be silently discarded.
+            if (tcp.payload.isNotEmpty()) return emptyList()
             val existing = sessions[key]
             val expectedClientNext = (tcp.sequence + 1L) and MASK
             if (existing != null && existing.clientInitialSequence == tcp.sequence) {
