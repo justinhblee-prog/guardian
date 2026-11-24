@@ -3,6 +3,9 @@ package com.guardian.adblock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import org.junit.Test
 
 class DnsQueryDeadlineTest {
@@ -31,6 +34,12 @@ class DnsQueryDeadlineTest {
     @Test fun timeoutIsClampedToSocketIntegerRange() {
         val deadline = DnsQueryDeadline.afterMillis(Long.MAX_VALUE / 1_000_000L)
         assertEquals(Int.MAX_VALUE, deadline.remainingTimeoutMillis())
+    }
+
+    @Test fun watchdogClosesSocketWhenSharedDeadlineExpires() {
+        val closed = CountDownLatch(1)
+        DnsQueryDeadline.afterMillis(80L).closeOnExpiry { closed.countDown() }
+        assertTrue("deadline watchdog did not close the socket", closed.await(2, TimeUnit.SECONDS))
     }
 
     @Test fun nonPositiveBudgetIsRejected() {
