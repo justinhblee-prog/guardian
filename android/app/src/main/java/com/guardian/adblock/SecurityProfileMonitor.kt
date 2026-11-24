@@ -19,6 +19,7 @@ internal object SecurityProfileStore {
     fun automaticSwitchEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AUTO_SWITCH, false)
 
+    @Synchronized
     fun setAutomaticSwitchEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_AUTO_SWITCH, enabled).apply()
