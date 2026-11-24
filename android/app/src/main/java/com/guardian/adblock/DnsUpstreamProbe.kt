@@ -38,33 +38,97 @@ object DnsUpstreamProbe {
         val answerCount = u16(response, 6)
         if (answerCount == 0) return false
         val questionEnd = rawQuestionEnd(response) ?: return false
-        // This probe asks for an A/IN record. A syntactically complete TXT,
-        // CNAME-only, or malformed-length answer is not proof that IPv4 DNS
-        // resolution is usable. CNAME chains remain valid when they include
-        // a final A record in the answer section.
+        // The probe asks for an A/IN record. A TXT-only, unrelated A record, or
+        // malformed CNAME chain must not be accepted as proof that this resolver
+        // can resolve the name that Guardian will send through it.
         val questionType = u16(response, questionEnd - 4)
         val questionClass = u16(response, questionEnd - 2)
         if (questionType != 1 || questionClass != 1) return false
+        val questionName = DomainFilter.readQuestionName(query) ?: return false
         val recordCount = answerCount.toLong() + u16(response, 8) + u16(response, 10)
         if (recordCount > response.size.toLong()) return false
         var offset = questionEnd
-        var hasAddressAnswer = false
+        val addressOwners = HashSet<String>()
+        val cnameTargets = HashMap<String, String>()
         repeat(recordCount.toInt()) { index ->
-            offset = skipName(response, offset) ?: return false
+            val owner = decodeName(response, offset) ?: return false
+            offset = owner.nextOffset
             if (offset + 10 > response.size) return false
             val recordType = u16(response, offset)
             val recordClass = u16(response, offset + 2)
             val dataLength = u16(response, offset + 8)
-            if (index < answerCount && recordType == 1 && recordClass == 1 && dataLength == 4) {
-                hasAddressAnswer = true
-            }
             offset += 10
             if (dataLength > response.size - offset) return false
-            offset += dataLength
+            val dataEnd = offset + dataLength
+            if (index < answerCount && recordClass == 1) {
+                when (recordType) {
+                    1 -> if (dataLength == 4) addressOwners.add(owner.value)
+                    5 -> {
+                        val target = decodeName(response, offset) ?: return false
+                        if (target.nextOffset != dataEnd) return false
+                        val previous = cnameTargets.put(owner.value, target.value)
+                        if (previous != null && previous != target.value) return false
+                    }
+                }
+            }
+            offset = dataEnd
         }
-        return offset == response.size && hasAddressAnswer
+        if (offset != response.size) return false
+
+        // Follow only the queried name's answer-section CNAME chain. This prevents
+        // an unrelated A record elsewhere in the packet from making a dead resolver
+        // look healthy, while still supporting ordinary CNAME-based DNS answers.
+        var currentName = questionName
+        val visited = HashSet<String>()
+        repeat(16) {
+            if (currentName in addressOwners) return true
+            if (!visited.add(currentName)) return false
+            currentName = cnameTargets[currentName] ?: return false
+        }
+        return currentName in addressOwners
     }
 
+    private data class DecodedName(val value: String, val nextOffset: Int)
+
+    /** Decode a DNS name while bounding compression traversal and expanded length. */
+    private fun decodeName(message: ByteArray, start: Int): DecodedName? {
+        var offset = start
+        var encodedEnd = -1
+        var steps = 0
+        var expandedLength = 0
+        val visited = HashSet<Int>()
+        val labels = ArrayList<String>()
+        while (offset < message.size && steps++ < 128) {
+            val length = message[offset].toInt() and 0xff
+            when {
+                length == 0 -> {
+                    expandedLength++
+                    if (expandedLength > 255) return null
+                    return DecodedName(
+                        labels.joinToString(".").lowercase(java.util.Locale.ROOT),
+                        if (encodedEnd >= 0) encodedEnd else offset + 1
+                    )
+                }
+                (length and 0xc0) == 0xc0 -> {
+                    if (offset + 1 >= message.size) return null
+                    val target = ((length and 0x3f) shl 8) or (message[offset + 1].toInt() and 0xff)
+                    if (target < 12 || target >= offset || !visited.add(target)) return null
+                    if (encodedEnd < 0) encodedEnd = offset + 2
+                    offset = target
+                }
+                (length and 0xc0) != 0 || length > 63 || offset + 1 + length > message.size -> return null
+                else -> {
+                    expandedLength += length + 1
+                    if (expandedLength > 255) return null
+                    val label = String(message, offset + 1, length, Charsets.US_ASCII)
+                    if (label.any { it.code <= 32 || it.code >= 127 || it == '.' }) return null
+                    labels.add(label)
+                    offset += length + 1
+                }
+            }
+        }
+        return null
+    }
     private fun rawQuestionEnd(message: ByteArray): Int? {
         var offset = 12
         while (offset < message.size) {
