@@ -20,7 +20,9 @@ class ApkStaticAnalyzerTest {
         }
         putInt(32, bytes.size)
         putInt(36, 0x70)
-        putInt(40, if (reverseEndian) 0x78563412 else 0x12345678)
+        // The marker has the same numeric value in the file's byte order;
+        // reading its bytes as little-endian distinguishes standard vs reverse.
+        putInt(40, 0x12345678)
         payload.copyInto(bytes, 0x70)
         return bytes
     }
