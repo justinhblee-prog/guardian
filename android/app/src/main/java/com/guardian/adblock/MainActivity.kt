@@ -1098,7 +1098,8 @@ class MainActivity : Activity() {
                     FilterListManager.KEY_SECURITY_LAST_ERROR,
                     FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
                 ).mapNotNull { prefs.getString(it, null) },
-                filterReadiness = prefs.getString(GuardianVpnService.KEY_FILTER_READINESS, null)
+                filterReadiness = prefs.getString(GuardianVpnService.KEY_FILTER_READINESS, null),
+                lastDnsDiagnostic = prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, null)
             )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian recent errors", report))
