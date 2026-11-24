@@ -1,7 +1,6 @@
 package com.guardian.adblock
 
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import org.junit.Assert.*
 import org.junit.Test
 
 class DevUpdateManagerTest {
@@ -32,6 +31,11 @@ class DevUpdateManagerTest {
         assertFalse(DevUpdateManager.isCanonicalDevelopmentVersionName("0.07.49-dev"))
         assertFalse(DevUpdateManager.isCanonicalDevelopmentVersionName("0.7.049-dev"))
         assertFalse(DevUpdateManager.isCanonicalDevelopmentVersionName("0.7.49"))
+        assertTrue(DevUpdateManager.isSupportedDevelopmentManifestVersion(null, false))
+        assertTrue(DevUpdateManager.isSupportedDevelopmentManifestVersion(1, true))
+        assertFalse(DevUpdateManager.isSupportedDevelopmentManifestVersion(2, true))
+        assertFalse(DevUpdateManager.isSupportedDevelopmentManifestVersion("1", true))
+        assertFalse(DevUpdateManager.isSupportedDevelopmentManifestVersion(1.5, true))
     }
 
     @Test fun acceptsUnknownLengthDevelopmentApkStreamsButBoundsActualBytes() {
