@@ -126,18 +126,24 @@ class DnsTcpSessionManager(
             }
             session.duplicateAckSequence = tcp.acknowledgement
             session.duplicateAckCount = 0
-        } else if (tcp.acknowledgement == session.serverAcknowledged &&
-            outstanding > 0L && tcp.payload.isEmpty() && !tcp.fin) {
-            if (session.duplicateAckSequence != tcp.acknowledgement) {
-                session.duplicateAckSequence = tcp.acknowledgement
-                session.duplicateAckCount = 1
+        } else if (tcp.acknowledgement == session.serverAcknowledged && outstanding > 0L) {
+            if (tcp.payload.isEmpty() && !tcp.fin && tcp.window == session.peerWindow) {
+                if (session.duplicateAckSequence != tcp.acknowledgement) {
+                    session.duplicateAckSequence = tcp.acknowledgement
+                    session.duplicateAckCount = 1
+                } else {
+                    session.duplicateAckCount = (session.duplicateAckCount + 1).coerceAtMost(4)
+                }
+                // Fire fast retransmit once per ACK number; further duplicate ACKs
+                // must not repeatedly flood the same oldest segment.
+                if (session.duplicateAckCount == 3) {
+                    fastRetransmit = session.outstandingServerPackets.firstOrNull()?.packet?.copyOf()
+                }
             } else {
-                session.duplicateAckCount = (session.duplicateAckCount + 1).coerceAtMost(4)
-            }
-            // Fire fast retransmit once per ACK number; further duplicate ACKs
-            // must not repeatedly flood the same oldest segment.
-            if (session.duplicateAckCount == 3) {
-                fastRetransmit = session.outstandingServerPackets.firstOrNull()?.packet?.copyOf()
+                // A payload-bearing ACK or a receive-window update is not a
+                // duplicate ACK and breaks the consecutive duplicate sequence.
+                session.duplicateAckSequence = tcp.acknowledgement
+                session.duplicateAckCount = 0
             }
         }
         // RFC 7323-style window update ordering (without window scaling): an older
