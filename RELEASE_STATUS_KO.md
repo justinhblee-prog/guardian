@@ -586,3 +586,6 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - **정식 1.0.0 완료 아님.** 현재까지의 코드 반영 및 독립 smoke test는 Android Gradle/JUnit·lint·에뮬레이터·실기기·production signing·설치 검증을 대체하지 않습니다.
 - GitHub Actions는 기존 runner 시작 실패 이력과 비용/설정 변경 금지 조건에 따라 이번 작업에서 실행하지 않았습니다.
 - 다음 통합 검증은 승인된 filter origin과 운영 signing/service prerequisites가 실제로 준비된 뒤에만 진행할 수 있습니다.
+
+
+- 필터 업데이트 UI에서 Android 런타임 구성요소 로딩 실패가 발생할 경우 진행 플래그·컨트롤이 고정될 수 있는 경로를 보완했습니다. 선택 필터의 기존 캐시 보존 및 재시도 UI 복구를 반영했습니다.
