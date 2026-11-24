@@ -1392,6 +1392,10 @@ class GuardianVpnService : VpnService() {
         deadline: DnsQueryDeadline = DnsQueryDeadline.afterMillis(DNS_QUERY_DEADLINE_MS)
     ): ByteArray? {
         lastUpstreamFailure = null
+        if (deadline.remainingTimeoutMillis() == null) {
+            lastUpstreamFailure = "DNS preflight 취소 또는 전체 시간 예산 소진"
+            return null
+        }
         val configured = configuredUpstreamDns()
         val transport = configuredUpstreamTransport()
         val candidates = when (transport) {
