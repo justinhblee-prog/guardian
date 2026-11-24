@@ -493,3 +493,9 @@
 - 현재 수정한 `DnsTcpPacket.response` 경계와 TCP/IP checksum/parser helper를 Kotlin/JVM으로 컴파일해 실행했습니다.
 - PASS 7/7: IPv4 65,495-byte TCP payload로 total_length=65,535 생성 및 재파싱, IPv4 초과 1바이트 거부, IPv6 65,515-byte TCP payload로 payload_length=65,535 생성 및 재파싱, IPv6 초과 1바이트 거부.
 - 이는 DnsTcpPacket codec의 isolated Kotlin/JVM 검증이며 Android Gradle/JUnit, GuardianVpnService 통합 및 실기기 패킷 검증은 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP codec/session 독립 Kotlin/JVM smoke
+- 현재 free branch의 DnsTcpPacket codec 및 DnsTcpSessionManager 동작을 Android 의존성 없이 kotlinc로 컴파일해 deterministic packet/clock harness에서 실행했습니다. DomainFilter.makeServfail만 비상 경로 stub이며 이 smoke에서는 resolver가 정상 응답을 반환합니다.
+- PASS 25/25: SYN/SYN-ACK handshake/session, MSS 1,200바이트 응답 분할, duplicate ACK 3회 fast retransmit/4번째 억제, 1·2·4·8초 RTO backoff 5회, retry budget 소진 시 세션 종료, 부분 누적 ACK 후 다음 outstanding 타이머 재시작, zero-window 응답 대기/2KiB window open 배출, 최대 65,535-byte DNS 프레임과 다음 질의 동시 프레이밍 및 응답 생성.
+- 결과는 순수 Kotlin/JVM codec/session smoke PASS입니다. Android Gradle/JUnit, GuardianVpnService 250ms scheduler·TUN write 통합, 실제 IPv4/IPv6 VPN 트래픽 및 실기기 수용시험은 미실행입니다.
