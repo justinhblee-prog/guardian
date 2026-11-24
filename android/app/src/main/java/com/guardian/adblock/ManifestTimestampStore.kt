@@ -10,8 +10,7 @@ import java.util.Properties
  * Persists the highest accepted signed-manifest timestamp per source.
  *
  * Call [recordAccepted] only after signature, content hash and rule parsing have all passed.
- * The state file is app-private and atomically replaced so process death cannot reset rollback
- * protection to an older value.
+ * State replacements are synced before rename so rollback recovery is durable across process death.
  */
 internal class ManifestTimestampStore(private val stateFile: File) {
     @Synchronized
@@ -30,13 +29,33 @@ internal class ManifestTimestampStore(private val stateFile: File) {
     fun recordAccepted(sourceId: String, generatedAt: Long) {
         validateSourceId(sourceId)
         require(generatedAt > 0L) { "manifest 생성 시각은 양수여야 합니다." }
-        val properties = Properties()
-        if (stateFile.isFile) stateFile.inputStream().use(properties::load)
+        val properties = readProperties()
         val stored = properties.getProperty(sourceId)
         val previous = stored?.toLongOrNull()
             ?: if (stored == null) 0L else throw IllegalStateException("저장된 manifest 시각 데이터가 손상되었습니다.")
         require(generatedAt > previous) { "이전 manifest보다 오래되었거나 동일한 버전입니다." }
         properties.setProperty(sourceId, generatedAt.toString())
+        persist(properties)
+    }
+
+    @Synchronized
+    fun restore(sourceId: String, generatedAt: Long) {
+        validateSourceId(sourceId)
+        require(generatedAt >= 0L) { "manifest 복구 시각은 음수일 수 없습니다." }
+        val properties = readProperties()
+        if (generatedAt == 0L) properties.remove(sourceId)
+        else properties.setProperty(sourceId, generatedAt.toString())
+        persist(properties)
+    }
+
+    private fun readProperties(): Properties {
+        val properties = Properties()
+        if (stateFile.isFile) stateFile.inputStream().use(properties::load)
+        return properties
+    }
+
+    /** Write and fsync the complete state before atomically publishing the new generation. */
+    private fun persist(properties: Properties) {
         val parent = stateFile.absoluteFile.parentFile
             ?: throw IllegalStateException("manifest 상태 저장 경로가 올바르지 않습니다.")
         check(parent.exists() || parent.mkdirs()) { "manifest 상태 디렉터리를 만들 수 없습니다." }
@@ -46,32 +65,6 @@ internal class ManifestTimestampStore(private val stateFile: File) {
                 properties.store(output, "Guardian accepted filter manifest timestamps")
                 output.fd.sync()
             }
-            try {
-                Files.move(temporary.toPath(), stateFile.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
-                Files.move(temporary.toPath(), stateFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
-            }
-        } finally {
-            temporary.delete()
-        }
-    }
-
-
-    @Synchronized
-    fun restore(sourceId: String, generatedAt: Long) {
-        validateSourceId(sourceId)
-        require(generatedAt >= 0L) { "manifest 복구 시각은 음수일 수 없습니다." }
-        val properties = Properties()
-        if (stateFile.isFile) stateFile.inputStream().use(properties::load)
-        if (generatedAt == 0L) properties.remove(sourceId)
-        else properties.setProperty(sourceId, generatedAt.toString())
-        val parent = stateFile.absoluteFile.parentFile
-            ?: throw IllegalStateException("manifest 상태 저장 경로가 올바르지 않습니다.")
-        check(parent.exists() || parent.mkdirs()) { "manifest 상태 디렉터리를 만들 수 없습니다." }
-        val temporary = File(parent, stateFile.name + ".tmp")
-        try {
-            temporary.outputStream().use { properties.store(it, "Guardian accepted filter manifest timestamps") }
             try {
                 Files.move(temporary.toPath(), stateFile.toPath(),
                     StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
