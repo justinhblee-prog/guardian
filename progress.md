@@ -471,3 +471,8 @@
 ## 2026-11-24 — TCP ACK progress에 따른 RTO timer restart
 - 서버가 여러 segment를 동시에 보낸 경우 누적 ACK 진행 후 다음 oldest outstanding의 timer 기준을 ACK 시각으로 재설정합니다. 전송 직후 첫 segment가 ACK되었다고 다음 segment를 즉시 오재전송하지 않도록 했습니다.
 - deterministic test를 1,999ms까지 무재전송, 2,000ms에서 다음 segment 재전송으로 보정했습니다. scheduler write lambda 및 background failure 우선순위도 정리했습니다.
+
+
+## 2026-11-24 — DNS TCP RST sequence validation
+- RST 세그먼트가 4-tuple만 일치해도 세션을 삭제하던 경로를 현재 clientNext sequence 일치 조건으로 제한했습니다.
+- stale RST 이후 세션 및 outstanding answer 재전송이 유지되는 테스트와 exact-current-sequence RST 종료 테스트를 추가했습니다. Android Gradle/JUnit·단말 검증은 미실행입니다.
