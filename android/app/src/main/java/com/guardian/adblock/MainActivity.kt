@@ -1078,18 +1078,18 @@ class MainActivity : Activity() {
     }
 
     private fun copyRecentErrors() {
-        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-        val report = ProtectionDiagnostics.recentErrorReport(
-            lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null),
-            lastStartupTrace = prefs.getString(GuardianVpnService.KEY_STARTUP_TRACE, null),
-            filterErrorCodes = listOf(
-                FilterListManager.KEY_LAST_ERROR,
-                FilterListManager.KEY_SECURITY_LAST_ERROR,
-                FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
-            ).mapNotNull { prefs.getString(it, null) },
-            filterReadiness = prefs.getString(GuardianVpnService.KEY_FILTER_READINESS, null)
-        )
         try {
+            val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            val report = ProtectionDiagnostics.recentErrorReport(
+                lastServiceStatus = prefs.getString(GuardianVpnService.KEY_STATUS, null),
+                lastStartupTrace = prefs.getString(GuardianVpnService.KEY_STARTUP_TRACE, null),
+                filterErrorCodes = listOf(
+                    FilterListManager.KEY_LAST_ERROR,
+                    FilterListManager.KEY_SECURITY_LAST_ERROR,
+                    FilterListManager.KEY_ANDROID_ADS_LAST_ERROR
+                ).mapNotNull { prefs.getString(it, null) },
+                filterReadiness = prefs.getString(GuardianVpnService.KEY_FILTER_READINESS, null)
+            )
             val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian recent errors", report))
             Toast.makeText(this, "최근 오류 내용과 안전한 호출 경로를 복사했습니다.", Toast.LENGTH_SHORT).show()
