@@ -477,3 +477,8 @@
 ## 2026-11-24 — 하단 내비게이션 시스템 인셋 단일 소유
 - 휴대전화·콤팩트 태블릿에서 root와 bottomNav가 bottom system inset을 이중 반영하는 경로를 제거했습니다. bottom navigation은 839dp 이하에서만 인셋을 처리하고, navigation rail 사용 840dp 이상은 root가 처리합니다.
 - API 30+ systemBars 및 레거시 systemWindowInset 구현에 동일 정책을 적용하고 breakpoint 단위 테스트를 추가했습니다. 실제 화면/에뮬레이터 검증은 미실행입니다.
+
+
+## 2026-11-24 — 재전송 스케줄러 종료 동기화
+- packet loop finally에서 RTO scheduler를 취소한 뒤 최대 500ms 종료 대기를 수행하고, InterruptedException 시 현재 스레드 인터럽트 플래그를 복원합니다.
+- 종료 직후 TUN descriptor write 경합을 줄이기 위한 cleanup이며, Android service lifecycle·단말 검증은 미실행입니다.
