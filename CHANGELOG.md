@@ -1,3 +1,9 @@
+## 2026-11-24 — 개발판 업데이트 정책 독립 검증 경로 분리
+
+- 개발판 업데이트의 URL/redirect host/tag·asset binding/version/signer 조건을 Android 의존 `DevUpdateManager`에서 순수 `DevUpdateManagerPolicy`로 분리했습니다.
+- Android SDK가 없는 실행 환경에서도 실제 정책 코드를 Kotlin/JVM으로 컴파일해 allowlist, path/tag binding, signer count를 독립 검증할 수 있도록 테스트 경계를 정리했습니다.
+- 동작 로직은 새 정책 객체로 위임하고, HTTPS 연결/수동 redirect 구현은 Android manager에 유지합니다. Android Gradle/JUnit은 미실행입니다.
+
 ## 2026-11-24 — 개발판 업데이트 리다이렉트·서명 검증 강화
 
 - 개발판 업데이트 확인/다운로드가 `instanceFollowRedirects=true`로 자동 이동한 뒤 최종 URL을 검사하던 경로를 수정했습니다. 각 HTTPS redirect Location을 먼저 allowlist로 검증한 뒤에만 다음 서버에 접속하도록 수동 redirect 처리로 변경했습니다.
