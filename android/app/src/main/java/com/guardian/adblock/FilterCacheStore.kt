@@ -36,40 +36,44 @@ internal object FilterCacheStore {
         target: File,
         bytes: ByteArray,
         commitMetadata: () -> Unit,
-        rollbackMetadata: () -> Unit = {}
+        rollbackMetadata: () -> Unit = {},
+        moveFile: (File, File) -> Unit = ::move
     ) {
         recover(target)
         val temporary = File(target.parentFile, "${target.name}.tmp")
         val backup = File(target.parentFile, "${target.name}.bak")
-        // Persist the complete payload before renaming it into the committed cache path.
-        // SharedPreferences metadata is committed only after this sync, so a power loss
-        // cannot leave a durable manifest hash pointing at unwritten filter bytes.
-        FileOutputStream(temporary).use { output ->
-            output.write(bytes)
-            output.fd.sync()
-        }
-        backup.delete()
-        val hadPrevious = target.isFile
-        if (hadPrevious) move(target, backup)
+        var hadPrevious = false
         try {
-            move(temporary, target)
+            // Persist the complete payload before renaming it into the committed cache path.
+            // Metadata is committed only after this sync.
+            FileOutputStream(temporary).use { output ->
+                output.write(bytes)
+                output.fd.sync()
+            }
+            backup.delete()
+            hadPrevious = target.isFile
+            if (hadPrevious) moveFile(target, backup)
+            moveFile(temporary, target)
             commitMetadata()
             backup.delete()
         } catch (failure: Exception) {
-            target.delete()
-            if (hadPrevious && backup.isFile) {
+            // A filesystem operation can move a file and still report an error.
+            // Restore based on the actual backup path, not only the operation result.
+            if (backup.isFile) {
+                target.delete()
                 try {
-                    move(backup, target)
+                    moveFile(backup, target)
                 } catch (restoreFailure: Exception) {
                     failure.addSuppressed(restoreFailure)
                 }
+            } else if (!hadPrevious) {
+                target.delete()
             }
             try {
                 rollbackMetadata()
             } catch (metadataRestoreFailure: Exception) {
                 failure.addSuppressed(metadataRestoreFailure)
             }
-            temporary.delete()
             throw failure
         } finally {
             temporary.delete()
