@@ -83,7 +83,7 @@ class FilterUpdateWorker(
                         SafeFailureSummary.codeFor(e)
                     ).apply()
                 } catch (e: LinkageError) {
-                    optionalFailure = securityCacheReady
+                    optionalFailure = FilterUpdatePolicy.shouldRetryOptionalUpdate(securityEnabled)
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_SECURITY_LAST_ERROR,
                         SafeFailureSummary.codeFor(e)
@@ -114,7 +114,7 @@ class FilterUpdateWorker(
                         SafeFailureSummary.codeFor(e)
                     ).apply()
                 } catch (e: LinkageError) {
-                    optionalFailure = optionalFailure || androidAdsCacheReady
+                    optionalFailure = optionalFailure || FilterUpdatePolicy.shouldRetryOptionalUpdate(androidAdsEnabled)
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                         SafeFailureSummary.codeFor(e)
