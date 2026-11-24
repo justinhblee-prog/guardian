@@ -64,4 +64,39 @@ class GuardianApkCacheStoreTest {
             directory.deleteRecursively()
         }
     }
+    @Test
+    fun failedReplacementRestoresPreviousApkAndRemovesPartialFile() {
+        val directory = Files.createTempDirectory("guardian-apk-cache").toFile()
+        try {
+            val target = File(directory, "guardian-42.apk").apply {
+                writeBytes("last-known-good-apk".toByteArray())
+            }
+            val temporary = File(directory, ".guardian-42.apk.part").apply {
+                writeBytes("new-verified-apk".toByteArray())
+            }
+            var failedInstallMove = false
+
+            val failure = runCatching {
+                GuardianApkCacheStore.commit(temporary, target) { source, destination ->
+                    if (source == temporary && !failedInstallMove) {
+                        failedInstallMove = true
+                        throw java.io.IOException("simulated atomic rename failure")
+                    }
+                    Files.move(
+                        source.toPath(),
+                        destination.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                    )
+                }
+            }.exceptionOrNull()
+
+            assertTrue(failure is java.io.IOException)
+            assertArrayEquals("last-known-good-apk".toByteArray(), target.readBytes())
+            assertFalse(temporary.exists())
+            assertFalse(File(directory, "guardian-42.apk.bak").exists())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
 }
