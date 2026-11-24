@@ -213,24 +213,25 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 ### 확인한 문제
 - `stopProtection()`은 서비스 인스턴스 모니터를 보유한 채 `stopForegroundAppMonitor()`를 호출한다.
 - 기존 `ForegroundAppMonitor.stop()`은 모니터 스레드에 interrupt를 보낸 뒤 최대 1초 join했다.
-- 모니터 스레드는 종료 전에 `onForegroundTargetChanged` 또는 `onPermissionRevoked` 콜백을 호출할 수 있고, 해당 콜백은 서비스 모니터를 필요로 한다.
-- 따라서 종료 스레드가 서비스 모니터를 보유한 채 콜백 스레드를 join하면 잠금 경합이 발생하며, 종료가 join 제한 시간만큼 지연될 수 있었다.
-- 단순히 join을 제거하는 것만으로는 이미 세대 확인을 통과한 콜백이 종료 이후 실행되는 경쟁 상태를 막을 수 없었다.
+- 모니터 스레드가 서비스 모니터를 필요로 하는 콜백을 실행하는 중이면 종료 스레드의 join과 잠금 경합이 발생할 수 있었다.
+- 초기 수정 후속 점검에서 콜백 전체를 서비스 모니터로 감싸면 `pauseProtectionForCompatibility()` 내부의 패킷 워커 join(최대 5초)까지 모니터를 점유한다는 추가 결함을 발견했다. 이 방식은 종료 지연을 다시 유발하므로 수정했다.
 
-### 적용한 수정
-- `ForegroundAppMonitor.stop(waitForExit)`를 추가했다. 일반 재구성 경로는 기존처럼 최대 1초 종료 대기를 유지하고, VPN 종료 경로는 `waitForExit=false`로 interrupt/detach만 수행한다.
+### 최종 적용
+- `ForegroundAppMonitor.stop(waitForExit)`를 추가했다. 일반 재구성 경로는 최대 1초 종료 대기를 유지하고, VPN 종료 경로는 `waitForExit=false`로 interrupt/detach만 수행한다.
 - `stopProtection()`은 서비스 모니터를 보유한 상태에서 감시 스레드를 join하지 않는다.
-- 전면 앱 변경 및 사용 권한 해제 콜백은 서비스 모니터 안에서 감시 세대를 다시 확인한다. 종료가 세대를 무효화한 뒤 늦게 도착한 콜백은 VPN pause/resume 상태를 변경할 수 없다.
+- 전면 앱 변경 콜백은 서비스 모니터를 잡은 채 pause 전체 작업을 호출하지 않는다. `pauseProtectionForCompatibility(packageName, expectedMonitorGeneration)`가 TUN 분리/일시중지 의사결정과 최종 상태 커밋의 짧은 임계 구역에서 감시 세대를 각각 재확인한다. 패킷 워커 join은 서비스 모니터 밖에서 수행한다.
+- 재개 콜백도 예상 감시 세대를 `resumeProtectionAfterCompatibility(expectedMonitorGeneration)`에 전달한다. 실제 재개 세대 발급 직전에 서비스 모니터 안에서 세대를 다시 확인하므로 종료 뒤 도착한 콜백은 재개 요청을 발급하지 못한다.
+- 사용 권한 해제 콜백은 짧은 설정 변경만 동기화하고, 재개 작업은 비동기 처리한다.
 - 모니터 스레드는 daemon이며, 진행 중인 UsageStats 조회/콜백이 반환된 후 `running=false`를 확인하고 종료한다.
 
 ### 변경 파일과 커밋
-- `GuardianVpnService.kt`: `cfb0fa3977ef185a11a1595a47880041b83d486c`
+- `GuardianVpnService.kt`: 초기 수정 `cfb0fa3977ef185a11a1595a47880041b83d486c`, 후속 잠금 범위 수정 `f4554a940a0a3f3579cfb7958f205ffa0eae4515`, 세대 전달 보완 `07355f0e1405a4047a42a92705441f64e85f9755`
 - `ForegroundAppMonitor.kt`: `0bc5c68ab00e39608ee7c40ca269434418b8d66c`
 
 ### 실행한 검증
 - 독립 Kotlin 동시성 하네스 컴파일 및 실행 성공:
-  - `PASS: VPN shutdown does not join a callback waiting on the service monitor`
-  - `PASS: generation recheck suppresses callback after shutdown commits`
+  - `PASS: explicit stop acquires service monitor while compatibility pause waits outside it`
+  - `PASS: stale compatibility pause cannot commit after monitor generation invalidation`
 - 위 하네스는 잠금/세대 무효화 순서를 재현한 단위 시뮬레이션이며 Android 서비스 통합 테스트는 아니다.
 - Android Gradle/JUnit/Lint, APK 빌드, 에뮬레이터 및 실기기 VPN 종료 검증은 아직 실행하지 않았다.
 
@@ -239,4 +240,4 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - 패킷 워커의 `packetLoop()` finally는 재전송 스케줄러에 `shutdownNow()`를 보내고 최대 500ms만 종료를 기다린 다음, 세션 generation이 여전히 유효한 경우에만 활성 상태를 정리한다.
 - 재전송 스케줄러는 daemon thread이며 출력은 패킷 워커와 동일한 output monitor로 직렬화된다. 패킷 워커 finally는 output monitor를 보유하지 않은 상태에서 scheduler 종료를 기다리므로 확인한 범위에서 역방향 잠금 대기는 없다.
 - 명시적 종료는 TUN close로 blocking packet read를 해제하고 generation을 무효화한다. 이전 패킷 워커의 늦은 finally가 새 VPN 세션의 상태를 변경하지 못하도록 하는 기존 session guard가 유지된다.
-- 이 부분은 소스 경로 분석 결과 추가 수정이 필요하다고 판단할 확정 결함을 찾지 못했다. Android 기기에서 descriptor close/read 해제 타이밍과 실제 재시작 연속 동작은 통합 검증이 필요하다.
+- 이 부분은 소스 경로 분석에서 추가 수정이 필요한 확정 결함을 찾지 못했다. Android 기기에서 descriptor close/read 해제 타이밍과 실제 재시작 연속 동작은 통합 검증이 필요하다.
