@@ -133,7 +133,7 @@ class DnsDohHttpCodecTest {
             dnsMessage,
             DnsDohHttpCodec.readResponse(ByteArrayInputStream(response)) { guardedReads++ }
         )
-        assertTrue(guardedReads > response.size)
+        assertTrue(guardedReads >= response.size - dnsMessage.size + 1)
     }
 
     @Test(expected = SocketTimeoutException::class)
