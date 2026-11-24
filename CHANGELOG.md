@@ -1,3 +1,10 @@
+## 2026-11-24 — 업데이트 확인/다운로드 상태 화면 재생성 간 유지
+
+- 기존 업데이트 화면은 확인 작업·다운로드 결과를 로컬 버튼/변수에만 보관했습니다. 메뉴를 이동하거나 Activity가 재생성되면 이전 작업은 계속 실행되지만 새 화면에서는 작업 중 상태를 모르고 다시 확인을 시작할 수 있었고, 이미 검증된 APK도 새 화면에서 설치할 수 없었습니다.
+- 화면과 독립된 process-wide `GuardianAppUpdateState`를 추가해 확인 중 여부, 상태 문구, 검증된 APK 경로 및 개발/정식 빌드 종류를 AtomicReference로 보관합니다. 여러 화면/Activity 재생성 후에도 중복 확인을 막고, 다운로드된 검증 APK를 다시 설치할 수 있습니다.
+- 패키지 범위 브로드캐스트로 현재 화면의 상태를 갱신하며, 백그라운드 다운로드는 applicationContext만 사용해 이전 Activity를 붙잡지 않습니다. 최신 상태를 읽어 새 화면이 렌더링되도록 했습니다.
+- 순수 상태 전이 테스트 4건을 추가했습니다. Android Activity 재생성·FileProvider 설치 UI·실제 다운로드 통합은 미실행입니다.
+
 ## 2026-11-24 — DNS packet worker 진단 ThreadLocal 정리
 
 - `recordDnsActivity`가 실패 원인을 SharedPreferences에 저장한 뒤에도 packet worker의 ThreadLocal에 문자열이 남아 다음 패킷까지 보관될 수 있었습니다.
