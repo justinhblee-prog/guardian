@@ -364,3 +364,10 @@
 ## 2026-11-24 — 런처 보완 조회 시 앱 데이터 정리 차단
 - 설치 앱 기본/교차 조회가 일치해도 launcher fallback에서 추가 앱이 보이면 inventory가 부분 목록일 수 있으므로 authoritative cleanup을 금지합니다.
 - launcherFallbackCount가 0일 때만 destructive cleanup을 허용하도록 하고, 추가 발견 앱 1개인 경우 삭제 금지 테스트를 추가했습니다.
+
+
+## 2026-11-24 — 앱 목록 정리 정책 JVM smoke 12/12
+
+- 최신 `InstalledAppDataCleanupPolicy`를 kotlinc 1.9.0/JRE 21로 독립 컴파일·실행했습니다.
+- PASS 12/12: 권한/두 PackageManager 성공 여부, 빈 목록·집합 불일치·launcher fallback 추가 발견 시 cleanup 거부, 비완전/빈 설치 목록의 stale 삭제 거부, 완전 일치 목록에서 제거된 패키지만 stale 처리.
+- 이는 순수 정책 로직 검증이며 Android PackageManager/SharedPreferences 통합·Android Gradle/JUnit·실기기 앱 설치/제거 테스트는 미실행입니다.
