@@ -1,3 +1,9 @@
+## 2026-11-24 — 검증 실패 정식 APK 캐시 삭제
+
+- SHA-256이 일치하더라도 APK packageName/version/signing certificate 검증에서 실패하면 이전에는 해당 파일이 `cache/stable-updates/`에 남을 수 있었습니다. 설치 UI는 비활성 처리되지만 불량 파일은 캐시에 잔존했습니다.
+- 최종 APK archive identity/signature 검증을 try/catch로 감싸 검증 실패 시 APK 파일을 삭제하고 원래 검증 예외를 호출자에게 전달하도록 수정했습니다.
+- 실제 Android PackageManager archive parsing 및 파일 삭제 동작은 Android 환경·실기기 테스트 전입니다.
+
 ## 2026-11-24 — DNS 업스트림 실패 요약 정책 JVM smoke 5/5
 
 - `DnsUpstreamFailurePolicy` 실제 순수 Kotlin 소스를 kotlinc/JRE 21로 분리 컴파일·실행했습니다. PASS 5/5: 후보별 원인 병합, 공백 제거, 최대 6개 후보, 항목 240자/전체 1,200자 상한, 원인 없는 경우 null 반환.
