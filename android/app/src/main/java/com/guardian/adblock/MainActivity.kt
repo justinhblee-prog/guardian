@@ -360,6 +360,16 @@ class MainActivity : Activity() {
             showTab("settings-premium")
             return
         }
+        if (ResponsiveLayoutPolicy.shouldReturnToPhoneSettingsIndex(
+                resources.configuration.screenWidthDp.coerceAtLeast(1),
+                currentTab,
+                phoneSettingsShowingDetail
+            )
+        ) {
+            phoneSettingsShowingDetail = false
+            showTab("settings")
+            return
+        }
         if (currentTab.startsWith("settings-")) {
             showTab("settings")
             return
