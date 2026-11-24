@@ -278,3 +278,8 @@
 
 ## 2026-11-24 — 고급 필터 미리보기 상태 정합성
 - Premium 미리보기의 고급 필터 항목을 실제 현재 구현(출처·범주 분석 및 최근 DNS 기록 연결)과 일치시켰습니다. Android 검증 필요 및 PRO release gate는 유지합니다.
+
+
+## 2026-11-24 — 사용자 차단/허용 정책 중첩 회귀 테스트
+- user block + user allow 동일 도메인, feed ordinary block + user allow, security important block + user block/allow가 겹치는 네 가지 동작을 확인하는 테스트를 추가했습니다.
+- 허용 가능한 일반 차단은 isBlocked=false 및 attribution=null, 중요 차단은 허용보다 우선하고 SECURITY_INTELLIGENCE 출처만 반환해야 합니다. Android Gradle/JUnit 미실행입니다.
