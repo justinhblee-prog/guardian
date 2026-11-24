@@ -554,3 +554,8 @@
 - 현재 `FilterCacheStore` 순수 파일 교체/복구 코드를 Kotlin/JVM으로 컴파일해 임시 파일 시스템에서 실행했습니다.
 - PASS 9/9: 정상 신규 교체, 메타데이터 커밋 실패 후 기존 캐시/rollback 보존, 교체 중 프로세스 중단 시 backup 복구, 서명 hash 불일치 target에서 backup 복구, hash 일치 target 유지 및 backup 제거, hash 불일치 단독 target fail-closed, stale backup 정리, oversized unsigned target에서 bounded backup 복구, oversized target+backup 없음 거부.
 - 결과는 로컬 JVM 파일시스템 smoke입니다. Android SharedPreferences 동시성·실제 앱 내부 저장소/OEM 파일시스템·Android Gradle/JUnit은 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP sequence wrap-around 테스트 추가
+- 클라이언트와 서버 순번을 0xFFFFFFFF 부근에서 시작해 양쪽 sequence space가 0을 넘는 DNS 응답 및 부분 누적 ACK/fast retransmit 동작을 검증하는 JUnit 소스를 추가했습니다.
+- Android Gradle/JUnit 실행은 미실행입니다.
