@@ -816,3 +816,8 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - `MainActivity.checkStartupFilterReadiness()`가 시작 시점의 필터 만료를 `now - lastUpdatedAt >= interval`로 직접 계산하고 있었습니다. 기기 시계가 마지막 갱신 시각보다 과거로 이동하면 음수 차이가 되어 갱신 필요 상태를 놓칠 수 있었습니다. 동일한 시계 보정 회귀가 `FilterUpdatePolicy.isDue()`에 이미 정의되어 있었지만 시작 화면 경로에는 적용되지 않았습니다.
 - 시작 시 메인·보안·Android 광고 필터 모두 공통 `FilterUpdatePolicy.isDue()`를 사용하도록 통일하고, 검사 시각을 한 번만 캡처하며 업데이트 간격도 스케줄러 정책으로 정규화했습니다. 기존 `FilterUpdatePolicyTest.clockRollbackMakesRefreshDueUntilSuccessfulRefreshResetsTimestamp`가 정책 회귀를 다룹니다. 커밋 `26a2ff89`.
 - 원격 소스 변경 확인 완료. Android JUnit/Lint/Debug APK/에뮬레이터/실기기 검증은 이 브랜치에서 실행하지 않았습니다.
+
+## 2026-11-24 — 개발판 APK 스트리밍 다운로드 길이 처리
+- 정식판 updater는 `Content-Length = -1`인 chunked/streaming 응답을 실제 수신 바이트 상한(150 MiB)으로 제한해 허용하지만, 개발판 updater는 같은 정상 HTTP 응답을 즉시 거부하고 있었습니다. 개발판 다운로드도 알 수 없는 길이를 허용하되 실제 수신 크기 1~100 MiB를 강제하고, Content-Length가 알려진 경우에는 실제 길이와 정확히 일치하는지 검증하도록 통일했습니다.
+- `DevUpdateManagerTest.acceptsUnknownLengthDevelopmentApkStreamsButBoundsActualBytes` 회귀 테스트 추가. 커밋 `c9b3cf4d`, `39f36cb6`.
+- 이 테스트는 소스에 추가만 했으며 현재 브랜치의 Android JUnit/Gradle 실행 결과는 아닙니다.
