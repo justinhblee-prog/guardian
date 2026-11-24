@@ -1,10 +1,10 @@
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. Android 무료판 출시 전이며 PRO 기능은 별도 트랙에서 병행 구현 중입니다.
-- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 240 commits ahead, 0 behind.
+- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 248 commits ahead, 0 behind.
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. 실제 Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
 - **PR #290**: open, unmerged 상태를 유지합니다. 작업은 독립 branch에서 수행합니다.
-- **검증**: ResponsiveLayoutPolicy smoke 4/4, 앱별 정리 정책 Kotlin/JVM smoke 8/8, 최초 필터 복구 정책 Kotlin/JVM smoke 12/12 통과(모두 격리된 순수 정책 검증). 최신 DNS TCP RTO/RST 및 Android UI 소스의 Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행이며 APK도 아직 생성·검증되지 않았습니다.
+- **검증**: ResponsiveLayoutPolicy smoke 4/4, 앱별 정리 정책 Kotlin/JVM smoke 8/8, 최초 필터 복구 정책 Kotlin/JVM smoke 12/12, 필터 복구·캐시 상태 표시 정책 Kotlin/JVM smoke 19/19 통과(모두 격리된 순수 정책 검증). 최신 DNS TCP RTO/RST 및 Android UI 소스의 Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행이며 APK도 아직 생성·검증되지 않았습니다.
 - **실행 제약**: GitHub Actions 실행, runner/billing 설정 변경 및 유료 사용량 발생 작업은 사용자 승인 없이 하지 않습니다.
 - **완료 게이트**: Android 빌드·JUnit·lint·에뮬레이터·Samsung 실기기 검증, APK 존재/크기/SHA-256/서명·설치 확인, 한국어 배포/복구 문서 확보 전에는 완료로 판정하지 않습니다.
 
@@ -610,3 +610,9 @@
 - 초기 cache retry 예산을 소진하면 Worker가 전용 error code를 저장하고 filter state broadcast를 보내도록 했습니다.
 - UI는 selected profile과 cached profile key가 일치하는 유효 캐시가 있을 때만 '이전 목록 유지'라고 표시합니다. 선택한 main cache가 없으면 내장 10개 기본 규칙 기반 제한 보호 상태를 명확히 표시합니다.
 - retry exhausted/cache present/cache absent/no error 표시 정책 테스트 추가. Android Gradle/JUnit/WorkManager/단말 검증은 미실행입니다.
+
+
+## 2026-11-24 — 초기 필터 복구 종료 상태·캐시 진단 JVM smoke
+- 초기 필터 복구 재시도 소진 시 Worker가 전용 진단 코드를 저장하고 UI 상태 broadcast를 보냅니다. UI는 선택한 필터 캐시가 없을 때 '이전 목록 유지'라고 오인시키지 않고, 내장 기본 규칙 기반 제한 보호 상태로 표시합니다.
+- FilterUpdatePolicy의 실제 helper 로직을 반영한 kotlinc 1.9.0/JRE 21 harness PASS 19/19: opt-out 강제 최초 복구, 동일/불일치 profile cache, 6회 실행 예산, optional cache 보존/비활성화, last error clear conditions, due policy, 캐시 유무별 UI 상태 문구.
+- Android Gradle/JUnit, WorkManager scheduling, MainActivity compile/render, network restore 및 실기기 테스트는 미실행입니다.
