@@ -563,3 +563,25 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - APK: 3,213,347 bytes, SHA-256 `510ef2a0cdef626e8d393f284483b1d6ecec06512820c8e263afb2a46f7ec685`. Artifact ID `14703292854` (`orchestrator-android-evidence`).
 - 이 0.7.41-dev artifact는 통합 빌드의 버전 정합성·단위 테스트·lint·패키징 확인용 Debug 서명본입니다. 이 run에는 Android emulator VPN/DNS E2E가 포함되지 않으며, 0.7.40-dev에서 별도로 성공한 emulator E2E를 새 0.7.41-dev 빌드의 실기기/에뮬레이터 수용 테스트로 간주하지 않습니다.
 - 직전 0.7.34-dev artifact는 versionCode rollback 위험 때문에 최신 업데이트 패키지로 사용하지 않습니다.
+
+
+## 2026-11-24 정식 Android 릴리스 재점검 및 최신 개발 반영
+
+### 이번 개발 반영
+- VPN TUN 세션 소유권 generation guard를 추가했습니다. 이전 패킷 스레드가 늦게 종료되어 새 세션의 `running` 상태를 해제하거나 보호 상태를 중지시키는 교차 세션 정리 경쟁을 차단합니다.
+- 서명 필터 manifest timestamp의 복구 경로도 fsync 후 atomic publish로 통일했습니다.
+- 휴대폰 설정 상세 화면에서 Android 시스템 뒤로가기가 설정 카테고리 목록으로 돌아오도록 수정했습니다.
+- VPN session guard는 독립 Kotlin smoke test에서 PASS했습니다. Android Gradle/JUnit·lint·에뮬레이터·실기기 검증은 아직 실행하지 않았고, 이번 변경의 APK도 생성하지 않았습니다.
+
+### 2026-11-24 확인된 정식 출시 차단 조건
+- 최신 공개 개발 프리릴리스는 `guardian-dev-v58`이며 정식 production release가 아닙니다.
+- `.github/workflows/android-production-release.yml`의 실제 production job은 `workflow_dispatch` 수동 실행으로만 동작합니다. 운영 keystore 및 비밀번호, filter/license 공개키, HTTPS manifest/API 주소, versionName/versionCode, filter approval 변수가 모두 필요합니다.
+- production workflow가 요구하는 `guardian-filter-data` 브랜치는 현재 원격 저장소에서 확인되지 않았습니다. 빈 브랜치를 만들어 게이트만 통과시키지 않았습니다.
+- 기존 정식 출시 상태 기록의 7개 필터 원본 재배포 승인 및 승인 참조 미확보가 계속 차단 조건입니다. 승인 증빙 없이 필터 데이터를 게시하거나 production 서명을 진행하지 않습니다.
+- 실제 License API/PostgreSQL/TLS 배포 및 Android 실기기 VPN/DNS 수용 테스트는 여전히 완료 증거가 없습니다.
+- GitHub Secrets/Variables의 값은 이 연결에서 읽을 수 없으므로 설정 완료로 추정하지 않습니다.
+
+### 릴리스 판정
+- **정식 1.0.0 완료 아님.** 현재까지의 코드 반영 및 독립 smoke test는 Android Gradle/JUnit·lint·에뮬레이터·실기기·production signing·설치 검증을 대체하지 않습니다.
+- GitHub Actions는 기존 runner 시작 실패 이력과 비용/설정 변경 금지 조건에 따라 이번 작업에서 실행하지 않았습니다.
+- 다음 통합 검증은 승인된 filter origin과 운영 signing/service prerequisites가 실제로 준비된 뒤에만 진행할 수 있습니다.
