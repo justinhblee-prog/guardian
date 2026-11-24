@@ -1,3 +1,10 @@
+## 2026-11-24 — 모바일 하단 내비게이션 인셋 중복 제거
+
+- 휴대전화 화면에서 root layout과 bottom navigation이 모두 navigation-bar bottom inset을 padding에 반영하던 중복을 제거했습니다.
+- 휴대전화/컴팩트 태블릿(839dp 이하)은 하단 메뉴만 bottom inset을 소유하고, 840dp 이상 내비게이션 레일 레이아웃은 root가 소유합니다. 상단 status bar inset 동작은 유지합니다.
+- Android 30 이상 systemBars와 이전 API systemWindowInset 경로 모두 동일한 단일 소유 정책을 사용합니다.
+- 393/839/840/1200dp 네 경계 테스트를 추가했습니다. 실제 폰/태블릿 화면 렌더링 검증은 미실행입니다.
+
 ## 2026-11-24 — DNS TCP RST 순번 검증
 
 - 기존 세션 매니저는 4-tuple이 일치하기만 하면 TCP RST의 sequence 검증 없이 세션을 즉시 삭제했습니다.
