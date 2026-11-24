@@ -243,6 +243,10 @@ internal object Ipv6ExtensionHeaderParser {
         var count = 0
         while (nextHeader != expectedNextHeader) {
             if (++count > 8 || offset - 40 > 2048 || offset + 2 > packetLength) return null
+            // RFC 8200 requires Hop-by-Hop Options to be the first extension
+            // header immediately after the IPv6 base header. A second or later
+            // Hop-by-Hop header is malformed and must not be treated as opaque.
+            if (nextHeader == 0 && offset != 40) return null
             val following = packet[offset].toInt() and 0xff
             val headerLength = when (nextHeader) {
                 0, 43, 60, 135, 139, 140 -> ((packet[offset + 1].toInt() and 0xff) + 1) * 8
