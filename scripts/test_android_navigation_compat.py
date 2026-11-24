@@ -86,6 +86,21 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         xml = '<hierarchy><node clickable="true" enabled="true"><node text="라이선스 및 프리미엄" /></node></hierarchy>'
         self.assertEqual(resolve_premium_category(xml), "라이선스 및 프리미엄")
 
+    def test_hidden_parent_hides_premium_category_descendant(self):
+        xml = '<hierarchy><node clickable="true" visible-to-user="false"><node text="라이선스 및 프리미엄" /></node></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_premium_category(xml)
+
+    def test_hidden_parent_hides_settings_item_descendant(self):
+        xml = '<hierarchy><node clickable="true" visible-to-user="false"><node text="앱 제외 관리" /></node></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_settings_item(xml, "앱 제외 관리")
+
+    def test_disabled_intermediate_parent_hides_navigation_descendant(self):
+        xml = '<hierarchy><node clickable="true" enabled="true"><node enabled="false"><node content-desc="설정" /></node></node></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_premium_entry(xml)
+
 
     def test_support_diagnostics_copy_recovers_after_collection_exception(self):
         source_path = (
