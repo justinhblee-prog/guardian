@@ -81,9 +81,14 @@ object DnsTcpPacket {
 
     fun response(request: Parsed, sequence: Long, acknowledgement: Long,
                  flags: Int, payload: ByteArray = byteArrayOf()): ByteArray {
+        require(request.version == 4 || request.version == 6)
         require(request.source.size == if (request.version == 4) 4 else 16)
-        require(payload.size <= 65515)
         val ipLength = if (request.version == 4) 20 else 40
+        // IPv4 total_length counts IP + TCP headers; IPv6 payload_length counts
+        // the TCP header and data only. A common 65,515-byte payload cap would
+        // overflow the IPv4 16-bit total-length field by 20 bytes.
+        val maxTcpLength = if (request.version == 4) 65535 - ipLength else 65535
+        require(payload.size <= maxTcpLength - 20)
         val tcpLength = 20 + payload.size
         val total = ipLength + tcpLength
         val out = ByteArray(total)
