@@ -6,7 +6,7 @@ internal object InstalledAppDataCleanupPolicy {
         existingPackages: Set<String>,
         installedPackages: Set<String>,
         inventoryComplete: Boolean
-    ): Set<String> = if (!inventoryComplete) {
+    ): Set<String> = if (!inventoryComplete || installedPackages.isEmpty()) {
         emptySet()
     } else {
         existingPackages.filterTo(linkedSetOf()) { it !in installedPackages }
