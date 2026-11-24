@@ -814,6 +814,7 @@ class GuardianVpnService : VpnService() {
         // the VPN tunnel from starting with the bundled baseline.
         val sources = mutableListOf<() -> FilterRuleParser.Parsed>()
         val minimumRuleCounts = mutableListOf<Int>()
+        val securitySourceIndexes = linkedSetOf<Int>()
         val unavailable = mutableListOf<String>()
         sources.add {
             assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
@@ -824,7 +825,8 @@ class GuardianVpnService : VpnService() {
             label: String,
             cacheName: String,
             minimumRules: Int,
-            cacheReady: Boolean
+            cacheReady: Boolean,
+            securitySource: Boolean = false
         ) {
             if (!cacheReady) {
                 unavailable.add(label)
@@ -846,6 +848,7 @@ class GuardianVpnService : VpnService() {
             // Zero is intentional: this source is optional at runtime. The
             // baseline source above retains its mandatory one-rule validation.
             minimumRuleCounts.add(0)
+            if (securitySource) securitySourceIndexes.add(sources.lastIndex)
         }
 
         val mainCacheReady = runCatching {
@@ -871,7 +874,8 @@ class GuardianVpnService : VpnService() {
                 "보안",
                 "hagezi_threat_intelligence.txt",
                 FilterListManager.MIN_SECURITY_BLOCKS,
-                securityReady
+                securityReady,
+                securitySource = true
             )
         }
 
@@ -896,7 +900,9 @@ class GuardianVpnService : VpnService() {
             "Guardian",
             "VPN rules load started; sources=${sources.size}, security=$securityEnabled, androidAds=$androidAdsEnabled"
         )
-        DomainFilter.loadParsedRuleSources(sources, minimumRuleCounts, userBlock, userAllow)
+        DomainFilter.loadParsedRuleSources(
+            sources, minimumRuleCounts, userBlock, userAllow, securitySourceIndexes
+        )
         val blockedCount = DomainFilter.blockedRuleCount()
         android.util.Log.i(
             "Guardian",
