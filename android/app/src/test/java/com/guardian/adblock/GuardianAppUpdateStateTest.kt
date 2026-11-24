@@ -47,6 +47,7 @@ class GuardianAppUpdateStateTest {
             val oldAttempt = GuardianAppUpdateState.begin("첫 확인")!!
             assertTrue(GuardianAppUpdateState.fail(oldAttempt, "첫 확인 실패"))
             val newAttempt = GuardianAppUpdateState.begin("두 번째 확인")!!
+            assertFalse(GuardianAppUpdateState.updateStatus(oldAttempt, "두 번째 확인"))
             assertFalse(GuardianAppUpdateState.updateStatus(oldAttempt, "늦게 도착한 첫 확인 진행 상태"))
             assertFalse(GuardianAppUpdateState.complete(oldAttempt, apk, true, "늦게 도착한 첫 APK"))
             assertFalse(GuardianAppUpdateState.fail(oldAttempt, "늦게 도착한 첫 확인 실패"))
