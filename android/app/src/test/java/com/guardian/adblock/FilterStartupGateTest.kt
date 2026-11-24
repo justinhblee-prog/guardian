@@ -56,6 +56,36 @@ class FilterStartupGateTest {
     }
 
     @Test
+    fun skipsOptionalFeedWhenParserLinkageFailsButKeepsVpnStartupAvailable() {
+        var unavailable: Throwable? = null
+        val result = FilterStartupGate.loadOptionalRules(
+            minimumRules = 1,
+            load = { throw NoClassDefFoundError("simulated optional parser linkage failure") },
+            onUnavailable = { unavailable = it }
+        )
+        assertTrue(unavailable is NoClassDefFoundError)
+        assertTrue(result.blocked.isEmpty())
+        assertTrue(result.importantBlocked.isEmpty())
+    }
+
+    @Test
+    fun doesNotSwallowVirtualMachineFatalErrorsFromOptionalFeed() {
+        val fatal = OutOfMemoryError("simulated memory exhaustion")
+        var unavailableCalled = false
+        try {
+            FilterStartupGate.loadOptionalRules(
+                minimumRules = 1,
+                load = { throw fatal },
+                onUnavailable = { unavailableCalled = true }
+            )
+            throw AssertionError("Expected OutOfMemoryError to propagate")
+        } catch (actual: OutOfMemoryError) {
+            assertTrue(actual === fatal)
+        }
+        assertFalse(unavailableCalled)
+    }
+
+    @Test
     fun skipsOptionalFeedWhenParsedRuleCountIsBelowMinimum() {
         var unavailableCalled = false
         val result = FilterStartupGate.loadOptionalRules(
