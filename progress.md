@@ -310,3 +310,9 @@
 - MainActivity는 DNS status broadcast와 화면 재진입 때 DEBUG 위협 분석 미리보기의 counts/recent events를 갱신하도록 개선했습니다. 페이지를 나가면 해당 view 참조를 해제합니다.
 - ThreatAnalyticsAccumulator.snapshot()은 drain 없이 pending을 읽고, ThreatAnalyticsStore.summary()는 5초 flush 주기를 유지하면서 저장/대기 집계를 결합합니다. 자주 발생하는 상태 브로드캐스트가 디스크 쓰기를 조기 flush하지 않습니다.
 - 새 순수 accumulator snapshot 테스트를 추가했습니다. 도메인/URL 비저장 및 PRO entitlement 비활성 유지. Android Gradle/JUnit·SharedPreferences·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 위협 분석 요약 병합 정책 분리
+- `ThreatAnalyticsSummaryPolicy`가 persisted summary와 pending accumulator snapshot을 병합합니다. 카운터는 0 미만 방어 및 saturating Long add, 최근 항목은 pending 최신순 + 저장된 이전 항목 순서로 최대 20개를 유지합니다.
+- Store summary는 5초 flush window를 우회하지 않고 정책 helper를 사용합니다. 저장/대기 결합, 중첩 이벤트, cap, overflow/negative 및 invalid limit 테스트를 추가했습니다.
+- Android Gradle/JUnit, SharedPreferences 실제 저장 및 VPN Service 수명주기 검증은 미실행입니다.
