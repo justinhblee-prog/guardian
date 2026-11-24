@@ -3,6 +3,8 @@ package com.guardian.adblock
 import java.net.IDN
 import java.net.InetAddress
 import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import java.util.Locale
 
 /**
@@ -100,8 +102,9 @@ internal object PhishingUrlAnalyzer {
         }
         val schemeDefaultPort = if (scheme == "https") 443 else 80
         if (port != null && port != schemeDefaultPort) signals.add(Signal.UNUSUAL_PORT)
-        val path = uri.rawPath.orEmpty().lowercase(Locale.ROOT)
-        if (executableExtensions.any { path.endsWith(it) }) signals.add(Signal.EXECUTABLE_DOWNLOAD)
+        if (hasExecutableDownloadPath(uri.rawPath.orEmpty())) {
+            signals.add(Signal.EXECUTABLE_DOWNLOAD)
+        }
 
         val score = signals.sumOf { it.points }.coerceIn(0, 100)
         val risk = when {
@@ -118,6 +121,27 @@ internal object PhishingUrlAnalyzer {
         return Result(true, asciiHost, risk, score, signals.toList(), explanation)
     }
 
+    /**
+     * Inspect the raw URL path and a small, bounded number of percent-decoding
+     * passes. Browsers/servers commonly decode escaped path bytes before routing,
+     * so `%2Eapk` and double-escaped `%252Eapk` must not bypass suffix triage.
+     * Query text is intentionally excluded because it is not the URL path.
+     */
+    private fun hasExecutableDownloadPath(rawPath: String): Boolean {
+        var candidate = rawPath
+        repeat(3) {
+            val normalized = candidate.lowercase(Locale.ROOT)
+            if (executableExtensions.any(normalized::endsWith)) return true
+            val decoded = runCatching {
+                URLDecoder.decode(candidate.replace("+", "%2B"), StandardCharsets.UTF_8.name())
+            }.getOrNull() ?: return false
+            if (decoded == candidate) return false
+            candidate = decoded
+        }
+        return executableExtensions.any(candidate.lowercase(Locale.ROOT)::endsWith)
+    }
+
+    /** A bracketed URL host must be a syntactically valid IPv6 literal, not a DNS name. */
     /** A bracketed URL host must be a syntactically valid IPv6 literal, not a DNS name. */
     private fun isValidIpv6Literal(host: String): Boolean {
         if (!host.contains(':') || host.contains('%')) return false
