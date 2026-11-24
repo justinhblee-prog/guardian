@@ -310,3 +310,7 @@
 ## 2026-11-24 — DEX 헤더 엔디안 판독 보강
 - DEX reverse-endian tag가 있을 때 file_size/header_size 필드도 big-endian으로 읽도록 수정했습니다. endian tag/숫자 필드의 바이트 순서가 불일치하지 않도록 정리했습니다.
 - little-endian/reverse-endian 두 픽스처의 APK 검사 성공 상태 테스트를 추가했습니다. Android Gradle/JUnit 및 실제 APK 검사는 미실행입니다.
+
+
+## 2026-11-24 — reverse-endian DEX 픽스처 정정
+- reverse-endian fixture의 marker 값을 byte order와 맞게 수정해 parser가 endian tag를 정상적으로 구분하도록 했습니다. 검사기 코드 변경은 없습니다.
