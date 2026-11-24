@@ -117,7 +117,11 @@ class DnsTcpSessionManager(
         val windowSequenceIsNewer = sequenceAfter(tcp.sequence, session.peerWindowSequence)
         val windowAckIsCurrent = tcp.sequence == session.peerWindowSequence &&
             sequenceAtOrAfter(tcp.acknowledgement, session.peerWindowAcknowledgement)
-        if (windowSequenceIsNewer || windowAckIsCurrent) {
+        // Only a segment at the exact next client sequence position may
+        // update the receive window. Future/out-of-order or duplicate old
+        // segments must not pin the window ordering ahead of the live stream.
+        if (tcp.sequence == session.clientNext &&
+            (windowSequenceIsNewer || windowAckIsCurrent)) {
             session.peerWindow = tcp.window
             session.peerWindowSequence = tcp.sequence
             session.peerWindowAcknowledgement = tcp.acknowledgement
