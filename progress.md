@@ -5,6 +5,7 @@
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
 - **PR #290**: open, unmerged 상태 유지. 무료/PRO 작업은 별도 브랜치입니다.
 - **격리 Kotlin/JVM 검증**: DNS 업스트림 진단 ThreadLocal 3/3, DNS TCP 정책/타이머/프레임/시퀀스 하네스 기록, 필터/앱 목록 정리 정책, DEX 041 헤더/컨테이너 11/11, 앱별 정리 12/12 등. 각 결과는 해당 순수 정책만 검증하며 Android 앱 빌드 통과를 의미하지 않습니다.
+- **최근 수정**: `설정 > 고객 지원`에 개인정보를 제외한 최근 오류 내용 복사 기능과 UI/정책 회귀 테스트를 추가했습니다. 코드 반영은 완료했으나 Android Gradle/JUnit 실행 전입니다.
 - **미실행 검증**: 최신 브랜치 Android Gradle/JUnit 전체, lint, emulator, 실기기 네트워크 및 UI, APK 생성·크기·SHA-256·서명·설치 검증은 미실행입니다.
 - **실행 제약**: GitHub Actions 실행, runner/billing 설정 변경 및 유료 사용량 발생 작업은 사용자 승인 없이 하지 않습니다.
 - **완료 게이트**: Android 빌드·JUnit·lint·에뮬레이터·Samsung 실기기 검증, APK 파일/서명/해시/설치 증거 및 한국어 배포·복구 문서 확보 전에는 완료로 판정하지 않습니다.
@@ -688,3 +689,10 @@
 ## 2026-11-24 — 업데이트 작업 스레드 Activity 캡처 제거
 - background update worker에서 Activity helper를 호출해 Activity 참조를 보유할 수 있던 경로를 제거했습니다. 다운로드와 상태 브로드캐스트는 시작 시 캡처한 applicationContext로 수행합니다.
 - 화면/Activity 수명과 업데이트 작업을 분리했습니다. Android rotation/destroy lifecycle·메모리 및 실제 다운로드 테스트는 미실행입니다.
+
+
+## 2026-11-24 — Android 고객 지원의 최근 오류 복사 복구
+- 기존 모바일 고객 지원 메뉴에는 Q&A/문의 기능만 있었고, 오류 발생 시 최근 보호 시작 원인과 호출 경로를 직접 복사하는 버튼이 없었습니다. 활동 화면의 일반 진단 복사와 별개로 고객 지원 카드에 최근 오류 복사 액션을 추가했습니다.
+- `ProtectionDiagnostics.recentErrorReport`가 최근 서비스 시작 오류를 안전한 분류로 변환하고, 필터 오류 코드를 최대 3개까지 설명과 함께 포함합니다. 스택은 클래스·메서드·라인 토큰만 허용하며 경로 조각은 통째로 거부합니다.
+- Kotlin 회귀 테스트 2건과 `scripts/test_android_navigation_compat.py`의 고객 지원 버튼→핸들러→보고서 연결 검사를 추가했습니다.
+- 검증 상태: GitHub 원격 파일/커밋 diff 재확인 완료. Android Gradle/JUnit·Python 정적 테스트 실행, lint, emulator, 실기기 및 APK 검증은 미실행입니다.
