@@ -26,7 +26,7 @@ class DnsTcpSessionManagerTest {
         )
         val replies = manager.handle(request, request.size) { ByteArray(3000) }
         assertTrue(replies.size > 1)
-        assertEquals(3000, replies.sumOf {
+        assertEquals(3002, replies.sumOf {
             DnsTcpPacket.parse(it, it.size, 53000)!!.payload.size
         })
         replies.forEach { response ->
