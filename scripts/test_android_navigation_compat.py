@@ -49,6 +49,11 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_settings_item('<hierarchy><node text="일반" /></hierarchy>', "앱 제외 관리")
 
+    def test_disabled_settings_item_is_not_selected(self):
+        xml = '<hierarchy><node text="앱 제외 관리" visible-to-user="true" enabled="false" /></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_settings_item(xml, "앱 제외 관리")
+
     def test_missing_navigation_fails_closed(self):
         with self.assertRaises(ValueError):
             resolve_premium_entry('<hierarchy><node content-desc="홈" /></hierarchy>')
