@@ -302,3 +302,9 @@
 - UDP flow 4-tuple을 1초간 캐싱하던 로직을 제거했습니다. source port 재사용으로 다른 앱에 이전 앱의 per-app rule이 적용될 수 있는 오귀속 위험을 차단하기 위해 각 데이터그램마다 owner UID를 다시 확인합니다.
 - 공유 UID 및 UID 조회 실패는 계속 귀속하지 않습니다. 독립 package identity policy 테스트를 보강했습니다.
 - DEBUG 전용 경로로 유지합니다. 실제 Android 10+ 기기별 UID 조회 부하/성능 및 Android JUnit 검증은 미실행입니다.
+
+
+## 2026-11-24 — 앱 제거 시 앱별 데이터 정리
+- InstalledAppInventory는 전체 앱 조회 권한과 PackageManager 주요 설치 앱 조회 성공이 모두 참일 때만 보유 앱 이름 집합을 신뢰합니다.
+- 이 조건에서만 앱별 추가 규칙과 앱별 DNS 통계를 정리합니다. 불완전 inventory에서는 삭제 작업을 하지 않습니다.
+- 제거된 앱의 통계·tracked package 및 policy cache를 지워 200개 통계 한도 포화를 방지합니다. 순수 cleanup policy 테스트 추가; Android SharedPreferences/JUnit·실기기 검증은 미실행입니다.
