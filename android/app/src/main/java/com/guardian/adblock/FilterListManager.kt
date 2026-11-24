@@ -515,8 +515,13 @@ object FilterListManager {
                     if (previousCachedProfile == null) rollback.remove(KEY_CACHED_PROFILE)
                     else rollback.putString(KEY_CACHED_PROFILE, previousCachedProfile)
                 }
-                check(rollback.commit()) { "이전 필터 메타데이터를 복구하지 못했습니다." }
-                stateStore.restore(sourceId, previousGeneratedAt)
+                try {
+                    check(rollback.commit()) { "이전 필터 메타데이터를 복구하지 못했습니다." }
+                } finally {
+                    // Restore the anti-rollback watermark even if preference rollback
+                    // itself fails; otherwise it could remain ahead of the restored cache.
+                    stateStore.restore(sourceId, previousGeneratedAt)
+                }
             }
         )
         return UpdateResult(
