@@ -97,6 +97,17 @@ class FilterUpdateSchedulePolicyTest {
         assertEquals(2, FilterUpdateScheduler.selectionIndex(123L, intervals, 2))
     }
 
+    @Test fun initialCacheRecoveryRunsEvenWhenRecurringUpdatesAreDisabled() {
+        assertTrue(FilterUpdatePolicy.shouldRunUpdates(autoUpdateEnabled = false, forceInitialRefresh = true))
+        assertTrue(FilterUpdatePolicy.shouldRunUpdates(autoUpdateEnabled = true, forceInitialRefresh = false))
+        assertTrue(FilterUpdatePolicy.shouldRunUpdates(autoUpdateEnabled = true, forceInitialRefresh = true))
+        assertFalse(FilterUpdatePolicy.shouldRunUpdates(autoUpdateEnabled = false, forceInitialRefresh = false))
+    }
+
+    @Test fun initialCacheRetryUsesShortBackoffBeforeNetworkWork() {
+        assertEquals(30_000L, FilterUpdateScheduler.INITIAL_CACHE_RETRY_DELAY_MS)
+    }
+
     @Test fun clearsBaseErrorOnlyAfterASuccessfulDueRefresh() {
         assertFalse(FilterUpdatePolicy.shouldClearBaseError(updateWasDue = false, updateSucceeded = false))
         assertFalse(FilterUpdatePolicy.shouldClearBaseError(updateWasDue = false, updateSucceeded = true))
