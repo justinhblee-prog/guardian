@@ -96,7 +96,7 @@ class GuardianVpnService : VpnService() {
         fun isTunnelActive(): Boolean = tunnelActive
     }
 
-        private val lastUpstreamFailureContext = DnsThreadFailureContext()
+    private val lastUpstreamFailureContext = DnsThreadFailureContext()
     private var lastUpstreamFailure: String?
         get() = lastUpstreamFailureContext.current
         set(value) { lastUpstreamFailureContext.current = value }
