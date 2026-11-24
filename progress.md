@@ -650,3 +650,8 @@
 ## 2026-11-24 — DNS 업스트림 후보별 실패 사유 보존
 - DNS fallback 각 후보를 시도하기 전 현재 작업 스레드의 오류를 비우고 후보별 실패 사유를 수집합니다. 모든 후보가 실패하면 순번이 있는 최대 6개 원인을 합쳐서 전달하도록 수정했습니다.
 - 서버 IP는 로그에 포함하지 않으며 항목 240자, 전체 1,200자 상한을 둡니다. 요약 정책 테스트 4건 추가. Android UDP/TCP/DoT/DoH 네트워크 실측 및 Android Gradle/JUnit은 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP 제로 윈도우 fast retransmit 예외
+- 수신 윈도우가 0인 상태에서 반복 ACK를 fast retransmit 신호로 해석하지 않도록 제한했습니다. receiver의 zero-window flow control과 loss indication을 구분합니다.
+- zero-window update 이후 반복 ACK에 재전송이 발생하지 않는 테스트를 추가했습니다. Android Gradle/JUnit·실기기 검증은 미실행입니다.
