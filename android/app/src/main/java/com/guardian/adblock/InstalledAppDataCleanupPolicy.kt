@@ -11,9 +11,11 @@ internal object InstalledAppDataCleanupPolicy {
         applicationQuerySucceeded: Boolean,
         packageInfoQuerySucceeded: Boolean,
         applicationPackages: Set<String>,
-        packageInfoPackages: Set<String>
+        packageInfoPackages: Set<String>,
+        launcherFallbackCount: Int
     ): Boolean = queryAllPackagesGranted &&
         applicationQuerySucceeded && packageInfoQuerySucceeded &&
+        launcherFallbackCount == 0 &&
         applicationPackages.isNotEmpty() && applicationPackages == packageInfoPackages
 
     fun stalePackages(
