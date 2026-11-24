@@ -51,6 +51,18 @@ internal object SecurityProfilePolicy {
     /** Ignore late network callbacks once the user has disabled automatic switching. */
     fun shouldApplyAutomaticProfile(automaticSwitchEnabled: Boolean): Boolean = automaticSwitchEnabled
 
+    /** Use the platform's NOT_ROAMING capability on API 28+, legacy network info before it. */
+    fun isCellularRoaming(
+        transport: Transport,
+        apiLevel: Int,
+        notRoamingCapabilityPresent: Boolean,
+        legacyRoaming: Boolean
+    ): Boolean = when {
+        transport != Transport.CELLULAR -> false
+        apiLevel >= 28 -> !notRoamingCapabilityPresent
+        else -> legacyRoaming
+    }
+
     /** Manual selection has no trusted metering facts; never silently opt into downloads. */
     fun manualSelection(id: Id): Profile = profile(id).copy(automaticFilterUpdates = false)
 
