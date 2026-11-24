@@ -697,3 +697,10 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 앱 업데이트 트랙: 여러 화면/스레드에서 동시에 업데이트 확인을 시작해도 AtomicReference CAS gate가 단 하나의 실행만 허용하는지 확인하는 동시성 회귀 테스트 `concurrentUpdateChecksAllowExactlyOneOwner` 추가.
 - 변경 커밋: `671bfb89ecc314eba745d5e44919de3a3cabcaa9` (DNS probe), `53e2d39196899fe9fe55d177a0fc7de1bc689937` (DNS 테스트), `de6473bc21c29ce758c56f6179759125c32a205e` (업데이트 동시성 테스트).
 - 세 파일 모두 원격 브랜치 재조회로 변경 반영을 확인했습니다. Android Gradle/JUnit, 전체 APK 빌드 및 실기기 검증은 미실행입니다.
+
+## 2026-11-24 — 무료 Android 멀티 트랙: 업데이트 시도 소유권 경합 방지
+- 앱 업데이트 화면/상태 트랙에서 실제 경쟁 조건을 수정했습니다. 이전 확인 작업의 늦은 `finally`/예외/완료 콜백이 다음 확인 작업의 상태를 덮어쓸 수 있었으므로, `GuardianAppUpdateState.begin`이 시도별 ID를 발급하고 `updateStatus/complete/noUpdate/fail`이 현재 시도 ID와 일치할 때만 상태를 변경하도록 했습니다.
+- `MainActivity`의 개발판/정식판 확인, 다운로드, 실패, 최종 정리 경로 모두 시작 시 발급받은 동일한 시도 ID를 전달합니다.
+- 회귀 테스트는 오래된 시도의 실패/최신 응답이 새 확인 상태를 덮어쓰지 않는지, 동시 8개 시작 요청 중 하나만 소유권을 획득하는지, APK 상태 유지 및 비어 있는 APK 거부를 검사합니다.
+- 커밋: `35ddb58e7e0b2a35335adf905d2a00f1d9ba3d27`, `9057ebc09c704be98365dfad19a729c0ade023d6`, `3e2a42efd51a537030f024857a0e5cb038c861e9`, `e11cd87ca46273f90a822fe92d0c79712e662a73`.
+- 원격 소스 재조회 완료. 상태 소유권 핵심 로직을 복제한 격리 Kotlin/JVM 동시성 smoke: `APP_UPDATE_ATTEMPT_OWNERSHIP_SMOKE=PASS`. 이는 Android 모듈 컴파일/JUnit/Gradle/APK/실기기 검증을 대체하지 않습니다.
