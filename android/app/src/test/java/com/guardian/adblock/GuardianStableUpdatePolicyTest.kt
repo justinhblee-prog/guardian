@@ -64,6 +64,21 @@ class GuardianStableUpdatePolicyTest {
         assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
             "https://github.com:444/guardian.apk"
         ))
+        assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://github.com/attacker/repository/releases/download/v1/guardian.apk"
+        ))
+        assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://github.com/justinhblee-prog/guardian/releases/download/v1/guardian.apk#fragment"
+        ))
+        assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://release-assets.githubusercontent.com/#fragment"
+        ))
+        assertFalse(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://objects.githubusercontent.com/"
+        ))
+        assertTrue(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
+            "https://release-assets.githubusercontent.com/github-production-release-asset/guardian.apk?token=temporary"
+        ))
     }
 
     @Test fun releaseAssetMustMatchExactOfficialTagAndAssetPath() {
