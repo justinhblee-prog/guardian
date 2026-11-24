@@ -838,6 +838,13 @@ class DnsTcpSessionManagerTest {
         val rejected = manager.handle(futureAck, futureAck.size) { null }.single()
         assertTrue(DnsTcpPacket.parse(rejected, rejected.size, 53000)!!.payload.isEmpty())
 
+        // A stale sequence that is not the exact last request retransmission
+        // must not advance the server ACK either.
+        val staleAck = packet(flags = DnsTcpPacket.ACK,
+            seq = clientNext - 1L, acknowledgment = firstAcknowledgement, window = 0)
+        val staleRejected = manager.handle(staleAck, staleAck.size) { null }.single()
+        assertTrue(DnsTcpPacket.parse(staleRejected, staleRejected.size, 53000)!!.payload.isEmpty())
+
         val retransmission = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
             seq = 8701, acknowledgment = serverStart, payload = framedQuery)
         val replayed = manager.handle(retransmission, retransmission.size) { null }
