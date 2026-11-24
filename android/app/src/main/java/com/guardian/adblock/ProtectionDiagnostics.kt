@@ -164,7 +164,7 @@ object ProtectionDiagnostics {
             .take(1800)
         val safeCodes = filterErrorCodes
             .map { it.trim().uppercase(java.util.Locale.ROOT) }
-            .filter { it.matches(Regex("[A-Z0-9_]{1,64}")) }
+            .filter { it.matches(Regex("[A-Z0-9_-]{1,64}")) }
             .distinct()
             .take(3)
         return buildString {
@@ -173,7 +173,14 @@ object ProtectionDiagnostics {
             appendLine("호출 경로: ${safeTrace.ifBlank { "기록 없음" }}")
             appendLine("필터 오류:")
             if (safeCodes.isEmpty()) appendLine("기록 없음")
-            else safeCodes.forEach { code -> appendLine("- ${SafeFailureSummary.describeCode(code)} ($code)") }
+            else safeCodes.forEach { code ->
+                val description = if (code == "INITIAL-FILTER-CACHE-RETRY-EXHAUSTED") {
+                    "초기 필터 캐시 복구 재시도 한도 초과"
+                } else {
+                    SafeFailureSummary.describeCode(code)
+                }
+                appendLine("- $description ($code)")
+            }
             appendLine("필터 준비 상태: ${filterReadinessSummary(filterReadiness)}")
             appendLine()
             appendLine("개인정보 보호: 원본 오류 메시지, 로컬 경로, 서버 URL/IP, 방문 도메인, 사용자 규칙 및 라이선스 키·토큰은 포함하지 않았습니다.")
