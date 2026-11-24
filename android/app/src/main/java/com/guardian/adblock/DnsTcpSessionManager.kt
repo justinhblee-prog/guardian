@@ -33,7 +33,6 @@ class DnsTcpSessionManager(
         var lastClientFin: Boolean = false,
         var clientFinReceived: Boolean = false,
         var serverFinSent: Boolean = false,
-        var lastServerReplies: List<ByteArray> = emptyList(),
         val outstandingServerPackets: MutableList<OutstandingServerPacket> = mutableListOf()
     )
 
@@ -227,11 +226,9 @@ class DnsTcpSessionManager(
                 session.clientNext = (session.clientNext + 1L) and MASK
                 session.clientFinReceived = true
                 appendPendingFin(tcp, session, replies)
-                session.lastServerReplies = replies.map { it.copyOf() }
                 return if (replies.isEmpty()) listOf(ack(tcp, session)) else replies
             }
             if (replies.isEmpty()) replies.add(ack(tcp, session))
-            session.lastServerReplies = replies.map { it.copyOf() }
             return replies
         }
 
