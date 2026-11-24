@@ -1,3 +1,9 @@
+## 2026-11-24 — 위협 분석 보안 피드 출처 인덱스 연결
+
+- 보안 인텔리전스 피드를 로드했어도 DomainFilter에 securitySourceIndexes를 전달하지 않아, 보안 목록 기반 차단을 AD/TRACKER/UNKNOWN 일반 목록 근거로 분류하던 통합 누락을 수정했습니다.
+- optional security feed가 캐시 준비를 통과해 sources에 실제 추가된 직후의 인덱스만 기록하고, 로드 시 DomainFilter.loadParsedRuleSources에 전달합니다. 캐시가 없어서 source가 생략되면 인덱스도 추가하지 않습니다.
+- DomainFilterTest의 보안 목록/광고/추적/사용자 규칙 evidence 회귀 테스트가 이미 지정 인덱스를 사용하므로 해당 정책 테스트를 그대로 유지하고, 서비스 실제 wiring을 정적 재검토했습니다. Android Gradle/JUnit·단말 검증은 미실행입니다.
+
 # Changelog
 
 ## 2026-11-24 — DNS 위협 분석을 실제 필터 출처에 연결
