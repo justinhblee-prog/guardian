@@ -1,3 +1,10 @@
+## 2026-11-24 — DoT/DoH 업스트림 실패 원인 구분
+
+- DoT 응답 길이 오류와 DNS transaction ID/질문 불일치는 각각 구체적인 진단값을 남기도록 수정했습니다.
+- DoH TLS host 및 HTTP 요청 검증, HTTP 상태·헤더·Content-Type·본문 framing 실패, DNS 응답 transaction ID/질문 불일치도 구분해 기록합니다. 실제 TLS handshake/소켓 오류는 예외 유형 기반 안전 요약을 유지합니다.
+- TCP upstream의 잘못된 query length 진단도 추가했습니다. 연결·호스트 인증·리다이렉트 거부·본문 크기 검증 동작 자체는 변경하지 않았습니다.
+- 정적 소스 반영만 수행했으며 Android Gradle/JUnit·실기기 네트워크 검증은 미실행입니다.
+
 ## 2026-11-24 — DNS TCP 회귀 테스트 정밀화
 
 - DNS TCP 최대 프레임 병합 회귀 테스트가 resolver 호출 횟수만 확인하던 것을 보완해 첫 번째 프레임이 정확히 65,535바이트로 전달되고, 같은 세그먼트의 두 번째 프레임 바이트가 원본 질의와 일치하는지 직접 비교하도록 했습니다.
