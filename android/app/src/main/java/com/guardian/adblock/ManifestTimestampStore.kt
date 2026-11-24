@@ -51,7 +51,7 @@ internal class ManifestTimestampStore(private val stateFile: File) {
      */
     private fun parseStoredTimestamp(value: String?, sourceId: String): Long {
         if (value == null) return 0L
-        if (!value.matches(Regex("[0-9]{1,16}"))) {
+        if (!value.matches(Regex("(0|[1-9][0-9]{0,15})"))) {
             throw IllegalStateException("저장된 manifest 시각 데이터가 손상되었습니다: $sourceId")
         }
         return value.toLongOrNull()
