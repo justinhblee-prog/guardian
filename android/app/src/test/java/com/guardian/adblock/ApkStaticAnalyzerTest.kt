@@ -8,16 +8,19 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 class ApkStaticAnalyzerTest {
-    private fun dexFixture(text: String): ByteArray {
+    private fun dexFixture(text: String, reverseEndian: Boolean = false): ByteArray {
         val payload = text.toByteArray(Charsets.ISO_8859_1)
         val bytes = ByteArray(0x70 + payload.size)
         byteArrayOf(100, 101, 120, 10, 48, 51, 53, 0).copyInto(bytes)
         fun putInt(offset: Int, value: Int) {
-            repeat(4) { index -> bytes[offset + index] = (value ushr (index * 8)).toByte() }
+            repeat(4) { index ->
+                val shift = if (reverseEndian) (3 - index) * 8 else index * 8
+                bytes[offset + index] = (value ushr shift).toByte()
+            }
         }
         putInt(32, bytes.size)
         putInt(36, 0x70)
-        putInt(40, 0x12345678)
+        putInt(40, if (reverseEndian) 0x78563412 else 0x12345678)
         payload.copyInto(bytes, 0x70)
         return bytes
     }
@@ -87,6 +90,17 @@ class ApkStaticAnalyzerTest {
                 apkWithRawDex(byteArrayOf(100, 101, 120, 10, 48, 51, 53, 0))
             )).status
         )
+    }
+
+    @Test fun acceptsLittleEndianAndReverseEndianDexHeaderValues() {
+        val littleEndian = ApkStaticAnalyzer.analyze(
+            ByteArrayInputStream(apkWithRawDex(dexFixture("Lcom/example/Normal;")))
+        )
+        val reverseEndian = ApkStaticAnalyzer.analyze(
+            ByteArrayInputStream(apkWithRawDex(dexFixture("Lcom/example/Reverse;", reverseEndian = true)))
+        )
+        assertEquals(ApkStaticAnalyzer.Status.SCANNED, littleEndian.status)
+        assertEquals(ApkStaticAnalyzer.Status.SCANNED, reverseEndian.status)
     }
 
     @Test fun rejectsDexHeaderWithWrongDeclaredFileSizeOrHeaderSize() {
