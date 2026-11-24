@@ -37,6 +37,26 @@ class FilterListProfilesTest {
         assertFalse(FilterListManager.isProfileCacheCurrent(false, "adguard", "adguard"))
         assertFalse(FilterListManager.isProfileCacheCurrent(true, "hagezi_pro", "adguard"))
     }
+    @Test fun changingProfileTreatsTheOldCacheAsMissingEvenWhenRuleCountWasValid() {
+        val oldCacheWouldPassCountThreshold = true
+        val selectedProfileCacheReady = FilterListManager.isProfileCacheCurrent(
+            oldCacheWouldPassCountThreshold,
+            selectedKey = "hagezi_pro",
+            cachedKey = "adguard"
+        )
+        assertFalse(selectedProfileCacheReady)
+        assertTrue(
+            FilterStartupPolicy.shouldRefresh(
+                mainCacheMissing = !selectedProfileCacheReady,
+                securityCacheMissing = false,
+                securityEnabled = false,
+                androidAdsCacheMissing = false,
+                androidAdsEnabled = false,
+                scheduledRefreshDue = false
+            )
+        )
+    }
+
     @Test fun enabledAndroidAppAdsFilterRequiresItsOwnCachedList() {
         assertTrue(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", false, false, false, false))
         assertTrue(FilterListManager.isProfileCacheCurrent(true, "adguard", "adguard", false, true, true, true))
