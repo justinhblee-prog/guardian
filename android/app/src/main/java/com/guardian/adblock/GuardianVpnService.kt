@@ -1564,7 +1564,16 @@ class GuardianVpnService : VpnService() {
             tun = null
         }
         try { stoppedTun?.close() } catch (_: Exception) { }
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (error: Exception) {
+            // Teardown must continue even if Android has already detached the
+            // foreground notification during service/process shutdown.
+            android.util.Log.w(
+                "GuardianProtection",
+                "Could not remove foreground notification during stop: ${SafeFailureSummary.codeFor(error)}"
+            )
+        }
         // An explicit user stop must clear the persisted restart intent even
         // when startup was still in flight and no TUN descriptor was committed.
         if (!preserveRestoreIntent && ProtectionState.shouldPublishStoppedState(explicitStop, wasActive)) {
