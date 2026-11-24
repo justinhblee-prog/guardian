@@ -172,8 +172,8 @@ class Ipv4UdpTest {
         val parsed = Ipv4Udp.parseDns(packet, packet.size)
         assertNotNull(parsed)
         val response = Ipv4Udp.response(parsed!!, ByteArray(32) { it.toByte() })
-        assertEquals(0, ipv4HeaderChecksum(response, 20))
-        assertTrue(ipv4UdpChecksum(response, 20, response.size - 20) == 0)
+        assertEquals(0xffff, ipv4HeaderChecksum(response, 20))
+        assertTrue(ipv4UdpChecksumValid(response, 20, response.size - 20))
         assertEquals(53, Ipv4Udp.u16(response, 20))
         assertEquals(parsed.sourcePort, Ipv4Udp.u16(response, 22))
     }
@@ -194,6 +194,23 @@ class Ipv4UdpTest {
         while ((sum ushr 16) != 0L) sum = (sum and 0xffff) + (sum ushr 16)
         val result = sum.inv().toInt() and 0xffff
         return if (result == 0) 0xffff else result
+    }
+
+    private fun ipv4UdpChecksumValid(packet: ByteArray, offset: Int, length: Int): Boolean {
+        var sum = 0L
+        for (i in 12 until 20 step 2) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or (packet[i + 1].toInt() and 0xff)).toLong()
+        }
+        sum += 17L + length
+        var i = offset
+        val end = offset + length
+        while (i + 1 < end) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or (packet[i + 1].toInt() and 0xff)).toLong()
+            i += 2
+        }
+        if (i < end) sum += ((packet[i].toInt() and 0xff) shl 8).toLong()
+        while ((sum ushr 16) != 0L) sum = (sum and 0xffff) + (sum ushr 16)
+        return (sum.toInt() and 0xffff) == 0xffff
     }
 
     private fun ipv4HeaderChecksum(packet: ByteArray, length: Int): Int {
