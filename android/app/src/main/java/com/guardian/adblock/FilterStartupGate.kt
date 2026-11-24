@@ -9,6 +9,18 @@ internal object FilterStartupGate {
     fun hasUsableBundledBaseline(blockedRules: Int, importantBlockedRules: Int): Boolean =
         blockedRules > 0 || importantBlockedRules > 0
 
+    /**
+     * Optional cache metadata failures may disable that feed, but must not swallow
+     * VM-fatal errors such as OutOfMemoryError during startup.
+     */
+    fun isOptionalCacheReady(check: () -> Boolean): Boolean = try {
+        check()
+    } catch (_: Exception) {
+        false
+    } catch (_: LinkageError) {
+        false
+    }
+
     internal fun meetsMinimumRuleCount(
         blockedRules: Int,
         importantBlockedRules: Int,
