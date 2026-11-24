@@ -86,10 +86,15 @@ class DnsTcpSessionManager(
         // Every segment after the SYN handshake must carry ACK. Ignore
         // malformed ACK-less data/FIN so it cannot mutate the DNS stream.
         if (!tcp.ack) return emptyList()
-        // A future client sequence is outside the in-order receive point. Do not
-        // accept its ACK field: otherwise an out-of-order segment can falsely
-        // acknowledge response bytes and remove packets needed for retransmission.
-        if (sequenceAfter(tcp.sequence, session.clientNext)) {
+        // This state machine accepts an in-order stream. Only the next expected
+        // client sequence or an exact retransmission of the last accepted segment
+        // may carry ACK state; arbitrary old/future segments must not discard
+        // response packets that are still needed for retransmission.
+        val isExactClientRetransmission =
+            tcp.sequence == session.lastClientSegmentStart &&
+                tcp.payload.contentEquals(session.lastClientPayload) &&
+                tcp.fin == session.lastClientFin
+        if (tcp.sequence != session.clientNext && !isExactClientRetransmission) {
             return listOf(ack(tcp, session))
         }
         // A client cannot acknowledge server sequence space that Guardian has server sequence space that Guardian has
