@@ -2166,7 +2166,7 @@ class MainActivity : Activity() {
             thread(name = "guardian-app-dns-stats") {
                 val result = runCatching { AppDnsActivityStore.snapshot(applicationContext, 10) }
                 runOnUiThread {
-                    if (isFinishing || isDestroyed || statsContainer.parent == null) return@runOnUiThread
+                    if (isFinishing || isDestroyed || !statsContainer.isAttachedToWindow) return@runOnUiThread
                     statsContainer.removeAllViews()
                     result.onSuccess { entries ->
                         if (entries.isEmpty()) {
@@ -2216,7 +2216,7 @@ class MainActivity : Activity() {
             thread(name = "guardian-app-dns-inventory") {
                 val result = runCatching { InstalledAppInventory.load(this@MainActivity) }
                 runOnUiThread {
-                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    if (isFinishing || isDestroyed || !inventoryContainer.isAttachedToWindow) return@runOnUiThread
                     // Keep the existing status row so the resolved inventory
                     // message (or failure details) remains visible above the editor.
                     result.onSuccess { snapshot ->
@@ -2308,7 +2308,7 @@ class MainActivity : Activity() {
                         )
                     }
                     runOnUiThread {
-                        if (isFinishing || isDestroyed || saveButton.parent == null) return@runOnUiThread
+                        if (isFinishing || isDestroyed || !saveButton.isAttachedToWindow) return@runOnUiThread
                         saveButton.isEnabled = true
                         saveButton.text = "선택 앱에 추가 차단 규칙 저장"
                         appSpinner.isEnabled = true
