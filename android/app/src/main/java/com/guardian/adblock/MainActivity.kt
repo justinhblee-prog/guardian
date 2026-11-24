@@ -3628,6 +3628,8 @@ class MainActivity : Activity() {
         val securityIgnored = if (securityOn) FilterListManager.cachedSecurityIgnoredCount(this) else 0
         val androidAdsIgnored = if (androidAdsOn) FilterListManager.cachedAndroidAdsIgnoredCount(this) else 0
         val lastError = prefs.getString(FilterListManager.KEY_LAST_ERROR, null)
+        val selectedProfile = FilterListManager.selectedProfile(this)
+        val cachedProfile = FilterListManager.cachedProfile(this)
         val hasUsableMainCache = runCatching {
             FilterUpdatePolicy.hasUsableMainCache(
                 cacheValid = FilterListManager.hasCachedList(this),
@@ -3638,8 +3640,6 @@ class MainActivity : Activity() {
         val mainErrorStatus = FilterUpdatePolicy.mainErrorStatus(lastError, hasUsableMainCache)
         val securityError = if (securityOn) prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null) else null
         val androidAdsError = if (androidAdsOn) prefs.getString(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR, null) else null
-        val selectedProfile = FilterListManager.selectedProfile(this)
-        val cachedProfile = FilterListManager.cachedProfile(this)
         val profileLabel = if (FilterListManager.hasCachedList(this) && selectedProfile.key != cachedProfile.key) {
             "선택: ${selectedProfile.label} · 적용 중: ${cachedProfile.label}"
         } else selectedProfile.label
