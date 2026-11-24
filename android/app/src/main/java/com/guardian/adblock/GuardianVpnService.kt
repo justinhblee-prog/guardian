@@ -759,6 +759,9 @@ class GuardianVpnService : VpnService() {
             val blockedCount = prefs.getLong(KEY_DNS_BLOCKED, 0L) + if (blocked) 1L else 0L
             val forwardedCount = prefs.getLong(KEY_DNS_FORWARDED, 0L) + if (forwarded) 1L else 0L
             val failedCount = prefs.getLong(KEY_DNS_FAILED, 0L) + if (!blocked && !forwarded) 1L else 0L
+            val attribution = if (blocked && BuildConfig.DEBUG) {
+                DomainFilter.blockAttribution(domain)
+            } else null
             val category = if (blocked) DomainFilter.classifyBlockedDomain(domain) else null
             val adBlocked = prefs.getLong(KEY_DNS_AD_BLOCKED, 0L) +
                 if (category == DomainFilter.BlockCategory.AD) 1L else 0L
@@ -772,7 +775,10 @@ class GuardianVpnService : VpnService() {
                 else -> "DNS 응답 실패"
             }
             val previous = prefs.getString(KEY_DNS_RECENT, "").orEmpty()
-            val lines = (listOf("$outcome · $domain") + previous.lineSequence().filter { it.isNotBlank() }.toList()).take(8)
+            val sourceLabel = attribution?.let { value ->
+                " · ${value.category.label} · " + value.sources.joinToString("+") { it.label }
+            }.orEmpty()
+            val lines = (listOf("$outcome · $domain$sourceLabel") + previous.lineSequence().filter { it.isNotBlank() }.toList()).take(8)
             prefs.edit()
                 .putLong(KEY_DNS_QUERIES, queries)
                 .putLong(KEY_DNS_BLOCKED, blockedCount)
@@ -809,16 +815,19 @@ class GuardianVpnService : VpnService() {
         // the VPN tunnel from starting with the bundled baseline.
         val sources = mutableListOf<() -> FilterRuleParser.Parsed>()
         val minimumRuleCounts = mutableListOf<Int>()
+        val sourceKinds = mutableListOf<DomainFilter.RuleSource>()
         val unavailable = mutableListOf<String>()
         sources.add {
             assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
         }
         minimumRuleCounts.add(1)
+        sourceKinds.add(DomainFilter.RuleSource.BUILT_IN)
 
         fun addOptionalCache(
             label: String,
             cacheName: String,
             minimumRules: Int,
+            sourceKind: DomainFilter.RuleSource,
             cacheReady: Boolean
         ) {
             if (!cacheReady) {
@@ -841,6 +850,7 @@ class GuardianVpnService : VpnService() {
             // Zero is intentional: this source is optional at runtime. The
             // baseline source above retains its mandatory one-rule validation.
             minimumRuleCounts.add(0)
+            sourceKinds.add(sourceKind)
         }
 
         val mainCacheReady = runCatching {
@@ -854,6 +864,7 @@ class GuardianVpnService : VpnService() {
             "광고·추적",
             "adguard_dns_filter.txt",
             selectedProfile.minimumRules,
+            DomainFilter.RuleSource.PRIMARY_FILTER,
             mainCacheReady
         )
 
@@ -866,6 +877,7 @@ class GuardianVpnService : VpnService() {
                 "보안",
                 "hagezi_threat_intelligence.txt",
                 FilterListManager.MIN_SECURITY_BLOCKS,
+                DomainFilter.RuleSource.SECURITY_INTELLIGENCE,
                 securityReady
             )
         }
@@ -879,6 +891,7 @@ class GuardianVpnService : VpnService() {
                 "Android 앱 광고",
                 "awavenue_android_ads.txt",
                 FilterListManager.MIN_ANDROID_ADS_BLOCKS,
+                DomainFilter.RuleSource.ANDROID_APP_ADS,
                 androidAdsReady
             )
         }
@@ -891,7 +904,9 @@ class GuardianVpnService : VpnService() {
             "Guardian",
             "VPN rules load started; sources=${sources.size}, security=$securityEnabled, androidAds=$androidAdsEnabled"
         )
-        DomainFilter.loadParsedRuleSources(sources, minimumRuleCounts, userBlock, userAllow)
+        DomainFilter.loadParsedRuleSources(
+            sources, minimumRuleCounts, userBlock, userAllow, sourceKinds
+        )
         val blockedCount = DomainFilter.blockedRuleCount()
         android.util.Log.i(
             "Guardian",
