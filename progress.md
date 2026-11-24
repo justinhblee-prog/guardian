@@ -274,3 +274,7 @@
 - DEBUG 최근 DNS 차단 이력에 출처/범주를 표시하고 Premium 미리보기에서 현재 로드된 source rule counts를 제공합니다.
 - 회귀 테스트: built-in/main/security/android-app-ads/user source, 중첩 source, allow override, important precedence, 잘못된 source metadata cardinality.
 - Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행입니다. productionReadyFeatures는 계속 비어 있어 PRO Release 권한을 열지 않았습니다.
+
+
+## 2026-11-24 — 고급 필터 미리보기 상태 정합성
+- Premium 미리보기의 고급 필터 항목을 실제 현재 구현(출처·범주 분석 및 최근 DNS 기록 연결)과 일치시켰습니다. Android 검증 필요 및 PRO release gate는 유지합니다.
