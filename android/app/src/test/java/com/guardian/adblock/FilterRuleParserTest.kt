@@ -25,6 +25,15 @@ class FilterRuleParserTest {
         assertEquals(setOf("ads.example.com", "tracker.example.net", "telemetry.example.org"), parsed.blocked)
     }
 
+    @Test fun hostsFileDoesNotTreatSinkAddressesAsBlockedHostnames() {
+        val parsed = FilterRuleParser.parse(listOf(
+            "0.0.0.0 0.0.0.0 ads.example.com",
+            "127.0.0.1 127.0.0.1 tracker.example.net",
+            "0.0.0.0 999.1.1.1 invalid.example.org"
+        ))
+        assertEquals(setOf("ads.example.com", "tracker.example.net", "invalid.example.org"), parsed.blocked)
+    }
+
     @Test fun ignoresCosmeticWildcardAndMalformedRules() {
         val parsed = FilterRuleParser.parse(listOf(
             "##.ad-banner",
