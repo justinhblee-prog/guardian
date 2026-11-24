@@ -35,18 +35,31 @@ object DnsUpstreamProbe {
         val answerCount = u16(response, 6)
         if (answerCount == 0) return false
         val questionEnd = rawQuestionEnd(response) ?: return false
+        // This probe asks for an A/IN record. A syntactically complete TXT,
+        // CNAME-only, or malformed-length answer is not proof that IPv4 DNS
+        // resolution is usable. CNAME chains remain valid when they include
+        // a final A record in the answer section.
+        val questionType = u16(response, questionEnd - 4)
+        val questionClass = u16(response, questionEnd - 2)
+        if (questionType != 1 || questionClass != 1) return false
         val recordCount = answerCount.toLong() + u16(response, 8) + u16(response, 10)
         if (recordCount > response.size.toLong()) return false
         var offset = questionEnd
-        repeat(recordCount.toInt()) {
+        var hasAddressAnswer = false
+        repeat(recordCount.toInt()) { index ->
             offset = skipName(response, offset) ?: return false
             if (offset + 10 > response.size) return false
+            val recordType = u16(response, offset)
+            val recordClass = u16(response, offset + 2)
             val dataLength = u16(response, offset + 8)
+            if (index < answerCount && recordType == 1 && recordClass == 1 && dataLength == 4) {
+                hasAddressAnswer = true
+            }
             offset += 10
             if (dataLength > response.size - offset) return false
             offset += dataLength
         }
-        return offset == response.size
+        return offset == response.size && hasAddressAnswer
     }
 
     private fun rawQuestionEnd(message: ByteArray): Int? {
