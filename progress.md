@@ -1,7 +1,7 @@
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. 무료 Android 출시와 PRO 기능 완성 모두 미완료입니다.
-- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 255 commits ahead, 0 behind.
+- **무료 트랙**: `work/android-free-release-followup-20261124` — 최신 GitHub compare 기준 273 commits ahead, 0 behind. 기존 `work/android-free-release-20261124`를 기준으로 한 후속 개발 브랜치입니다.
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
 - **PR #290**: open, unmerged 상태 유지. 무료/PRO 작업은 별도 브랜치입니다.
 - **격리 Kotlin/JVM 검증**: DNS 업스트림 진단 ThreadLocal 3/3, DNS TCP 정책/타이머/프레임/시퀀스 하네스 기록, 필터/앱 목록 정리 정책, DEX 041 헤더/컨테이너 11/11, 앱별 정리 12/12 등. 각 결과는 해당 순수 정책만 검증하며 Android 앱 빌드 통과를 의미하지 않습니다.
@@ -650,3 +650,7 @@
 ## 2026-11-24 — DNS 업스트림 후보별 실패 사유 보존
 - DNS fallback 각 후보를 시도하기 전 현재 작업 스레드의 오류를 비우고 후보별 실패 사유를 수집합니다. 모든 후보가 실패하면 순번이 있는 최대 6개 원인을 합쳐서 전달하도록 수정했습니다.
 - 서버 IP는 로그에 포함하지 않으며 항목 240자, 전체 1,200자 상한을 둡니다. 요약 정책 테스트 4건 추가. Android UDP/TCP/DoT/DoH 네트워크 실측 및 Android Gradle/JUnit은 미실행입니다.
+
+
+## 2026-11-24 — DNS 업스트림 요약 길이 테스트 픽스처 정정
+- 6개 항목/240자/전체 1,200자 상한을 검증해야 하는 테스트에서 240자 항목을 2개만 넣어 1,200자 도달을 기대하던 픽스처를 6개 항목으로 수정했습니다. Android Gradle/JUnit은 미실행입니다.
