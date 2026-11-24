@@ -1,3 +1,9 @@
+
+
+## 2026-11-24 — 보안 프로필 최신 정책 JVM smoke 재실행
+- 현재 SecurityProfilePolicy의 네트워크 분류·manual profile·자동 전환 gate·프로필 상태 변경 helper를 kotlinc 1.9.0/JRE 21로 분리 컴파일·실행했습니다.
+- PASS 35/35: 네트워크 유형/검증/captive/roaming/metered 분류, 물리 네트워크 후보 수, manual profile 업데이트 opt-out, 자동 모드 콜백 허용 및 manual mode의 늦은 callback 거부, 프로필 ID/설정 변경 알림, 6개 프로필 및 필터 키.
+- 이는 순수 정책 로직 smoke입니다. SecurityProfileMonitor/SharedPreferences 잠금 순서, 실제 NetworkCallback 경합, Android Gradle/JUnit·실기기 검증은 미실행입니다.
 ## 2026-11-24 — 보안 프로필 잠금 순서 교착 방지
 
 - SecurityProfileMonitor.refresh는 monitor lock을 가진 채 현재 network를 즉시 분류해 SecurityProfileStore에 접근할 수 있습니다. 수동 Apply 전체가 store lock을 보유한 채 `SecurityProfileMonitor.stop()`을 호출하면 반대 잠금 순서로 교착될 가능성이 있었습니다.
