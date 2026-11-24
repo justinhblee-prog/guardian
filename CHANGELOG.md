@@ -1,3 +1,9 @@
+## 2026-11-24 — 정식 APK 검증 실패 파일 정리 및 단일 서명 강제
+
+- 다운로드 이후 SHA-256은 통과했지만 APK package/version/signing certificate 검증에서 실패하면 파일이 cache/stable-updates에 남을 수 있던 경로를 수정했습니다. 사후 검증 단계가 예외를 던지면 해당 APK 파일을 삭제하고 원래 오류를 다시 전달합니다.
+- Release manifest는 signer SHA-256 하나만 pin하므로 APK content signer도 정확히 하나일 때만 통과하도록 했습니다. 다중 signer APK 및 단일 signer가 아닌 현재 설치본은 자동 업데이트를 fail-closed 처리합니다.
+- 단일 signer 일치/대소문자 정규화/빈 서명/다중 서명/잘못된 지문 테스트를 추가했습니다. Android PackageManager·FileProvider·설치 UI 실기기 검증은 미실행입니다.
+
 ## 2026-11-24 — DNS TCP 제로 윈도우에서 빠른 재전송 제외
 
 - 빠른 재전송 duplicate ACK 조건에 양수 수신 윈도우를 추가했습니다. 클라이언트가 윈도우 0을 광고해 흐름 제어 중인 상태에서 동일 ACK가 반복되는 것을 패킷 손실로 오인해 재전송하지 않도록 합니다.
