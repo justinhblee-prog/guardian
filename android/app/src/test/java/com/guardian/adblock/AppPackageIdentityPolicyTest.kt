@@ -30,4 +30,23 @@ class AppPackageIdentityPolicyTest {
             arrayOf("com.example;injected")
         ).forEach { assertNull(AppPackageIdentityPolicy.singleOwnerPackage(it)) }
     }
+    @Test fun doesNotPruneAnyAppDataFromAnIncompleteInventory() {
+        assertTrue(
+            InstalledAppDataCleanupPolicy.stalePackages(
+                setOf("com.example.removed"), emptySet(), inventoryComplete = false
+            ).isEmpty()
+        )
+    }
+
+    @Test fun prunesOnlyPackagesMissingFromACompleteInventory() {
+        assertEquals(
+            setOf("com.example.removed", "com.example.old"),
+            InstalledAppDataCleanupPolicy.stalePackages(
+                setOf("com.example.keep", "com.example.removed", "com.example.old"),
+                setOf("com.example.keep"),
+                inventoryComplete = true
+            )
+        )
+    }
+
 }
