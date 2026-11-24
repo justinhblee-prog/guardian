@@ -31,6 +31,7 @@ internal object GuardianAppUpdateState {
     }
 
     fun complete(apk: File, developmentBuild: Boolean, message: String) {
+        require(apk.isFile && apk.length() > 0L) { "Verified update APK must be a non-empty regular file." }
         current.updateAndGet {
             it.copy(
                 checkInProgress = false,
