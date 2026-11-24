@@ -86,7 +86,8 @@ internal object DevUpdateManager {
             }
             val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
             if (manifest.optString("packageName") != PACKAGE_NAME) continue
-            val versionCode = manifest.optInt("versionCode", 0)
+            val versionCode = GuardianStableUpdatePolicy.parseSupportedVersionCode(manifest.opt("versionCode"))
+                ?: continue
             // The release tag and signed-off manifest must identify the same build,
             // and that build must be newer than the installed application.
             if (!isNewerMatchingRelease(BuildConfig.VERSION_CODE, candidate.tagVersion, versionCode)) continue
@@ -293,7 +294,10 @@ internal object DevUpdateManager {
         val info = context.packageManager.getPackageArchiveInfo(apk.absolutePath, flags)
             ?: error("다운로드한 파일이 유효한 Android APK가 아닙니다.")
         check(info.packageName == PACKAGE_NAME) { "다운로드한 APK의 패키지 ID가 Guardian과 다릅니다." }
-        val archiveVersionCode = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else info.versionCode
+        val archiveVersionCode = if (Build.VERSION.SDK_INT >= 28) {
+            GuardianStableUpdatePolicy.parseArchiveVersionCode(info.longVersionCode)
+                ?: error("다운로드한 APK의 versionCode가 Android 지원 범위를 벗어났습니다.")
+        } else info.versionCode
         check(archiveVersionCode == update.versionCode) { "다운로드한 APK의 versionCode가 manifest와 다릅니다." }
         check(info.versionName == update.versionName) { "다운로드한 APK의 versionName이 manifest와 다릅니다." }
         val signatures = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else {
