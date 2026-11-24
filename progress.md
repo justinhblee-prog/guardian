@@ -345,3 +345,8 @@
 
 ## 2026-11-24 — InstalledAppInventory 초기화 순서 컴파일 오류 수정
 - `Snapshot` 생성 전에 snapshot 프로퍼티를 참조하던 오류를 실제 준비된 로컬 변수 참조로 수정했습니다. Android Gradle 컴파일은 미실행이므로 전체 빌드 통과로 확대 해석하지 않습니다.
+
+
+## 2026-11-24 — 앱별 규칙 precedence 회귀 테스트
+- 앱별 추가 차단이 전역 allow를 우회하지 않으며, 전역 important block이 앱별 정책보다 우선하는 DnsQueryPolicy 회귀 테스트를 추가했습니다.
+- 실제 하위 도메인 allow 상속 및 important match에서 upstream 호출 여부까지 확인하도록 했습니다. Android Gradle/JUnit·실기기 검증은 미실행입니다.
