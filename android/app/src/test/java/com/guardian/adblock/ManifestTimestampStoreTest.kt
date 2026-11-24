@@ -104,4 +104,26 @@ class ManifestTimestampStoreTest {
         } catch (_: IllegalStateException) { }
         assertTrue(file.isFile)
     }
+    @Test
+    fun rejectsNegativeAndNonCanonicalPersistedTimestamps() {
+        val (file, store) = newStore()
+        listOf("-1", "+100", " 100", "100 ", "12345678901234567").forEach { value ->
+            file.writeText("base-adblock=$value\n")
+            try {
+                store.lastAccepted("base-adblock")
+                throw AssertionError("non-canonical timestamp must fail closed: $value")
+            } catch (_: IllegalStateException) { }
+        }
+    }
+
+    @Test
+    fun refusesToAdvanceWhenPersistedTimestampIsNegative() {
+        val (file, store) = newStore()
+        file.writeText("base-adblock=-1\n")
+        try {
+            store.recordAccepted("base-adblock", 1000L)
+            throw AssertionError("corrupt rollback state must not be overwritten")
+        } catch (_: IllegalStateException) { }
+        assertTrue(file.readText().contains("base-adblock=-1"))
+    }
 }
