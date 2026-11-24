@@ -344,3 +344,8 @@
 - SecurityProfileStore가 자동 업데이트 허용 플래그를 변경하면 FilterUpdateScheduler.sync를 호출해 예약 작업을 중단하거나 재등록합니다.
 - Scheduler와 Worker에서 사용자 opt-in 및 profile permission을 모두 확인하도록 수정했습니다. Worker는 실행 시작과 base/security/Android-app-ad feed 시작 전 정책을 재확인해 metered/manual 전환 후 새 feed를 시작하지 않습니다.
 - 초기 보호 시작을 위한 필수 cache population은 recurring scheduler와 별도이므로 계속 허용됩니다. 사용자 설정/프로필 조합 4가지 테스트를 추가했습니다. Android WorkManager·실기기 검증 미실행입니다.
+
+
+## 2026-11-24 — 미설정 보안 프로필의 무료 업데이트 기본값 보존
+- profile update permission key가 아직 없는 기존 사용자/초기 설치 상태에서는 active profile(기본 STRICT)의 permission을 기본값으로 사용하도록 변경했습니다. 기본 STRICT가 허용인 동안 기존 무료 auto-update 동작은 유지됩니다.
+- 수동 프로필 적용으로 `false`가 명시 저장된 경우에는 그 값이 우선해 예약 작업을 취소합니다. 미설정 기본 허용/수동 명시 제한 테스트 추가; Android SharedPreferences·WorkManager 검증은 미실행입니다.
