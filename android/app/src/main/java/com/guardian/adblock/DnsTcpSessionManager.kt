@@ -140,7 +140,8 @@ class DnsTcpSessionManager(
             session.duplicateAckSequence = tcp.acknowledgement
             session.duplicateAckCount = 0
         } else if (tcp.acknowledgement == session.serverAcknowledged && outstanding > 0L) {
-            if (tcp.payload.isEmpty() && !tcp.fin && tcp.window == session.peerWindow) {
+            if (tcp.payload.isEmpty() && !tcp.fin && tcp.window > 0 &&
+                tcp.window == session.peerWindow) {
                 if (session.duplicateAckSequence != tcp.acknowledgement) {
                     session.duplicateAckSequence = tcp.acknowledgement
                     session.duplicateAckCount = 1
