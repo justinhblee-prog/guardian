@@ -1,3 +1,8 @@
+## 2026-11-24 — 앱 목록 정리 게이트 초기화 순서 수정
+
+- 정적 재검토에서 `InstalledAppInventory.load`가 `Snapshot` 변수를 선언하기 전에 `snapshot.queryAllPackagesGranted` 및 `snapshot.installedQuerySucceeded`를 참조하는 컴파일 오류를 발견했습니다.
+- 이미 계산된 `allPackagesGranted` 및 `installedQuerySucceeded` 로컬 값을 사용하도록 수정했습니다. 데이터 정리 조건과 정책은 변경하지 않았습니다.
+
 ## 2026-11-24 — 앱별 정리 정책 Kotlin/JVM 실행 검증
 
 - 새 이중 PackageManager inventory 정책의 실제 Kotlin 소스를 kotlinc 1.9.0/JRE 21로 컴파일하고 독립 실행했습니다.
