@@ -292,3 +292,8 @@
 - ThreatAnalyticsEngine + ThreatAnalyticsModels의 순수 Kotlin/JVM 코드를 kotlinc로 컴파일하고 독립 harness를 실행했습니다.
 - 통과: severity별 집계, drain 후 reset, 최근 20개 newest-first 보존, null assessment 무시, 잘못된 limit 거부, 이벤트 title에 domain/URL이 포함되지 않는 구조 확인.
 - 결과는 isolated Kotlin/JVM smoke PASS입니다. Android Gradle/JUnit, SharedPreferences persistence 및 VPN Service 수명주기 통합 검증을 의미하지 않습니다.
+
+
+## 2026-11-24 — 위협 인텔리전스와 사용자 규칙 중첩 증거 검증 추가
+- `DomainFilter.blockEvidence`가 같은 도메인에 SECURITY_INTELLIGENCE_LIST와 USER_BLOCK_RULE을 함께 반환하고, ThreatAnalyticsEngine이 HIGH 분류를 유지하는지 검증하는 테스트를 추가했습니다.
+- Android Gradle/JUnit 및 서비스 SharedPreferences 통합 실행은 미실행입니다.
