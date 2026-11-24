@@ -56,12 +56,14 @@ class VpnStartCancellationGateTest {
         val allowCleanupToFinish = CountDownLatch(1)
         val newerStartReturned = CountDownLatch(1)
         var newerGeneration = 0L
+        var failureCleanupCommitted = false
+        var cleanupWaitCompleted = false
 
         val cleanupThread = thread(name = "vpn-start-failure-test") {
-            assertTrue(gate.tryCommitStart(firstStart) {
+            failureCleanupCommitted = gate.tryCommitStart(firstStart) {
                 cleanupEntered.countDown()
-                assertTrue(allowCleanupToFinish.await(2, TimeUnit.SECONDS))
-            })
+                cleanupWaitCompleted = allowCleanupToFinish.await(2, TimeUnit.SECONDS)
+            }
         }
         assertTrue(cleanupEntered.await(2, TimeUnit.SECONDS))
 
@@ -80,6 +82,8 @@ class VpnStartCancellationGateTest {
         assertTrue(newerStartReturned.await(2, TimeUnit.SECONDS))
         assertFalse(cleanupThread.isAlive)
         assertFalse(newerStartThread.isAlive)
+        assertTrue(failureCleanupCommitted)
+        assertTrue(cleanupWaitCompleted)
         assertTrue(newerGeneration > firstStart)
         assertTrue(gate.isCurrent(newerGeneration))
     }
