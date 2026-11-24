@@ -35,12 +35,14 @@ internal object GuardianAppUpdateState {
         }
     }
 
-    fun updateStatus(attemptId: Long, message: String): Boolean =
-        current.updateAndGet { state ->
-            if (state.activeAttemptId == attemptId && state.checkInProgress) {
-                state.copy(status = message)
-            } else state
-        }.let { it.activeAttemptId == attemptId && it.checkInProgress && it.status == message }
+    fun updateStatus(attemptId: Long, message: String): Boolean {
+        while (true) {
+            val previous = current.get()
+            if (previous.activeAttemptId != attemptId || !previous.checkInProgress) return false
+            val next = previous.copy(status = message)
+            if (current.compareAndSet(previous, next)) return true
+        }
+    }
 
     fun complete(attemptId: Long, apk: File, developmentBuild: Boolean, message: String): Boolean {
         require(apk.isFile && apk.length() > 0L) { "Verified update APK must be a non-empty regular file." }
