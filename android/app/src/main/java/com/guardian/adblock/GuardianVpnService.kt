@@ -475,21 +475,26 @@ class GuardianVpnService : VpnService() {
             ) {
                 false
             } else {
-                prefs.edit()
+                val committed = prefs.edit()
                     .putBoolean(KEY_ACTIVE, false)
                     .putBoolean(KEY_RECOVERY_PENDING, false)
                     .putString(KEY_STATUS, "$appLabel 실행 중 · 기기 전체 VPN 보호가 일시 중지되었습니다. 앱을 닫으면 자동으로 다시 연결됩니다.")
                     .commit()
+                if (committed) {
+                    // Keep notification promotion in the same short critical section
+                    // as the final intent check. A stop must not be followed by a
+                    // stale pause callback re-promoting the foreground service.
+                    try {
+                        createNotificationChannel()
+                        startForeground(41, buildNotification())
+                    } catch (error: Exception) {
+                        android.util.Log.e("GuardianProtection", "Could not update compatibility pause notification: ${SafeFailureSummary.codeFor(error)}")
+                    }
+                }
+                committed
             }
         }
         if (!statusCommitted) return
-
-        try {
-            createNotificationChannel()
-            startForeground(41, buildNotification())
-        } catch (error: Exception) {
-            android.util.Log.e("GuardianProtection", "Could not update compatibility pause notification: ${SafeFailureSummary.codeFor(error)}")
-        }
         sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(this.packageName))
     }
 
