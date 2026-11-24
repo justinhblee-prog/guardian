@@ -62,6 +62,7 @@ def resolve_settings_item(hierarchy: str, requested: str) -> str:
         value.strip()
         for node in root.iter("node")
         if node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("enabled", "true") == "true"
         for value in (node.attrib.get("text", ""), node.attrib.get("content-desc", ""))
         if value.strip()
     }
