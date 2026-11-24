@@ -154,7 +154,7 @@ internal object SecurityProfileMonitor {
             callbackRef.set(callback)
             val activeNetwork = manager.activeNetwork
             val capabilities = activeNetwork?.let(manager::getNetworkCapabilities)
-            if (capabilities == null) applyUnknown(app) else apply(app, capabilities, manager)
+            if (capabilities == null) applyUnknown(app) else apply(app, activeNetwork!!, capabilities, manager)
         }
     }
 
