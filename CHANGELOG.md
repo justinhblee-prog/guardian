@@ -1,3 +1,8 @@
+## 2026-11-24 — TCP 응답 주소 길이 입력 검증
+
+- `DnsTcpPacket.response()`가 source 주소 길이만 확인하고 destination 주소 길이는 `arraycopy` 중 예외에 맡기던 부분을 보강했습니다. IPv4는 source/destination 모두 4바이트, IPv6는 모두 16바이트여야 합니다.
+- 잘못 구성된 Parsed IPv4 destination 및 IPv6 source 주소 길이를 거부하는 테스트를 추가했습니다.
+
 ## 2026-11-24 — TCP 응답 패킷 IP 버전별 길이 상한 수정
 
 - `DnsTcpPacket.response()`가 IPv4와 IPv6에 동일한 TCP payload 상한 65,515바이트를 적용하던 문제를 수정했습니다. IPv4는 IP 헤더까지 포함하는 16비트 total_length이므로 TCP payload 최대 65,495바이트, IPv6는 TCP 헤더를 포함한 payload_length 한도에 따라 65,515바이트를 허용합니다.
