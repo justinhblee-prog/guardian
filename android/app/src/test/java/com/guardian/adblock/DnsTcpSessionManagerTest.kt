@@ -1298,6 +1298,41 @@ class DnsTcpSessionManagerTest {
         assertEquals(sent.size, manager.handle(exactRetransmission, exactRetransmission.size) { null }.size)
     }
 
+    @Test fun establishedSessionRejectsSynAckWithoutMutatingDnsStream() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 9700)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverNext = (synAck.sequence + 1L) and 0xffffffffL
+        val clientNext = 9701L
+
+        val renegotiation = packet(
+            flags = DnsTcpPacket.SYN or DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = clientNext,
+            acknowledgment = serverNext,
+            payload = framedQuery
+        )
+        val rejected = manager.handle(renegotiation, renegotiation.size) {
+            fail("SYN|ACK payload must never reach the DNS resolver")
+            null
+        }
+        assertEquals(1, rejected.size)
+        val ack = DnsTcpPacket.parse(rejected.single(), rejected.single().size, 53000)!!
+        assertTrue(ack.ack)
+        assertFalse(ack.syn)
+        assertTrue(ack.payload.isEmpty())
+        assertEquals(1, manager.activeSessionCount())
+
+        val validRequest = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = clientNext,
+            acknowledgment = serverNext,
+            payload = framedQuery
+        )
+        assertTrue(manager.handle(validRequest, validRequest.size) { ByteArray(12) }.isNotEmpty())
+    }
+
     @Test fun resetAtCurrentReceiveSequenceClosesDnsTcpSession() {
         val manager = newManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 9600)
