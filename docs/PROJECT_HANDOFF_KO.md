@@ -195,6 +195,7 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - 저장소 전체 Android 빌드가 아닌 최소 재현 Kotlin 파일에서 동일한 중복 선언을 `kotlinc`로 컴파일했고, `this annotation is not repeatable` 오류를 확인했습니다.
 - 중복 어노테이션 한 개를 제거해 수정했습니다. 원격 브랜치에서 파일을 다시 읽어 중복이 사라진 것을 확인했습니다.
 - **검증 한계:** 최소 재현 컴파일은 결함을 입증했지만, 수정된 Android 앱 전체 컴파일·JUnit·Lint·APK 빌드는 실행하지 않았습니다. GitHub Actions도 실행하지 않았습니다.
+- VPN 생명주기 보조 클래스 `VpnStartCancellationGate`와 `VpnTunnelSessionGuard`는 현재 브랜치 원본을 기준으로 독립 Kotlin 하네스에 포함해 컴파일·실행했습니다. 취소된 세대의 TUN 커밋 거부, 이전 세션의 새 세션 정리 차단, 시작 실패 정리 중 신규 세대 발급 직렬화가 통과했습니다. 이는 보조 클래스의 독립 실행 검증이며 Android 서비스 통합 검증을 대체하지 않습니다.
 
 ## Android VPN 명시적 중지와 앱 제외 재구성의 직렬화 (2026-11-25)
 
