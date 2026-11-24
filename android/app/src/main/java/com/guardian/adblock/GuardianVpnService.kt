@@ -751,6 +751,11 @@ class GuardianVpnService : VpnService() {
             if (running.get()) loopFailure = e
         } finally {
             retransmissionScheduler?.shutdownNow()
+            try {
+                retransmissionScheduler?.awaitTermination(500L, TimeUnit.MILLISECONDS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
             loopFailure = retransmissionFailure.get() ?: loopFailure
             // A dead packet loop must never leave the UI claiming protection is active.
             if (running.compareAndSet(true, false)) {
