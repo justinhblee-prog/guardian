@@ -1,7 +1,7 @@
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. Android 무료판 출시 전이며 PRO 기능은 별도 트랙에서 병행 구현 중입니다.
-- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 206 commits ahead, 0 behind.
+- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 234 commits ahead, 0 behind.
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. 실제 Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
 - **PR #290**: open, unmerged 상태를 유지합니다. 작업은 독립 branch에서 수행합니다.
 - **검증**: 최신 소스·테스트 원격 반영을 재조회했습니다. ResponsiveLayoutPolicy의 하단 인셋 단일 소유 경계 JVM smoke 4/4 통과(독립 정책 검증)이며, DNS TCP RTO/RST 최신 Android JUnit은 미실행입니다. Android Gradle/JUnit·lint·emulator·실기기 테스트는 미실행이며 APK도 아직 생성·검증되지 않았습니다.
@@ -587,3 +587,9 @@
 - WorkManager 최초 복구 작업을 최초 실행 + 최대 5회 재시도(총 6회)로 제한하고, 예산을 소진하면 `Result.failure()`로 종료합니다. 일반 periodic refresh 동작은 변경하지 않습니다.
 - 수동/전경 업데이트가 새로 시작되면 대기 중인 initial retry를 취소하며, 실패 후 메인 캐시가 없을 때만 새 복구 작업을 예약합니다.
 - 재시도 budget helper 테스트를 추가했습니다. Android Gradle/JUnit·WorkManager 통합·네트워크 전환 기기 테스트는 미실행입니다.
+
+
+## 2026-11-24 — 최초 필터 캐시 복구 정책 Kotlin/JVM smoke
+- `FilterUpdatePolicy`의 실제 새 helper 로직을 Kotlin/JVM으로 컴파일·실행했습니다.
+- PASS 12/12: auto-update opt-out에서 강제 최초 복구 허용, 일반 periodic opt-in/opt-out, 같은 프로필 cache만 재사용, profile mismatch/파일 누락 처리, 첫 attempt+5 retries 상한, 일반 periodic work는 initial retry budget에 영향받지 않음, invalid runAttempt/maxAttempts 방어.
+- WorkManager constraints/unique work scheduling, Android Gradle/JUnit, emulator/실기기 네트워크 복귀는 미실행입니다.
