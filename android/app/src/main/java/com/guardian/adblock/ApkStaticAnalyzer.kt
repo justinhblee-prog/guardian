@@ -30,6 +30,7 @@ internal object ApkStaticAnalyzer {
     private const val MAX_UNCOMPRESSED = 128L * 1024 * 1024
     private const val MAX_DEX = 64L * 1024 * 1024
     private const val MAX_ENTRIES = 10_000
+    private const val DEX_HEADER_SIZE = 0x70
     private val dexName = Regex("classes(?:[2-9]|[1-9][0-9]+)?\\.dex")
 
     fun analyze(input: InputStream): Result {
@@ -58,7 +59,7 @@ internal object ApkStaticAnalyzer {
                     }
                     if (capture != null) {
                         val bytes = capture.toByteArray()
-                        if (bytes.size < 8 || !bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(100, 101, 120, 10))) {
+                        if (!hasValidDexHeader(bytes)) {
                             return invalid(dexCount, dexBytes)
                         }
                         dexCount++
@@ -83,6 +84,28 @@ internal object ApkStaticAnalyzer {
             invalid(dexCount, dexBytes)
         }
     }
+
+    /**
+     * Verify the fixed DEX header before treating a ZIP entry as analyzable code.
+     * This is header validation, not a complete DEX verifier or signature check.
+     */
+    private fun hasValidDexHeader(bytes: ByteArray): Boolean {
+        if (bytes.size < DEX_HEADER_SIZE) return false
+        if (!bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(100, 101, 120, 10))) return false
+        if ((4..6).any { bytes[it].toInt() !in 0x30..0x39 } || bytes[7].toInt() != 0) return false
+        val declaredFileSize = littleEndianInt(bytes, 32)
+        val headerSize = littleEndianInt(bytes, 36)
+        val endianTag = littleEndianInt(bytes, 40)
+        return declaredFileSize == bytes.size &&
+            headerSize == DEX_HEADER_SIZE &&
+            (endianTag == 0x12345678 || endianTag == 0x78563412)
+    }
+
+    private fun littleEndianInt(bytes: ByteArray, offset: Int): Int =
+        (bytes[offset].toInt() and 0xff) or
+            ((bytes[offset + 1].toInt() and 0xff) shl 8) or
+            ((bytes[offset + 2].toInt() and 0xff) shl 16) or
+            ((bytes[offset + 3].toInt() and 0xff) shl 24)
 
     private fun invalid(count: Int, bytes: Long) = Result(
         Status.INVALID_APK, null, 0, count, bytes, emptyList(),
