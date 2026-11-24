@@ -22,7 +22,7 @@ class DnsUpstreamCandidatePolicyTest {
             listOf("1.1.1.1"),
             DnsUpstreamCandidatePolicy.udpCandidates(
                 configured = "not-a-resolver",
-                systemDns = listOf("10.13.37.2", "127.0.0.1", "bad::address"),
+                systemDns = listOf("10.13.37.2", "fd13:37::2", "127.0.0.1", "bad::address"),
                 publicFallback = listOf("1.1.1.1"),
                 virtualDns = setOf("10.13.37.2", "fd13:37::2")
             )
