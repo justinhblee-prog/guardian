@@ -88,6 +88,11 @@ internal object SecurityProfileStore {
             .putString(KEY_ACTIVE_PROFILE, profile.id.name)
             .putBoolean(KEY_AUTO_UPDATE_ALLOWED, profile.automaticFilterUpdates)
             .apply()
+        if (previousAutomaticUpdatesAllowed != profile.automaticFilterUpdates) {
+            // Cancel or re-arm the periodic worker as the active profile changes
+            // from metered/manual to eligible unmetered automatic mode, or back.
+            runCatching { FilterUpdateScheduler.sync(context.applicationContext) }
+        }
         if (profileStateChanged) {
             context.sendBroadcast(
                 Intent(ACTION_PROFILE_CHANGED).setPackage(context.packageName)
