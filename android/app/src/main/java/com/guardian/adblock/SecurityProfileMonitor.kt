@@ -40,7 +40,7 @@ internal object SecurityProfileStore {
     fun applyManualProfile(context: Context, profileId: SecurityProfilePolicy.Id) {
         setAutomaticSwitchEnabled(context, false)
         SecurityProfileMonitor.stop()
-        applyAutomaticProfile(context, SecurityProfilePolicy.profile(profileId))
+        applyAutomaticProfile(context, SecurityProfilePolicy.manualSelection(profileId))
     }
 
     fun applyAutomaticProfile(context: Context, profile: SecurityProfilePolicy.Profile) {
