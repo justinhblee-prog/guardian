@@ -13,6 +13,13 @@ class FilterUpdatePolicyTest {
 
 
     @Test
+    fun permanentLinkageFailureDoesNotScheduleImmediateOptionalRetry() {
+        assertFalse(FilterUpdatePolicy.shouldRetryOptionalUpdate(true, failureRetryable = false))
+        assertFalse(FilterUpdatePolicy.shouldRetryOptionalUpdate(false, failureRetryable = false))
+        assertTrue(FilterUpdatePolicy.shouldRetryOptionalUpdate(true, failureRetryable = true))
+    }
+
+    @Test
     fun linkageFailureDisablesOnlyEnabledOptionalFilterWithoutUsableCache() {
         assertTrue(FilterUpdatePolicy.shouldDisableOptionalFilter(true, false))
         assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(true, true))
