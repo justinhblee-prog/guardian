@@ -153,4 +153,60 @@ class FilterCacheStoreTest {
         } catch (_: IllegalStateException) { }
     }
 
+    @Test
+    fun backupMoveThatCompletesThenThrowsRestoresOriginalCache() {
+        val folder = newFolder()
+        val target = File(folder, "filter.txt").apply { writeText("known-good") }
+        var movedThenFailed = false
+        var metadataRestored = false
+
+        try {
+            FilterCacheStore.replace(
+                target,
+                "replacement".toByteArray(),
+                commitMetadata = { },
+                rollbackMetadata = { metadataRestored = true },
+                moveFile = { source, destination ->
+                    Files.move(
+                        source.toPath(), destination.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                    )
+                    if (source == target && !movedThenFailed) {
+                        movedThenFailed = true
+                        throw java.io.IOException("simulated post-move failure")
+                    }
+                }
+            )
+            throw AssertionError("Expected filesystem move failure")
+        } catch (_: java.io.IOException) { }
+
+        assertTrue(metadataRestored)
+        assertArrayEquals("known-good".toByteArray(), target.readBytes())
+        assertFalse(File(folder, "filter.txt.bak").exists())
+        assertFalse(File(folder, "filter.txt.tmp").exists())
+    }
+
+    @Test
+    fun failedFirstCacheMoveRemovesPartialTargetAndTemporaryFile() {
+        val folder = newFolder()
+        val target = File(folder, "filter.txt")
+
+        try {
+            FilterCacheStore.replace(
+                target,
+                "replacement".toByteArray(),
+                commitMetadata = { },
+                moveFile = { _, destination ->
+                    destination.writeText("partial")
+                    throw java.io.IOException("simulated first cache move failure")
+                }
+            )
+            throw AssertionError("Expected filesystem move failure")
+        } catch (_: java.io.IOException) { }
+
+        assertFalse(target.exists())
+        assertFalse(File(folder, "filter.txt.bak").exists())
+        assertFalse(File(folder, "filter.txt.tmp").exists())
+    }
+
 }
