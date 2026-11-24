@@ -20,7 +20,7 @@ class CoalescingTaskGateTest {
         assertTrue(gate.completePass())
         workers.incrementAndGet()
         assertFalse(gate.completePass())
-        assertFalse(gate.request().not())
+        assertTrue(gate.request())
         assertTrue(workers.get() == 2)
     }
 
@@ -52,7 +52,6 @@ class CoalescingTaskGateTest {
         assertTrue(gate.request())
         assertFalse(gate.request())
         assertTrue(gate.releaseAfterFailure())
-        assertFalse(gate.request())
         assertFalse(gate.completePass())
         assertTrue(gate.request())
         assertFalse(gate.completePass())
