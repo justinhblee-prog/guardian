@@ -19,7 +19,7 @@ val guardianVersionCode = providers.gradleProperty("guardianVersionCode")
         raw.toIntOrNull()?.takeIf { it > 0 }
             ?: error("GUARDIAN_VERSION_CODE must be a positive integer.")
     }.getOrElse(62)
-require(guardianVersionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.-]+)?"))) {
+require(guardianVersionName.matches(Regex("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[A-Za-z0-9.-]+)?"))) {
     "GUARDIAN_VERSION_NAME must be a semantic version such as 0.7.8 or 0.7.8-rc1."
 }
 
