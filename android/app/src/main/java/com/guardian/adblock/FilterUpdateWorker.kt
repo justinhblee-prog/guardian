@@ -86,7 +86,7 @@ class FilterUpdateWorker(
                         SafeFailureSummary.codeFor(e)
                     ).apply()
                 } catch (e: LinkageError) {
-                    optionalFailure = FilterUpdatePolicy.shouldRetryOptionalUpdate(securityEnabled)
+                    optionalFailure = FilterUpdatePolicy.shouldRetryOptionalUpdate(securityEnabled, failureRetryable = false)
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_SECURITY_LAST_ERROR,
                         SafeFailureSummary.codeFor(e)
@@ -117,7 +117,7 @@ class FilterUpdateWorker(
                         SafeFailureSummary.codeFor(e)
                     ).apply()
                 } catch (e: LinkageError) {
-                    optionalFailure = optionalFailure || FilterUpdatePolicy.shouldRetryOptionalUpdate(androidAdsEnabled)
+                    optionalFailure = optionalFailure || FilterUpdatePolicy.shouldRetryOptionalUpdate(androidAdsEnabled, failureRetryable = false)
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                         SafeFailureSummary.codeFor(e)
@@ -201,7 +201,8 @@ internal object FilterUpdatePolicy {
         !shouldContinueInitialRetry(forceInitialRefresh, runAttemptCount, maxAttempts)
 
     /** An enabled optional source remains eligible for retry until its first cache is installed. */
-    fun shouldRetryOptionalUpdate(wasEnabled: Boolean): Boolean = wasEnabled
+    fun shouldRetryOptionalUpdate(wasEnabled: Boolean, failureRetryable: Boolean = true): Boolean =
+        wasEnabled && failureRetryable
 
     /**
      * Disable an optional source only when a runtime linkage failure makes it
