@@ -753,3 +753,9 @@
 - 성공 응답의 ANCOUNT만 확인하던 판정을 강화했습니다. 실제 answer/authority/additional RR의 owner name(압축 포인터 포함), 고정 헤더, RDLENGTH 및 패킷 경계를 끝까지 검증해야 DNS 사전 점검 성공으로 인정합니다.
 - 잘린 RR, RDLENGTH가 패킷을 벗어나는 응답, 전방/순환 압축 포인터를 거부하도록 했습니다. 유효한 압축 QNAME을 사용하는 A 레코드 회귀 테스트를 추가했습니다.
 - 원격 소스와 테스트 반영을 확인했습니다. Kotlin/JUnit 및 Android Gradle/lint, 에뮬레이터·실기기, APK 검증은 미실행이며 GitHub Actions는 실행하지 않았습니다.
+
+
+## 2026-11-24 — 서명 필터 anti-rollback 복구 내구성
+- manifest timestamp의 정상 기록 경로와 롤백 복구 경로가 서로 다른 저장 방식을 사용하던 부분을 통합했습니다.
+- 복구 시에도 임시 파일 전체를 기록하고 fsync한 뒤 원자적 rename으로 게시하도록 수정했습니다. 복구는 다른 필터 source의 timestamp를 보존합니다.
+- source 간 상태 보존 및 stale 임시 파일 정리 회귀 테스트를 추가했습니다. Kotlin/JUnit·Android 빌드·실기기 검증은 미실행이며 Actions는 실행하지 않았습니다.
