@@ -66,6 +66,17 @@ class DnsQueryPolicyTest {
         assertEquals(2, result.response[3].toInt() and 0x0f)
     }
 
+    @Test fun upstreamLinkageErrorReturnsServfailWithoutEscapingPacketHandler() {
+        DomainFilter.loadRules(listOf("block=ads.example"))
+        val result = DnsQueryPolicy.resolve(query("news.example")) {
+            throw NoClassDefFoundError("simulated optional resolver linkage failure")
+        }
+        assertNotNull(result)
+        assertFalse(result!!.blocked)
+        assertFalse(result.forwarded)
+        assertEquals(2, result.response[3].toInt() and 0x0f)
+    }
+
     @Test fun validUpstreamResponseIsForwarded() {
         DomainFilter.loadRules(listOf("block=ads.example"))
         val request = query("news.example")
