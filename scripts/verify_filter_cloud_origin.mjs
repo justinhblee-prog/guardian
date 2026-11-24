@@ -1,8 +1,10 @@
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { readFile, readdir, lstat } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(process.argv[2] || process.cwd());
+export async function verifyFilterCloudOrigin(rootDirectory = process.cwd()) {
+const root = path.resolve(rootDirectory);
 const publicKeyText = (await readFile(path.join(root, 'guardian-filter-public-key.x509.b64'), 'ascii')).trim();
 const publicKey = createPublicKey({
   key: Buffer.from(publicKeyText, 'base64'),
@@ -111,3 +113,8 @@ for (const manifestPath of manifests) {
   console.log('Verified', sourceId, values.sourceVersion, filter.length, 'bytes,', ruleCount, 'rules');
 }
 console.log('All', manifests.length, 'signed filter manifests passed cloud-origin verification.');
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await verifyFilterCloudOrigin(process.argv[2] || process.cwd());
+}
