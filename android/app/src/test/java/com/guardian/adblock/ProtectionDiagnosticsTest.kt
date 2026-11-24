@@ -340,13 +340,14 @@ class ProtectionDiagnosticsTest {
         val report = ProtectionDiagnostics.recentErrorReport(
             lastServiceStatus = "필터 규칙 로드 실패 (FileNotFoundException): /data/user/0/private/secret",
             lastStartupTrace = "IllegalStateException <- FileNotFoundException | com.guardian.Main.load:42 <- /private/path",
-            filterErrorCodes = listOf("NETWORK_TIMEOUT", "TLS_FAILURE", "bad code with spaces"),
+            filterErrorCodes = listOf("NETWORK_TIMEOUT", "TLS_FAILURE", "initial-filter-cache-retry-exhausted", "bad code with spaces"),
             filterReadiness = "기본 보호 규칙으로 시작했습니다. 필터 업데이트 필요: 광고·추적, secret.example.com"
         )
         assertTrue(report.contains("필터 규칙/리소스 로드 실패 (FileNotFoundException)"))
         assertTrue(report.contains("com.guardian.Main.load:42"))
         assertTrue(report.contains("네트워크 연결 시간 초과 (NETWORK_TIMEOUT)"))
         assertTrue(report.contains("보안 연결 검증 실패 (TLS_FAILURE)"))
+        assertTrue(report.contains("초기 필터 캐시 복구 재시도 한도 초과 (INITIAL-FILTER-CACHE-RETRY-EXHAUSTED)"))
         assertTrue(report.contains("광고·추적"))
         assertTrue(!report.contains("/data/user/0"))
         assertTrue(!report.contains("/private/path"))
