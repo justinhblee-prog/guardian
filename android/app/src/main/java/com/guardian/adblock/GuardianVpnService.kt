@@ -102,7 +102,7 @@ class GuardianVpnService : VpnService() {
          * from restoring pre-reset totals or having its post-reset increment lost.
          */
         fun resetDnsStatistics(context: android.content.Context) {
-            val prefs = context.applicationContext.getSharedPreferences(PREFS, MODE_PRIVATE)
+            val prefs = context.applicationContext.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
             synchronized(DNS_STATS_LOCK) {
                 prefs.edit()
                     .putLong(KEY_DNS_QUERIES, 0L)
