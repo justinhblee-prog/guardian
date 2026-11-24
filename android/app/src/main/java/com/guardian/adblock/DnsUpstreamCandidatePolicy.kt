@@ -6,6 +6,35 @@ import java.net.InetAddress
 internal object DnsUpstreamCandidatePolicy {
     data class Attempt(val address: String, val transport: String)
 
+    data class PhysicalDnsCandidate(
+        val servers: List<String>,
+        val isActiveNetwork: Boolean,
+        val isValidated: Boolean,
+        val hasInternet: Boolean
+    )
+
+    /**
+     * Prefer the active physical network when visible. While Guardian's VPN
+     * is active Android may report the VPN as activeNetwork, so validated
+     * physical networks become the next-best candidates. Ignore networks
+     * without INTERNET capability.
+     */
+    fun orderedSystemDns(candidates: List<PhysicalDnsCandidate>, maxServers: Int = 2): List<String> {
+        if (maxServers <= 0) return emptyList()
+        return candidates
+            .filter { it.hasInternet }
+            .sortedWith(
+                compareByDescending<PhysicalDnsCandidate> { it.isActiveNetwork }
+                    .thenByDescending { it.isValidated }
+            )
+            .asSequence()
+            .flatMap { it.servers.asSequence() }
+            .mapNotNull(DnsAddressValidator::normalize)
+            .distinct()
+            .take(maxServers)
+            .toList()
+    }
+
     fun udpCandidates(
         configured: String,
         systemDns: List<String>,
