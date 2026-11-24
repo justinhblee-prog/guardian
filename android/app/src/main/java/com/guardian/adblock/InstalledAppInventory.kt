@@ -17,7 +17,8 @@ internal object InstalledAppInventory {
         val queryAllPackagesGranted: Boolean,
         val installedQuerySucceeded: Boolean,
         val launcherFallbackCount: Int,
-        val installedQueryError: String?
+        val installedQueryError: String?,
+        val authoritativeInventory: Boolean
     ) {
         fun statusMessage(): String {
             if (apps.isEmpty()) {
@@ -27,7 +28,12 @@ internal object InstalledAppInventory {
                 return "설치 앱 0개 · 전체 앱 조회 권한 $permission$query · Android 설정에서 Guardian을 확인한 뒤 다시 시도해 주세요."
             }
             val fallback = if (launcherFallbackCount > 0) " · 실행 앱 ${launcherFallbackCount}개 추가 확인" else ""
-            return "설치 앱 ${apps.size}개 조회 완료$fallback"
+            val trust = if (authoritativeInventory) {
+                " · 전체 앱 목록 교차 확인 완료"
+            } else {
+                " · 일부 앱 누락 가능 · 기존 앱별 데이터는 보존"
+            }
+            return "설치 앱 ${apps.size}개 확인$fallback$trust"
         }
     }
 
@@ -111,17 +117,19 @@ internal object InstalledAppInventory {
                 { it.first.lowercase(Locale.ROOT) }
             )
         )
-        val snapshot = Snapshot(sorted, allPackagesGranted, installedQuerySucceeded, launcherFallbackCount, installedQueryError)
-        // Never delete app data from an empty or partial inventory. Some OEM/package
-        // visibility failures return an empty list without throwing. Require the
-        // primary enumeration to return entries, the full visibility grant and a
-        // non-empty final inventory before treating omissions as uninstalled apps.
+        // Never delete app data from an empty or partial inventory. OEMs may return
+        // incomplete non-empty lists without throwing; destructive cleanup requires
+        // the full visibility grant and exact agreement from two independent APIs.
         val cleanupInventoryComplete = InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
             queryAllPackagesGranted = snapshot.queryAllPackagesGranted,
             applicationQuerySucceeded = snapshot.installedQuerySucceeded,
             packageInfoQuerySucceeded = installedPackagesQuerySucceeded,
             applicationPackages = applicationPackages,
             packageInfoPackages = packageInfoPackages
+        )
+        val snapshot = Snapshot(
+            sorted, allPackagesGranted, installedQuerySucceeded, launcherFallbackCount,
+            installedQueryError, cleanupInventoryComplete
         )
         if (cleanupInventoryComplete) {
             AppDnsActivityStore.pruneUninstalled(context, applicationPackages, inventoryComplete = true)
