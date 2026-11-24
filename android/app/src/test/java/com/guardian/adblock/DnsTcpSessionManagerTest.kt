@@ -567,7 +567,7 @@ class DnsTcpSessionManagerTest {
         assertEquals(1, manager.activeSessionCount())
     }
 
-    @Test fun delayedSynRetransmissionDoesNotResetAnEstablishedDnsSession() {
+    @Test fun delayedSynAfterHandshakeReceivesCurrentAckWithoutSequenceRollback() {
         val manager = newManager()
         val query = dnsQuery()
         val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
@@ -575,18 +575,20 @@ class DnsTcpSessionManagerTest {
         val initialSynAckBytes = manager.handle(syn, syn.size) { null }.single()
         val initialSynAck = DnsTcpPacket.parse(initialSynAckBytes, initialSynAckBytes.size, 53000)!!
         val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
-            seq = 5101, payload = framed)
+            seq = 5101, acknowledgment = (initialSynAck.sequence + 1L) and 0xffffffffL,
+            payload = framed)
         manager.handle(request, request.size) { DomainFilter.makeServfail(it) }
 
-        val delayedSynAckBytes = manager.handle(syn, syn.size) { null }.single()
-        val delayedSynAck = DnsTcpPacket.parse(delayedSynAckBytes, delayedSynAckBytes.size, 53000)!!
-        assertEquals(initialSynAck.sequence, delayedSynAck.sequence)
-        assertEquals(5101L, delayedSynAck.acknowledgement)
+        val delayedSynBytes = manager.handle(syn, syn.size) { null }.single()
+        val delayedSyn = DnsTcpPacket.parse(delayedSynBytes, delayedSynBytes.size, 53000)!!
+        assertTrue(delayedSyn.ack)
+        assertFalse(delayedSyn.syn)
+        assertEquals(5101L + framed.size, delayedSyn.acknowledgement)
         assertEquals(1, manager.activeSessionCount())
 
         var calls = 0
         val nextRequest = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
-            seq = 5101L + framed.size, payload = framed)
+            seq = 5101L + framed.size, acknowledgment = delayedSyn.sequence, payload = framed)
         val replies = manager.handle(nextRequest, nextRequest.size) {
             calls++
             DomainFilter.makeServfail(it)
