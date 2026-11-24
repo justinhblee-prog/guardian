@@ -666,3 +666,8 @@
 ## 2026-11-24 — 정식 APK 검증 실패 캐시 삭제
 - 다운로드 후 package ID/version/signature 검사에서 실패한 APK는 캐시에 남지 않도록 즉시 삭제하고 원래 예외를 다시 전달합니다. SHA-256 실패 시 기존 삭제 경로도 유지합니다.
 - Android PackageManager archive parsing·실제 파일/설치 흐름은 미검증입니다.
+
+
+## 2026-11-24 — DNS packet worker 진단 ThreadLocal 정리
+- `recordDnsActivity`가 최근 DNS 실패 진단을 저장한 뒤 해당 worker의 ThreadLocal 값을 삭제해 장수명 packet thread에 오래된 오류 문자열이 남지 않게 했습니다. 이 정리는 현재 스레드에만 적용됩니다.
+- Android VPN packet worker 실기기 실행 검증은 미실행입니다.
