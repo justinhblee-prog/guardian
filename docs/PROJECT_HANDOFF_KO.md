@@ -207,3 +207,29 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - `stopProtection()`은 `@Synchronized`로 복원 의도 변경·세대 취소·TUN 무효화를 직렬화한다. 제외 재구성은 패킷 작업자 대기와 DNS 사전 연결(최대 8초) 동안 서비스 모니터를 점유하지 않고, 마지막 복원 의도 재확인과 시작 세대 발급만 같은 모니터 안에서 수행한다. 중지가 먼저 실행되면 재구성은 false 복원 의도를 확인하고 종료하며, 세대 발급 뒤 중지가 실행되면 취소 세대 검사가 TUN 커밋을 차단한다. 따라서 중지 요청이 재구성의 5초 작업자 대기나 DNS 사전 연결 때문에 서비스 모니터에서 장시간 대기하지 않는다.
 - 이 변경은 서비스 내부 작업 순서를 보장하는 소스 수정이다. Android 런타임/JUnit 및 실기기에서 중지-재구성 동시 실행을 검증한 것은 아니며, 통합 검증 단계에서 확인해야 한다.
 - 추가로 자동 일시중지 해제 후 재연결 worker가 복원 의도를 확인한 직후 중지가 끼어들면, 취소 이후 새 시작 세대를 발급할 수 있는 경로를 확인했다. 복원 의도 재확인·일시중지 플래그 해제·시작 세대 발급을 `stopProtection()`과 같은 서비스 모니터 안에서 처리하고, `startProtection()` 호출은 잠금 밖으로 이동했다. 따라서 중지가 먼저 실행되면 복원 의도 검사에서 재연결이 중단되고, 세대 발급 뒤 중지가 실행되면 취소 세대 검사가 TUN 커밋을 차단한다.
+
+## Android VPN 종료와 전면 앱 감시 스레드의 잠금 경합 수정 (2026-11-25)
+
+### 확인한 문제
+- `stopProtection()`은 서비스 인스턴스 모니터를 보유한 채 `stopForegroundAppMonitor()`를 호출한다.
+- 기존 `ForegroundAppMonitor.stop()`은 모니터 스레드에 interrupt를 보낸 뒤 최대 1초 join했다.
+- 모니터 스레드는 종료 전에 `onForegroundTargetChanged` 또는 `onPermissionRevoked` 콜백을 호출할 수 있고, 해당 콜백은 서비스 모니터를 필요로 한다.
+- 따라서 종료 스레드가 서비스 모니터를 보유한 채 콜백 스레드를 join하면 잠금 경합이 발생하며, 종료가 join 제한 시간만큼 지연될 수 있었다.
+- 단순히 join을 제거하는 것만으로는 이미 세대 확인을 통과한 콜백이 종료 이후 실행되는 경쟁 상태를 막을 수 없었다.
+
+### 적용한 수정
+- `ForegroundAppMonitor.stop(waitForExit)`를 추가했다. 일반 재구성 경로는 기존처럼 최대 1초 종료 대기를 유지하고, VPN 종료 경로는 `waitForExit=false`로 interrupt/detach만 수행한다.
+- `stopProtection()`은 서비스 모니터를 보유한 상태에서 감시 스레드를 join하지 않는다.
+- 전면 앱 변경 및 사용 권한 해제 콜백은 서비스 모니터 안에서 감시 세대를 다시 확인한다. 종료가 세대를 무효화한 뒤 늦게 도착한 콜백은 VPN pause/resume 상태를 변경할 수 없다.
+- 모니터 스레드는 daemon이며, 진행 중인 UsageStats 조회/콜백이 반환된 후 `running=false`를 확인하고 종료한다.
+
+### 변경 파일과 커밋
+- `GuardianVpnService.kt`: `cfb0fa3977ef185a11a1595a47880041b83d486c`
+- `ForegroundAppMonitor.kt`: `0bc5c68ab00e39608ee7c40ca269434418b8d66c`
+
+### 실행한 검증
+- 독립 Kotlin 동시성 하네스 컴파일 및 실행 성공:
+  - `PASS: VPN shutdown does not join a callback waiting on the service monitor`
+  - `PASS: generation recheck suppresses callback after shutdown commits`
+- 위 하네스는 잠금/세대 무효화 순서를 재현한 단위 시뮬레이션이며 Android 서비스 통합 테스트는 아니다.
+- Android Gradle/JUnit/Lint, APK 빌드, 에뮬레이터 및 실기기 VPN 종료 검증은 아직 실행하지 않았다.
