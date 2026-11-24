@@ -13,6 +13,26 @@ class FilterUpdatePolicyTest {
 
 
     @Test
+    fun baseRefreshFailureDoesNotSuppressIndependentOptionalFeedRetry() {
+        assertTrue(FilterUpdatePolicy.shouldRetryWorker(
+            baseUpdateFailed = true,
+            optionalUpdateFailed = false
+        ))
+        assertTrue(FilterUpdatePolicy.shouldRetryWorker(
+            baseUpdateFailed = false,
+            optionalUpdateFailed = true
+        ))
+        assertTrue(FilterUpdatePolicy.shouldRetryWorker(
+            baseUpdateFailed = true,
+            optionalUpdateFailed = true
+        ))
+        assertFalse(FilterUpdatePolicy.shouldRetryWorker(
+            baseUpdateFailed = false,
+            optionalUpdateFailed = false
+        ))
+    }
+
+    @Test
     fun permanentLinkageFailureDoesNotScheduleImmediateOptionalRetry() {
         assertFalse(FilterUpdatePolicy.shouldRetryOptionalUpdate(true, failureRetryable = false))
         assertFalse(FilterUpdatePolicy.shouldRetryOptionalUpdate(false, failureRetryable = false))
