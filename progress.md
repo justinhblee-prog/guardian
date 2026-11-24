@@ -331,3 +331,10 @@
 - ApkStaticAnalyzer가 local ZIP entries만 확인하고 종료하지 않도록, 물리 EOF까지 입력을 제한적으로 소비하고 65,557-byte tail 내 EOCD와 central directory entry count/offset/size를 확인합니다.
 - 단일 디스크 ZIP만 허용하고 ZIP64 sentinel/잘린 EOCD/잘못된 comment length/trailing junk/중앙 디렉터리 불일치를 거부합니다. DEX 문자열 검사와 전체 악성코드 판정 범위는 그대로 제한적으로 유지합니다.
 - EOCD 누락/변조/trailing bytes 테스트 추가. Kotlin/JVM smoke 및 Android SAF/JUnit 실행은 별도 검증 후 기록합니다.
+
+
+## 2026-11-24 — APK ZIP EOCD/중앙 디렉터리 독립 Kotlin/JVM smoke
+- 현재 수정한 `ApkStaticAnalyzer`를 kotlinc로 컴파일하고 실제 `ZipOutputStream` APK/Dex fixture를 사용해 실행했습니다.
+- PASS 5/5: 중앙 디렉터리와 EOCD가 정상인 APK+DEX 허용, EOCD 제거 거부, EOCD comment length 변조 거부, EOCD 뒤 trailing bytes 거부, ZIP 형식이 아닌 입력 거부.
+- 입력 스트림은 최대 200MiB 한도 내에서 EOF까지 읽고 마지막 65,557바이트만 보존해 EOCD를 확인합니다. 전체 파일을 메모리에 적재하지 않습니다.
+- 결과는 ApkStaticAnalyzer ZIP 구조 검증의 isolated Kotlin/JVM smoke입니다. Android SAF URI/Gradle/JUnit·실제 APK 서명·설치·실기기 검증은 미실행입니다.
