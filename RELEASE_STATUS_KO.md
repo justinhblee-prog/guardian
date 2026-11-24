@@ -735,3 +735,5 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 회귀 테스트 추가: `skipsOptionalFeedWhenParserLinkageFailsButKeepsVpnStartupAvailable`, `doesNotSwallowVirtualMachineFatalErrorsFromOptionalFeed`. 코드 커밋: `09d056590f15cb5c7df7f68e48c93613f5f7a3d0`, 테스트 커밋: `b274bfe9ef0677b39d7f5afc646d1cb639486000`. Android Gradle/JUnit 실행은 미실행입니다.
 
 - 로컬 Kotlin/JVM 격리 스모크 실행 결과: `PASS skipsOptionalFeedWhenParserLinkageFailsButKeepsVpnStartupAvailable`, `PASS doesNotSwallowVirtualMachineFatalErrorsFromOptionalFeed`. 추가로 정상 피드 수용 및 최소 규칙 수 미달 피드 제외 경로도 PASS. 실행 환경에 JUnit/Android SDK/Gradle 프로젝트 런타임이 없어 실제 Android JUnit 클래스나 Gradle 테스트 태스크 실행은 아직 아닙니다. 이 결과는 격리된 Kotlin/JVM 실행 검증으로만 분류합니다.
+
+- VPN 필터 재적용 요청 폭주를 합치는 게이트를 추가했습니다. 이전에는 `ACTION_RELOAD_RULES`가 호출될 때마다 스레드를 새로 생성했습니다. 이제 동시 요청은 단일 실행 + 최대 1회 후속 재적용으로 합쳐지고, 서비스 종료 시 대기 요청을 버리며, 비정상 워커 종료 시 게이트 소유권을 회수합니다. 코드/테스트: `CoalescingTaskGate`, `CoalescingTaskGateTest`. Kotlin/JVM 격리 스모크 4개 PASS(100회 연속 요청, 32개 동시 요청, 비정상 종료 후 후속 요청, 서비스 종료 시 대기 요청 제거). Android JUnit/Gradle 실행은 미실행입니다. 관련 커밋: `c85efdda`, `8209d320`, `8969ccf3`, `34276c0d`, `c69c392d`, `2fdf1d67`, `99e2b6d7`, `73212d52`, `50de2503`, `82c93835`.
