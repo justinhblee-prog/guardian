@@ -290,3 +290,8 @@
 - 최신 phishing branch 커밋 `9ff044f8a590993349f7dc427d8049239b1641f2`: 포트 범위 1~65535, IDN 변환 후 전체 호스트 길이 253자, 숫자·점만으로 된 비정상 IPv4 입력을 검증합니다.
 - 저위험 결과 설명은 안전 보증으로 오해되지 않도록 문구를 조정했습니다.
 - 독립 Kotlin/JVM smoke 재실행 통과: 정상/의심 URL, punycode, 혼합 문자, IP literal, 단축 URL, userinfo, 실행 파일 확장자, 비정상 포트, malformed numeric host, 비지원 scheme 및 길이 경계.
+
+
+## 2026-11-24 — 피싱 URL scheme/port 일치 검증
+- 포트 80/443을 스킴과 무관하게 정상 처리하던 점을 수정했습니다. HTTP 80과 HTTPS 443만 기본 포트로 취급하고, HTTP 443·HTTPS 80은 비기본 포트 주의 신호로 분류합니다.
+- 정상/불일치 4개 조합 회귀 테스트를 추가했습니다. Android Gradle/JUnit 및 APK 실제 검사 검증은 미실행입니다.
