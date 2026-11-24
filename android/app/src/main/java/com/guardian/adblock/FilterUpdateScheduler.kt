@@ -60,7 +60,7 @@ object FilterUpdateScheduler {
         val interval = prefs.getLong(FilterListManager.KEY_UPDATE_INTERVAL_MS, DEFAULT_INTERVAL_MS)
             .let(::normalizeInterval)
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiredNetworkType(NetworkType.UNMETERED)
             .build()
         val request = PeriodicWorkRequestBuilder<FilterUpdateWorker>(interval, TimeUnit.MILLISECONDS)
             .setInitialDelay(initialDelayMs(interval), TimeUnit.MILLISECONDS)
