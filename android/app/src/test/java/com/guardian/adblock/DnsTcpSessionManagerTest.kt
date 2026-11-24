@@ -336,6 +336,45 @@ class DnsTcpSessionManagerTest {
         assertTrue(response.payload.isNotEmpty())
     }
 
+    @Test fun staleResetCannotTerminateLiveDnsTcpSession() {
+        val manager = newManager()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 6200)
+        val synAckBytes = manager.handle(syn, syn.size) { null }.single()
+        val synAck = DnsTcpPacket.parse(synAckBytes, synAckBytes.size, 53000)!!
+        assertEquals(1, manager.activeSessionCount())
+
+        // A delayed RST from before the SYN was acknowledged is not in the
+        // current client receive sequence and must not tear down the session.
+        val staleReset = packet(flags = DnsTcpPacket.RST, seq = 6200)
+        assertTrue(manager.handle(staleReset, staleReset.size) { null }.isEmpty())
+        assertEquals(1, manager.activeSessionCount())
+
+        val query = dnsQuery()
+        val framed = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        var resolverCalls = 0
+        val request = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 6201,
+            acknowledgment = (synAck.sequence + 1L) and 0xffffffffL,
+            payload = framed
+        )
+        val response = manager.handle(request, request.size) {
+            resolverCalls++
+            DomainFilter.makeServfail(it)
+        }
+        assertEquals(1, resolverCalls)
+        assertTrue(response.isNotEmpty())
+        assertEquals(1, manager.activeSessionCount())
+
+        // A reset at the exact next client sequence is accepted.
+        val validReset = packet(
+            flags = DnsTcpPacket.RST,
+            seq = 6201L + framed.size
+        )
+        assertTrue(manager.handle(validReset, validReset.size) { null }.isEmpty())
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     private fun ipv6Packet(flags: Int, seq: Long, payload: ByteArray = byteArrayOf()): ByteArray {
         val tcpLength = 20 + payload.size
         val p = ByteArray(40 + tcpLength)
