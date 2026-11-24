@@ -1,3 +1,10 @@
+## 2026-11-24 — 위협 분석 저장·대기 집계 결합 정책 분리
+
+- 저장된 집계와 아직 5초 버퍼에 남은 집계를 화면에 합치는 정책을 `ThreatAnalyticsSummaryPolicy`로 분리했습니다.
+- 저장값/대기값의 음수 방어, Long.MAX_VALUE 포화 누적, pending 이벤트를 먼저 보여 주는 최신순 병합 및 최근 20개 상한을 순수 함수로 검증할 수 있게 했습니다.
+- ThreatAnalyticsStore.summary()는 해당 정책을 사용하며, 5초 이전에 UI가 갱신되어도 강제 flush하지 않습니다.
+- 저장 집계 + pending 합산, 최신순, 최근 수 상한, overflow/음수, 잘못된 상한 테스트를 추가했습니다. Android SharedPreferences/JUnit 및 Service 통합은 미실행입니다.
+
 ## 2026-11-24 — PRO 위협 분석 실시간 미리보기 갱신
 
 - 기존 위협 분석 화면은 진입 시점에 `ThreatAnalyticsStore.summary()`를 한 번 읽고 이후 DNS 이벤트 브로드캐스트에서는 새 집계를 표시하지 않았습니다. 화면을 다시 열어야 수치와 최근 이벤트가 갱신되는 문제를 수정했습니다.
