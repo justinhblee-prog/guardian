@@ -105,7 +105,9 @@ internal object AppDnsActivityStore {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val tracked = prefs.getStringSet(KEY_PACKAGES, emptySet()).orEmpty().toSet()
         val stale = InstalledAppDataCleanupPolicy.stalePackages(tracked, installedPackages, true)
-        pending.keys.filter { it !in installedPackages }.forEach(pending::remove)
+        pending.keys.filter { it !in installedPackages }.forEach { packageName ->
+            pending.remove(packageName)
+        }
         if (stale.isEmpty()) {
             knownPackages = tracked.toMutableSet()
             return emptySet()
@@ -114,7 +116,7 @@ internal object AppDnsActivityStore {
         val existingKeys = prefs.all.keys
         stale.forEach { packageName ->
             val prefix = "app.$packageName."
-            existingKeys.filter { it.startsWith(prefix) }.forEach(editor::remove)
+            existingKeys.filter { it.startsWith(prefix) }.forEach { key -> editor.remove(key) }
         }
         val retained = tracked - stale
         editor.putStringSet(KEY_PACKAGES, retained).apply()
