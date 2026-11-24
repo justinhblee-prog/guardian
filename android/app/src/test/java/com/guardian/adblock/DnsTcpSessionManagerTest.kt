@@ -36,6 +36,40 @@ class DnsTcpSessionManagerTest {
         assertEquals(0, manager.activeSessionCount())
     }
 
+    @Test fun acceptsNextDnsFrameWhenMaximumFrameCompletesInSameSegment() {
+        val manager = newManager()
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 7800)
+        manager.handle(syn, syn.size) { null }
+
+        // A maximum-length DNS message needs 65,537 TCP stream bytes including
+        // its length prefix. The final 42 bytes and a second complete query are
+        // coalesced into one segment, briefly exceeding the single-frame cap.
+        val maximumFrame = byteArrayOf(0xff.toByte(), 0xff.toByte()) + ByteArray(65535)
+        val secondQuery = dnsQuery()
+        val secondFrame = byteArrayOf((secondQuery.size ushr 8).toByte(), secondQuery.size.toByte()) + secondQuery
+        val firstPayload = maximumFrame.copyOfRange(0, 65495)
+        val finalPayload = maximumFrame.copyOfRange(65495, maximumFrame.size) + secondFrame
+        var resolved = 0
+
+        val firstSegment = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 7801, payload = firstPayload)
+        val firstReply = manager.handle(firstSegment, firstSegment.size) {
+            resolved++
+            secondQuery
+        }.single()
+        assertTrue(DnsTcpPacket.parse(firstReply, firstReply.size, 53000)!!.payload.isEmpty())
+
+        val secondSegment = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 7801L + firstPayload.size, payload = finalPayload)
+        val replies = manager.handle(secondSegment, secondSegment.size) {
+            resolved++
+            secondQuery
+        }
+        assertEquals(2, resolved)
+        assertTrue(replies.any { DnsTcpPacket.parse(it, it.size, 53000)!!.payload.isNotEmpty() })
+        assertEquals(1, manager.activeSessionCount())
+    }
+
     @Test fun rejectsMalformedDnsLengthAndResetsConnection() {
         val manager = newManager()
         val syn = packet(flags = DnsTcpPacket.SYN, seq = 200)
