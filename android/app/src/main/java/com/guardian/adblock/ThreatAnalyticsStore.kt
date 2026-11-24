@@ -35,9 +35,15 @@ internal object ThreatAnalyticsStore {
 
     @Synchronized
     fun summary(context: Context): ThreatAnalyticsSummary {
-        flushPendingLocked(context, SystemClock.elapsedRealtime())
+        val now = SystemClock.elapsedRealtime()
+        // Preserve the five-second write buffer even when the live preview is
+        // refreshed more often by status broadcasts. The non-destructive pending
+        // snapshot below makes those events visible without an early disk write.
+        if (lastFlushAtElapsedMillis == 0L || now - lastFlushAtElapsedMillis >= FLUSH_INTERVAL_MILLIS) {
+            flushPendingLocked(context, now)
+        }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val recent = prefs.getString(KEY_RECENT, "").orEmpty().lineSequence()
+        val storedRecent = prefs.getString(KEY_RECENT, "").orEmpty().lineSequence()
             .mapNotNull { line ->
                 val parts = line.split('|', limit = 3)
                 if (parts.size != 3) return@mapNotNull null
@@ -46,12 +52,13 @@ internal object ThreatAnalyticsStore {
                     ThreatAnalyticsEngine.Severity.valueOf(parts[1])
                 }.getOrNull() ?: return@mapNotNull null
                 ThreatAnalyticsEvent(timestamp, severity, parts[2])
-            }.take(MAX_RECENT).toList()
+            }.toList()
+        val pendingSnapshot = pending.snapshot()
         return ThreatAnalyticsSummary(
-            high = prefs.getLong(KEY_HIGH, 0L).coerceAtLeast(0L),
-            informational = prefs.getLong(KEY_INFORMATIONAL, 0L).coerceAtLeast(0L),
-            unassessed = prefs.getLong(KEY_UNASSESSED, 0L).coerceAtLeast(0L),
-            recent = recent
+            high = saturatingAdd(prefs.getLong(KEY_HIGH, 0L).coerceAtLeast(0L), pendingSnapshot.high),
+            informational = saturatingAdd(prefs.getLong(KEY_INFORMATIONAL, 0L).coerceAtLeast(0L), pendingSnapshot.informational),
+            unassessed = saturatingAdd(prefs.getLong(KEY_UNASSESSED, 0L).coerceAtLeast(0L), pendingSnapshot.unassessed),
+            recent = (pendingSnapshot.recent + storedRecent).take(MAX_RECENT)
         )
     }
 
