@@ -1,3 +1,11 @@
+## 2026-11-24 — PRO 위협 분석 실시간 미리보기 갱신
+
+- 기존 위협 분석 화면은 진입 시점에 `ThreatAnalyticsStore.summary()`를 한 번 읽고 이후 DNS 이벤트 브로드캐스트에서는 새 집계를 표시하지 않았습니다. 화면을 다시 열어야 수치와 최근 이벤트가 갱신되는 문제를 수정했습니다.
+- MainActivity 상태 브로드캐스트 및 화면 재진입 때 보이는 DEBUG 미리보기의 집계/최근 항목을 갱신합니다. 화면을 벗어나면 view reference를 해제해 백그라운드에서 불필요하게 갱신하지 않습니다.
+- 새로 고침마다 SharedPreferences를 쓰지 않도록 accumulator의 비파괴 snapshot을 추가했습니다. Store summary는 5초 flush 간격을 유지하면서 저장된 집계와 pending 집계를 합쳐 보여 줍니다.
+- 도메인/URL 미저장, Release threat analytics 비활성, `productionReadyFeatures` 비어 있음은 그대로 유지합니다.
+- Android Gradle/JUnit, SharedPreferences persistence, 실제 VPN 이벤트·화면 갱신 및 단말 검증은 미실행입니다.
+
 ## 2026-11-24 — 보안 인텔리전스·사용자 규칙 중첩 위협 분류 테스트
 
 - 실제 `DomainFilter.blockEvidence()`가 동일 도메인에 보안 인텔리전스 출처와 사용자 차단 규칙이 함께 있을 때 두 증거를 모두 보존하고, `ThreatAnalyticsEngine`이 보안 인텔리전스 증거를 우선해 HIGH를 유지하는지 회귀 테스트를 추가했습니다.
