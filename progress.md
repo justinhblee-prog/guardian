@@ -503,3 +503,9 @@
 
 ## 2026-11-24 — DNS TCP 응답 Parsed 주소 길이 검증
 - DnsTcpPacket.response에서 IP 버전에 따른 source/destination 길이를 모두 명시적으로 검증합니다. malformed Parsed 입력이 배열 복사 예외로 처리되지 않도록 테스트를 추가했습니다. Android Gradle/JUnit 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP 응답 길이/주소 검증 확장 Kotlin/JVM smoke
+- DnsTcpPacket.response의 버전별 최대 길이와 source/destination 주소 길이 검증을 반영한 코덱을 Kotlin/JVM으로 재실행했습니다.
+- PASS 9/9: IPv4/IPv6 최대 IP length 필드 및 checksum/parser 재수용, 양 버전 최대 payload 초과 거부, malformed IPv4 destination/IPv6 source 주소 크기 거부.
+- 이 결과는 독립 코덱 smoke이며 Android Gradle/JUnit·VPN service 통합 및 실기기 패킷 검증은 미실행입니다.
