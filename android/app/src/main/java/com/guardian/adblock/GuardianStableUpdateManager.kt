@@ -256,11 +256,20 @@ internal object GuardianStableUpdateManager {
         val uri = java.net.URI(address)
         uri.scheme.equals("https", true) &&
             (uri.port == -1 || uri.port == 443) &&
-            uri.host?.lowercase() in setOf(
-                "github.com",
+            uri.userInfo == null &&
+            uri.fragment == null &&
+            when (uri.host?.lowercase()) {
+                // Direct GitHub downloads must stay inside this repository's release assets.
+                "github.com" ->
+                    uri.query == null &&
+                        uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
+                        uri.path.removePrefix("/justinhblee-prog/guardian/releases/download/")
+                            .split('/').filter { it.isNotEmpty() }.size >= 2
+                // GitHub's signed asset CDN uses query parameters; require a concrete object path.
                 "release-assets.githubusercontent.com",
-                "objects.githubusercontent.com"
-            ) && uri.userInfo == null
+                "objects.githubusercontent.com" -> !uri.path.isNullOrBlank() && uri.path != "/"
+                else -> false
+            }
     }.getOrDefault(false)
 
     private fun isAllowedHttpsUrl(address: String): Boolean = runCatching {
