@@ -73,6 +73,13 @@ class SecurityProfilePolicyTest {
         assertTrue(unmetered.automaticFilterUpdates)
     }
 
+    @Test fun vpnUnderlyingNetworkMustBeUnambiguousBeforeAutomaticClassification() {
+        assertFalse(SecurityProfilePolicy.hasUnambiguousUnderlyingNetwork(0))
+        assertTrue(SecurityProfilePolicy.hasUnambiguousUnderlyingNetwork(1))
+        assertFalse(SecurityProfilePolicy.hasUnambiguousUnderlyingNetwork(2))
+        assertFalse(SecurityProfilePolicy.hasUnambiguousUnderlyingNetwork(-1))
+    }
+
     @Test fun unknownTransportsNeverBecomeTrustedProfiles() {
         listOf(
             SecurityProfilePolicy.Transport.OTHER,
