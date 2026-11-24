@@ -356,6 +356,32 @@ class ProtectionDiagnosticsTest {
         assertTrue(!report.contains("bad code with spaces"))
     }
 
+    @Test fun recentErrorCopyIncludesSafeDnsDiagnosticWithoutLeakingResolverDetails() {
+        val report = ProtectionDiagnostics.recentErrorReport(
+            lastServiceStatus = null,
+            lastStartupTrace = null,
+            filterErrorCodes = emptyList(),
+            filterReadiness = null,
+            lastDnsDiagnostic = "업스트림 DNS 오류: UDP 후보 1 (192.0.2.53): UDP: 연결 실패 https://private.invalid"
+        )
+        assertTrue(report.contains("마지막 DNS 진단: 업스트림 DNS 실패 (UDP)"))
+        assertTrue(!report.contains("192.0.2.53"))
+        assertTrue(!report.contains("private.invalid"))
+        assertTrue(!report.contains("https://"))
+    }
+
+    @Test fun recentErrorCopyShowsSuccessfulDnsConnectivityCheckWithoutRawDetails() {
+        val report = ProtectionDiagnostics.recentErrorReport(
+            lastServiceStatus = null,
+            lastStartupTrace = null,
+            filterErrorCodes = emptyList(),
+            filterReadiness = null,
+            lastDnsDiagnostic = "업스트림 DNS 연결 테스트 성공 (DoH, 23ms)"
+        )
+        assertTrue(report.contains("마지막 DNS 진단: 업스트림 DNS 연결 테스트 성공"))
+        assertTrue(!report.contains("23ms"))
+    }
+
     @Test fun recentErrorCopyClearlyReportsWhenNoErrorIsRecorded() {
         val report = ProtectionDiagnostics.recentErrorReport(null, null, emptyList(), null)
         assertTrue(report.contains("최근 시작 오류 기록 없음"))
