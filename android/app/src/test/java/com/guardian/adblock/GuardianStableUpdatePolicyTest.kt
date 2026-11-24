@@ -42,6 +42,15 @@ class GuardianStableUpdatePolicyTest {
         assertFalse(GuardianStableUpdatePolicy.isSha256("g".repeat(64)))
     }
 
+    @Test fun releaseManifestMustMatchExactlyOneApkContentSigner() {
+        val signer = "a".repeat(64)
+        assertTrue(GuardianStableUpdatePolicy.hasSingleExpectedSigner(listOf(signer), signer))
+        assertTrue(GuardianStableUpdatePolicy.hasSingleExpectedSigner(listOf(signer.uppercase()), signer))
+        assertFalse(GuardianStableUpdatePolicy.hasSingleExpectedSigner(emptyList(), signer))
+        assertFalse(GuardianStableUpdatePolicy.hasSingleExpectedSigner(listOf(signer, "b".repeat(64)), signer))
+        assertFalse(GuardianStableUpdatePolicy.hasSingleExpectedSigner(listOf(signer), "not-a-sha256"))
+    }
+
     @Test fun stableApkRedirectsMustRemainOnOfficialHttpsAssetHosts() {
         assertTrue(GuardianStableUpdateManager.isAllowedReleaseDownloadUrl(
             "https://release-assets.githubusercontent.com/github-production-release-asset/guardian.apk"
