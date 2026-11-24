@@ -203,6 +203,13 @@ internal object FilterUpdatePolicy {
     /** An enabled optional source remains eligible for retry until its first cache is installed. */
     fun shouldRetryOptionalUpdate(wasEnabled: Boolean): Boolean = wasEnabled
 
+    /**
+     * Disable an optional source only when a runtime linkage failure makes it
+     * unusable and no previously validated cache can continue protecting it.
+     */
+    fun shouldDisableOptionalFilter(wasEnabled: Boolean, hasUsableCache: Boolean): Boolean =
+        wasEnabled && !hasUsableCache
+
     /** Do not claim an old list is active when the selected profile has no valid cache. */
     fun mainErrorStatus(errorCode: String?, hasUsableCache: Boolean): String? {
         if (errorCode.isNullOrBlank()) return null
