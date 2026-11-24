@@ -20,6 +20,14 @@ class FilterUpdateWorker(
             )
         ) return Result.success()
 
+        if (forceInitialRefresh && runAttemptCount >= MAX_INITIAL_CACHE_ATTEMPTS) {
+            android.util.Log.e("Guardian", "Initial filter cache retry budget exhausted after $runAttemptCount attempts")
+            applicationContext.sendBroadcast(
+                Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
+            )
+            return Result.failure()
+        }
+
         return try {
             val now = System.currentTimeMillis()
             val interval = FilterUpdateScheduler.normalizeInterval(
@@ -120,6 +128,9 @@ class FilterUpdateWorker(
     companion object {
         const val ACTION_FILTERS_CHANGED = "com.guardian.adblock.FILTERS_CHANGED"
         const val KEY_FORCE_INITIAL_REFRESH = "force_initial_filter_refresh"
+        // WorkManager runAttemptCount starts at 0: six executions mean the initial
+        // request plus at most five retries with exponential backoff.
+        const val MAX_INITIAL_CACHE_ATTEMPTS = 6
     }
 }
 
@@ -128,6 +139,9 @@ internal object FilterUpdatePolicy {
     /** A first-run cache repair is mandatory even if recurring refreshes are opted out. */
     fun shouldRunUpdates(autoUpdateEnabled: Boolean, forceInitialRefresh: Boolean): Boolean =
         autoUpdateEnabled || forceInitialRefresh
+
+    fun shouldContinueInitialRetry(forceInitialRefresh: Boolean, runAttemptCount: Int, maxAttempts: Int): Boolean =
+        !forceInitialRefresh || (maxAttempts > 0 && runAttemptCount >= 0 && runAttemptCount < maxAttempts)
 
     /** Disable an optional source only when its first download failed and no trusted cache exists. */
     fun shouldDisableOptionalFilter(wasEnabled: Boolean, hadValidCache: Boolean): Boolean =
