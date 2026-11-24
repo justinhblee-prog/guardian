@@ -890,6 +890,45 @@ class DnsTcpSessionManagerTest {
         }
     }
 
+    @Test fun retransmitsOldestOutstandingDnsAnswerAfterThreeDuplicateAcks() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 9100)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 9101, acknowledgment = serverStart, payload = framedQuery)
+        val answer = ByteArray(5000) { (it and 0xff).toByte() }
+        val sent = manager.handle(request, request.size) { answer }
+        assertTrue(sent.size > 1)
+
+        val clientNext = (9101L + framedQuery.size) and 0xffffffffL
+        repeat(2) {
+            val duplicateAck = packet(flags = DnsTcpPacket.ACK,
+                seq = clientNext, acknowledgment = serverStart)
+            assertTrue(manager.handle(duplicateAck, duplicateAck.size) { null }.isEmpty())
+        }
+        val thirdDuplicateAck = packet(flags = DnsTcpPacket.ACK,
+            seq = clientNext, acknowledgment = serverStart)
+        val retransmitted = manager.handle(thirdDuplicateAck, thirdDuplicateAck.size) { null }
+        assertEquals(1, retransmitted.size)
+        assertArrayEquals(sent.first(), retransmitted.single())
+
+        val firstPayloadSize = DnsTcpPacket.parse(sent.first(), sent.first().size, 53000)!!.payload.size
+        val partialAckNumber = (serverStart + firstPayloadSize) and 0xffffffffL
+        val partialAck = packet(flags = DnsTcpPacket.ACK,
+            seq = clientNext, acknowledgment = partialAckNumber)
+        assertTrue(manager.handle(partialAck, partialAck.size) { null }.isEmpty())
+        repeat(3) {
+            val duplicateAck = packet(flags = DnsTcpPacket.ACK,
+                seq = clientNext, acknowledgment = partialAckNumber)
+            val result = manager.handle(duplicateAck, duplicateAck.size) { null }
+            if (it < 2) assertTrue(result.isEmpty())
+            else assertArrayEquals(sent[1], result.single())
+        }
+    }
+
     @Test fun staleTcpSegmentsCannotOverwriteNewerPeerReceiveWindow() {
         val manager = newManager()
         val query = dnsQuery()
