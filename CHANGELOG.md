@@ -1,3 +1,9 @@
+## 2026-11-24 — 셀룰러 로밍 감지로 여행 프로필 전환 연결
+
+- `SecurityProfileMonitor`가 모든 네트워크에서 `roaming=false`를 전달해 셀룰러 로밍 중에도 모바일 프로필을 유지하고 여행 프로필로 전환하지 못했습니다.
+- API 28 이상은 Android `NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING` 부재를 로밍으로 해석하고, API 26–27은 선택된 물리 Network의 deprecated `NetworkInfo.isRoaming` 값을 제한적으로 읽습니다. VPN의 물리 네트워크 후보를 선택할 때 Network 객체와 capability 쌍을 유지합니다.
+- 순수 정책에서 Wi-Fi는 로밍 아님을 보장하고 API 27 legacy/API 28+ capability 조합을 테스트하도록 추가했습니다. Android callback/OEM/실제 SIM 로밍 단말 검증은 미실행입니다.
+
 ## 2026-11-24 — 프로필 미설정 기본값 및 자동 업데이트 게이트 검증
 
 - Worker/Scheduler 게이트 연결 후 미설정 키의 유효 기본값을 기존 STRICT 프로필 설정으로 계산하도록 수정했습니다. 저장된 설정이 없는 초기/기존 사용자는 기존 자동 업데이트 기본값을 유지하고, 수동 프로필의 명시적 false는 계속 우선합니다.
