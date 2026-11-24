@@ -696,6 +696,41 @@ class DnsTcpSessionManagerTest {
         assertArrayEquals(largeAnswer, framedAnswer.copyOfRange(2, framedAnswer.size))
     }
 
+    @Test fun retransmittedDnsRequestReplaysUnacknowledgedWindowedResponseSegments() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 8600, window = 0)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 8601, acknowledgment = serverStart, payload = framedQuery, window = 0)
+        val answer = ByteArray(5000) { (it and 0xff).toByte() }
+        var calls = 0
+        assertTrue(manager.handle(request, request.size) { calls++; answer }.isEmpty())
+
+        val windowUpdate = packet(flags = DnsTcpPacket.ACK, seq = 8601L + framedQuery.size,
+            acknowledgment = serverStart, window = 2048)
+        val firstTransmission = manager.handle(windowUpdate, windowUpdate.size) { null }
+        assertEquals(2048, firstTransmission.sumOf {
+            DnsTcpPacket.parse(it, it.size, 53000)!!.payload.size
+        })
+
+        // Simulate loss: the client retransmits its original DNS request without
+        // acknowledging the first response window. Guardian must replay the
+        // outstanding response packets, not silently ACK and lose the DNS answer.
+        val replay = manager.handle(request.copyOf().also {
+            it[34] = 0x08; it[35] = 0x00
+            // The helper packet's TCP checksum is rebuilt by constructing the packet below.
+        }, request.size) { calls++; null }
+        val retransmission = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 8601, acknowledgment = serverStart, payload = framedQuery, window = 2048)
+        val replayed = manager.handle(retransmission, retransmission.size) { calls++; null }
+        assertEquals(1, calls)
+        assertEquals(firstTransmission.size, replayed.size)
+        replayed.zip(firstTransmission).forEach { (actual, expected) -> assertArrayEquals(expected, actual) }
+    }
+
     @Test fun staleTcpSegmentsCannotOverwriteNewerPeerReceiveWindow() {
         val manager = newManager()
         val query = dnsQuery()
