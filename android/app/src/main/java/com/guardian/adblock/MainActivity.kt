@@ -939,6 +939,10 @@ class MainActivity : Activity() {
                 12f, accent, true
             ).withTop(10) as TextView
             addView(statsText!!)
+            addView(text(
+                "실패: 정상 DNS 질의의 업스트림 응답 실패(SERVFAIL) · 무시: DNS 형식 또는 질문 검증 실패",
+                10f, muted, false
+            ).withTop(7))
         }
         body.addView(summary.withTop(18))
 
