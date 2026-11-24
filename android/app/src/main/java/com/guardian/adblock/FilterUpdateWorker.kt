@@ -25,6 +25,10 @@ class FilterUpdateWorker(
             )
         ) {
             android.util.Log.e("Guardian", "Initial filter cache retry budget exhausted after $runAttemptCount attempts")
+            prefs.edit().putString(
+                FilterListManager.KEY_LAST_ERROR,
+                ERROR_INITIAL_CACHE_RETRY_EXHAUSTED
+            ).apply()
             applicationContext.sendBroadcast(
                 Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
             )
@@ -134,6 +138,7 @@ class FilterUpdateWorker(
     companion object {
         const val ACTION_FILTERS_CHANGED = "com.guardian.adblock.FILTERS_CHANGED"
         const val KEY_FORCE_INITIAL_REFRESH = "force_initial_filter_refresh"
+        const val ERROR_INITIAL_CACHE_RETRY_EXHAUSTED = "initial-filter-cache-retry-exhausted"
         // WorkManager runAttemptCount starts at 0: six executions mean the initial
         // request plus at most five retries with exponential backoff.
         const val MAX_INITIAL_CACHE_ATTEMPTS = 6
@@ -155,6 +160,19 @@ internal object FilterUpdatePolicy {
     /** Disable an optional source only when its first download failed and no trusted cache exists. */
     fun shouldDisableOptionalFilter(wasEnabled: Boolean, hadValidCache: Boolean): Boolean =
         wasEnabled && !hadValidCache
+
+    /** Do not claim an old list is active when the selected profile has no valid cache. */
+    fun mainErrorStatus(errorCode: String?, hasUsableCache: Boolean): String? {
+        if (errorCode.isNullOrBlank()) return null
+        if (errorCode == FilterUpdateWorker.ERROR_INITIAL_CACHE_RETRY_EXHAUSTED) {
+            return "초기 필터 복구 재시도 한도 초과 · 선택한 필터 캐시 없음 · 내장 기본 규칙으로 제한 보호 중 · 네트워크 확인 후 다시 시도하세요."
+        }
+        return if (hasUsableCache) {
+            "광고 필터 업데이트 실패(이전 목록 유지): ${SafeFailureSummary.describeCode(errorCode)}"
+        } else {
+            "광고 필터 다운로드 실패(선택한 목록 없음 · 내장 기본 규칙으로 제한 보호 중): ${SafeFailureSummary.describeCode(errorCode)}"
+        }
+    }
 
     /** Preserve the last failure until a due refresh actually succeeds. */
     fun shouldClearBaseError(updateWasDue: Boolean, updateSucceeded: Boolean): Boolean =
