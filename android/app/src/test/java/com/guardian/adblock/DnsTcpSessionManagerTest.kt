@@ -920,6 +920,61 @@ class DnsTcpSessionManagerTest {
         ) { null }.single())
     }
 
+    @Test fun retransmitsDnsTcpSegmentOnExponentialTimeoutAndDropsAfterRetryLimit() {
+        var now = 0L
+        val manager = DnsTcpSessionManager(clock = { now }, random = deterministicRandom())
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 9300)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 9301, acknowledgment = serverStart, payload = framedQuery)
+        val sent = manager.handle(request, request.size) { ByteArray(5000) }
+        assertTrue(sent.isNotEmpty())
+
+        now = 999L
+        assertTrue(manager.retransmitDue().isEmpty())
+        now = 1_000L
+        assertArrayEquals(sent.first(), manager.retransmitDue().single())
+        now = 2_999L
+        assertTrue(manager.retransmitDue().isEmpty())
+        now = 3_000L
+        assertArrayEquals(sent.first(), manager.retransmitDue().single())
+        now = 7_000L
+        assertArrayEquals(sent.first(), manager.retransmitDue().single())
+        now = 15_000L
+        assertArrayEquals(sent.first(), manager.retransmitDue().single())
+        now = 23_000L
+        assertArrayEquals(sent.first(), manager.retransmitDue().single())
+        assertEquals(1, manager.activeSessionCount())
+        now = 31_000L
+        assertTrue(manager.retransmitDue().isEmpty())
+        assertEquals(0, manager.activeSessionCount())
+    }
+
+    @Test fun cumulativeAckCancelsTimerForAcknowledgedDnsTcpData() {
+        var now = 0L
+        val manager = DnsTcpSessionManager(clock = { now }, random = deterministicRandom())
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 9400)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 9401, acknowledgment = serverStart, payload = framedQuery)
+        val sent = manager.handle(request, request.size) { ByteArray(5000) }
+        val firstSize = DnsTcpPacket.parse(sent.first(), sent.first().size, 53000)!!.payload.size
+        now = 1_000L
+        assertArrayEquals(sent.first(), manager.retransmitDue().single())
+        val clientNext = (9401L + framedQuery.size) and 0xffffffffL
+        val ack = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = (serverStart + firstSize) and 0xffffffffL)
+        assertTrue(manager.handle(ack, ack.size) { null }.isEmpty())
+        now = 1_001L
+        assertArrayEquals(sent[1], manager.retransmitDue().single())
+    }
+
     @Test fun retransmitsOldestOutstandingDnsAnswerAfterThreeDuplicateAcks() {
         val manager = newManager()
         val query = dnsQuery()
