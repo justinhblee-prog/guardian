@@ -307,3 +307,9 @@
 - SecurityProfileMonitor가 roaming을 false로 고정하던 것을 Android 9(API 28)+ NET_CAPABILITY_NOT_ROAMING 신호로 판단하도록 연결했습니다.
 - NOT_ROAMING 미확인 셀룰러 상태는 로밍으로 보수 처리해 Travel 프로필을 선택합니다. API 26~27은 capability를 제공하지 않으므로 기존 MOBILE 분기를 사용합니다.
 - pure policy 테스트 소스 추가. Android Gradle/JUnit 및 통신사/OEM 실기기 NetworkCapabilities 동작 검증은 미실행입니다.
+
+
+## 2026-11-24 — 보안 프로필/업데이트 정책 독립 Kotlin/JVM 검증
+- 현재 branch의 `SecurityProfilePolicy.kt`와 `FilterUpdateSchedulingPolicy.kt` 순수 로직을 `kotlinc`로 컴파일하고 harness를 실행했습니다.
+- PASS 12/12: API 28+ cellular NOT_ROAMING 유무에 따른 로밍 판정, API 26~27 capability 미지원, Wi-Fi 비로밍, roaming cellular→TRAVEL, metered cellular 업데이트 차단, unknown/unvalidated→STRICT, 자동 갱신의 사용자/프로필 AND gate 4가지 조합, 6개 프로필 수 확인.
+- 이 결과는 두 순수 정책 파일의 isolated Kotlin/JVM smoke PASS입니다. Android NetworkCallback, `NetworkCapabilities`, WorkManager enqueue/cancel, Worker 실행 및 Android Gradle/JUnit 검증을 의미하지 않습니다.
