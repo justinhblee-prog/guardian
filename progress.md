@@ -639,3 +639,9 @@
 ## 2026-11-24 — 정식 APK FileProvider 경로 오류 수정
 - `GuardianStableUpdateManager`가 cache/stable-updates에 APK를 저장했지만 FileProvider XML에는 cache/updates만 등록된 불일치를 수정했습니다. `guardian_stable_updates` cache-path를 등록했고 개발/정식 업데이트 디렉터리 이름을 공통 상수화했습니다.
 - 다운로드 후 FileProvider URI 생성/Android 시스템 설치 화면은 Android Gradle·기기 실행 환경이 없어 미검증 상태입니다.
+
+
+## 2026-11-24 — Android 업데이트 캐시 경로 정책 JVM smoke 3/3
+
+- 공통 `GuardianUpdateCachePaths`를 kotlinc/JRE 21로 분리 컴파일·실행했습니다. PASS 3/3: 개발판 `updates`, 정식판 `stable-updates`, 두 경로의 분리.
+- XML resource의 실제 FileProvider URI 처리, Android 설치 시스템 화면 및 APK 재설치는 Android 환경/실기기에서 아직 미검증입니다.
