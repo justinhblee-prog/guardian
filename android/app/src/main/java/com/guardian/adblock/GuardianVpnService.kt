@@ -635,8 +635,11 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun cancelStartupDnsPreflight() {
-        startupDnsDeadline.getAndSet(null)?.cancel()
+        // Invalidate the request before closing its socket. Otherwise the old
+        // worker could observe the close, publish a startup failure, and stop
+        // its service startId in the tiny interval before generation invalidation.
         startCancellation.cancel()
+        startupDnsDeadline.getAndSet(null)?.cancel()
     }
 
     private fun startProtection(requestGeneration: Long, startId: Int) {
