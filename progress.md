@@ -350,3 +350,7 @@
 ## 2026-11-24 — 앱별 규칙 precedence 회귀 테스트
 - 앱별 추가 차단이 전역 allow를 우회하지 않으며, 전역 important block이 앱별 정책보다 우선하는 DnsQueryPolicy 회귀 테스트를 추가했습니다.
 - 실제 하위 도메인 allow 상속 및 important match에서 upstream 호출 여부까지 확인하도록 했습니다. Android Gradle/JUnit·실기기 검증은 미실행입니다.
+
+
+## 2026-11-24 — 앱별 설치 목록 정리 정책 Kotlin/JVM 스모크
+- 설치 앱 조회 권한·두 PackageManager API 성공·비어 있지 않은 결과·집합 완전 일치, stale package 계산 경계 등을 Android 의존성 없이 분리 실행해 9/9 통과했습니다. 이는 정책 로직 smoke이며 Android SharedPreferences/PackageManager 통합이나 단말 검증은 아닙니다.
