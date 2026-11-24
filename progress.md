@@ -313,3 +313,8 @@
 - 현재 branch의 `SecurityProfilePolicy.kt`와 `FilterUpdateSchedulingPolicy.kt` 순수 로직을 `kotlinc`로 컴파일하고 harness를 실행했습니다.
 - PASS 12/12: API 28+ cellular NOT_ROAMING 유무에 따른 로밍 판정, API 26~27 capability 미지원, Wi-Fi 비로밍, roaming cellular→TRAVEL, metered cellular 업데이트 차단, unknown/unvalidated→STRICT, 자동 갱신의 사용자/프로필 AND gate 4가지 조합, 6개 프로필 수 확인.
 - 이 결과는 두 순수 정책 파일의 isolated Kotlin/JVM smoke PASS입니다. Android NetworkCallback, `NetworkCapabilities`, WorkManager enqueue/cancel, Worker 실행 및 Android Gradle/JUnit 검증을 의미하지 않습니다.
+
+
+## 2026-11-24 — 보안 프로필 UI 제한 안내 정합성
+- 실제 코드에 연결된 셀룰러 로밍 capability와 사용자/프로필 이중 WorkManager gate를 미구현으로 오해하게 하던 오래된 안내를 갱신했습니다.
+- API 28+ OEM/통신사 네트워크 동작 및 PRO entitlement/Release 등록은 여전히 미완료·미검증으로 명시합니다.
