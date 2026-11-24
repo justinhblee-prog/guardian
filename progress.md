@@ -482,3 +482,8 @@
 ## 2026-11-24 — 재전송 스케줄러 종료 동기화
 - packet loop finally에서 RTO scheduler를 취소한 뒤 최대 500ms 종료 대기를 수행하고, InterruptedException 시 현재 스레드 인터럽트 플래그를 복원합니다.
 - 종료 직후 TUN descriptor write 경합을 줄이기 위한 cleanup이며, Android service lifecycle·단말 검증은 미실행입니다.
+
+
+## 2026-11-24 — DnsTcpPacket 버전별 응답 길이 상한
+- 응답 빌더가 IPv4 total_length와 IPv6 payload_length를 구분하지 않고 payload 65,515바이트를 공통 허용하던 상한을 수정했습니다. IPv4 65,495, IPv6 65,515바이트가 최대입니다.
+- 최대 경계 응답 생성/길이 필드/재파싱과 각각 1바이트 초과 거부 테스트를 추가했습니다. Android Gradle/JUnit·실기기 검증은 미실행입니다.
