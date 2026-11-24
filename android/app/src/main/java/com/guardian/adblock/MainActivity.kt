@@ -353,6 +353,7 @@ class MainActivity : Activity() {
     override fun onStart() {
         super.onStart()
         val filter = IntentFilter(GuardianVpnService.ACTION_STATUS_CHANGED).apply {
+            addAction(SecurityProfileStore.ACTION_PROFILE_CHANGED)
             addAction(FilterUpdateWorker.ACTION_FILTERS_CHANGED)
             addAction(GuardianVpnService.ACTION_UPSTREAM_TEST_RESULT)
         }
