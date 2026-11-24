@@ -146,6 +146,27 @@ class DomainFilterTest {
         assertTrue(DomainFilter.blockEvidence("trusted.doubleclick.net").isEmpty())
     }
 
+    @Test fun securityAndUserEvidenceCanCoexistWithoutDowngradingThreatSeverity() {
+        DomainFilter.loadParsedRuleSources(
+            sources = listOf({ FilterRuleParser.parse("block=critical.example") }),
+            minimumRuleCounts = listOf(1),
+            userBlockDomains = listOf("critical.example"),
+            securitySourceIndexes = setOf(0)
+        )
+        val evidence = DomainFilter.blockEvidence("critical.example")
+        assertEquals(
+            setOf(
+                ThreatAnalyticsEngine.Evidence.SECURITY_INTELLIGENCE_LIST,
+                ThreatAnalyticsEngine.Evidence.USER_BLOCK_RULE
+            ),
+            evidence
+        )
+        assertEquals(
+            ThreatAnalyticsEngine.Severity.HIGH,
+            ThreatAnalyticsEngine.assess(true, evidence)?.severity
+        )
+    }
+
     @Test fun blockEvidenceDoesNotLabelUnknownNonSecurityDomainsAsMalware() {
         DomainFilter.loadParsedRuleSources(
             sources = listOf({ FilterRuleParser.parse("block=unknown.example") }),
