@@ -19,7 +19,7 @@ class DnsUpstreamCandidatePolicyTest {
 
     @Test fun udpCandidatesRejectInvalidAndGuardianVirtualDnsAddresses() {
         assertEquals(
-            listOf("192.0.2.53", "1.1.1.1"),
+            listOf("1.1.1.1"),
             DnsUpstreamCandidatePolicy.udpCandidates(
                 configured = "not-a-resolver",
                 systemDns = listOf("10.13.37.2", "127.0.0.1", "bad::address"),
