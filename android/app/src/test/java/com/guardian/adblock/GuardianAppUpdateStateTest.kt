@@ -14,8 +14,8 @@ class GuardianAppUpdateStateTest {
     @After fun reset() = GuardianAppUpdateState.resetForTest()
 
     @Test fun onlyOneUpdateCheckCanRunAcrossScreenRebuilds() {
-        assertTrue(GuardianAppUpdateState.begin("확인 중"))
-        assertFalse(GuardianAppUpdateState.begin("중복 확인"))
+        val attempt = GuardianAppUpdateState.begin("확인 중")!!
+        assertNull(GuardianAppUpdateState.begin("중복 확인"))
         assertTrue(GuardianAppUpdateState.snapshot().checkInProgress)
         assertEquals("확인 중", GuardianAppUpdateState.snapshot().status)
     }
@@ -39,12 +39,23 @@ class GuardianAppUpdateStateTest {
         assertTrue(GuardianAppUpdateState.snapshot().checkInProgress)
     }
 
+    @Test fun staleAttemptCannotOverwriteANewerUpdateCheck() {
+        val oldAttempt = GuardianAppUpdateState.begin("첫 확인")!!
+        assertTrue(GuardianAppUpdateState.fail(oldAttempt, "첫 확인 실패"))
+        val newAttempt = GuardianAppUpdateState.begin("두 번째 확인")!!
+        assertFalse(GuardianAppUpdateState.fail(oldAttempt, "늦게 도착한 첫 확인 실패"))
+        assertFalse(GuardianAppUpdateState.noUpdate(oldAttempt, "늦게 도착한 첫 확인 완료"))
+        assertTrue(GuardianAppUpdateState.snapshot().checkInProgress)
+        assertEquals("두 번째 확인", GuardianAppUpdateState.snapshot().status)
+        assertTrue(GuardianAppUpdateState.fail(newAttempt, "두 번째 확인 실패"))
+    }
+
     @Test fun verifiedApkStateSurvivesNewScreenSnapshot() {
         val apk = File(System.getProperty("java.io.tmpdir"), "guardian-update-test.apk")
         apk.writeBytes(byteArrayOf(1, 2, 3))
         try {
             assertTrue(GuardianAppUpdateState.begin("확인 중"))
-            GuardianAppUpdateState.complete(apk, false, "다운로드 완료")
+            GuardianAppUpdateState.complete(attempt, apk, false, "다운로드 완료")
             val recreatedScreen = GuardianAppUpdateState.snapshot()
             assertFalse(recreatedScreen.checkInProgress)
             assertEquals("다운로드 완료", recreatedScreen.status)
@@ -61,7 +72,8 @@ class GuardianAppUpdateStateTest {
         empty.delete()
         empty.createNewFile()
         try {
-            assertTrue(runCatching { GuardianAppUpdateState.complete(empty, false, "완료") }.isFailure)
+            val attempt = GuardianAppUpdateState.begin("확인 중")!!
+            assertTrue(runCatching { GuardianAppUpdateState.complete(attempt, empty, false, "완료") }.isFailure)
             assertNull(GuardianAppUpdateState.snapshot().pendingApkPath)
         } finally {
             empty.delete()
@@ -71,8 +83,8 @@ class GuardianAppUpdateStateTest {
     @Test fun noUpdateClearsStalePendingInstallArtifact() {
         val apk = File(System.getProperty("java.io.tmpdir"), "guardian-update-stale.apk")
         apk.writeBytes(byteArrayOf(1))
-        GuardianAppUpdateState.complete(apk, true, "완료")
-        GuardianAppUpdateState.noUpdate("최신입니다")
+        GuardianAppUpdateState.complete(GuardianAppUpdateState.begin("확인 중")!!, apk, true, "완료")
+        GuardianAppUpdateState.noUpdate(GuardianAppUpdateState.snapshot().activeAttemptId ?: 0L, "최신입니다")
         assertNull(GuardianAppUpdateState.snapshot().pendingApkPath)
         assertNull(GuardianAppUpdateState.pendingApk(true))
         apk.delete()
@@ -83,8 +95,8 @@ class GuardianAppUpdateStateTest {
         apk.writeBytes(byteArrayOf(1, 2, 3))
         try {
             GuardianAppUpdateState.complete(apk, true, "다운로드 완료")
-            assertTrue(GuardianAppUpdateState.begin("다시 확인 중"))
-            GuardianAppUpdateState.fail("네트워크 실패")
+            assertTrue(val attempt = GuardianAppUpdateState.begin("다시 확인 중")!!)
+            GuardianAppUpdateState.fail(attempt, "네트워크 실패")
             assertEquals(apk, GuardianAppUpdateState.pendingApk(true))
             assertEquals("네트워크 실패", GuardianAppUpdateState.snapshot().status)
         } finally {
