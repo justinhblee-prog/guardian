@@ -3824,6 +3824,17 @@ class MainActivity : Activity() {
                         }
                         editor.apply()
                         null
+                    } catch (e: LinkageError) {
+                        android.util.Log.e("Guardian", "Security filter component unavailable: ${SafeFailureSummary.codeFor(e)}")
+                        val editor = prefs.edit().putString(
+                            FilterListManager.KEY_SECURITY_LAST_ERROR,
+                            SafeFailureSummary.codeFor(e)
+                        )
+                        if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityWasEnabled, securityWasCached)) {
+                            editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                        }
+                        editor.apply()
+                        null
                     }
                 } else null
                 val androidAdsResult = if (androidAdsWasEnabled) {
@@ -3833,6 +3844,15 @@ class MainActivity : Activity() {
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("Guardian", "Android ads filter download failed: ${SafeFailureSummary.codeFor(e)}")
+                        prefs.edit().putString(
+                            FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
+                            SafeFailureSummary.codeFor(e)
+                        ).apply()
+                        if (!androidAdsWasCached) prefs.edit()
+                            .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
+                        null
+                    } catch (e: LinkageError) {
+                        android.util.Log.e("Guardian", "Android ads filter component unavailable: ${SafeFailureSummary.codeFor(e)}")
                         prefs.edit().putString(
                             FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                             SafeFailureSummary.codeFor(e)
@@ -3885,33 +3905,42 @@ class MainActivity : Activity() {
                     androidAdsFilterCheckBox?.isEnabled = true
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Guardian", "Base filter update failed: ${SafeFailureSummary.codeFor(e)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(e)}")
-                if (!hadPreviousMainCache) {
-                    runCatching { FilterUpdateScheduler.enqueueInitialCacheRetry(applicationContext) }
-                        .onFailure { retryError ->
-                            android.util.Log.e("Guardian", "Could not schedule initial filter cache retry: ${SafeFailureSummary.codeFor(retryError)}")
-                        }
-                }
-                filterUpdateRunning.set(false)
-                getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
-                    .putString(FilterListManager.KEY_LAST_ERROR, SafeFailureSummary.codeFor(e)).apply()
-                runOnUiThread {
-                    val cacheMessage = if (hadPreviousMainCache) {
-                        "이전 정상 필터를 계속 사용합니다."
-                    } else {
-                        "앱 내 기본 DNS 규칙으로 보호를 시작할 수 있습니다. 추가 광고·추적 필터는 네트워크 연결이 복구되면 백그라운드에서 자동 재시도합니다."
-                    }
-                    setFilterUpdateStatus("업데이트 실패: ${SafeFailureSummary.describe(e)} · $cacheMessage")
-                    filterUpdateButton?.text = "다시 시도"
-                    filterUpdateButton?.isEnabled = true
-                    homeFilterUpdateButton?.text = "다시 시도"
-                    homeFilterUpdateButton?.isEnabled = true
-                    securityFilterSwitch?.isEnabled = true
-                    androidAdsFilterSwitch?.isEnabled = true
-                    securityFilterCheckBox?.isEnabled = true
-                    androidAdsFilterCheckBox?.isEnabled = true
-                }
+                handleFilterUpdateFailure(e, hadPreviousMainCache)
+            } catch (e: LinkageError) {
+                handleFilterUpdateFailure(e, hadPreviousMainCache)
             }
+        }
+    }
+
+    private fun handleFilterUpdateFailure(error: Throwable, hadPreviousMainCache: Boolean) {
+        android.util.Log.e(
+            "Guardian",
+            "Filter update failed: ${SafeFailureSummary.codeFor(error)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(error)}"
+        )
+        if (!hadPreviousMainCache) {
+            runCatching { FilterUpdateScheduler.enqueueInitialCacheRetry(applicationContext) }
+                .onFailure { retryError ->
+                    android.util.Log.e("Guardian", "Could not schedule initial filter cache retry: ${SafeFailureSummary.codeFor(retryError)}")
+                }
+        }
+        filterUpdateRunning.set(false)
+        getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
+            .putString(FilterListManager.KEY_LAST_ERROR, SafeFailureSummary.codeFor(error)).apply()
+        runOnUiThread {
+            val cacheMessage = if (hadPreviousMainCache) {
+                "이전 정상 필터를 계속 사용합니다."
+            } else {
+                "앱 내 기본 DNS 규칙으로 보호를 시작할 수 있습니다. 추가 광고·추적 필터는 네트워크 연결이 복구되면 백그라운드에서 자동 재시도합니다."
+            }
+            setFilterUpdateStatus("업데이트 실패: ${SafeFailureSummary.describe(error)} · $cacheMessage")
+            filterUpdateButton?.text = "다시 시도"
+            filterUpdateButton?.isEnabled = true
+            homeFilterUpdateButton?.text = "다시 시도"
+            homeFilterUpdateButton?.isEnabled = true
+            securityFilterSwitch?.isEnabled = true
+            androidAdsFilterSwitch?.isEnabled = true
+            securityFilterCheckBox?.isEnabled = true
+            androidAdsFilterCheckBox?.isEnabled = true
         }
     }
 
