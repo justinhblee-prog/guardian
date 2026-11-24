@@ -76,8 +76,9 @@ internal object GuardianStableUpdateManager {
             "정식 업데이트 manifest의 패키지 ID가 Guardian과 다릅니다."
         }
         val versionName = manifest.optString("versionName")
-        val versionCode = manifest.optInt("versionCode", 0)
-        require(versionName.matches(Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")) && versionCode > 0) {
+        val versionCode = GuardianStableUpdatePolicy.parseSupportedVersionCode(manifest.opt("versionCode"))
+            ?: error("정식 업데이트 versionCode가 Android 지원 범위를 벗어났거나 정수가 아닙니다.")
+        require(versionName.matches(Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))) {
             "정식 업데이트 버전 정보가 올바르지 않습니다."
         }
         require(tag == "v$versionName") { "정식 Release 태그와 manifest 버전이 일치하지 않습니다." }
@@ -168,7 +169,10 @@ internal object GuardianStableUpdateManager {
         val info = context.packageManager.getPackageArchiveInfo(apk.absolutePath, flags)
             ?: error("다운로드한 파일이 유효한 Android APK가 아닙니다.")
         check(info.packageName == PACKAGE_NAME) { "다운로드한 APK의 패키지 ID가 Guardian과 다릅니다." }
-        val archiveVersionCode = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else info.versionCode
+        val archiveVersionCode = if (Build.VERSION.SDK_INT >= 28) {
+            GuardianStableUpdatePolicy.parseArchiveVersionCode(info.longVersionCode)
+                ?: error("다운로드한 APK의 versionCode가 Android 지원 범위를 벗어났습니다.")
+        } else info.versionCode
         check(archiveVersionCode == update.versionCode) { "다운로드한 APK의 versionCode가 업데이트 manifest와 다릅니다." }
         check(info.versionName == update.versionName) { "다운로드한 APK의 versionName이 업데이트 manifest와 다릅니다." }
         val signatures = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else {
