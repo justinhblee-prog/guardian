@@ -28,6 +28,11 @@ internal object GuardianStableUpdatePolicy {
 
     fun isSha256(value: String): Boolean = Regex("^[a-fA-F0-9]{64}$").matches(value)
 
+    /** The release manifest pins one signer; reject any APK with multiple content signers. */
+    fun hasSingleExpectedSigner(signers: List<String>, expectedSha256: String): Boolean =
+        signers.size == 1 && isSha256(expectedSha256) &&
+            signers.single().equals(expectedSha256, ignoreCase = true)
+
     fun isOfficialReleaseAssetUrl(address: String, tag: String, assetName: String): Boolean = runCatching {
         require(isStableRelease(draft = false, prerelease = false, tag = tag))
         require(assetName == "guardian-android.json" || assetName == "guardian-android.apk")
