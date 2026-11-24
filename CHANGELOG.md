@@ -1,3 +1,8 @@
+## 2026-11-24 — 위협 분석 개인정보 안내 범위 명확화
+
+- 위협 분석 저장소는 도메인·URL 없이 분류 집계와 고정 이벤트 제목만 보관하지만, 일반 DNS 최근 활동 기록은 별도로 도메인을 저장할 수 있습니다. 위협 분석 카드 안내가 전체 앱의 DNS 기록까지 저장하지 않는 것으로 오해되지 않도록 저장 범위를 명시했습니다.
+- PRO entitlement는 계속 비활성 상태로 유지합니다. Android Gradle/JUnit·실기기 UI 검증은 미실행입니다.
+
 ## 2026-11-24 — 위협 분석 live preview·집계 병합 JVM smoke
 
 - pending snapshot, persisted/pending summary merge, severity precedence, unknown evidence, recent-event ordering/cap 및 counter overflow 정책을 Kotlin/JVM 분리 harness로 컴파일·실행했습니다.
