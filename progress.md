@@ -1,7 +1,7 @@
 # Guardian Android — Progress Tracker
 
 - **전체 상태**: 개발 진행 중. Android 무료판 출시 전이며 PRO 기능은 별도 트랙에서 병행 구현 중입니다.
-- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 205 commits ahead, 0 behind.
+- **무료 트랙**: `work/android-free-release-20261124` — 최신 GitHub compare 기준 206 commits ahead, 0 behind.
 - **PRO 병렬 트랙**: `work/android-pro-premium-20261124` 및 #297~#301 전용 브랜치. 실제 Android 통합·단말 검증 전까지 Release 권한은 비활성입니다.
 - **PR #290**: open, unmerged 상태를 유지합니다. 작업은 독립 branch에서 수행합니다.
 - **검증**: 최신 소스·테스트 원격 반영을 재조회했습니다. ResponsiveLayoutPolicy의 하단 인셋 단일 소유 경계 JVM smoke 4/4 통과(독립 정책 검증)이며, DNS TCP RTO/RST 최신 Android JUnit은 미실행입니다. Android Gradle/JUnit·lint·emulator·실기기 테스트는 미실행이며 APK도 아직 생성·검증되지 않았습니다.
@@ -548,3 +548,9 @@
 - Gradle validator와 동일한 BOM 제거, `block=`/`block-important=` 인식, label별 DNS syntax 및 전체 253자 제한을 사용해 kotlinc harness를 실행했습니다.
 - PASS 6/6: 현재 공유 baseline 10개 규칙, UTF-8 BOM이 붙은 정상 규칙, 주석/allow만 있는 asset 거부, 공백 포함 invalid domain 거부, 연속 점 거부, 전체 253자 초과 거부.
 - Android Gradle `preBuild` 실행이나 APK 내부 assets 검사는 하지 않았으며, 이 결과는 validator 로직의 isolated Kotlin/JVM smoke입니다.
+
+
+## 2026-11-24 — 필터 캐시 교체/복구 Kotlin/JVM smoke
+- 현재 `FilterCacheStore` 순수 파일 교체/복구 코드를 Kotlin/JVM으로 컴파일해 임시 파일 시스템에서 실행했습니다.
+- PASS 9/9: 정상 신규 교체, 메타데이터 커밋 실패 후 기존 캐시/rollback 보존, 교체 중 프로세스 중단 시 backup 복구, 서명 hash 불일치 target에서 backup 복구, hash 일치 target 유지 및 backup 제거, hash 불일치 단독 target fail-closed, stale backup 정리, oversized unsigned target에서 bounded backup 복구, oversized target+backup 없음 거부.
+- 결과는 로컬 JVM 파일시스템 smoke입니다. Android SharedPreferences 동시성·실제 앱 내부 저장소/OEM 파일시스템·Android Gradle/JUnit은 미실행입니다.
