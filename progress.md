@@ -4,7 +4,7 @@
 - **상태**: 개발 진행 중 — 완료/상용 공개 단계가 아닙니다.
 - **브랜치**: `work/pro-security-profiles-20261124`
 - **기준일**: 2026-11-24 (KST)
-- **현재 구현**: 6개 정책 프로필과 DEBUG NetworkCallback 전환, 수동 프로필 선택 UI를 추가했습니다. 로밍 감지·실제 기기 네트워크 전환·PRO entitlement 게이트 검증은 미완료입니다.
+- **현재 구현**: 6개 정책 프로필과 DEBUG NetworkCallback 전환, 수동 프로필 선택 UI를 추가했습니다. 사용자 opt-in과 프로필 허용값을 Scheduler/Worker 모두 확인하고, metered/captive/unvalidated 네트워크에서는 예약 필터 업데이트를 막으며, 초기 프로필 미설정 상태는 기존 무료 auto-update 기본값을 유지합니다. 실제 로밍 감지·기기 네트워크 전환·PRO entitlement 게이트 검증은 미완료입니다.
 - **공통 권한 정책**: 유효한 서명 entitlement만으로 기능을 열지 않습니다. Android 통합·회귀·단말 검증을 통과하고 parent entitlement policy의 production-ready 목록에 등록되기 전까지 Release 접근은 비활성입니다.
 - **검증 제약**: 최신 코드에 대한 Android Gradle/JUnit·lint·에뮬레이터·실기기 검증은 별도로 수행한 증거가 없으면 미검증으로 표시합니다. GitHub Actions/runner/billing 설정 및 유료 실행은 사용자 승인 없이 시작하지 않습니다.
 
@@ -355,3 +355,9 @@
 - Automatic profile resolution now allows scheduled filter refresh only on validated, non-captive, unmetered networks. Captive portal and unvalidated connections remain STRICT and no longer schedule optional refreshes.
 - Scheduler/Worker still require user opt-in and the active profile gate; first-run required filter population remains on the separate startup path. Policy tests cover captive/unvalidated update denial.
 - Android WorkManager/network transition integration remains unverified.
+
+
+## 2026-11-24 — 프로필 기반 자동 필터 업데이트 권한 검증
+- 자동 필터 업데이트는 사용자 설정 opt-in과 보안 프로필 허용값을 모두 만족해야 합니다. Scheduler는 비허용 시 예약을 취소하고, Worker는 시작 및 각 feed 시작 전 같은 조건과 isStopped를 다시 확인합니다.
+- profile update permission 변경 시 scheduler를 취소/재등록합니다. permission key가 아직 없는 기존 설치/초기 설치는 기존 STRICT 기본 프로필 정책(허용)을 따르고, 명시 수동 선택은 false를 저장해 자동 업데이트를 막습니다.
+- captive portal 또는 인터넷 미검증 네트워크는 STRICT로 분류하고 자동 업데이트도 거부합니다. 순수 SecurityProfilePolicy Kotlin/JVM smoke 10/10 통과. Android WorkManager/JUnit·에뮬레이터·기기 네트워크 전환 검증은 미실행입니다.
