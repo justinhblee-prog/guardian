@@ -73,6 +73,20 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         self.assertIn("button.isEnabled = true", diagnostics)
         self.assertIn('button.text = "개인정보 제외 진단 정보 복사"', diagnostics)
 
+    def test_recent_error_copy_handles_report_collection_exceptions(self):
+        source_path = (
+            Path(__file__).resolve().parents[1]
+            / "android/app/src/main/java/com/guardian/adblock/MainActivity.kt"
+        )
+        source = source_path.read_text(encoding="utf-8")
+        handler = source.split("private fun copyRecentErrors()", 1)[1].split(
+            "private fun copySupportDiagnostics(button: Button)", 1
+        )[0]
+        self.assertLess(handler.index("try {"), handler.index("getSharedPreferences("))
+        self.assertIn("ProtectionDiagnostics.recentErrorReport(", handler)
+        self.assertIn("} catch (error: Exception) {", handler)
+        self.assertIn("오류 내용 복사 실패:", handler)
+
     def test_customer_support_exposes_working_recent_error_copy_action(self):
         source_path = (
             Path(__file__).resolve().parents[1]
