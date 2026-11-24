@@ -37,14 +37,25 @@ internal object SecurityProfileStore {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_AUTO_UPDATE_ALLOWED, false)
 
-    /** Explicit user selection disables automatic switching before applying the chosen profile. */
+    /**
+     * Serialize explicit choices with queued network callbacks. A callback that
+     * arrives after this method disables automatic mode must not overwrite the
+     * user's selected profile.
+     */
+    @Synchronized
     fun applyManualProfile(context: Context, profileId: SecurityProfilePolicy.Id) {
         setAutomaticSwitchEnabled(context, false)
         SecurityProfileMonitor.stop()
-        applyAutomaticProfile(context, SecurityProfilePolicy.manualSelection(profileId))
+        applyProfile(context, SecurityProfilePolicy.manualSelection(profileId))
     }
 
+    @Synchronized
     fun applyAutomaticProfile(context: Context, profile: SecurityProfilePolicy.Profile) {
+        if (!SecurityProfilePolicy.shouldApplyAutomaticProfile(automaticSwitchEnabled(context))) return
+        applyProfile(context, profile)
+    }
+
+    private fun applyProfile(context: Context, profile: SecurityProfilePolicy.Profile) {
         val prefs = context.getSharedPreferences(GuardianVpnService.PREFS, Context.MODE_PRIVATE)
         val currentFilter = prefs.getString(FilterListManager.KEY_FILTER_PROFILE, "adguard") ?: "adguard"
         val currentSecurity = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
