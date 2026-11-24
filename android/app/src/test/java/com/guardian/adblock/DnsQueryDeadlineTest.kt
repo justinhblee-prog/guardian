@@ -75,3 +75,40 @@ class DnsQueryDeadlineTest {
         assertTrue("late socket registration must be closed immediately", closed.get())
     }
 
+    @Test fun cancellationRacingSocketRegistrationClosesTheSocketExactlyOnce() {
+        repeat(100) {
+            val deadline = DnsQueryDeadline.afterMillis(5_000L)
+            val start = CountDownLatch(1)
+            val closeCount = java.util.concurrent.atomic.AtomicInteger()
+            val failure = java.util.concurrent.atomic.AtomicReference<Throwable?>(null)
+            val registerThread = Thread {
+                try {
+                    start.await()
+                    deadline.closeOnExpiry { closeCount.incrementAndGet() }
+                } catch (_: java.net.SocketTimeoutException) {
+                    // Cancellation won before the socket registration completed.
+                } catch (error: Throwable) {
+                    failure.set(error)
+                }
+            }
+            val cancelThread = Thread {
+                try {
+                    start.await()
+                    deadline.cancel()
+                } catch (error: Throwable) {
+                    failure.set(error)
+                }
+            }
+            registerThread.start()
+            cancelThread.start()
+            start.countDown()
+            registerThread.join(2_000L)
+            cancelThread.join(2_000L)
+
+            assertTrue("registration thread did not finish", !registerThread.isAlive)
+            assertTrue("cancellation thread did not finish", !cancelThread.isAlive)
+            failure.get()?.let { throw AssertionError("cancellation race failed", it) }
+            assertEquals(1, closeCount.get())
+        }
+    }
+
