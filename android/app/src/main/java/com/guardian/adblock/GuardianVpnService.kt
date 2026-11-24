@@ -20,7 +20,6 @@ import java.net.InetSocketAddress
 import javax.net.ssl.SNIHostName
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
-import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
