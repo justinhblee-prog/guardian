@@ -233,3 +233,10 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
   - `PASS: generation recheck suppresses callback after shutdown commits`
 - 위 하네스는 잠금/세대 무효화 순서를 재현한 단위 시뮬레이션이며 Android 서비스 통합 테스트는 아니다.
 - Android Gradle/JUnit/Lint, APK 빌드, 에뮬레이터 및 실기기 VPN 종료 검증은 아직 실행하지 않았다.
+
+### 같은 종료 경로의 DNS 패킷 워커 정리 순서 추가 점검
+- `stopProtection()`은 현재 TUN descriptor를 먼저 분리하고 닫으며, 세션 generation을 무효화한다. 서비스 모니터를 잡은 채 패킷 워커 join을 수행하지 않는다.
+- 패킷 워커의 `packetLoop()` finally는 재전송 스케줄러에 `shutdownNow()`를 보내고 최대 500ms만 종료를 기다린 다음, 세션 generation이 여전히 유효한 경우에만 활성 상태를 정리한다.
+- 재전송 스케줄러는 daemon thread이며 출력은 패킷 워커와 동일한 output monitor로 직렬화된다. 패킷 워커 finally는 output monitor를 보유하지 않은 상태에서 scheduler 종료를 기다리므로 확인한 범위에서 역방향 잠금 대기는 없다.
+- 명시적 종료는 TUN close로 blocking packet read를 해제하고 generation을 무효화한다. 이전 패킷 워커의 늦은 finally가 새 VPN 세션의 상태를 변경하지 못하도록 하는 기존 session guard가 유지된다.
+- 이 부분은 소스 경로 분석 결과 추가 수정이 필요하다고 판단할 확정 결함을 찾지 못했다. Android 기기에서 descriptor close/read 해제 타이밍과 실제 재시작 연속 동작은 통합 검증이 필요하다.
