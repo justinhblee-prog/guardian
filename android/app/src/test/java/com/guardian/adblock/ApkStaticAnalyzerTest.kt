@@ -191,6 +191,30 @@ class ApkStaticAnalyzerTest {
         assertEquals(2, result.dexCount)
     }
 
+    @Test fun rejectsDex041LogicalFilesOutsideDeclaredContainerBounds() {
+        val first = dexFixture("Lcom/example/First;", version = "041")
+        val second = dexFixture("Lcom/example/Second;", version = "041")
+        val valid = dex041Container(first, second)
+        val oversizedFirst = valid.copyOf().also { bytes ->
+            val outside = valid.size + 1
+            repeat(4) { index -> bytes[32 + index] = (outside ushr (index * 8)).toByte() }
+        }
+        val undersizedSecond = valid.copyOf().also { bytes ->
+            val offset = first.size
+            bytes[offset + 32] = 0x70
+            bytes[offset + 33] = 0
+            bytes[offset + 34] = 0
+            bytes[offset + 35] = 0
+        }
+        val trailingPartialHeader = valid.copyOf(valid.size + 1)
+        listOf(oversizedFirst, undersizedSecond, trailingPartialHeader).forEach { malformed ->
+            assertEquals(
+                ApkStaticAnalyzer.Status.INVALID_APK,
+                ApkStaticAnalyzer.analyze(ByteArrayInputStream(apkWithRawDex(malformed))).status
+            )
+        }
+    }
+
     @Test fun rejectsMalformedSecondDex041LogicalHeader() {
         val first = dexFixture("Lcom/example/First;", version = "041")
         val second = dexFixture("Lcom/example/Second;", version = "041")
