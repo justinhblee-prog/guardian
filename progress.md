@@ -319,3 +319,9 @@
 ## 2026-11-24 — 피싱 URL 비표준 숫자 IP 호스트 차단
 - 브라우저가 IPv4로 취급할 수 있는 integer, 0x-prefixed hexadecimal 및 축약 numeric 호스트를 일반 DNS 이름으로 통과시키지 않도록 INVALID 처리합니다.
 - 표준 IPv4는 IP_LITERAL_HOST 신호로 유지하고, 비표준 4형식과 잘못된 dotted quad 거부 테스트를 추가했습니다. 실제 브라우저 링크 해석 및 Android JUnit은 미실행입니다.
+
+
+## 2026-11-24 — APK DEX 검사기 독립 Kotlin/JVM 실행 검증
+- ApkStaticAnalyzer의 현재 소스 로직을 Kotlin/JVM으로 컴파일해 실제 ZIP/Dex fixture harness를 실행했습니다.
+- 통과: little-endian DEX 헤더, reverse-endian DEX 헤더, 선언 file_size 불일치 거부, 0x70 헤더보다 짧은 DEX 거부, 3개 민감 API 문자열의 HIGH 주의 신호 분류.
+- 결과는 isolated Kotlin/JVM smoke PASS이며 Android Gradle/JUnit·SAF URI·실제 APK 서명/설치·실기기 검증을 의미하지 않습니다. 도구는 전체 악성코드 판정이 아닌 제한적 DEX 문자열 triage로 유지합니다.
