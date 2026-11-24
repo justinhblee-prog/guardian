@@ -35,4 +35,8 @@ internal class VpnTunnelSessionGuard {
     fun isOwner(generation: Long): Boolean = synchronized(lock) {
         generation > 0L && activeGeneration == generation
     }
+
+    fun hasActiveSession(): Boolean = synchronized(lock) {
+        activeGeneration > 0L
+    }
 }
