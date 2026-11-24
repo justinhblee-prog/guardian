@@ -22,6 +22,8 @@ class DnsTcpSessionManager(
         val serverInitial: Long,
         var serverAcknowledged: Long,
         var peerWindow: Int = 65535,
+        var peerWindowSequence: Long,
+        var peerWindowAcknowledgement: Long,
         val pendingServerData: ByteArrayOutputStream = ByteArrayOutputStream(),
         val received: ByteArrayOutputStream = ByteArrayOutputStream(),
         var lastActivity: Long,
@@ -72,7 +74,8 @@ class DnsTcpSessionManager(
             val session = Session(tcp.sequence, expectedClientNext,
                 (serverInitial + 1L) and MASK, serverInitial,
                 serverAcknowledged = (serverInitial + 1L) and MASK,
-                peerWindow = tcp.window, lastActivity = now)
+                peerWindow = tcp.window, peerWindowSequence = tcp.sequence,
+                peerWindowAcknowledgement = tcp.acknowledgement, lastActivity = now)
             sessions[key] = session
             return listOf(DnsTcpPacket.response(tcp, serverInitial, session.clientNext,
                 DnsTcpPacket.SYN or DnsTcpPacket.ACK))
@@ -102,7 +105,17 @@ class DnsTcpSessionManager(
         val ackDistance = (tcp.acknowledgement - session.serverAcknowledged) and MASK
         val outstanding = (session.serverNext - session.serverAcknowledged) and MASK
         if (ackDistance in 1L..outstanding) session.serverAcknowledged = tcp.acknowledgement
-        session.peerWindow = tcp.window
+        // RFC 7323-style window update ordering (without window scaling): an older
+        // segment must not overwrite a newer advertised receive window. A segment
+        // with the same sequence is accepted only when its ACK is not older.
+        val windowSequenceIsNewer = sequenceAfter(tcp.sequence, session.peerWindowSequence)
+        val windowAckIsCurrent = tcp.sequence == session.peerWindowSequence &&
+            sequenceAtOrAfter(tcp.acknowledgement, session.peerWindowAcknowledgement)
+        if (windowSequenceIsNewer || windowAckIsCurrent) {
+            session.peerWindow = tcp.window
+            session.peerWindowSequence = tcp.sequence
+            session.peerWindowAcknowledgement = tcp.acknowledgement
+        }
         session.lastActivity = now
         // Keep a half-closed session until the client acknowledges our FIN.
         // This lets a lost FIN/data response be replayed on an exact retransmission.
@@ -261,6 +274,9 @@ class DnsTcpSessionManager(
         val distance = (candidate - reference) and MASK
         return distance in 1L..0x7fffffffL
     }
+
+    private fun sequenceAtOrAfter(candidate: Long, reference: Long): Boolean =
+        candidate == reference || sequenceAfter(candidate, reference)
 
     private fun ack(packet: DnsTcpPacket.Parsed, session: Session) =
         DnsTcpPacket.response(packet, session.serverNext, session.clientNext, DnsTcpPacket.ACK)
