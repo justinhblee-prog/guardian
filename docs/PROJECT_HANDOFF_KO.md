@@ -149,3 +149,12 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - 테스트 코드에 매 read 검사 콜백 호출 및 기한 만료 시 즉시 중단하는 케이스를 추가했습니다.
 - 이는 DoH 응답 파싱 구간의 제한이며, DNS 전체 upstream 후보 순회에 대한 총 지연 상한을 의미하지 않습니다. 연결/TLS handshake 및 UDP/TCP 후보 전체 예산은 별도 검토 대상입니다.
 - Android JUnit/Gradle 실행, Lint, APK 빌드 및 네트워크 E2E는 이 환경에서 실행하지 않았습니다.
+
+
+### DNS-over-TCP 및 DoT 응답의 단일 읽기 기한 적용 (2026-11-25)
+
+- DNS-over-TCP와 DNS-over-TLS(DoT)는 2바이트 길이 접두부와 DNS 본문을 순차적으로 읽습니다. 기존 `SO_TIMEOUT=3500ms`는 개별 blocking read 제한이어서, 응답 길이 접두부/본문을 조금씩 보내는 서버가 전체 응답 처리 시간을 늘릴 수 있었습니다.
+- DoH 응답 파서와 같은 원리로 `DnsDohHttpCodec.readDnsTcpResponse`를 추가했습니다. 길이 접두부를 검증한 뒤 DNS 본문을 읽으며, 각 read 전에 동일한 3.5초 응답 기한의 남은 시간을 소켓 제한에 반영합니다.
+- 일반 DNS-over-TCP와 DoT 경로가 새 공통 reader를 사용하도록 변경했습니다. UDP 경로와 연결 수립 시간 제한은 변경하지 않았습니다.
+- 정상 프레임, 잘못된 길이, 공유 기한 만료 테스트를 추가했습니다. 기존 DNS 응답 트랜잭션/질문 검증은 읽기 완료 후 그대로 수행합니다.
+- 이 변경은 소스·테스트 반영 확인이며 Android JUnit/Gradle, Lint, APK, 실제 TCP/DoT 네트워크 시험은 실행하지 않았습니다.
