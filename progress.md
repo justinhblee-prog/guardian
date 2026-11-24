@@ -593,3 +593,8 @@
 - `FilterUpdatePolicy`의 실제 새 helper 로직을 Kotlin/JVM으로 컴파일·실행했습니다.
 - PASS 12/12: auto-update opt-out에서 강제 최초 복구 허용, 일반 periodic opt-in/opt-out, 같은 프로필 cache만 재사용, profile mismatch/파일 누락 처리, 첫 attempt+5 retries 상한, 일반 periodic work는 initial retry budget에 영향받지 않음, invalid runAttempt/maxAttempts 방어.
 - WorkManager constraints/unique work scheduling, Android Gradle/JUnit, emulator/실기기 네트워크 복귀는 미실행입니다.
+
+
+## 2026-11-24 — 앱 업데이트 독립 설정 메뉴
+- `설정 > 앱 업데이트`를 별도 카테고리로 추가해 휴대전화 설정 목록 및 태블릿/넓은 화면 사이드바에서 직접 접근하게 했습니다. 기존 정보 화면 바로가기와 업데이트 확인·다운로드/검증·설치 기능은 유지합니다.
+- 설정 화면 상태 복원에도 `settings-updates` 경로를 포함했습니다. Android UI/emulator/실기기 검증은 미실행입니다.
