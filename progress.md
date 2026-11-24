@@ -616,3 +616,9 @@
 - 초기 필터 복구 재시도 소진 시 Worker가 전용 진단 코드를 저장하고 UI 상태 broadcast를 보냅니다. UI는 선택한 필터 캐시가 없을 때 '이전 목록 유지'라고 오인시키지 않고, 내장 기본 규칙 기반 제한 보호 상태로 표시합니다.
 - FilterUpdatePolicy의 실제 helper 로직을 반영한 kotlinc 1.9.0/JRE 21 harness PASS 19/19: opt-out 강제 최초 복구, 동일/불일치 profile cache, 6회 실행 예산, optional cache 보존/비활성화, last error clear conditions, due policy, 캐시 유무별 UI 상태 문구.
 - Android Gradle/JUnit, WorkManager scheduling, MainActivity compile/render, network restore 및 실기기 테스트는 미실행입니다.
+
+
+## 2026-11-24 — DNS 업스트림 진단 스레드 분리
+- preflight, 수동 업스트림 연결 테스트, VPN packet worker가 공유하던 `lastUpstreamFailure` 전역 변수의 동시 쓰기 오염 가능성을 수정했습니다.
+- 기존 call-site는 유지하고 ThreadLocal backing context를 사용합니다. `forwardDns()` 작업 초기화는 현재 스레드 값만 삭제하므로 다른 DNS 작업의 오류 원인을 보존합니다.
+- 동시 작업 간 오류 격리·스레드별 clear 테스트를 추가했습니다. Android service thread, 실기기 네트워크, Android Gradle/JUnit은 미실행입니다.
