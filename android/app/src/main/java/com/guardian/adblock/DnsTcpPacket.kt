@@ -31,6 +31,7 @@ object DnsTcpPacket {
     const val RST = 0x04
     const val PSH = 0x08
     const val ACK = 0x10
+    const val URG = 0x20
 
     fun parse(packet: ByteArray, length: Int, expectedDestinationPort: Int = 53): Parsed? {
         if (length < 40 || length > packet.size) return null
@@ -69,6 +70,9 @@ object DnsTcpPacket {
         val destinationPort = u16(packet, tcpOffset + 2)
         if (destinationPort != expectedDestinationPort) return null
         val flags = packet[tcpOffset + 13].toInt() and 0xff
+        // Guardian does not implement TCP urgent-data semantics. Treating urgent
+        // bytes as an ordinary DNS length-prefixed stream could desynchronize frames.
+        if (flags and URG != 0) return null
         // Reject contradictory control-flag combinations instead of letting
         // malformed segments mutate the DNS TCP session state machine.
         if (flags and SYN != 0 && flags and (FIN or RST) != 0) return null
