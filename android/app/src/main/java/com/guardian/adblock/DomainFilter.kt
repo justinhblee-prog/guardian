@@ -200,6 +200,7 @@ object DomainFilter {
         val responseFlags = u16(response, 2)
         if ((queryFlags and 0x8000) != 0 || (queryFlags and 0x7800) != 0) return false
         if ((responseFlags and 0x8000) == 0 || (responseFlags and 0x7800) != 0) return false
+        if ((responseFlags and 0x0040) != 0) return false // The reserved DNS Z bit must be zero in responses.
         if ((responseFlags and 0x0200) != 0) return false // The service retries TC replies over TCP.
         if (u16(query, 0) != u16(response, 0)) return false
         if (u16(query, 4) != 1 || u16(response, 4) != 1) return false
