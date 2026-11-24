@@ -131,6 +131,9 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Enforce the local aggregate-report retention window at app startup,
+        // including after long periods with no DNS traffic.
+        PremiumReportStore.pruneExpired(this)
         window.statusBarColor = bg
         window.navigationBarColor = bg
         window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
