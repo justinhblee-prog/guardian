@@ -831,3 +831,8 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 정식판/개발판 APK 검사에서 Android `longVersionCode`를 바로 `Int`로 축소하고 manifest `versionCode`도 `optInt()`로 읽어, 범위를 벗어난 값 또는 소수형 값을 명확히 거부하지 못할 수 있었습니다.
 - 공통 정책에 양의 정수이면서 `Int.MAX_VALUE` 이하인지 검사하는 manifest/아카이브 versionCode 변환을 추가하고 양쪽 updater에 적용했습니다. `GuardianStableUpdatePolicyTest.versionCodesRejectFractionsStringsAndIntegerOverflow`에 정상 경계, 0/음수, 문자열, 소수, NaN/무한대, 오버플로 회귀 사례를 추가했습니다.
 - 원격 코드 및 테스트 반영 확인. Android JUnit/Gradle 실행은 현재 브랜치에서 아직 미실행입니다.
+
+## 2026-11-24 — 빌드 버전명과 업데이트 검증 기준 일치
+- Android Gradle 설정의 `guardianVersionName` 검증은 숫자 구성요소의 선행 0을 허용했지만, 정식/개발 업데이트 경로는 canonical numeric version을 요구했습니다. 빌드 시점과 업데이트 시점의 허용 규칙이 달랐습니다.
+- Gradle versionName 검증도 각 숫자 구성요소의 선행 0을 거부하도록 통일했습니다. 정식 `x.y.z` 및 개발/프리릴리스 접미사 형식은 유지합니다. 커밋 `a465daa9`.
+- 원격 Gradle 설정 반영 확인. 실제 Gradle 구성 실행 및 Android 빌드는 현재 브랜치에서 미실행입니다.
