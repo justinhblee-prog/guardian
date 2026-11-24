@@ -40,7 +40,7 @@ internal object DevUpdateManager {
     )
 
     internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
-        tagVersion > installedVersionCode && manifestVersionCode == tagVersion
+        DevUpdateManagerPolicy.isNewerMatchingRelease(installedVersionCode, tagVersion, manifestVersionCode)
 
     fun checkForUpdate(): GuardianDevUpdate? {
         val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
@@ -74,10 +74,10 @@ internal object DevUpdateManager {
         }
 
         for (candidate in candidates.sortedByDescending { it.tagVersion }) {
-            require(isGuardianReleaseAssetUrl(candidate.manifestUrl, MANIFEST_ASSET, candidate.tagVersion)) {
+            require(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(candidate.manifestUrl, MANIFEST_ASSET, candidate.tagVersion)) {
                 "개발 업데이트 manifest 주소가 허용된 GitHub Release가 아닙니다."
             }
-            require(isGuardianReleaseAssetUrl(candidate.apkUrl, APK_ASSET, candidate.tagVersion)) {
+            require(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(candidate.apkUrl, APK_ASSET, candidate.tagVersion)) {
                 "개발 APK 주소가 허용된 GitHub Release가 아닙니다."
             }
             val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
@@ -109,13 +109,13 @@ internal object DevUpdateManager {
         require(update.signerSha256 == installedSignerSha256(context)) {
             "업데이트 서명 인증서가 현재 설치된 개발 버전과 다릅니다. 설치를 중단했습니다."
         }
-        require(isGuardianReleaseAssetUrl(update.apkUrl, APK_ASSET, update.versionCode)) {
+        require(DevUpdateManagerPolicy.isGuardianReleaseAssetUrl(update.apkUrl, APK_ASSET, update.versionCode)) {
             "개발 APK 주소의 저장소·태그·자산 이름이 업데이트 버전과 일치하지 않습니다."
         }
         val directory = File(context.cacheDir, GuardianUpdateCachePaths.DEVELOPMENT_DIRECTORY).apply { mkdirs() }
         val target = File(directory, "guardian-${update.versionCode}.apk")
         val connection = openAllowedHttpsConnection(
-            update.apkUrl, 15000, 30000, "application/octet-stream", ::isAllowedReleaseDownloadUrl
+            update.apkUrl, 15000, 30000, "application/octet-stream", DevUpdateManagerPolicy::isAllowedReleaseDownloadUrl
         )
         try {
             val expectedLength = connection.contentLengthLong
@@ -172,44 +172,6 @@ internal object DevUpdateManager {
         context.startActivity(intent)
         return true
     }
-
-    internal fun isGuardianReleaseAssetUrl(
-        address: String,
-        expectedAssetName: String? = null,
-        expectedTagVersion: Int? = null
-    ): Boolean = runCatching {
-        val uri = java.net.URI(address)
-        val parts = uri.path.split('/').filter { it.isNotEmpty() }
-        val tag = parts.getOrNull(4).orEmpty()
-        val tagVersion = Regex("^guardian-dev-v([1-9][0-9]{0,8})$")
-            .matchEntire(tag)?.groupValues?.getOrNull(1)?.toIntOrNull()
-        val assetName = parts.getOrNull(5)
-        uri.scheme.equals("https", true) &&
-            (uri.port == -1 || uri.port == 443) &&
-            uri.host.equals("github.com", true) &&
-            uri.userInfo == null && uri.query == null && uri.fragment == null &&
-            parts.size == 6 &&
-            parts.take(4) == listOf("justinhblee-prog", "guardian", "releases", "download") &&
-            tagVersion != null &&
-            assetName in setOf(MANIFEST_ASSET, APK_ASSET) &&
-            (expectedAssetName == null || assetName == expectedAssetName) &&
-            (expectedTagVersion == null || tagVersion == expectedTagVersion)
-    }.getOrDefault(false)
-
-    internal fun isAllowedHttpsUrl(address: String): Boolean = runCatching {
-        val uri = java.net.URI(address)
-        uri.scheme.equals("https", true) &&
-            (uri.port == -1 || uri.port == 443) &&
-            uri.host?.lowercase() in setOf(
-                "api.github.com", "github.com",
-                "release-assets.githubusercontent.com", "objects.githubusercontent.com"
-            ) && uri.userInfo == null
-    }.getOrDefault(false)
-
-    internal fun isAllowedReleaseDownloadUrl(address: String): Boolean =
-        isAllowedHttpsUrl(address) && runCatching {
-            !java.net.URI(address).host.equals("api.github.com", true)
-        }.getOrDefault(false)
 
     /** Check every redirect destination before connecting to it; automatic redirects are unsafe here. */
     private fun openAllowedHttpsConnection(
@@ -328,7 +290,7 @@ internal object DevUpdateManager {
     private fun readHttps(address: String, maxBytes: Int): String {
         require(address.startsWith("https://", ignoreCase = true)) { "업데이트 서버는 HTTPS만 허용합니다." }
         val connection = openAllowedHttpsConnection(
-            address, 12000, 15000, "application/vnd.github+json", ::isAllowedHttpsUrl
+            address, 12000, 15000, "application/vnd.github+json", DevUpdateManagerPolicy::isAllowedHttpsUrl
         )
         try {
             val bytes = connection.inputStream.use { input ->
