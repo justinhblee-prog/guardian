@@ -45,6 +45,113 @@ class DomainFilterTest {
         assertTrue(DomainFilter.isBlocked("tracker.example"))
     }
 
+    @Test fun recordsBlockSourceAndCategoryForEachActiveFeed() {
+        DomainFilter.loadParsedRuleSources(
+            sources = listOf(
+                { FilterRuleParser.parse("block=doubleclick.net") },
+                { FilterRuleParser.parse("block=analytics.example") },
+                { FilterRuleParser.parse("block=critical.example") },
+                { FilterRuleParser.parse("block=appads.example") }
+            ),
+            minimumRuleCounts = listOf(1, 1, 1, 1),
+            userBlockDomains = listOf("custom.example"),
+            sourceKinds = listOf(
+                DomainFilter.RuleSource.BUILT_IN,
+                DomainFilter.RuleSource.PRIMARY_FILTER,
+                DomainFilter.RuleSource.SECURITY_INTELLIGENCE,
+                DomainFilter.RuleSource.ANDROID_APP_ADS
+            )
+        )
+
+        assertEquals(
+            DomainFilter.BlockAttribution(
+                DomainFilter.RuleCategory.AD,
+                setOf(DomainFilter.RuleSource.BUILT_IN)
+            ),
+            DomainFilter.blockAttribution("doubleclick.net")
+        )
+        assertEquals(
+            DomainFilter.BlockAttribution(
+                DomainFilter.RuleCategory.TRACKER,
+                setOf(DomainFilter.RuleSource.PRIMARY_FILTER)
+            ),
+            DomainFilter.blockAttribution("analytics.example")
+        )
+        assertEquals(
+            DomainFilter.BlockAttribution(
+                DomainFilter.RuleCategory.SECURITY,
+                setOf(DomainFilter.RuleSource.SECURITY_INTELLIGENCE)
+            ),
+            DomainFilter.blockAttribution("critical.example")
+        )
+        assertEquals(
+            DomainFilter.BlockAttribution(
+                DomainFilter.RuleCategory.ANDROID_APP_AD,
+                setOf(DomainFilter.RuleSource.ANDROID_APP_ADS)
+            ),
+            DomainFilter.blockAttribution("appads.example")
+        )
+        assertEquals(
+            DomainFilter.BlockAttribution(
+                DomainFilter.RuleCategory.USER_DEFINED,
+                setOf(DomainFilter.RuleSource.USER_RULE)
+            ),
+            DomainFilter.blockAttribution("custom.example")
+        )
+    }
+
+    @Test fun provenanceHonorsAllowAndImportantBlockPrecedence() {
+        DomainFilter.loadParsedRuleSources(
+            sources = listOf(
+                { FilterRuleParser.parse("block=ordinary.example") },
+                { FilterRuleParser.parse("block-important=critical.example") }
+            ),
+            minimumRuleCounts = listOf(1, 1),
+            userAllowDomains = listOf("ordinary.example", "critical.example"),
+            sourceKinds = listOf(
+                DomainFilter.RuleSource.PRIMARY_FILTER,
+                DomainFilter.RuleSource.SECURITY_INTELLIGENCE
+            )
+        )
+
+        assertFalse(DomainFilter.isBlocked("ordinary.example"))
+        assertNull(DomainFilter.blockAttribution("ordinary.example"))
+        assertTrue(DomainFilter.isBlocked("critical.example"))
+        assertEquals(
+            setOf(DomainFilter.RuleSource.SECURITY_INTELLIGENCE),
+            DomainFilter.blockAttribution("critical.example")?.sources
+        )
+    }
+
+    @Test fun overlappingSourcesAreAllPreservedAndSourceKindCountIsValidated() {
+        DomainFilter.loadParsedRuleSources(
+            sources = listOf(
+                { FilterRuleParser.parse("block=overlap.example") },
+                { FilterRuleParser.parse("block=overlap.example") }
+            ),
+            minimumRuleCounts = listOf(1, 1),
+            sourceKinds = listOf(
+                DomainFilter.RuleSource.PRIMARY_FILTER,
+                DomainFilter.RuleSource.SECURITY_INTELLIGENCE
+            )
+        )
+        assertEquals(
+            setOf(
+                DomainFilter.RuleSource.PRIMARY_FILTER,
+                DomainFilter.RuleSource.SECURITY_INTELLIGENCE
+            ),
+            DomainFilter.blockAttribution("overlap.example")?.sources
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            DomainFilter.loadParsedRuleSources(
+                sources = listOf({ FilterRuleParser.parse("block=rejected.example") }),
+                minimumRuleCounts = listOf(1),
+                sourceKinds = emptyList()
+            )
+        }
+        assertTrue(DomainFilter.isBlocked("overlap.example"))
+    }
+
     @Test fun rejectsSharedRulesWithoutValidBlockEntries() {
         assertThrows(IllegalArgumentException::class.java) {
             DomainFilter.loadRules(listOf("# empty", "block=bad domain", "allow=example.com", "unknown=ads.example"))
