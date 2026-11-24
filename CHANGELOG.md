@@ -1,3 +1,11 @@
+## 2026-11-24 — DNS 필터 출처·범주 기반 고급 정책 엔진
+
+- 기존 DNS 필터는 여러 피드를 하나의 차단 Set으로 합쳐 어떤 원천이 실제 차단을 일으켰는지 잃었습니다. 이제 기본 규칙, 기본 광고·추적 피드, 보안 인텔리전스, Android 앱 광고 피드, 사용자 차단 규칙의 provenance를 별도 Set으로 보존합니다.
+- 실제 차단 결과에 한해서 출처/범주를 계산합니다. 중첩된 원천은 모두 보존하고, 전역 허용 규칙은 일반 차단의 attribution을 제거하며, 중요 차단은 기존 우선순위대로 허용 규칙보다 우선합니다. 기존 DNS 차단 판단 자체는 변경하지 않았습니다.
+- GuardianVpnService의 lazy feed 구성에 source kind를 함께 연결하고, DEBUG 최근 DNS 차단 기록에 실제 출처/범주를 표시합니다. Premium DEBUG 미리보기에는 로드된 원천별 규칙 수와 우선순위 설명을 추가했습니다. Release entitlement 게이트는 열지 않았습니다.
+- 원천별 기본/보안/Android 광고/사용자 규칙, 중첩 출처, global allow 및 important-block 우선순위, source metadata 개수 불일치 테스트를 추가했습니다.
+- Android Gradle/JUnit·lint·emulator·실기기 검증은 미실행이며 GitHub Actions도 실행하지 않았습니다.
+
 # Changelog
 
 ## 2026-11-23 — Windows 조용한 DNS 실행 및 반응형 설정 탐색
