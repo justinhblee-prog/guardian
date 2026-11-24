@@ -49,12 +49,12 @@ class DnsTcpSessionManagerTest {
         val secondFrame = byteArrayOf((secondQuery.size ushr 8).toByte(), secondQuery.size.toByte()) + secondQuery
         val firstPayload = maximumFrame.copyOfRange(0, 65495)
         val finalPayload = maximumFrame.copyOfRange(65495, maximumFrame.size) + secondFrame
-        var resolved = 0
+        val resolvedMessages = mutableListOf<ByteArray>()
 
         val firstSegment = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
             seq = 7801, payload = firstPayload)
         val firstReply = manager.handle(firstSegment, firstSegment.size) {
-            resolved++
+            resolvedMessages.add(it.copyOf())
             secondQuery
         }.single()
         assertTrue(DnsTcpPacket.parse(firstReply, firstReply.size, 53000)!!.payload.isEmpty())
@@ -62,10 +62,12 @@ class DnsTcpSessionManagerTest {
         val secondSegment = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
             seq = 7801L + firstPayload.size, payload = finalPayload)
         val replies = manager.handle(secondSegment, secondSegment.size) {
-            resolved++
+            resolvedMessages.add(it.copyOf())
             secondQuery
         }
-        assertEquals(2, resolved)
+        assertEquals(2, resolvedMessages.size)
+        assertEquals(65535, resolvedMessages.first().size)
+        assertArrayEquals(secondQuery, resolvedMessages.last())
         assertTrue(replies.any { DnsTcpPacket.parse(it, it.size, 53000)!!.payload.isNotEmpty() })
         assertEquals(1, manager.activeSessionCount())
     }
