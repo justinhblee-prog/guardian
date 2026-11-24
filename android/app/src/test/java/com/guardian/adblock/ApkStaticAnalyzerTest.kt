@@ -81,6 +81,23 @@ class ApkStaticAnalyzerTest {
             ApkStaticAnalyzer.analyze(ByteArrayInputStream(out.toByteArray())).status)
     }
 
+    @Test fun rejectsMissingMalformedOrTrailingZipEndRecord() {
+        val validArchive = apk("Lcom/example/Valid;" )
+        val withoutEndRecord = validArchive.copyOf(validArchive.size - 22)
+        val invalidCommentLength = validArchive.copyOf().also { bytes ->
+            bytes[bytes.size - 2] = 1
+            bytes[bytes.size - 1] = 0
+        }
+        val trailingBytes = validArchive + byteArrayOf(0x41, 0x42)
+
+        listOf(withoutEndRecord, invalidCommentLength, trailingBytes).forEach { malformed ->
+            assertEquals(
+                ApkStaticAnalyzer.Status.INVALID_APK,
+                ApkStaticAnalyzer.analyze(ByteArrayInputStream(malformed)).status
+            )
+        }
+    }
+
     @Test fun rejectsMalformedDexHeader() {
         assertEquals(
             ApkStaticAnalyzer.Status.INVALID_APK,
