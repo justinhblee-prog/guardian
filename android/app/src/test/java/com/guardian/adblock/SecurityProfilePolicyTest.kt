@@ -36,6 +36,29 @@ class SecurityProfilePolicyTest {
         assertFalse(unvalidated.automaticFilterUpdates)
     }
 
+    @Test fun cellularRoamingUsesApi28CapabilityAndLegacyFallback() {
+        assertTrue(SecurityProfilePolicy.isCellularRoaming(
+            SecurityProfilePolicy.Transport.CELLULAR, 28, notRoamingCapabilityPresent = false,
+            legacyRoaming = false
+        ))
+        assertFalse(SecurityProfilePolicy.isCellularRoaming(
+            SecurityProfilePolicy.Transport.CELLULAR, 28, notRoamingCapabilityPresent = true,
+            legacyRoaming = true
+        ))
+        assertTrue(SecurityProfilePolicy.isCellularRoaming(
+            SecurityProfilePolicy.Transport.CELLULAR, 27, notRoamingCapabilityPresent = false,
+            legacyRoaming = true
+        ))
+        assertFalse(SecurityProfilePolicy.isCellularRoaming(
+            SecurityProfilePolicy.Transport.CELLULAR, 27, notRoamingCapabilityPresent = false,
+            legacyRoaming = false
+        ))
+        assertFalse(SecurityProfilePolicy.isCellularRoaming(
+            SecurityProfilePolicy.Transport.WIFI, 35, notRoamingCapabilityPresent = false,
+            legacyRoaming = true
+        ))
+    }
+
     @Test fun roamingTakesPrecedenceOverTransportProfile() {
         assertEquals(
             SecurityProfilePolicy.Id.TRAVEL,
