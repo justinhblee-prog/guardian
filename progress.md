@@ -499,3 +499,7 @@
 - 현재 free branch의 DnsTcpPacket codec 및 DnsTcpSessionManager 동작을 Android 의존성 없이 kotlinc로 컴파일해 deterministic packet/clock harness에서 실행했습니다. DomainFilter.makeServfail만 비상 경로 stub이며 이 smoke에서는 resolver가 정상 응답을 반환합니다.
 - PASS 25/25: SYN/SYN-ACK handshake/session, MSS 1,200바이트 응답 분할, duplicate ACK 3회 fast retransmit/4번째 억제, 1·2·4·8초 RTO backoff 5회, retry budget 소진 시 세션 종료, 부분 누적 ACK 후 다음 outstanding 타이머 재시작, zero-window 응답 대기/2KiB window open 배출, 최대 65,535-byte DNS 프레임과 다음 질의 동시 프레이밍 및 응답 생성.
 - 결과는 순수 Kotlin/JVM codec/session smoke PASS입니다. Android Gradle/JUnit, GuardianVpnService 250ms scheduler·TUN write 통합, 실제 IPv4/IPv6 VPN 트래픽 및 실기기 수용시험은 미실행입니다.
+
+
+## 2026-11-24 — DNS TCP 응답 Parsed 주소 길이 검증
+- DnsTcpPacket.response에서 IP 버전에 따른 source/destination 길이를 모두 명시적으로 검증합니다. malformed Parsed 입력이 배열 복사 예외로 처리되지 않도록 테스트를 추가했습니다. Android Gradle/JUnit 미실행입니다.
