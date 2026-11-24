@@ -645,3 +645,8 @@
 
 - 공통 `GuardianUpdateCachePaths`를 kotlinc/JRE 21로 분리 컴파일·실행했습니다. PASS 3/3: 개발판 `updates`, 정식판 `stable-updates`, 두 경로의 분리.
 - XML resource의 실제 FileProvider URI 처리, Android 설치 시스템 화면 및 APK 재설치는 Android 환경/실기기에서 아직 미검증입니다.
+
+
+## 2026-11-24 — DNS 업스트림 후보별 실패 사유 보존
+- DNS fallback 각 후보를 시도하기 전 현재 작업 스레드의 오류를 비우고 후보별 실패 사유를 수집합니다. 모든 후보가 실패하면 순번이 있는 최대 6개 원인을 합쳐서 전달하도록 수정했습니다.
+- 서버 IP는 로그에 포함하지 않으며 항목 240자, 전체 1,200자 상한을 둡니다. 요약 정책 테스트 4건 추가. Android UDP/TCP/DoT/DoH 네트워크 실측 및 Android Gradle/JUnit은 미실행입니다.
