@@ -52,6 +52,10 @@ test('rejects prerelease version names and invalid version codes', async () => {
       apkPath, signatureReportPath: signaturePath, versionName: '1.0.0',
       versionCode: 0, outputPath
     }), /positive safe integer/);
+    await assert.rejects(createGuardianUpdateManifest({
+      apkPath, signatureReportPath: signaturePath, versionName: '1.0.0',
+      versionCode: 2147483648, outputPath
+    }), /positive safe integer/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
