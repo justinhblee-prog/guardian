@@ -2161,7 +2161,7 @@ class MainActivity : Activity() {
 
     private fun buildSecurityProfilePreview(): LinearLayout {
         val active = SecurityProfilePolicy.profile(SecurityProfileStore.activeProfileId(this))
-        return card(panel, 16).apply {
+        val previewCard = card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("보안 프로필 자동 전환 · 개발 미리보기", 15f, white, true))
             addView(text(
@@ -2228,6 +2228,7 @@ class MainActivity : Activity() {
                 setTextColor(bg)
                 background = shape(accent, 9)
                 setOnClickListener {
+                    val selected = SecurityProfilePolicy.profile(selectedManualProfile)
                     SecurityProfileStore.applyManualProfile(this@MainActivity, selectedManualProfile)
                     refreshSecurityProfilePreview()
                     Toast.makeText(
@@ -2247,7 +2248,7 @@ class MainActivity : Activity() {
             ).withTop(8))
         }
         refreshSecurityProfilePreview()
-        return card
+        return previewCard
     }
 
     /** Keep the visible preview consistent with service-driven network profile changes. */
