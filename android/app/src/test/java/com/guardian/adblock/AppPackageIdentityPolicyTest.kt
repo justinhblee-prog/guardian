@@ -38,7 +38,8 @@ class AppPackageIdentityPolicyTest {
                 applicationQuerySucceeded = true,
                 packageInfoQuerySucceeded = true,
                 applicationPackages = installed,
-                packageInfoPackages = installed
+                packageInfoPackages = installed,
+                launcherFallbackCount = 0
             )
         )
         assertFalse(
@@ -47,21 +48,34 @@ class AppPackageIdentityPolicyTest {
                 applicationQuerySucceeded = true,
                 packageInfoQuerySucceeded = true,
                 applicationPackages = installed,
-                packageInfoPackages = setOf("com.example.mail")
+                packageInfoPackages = setOf("com.example.mail"),
+                launcherFallbackCount = 0
             )
         )
+    }
+
+    @Test fun cleanupIsDisabledWhenLauncherFallbackFindsAdditionalApps() {
+        val installed = setOf("com.example.mail")
+        assertFalse(InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
+            queryAllPackagesGranted = true,
+            applicationQuerySucceeded = true,
+            packageInfoQuerySucceeded = true,
+            applicationPackages = installed,
+            packageInfoPackages = installed,
+            launcherFallbackCount = 1
+        ))
     }
 
     @Test fun cleanupDoesNotRunWhenEitherPackageManagerQueryFailsOrReturnsEmpty() {
         val installed = setOf("com.example.mail")
         assertFalse(InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
-            true, false, true, installed, installed
+            true, false, true, installed, installed, 0
         ))
         assertFalse(InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
-            true, true, false, installed, installed
+            true, true, false, installed, installed, 0
         ))
         assertFalse(InstalledAppDataCleanupPolicy.isAuthoritativeInventory(
-            true, true, true, emptySet(), emptySet()
+            true, true, true, emptySet(), emptySet(), 0
         ))
     }
 
