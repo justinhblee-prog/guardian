@@ -1,3 +1,10 @@
+## 2026-11-24 — DEX 헤더 엔디안 판독 일치
+
+- DEX 헤더에서 reverse-endian tag를 허용하면서 file_size/header_size는 항상 little-endian으로 읽던 불일치를 수정했습니다.
+- endian tag를 먼저 판별하고 32비트 헤더 필드는 해당 바이트 순서로 읽습니다. 알 수 없는 tag는 APK 유효성 실패로 처리합니다.
+- little-endian 및 reverse-endian 헤더 픽스처가 모두 검사기에서 SCANNED 상태가 되는 회귀 테스트를 추가했습니다. 이는 DEX 전체 형식/바이트코드 검증이나 악성코드 무해 판정이 아닙니다.
+- Android Gradle/JUnit 및 실제 APK 파일 검증은 미실행입니다.
+
 ## 2026-11-24 — 피싱 URL 대괄호 IPv6 검증
 
 - 대괄호 호스트를 IPv6 주소로 검증하지 않아 `[example.com]` 등 잘못된 authority가 통과할 수 있던 문제를 수정했습니다.
