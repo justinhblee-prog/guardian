@@ -472,6 +472,27 @@ class DnsTcpSessionManagerTest {
         assertArrayEquals(sent.first(), manager.retransmitDue().single())
     }
 
+    @Test fun exactDuplicateRequestCannotBypassMaximumRetransmissionBudget() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 7750)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 7751, acknowledgment = serverStart, payload = framedQuery)
+        val sent = manager.handle(request, request.size) { ByteArray(4000) }
+        assertTrue(sent.isNotEmpty())
+
+        repeat(5) {
+            val replayed = manager.handle(request, request.size) { error("Duplicate request must replay cached DNS response") }
+            assertEquals(sent.size, replayed.size)
+        }
+        val afterBudget = manager.handle(request, request.size) { error("Expired session must not resolve again") }
+        assertTrue(afterBudget.isEmpty())
+        assertEquals(0, manager.activeSessionCount())
+    }
+
     @Test fun delayedDuplicateRequestDoesNotReplayAlreadyAcknowledgedDnsAnswer() {
         val manager = newManager()
         val query = dnsQuery()
