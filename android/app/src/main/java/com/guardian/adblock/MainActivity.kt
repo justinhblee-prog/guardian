@@ -1631,6 +1631,34 @@ class MainActivity : Activity() {
             ).withTop(9))
         }.withTop(8))
 
+        if (developmentPreview) {
+            body.addView(card(panel, 16).apply {
+                setPadding(dp(15), dp(15), dp(15), dp(15))
+                addView(text("고급 필터 출처 분석", 15f, white, true))
+                addView(text(
+                    "실제 차단된 DNS 질의에 적용된 규칙 원천을 구분합니다. 허용 규칙은 일반 차단 근거를 제거하고 중요 차단은 기존 우선순위를 유지합니다.",
+                    10f, muted, false
+                ).withTop(5))
+                val sourceCounts = DomainFilter.sourceRuleCounts()
+                if (sourceCounts.isEmpty()) {
+                    addView(text(
+                        "보호 시작 후 기본·선택 필터의 출처별 규칙 수가 여기에 표시됩니다.",
+                        10f, muted, false
+                    ).withTop(9))
+                } else {
+                    sourceCounts.forEach { (source, count) ->
+                        addView(text(
+                            "${source.label} · $count개 규칙",
+                            10f, accent, false
+                        ).withTop(8))
+                    }
+                }
+                addView(text(
+                    "최근 차단 기록에는 출처와 범주가 함께 표시됩니다. 여러 원천에 중복된 규칙은 모든 출처를 기록하며, 분류 정보는 악성 판정이 아닙니다.",
+                    10f, muted, false
+                ).withTop(9))
+            }.withTop(14))
+        }
         val previewFeatures = listOf(
             Triple("고급 광고·추적 차단", "필터 엔진 기반 차단 정책과 사용자 규칙을 확장하는 기능", "필터 엔진 기반 · 적용 범위 검증 필요"),
             Triple("앱별 세밀한 보호 제어", "앱 단위 보호 제외와 예외 정책을 관리하는 기능", "현재 개발 중 · 기기별 VPN 검증 필요"),
