@@ -30,9 +30,10 @@ class ApkStaticAnalyzerTest {
     private fun apk(vararg contents: String): ByteArray =
         apkWithRawDex(*contents.map(::dexFixture).toTypedArray())
 
-    private fun apkWithRawDex(vararg dexFiles: ByteArray): ByteArray {
+    private fun apkWithRawDex(vararg dexFiles: ByteArray, comment: String = ""): ByteArray {
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
+            zip.setComment(comment)
             dexFiles.forEachIndexed { i, bytes ->
                 zip.putNextEntry(ZipEntry(if (i == 0) "classes.dex" else "classes" + (i + 1) + ".dex"))
                 zip.write(bytes)
@@ -79,6 +80,16 @@ class ApkStaticAnalyzerTest {
         }
         assertEquals(ApkStaticAnalyzer.Status.INVALID_APK,
             ApkStaticAnalyzer.analyze(ByteArrayInputStream(out.toByteArray())).status)
+    }
+
+    @Test fun acceptsMaximumLengthZipCommentAcrossTailBufferWrapAround() {
+        val archive = apkWithRawDex(
+            dexFixture("Lcom/example/Commented;") ,
+            comment = "c".repeat(65535)
+        )
+        val result = ApkStaticAnalyzer.analyze(ByteArrayInputStream(archive))
+        assertEquals(ApkStaticAnalyzer.Status.SCANNED, result.status)
+        assertEquals(1, result.dexCount)
     }
 
     @Test fun rejectsMissingMalformedOrTrailingZipEndRecord() {
