@@ -1,7 +1,7 @@
 ## 2026-11-24 — Android 검증 경로 상세 진단 및 수정 기록
 
 - 현재 작업 브랜치: `work/android-free-release-followup-20261124`. 이 브랜치의 GitHub Actions 실행 기록은 0건입니다. `.github/workflows/android-apk.yml`은 push 검증을 main에 한정하고 feature branch는 pull_request 또는 workflow_dispatch로 검증합니다. 현재 브랜치에는 연결된 PR이 없어 자동 Android CI가 실행되지 않았습니다.
-- 과거 runner 배정 실패 기록은 현재 상태를 대표하지 않습니다. 2026-11-24 최신 PR #290 Android run `45358811892`에서는 JUnit, Android Lint, Debug APK 빌드, APK 메타데이터/체크섬, 에뮬레이터 설치 및 VPN 검증 단계가 모두 성공했습니다. 이는 다른 브랜치의 결과이며 현재 브랜치 검증으로 전용할 수는 없습니다.
+- 과거 runner 배정 실패 기록은 현재 상태를 대표하지 않습니다. 2026-11-24 최신 PR #290 Android run `45358811892`에서는 JUnit, Android Lint, Debug APK 빌드, APK 메타데이터/체크섬, 에뮬레이터 설치 및 VPN 검증 단계가 모두 성공했습니다. 로그에는 앱 업데이트 후 VPN 자동 복구, DNS 질의 재개, 테스트 광고 도메인 차단, 앱 전면 자동 일시중지/복귀 및 보호 시작·중지 확인이 기록되어 있습니다. 이는 다른 브랜치의 결과이며 현재 브랜치 검증으로 전용할 수는 없습니다.
 - PR #252 Android run `45361151053`은 JUnit, Lint, APK 빌드 및 설치까지 통과했으나 emulator 수용 테스트가 실패했습니다. 로그와 화면 캡처에서 하단 접근성 이름은 `Premium`인데 해당 PR의 구형 테스트 스크립트가 `프리미엄`을 찾다가 중단한 사실을 확인했습니다. 이 실행은 VPN DNS 차단 검증 단계에 도달하지 못했으므로 VPN 엔진 실패 증거가 아닙니다.
 - 현재 작업 브랜치의 `scripts/verify_android_vpn_emulator.sh`는 실제 UI 접근성 트리에서 `Premium`/구형 한국어 탭/설정 메뉴를 판별하는 `open_license_premium_menu()`를 사용하며, `scripts/android_navigation_compat.py`와 회귀 테스트가 포함되어 있습니다. 다만 이 브랜치에서 에뮬레이터로 실행한 결과는 아직 없습니다.
 - 로컬 컨테이너는 Kotlin 1.9.0 및 Java만 제공하며 Gradle, Android SDK, adb/emulator가 없습니다. 컨테이너 DNS도 외부 도메인을 해석하지 못해 Gradle/SDK를 설치할 수 없습니다. 따라서 이 환경에서 Android Gradle JUnit, lintDebug, assembleDebug, adb 설치 및 VPN E2E를 실행했다고 기록하지 않습니다.
