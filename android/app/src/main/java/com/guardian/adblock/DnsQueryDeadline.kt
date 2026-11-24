@@ -49,12 +49,14 @@ internal class DnsQueryDeadline private constructor(
     fun closeOnExpiry(closeSocket: () -> Unit): AutoCloseable {
         val closer: () -> Unit = { runCatching(closeSocket) }
         activeClosers.add(closer)
-        if (cancelled.get()) closer()
+        if (cancelled.get()) {
+            if (activeClosers.remove(closer)) closer()
+            throw SocketTimeoutException("DNS query cancelled")
+        }
 
         val remaining = remainingTimeoutMillis()
         if (remaining == null) {
-            activeClosers.remove(closer)
-            closer()
+            if (activeClosers.remove(closer)) closer()
             throw SocketTimeoutException(
                 if (cancelled.get()) "DNS query cancelled" else "DNS query deadline exceeded"
             )
