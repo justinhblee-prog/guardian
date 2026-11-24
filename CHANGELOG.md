@@ -1,3 +1,7 @@
+## 2026-11-24 — 필수 필터 asset 도메인 길이 상한 일치
+
+- Gradle preBuild validator도 런타임 `FilterRuleParser`와 같이 정규화된 DNS 이름 전체 길이를 253자로 제한하도록 보강했습니다. 라벨별 63자 제한과 연속 점/공백/잘못된 문자 거부는 기존 도메인 정규식이 확인합니다.
+
 ## 2026-11-24 — 기본 필터 asset 빌드 전 검증
 
 - `shared/filter_rules.txt`를 Android `main` assets에 추가하는 sourceSet은 있었지만, 파일이 누락·빈 파일·차단 규칙 없는 파일이어도 APK asset 처리 단계까지 진행될 수 있었습니다.
