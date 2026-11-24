@@ -54,6 +54,8 @@ class DnsTcpSessionManager(
     // per drain even if a peer advertises an unusually small MSS.
     private val maxSegmentPayloadLimit = 1200
     private val maxSegmentsPerDrain = 64
+    // Bound per-session packet objects even when a peer advertises a tiny MSS.
+    private val maxOutstandingServerPackets = 256
 
     @Synchronized
     fun handle(packet: ByteArray, length: Int, resolve: (ByteArray) -> ByteArray?): List<ByteArray> {
@@ -328,7 +330,8 @@ class DnsTcpSessionManager(
     private fun appendPendingFin(packet: DnsTcpPacket.Parsed, session: Session, replies: MutableList<ByteArray>) {
         if (!session.clientFinReceived || session.serverFinSent || session.pendingServerData.size() != 0) return
         val outstanding = (session.serverNext - session.serverAcknowledged) and MASK
-        if (outstanding >= session.peerWindow.toLong()) return
+        if (outstanding >= session.peerWindow.toLong() ||
+            session.outstandingServerPackets.size >= maxOutstandingServerPackets) return
         val finPacket = DnsTcpPacket.response(packet, session.serverNext, session.clientNext,
             DnsTcpPacket.FIN or DnsTcpPacket.ACK)
         session.serverNext = (session.serverNext + 1L) and MASK
@@ -344,8 +347,12 @@ class DnsTcpSessionManager(
         val available = (session.peerWindow.toLong() - outstanding).coerceAtLeast(0L).toInt()
         if (available == 0 || session.pendingServerData.size() == 0) return emptyList()
         val pending = session.pendingServerData.toByteArray()
+        val availablePacketSlots =
+            (maxOutstandingServerPackets - session.outstandingServerPackets.size).coerceAtLeast(0)
+        if (availablePacketSlots == 0) return emptyList()
+        val segmentBudget = minOf(maxSegmentsPerDrain, availablePacketSlots)
         val sendBytes = minOf(
-            available, pending.size, session.maxSegmentPayload * maxSegmentsPerDrain
+            available, pending.size, session.maxSegmentPayload * segmentBudget
         )
         val replies = ArrayList<ByteArray>()
         var offset = 0
