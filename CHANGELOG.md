@@ -1,3 +1,8 @@
+## 2026-11-24 — 자동 전환 스위치 쓰기 직렬화 보강
+
+- 수동 적용 경쟁 상태 수정 후 setter의 마지막 코드 경로를 다시 확인했습니다. 자동 전환 체크박스에서 호출되는 `setAutomaticSwitchEnabled`에도 동일한 `SecurityProfileStore` monitor를 적용해, UI의 OFF 쓰기와 in-flight 자동 콜백의 상태 확인/정책 쓰기가 서로 교차하지 않도록 했습니다.
+- 저장소의 자동 프로필 적용은 같은 monitor 아래에서 현재 스위치 값을 확인합니다. Android callback/OEM race의 최종 검증은 여전히 미실행입니다.
+
 ## 2026-11-24 — 수동 보안 프로필 적용 경쟁 상태 방지
 
 - 자동 전환 중 사용자가 수동 프로필을 선택하면 이미 큐에 들어간 NetworkCallback이 뒤늦게 실행되어 선택을 자동 프로필로 덮어쓸 수 있었습니다.
