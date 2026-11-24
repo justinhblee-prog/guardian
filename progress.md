@@ -363,3 +363,8 @@
 ## 2026-11-24 — URL 호스트 끝점 정규화 강화
 - 마지막 DNS 점을 모두 제거하던 정규화가 연속된 끝점 입력까지 허용하던 문제를 수정했습니다. 끝점 한 개는 absolute DNS name으로 허용하고 두 개 이상은 거부합니다.
 - 정상 absolute name 및 malformed multiple-dot host 회귀 테스트를 추가했습니다. Android JUnit·단말 검증은 미실행입니다.
+
+
+## 2026-11-24 — DEX 041 컨테이너 헤더 지원
+- DEX 035·037~040과 DEX 041의 header_size 차이를 반영했습니다. 041은 0x78 고정 헤더, 물리 컨테이너 크기와 최초 header_offset=0을 검사하고 logical file_size는 물리 컨테이너 길이 이하의 유효 범위인지 확인합니다.
+- 미지원 magic version 및 DEX 041 container_size/header_offset 잘못된 값 테스트를 추가했습니다. 전체 컨테이너 parser/DEX verifier가 아니며 Android Gradle/JUnit·실 APK 검증은 미실행입니다.
