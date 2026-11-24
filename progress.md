@@ -286,3 +286,9 @@
 - ThreatAnalyticsAccumulator에서 심각도별 카운터와 최근 20개 고정 이벤트 라벨을 버퍼링하고 ThreatAnalyticsStore가 5초 단위로 일괄 저장합니다.
 - 화면 조회와 서비스 종료 시 pending 데이터를 flush합니다. 도메인/URL 비저장 원칙을 유지하며 pure accumulator 경계 테스트를 추가했습니다.
 - Android SharedPreferences 및 Service 수명주기 JUnit 검증은 미실행입니다.
+
+
+## 2026-11-24 — 위협 분석 accumulator 독립 실행 검증
+- ThreatAnalyticsEngine + ThreatAnalyticsModels의 순수 Kotlin/JVM 코드를 kotlinc로 컴파일하고 독립 harness를 실행했습니다.
+- 통과: severity별 집계, drain 후 reset, 최근 20개 newest-first 보존, null assessment 무시, 잘못된 limit 거부, 이벤트 title에 domain/URL이 포함되지 않는 구조 확인.
+- 결과는 isolated Kotlin/JVM smoke PASS입니다. Android Gradle/JUnit, SharedPreferences persistence 및 VPN Service 수명주기 통합 검증을 의미하지 않습니다.
