@@ -93,6 +93,15 @@ class SecurityProfilePolicyTest {
         }
     }
 
+    @Test fun profileChangeNotificationDetectsIdAndUpdatePolicyChangesEvenWhenFiltersMatch() {
+        val home = SecurityProfilePolicy.profile(SecurityProfilePolicy.Id.HOME)
+        val mobile = SecurityProfilePolicy.profile(SecurityProfilePolicy.Id.MOBILE)
+        assertEquals(home.filterProfileKey, mobile.filterProfileKey)
+        assertTrue(SecurityProfilePolicy.hasProfileStateChanged(home.id.name, true, mobile))
+        assertFalse(SecurityProfilePolicy.hasProfileStateChanged(home.id.name, true, home))
+        assertTrue(SecurityProfilePolicy.hasProfileStateChanged(home.id.name, false, home))
+    }
+
     @Test fun manualSelectionDoesNotAssumeNetworkIsUnmeteredForFilterDownloads() {
         SecurityProfilePolicy.Id.values().forEach { id ->
             val manual = SecurityProfilePolicy.manualSelection(id)
