@@ -314,3 +314,9 @@
 - PackageManager가 예외 없이 빈 설치 목록을 반환하는 OEM/visibility 이상 상황에서 전체 앱별 규칙·통계가 삭제될 수 있던 경로를 차단했습니다.
 - primary installed-app enumeration이 비어 있지 않고 QUERY_ALL_PACKAGES 권한이 확인되며 final inventory도 비어 있지 않을 때만 orphan cleanup을 호출합니다. 순수 policy도 installedPackages.isEmpty()이면 삭제하지 않도록 이중 보호하고 테스트를 추가했습니다.
 - Android PackageManager/실기기 OEM 검증은 미실행입니다.
+
+
+## 2026-11-24 — 빈 앱 인벤토리 삭제 방지 Kotlin/JVM smoke
+- `InstalledAppDataCleanupPolicy`의 현재 순수 Kotlin 로직을 kotlinc로 컴파일하고 실행했습니다.
+- PASS 5/5: 불완전 inventory에서는 삭제 없음, `inventoryComplete=true`여도 빈 설치 앱 목록은 삭제 없음, 실제 비어 있지 않은 완전 목록에서는 제거된 패키지만 stale, 일부 유지/일부 제거 조합, 기존 데이터가 빈 집합일 때 no-op.
+- `InstalledAppInventory`에서 QUERY_ALL_PACKAGES 허용 + primary PackageManager 목록 비어 있지 않음 + final merged inventory 비어 있지 않음 세 조건이 모두 있어야 cleanup 호출하도록 한 코드 연결은 원격 소스에서 반영 확인했습니다. Android PackageManager/SharedPreferences/OEM 기기 통합은 미실행입니다.
