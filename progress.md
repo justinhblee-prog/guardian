@@ -281,8 +281,7 @@
 
 ## 2026-11-24 — Guardian VPN 하위 물리 네트워크 선택
 - 최신 security profile branch 커밋 `42f50c5ac8de2d6bdbcdbfad14e206cc795787e9`.
-- 기본 네트워크 callback이 Guardian VPN 인터페이스(TRANSPORT_VPN)를 반환할 경우, `ConnectivityManager.allNetworks`에서 VPN이 아닌 물리 네트워크를 찾아 validated/Wi-Fi/not-metered capability를 판별합니다.
-- 물리 네트워크를 찾지 못하면 VPN capability를 사용하고 OTHER/strict 보호로 보수 처리합니다.
+- 기본 네트워크 callback이 Guardian VPN 인터페이스(TRANSPORT_VPN)를 반환할 경우, `ConnectivityManager.allNetworks`의 비-VPN 물리 후보가 정확히 하나일 때만 자동 프로필 분류에 사용합니다. 후보가 0개 또는 여러 개면 실제 기본 경로가 불명확하므로 VPN capability/OTHER를 유지해 strict로 처리합니다.
 - Android API signature stub 기반 Kotlin compile smoke 통과. 실제 VPN 활성 중 물리 network enumeration과 OEM별 callback은 아직 검증되지 않았습니다.
 
 
@@ -296,3 +295,9 @@
 - VPN capability에서 여러 물리 네트워크 중 임의의 최고점 후보를 선택하던 코드를 제거했습니다. allNetworks는 실제 default underlying route를 보장하지 않으므로, 후보가 정확히 1개일 때만 자동 프로필을 분류합니다.
 - 물리 후보가 0개 또는 2개 이상이면 reported VPN capability를 유지해 OTHER/strict로 처리합니다. 수동 HOME/WORK 등 직접 선택은 그대로 유지합니다.
 - candidate count 0/1/2/negative 검증 테스트 추가. 실제 Android API/OEM/실기기 network handover 테스트는 미실행입니다.
+
+
+## 2026-11-24 — 보안 프로필 정책 Kotlin/JVM smoke
+- 최신 SecurityProfilePolicy의 자동 분류·종량제·underlying-network ambiguity·manual selection 경로를 kotlinc 1.9.0/JRE 21로 컴파일·실행했습니다.
+- PASS 16/16: Wi-Fi trust, captive/unvalidated, roaming, cellular/ethernet, metered update disable, unknown strict, physical network count 0/1/2/negative, 수동 6개 프로필 모두 automatic filter downloads disabled.
+- Android ConnectivityManager/NetworkCallback, VPN underlying route, OEM 전환, Android Gradle/JUnit·실기기 검증은 미실행입니다.
