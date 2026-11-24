@@ -35,6 +35,18 @@ class GuardianAppUpdateStateTest {
         }
     }
 
+    @Test fun refusesToPublishMissingOrEmptyApkAsInstallable() {
+        val empty = File(System.getProperty("java.io.tmpdir"), "guardian-update-empty.apk")
+        empty.delete()
+        empty.createNewFile()
+        try {
+            assertTrue(runCatching { GuardianAppUpdateState.complete(empty, false, "완료") }.isFailure)
+            assertNull(GuardianAppUpdateState.snapshot().pendingApkPath)
+        } finally {
+            empty.delete()
+        }
+    }
+
     @Test fun noUpdateClearsStalePendingInstallArtifact() {
         val apk = File(System.getProperty("java.io.tmpdir"), "guardian-update-stale.apk")
         apk.writeBytes(byteArrayOf(1))
