@@ -39,7 +39,8 @@ internal object ApkStaticAnalyzer {
         var dexCount = 0
         val signals = linkedSetOf<Signal>()
         return try {
-            ZipInputStream(BoundedInput(input, MAX_ARCHIVE)).use { zip ->
+            val boundedInput = BoundedInput(input, MAX_ARCHIVE)
+            ZipInputStream(boundedInput).use { zip ->
                 var entries = 0
                 while (true) {
                     val entry = zip.nextEntry ?: break
@@ -68,6 +69,11 @@ internal object ApkStaticAnalyzer {
                     }
                     zip.closeEntry()
                 }
+                // ZipInputStream parses local file headers but does not require a
+                // valid central directory/EOCD. Drain the physical stream and verify
+                // the final ZIP directory record before reporting a completed scan.
+                boundedInput.drainToEof()
+                if (!boundedInput.hasValidZipEndRecord(entries)) return invalid(dexCount, dexBytes)
             }
             if (dexCount == 0) return invalid(0, 0)
             val score = signals.sumOf { it.points }.coerceIn(0, 100)
@@ -128,13 +134,80 @@ internal object ApkStaticAnalyzer {
     )
     private class ArchiveLimit : Exception()
     private class BoundedInput(input: InputStream, private val max: Long) : FilterInputStream(input) {
-        private var used = 0L
-        private fun add(n: Int) {
-            if (n > 0) { used += n; if (used > max) throw ArchiveLimit() }
+        private val tail = ByteArray(MAX_ZIP_END_RECORD_BYTES)
+        private var tailPosition = 0
+        private var tailSize = 0
+        private var bytesRead = 0L
+
+        private fun add(bytes: ByteArray, offset: Int, count: Int) {
+            if (count <= 0) return
+            bytesRead += count.toLong()
+            if (bytesRead > max) throw ArchiveLimit()
+            for (index in 0 until count) {
+                tail[tailPosition] = bytes[offset + index]
+                tailPosition = (tailPosition + 1) % tail.size
+                if (tailSize < tail.size) tailSize++
+            }
         }
-        override fun read(): Int { val v = super.read(); if (v >= 0) add(1); return v }
+
+        override fun read(): Int {
+            val value = super.read()
+            if (value >= 0) add(byteArrayOf(value.toByte()), 0, 1)
+            return value
+        }
+
         override fun read(b: ByteArray, off: Int, len: Int): Int {
-            val n = super.read(b, off, len); add(n); return n
+            val count = super.read(b, off, len)
+            add(b, off, count)
+            return count
         }
+
+        fun drainToEof() {
+            val buffer = ByteArray(16 * 1024)
+            while (read(buffer) >= 0) Unit
+        }
+
+        fun hasValidZipEndRecord(entriesSeen: Int): Boolean {
+            val bytes = ByteArray(tailSize) { index ->
+                tail[(if (tailSize == tail.size) tailPosition else 0) + index].let { value ->
+                    if (tailSize == tail.size) value else tail[index]
+                }
+            }
+            if (bytes.size < ZIP_END_RECORD_MIN_BYTES) return false
+            for (offset in bytes.size - ZIP_END_RECORD_MIN_BYTES downTo 0) {
+                if (unsignedInt(bytes, offset) != ZIP_END_SIGNATURE) continue
+                val commentLength = unsignedShort(bytes, offset + 20)
+                if (offset + ZIP_END_RECORD_MIN_BYTES + commentLength != bytes.size) continue
+
+                val diskNumber = unsignedShort(bytes, offset + 4)
+                val directoryDisk = unsignedShort(bytes, offset + 6)
+                val entriesOnDisk = unsignedShort(bytes, offset + 8)
+                val totalEntries = unsignedShort(bytes, offset + 10)
+                val directorySize = unsignedInt(bytes, offset + 12)
+                val directoryOffset = unsignedInt(bytes, offset + 16)
+                val endRecordAbsoluteOffset = bytesRead - bytes.size + offset
+
+                if (diskNumber != 0 || directoryDisk != 0) continue
+                if (entriesOnDisk != entriesSeen || totalEntries != entriesSeen) continue
+                if (directorySize == ZIP64_SENTINEL || directoryOffset == ZIP64_SENTINEL) continue
+                if (directoryOffset + directorySize != endRecordAbsoluteOffset) continue
+                return true
+            }
+            return false
+        }
+
+        private fun unsignedShort(bytes: ByteArray, offset: Int): Int =
+            (bytes[offset].toInt() and 0xff) or ((bytes[offset + 1].toInt() and 0xff) shl 8)
+
+        private fun unsignedInt(bytes: ByteArray, offset: Int): Long =
+            (bytes[offset].toLong() and 0xffL) or
+                ((bytes[offset + 1].toLong() and 0xffL) shl 8) or
+                ((bytes[offset + 2].toLong() and 0xffL) shl 16) or
+                ((bytes[offset + 3].toLong() and 0xffL) shl 24)
     }
+
+    private const val ZIP_END_RECORD_MIN_BYTES = 22
+    private const val MAX_ZIP_END_RECORD_BYTES = ZIP_END_RECORD_MIN_BYTES + 65535
+    private const val ZIP_END_SIGNATURE = 0x06054b50L
+    private const val ZIP64_SENTINEL = 0xffffffffL
 }
