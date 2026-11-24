@@ -839,3 +839,9 @@
 
 ### 2026-11-24 — DNS policy rejects malformed upstream replies
 - Added policy-level regression coverage proving an upstream DNS response with the reserved Z bit is not forwarded and the client receives a clean SERVFAIL fallback.
+
+
+## 2026-11-24 Android 무료 버전 — DNS 업스트림 응답 RR 경계 검증
+- DNS 사전 점검에서 응답 헤더의 ANCOUNT만 보고 성공으로 판단하던 경로를 보강했습니다.
+- Answer/Authority/Additional 섹션의 각 RR owner name(압축 포인터 포함), 고정 필드 및 RDLENGTH가 실제 패킷 범위 안에 있는지 확인하고, 모든 레코드가 정확히 끝까지 파싱되어야 성공 처리합니다.
+- 잘린 레코드, 초과 RDLENGTH, 전방/순환 압축 포인터를 거부하는 회귀 테스트를 추가했습니다. Android Gradle/JUnit·lint·실기기 검증과 APK 생성은 미실행입니다.
