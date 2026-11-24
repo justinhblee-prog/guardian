@@ -63,8 +63,8 @@ class DnsUpstreamProbeTest {
             it[questionEnd(query) + 2] = 0x10
         }
         val shortAddress = successfulResponse(query).copyOf(successfulResponse(query).size - 1).also {
-            it[it.size - 6] = 0
-            it[it.size - 5] = 3
+            it[it.size - 5] = 0
+            it[it.size - 4] = 3
         }
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, txtOnly))
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, shortAddress))
