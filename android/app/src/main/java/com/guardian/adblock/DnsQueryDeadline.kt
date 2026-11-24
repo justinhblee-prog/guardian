@@ -38,7 +38,9 @@ internal class DnsQueryDeadline private constructor(
     /** Immediately closes active upstream sockets and prevents another candidate from starting. */
     fun cancel() {
         if (!cancelled.compareAndSet(false, true)) return
-        activeClosers.toList().forEach { closer ->
+        // CopyOnWriteArrayList.forEach uses its stable iterator snapshot;
+        // Kotlin toList() can race a concurrent removal while indexing the list.
+        activeClosers.forEach { closer ->
             if (activeClosers.remove(closer)) runCatching(closer)
         }
     }
