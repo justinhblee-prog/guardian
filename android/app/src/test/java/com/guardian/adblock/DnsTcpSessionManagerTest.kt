@@ -940,6 +940,29 @@ class DnsTcpSessionManagerTest {
         }
     }
 
+    @Test fun zeroWindowDuplicateAcksDoNotTriggerFastRetransmit() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 9300, window = 8192)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 9301, acknowledgment = serverStart, payload = framedQuery, window = 8192)
+        val sent = manager.handle(request, request.size) { ByteArray(5000) }
+        assertTrue(sent.size > 1)
+        val clientNext = (9301L + framedQuery.size) and 0xffffffffL
+
+        val zeroWindowUpdate = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+            acknowledgment = serverStart, window = 0)
+        assertTrue(manager.handle(zeroWindowUpdate, zeroWindowUpdate.size) { null }.isEmpty())
+        repeat(4) {
+            val zeroWindowAck = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
+                acknowledgment = serverStart, window = 0)
+            assertTrue(manager.handle(zeroWindowAck, zeroWindowAck.size) { null }.isEmpty())
+        }
+    }
+
     @Test fun receiveWindowUpdatesDoNotCountAsDuplicateAcks() {
         val manager = newManager()
         val query = dnsQuery()
