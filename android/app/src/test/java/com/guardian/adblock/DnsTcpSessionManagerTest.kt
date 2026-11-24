@@ -369,9 +369,10 @@ class DnsTcpSessionManagerTest {
         val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
             seq = 7201, acknowledgment = (synAck.sequence + 1L) and 0xffffffffL,
             payload = framed, window = 0)
-        assertTrue(manager.handle(request, request.size) {
+        val queuedAck = manager.handle(request, request.size) {
             DomainFilter.makeServfail(it)
-        }.isEmpty())
+        }.single()
+        assertTrue(DnsTcpPacket.parse(queuedAck, queuedAck.size, 53000)!!.payload.isEmpty())
 
         // This future-sequence segment is outside RCV.NXT and must not
         // replace the live receive-window update ordering.
