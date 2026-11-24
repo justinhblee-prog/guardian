@@ -322,3 +322,8 @@
 - ThreatAnalyticsEngine/ThreatAnalyticsModels의 정책 경로를 kotlinc 1.9.0/JRE 21로 컴파일한 분리 harness 실행 결과 PASS 18/18.
 - snapshot non-destructive, drain, persisted+pending counts/recent merge, pending newest-first, recent 20 cap, negative/Long.MAX saturation, security HIGH, ad/tracker INFORMATIONAL, user/unknown UNASSESSED, unblocked no assessment 및 fixed label no domain/URL을 확인했습니다.
 - Android Gradle/JUnit, SharedPreferences/WorkManager, MainActivity broadcast render, GuardianVpnService end-to-end 및 실기기 실행은 미실행입니다.
+
+
+## 2026-11-24 — 위협 분석 개인정보 안내 범위
+- 위협 전용 집계 저장소와 일반 DNS 최근 기록의 저장 범위를 분리해 설명하도록 변경했습니다. 일반 DNS 최근 활동 기록에는 도메인이 별도 저장될 수 있음을 명확히 했습니다.
+- PRO 권한 게이트 및 Android 검증 미완료 표시는 유지합니다.
