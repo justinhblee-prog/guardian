@@ -843,3 +843,4 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 정식 manifest 생성 스크립트도 `01.2.3` 등 선행 0 버전을 거부하도록 바꾸고 Node 회귀 테스트를 추가했습니다. 개발 updater 테스트의 누락된 JUnit 정적 import도 함께 수정했습니다.
 - 관련 변경 커밋 `bdc97510`, `36138fc5`, `19426647`, `bd8af3a6`, `a03199b9`. 원격 소스 반영 확인. Node/Android 테스트와 CI 실행은 아직 하지 않았습니다.
 - 정식 Release manifest 생성 스크립트의 `versionCode`도 Android `Int` 상한(2,147,483,647)까지로 제한하고 상한 초과 회귀 테스트를 추가했습니다. 커밋 `934053bd`, `628898eb`.
+- 정식 updater도 `manifestVersion`을 `optInt()`로 느슨하게 변환하지 않고, 공통 정수/범위 검증을 거쳐 정확히 1인 경우만 허용하도록 통일했습니다. 정식 manifest 생성기 테스트에 스키마 버전 확인도 추가했습니다. 커밋 `ae1145ec`, `29179f46`.
