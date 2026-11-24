@@ -1,3 +1,8 @@
+## 2026-11-24 — DNS 업스트림 실패 요약 정책 JVM smoke 5/5
+
+- `DnsUpstreamFailurePolicy` 실제 순수 Kotlin 소스를 kotlinc/JRE 21로 분리 컴파일·실행했습니다. PASS 5/5: 후보별 원인 병합, 공백 제거, 최대 6개 후보, 항목 240자/전체 1,200자 상한, 원인 없는 경우 null 반환.
+- Android VPN packet loop에서 실제 업스트림 fallback 및 SharedPreferences 진단 표시까지 통합 검증한 것은 아닙니다. Android Gradle/JUnit·실기기 DNS는 미실행입니다.
+
 ## 2026-11-24 — DNS 업스트림 요약 길이 테스트 픽스처 정정
 
 - 1,200자 전체 상한 테스트에서 240자 항목이 2개뿐이어서 실제 예상 결과는 483자였던 잘못된 테스트 입력을 6개 항목으로 수정했습니다. 로직 변경은 없습니다.
