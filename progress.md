@@ -301,3 +301,9 @@
 
 ## 2026-11-24 — FilterUpdateSchedulingPolicy 분리
 - 반복 필터 갱신의 이중 허용 조건을 순수 FilterUpdateSchedulingPolicy로 분리하고 scheduler와 JUnit에서 공유합니다. Android WorkManager 호출은 scheduler에 유지합니다.
+
+
+## 2026-11-24 — 셀룰러 로밍 기반 여행 프로필 감지
+- SecurityProfileMonitor가 roaming을 false로 고정하던 것을 Android 9(API 28)+ NET_CAPABILITY_NOT_ROAMING 신호로 판단하도록 연결했습니다.
+- NOT_ROAMING 미확인 셀룰러 상태는 로밍으로 보수 처리해 Travel 프로필을 선택합니다. API 26~27은 capability를 제공하지 않으므로 기존 MOBILE 분기를 사용합니다.
+- pure policy 테스트 소스 추가. Android Gradle/JUnit 및 통신사/OEM 실기기 NetworkCapabilities 동작 검증은 미실행입니다.
