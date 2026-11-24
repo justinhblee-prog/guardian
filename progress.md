@@ -527,3 +527,8 @@
 - 현재 `DnsStatsCounterPolicy.kt`를 kotlinc로 컴파일하고 실행했습니다.
 - PASS 8/8: 0→1 증가, 일반 증가, zero increment, 음수 저장값 복구, Long.MIN_VALUE 복구, Long.MAX_VALUE 유지, 상한 근접 포화, 음수 증가량 무시.
 - GuardianVpnService의 `recordIgnoredPacket` 및 `recordDnsActivity`가 모두 해당 helper를 사용하도록 연결된 것을 원격 소스에서 재확인했습니다. Android SharedPreferences/JUnit·실기기 통계 검증은 미실행입니다.
+
+
+## 2026-11-24 — 기본 필터 asset Gradle preBuild guard
+- Android assets가 `../../shared`를 사용하므로 필수 파일은 repo root `shared/filter_rules.txt`입니다. Gradle `preBuild` 전에 존재·크기·차단 규칙 포함 여부를 확인하도록 validation task를 연결했습니다.
+- 파일 누락/빈 파일/유효 block 규칙 부재는 빌드 오류가 됩니다. sourceSet 및 task 소스는 반영했으나 Android Gradle 실행·APK asset 내부 확인은 미실행입니다.
