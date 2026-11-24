@@ -1,3 +1,10 @@
+## 2026-11-24 — DNS TCP 요청 재전송과 RTO 예산 동기화
+
+- 동일한 원본 DNS 요청 세그먼트가 다시 도착해 응답을 재전송할 때, 기존 구현은 응답 바이트만 복사해 보내고 `lastSentAtMs`·`retransmissionCount`를 갱신하지 않았습니다. 그 결과 RTO가 즉시 뒤따라 중복 송신하거나 재전송 예산을 우회할 수 있었습니다.
+- exact request replay도 `markRetransmitted()`를 사용해 공통 retry budget 및 RTO 타이머를 갱신합니다. 미확인 세그먼트 중 하나라도 재시도 한도를 소진했다면 세션을 종료해 무제한 replay를 막습니다. 이미 누적 ACK된 데이터는 기존대로 재생하지 않습니다.
+- 원본 요청 재전송 후 1초 시점에는 RTO가 발화하지 않고, 재전송 횟수 증가에 따른 2초 백오프가 재전송 시점부터 적용되는 fake-clock 회귀 테스트를 추가했습니다.
+- Android Gradle/JUnit·실기기 검증은 미실행입니다.
+
 ## 2026-11-24 — DNS TCP 32비트 sequence wrap-around 회귀 테스트
 
 - 클라이언트 ISN과 서버 ISN을 각각 0xFFFFFFFF 경계에 배치하고 DNS 질의 수신/응답 분할이 32비트 순번 0을 넘어가는 경우를 검증하는 회귀 테스트를 추가했습니다.
