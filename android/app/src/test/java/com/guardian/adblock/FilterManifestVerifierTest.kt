@@ -77,6 +77,19 @@ class FilterManifestVerifierTest {
         }
     }
 
+    @Test fun rejectsNonStandardTlsPortEvenWhenManifestIsSigned() {
+        val pair = keyPair()
+        val bytes = String(payload(), StandardCharsets.UTF_8)
+            .replace("https://filters.example.test/base.txt", "https://filters.example.test:8443/base.txt")
+            .toByteArray(StandardCharsets.UTF_8)
+        try {
+            FilterManifestVerifier.parseAndVerify(
+                bytes, signed(bytes, pair), Base64.getEncoder().encodeToString(pair.public.encoded)
+            )
+            fail("non-standard TLS port must be rejected")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun rejectsHttpAndMalformedSha256EvenWhenSigned() {
         val pair = keyPair()
         val badUrl = String(payload(), StandardCharsets.UTF_8)
