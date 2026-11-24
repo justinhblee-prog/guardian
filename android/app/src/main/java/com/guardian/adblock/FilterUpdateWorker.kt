@@ -38,8 +38,11 @@ class FilterUpdateWorker(
             )
             val selectedProfile = FilterListManager.selectedProfile(applicationContext)
             val cachedProfile = FilterListManager.cachedProfile(applicationContext)
-            val baseCacheReady = FilterListManager.hasCachedList(applicationContext) &&
-                selectedProfile.key == cachedProfile.key
+            val baseCacheReady = FilterUpdatePolicy.hasUsableMainCache(
+                cacheValid = FilterListManager.hasCachedList(applicationContext),
+                selectedProfileKey = selectedProfile.key,
+                cachedProfileKey = cachedProfile.key
+            )
 
             // A retry caused by an optional list failure must not download the
             // already successful base list again. Each source has its own age.
@@ -142,6 +145,9 @@ internal object FilterUpdatePolicy {
     /** A first-run cache repair is mandatory even if recurring refreshes are opted out. */
     fun shouldRunUpdates(autoUpdateEnabled: Boolean, forceInitialRefresh: Boolean): Boolean =
         autoUpdateEnabled || forceInitialRefresh
+
+    fun hasUsableMainCache(cacheValid: Boolean, selectedProfileKey: String, cachedProfileKey: String): Boolean =
+        cacheValid && selectedProfileKey == cachedProfileKey
 
     fun shouldContinueInitialRetry(forceInitialRefresh: Boolean, runAttemptCount: Int, maxAttempts: Int): Boolean =
         !forceInitialRefresh || (maxAttempts > 0 && runAttemptCount >= 0 && runAttemptCount < maxAttempts)
