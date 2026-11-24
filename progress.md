@@ -275,3 +275,8 @@
 - ThreatAnalyticsStore는 severity count와 최근 title/time만 저장하고 domain/URL은 저장하지 않습니다. MainActivity Premium DEBUG preview에 집계/최근 분류를 표시합니다.
 - Release build에서는 threat assessment/store가 BuildConfig.DEBUG로 비활성입니다. PRO entitlement gate 및 Android validation 전까지 preview-only입니다.
 - DomainFilter evidence tests 추가: ad/tracker/security/user/unknown 분리, allow precedence, important security override. Android Gradle/JUnit, emulator/physical device runtime 검증은 미완료입니다.
+
+
+## 2026-11-24 — Threat Analytics 보안 피드 연결 수정
+- GuardianVpnService가 security feed를 실제 추가한 시점의 source index를 보존해 DomainFilter.loadParsedRuleSources에 넘기도록 연결했습니다. 기존에는 기본 인자(emptySet)로 넘겨 보안 목록 근거가 일반 필터로 잘못 분류될 수 있었습니다.
+- 캐시 미준비 시 source와 index 모두 생략되며, 선택된 보안 feed index는 list 위치에 맞게 기록됩니다. Android Gradle/JUnit 및 기기 검증은 미실행입니다.
