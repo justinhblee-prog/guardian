@@ -30,6 +30,25 @@ class FilterStartupGateTest {
     }
 
     @Test
+    fun optionalCacheReadinessTreatsOrdinaryAndLinkageFailuresAsUnavailable() {
+        assertTrue(FilterStartupGate.isOptionalCacheReady { true })
+        assertFalse(FilterStartupGate.isOptionalCacheReady { false })
+        assertFalse(FilterStartupGate.isOptionalCacheReady { throw IllegalStateException("cache metadata unavailable") })
+        assertFalse(FilterStartupGate.isOptionalCacheReady { throw NoClassDefFoundError("optional cache provider missing") })
+    }
+
+    @Test
+    fun optionalCacheReadinessDoesNotSwallowVirtualMachineFatalErrors() {
+        val fatal = OutOfMemoryError("simulated startup memory exhaustion")
+        try {
+            FilterStartupGate.isOptionalCacheReady { throw fatal }
+            throw AssertionError("Expected OutOfMemoryError to propagate")
+        } catch (actual: OutOfMemoryError) {
+            assertTrue(actual === fatal)
+        }
+    }
+
+    @Test
     fun keepsParsedOptionalFeedWhenItMeetsMinimumRuleCount() {
         var unavailableCalled = false
         val result = FilterStartupGate.loadOptionalRules(
