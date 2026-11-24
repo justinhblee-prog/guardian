@@ -341,3 +341,7 @@
 - `InstalledAppDataCleanupPolicy.kt` 실제 소스를 kotlinc 1.9.0/JRE 21로 컴파일 후 실행했습니다.
 - PASS 8/8: 일치한 두 API만 cleanup 승인, mismatch·permission/query 실패·empty set 거부, complete 목록에서 stale 앱만 선택, incomplete inventory no-op.
 - Android PackageManager/SharedPreferences/OEM 단말 통합 및 Android JUnit은 미실행입니다.
+
+
+## 2026-11-24 — InstalledAppInventory 초기화 순서 컴파일 오류 수정
+- `Snapshot` 생성 전에 snapshot 프로퍼티를 참조하던 오류를 실제 준비된 로컬 변수 참조로 수정했습니다. Android Gradle 컴파일은 미실행이므로 전체 빌드 통과로 확대 해석하지 않습니다.
