@@ -48,6 +48,9 @@ internal object DevUpdateManager {
     internal fun isCanonicalDevelopmentVersionName(versionName: String): Boolean =
         versionName.matches(Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)-dev$"))
 
+    internal fun isSupportedDevelopmentManifestVersion(value: Any?, isPresent: Boolean): Boolean =
+        !isPresent || GuardianStableUpdatePolicy.parseSupportedVersionCode(value) == 1
+
     fun checkForUpdate(): GuardianDevUpdate? {
         val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
         val candidates = ArrayList<ReleaseCandidate>()
@@ -85,6 +88,10 @@ internal object DevUpdateManager {
                 "개발 APK 주소가 허용된 GitHub Release가 아닙니다."
             }
             val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
+            if (!isSupportedDevelopmentManifestVersion(
+                    manifest.opt("manifestVersion"), manifest.has("manifestVersion")
+                )
+            ) continue
             if (manifest.optString("packageName") != PACKAGE_NAME) continue
             val versionCode = GuardianStableUpdatePolicy.parseSupportedVersionCode(manifest.opt("versionCode"))
                 ?: continue
