@@ -93,12 +93,23 @@ internal object ApkStaticAnalyzer {
         if (bytes.size < DEX_HEADER_SIZE) return false
         if (!bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(100, 101, 120, 10))) return false
         if ((4..6).any { bytes[it].toInt() !in 0x30..0x39 } || bytes[7].toInt() != 0) return false
-        val declaredFileSize = littleEndianInt(bytes, 32)
-        val headerSize = littleEndianInt(bytes, 36)
         val endianTag = littleEndianInt(bytes, 40)
-        return declaredFileSize == bytes.size &&
-            headerSize == DEX_HEADER_SIZE &&
-            (endianTag == 0x12345678 || endianTag == 0x78563412)
+        val littleEndian = when (endianTag) {
+            0x12345678 -> true
+            0x78563412 -> false
+            else -> return false
+        }
+        val declaredFileSize = headerInt(bytes, 32, littleEndian)
+        val headerSize = headerInt(bytes, 36, littleEndian)
+        return declaredFileSize == bytes.size && headerSize == DEX_HEADER_SIZE
+    }
+
+    private fun headerInt(bytes: ByteArray, offset: Int, littleEndian: Boolean): Int {
+        if (littleEndian) return littleEndianInt(bytes, offset)
+        return ((bytes[offset].toInt() and 0xff) shl 24) or
+            ((bytes[offset + 1].toInt() and 0xff) shl 16) or
+            ((bytes[offset + 2].toInt() and 0xff) shl 8) or
+            (bytes[offset + 3].toInt() and 0xff)
     }
 
     private fun littleEndianInt(bytes: ByteArray, offset: Int): Int =
