@@ -1816,6 +1816,7 @@ class GuardianVpnService : VpnService() {
     }
 
     @Synchronized
+    @Synchronized
     private fun stopProtection(
         explicitStop: Boolean = false,
         preserveRestoreIntent: Boolean = false
