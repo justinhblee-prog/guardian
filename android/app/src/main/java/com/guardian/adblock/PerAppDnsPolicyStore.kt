@@ -63,6 +63,31 @@ internal object PerAppDnsPolicyStore {
         return parsed.normalizedRules.size
     }
 
+    /** Remove orphaned per-app rules and cached entries after a complete app inventory. */
+    @Synchronized
+    fun pruneUninstalled(
+        context: Context,
+        installedPackages: Set<String>,
+        inventoryComplete: Boolean
+    ): Set<String> {
+        if (!inventoryComplete) return emptySet()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val storedPackages = prefs.all.keys
+            .filter { it.startsWith("rules.") }
+            .map { it.removePrefix("rules.") }
+            .toSet()
+        val cachedPackages = cache.keys.toSet()
+        val stale = InstalledAppDataCleanupPolicy.stalePackages(
+            storedPackages + cachedPackages, installedPackages, true
+        )
+        if (stale.isEmpty()) return emptySet()
+        val editor = prefs.edit()
+        stale.forEach { editor.remove("rules.$it") }
+        editor.apply()
+        stale.forEach(cache::remove)
+        return stale
+    }
+
     @Synchronized
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().commit()
