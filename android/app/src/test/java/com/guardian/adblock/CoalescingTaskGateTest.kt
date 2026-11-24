@@ -51,7 +51,7 @@ class CoalescingTaskGateTest {
         val gate = CoalescingTaskGate()
         assertTrue(gate.request())
         assertFalse(gate.request())
-        assertTrue(gate.releaseAfterFailure())
+        assertTrue(gate.releaseAfterFailure(allowRetry = true))
         assertFalse(gate.completePass())
         assertTrue(gate.request())
         assertFalse(gate.completePass())
