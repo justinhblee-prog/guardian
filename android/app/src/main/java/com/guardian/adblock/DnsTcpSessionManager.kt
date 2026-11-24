@@ -15,6 +15,7 @@ class DnsTcpSessionManager(
     private data class Key(
         val version: Int, val source: String, val destination: String, val sourcePort: Int
     )
+    private data class OutstandingServerPacket(val endSequence: Long, val packet: ByteArray)
     private data class Session(
         val clientInitialSequence: Long,
         var clientNext: Long,
@@ -32,7 +33,8 @@ class DnsTcpSessionManager(
         var lastClientFin: Boolean = false,
         var clientFinReceived: Boolean = false,
         var serverFinSent: Boolean = false,
-        var lastServerReplies: List<ByteArray> = emptyList()
+        var lastServerReplies: List<ByteArray> = emptyList(),
+        val outstandingServerPackets: MutableList<OutstandingServerPacket> = mutableListOf()
     )
 
     private val sessions = LinkedHashMap<Key, Session>()
@@ -104,7 +106,12 @@ class DnsTcpSessionManager(
         // 16-bit window from the TCP header.
         val ackDistance = (tcp.acknowledgement - session.serverAcknowledged) and MASK
         val outstanding = (session.serverNext - session.serverAcknowledged) and MASK
-        if (ackDistance in 1L..outstanding) session.serverAcknowledged = tcp.acknowledgement
+        if (ackDistance in 1L..outstanding) {
+            session.serverAcknowledged = tcp.acknowledgement
+            session.outstandingServerPackets.removeAll {
+                sequenceAtOrAfter(session.serverAcknowledged, it.endSequence)
+            }
+        }
         // RFC 7323-style window update ordering (without window scaling): an older
         // segment must not overwrite a newer advertised receive window. A segment
         // with the same sequence is accepted only when its ACK is not older.
@@ -133,8 +140,12 @@ class DnsTcpSessionManager(
             if (tcp.sequence == session.lastClientSegmentStart &&
                 tcp.payload.contentEquals(session.lastClientPayload) &&
                 tcp.fin == session.lastClientFin) {
-                return if (session.lastServerReplies.isNotEmpty()) session.lastServerReplies
-                    else listOf(ack(tcp, session))
+                val unacknowledged = session.outstandingServerPackets.map { it.packet.copyOf() }
+                return when {
+                    unacknowledged.isNotEmpty() -> unacknowledged
+                    session.lastServerReplies.isNotEmpty() -> session.lastServerReplies
+                    else -> listOf(ack(tcp, session))
+                }
             }
             return listOf(ack(tcp, session))
         }
@@ -240,9 +251,11 @@ class DnsTcpSessionManager(
         if (!session.clientFinReceived || session.serverFinSent || session.pendingServerData.size() != 0) return
         val outstanding = (session.serverNext - session.serverAcknowledged) and MASK
         if (outstanding >= session.peerWindow.toLong()) return
-        replies.add(DnsTcpPacket.response(packet, session.serverNext, session.clientNext,
-            DnsTcpPacket.FIN or DnsTcpPacket.ACK))
+        val finPacket = DnsTcpPacket.response(packet, session.serverNext, session.clientNext,
+            DnsTcpPacket.FIN or DnsTcpPacket.ACK)
         session.serverNext = (session.serverNext + 1L) and MASK
+        session.outstandingServerPackets.add(OutstandingServerPacket(session.serverNext, finPacket.copyOf()))
+        replies.add(finPacket)
         session.serverFinSent = true
     }
 
@@ -257,9 +270,13 @@ class DnsTcpSessionManager(
         while (offset < sendBytes) {
             val count = minOf(maxSegmentPayload, sendBytes - offset)
             val segment = pending.copyOfRange(offset, offset + count)
-            replies.add(DnsTcpPacket.response(packet, session.serverNext, session.clientNext,
-                DnsTcpPacket.ACK or DnsTcpPacket.PSH, segment))
+            val responsePacket = DnsTcpPacket.response(packet, session.serverNext, session.clientNext,
+                DnsTcpPacket.ACK or DnsTcpPacket.PSH, segment)
             session.serverNext = (session.serverNext + count) and MASK
+            session.outstandingServerPackets.add(
+                OutstandingServerPacket(session.serverNext, responsePacket.copyOf())
+            )
+            replies.add(responsePacket)
             offset += count
         }
         session.pendingServerData.reset()
