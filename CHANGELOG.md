@@ -835,3 +835,7 @@
 ### 2026-11-24 — Reject reserved DNS response flags
 - Upstream DNS response validation now rejects the reserved Z bit while continuing to accept legitimate AD/CD response flags.
 - Added a regression test proving a matching response is accepted and the same response with the reserved Z bit is rejected.
+
+
+### 2026-11-24 — DNS policy rejects malformed upstream replies
+- Added policy-level regression coverage proving an upstream DNS response with the reserved Z bit is not forwarded and the client receives a clean SERVFAIL fallback.
