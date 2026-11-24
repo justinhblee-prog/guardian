@@ -108,4 +108,18 @@ class DnsQueryPolicyTest {
         assertNull(DnsQueryPolicy.resolve(byteArrayOf(1, 2, 3)) { calls++; null })
         assertEquals(0, calls)
     }
+    @Test fun upstreamResponseWithReservedDnsZFlagIsRejectedAndReturnsServfail() {
+        DomainFilter.loadRules(listOf("block=ads.example"))
+        val request = query("news.example")
+        val invalidResponse = DomainFilter.makeServfail(request)!!.also {
+            it[3] = (it[3].toInt() or 0x40).toByte()
+        }
+        val result = DnsQueryPolicy.resolve(request) { invalidResponse }
+        assertNotNull(result)
+        assertFalse(result!!.blocked)
+        assertFalse(result.forwarded)
+        assertEquals(2, result.response[3].toInt() and 0x0f)
+        assertEquals(0, result.response[3].toInt() and 0x40)
+    }
+
 }
