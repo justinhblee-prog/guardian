@@ -132,9 +132,11 @@ class DnsTcpSessionManager(
                 session.duplicateAckSequence = tcp.acknowledgement
                 session.duplicateAckCount = 1
             } else {
-                session.duplicateAckCount = (session.duplicateAckCount + 1).coerceAtMost(3)
+                session.duplicateAckCount = (session.duplicateAckCount + 1).coerceAtMost(4)
             }
-            if (session.duplicateAckCount >= 3) {
+            // Fire fast retransmit once per ACK number; further duplicate ACKs
+            // must not repeatedly flood the same oldest segment.
+            if (session.duplicateAckCount == 3) {
                 fastRetransmit = session.outstandingServerPackets.firstOrNull()?.packet?.copyOf()
             }
         }
