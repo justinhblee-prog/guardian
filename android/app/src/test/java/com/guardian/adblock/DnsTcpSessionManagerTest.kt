@@ -977,6 +977,53 @@ class DnsTcpSessionManagerTest {
         assertArrayEquals(sent[1], manager.retransmitDue().single())
     }
 
+    @Test fun clientAndServerSequenceNumbersWrapAcrossZeroWithoutLosingDnsAckState() {
+        val clientInitial = 0xfffffffCL
+        val clientNext = (clientInitial + 1L + dnsQuery().size + 2L) and 0xffffffffL
+        val manager = DnsTcpSessionManager(random = deterministicRandom(-2))
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = clientInitial)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
+        assertEquals(0xfffffffEL, synAck.sequence)
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        assertEquals(0xffffffffL, serverStart)
+
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val request = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = (clientInitial + 1L) and 0xffffffffL,
+            acknowledgment = serverStart,
+            payload = framedQuery
+        )
+        val sent = manager.handle(request, request.size) { ByteArray(3000) }
+        assertEquals(3, sent.size)
+        val first = DnsTcpPacket.parse(sent[0], sent[0].size, 53000)!!
+        val second = DnsTcpPacket.parse(sent[1], sent[1].size, 53000)!!
+        assertEquals(0xffffffffL, first.sequence)
+        assertEquals(1199L, second.sequence)
+        assertTrue(clientNext < clientInitial)
+
+        val wrappedAck = (serverStart + first.payload.size) and 0xffffffffL
+        assertEquals(1199L, wrappedAck)
+        val partialAck = packet(
+            flags = DnsTcpPacket.ACK,
+            seq = clientNext,
+            acknowledgment = wrappedAck
+        )
+        assertTrue(manager.handle(partialAck, partialAck.size) { null }.isEmpty())
+
+        repeat(3) { index ->
+            val duplicateAck = packet(
+                flags = DnsTcpPacket.ACK,
+                seq = clientNext,
+                acknowledgment = wrappedAck
+            )
+            val result = manager.handle(duplicateAck, duplicateAck.size) { null }
+            if (index < 2) assertTrue(result.isEmpty())
+            else assertArrayEquals(sent[1], result.single())
+        }
+    }
+
     @Test fun retransmitsOldestOutstandingDnsAnswerAfterThreeDuplicateAcks() {
         val manager = newManager()
         val query = dnsQuery()
@@ -1125,8 +1172,8 @@ class DnsTcpSessionManagerTest {
     private fun newManager(): DnsTcpSessionManager =
         DnsTcpSessionManager(random = deterministicRandom())
 
-    private fun deterministicRandom(): SecureRandom = object : SecureRandom() {
-        override fun nextInt(): Int = 0
+    private fun deterministicRandom(value: Int = 0): SecureRandom = object : SecureRandom() {
+        override fun nextInt(): Int = value
     }
 
     private fun dnsQuery(): ByteArray = byteArrayOf(
