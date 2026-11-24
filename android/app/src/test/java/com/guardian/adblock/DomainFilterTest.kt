@@ -152,6 +152,31 @@ class DomainFilterTest {
         assertTrue(DomainFilter.isBlocked("overlap.example"))
     }
 
+    @Test fun userAllowOverridesUserAndOrdinaryFeedBlocksButNotImportantBlocks() {
+        DomainFilter.loadParsedRuleSources(
+            sources = listOf({ FilterRuleParser.parse(
+                "block=ordinary.example\\nblock-important=critical.example"
+            ) }),
+            minimumRuleCounts = listOf(1),
+            userBlockDomains = listOf("user-only.example", "shared.example", "critical.example"),
+            userAllowDomains = listOf("user-only.example", "shared.example", "ordinary.example", "critical.example"),
+            sourceKinds = listOf(DomainFilter.RuleSource.SECURITY_INTELLIGENCE)
+        )
+
+        assertFalse(DomainFilter.isBlocked("user-only.example"))
+        assertNull(DomainFilter.blockAttribution("user-only.example"))
+        assertFalse(DomainFilter.isBlocked("shared.example"))
+        assertNull(DomainFilter.blockAttribution("shared.example"))
+        assertFalse(DomainFilter.isBlocked("ordinary.example"))
+        assertNull(DomainFilter.blockAttribution("ordinary.example"))
+
+        assertTrue(DomainFilter.isBlocked("critical.example"))
+        assertEquals(
+            setOf(DomainFilter.RuleSource.SECURITY_INTELLIGENCE),
+            DomainFilter.blockAttribution("critical.example")?.sources
+        )
+    }
+
     @Test fun rejectsSharedRulesWithoutValidBlockEntries() {
         assertThrows(IllegalArgumentException::class.java) {
             DomainFilter.loadRules(listOf("# empty", "block=bad domain", "allow=example.com", "unknown=ads.example"))
