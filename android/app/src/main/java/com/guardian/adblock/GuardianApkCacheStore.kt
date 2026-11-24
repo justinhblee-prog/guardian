@@ -24,15 +24,24 @@ internal object GuardianApkCacheStore {
             "APK 캐시 디렉터리를 만들 수 없습니다."
         }
         val backup = File(directory, "${target.name}.bak")
-        recover(target, backup, moveFile)
-        val hadPrevious = target.isFile
-        if (hadPrevious) moveFile(target, backup)
+        var hadPrevious = false
         try {
+            recover(target, backup, moveFile)
+            hadPrevious = target.isFile
+            if (hadPrevious) moveFile(target, backup)
             moveFile(temporary, target)
             backup.delete()
         } catch (failure: Exception) {
-            target.delete()
-            if (hadPrevious && backup.isFile) {
+            // A filesystem move may complete and then report an I/O failure.
+            // Inspect the actual paths rather than trusting only the return path.
+            if (backup.isFile && !target.isFile) {
+                try {
+                    moveFile(backup, target)
+                } catch (restoreFailure: Exception) {
+                    failure.addSuppressed(restoreFailure)
+                }
+            } else if (hadPrevious && backup.isFile) {
+                target.delete()
                 try {
                     moveFile(backup, target)
                 } catch (restoreFailure: Exception) {
