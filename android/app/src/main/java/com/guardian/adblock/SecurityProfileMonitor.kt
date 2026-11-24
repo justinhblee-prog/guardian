@@ -32,9 +32,11 @@ internal object SecurityProfileStore {
             )
         }.getOrDefault(SecurityProfilePolicy.Id.STRICT)
 
-    fun automaticUpdatesAllowed(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_AUTO_UPDATE_ALLOWED, false)
+    fun automaticUpdatesAllowed(context: Context): Boolean {
+        val stored = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val defaultProfileAllowsUpdates = SecurityProfilePolicy.profile(activeProfileId(context)).automaticFilterUpdates
+        return stored.getBoolean(KEY_AUTO_UPDATE_ALLOWED, defaultProfileAllowsUpdates)
+    }
 
     /** Explicit user selection disables automatic switching before applying the chosen profile. */
     fun applyManualProfile(context: Context, profileId: SecurityProfilePolicy.Id) {
@@ -48,6 +50,8 @@ internal object SecurityProfileStore {
         val currentFilter = prefs.getString(FilterListManager.KEY_FILTER_PROFILE, "adguard") ?: "adguard"
         val currentSecurity = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
         val currentAndroidAds = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+        val currentUpdatePermission = automaticUpdatesAllowed(context)
+        val updatePermissionChanged = currentUpdatePermission != profile.automaticFilterUpdates
         val changed = currentFilter != profile.filterProfileKey ||
             currentSecurity != profile.securityFilterEnabled ||
             currentAndroidAds != profile.androidAdsFilterEnabled
@@ -62,6 +66,11 @@ internal object SecurityProfileStore {
             .putBoolean(KEY_AUTO_UPDATE_ALLOWED, profile.automaticFilterUpdates)
             .apply()
 
+        // The profile's metered/unmetered policy gates only recurring WorkManager
+        // updates. Mandatory first-run filter population remains unaffected.
+        if (updatePermissionChanged) {
+            runCatching { FilterUpdateScheduler.sync(context) }
+        }
         if (changed && prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)) {
             runCatching {
                 context.startService(
