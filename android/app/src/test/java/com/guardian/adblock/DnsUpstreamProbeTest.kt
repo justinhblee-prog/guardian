@@ -79,6 +79,62 @@ class DnsUpstreamProbeTest {
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, shortAddress))
     }
 
+    @Test fun rejectsUnrelatedARecordAsProofOfTheQueriedName() {
+        val query = DnsUpstreamProbe.query()
+        val headerAndQuestion = DomainFilter.makeServfail(query)!!
+        headerAndQuestion[2] = 0x81.toByte()
+        headerAndQuestion[3] = 0x80.toByte()
+        headerAndQuestion[6] = 0
+        headerAndQuestion[7] = 1
+        val unrelated = headerAndQuestion + byteArrayOf(
+            0x07, 0x75, 0x6e, 0x72, 0x65, 0x6c, 0x61, 0x74, 0x65, 0x64,
+            0x07, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65,
+            0x03, 0x63, 0x6f, 0x6d, 0x00,
+            0x00, 0x01, 0x00, 0x01, 0, 0, 0, 60, 0, 4,
+            0x5d, 0xb8.toByte(), 0xd8.toByte(), 0x22
+        )
+        assertTrue(DomainFilter.isMatchingResponse(query, unrelated))
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, unrelated))
+    }
+
+    @Test fun acceptsAddressReachedThroughAValidCnameChain() {
+        val query = DnsUpstreamProbe.query()
+        val headerAndQuestion = DomainFilter.makeServfail(query)!!
+        headerAndQuestion[2] = 0x81.toByte()
+        headerAndQuestion[3] = 0x80.toByte()
+        headerAndQuestion[6] = 0
+        headerAndQuestion[7] = 2
+        val cnameTarget = byteArrayOf(
+            0x04, 0x65, 0x64, 0x67, 0x65,
+            0x07, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65,
+            0x03, 0x6e, 0x65, 0x74, 0
+        )
+        val cname = byteArrayOf(
+            0xc0.toByte(), 0x0c, 0x00, 0x05, 0x00, 0x01,
+            0, 0, 0, 60, 0, cnameTarget.size.toByte()
+        ) + cnameTarget
+        val targetOffset = headerAndQuestion.size + cname.size - cnameTarget.size
+        val address = byteArrayOf(
+            0xc0.toByte(), targetOffset.toByte(), 0x00, 0x01, 0x00, 0x01,
+            0, 0, 0, 60, 0, 4, 0x5d, 0xb8.toByte(), 0xd8.toByte(), 0x22
+        )
+        assertTrue(DnsUpstreamProbe.isSuccessfulResolution(query, headerAndQuestion + cname + address))
+    }
+
+    @Test fun rejectsMalformedCnameTargetLength() {
+        val query = DnsUpstreamProbe.query()
+        val headerAndQuestion = DomainFilter.makeServfail(query)!!
+        headerAndQuestion[2] = 0x81.toByte()
+        headerAndQuestion[3] = 0x80.toByte()
+        headerAndQuestion[6] = 0
+        headerAndQuestion[7] = 1
+        val malformed = headerAndQuestion + byteArrayOf(
+            0xc0.toByte(), 0x0c, 0x00, 0x05, 0x00, 0x01,
+            0, 0, 0, 60, 0, 2, 0x03, 0x66
+        )
+        assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, malformed))
+    }
+
     @Test fun rejectsARecordOnlyInAdditionalSection() {
         val query = DnsUpstreamProbe.query()
         val additionalOnly = successfulResponse(query).also {
