@@ -38,7 +38,12 @@ def resolve_premium_entry(hierarchy: str) -> str:
 def resolve_premium_category(hierarchy: str) -> str:
     """Return the exact Settings category label used by the current build."""
     root = _root(hierarchy)
-    labels = [node.attrib.get("text", "").strip() for node in root.iter("node")]
+    labels = [
+        node.attrib.get("text", "").strip()
+        for node in root.iter("node")
+        if node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("enabled", "true") == "true"
+    ]
     for label in ("라이선스 및 프리미엄", "라이선스 및 Premium"):
         if any(label == text or label in text for text in labels):
             return label
