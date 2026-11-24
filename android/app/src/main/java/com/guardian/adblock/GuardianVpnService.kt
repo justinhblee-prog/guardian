@@ -663,13 +663,10 @@ class GuardianVpnService : VpnService() {
             }
         }
         if (!committed) {
+            // A rejected descriptor belongs only to this stale start request.
+            // A newer start (or an explicit stop) owns foreground/service cleanup;
+            // touching either here could remove the newer request's notification.
             try { descriptor.close() } catch (_: Exception) { }
-            val compatibilityPaused = getSharedPreferences(PREFS, MODE_PRIVATE)
-                .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
-            if (!compatibilityPaused) {
-                try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-                stopSelf(startId)
-            }
         }
     }
 
