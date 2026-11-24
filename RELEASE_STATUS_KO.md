@@ -799,3 +799,4 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 회귀 테스트 2건 추가: 비정규/음수/과도한 길이의 저장값 거부, 음수 상태에서 업데이트 기록 거부 및 원본 상태 보존.
 - 코드 커밋: `26b7ae1a10ea87b6ab1506e6fc4decd6012e44a6` 및 검증 헬퍼 보완 `954bad6342bbea9b079d2a2e8eb720539479565d`; 테스트 커밋: `b5fb39d27485bdc9a5de1030a20dfb13d20390e9` 및 Properties 파서 동작에 맞춘 사례 정리 `138cb4ac52419599debe64a383835660b98a2e57`.
 - GitHub 원격 파일을 다시 조회해 코드와 테스트가 브랜치에 반영된 것을 확인했습니다. Android JUnit 실행은 아직 하지 않았으며, 테스트 통과로 간주하지 않습니다.
+- 추가 확인: 변경된 `ManifestTimestampStore` 본문을 별도 Kotlin/JVM 하네스로 컴파일하고 실행했습니다. 정상 시각 저장·재조회, 잘못된 값 4종 거부, 손상 상태 덮어쓰기 거부가 모두 PASS였습니다. 이는 해당 클래스의 집중 검사이며 Android Gradle/JUnit 전체 실행을 대체하지 않습니다.
