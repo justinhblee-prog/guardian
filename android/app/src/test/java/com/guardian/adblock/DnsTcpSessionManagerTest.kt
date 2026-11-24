@@ -814,6 +814,39 @@ class DnsTcpSessionManagerTest {
         replayed.zip(firstTransmission).forEach { (actual, expected) -> assertArrayEquals(expected, actual) }
     }
 
+    @Test fun outOfOrderFutureSequenceCannotAcknowledgeDnsResponseData() {
+        val manager = newManager()
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 8700)
+        val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(),
+            40, 53000)!!
+        val serverStart = (synAck.sequence + 1L) and 0xffffffffL
+        val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 8701, acknowledgment = serverStart, payload = framedQuery)
+        val answer = ByteArray(5000) { (it and 0xff).toByte() }
+        val firstTransmission = manager.handle(request, request.size) { answer }
+        assertTrue(firstTransmission.isNotEmpty())
+        val firstSegments = firstTransmission.map { DnsTcpPacket.parse(it, it.size, 53000)!! }
+        val firstAcknowledgement = (serverStart + firstSegments.first().payload.size) and 0xffffffffL
+        val clientNext = 8701L + framedQuery.size
+
+        // A future client sequence is invalid even when its server ACK is
+        // otherwise plausible. It must not discard the first outstanding packet.
+        val futureAck = packet(flags = DnsTcpPacket.ACK,
+            seq = clientNext + 10L, acknowledgment = firstAcknowledgement, window = 0)
+        val rejected = manager.handle(futureAck, futureAck.size) { null }.single()
+        assertTrue(DnsTcpPacket.parse(rejected, rejected.size, 53000)!!.payload.isEmpty())
+
+        val retransmission = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = 8701, acknowledgment = serverStart, payload = framedQuery)
+        val replayed = manager.handle(retransmission, retransmission.size) { null }
+        assertEquals(firstTransmission.size, replayed.size)
+        replayed.zip(firstTransmission).forEach { (actual, expected) ->
+            assertArrayEquals(expected, actual)
+        }
+    }
+
     @Test fun staleTcpSegmentsCannotOverwriteNewerPeerReceiveWindow() {
         val manager = newManager()
         val query = dnsQuery()
