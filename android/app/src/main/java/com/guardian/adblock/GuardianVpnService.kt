@@ -984,7 +984,11 @@ class GuardianVpnService : VpnService() {
         }
     }
 
+    @Synchronized
     private fun loadConfiguredRules() {
+        // Startup and user-triggered reloads may run on separate worker threads.
+        // Serialize the complete read/parse/swap operation so an older, slower
+        // load cannot publish over a newer rule snapshot or interleave diagnostics.
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val selectedProfile = FilterListManager.selectedProfile(this)
         val cachedProfile = FilterListManager.cachedProfile(this)
