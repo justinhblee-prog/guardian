@@ -8,10 +8,18 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 class ApkStaticAnalyzerTest {
-    private fun dexFixture(text: String, reverseEndian: Boolean = false): ByteArray {
+    private fun dexFixture(
+        text: String,
+        reverseEndian: Boolean = false,
+        version: String = "035"
+    ): ByteArray {
+        require(version in setOf("035", "037", "038", "039", "040", "041"))
+        val headerSize = if (version == "041") 0x78 else 0x70
         val payload = text.toByteArray(Charsets.ISO_8859_1)
-        val bytes = ByteArray(0x70 + payload.size)
-        byteArrayOf(100, 101, 120, 10, 48, 51, 53, 0).copyInto(bytes)
+        val bytes = ByteArray(headerSize + payload.size)
+        byteArrayOf(100, 101, 120, 10).copyInto(bytes)
+        version.toByteArray(Charsets.US_ASCII).copyInto(bytes, 4)
+        bytes[7] = 0
         fun putInt(offset: Int, value: Int) {
             repeat(4) { index ->
                 val shift = if (reverseEndian) (3 - index) * 8 else index * 8
@@ -19,11 +27,15 @@ class ApkStaticAnalyzerTest {
             }
         }
         putInt(32, bytes.size)
-        putInt(36, 0x70)
+        putInt(36, headerSize)
         // The marker has the same numeric value in the file's byte order;
         // reading its bytes as little-endian distinguishes standard vs reverse.
         putInt(40, 0x12345678)
-        payload.copyInto(bytes, 0x70)
+        if (version == "041") {
+            putInt(112, bytes.size)
+            putInt(116, 0)
+        }
+        payload.copyInto(bytes, headerSize)
         return bytes
     }
 
@@ -143,6 +155,32 @@ class ApkStaticAnalyzerTest {
         )
         assertEquals(ApkStaticAnalyzer.Status.SCANNED, littleEndian.status)
         assertEquals(ApkStaticAnalyzer.Status.SCANNED, reverseEndian.status)
+    }
+
+    @Test fun acceptsDex041ContainerHeaderAndRejectsInvalidContainerBounds() {
+        val valid = dexFixture("Lcom/example/Modern;", version = "041")
+        val scanned = ApkStaticAnalyzer.analyze(ByteArrayInputStream(apkWithRawDex(valid)))
+        assertEquals(ApkStaticAnalyzer.Status.SCANNED, scanned.status)
+
+        val wrongContainerSize = valid.copyOf().also { bytes ->
+            val incorrect = bytes.size + 1
+            repeat(4) { index -> bytes[112 + index] = (incorrect ushr (index * 8)).toByte() }
+        }
+        val wrongHeaderOffset = valid.copyOf().also { bytes -> bytes[116] = 1 }
+        listOf(wrongContainerSize, wrongHeaderOffset).forEach { malformed ->
+            assertEquals(
+                ApkStaticAnalyzer.Status.INVALID_APK,
+                ApkStaticAnalyzer.analyze(ByteArrayInputStream(apkWithRawDex(malformed))).status
+            )
+        }
+    }
+
+    @Test fun rejectsUnsupportedDexMagicVersion() {
+        val unsupported = dexFixture("Lcom/example/Unsupported;").also { it[5] = '6'.code.toByte() }
+        assertEquals(
+            ApkStaticAnalyzer.Status.INVALID_APK,
+            ApkStaticAnalyzer.analyze(ByteArrayInputStream(apkWithRawDex(unsupported))).status
+        )
     }
 
     @Test fun rejectsDexHeaderWithWrongDeclaredFileSizeOrHeaderSize() {
