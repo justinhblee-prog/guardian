@@ -1,3 +1,10 @@
+## 2026-11-24 — 개발판 업데이트 리다이렉트·서명 검증 강화
+
+- 개발판 업데이트 확인/다운로드가 `instanceFollowRedirects=true`로 자동 이동한 뒤 최종 URL을 검사하던 경로를 수정했습니다. 각 HTTPS redirect Location을 먼저 allowlist로 검증한 뒤에만 다음 서버에 접속하도록 수동 redirect 처리로 변경했습니다.
+- 개발 APK URL은 공식 저장소·release tag·정확한 manifest/APK asset 이름과 현재 versionCode가 일치해야 다운로드를 시작합니다. 허용 CDN 외부, HTTP, 비표준 포트, 임의 경로는 거부합니다.
+- APK SHA-256 이후 package/version/signer 검증이 실패하면 캐시 파일을 삭제합니다. Manifest의 단일 signer pin에 맞춰 APK와 설치된 개발판 모두 content signer 1개만 허용합니다.
+- redirect host/port, asset path/tag binding, 단일 signer 정책 테스트를 추가했습니다. Android Gradle/JUnit·실제 HTTPS 서버/실기기 업데이트는 미실행입니다.
+
 ## 2026-11-24 — 저장된 앱 제외 항목 검증 및 PackageManager 오류 격리
 
 - 저장된 VPN 앱 제외 항목은 self-package와 `NameNotFoundException`만 분기했기 때문에 malformed package ID 또는 OEM PackageManager의 다른 예외가 VPN 전체 TUN 생성 실패로 번질 수 있었습니다.
