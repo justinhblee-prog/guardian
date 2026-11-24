@@ -30,18 +30,15 @@ class DnsUpstreamCandidatePolicyTest {
     }
 
     @Test fun udpModeRetriesSameResolverOverTcpBeforeMovingToNextCandidate() {
-        val candidates = DnsUpstreamCandidatePolicy.udpCandidates(
+        val attempts = DnsUpstreamCandidatePolicy.udpAttempts(
             "192.0.2.53", listOf("10.0.0.1"), listOf("1.1.1.1"),
             setOf("10.13.37.2", "fd13:37::2")
-        )
-        val attempts = candidates.flatMap { address ->
-            DnsUpstreamCandidatePolicy.transports("udp").map { transport -> "$transport:$address" }
-        }
+        ).map { "${it.transport}:${it.address}" }
         assertEquals(
             listOf(
                 "udp:192.0.2.53", "tcp:192.0.2.53",
-                "udp:10.0.0.1", "tcp:10.0.0.1",
-                "udp:1.1.1.1", "tcp:1.1.1.1"
+                "udp:10.0.0.1",
+                "udp:1.1.1.1"
             ),
             attempts
         )
