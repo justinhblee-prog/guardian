@@ -97,8 +97,8 @@ class DnsTcpSessionManager(
         if (tcp.sequence != session.clientNext && !isExactClientRetransmission) {
             return listOf(ack(tcp, session))
         }
-        // A client cannot acknowledge server sequence space that Guardian has server sequence space that Guardian has
-        // not transmitted. Reject future ACKs before accepting any DNS payload;
+        // A client cannot acknowledge server sequence space Guardian has not
+        // transmitted. Reject future ACKs before accepting any DNS payload;
         // otherwise an invalid segment can mutate the request stream state.
         if (sequenceAfter(tcp.acknowledgement, session.serverNext)) {
             return listOf(ack(tcp, session))
