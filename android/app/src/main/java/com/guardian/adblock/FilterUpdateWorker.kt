@@ -74,7 +74,9 @@ class FilterUpdateWorker(
                     FilterListManager.updateSecurity(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                 } catch (e: Exception) {
-                    optionalFailure = securityCacheReady
+                    // A failed first download is just as retry-worthy as a failed refresh:
+                    // without a cache, this enabled protection layer is not active yet.
+                    optionalFailure = true
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_SECURITY_LAST_ERROR,
                         SafeFailureSummary.codeFor(e)
@@ -106,7 +108,9 @@ class FilterUpdateWorker(
                     FilterListManager.updateAndroidAds(applicationContext)
                     prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                 } catch (e: Exception) {
-                    optionalFailure = optionalFailure || androidAdsCacheReady
+                    // Retry initial population too; otherwise WorkManager would mark the
+                    // run successful and leave this enabled protection layer absent.
+                    optionalFailure = true
                     val editor = prefs.edit().putString(
                         FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
                         SafeFailureSummary.codeFor(e)
