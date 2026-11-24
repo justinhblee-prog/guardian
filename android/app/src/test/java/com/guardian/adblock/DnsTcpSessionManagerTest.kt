@@ -27,6 +27,43 @@ class DnsTcpSessionManagerTest {
         assertEquals(1, manager.activeSessionCount())
     }
 
+    @Test fun differentInitialSynCannotReplaceAnEstablishedFourTuple() {
+        val manager = newManager()
+        val originalClientSequence = 10_500L
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = originalClientSequence)
+        val synAck = DnsTcpPacket.parse(
+            manager.handle(syn, syn.size) { null }.single(), 40, 53000
+        )!!
+        val serverNext = (synAck.sequence + 1L) and 0xffffffffL
+        assertEquals(1, manager.activeSessionCount())
+
+        // A stray SYN reusing the same four-tuple with a different initial
+        // sequence must not evict the established DNS TCP stream.
+        val replacementSyn = packet(flags = DnsTcpPacket.SYN, seq = 20_500L)
+        val rejected = manager.handle(replacementSyn, replacementSyn.size) { null }
+        assertEquals(1, rejected.size)
+        val response = DnsTcpPacket.parse(rejected.single(), rejected.single().size, 53000)!!
+        assertTrue(response.ack)
+        assertFalse(response.syn)
+        assertEquals(originalClientSequence + 1L, response.acknowledgement)
+        assertEquals(1, manager.activeSessionCount())
+
+        val query = dnsQuery()
+        val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
+        val validRequest = packet(
+            flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
+            seq = originalClientSequence + 1L,
+            acknowledgment = serverNext,
+            payload = framedQuery
+        )
+        var resolverCalled = false
+        assertTrue(manager.handle(validRequest, validRequest.size) {
+            resolverCalled = true
+            ByteArray(12)
+        }.isNotEmpty())
+        assertTrue(resolverCalled)
+    }
+
     @Test fun tinyPeerMssCannotGrowOutstandingPacketQueueWithoutBound() {
         val manager = newManager()
         val syn = packet(
