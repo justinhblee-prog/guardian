@@ -325,3 +325,9 @@
 - ApkStaticAnalyzer의 현재 소스 로직을 Kotlin/JVM으로 컴파일해 실제 ZIP/Dex fixture harness를 실행했습니다.
 - 통과: little-endian DEX 헤더, reverse-endian DEX 헤더, 선언 file_size 불일치 거부, 0x70 헤더보다 짧은 DEX 거부, 3개 민감 API 문자열의 HIGH 주의 신호 분류.
 - 결과는 isolated Kotlin/JVM smoke PASS이며 Android Gradle/JUnit·SAF URI·실제 APK 서명/설치·실기기 검증을 의미하지 않습니다. 도구는 전체 악성코드 판정이 아닌 제한적 DEX 문자열 triage로 유지합니다.
+
+
+## 2026-11-24 — APK ZIP EOCD/중앙 디렉터리 확인
+- ApkStaticAnalyzer가 local ZIP entries만 확인하고 종료하지 않도록, 물리 EOF까지 입력을 제한적으로 소비하고 65,557-byte tail 내 EOCD와 central directory entry count/offset/size를 확인합니다.
+- 단일 디스크 ZIP만 허용하고 ZIP64 sentinel/잘린 EOCD/잘못된 comment length/trailing junk/중앙 디렉터리 불일치를 거부합니다. DEX 문자열 검사와 전체 악성코드 판정 범위는 그대로 제한적으로 유지합니다.
+- EOCD 누락/변조/trailing bytes 테스트 추가. Kotlin/JVM smoke 및 Android SAF/JUnit 실행은 별도 검증 후 기록합니다.
