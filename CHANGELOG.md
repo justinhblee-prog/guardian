@@ -1,3 +1,10 @@
+## 2026-11-24 — PRO 위협 분석 저장 버퍼링
+
+- 위협 분석은 차단 DNS 이벤트마다 SharedPreferences에 카운터와 최근 이벤트 문자열을 즉시 기록해 트래픽이 많은 환경에서 디스크 쓰기가 반복될 수 있었습니다.
+- 순수 ThreatAnalyticsAccumulator를 분리해 HIGH/INFORMATIONAL/UNASSESSED 합계와 최대 20개 최근 고정 라벨만 메모리에 모으고, ThreatAnalyticsStore는 5초 간격으로 한 번에 저장합니다. 화면 summary 조회와 VPN 서비스 종료 때는 대기 데이터를 즉시 flush합니다.
+- 기존과 동일하게 도메인·URL을 저장하지 않고 심각도/고정 설명/시각만 저장합니다. 버퍼 합계·drain·최근 20개 경계·null 입력·도메인 미보관 테스트를 추가했습니다.
+- Android SharedPreferences/Service 수명주기 통합은 미실행입니다.
+
 ## 2026-11-24 — 위협 분석 보안 피드 출처 인덱스 연결
 
 - 보안 인텔리전스 피드를 로드했어도 DomainFilter에 securitySourceIndexes를 전달하지 않아, 보안 목록 기반 차단을 AD/TRACKER/UNKNOWN 일반 목록 근거로 분류하던 통합 누락을 수정했습니다.
