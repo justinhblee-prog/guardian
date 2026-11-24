@@ -145,6 +145,31 @@ class DnsDohHttpCodecTest {
         }
     }
 
+    @Test fun readsLengthPrefixedDnsResponseUnderOneSharedReadGuard() {
+        val framed = byteArrayOf(0, dnsMessage.size.toByte()) + dnsMessage
+        var guardedReads = 0
+        assertArrayEquals(
+            dnsMessage,
+            DnsDohHttpCodec.readDnsTcpResponse(ByteArrayInputStream(framed)) { guardedReads++ }
+        )
+        assertTrue(guardedReads >= 2)
+    }
+
+    @Test fun rejectsInvalidDnsTcpFrameLengthBeforeReadingBody() {
+        val invalidFrame = byteArrayOf(0, 16)
+        var guardedReads = 0
+        assertNull(DnsDohHttpCodec.readDnsTcpResponse(ByteArrayInputStream(invalidFrame)) { guardedReads++ })
+        assertTrue(guardedReads >= 1)
+    }
+
+    @Test(expected = SocketTimeoutException::class)
+    fun abortsDnsTcpFrameWhenSharedReadDeadlineExpires() {
+        val framed = byteArrayOf(0, dnsMessage.size.toByte()) + dnsMessage
+        DnsDohHttpCodec.readDnsTcpResponse(ByteArrayInputStream(framed)) {
+            throw SocketTimeoutException("deadline")
+        }
+    }
+
     @Test fun handlesStreamsThatTemporarilyReturnZeroForBulkReads() {
         val response = "HTTP/1.1 200 OK\r\nContent-Type: application/dns-message\r\nContent-Length: 29\r\n\r\n"
             .toByteArray(StandardCharsets.ISO_8859_1) + dnsMessage
