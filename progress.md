@@ -371,3 +371,9 @@
 - 최신 `InstalledAppDataCleanupPolicy`를 kotlinc 1.9.0/JRE 21로 독립 컴파일·실행했습니다.
 - PASS 12/12: 권한/두 PackageManager 성공 여부, 빈 목록·집합 불일치·launcher fallback 추가 발견 시 cleanup 거부, 비완전/빈 설치 목록의 stale 삭제 거부, 완전 일치 목록에서 제거된 패키지만 stale 처리.
 - 이는 순수 정책 로직 검증이며 Android PackageManager/SharedPreferences 통합·Android Gradle/JUnit·실기기 앱 설치/제거 테스트는 미실행입니다.
+
+
+## 2026-11-24 — 앱별 DNS 통계 조회 메인 스레드 차단 제거
+- AppDnsActivityStore.snapshot()과 pending flush는 최대 200 package 항목을 읽으므로 MainActivity UI build에서 분리해 `guardian-app-dns-stats` thread로 이동했습니다.
+- 화면은 즉시 로딩 상태를 표시하고 성공/빈 데이터/오류 상태를 main thread에서 갱신합니다. Activity 종료 또는 preview view detach 이후 도착한 callback은 무시합니다.
+- Android UI/SharedPreferences thread safety, Gradle/JUnit 및 실기기 렌더링 검증은 미실행입니다.
