@@ -132,7 +132,14 @@ internal object GuardianStableUpdateManager {
         if (!sha256(target).equals(update.sha256, ignoreCase = true)) {
             target.delete(); error("다운로드한 정식 APK의 SHA-256 검증에 실패했습니다.")
         }
-        verifyDownloadedPackage(context, target, update)
+        try {
+            verifyDownloadedPackage(context, target, update)
+        } catch (error: Exception) {
+            // A correctly hashed but invalid package/signature must not remain
+            // in the installable update cache after verification fails.
+            target.delete()
+            throw error
+        }
         return target
     }
 
