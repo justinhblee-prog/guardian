@@ -161,6 +161,9 @@ object DomainFilter {
             p++
             if (n == 0) {
                 if (p + 4 > message.size) return null // QTYPE + QCLASS
+                // QTYPE=0 (reserved) and QCLASS=0 (reserved) are not valid
+                // questions. Keep other assigned and extensible values intact.
+                if (u16(message, p) == 0 || u16(message, p + 2) == 0) return null
                 return p + 4
             }
             if ((n and 0xc0) != 0 || n > 63 || p + n > message.size) return null
