@@ -1,20 +1,9 @@
 package com.guardian.adblock
 
 import android.content.Context
+import android.os.SystemClock
 
-internal data class ThreatAnalyticsEvent(
-    val timestampEpochMillis: Long,
-    val severity: ThreatAnalyticsEngine.Severity,
-    val title: String
-)
-internal data class ThreatAnalyticsSummary(
-    val high: Long,
-    val informational: Long,
-    val unassessed: Long,
-    val recent: List<ThreatAnalyticsEvent>
-)
-
-/** Stores aggregate threat classifications only; never persists the queried domain or URL. */
+/** Persists aggregate threat classifications only; queried domains and URLs are never stored. */
 internal object ThreatAnalyticsStore {
     private const val PREFS = "guardian_threat_analytics_v1"
     private const val KEY_HIGH = "high"
@@ -22,36 +11,40 @@ internal object ThreatAnalyticsStore {
     private const val KEY_UNASSESSED = "unassessed"
     private const val KEY_RECENT = "recent_events"
     private const val MAX_RECENT = 20
+    private const val FLUSH_INTERVAL_MILLIS = 5_000L
+
+    private val pending = ThreatAnalyticsAccumulator(MAX_RECENT)
+    private var lastFlushAtElapsedMillis = 0L
 
     @Synchronized
     fun record(context: Context, assessment: ThreatAnalyticsEngine.Assessment?) {
-        assessment ?: return
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val editor = prefs.edit()
-        val key = when (assessment.severity) {
-            ThreatAnalyticsEngine.Severity.HIGH -> KEY_HIGH
-            ThreatAnalyticsEngine.Severity.INFORMATIONAL -> KEY_INFORMATIONAL
-            ThreatAnalyticsEngine.Severity.UNASSESSED -> KEY_UNASSESSED
+        if (assessment == null) return
+        pending.add(assessment, System.currentTimeMillis())
+        val now = SystemClock.elapsedRealtime()
+        if (lastFlushAtElapsedMillis == 0L ||
+            now - lastFlushAtElapsedMillis >= FLUSH_INTERVAL_MILLIS
+        ) {
+            flushPendingLocked(context, now)
         }
-        val old = prefs.getLong(key, 0L).coerceAtLeast(0L)
-        editor.putLong(key, if (Long.MAX_VALUE - old < 1L) Long.MAX_VALUE else old + 1L)
-        val event = System.currentTimeMillis().toString() + "|" +
-            assessment.severity.name + "|" + assessment.title
-        val previous = prefs.getString(KEY_RECENT, "").orEmpty()
-            .lineSequence().filter { it.isNotBlank() }.toList()
-        editor.putString(KEY_RECENT, (listOf(event) + previous).take(MAX_RECENT).joinToString("\n"))
-            .apply()
     }
 
+    @Synchronized
+    fun flushPending(context: Context) {
+        flushPendingLocked(context, SystemClock.elapsedRealtime())
+    }
+
+    @Synchronized
     fun summary(context: Context): ThreatAnalyticsSummary {
+        flushPendingLocked(context, SystemClock.elapsedRealtime())
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val recent = prefs.getString(KEY_RECENT, "").orEmpty().lineSequence()
             .mapNotNull { line ->
                 val parts = line.split('|', limit = 3)
                 if (parts.size != 3) return@mapNotNull null
                 val timestamp = parts[0].toLongOrNull() ?: return@mapNotNull null
-                val severity = runCatching { ThreatAnalyticsEngine.Severity.valueOf(parts[1]) }.getOrNull()
-                    ?: return@mapNotNull null
+                val severity = runCatching {
+                    ThreatAnalyticsEngine.Severity.valueOf(parts[1])
+                }.getOrNull() ?: return@mapNotNull null
                 ThreatAnalyticsEvent(timestamp, severity, parts[2])
             }.take(MAX_RECENT).toList()
         return ThreatAnalyticsSummary(
@@ -64,6 +57,38 @@ internal object ThreatAnalyticsStore {
 
     @Synchronized
     fun clear(context: Context) {
+        pending.drain()
+        lastFlushAtElapsedMillis = 0L
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
     }
+
+    private fun flushPendingLocked(context: Context, nowElapsedMillis: Long) {
+        val batch = pending.drain()
+        if (batch.isEmpty) {
+            lastFlushAtElapsedMillis = nowElapsedMillis
+            return
+        }
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+        editor.putLong(KEY_HIGH, saturatingAdd(
+            prefs.getLong(KEY_HIGH, 0L).coerceAtLeast(0L), batch.high
+        ))
+        editor.putLong(KEY_INFORMATIONAL, saturatingAdd(
+            prefs.getLong(KEY_INFORMATIONAL, 0L).coerceAtLeast(0L), batch.informational
+        ))
+        editor.putLong(KEY_UNASSESSED, saturatingAdd(
+            prefs.getLong(KEY_UNASSESSED, 0L).coerceAtLeast(0L), batch.unassessed
+        ))
+        val previous = prefs.getString(KEY_RECENT, "").orEmpty()
+            .lineSequence().filter { it.isNotBlank() }.toList()
+        val newest = batch.recent.map { event ->
+            event.timestampEpochMillis.toString() + "|" + event.severity.name + "|" + event.title
+        }
+        editor.putString(KEY_RECENT, (newest + previous).take(MAX_RECENT).joinToString("\n"))
+        editor.apply()
+        lastFlushAtElapsedMillis = nowElapsedMillis
+    }
+
+    private fun saturatingAdd(left: Long, right: Long): Long =
+        if (Long.MAX_VALUE - left < right) Long.MAX_VALUE else left + right
 }
