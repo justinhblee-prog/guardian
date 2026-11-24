@@ -137,6 +137,8 @@ class GuardianVpnService : VpnService() {
     private data class PendingStart(val generation: Long, val startId: Int)
     private val pendingStart = AtomicReference<PendingStart?>(null)
     private val startCancellation = VpnStartCancellationGate()
+    // Only the startup DNS preflight is cancellable by a new start/stop request.
+    private val startupDnsDeadline = AtomicReference<DnsQueryDeadline?>(null)
     private val ruleReloadGate = CoalescingTaskGate()
     private val lastStatsBroadcastAt = AtomicLong(0L)
     @Volatile private var lastStartId = 0
@@ -169,7 +171,7 @@ class GuardianVpnService : VpnService() {
                         .getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
                     resumeProtectionAfterCompatibility()
                 } else {
-                    val generation = startCancellation.onStartRequested()
+                    val generation = newStartGeneration()
                     thread(name = "guardian-vpn-start") { startProtection(generation, startId) }
                 }
             }
@@ -198,7 +200,7 @@ class GuardianVpnService : VpnService() {
                     } else if (prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)) {
                         resumeProtectionAfterCompatibility()
                     } else {
-                        val generation = startCancellation.onStartRequested()
+                        val generation = newStartGeneration()
                         thread(name = "guardian-vpn-restore") { startProtection(generation, startId) }
                     }
                 } else {
@@ -420,7 +422,7 @@ class GuardianVpnService : VpnService() {
                 return
             }
 
-            startCancellation.cancel()
+            cancelStartupDnsPreflight()
             pendingStart.set(null)
             tunnelSessionGuard.invalidate {
                 running.set(false)
@@ -549,7 +551,7 @@ class GuardianVpnService : VpnService() {
                             .putBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
                             .remove(AppForegroundPauseSettings.KEY_PAUSED_PACKAGE)
                             .commit()
-                        startCancellation.onStartRequested()
+                        newStartGeneration()
                     }
                 } ?: return@thread
                 // Start outside the monitor: a stop arriving now invalidates this
@@ -582,7 +584,7 @@ class GuardianVpnService : VpnService() {
             publishState(false, "선택 앱 실행 중 VPN이 일시 중지되어 있습니다. 앱을 닫으면 저장된 제외 설정과 함께 자동 재연결됩니다.")
             return
         }
-        startCancellation.cancel()
+        cancelStartupDnsPreflight()
         pendingStart.set(null)
         var oldTun: ParcelFileDescriptor? = null
         tunnelSessionGuard.invalidate {
@@ -617,12 +619,24 @@ class GuardianVpnService : VpnService() {
                 null
             } else {
                 latestPrefs.edit().putBoolean(KEY_ACTIVE, false).commit()
-                startCancellation.onStartRequested()
+                newStartGeneration()
             }
         } ?: return
         // If explicit stop arrives after this point, it cancels this generation
         // before its TUN can be committed.
         startProtection(generation, startId)
+    }
+
+    private fun newStartGeneration(): Long {
+        // A fresh user/system start supersedes any DNS preflight still owned by
+        // the previous request; close its active socket before issuing a generation.
+        cancelStartupDnsPreflight()
+        return startCancellation.onStartRequested()
+    }
+
+    private fun cancelStartupDnsPreflight() {
+        startupDnsDeadline.getAndSet(null)?.cancel()
+        startCancellation.cancel()
     }
 
     private fun startProtection(requestGeneration: Long, startId: Int) {
@@ -735,7 +749,18 @@ class GuardianVpnService : VpnService() {
         // unreachable, leaving the device's normal network untouched is safer
         // than activating a tunnel that makes every website appear offline.
         val preflightQuery = DnsUpstreamProbe.query()
-        val preflightResponse = forwardDns(preflightQuery, requireSuccessfulResolution = true)
+        val preflightDeadline = DnsQueryDeadline.afterMillis(DNS_QUERY_DEADLINE_MS)
+        startupDnsDeadline.set(preflightDeadline)
+        if (!startCancellation.isCurrent(requestGeneration)) preflightDeadline.cancel()
+        val preflightResponse = try {
+            forwardDns(
+                preflightQuery,
+                requireSuccessfulResolution = true,
+                deadline = preflightDeadline
+            )
+        } finally {
+            startupDnsDeadline.compareAndSet(preflightDeadline, null)
+        }
         if (!startCancellation.isCurrent(requestGeneration)) {
             // A newer start, explicit stop, or compatibility transition owns
             // foreground/service cleanup. This stale worker must not touch it.
@@ -1363,10 +1388,10 @@ class GuardianVpnService : VpnService() {
 
     private fun forwardDns(
         query: ByteArray,
-        requireSuccessfulResolution: Boolean = false
+        requireSuccessfulResolution: Boolean = false,
+        deadline: DnsQueryDeadline = DnsQueryDeadline.afterMillis(DNS_QUERY_DEADLINE_MS)
     ): ByteArray? {
         lastUpstreamFailure = null
-        val deadline = DnsQueryDeadline.afterMillis(DNS_QUERY_DEADLINE_MS)
         val configured = configuredUpstreamDns()
         val transport = configuredUpstreamTransport()
         val candidates = when (transport) {
@@ -1904,7 +1929,7 @@ class GuardianVpnService : VpnService() {
                 .commit()
         }
         pendingStart.set(null)
-        startCancellation.cancel()
+        cancelStartupDnsPreflight()
         var wasActive = false
         var stoppedTun: ParcelFileDescriptor? = null
         tunnelSessionGuard.invalidate {
