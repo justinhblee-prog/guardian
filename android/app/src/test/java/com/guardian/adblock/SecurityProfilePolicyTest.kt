@@ -38,6 +38,29 @@ class SecurityProfilePolicyTest {
         )
     }
 
+    @Test fun cellularRoamingCapabilityUsesTravelProfileConservatively() {
+        assertTrue(SecurityProfilePolicy.isCellularRoaming(
+            SecurityProfilePolicy.Transport.CELLULAR,
+            supportsNotRoamingCapability = true,
+            hasNotRoamingCapability = false
+        ))
+        assertFalse(SecurityProfilePolicy.isCellularRoaming(
+            SecurityProfilePolicy.Transport.CELLULAR,
+            supportsNotRoamingCapability = true,
+            hasNotRoamingCapability = true
+        ))
+        assertFalse(SecurityProfilePolicy.isCellularRoaming(
+            SecurityProfilePolicy.Transport.CELLULAR,
+            supportsNotRoamingCapability = false,
+            hasNotRoamingCapability = false
+        ))
+        assertFalse(SecurityProfilePolicy.isCellularRoaming(
+            SecurityProfilePolicy.Transport.WIFI,
+            supportsNotRoamingCapability = true,
+            hasNotRoamingCapability = false
+        ))
+    }
+
     @Test fun roamingTakesPrecedenceOverTransportProfile() {
         assertEquals(
             SecurityProfilePolicy.Id.TRAVEL,
