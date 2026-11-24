@@ -3667,6 +3667,10 @@ class MainActivity : Activity() {
             try {
                 android.util.Log.i("Guardian", "Base filter update request entered")
                 val result = FilterListManager.update(this)
+                // A successful user-triggered first download supersedes any queued
+                // one-time recovery request so WorkManager cannot duplicate it.
+                runCatching { FilterUpdateScheduler.cancelInitialCacheRetry(applicationContext) }
+                    .onFailure { android.util.Log.w("Guardian", "Initial filter retry cancellation failed: ${SafeFailureSummary.codeFor(it)}") }
                 android.util.Log.i("Guardian", "Base filter downloaded: ${result.blocked} rules, ${result.bytes} bytes")
                 val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
@@ -3752,6 +3756,12 @@ class MainActivity : Activity() {
                 }
             } catch (e: Exception) {
                 android.util.Log.e("Guardian", "Base filter update failed: ${SafeFailureSummary.codeFor(e)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(e)}")
+                if (!hadPreviousMainCache) {
+                    runCatching { FilterUpdateScheduler.enqueueInitialCacheRetry(applicationContext) }
+                        .onFailure { retryError ->
+                            android.util.Log.e("Guardian", "Could not schedule initial filter cache retry: ${SafeFailureSummary.codeFor(retryError)}")
+                        }
+                }
                 filterUpdateRunning.set(false)
                 getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
                     .putString(FilterListManager.KEY_LAST_ERROR, SafeFailureSummary.codeFor(e)).apply()
@@ -3759,7 +3769,7 @@ class MainActivity : Activity() {
                     val cacheMessage = if (hadPreviousMainCache) {
                         "이전 정상 필터를 계속 사용합니다."
                     } else {
-                        "앱 내 기본 DNS 규칙으로 보호를 시작할 수 있지만, 추가 광고·추적 필터는 다운로드 후 적용됩니다."
+                        "앱 내 기본 DNS 규칙으로 보호를 시작할 수 있습니다. 추가 광고·추적 필터는 네트워크 연결이 복구되면 백그라운드에서 자동 재시도합니다."
                     }
                     setFilterUpdateStatus("업데이트 실패: ${SafeFailureSummary.describe(e)} · $cacheMessage")
                     filterUpdateButton?.text = "다시 시도"
