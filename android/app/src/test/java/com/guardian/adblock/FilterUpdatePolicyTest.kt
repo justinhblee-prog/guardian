@@ -6,6 +6,12 @@ import org.junit.Test
 
 class FilterUpdatePolicyTest {
     @Test
+    fun enabledOptionalFilterRemainsRetryableAfterItsFirstDownloadFails() {
+        assertTrue(FilterUpdatePolicy.shouldRetryOptionalUpdate(wasEnabled = true))
+        assertFalse(FilterUpdatePolicy.shouldRetryOptionalUpdate(wasEnabled = false))
+    }
+
+    @Test
     fun clockRollbackMakesRefreshDueUntilSuccessfulRefreshResetsTimestamp() {
         val interval = 24L * 60L * 60L * 1000L
 
