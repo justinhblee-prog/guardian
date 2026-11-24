@@ -241,10 +241,16 @@ val validateGuardianSharedFilterAsset by tasks.registering {
         check(guardianSharedFilterAsset.isFile && guardianSharedFilterAsset.length() > 0L) {
             "Required Guardian asset shared/filter_rules.txt is missing or empty."
         }
+        val validDomain = Regex("^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\\.?$")
         val hasBlockRule = guardianSharedFilterAsset.bufferedReader(Charsets.UTF_8).useLines { lines ->
-            lines.any { line ->
-                val rule = line.trim()
-                rule.startsWith("block=") || rule.startsWith("block-important=")
+            lines.any { raw ->
+                val rule = raw.removePrefix("\\uFEFF").substringBefore('#').trim()
+                val domain = when {
+                    rule.startsWith("block-important=", ignoreCase = true) -> rule.substringAfter('=')
+                    rule.startsWith("block=", ignoreCase = true) -> rule.substringAfter('=')
+                    else -> null
+                }
+                domain != null && validDomain.matches(domain.trim().trimEnd('.'))
             }
         }
         check(hasBlockRule) {
