@@ -516,3 +516,8 @@
 - PASS 25/25: SYN/SYN-ACK 세션, MSS 1,200바이트 분할, 세 번째 중복 ACK fast retransmit 및 반복 억제, RTO 1·2·4·8초 backoff와 5회 재시도 한도, 부분 ACK 이후 다음 outstanding timer 재시작, zero-window 응답 대기 및 2KiB window open 배출, 최대 65,535바이트 DNS 프레임과 다음 질의 coalescing.
 - 이어서 `DnsTcpPacket.response` 코덱 경계도 PASS 9/9: IPv4/IPv6 최대 길이 필드·체크섬·재파싱, 양 버전 최대 길이 초과 거부, malformed IPv4/IPv6 Parsed source/destination 주소 길이 거부.
 - 이 결과는 isolated Kotlin/JVM codec/session smoke입니다. Android Gradle/JUnit·lint, `GuardianVpnService` RTO scheduler/TUN 통합, emulator, 실제 IPv4/IPv6 VPN 트래픽 및 Samsung 단말 검증은 미실행입니다. GitHub Actions는 실행하지 않았습니다.
+
+
+## 2026-11-24 — DNS 통계 카운터 overflow 방어
+- `recordDnsActivity`와 `recordIgnoredPacket`의 모든 Long 누적을 포화형 non-negative `DnsStatsCounterPolicy`로 통일했습니다.
+- 손상/음수 저장값은 0 기준으로 복구하고 Long.MAX_VALUE를 넘지 않도록 합니다. pure policy 테스트를 추가했으며 Android SharedPreferences/JUnit은 미실행입니다.
