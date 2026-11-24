@@ -1,3 +1,8 @@
+## 2026-11-24 — 업데이트·VPN 앱 제외 순수 정책 Kotlin 검증
+
+- 개발판 업데이트 URL/태그/자산/redirect host/signer 조건과 VPN 앱 제외 package ID 검증을 순수 Kotlin/JVM으로 컴파일해 31/31 통과했습니다.
+- 이 결과는 순수 정책 함수만 검증합니다. Android Gradle/JUnit, WorkManager·PackageManager, 실제 HTTPS redirect, APK 다운로드/설치, Samsung 실기기 VPN 동작 검증을 의미하지 않습니다.
+
 ## 2026-11-24 — 개발판 업데이트 정책 독립 검증 경로 분리
 
 - 개발판 업데이트의 URL/redirect host/tag·asset binding/version/signer 조건을 Android 의존 `DevUpdateManager`에서 순수 `DevUpdateManagerPolicy`로 분리했습니다.
