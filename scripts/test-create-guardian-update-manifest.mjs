@@ -42,6 +42,12 @@ test('rejects prerelease version names and invalid version codes', async () => {
       apkPath, signatureReportPath: signaturePath, versionName: '1.0.0-rc1',
       versionCode: 1, outputPath
     }), /stable semantic version/);
+    for (const versionName of ['01.2.3', '1.02.3', '1.2.03']) {
+      await assert.rejects(createGuardianUpdateManifest({
+        apkPath, signatureReportPath: signaturePath, versionName,
+        versionCode: 1, outputPath
+      }), /stable semantic version/);
+    }
     await assert.rejects(createGuardianUpdateManifest({
       apkPath, signatureReportPath: signaturePath, versionName: '1.0.0',
       versionCode: 0, outputPath
