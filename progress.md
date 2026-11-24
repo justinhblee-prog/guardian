@@ -696,3 +696,8 @@
 - `ProtectionDiagnostics.recentErrorReport`가 최근 서비스 시작 오류를 안전한 분류로 변환하고, 필터 오류 코드를 최대 3개까지 설명과 함께 포함합니다. 스택은 클래스·메서드·라인 토큰만 허용하며 경로 조각은 통째로 거부합니다.
 - Kotlin 회귀 테스트 2건과 `scripts/test_android_navigation_compat.py`의 고객 지원 버튼→핸들러→보고서 연결 검사를 추가했습니다.
 - 검증 상태: GitHub 원격 파일/커밋 diff 재확인 완료. Android Gradle/JUnit·Python 정적 테스트 실행, lint, emulator, 실기기 및 APK 검증은 미실행입니다.
+
+## 2026-11-24 — 고객지원 진단 복사 실패 복구
+- 진단 정보 수집 중 캐시/필터 상태 조회 등에서 예외가 발생하면 백그라운드 스레드가 종료되며 복사 버튼이 영구 비활성화될 수 있는 경로를 수정했습니다.
+- 수집 및 클립보드 처리 예외를 사용자에게 알리고, 성공/실패와 관계없이 UI 스레드에서 버튼 활성화와 원래 문구 복원을 수행합니다.
+- Python 정적 회귀 테스트를 추가했습니다. Android Gradle/JUnit, Python 테스트 실행, lint, 에뮬레이터 및 실기기 검증은 미실행입니다.
