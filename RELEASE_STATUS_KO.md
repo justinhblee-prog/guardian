@@ -677,3 +677,9 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - 개발 업데이트 다운로드와 manifest/API 응답은 자동 리디렉션을 켠 뒤 최종 호스트를 검사하고 있어, 최초 연결 과정에서 허용되지 않은 리디렉션 대상에 먼저 접속할 수 있었습니다.
 - 정식 업데이트 경로와 동일하게 리디렉션을 수동 처리하도록 변경했습니다. 각 Location을 다음 HTTPS 연결 전에 검사하고, 승인된 GitHub/API·Release asset 호스트만 허용하며 리디렉션은 최대 5회로 제한합니다. 개발 APK 다운로드는 API 호스트를 제외한 공식 Release asset 호스트만 허용합니다.
 - 허용 CDN, HTTP, API 호스트의 APK 다운로드 사용, 위장 도메인, 사용자 정보, 비표준 포트 및 쿼리 문자열을 확인하는 URL 정책 회귀 테스트를 추가했습니다. Android Gradle/JUnit 및 네트워크 통합 테스트는 실행하지 않았습니다.
+
+## 2026-11-24 — 업데이트 설치 대기 상태의 빈 APK 등록 차단
+- 업데이트 상태 저장 계층에서 설치 대기 APK가 일반 파일이며 크기가 1바이트 이상인지 다시 확인하도록 방어 검사를 추가했습니다. 누락/빈 파일은 다운로드 완료 상태로 게시되지 않습니다.
+- 회귀 테스트 `refusesToPublishMissingOrEmptyApkAsInstallable` 추가.
+- 변경 커밋: `22930aa0090f424a438fbb4f4ff16352ad080a60` (상태 검증), `30d4032d4536026a6fdc5495ebf8a24d9bd7c613` (회귀 테스트).
+- 독립 Kotlin/JVM smoke harness: `UPDATE_APK_STATE_SMOKE=PASS` (빈 파일 거부, 유효한 비어 있지 않은 파일 수락). Android Gradle/JUnit, APK 빌드, 실기기 설치 검증은 아직 실행하지 않았습니다.
