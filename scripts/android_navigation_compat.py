@@ -13,14 +13,26 @@ def _root(hierarchy: str) -> ET.Element:
         raise ValueError("Android UI hierarchy is not valid XML") from exc
 
 
+def _actionable_nodes(root: ET.Element):
+    parents = {child: parent for parent in root.iter() for child in parent}
+    for node in root.iter("node"):
+        current = node
+        while current is not None:
+            if (current.attrib.get("visible-to-user", "true") != "true"
+                    or current.attrib.get("enabled", "true") != "true"):
+                break
+            if current.attrib.get("clickable") == "true":
+                yield node
+                break
+            current = parents.get(current)
+
+
 def resolve_premium_entry(hierarchy: str) -> str:
     """Return a stable route for the Premium screen from a UIAutomator dump."""
     root = _root(hierarchy)
     descriptions = {
         node.attrib.get("content-desc", "").strip()
-        for node in root.iter("node")
-        if node.attrib.get("visible-to-user", "true") == "true"
-        and node.attrib.get("enabled", "true") == "true"
+        for node in _actionable_nodes(root)
     }
     # Legacy releases expose Premium as a direct bottom-navigation tab.
     for label in ("Premium", "프리미엄"):
@@ -38,12 +50,7 @@ def resolve_premium_entry(hierarchy: str) -> str:
 def resolve_premium_category(hierarchy: str) -> str:
     """Return the exact Settings category label used by the current build."""
     root = _root(hierarchy)
-    labels = [
-        node.attrib.get("text", "").strip()
-        for node in root.iter("node")
-        if node.attrib.get("visible-to-user", "true") == "true"
-        and node.attrib.get("enabled", "true") == "true"
-    ]
+    labels = [node.attrib.get("text", "").strip() for node in _actionable_nodes(root)]
     for label in ("라이선스 및 프리미엄", "라이선스 및 Premium"):
         if any(label == text or label in text for text in labels):
             return label
@@ -60,9 +67,7 @@ def resolve_settings_item(hierarchy: str, requested: str) -> str:
     candidates = aliases.get(requested, (requested,))
     visible = {
         value.strip()
-        for node in root.iter("node")
-        if node.attrib.get("visible-to-user", "true") == "true"
-        and node.attrib.get("enabled", "true") == "true"
+        for node in _actionable_nodes(root)
         for value in (node.attrib.get("text", ""), node.attrib.get("content-desc", ""))
         if value.strip()
     }
