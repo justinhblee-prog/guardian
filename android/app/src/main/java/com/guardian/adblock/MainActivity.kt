@@ -2249,7 +2249,7 @@ class MainActivity : Activity() {
             securityProfileUpdateStatusText = updatePolicyStatus
             addView(updatePolicyStatus)
             addView(text(
-                "제한: 로밍 자동 감지와 필터 자동 다운로드 스케줄러는 아직 연결되지 않았습니다. 이 개발 미리보기는 PRO 권한을 부여하지 않으며 Release 빌드에서는 자동 전환이 비활성입니다.",
+                "제한: 신뢰 Wi-Fi/업무망 자동 판정과 로밍 자동 감지는 미연결이라 집·업무·여행 프로필은 수동 선택만 가능합니다. 필터 자동 다운로드 스케줄러도 아직 연결되지 않았습니다. 이 미리보기는 PRO 권한을 부여하지 않습니다.",
                 10f, Color.rgb(238, 176, 82), false
             ).withTop(8))
         }
