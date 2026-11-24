@@ -93,6 +93,14 @@ class SecurityProfilePolicyTest {
         }
     }
 
+    @Test fun manualSelectionDoesNotAssumeNetworkIsUnmeteredForFilterDownloads() {
+        SecurityProfilePolicy.Id.values().forEach { id ->
+            val manual = SecurityProfilePolicy.manualSelection(id)
+            assertEquals(id, manual.id)
+            assertFalse(manual.automaticFilterUpdates)
+        }
+    }
+
     @Test fun manualProfileChoicesExposeAllSixDistinctUserFacingProfiles() {
         val labels = SecurityProfilePolicy.Id.values()
             .map { SecurityProfilePolicy.profile(it).label }
