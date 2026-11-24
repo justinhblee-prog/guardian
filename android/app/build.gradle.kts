@@ -244,7 +244,7 @@ val validateGuardianSharedFilterAsset by tasks.registering {
         val validDomain = Regex("^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\\.?$")
         val hasBlockRule = guardianSharedFilterAsset.bufferedReader(Charsets.UTF_8).useLines { lines ->
             lines.any { raw ->
-                val rule = raw.removePrefix("\\uFEFF").substringBefore('#').trim()
+                val rule = raw.removePrefix(0xFEFF.toChar().toString()).substringBefore('#').trim()
                 val domain = when {
                     rule.startsWith("block-important=", ignoreCase = true) -> rule.substringAfter('=')
                     rule.startsWith("block=", ignoreCase = true) -> rule.substringAfter('=')
