@@ -11,7 +11,7 @@ export async function createGuardianUpdateManifest({
   versionCode,
   outputPath
 }) {
-  if (typeof versionName !== 'string' || !/^[0-9]+\.[0-9]+\.[0-9]+$/.test(versionName)) {
+  if (typeof versionName !== 'string' || !/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(versionName)) {
     throw new Error('versionName must be a stable semantic version in x.y.z form.');
   }
   const parsedVersionCode = Number(versionCode);
