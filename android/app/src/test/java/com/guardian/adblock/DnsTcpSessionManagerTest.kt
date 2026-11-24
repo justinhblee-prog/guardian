@@ -719,10 +719,6 @@ class DnsTcpSessionManagerTest {
         // Simulate loss: the client retransmits its original DNS request without
         // acknowledging the first response window. Guardian must replay the
         // outstanding response packets, not silently ACK and lose the DNS answer.
-        val replay = manager.handle(request.copyOf().also {
-            it[34] = 0x08; it[35] = 0x00
-            // The helper packet's TCP checksum is rebuilt by constructing the packet below.
-        }, request.size) { calls++; null }
         val retransmission = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
             seq = 8601, acknowledgment = serverStart, payload = framedQuery, window = 2048)
         val replayed = manager.handle(retransmission, retransmission.size) { calls++; null }
