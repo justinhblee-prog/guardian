@@ -129,10 +129,17 @@ internal object GuardianStableUpdateManager {
             target.delete(); throw error
         } finally { connection.disconnect() }
 
-        if (!sha256(target).equals(update.sha256, ignoreCase = true)) {
-            target.delete(); error("다운로드한 정식 APK의 SHA-256 검증에 실패했습니다.")
+        try {
+            check(sha256(target).equals(update.sha256, ignoreCase = true)) {
+                "다운로드한 정식 APK의 SHA-256 검증에 실패했습니다."
+            }
+            verifyDownloadedPackage(context, target, update)
+        } catch (error: Exception) {
+            // A file that failed package/version/signer verification must never
+            // remain available as a later install candidate in the cache.
+            target.delete()
+            throw error
         }
-        verifyDownloadedPackage(context, target, update)
         return target
     }
 
@@ -165,10 +172,13 @@ internal object GuardianStableUpdateManager {
         val signatures = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else {
             @Suppress("DEPRECATION") info.signatures
         } ?: error("다운로드한 APK의 서명 정보를 읽을 수 없습니다.")
-        val certificate = signatures.firstOrNull()?.toByteArray() ?: error("다운로드한 APK의 서명 인증서가 없습니다.")
-        val actualSigner = fingerprint(certificate)
-        check(actualSigner.equals(update.signerSha256, true)) { "다운로드한 APK의 서명 인증서가 manifest와 일치하지 않습니다." }
-        check(actualSigner == installedSignerSha256(context)) { "다운로드한 APK의 서명 인증서가 설치된 앱과 다릅니다." }
+        val signerFingerprints = signatures.map { signature -> fingerprint(signature.toByteArray()) }
+        check(GuardianStableUpdatePolicy.hasSingleExpectedSigner(signerFingerprints, update.signerSha256)) {
+            "다운로드한 APK는 manifest에 선언된 단일 서명 인증서와 일치하지 않습니다."
+        }
+        check(signerFingerprints.single() == installedSignerSha256(context)) {
+            "다운로드한 APK의 서명 인증서가 설치된 앱과 다릅니다."
+        }
     }
 
     private fun installedSignerSha256(context: Context): String {
@@ -183,7 +193,8 @@ internal object GuardianStableUpdateManager {
         val signatures = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else {
             @Suppress("DEPRECATION") info.signatures
         } ?: error("현재 설치된 앱의 서명 정보를 읽을 수 없습니다.")
-        val certificate = signatures.firstOrNull()?.toByteArray() ?: error("현재 설치된 앱의 서명 인증서를 읽을 수 없습니다.")
+        check(signatures.size == 1) { "현재 설치된 앱이 단일 서명 인증서를 사용하지 않아 자동 업데이트를 진행할 수 없습니다." }
+        val certificate = signatures.single().toByteArray()
         return fingerprint(certificate)
     }
 
