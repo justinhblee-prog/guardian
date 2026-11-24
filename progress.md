@@ -314,3 +314,8 @@
 
 ## 2026-11-24 — reverse-endian DEX 픽스처 정정
 - reverse-endian fixture의 marker 값을 byte order와 맞게 수정해 parser가 endian tag를 정상적으로 구분하도록 했습니다. 검사기 코드 변경은 없습니다.
+
+
+## 2026-11-24 — 피싱 URL 비표준 숫자 IP 호스트 차단
+- 브라우저가 IPv4로 취급할 수 있는 integer, 0x-prefixed hexadecimal 및 축약 numeric 호스트를 일반 DNS 이름으로 통과시키지 않도록 INVALID 처리합니다.
+- 표준 IPv4는 IP_LITERAL_HOST 신호로 유지하고, 비표준 4형식과 잘못된 dotted quad 거부 테스트를 추가했습니다. 실제 브라우저 링크 해석 및 Android JUnit은 미실행입니다.
