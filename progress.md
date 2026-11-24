@@ -349,3 +349,9 @@
 ## 2026-11-24 — 미설정 보안 프로필의 무료 업데이트 기본값 보존
 - profile update permission key가 아직 없는 기존 사용자/초기 설치 상태에서는 active profile(기본 STRICT)의 permission을 기본값으로 사용하도록 변경했습니다. 기본 STRICT가 허용인 동안 기존 무료 auto-update 동작은 유지됩니다.
 - 수동 프로필 적용으로 `false`가 명시 저장된 경우에는 그 값이 우선해 예약 작업을 취소합니다. 미설정 기본 허용/수동 명시 제한 테스트 추가; Android SharedPreferences·WorkManager 검증은 미실행입니다.
+
+
+## 2026-11-24 — 캡티브 포털·미검증 네트워크 업데이트 제한
+- Automatic profile resolution now allows scheduled filter refresh only on validated, non-captive, unmetered networks. Captive portal and unvalidated connections remain STRICT and no longer schedule optional refreshes.
+- Scheduler/Worker still require user opt-in and the active profile gate; first-run required filter population remains on the separate startup path. Policy tests cover captive/unvalidated update denial.
+- Android WorkManager/network transition integration remains unverified.
