@@ -1416,11 +1416,27 @@ about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | t
 expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
 if [[ -z "$expected_current_version" ]] ||
    ! grep -Fq '앱 버전' <<<"$about_version_xml" ||
-   ! grep -Fq "$expected_current_version" <<<"$about_version_xml"; then
-  echo "The About screen did not expose the expected current app version."
+   ! grep -Fq "$expected_current_version" <<<"$about_version_xml" ||
+   ! grep -Fq '회사 및 개발자 정보' <<<"$about_version_xml" ||
+   ! grep -Fq '(주)유진컨설팅' <<<"$about_version_xml"; then
+  echo "The About screen did not expose the expected app version and company information."
   echo "$about_version_xml"
   exit 1
 fi
+open_settings_menu_item "필터링"
+sleep 1
+filtering_settings_xml="$(dump_ui_hierarchy /sdcard/guardian-filtering-settings.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+visible={node.attrib.get("text","").strip() for node in root.iter("node")
+         if node.attrib.get("visible-to-user","true")=="true"}
+required={"사용자 차단 규칙","사용자 허용 규칙","전체 필터 규칙 편집"}
+missing=required-visible
+obsolete={"보호 및 필터 소스","앱별 제외"} & visible
+if missing or obsolete:
+    raise SystemExit("Filtering Settings contents mismatch; missing="+repr(sorted(missing))+" obsolete="+repr(sorted(obsolete)))' <<<"$filtering_settings_xml"
+echo "Settings > 필터링 shows all user block/allow rules and omits duplicate protection-source and app-exclusion entries."
+
 open_settings_menu_item "일반"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-general-settings.xml >/dev/null 2>&1
@@ -1433,13 +1449,18 @@ fi
 tap_text "프로그램 업데이트 확인"
 sleep 1
 updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
-if ! grep -Fq '프로그램 업데이트' <<<"$updates_xml" ||
-   ! grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$updates_xml" ||
-   ! grep -Fq '업데이트 설치' <<<"$updates_xml"; then
-  echo "The dedicated Program Updates screen is missing its version-check/install controls."
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+visible={node.attrib.get("text","").strip() for node in root.iter("node")
+         if node.attrib.get("visible-to-user","true")=="true"}
+required={"일반","프로그램 업데이트","개발 업데이트 확인","업데이트 설치"}
+missing=required-visible
+if missing:
+    raise SystemExit("Inline Program Updates panel is missing: "+repr(sorted(missing)))' <<<"$updates_xml" || {
+  echo "The inline Program Updates panel did not expand inside Settings > General."
   echo "$updates_xml"
   exit 1
-fi
+}
 
 # Exercise the actual development update check, not only the presence of its
 # controls. PR builds are intentionally not published as releases, so the
@@ -1469,20 +1490,14 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
   fi
   echo "Development update check reached the expected latest-version state."
 fi
-echo "Settings > 일반 > 프로그램 업데이트 확인 opens the dedicated Program Updates screen and executes its version check."
+echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater panel and executes its version check."
 tap_content_description "설정"
 sleep 1
-# The redesigned Settings workspace places its explicit app-exit control
-# below the right-hand category content, rather than in the old vertical
-# Settings index. UIAutomator can expose the confirmation dialog between the
-# visibility probe and the tap helper (the underlying text then disappears).
-# Treat an already-open, exact Guardian exit dialog as the expected state.
+# A global header action exposes app exit on every screen. The same
+# confirmation flow is also available from the Settings rail.
+tap_content_description "앱 종료"
+sleep 1
 exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
-if ! grep -Fq 'Guardian 종료' <<<"$exit_confirmation_xml"; then
-  scroll_to_text "앱 종료"
-  sleep 1
-  exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
-fi
 if ! grep -Fq 'Guardian 종료' <<<"$exit_confirmation_xml" ||
    ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
    ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
@@ -1510,8 +1525,7 @@ adb_cmd shell input tap "$cancel_x" "$cancel_y"
 sleep 1
 tap_content_description "설정"
 sleep 1
-# The preceding app-exit check scrolls the right Settings pane to its bottom.
-# Return to the top so the persistent left category rail is inside the viewport.
+# Return to the top so the persistent left category rail remains in view.
 for attempt in $(seq 1 5); do
   adb_cmd shell input swipe 540 420 540 1510 350
   sleep 0.25

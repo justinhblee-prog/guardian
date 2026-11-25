@@ -302,6 +302,57 @@ class MainActivity : Activity() {
         return draft
     }
 
+    private fun animateSettingsPanel(panel: View, expanded: Boolean) {
+        panel.animate().cancel()
+        if (expanded) {
+            panel.visibility = View.VISIBLE
+            panel.alpha = 0f
+            panel.translationY = -dp(14).toFloat()
+            panel.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(230L)
+                .start()
+        } else {
+            panel.animate()
+                .alpha(0f)
+                .translationY(-dp(10).toFloat())
+                .setDuration(180L)
+                .withEndAction {
+                    panel.visibility = View.GONE
+                    panel.alpha = 1f
+                    panel.translationY = 0f
+                }
+                .start()
+        }
+    }
+
+    private fun showExitConfirmation() {
+        AlertDialog.Builder(this)
+            .setTitle("Guardian 종료")
+            .setMessage("앱을 종료하시겠습니까?\n\n종료해도 이미 실행 중인 DNS 보호 VPN은 별도로 중지하지 않는 한 계속 실행됩니다.")
+            .setNegativeButton("취소", null)
+            .setPositiveButton("종료") { _, _ -> finish() }
+            .show()
+            .apply {
+                getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(red)
+                getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(accent)
+            }
+    }
+
+    private fun showPremiumAfterLicenseAction(embedded: Boolean) {
+        tabBackStack.clear()
+        if (embedded) {
+            getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
+                .putString("settings_selected_section_v1", "premium")
+                .putBoolean("settings_pro_activation_expanded_v1", false)
+                .apply()
+            showTab("settings")
+        } else {
+            showTab("premium")
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (tabBackStack.isNotEmpty()) {
@@ -313,16 +364,7 @@ class MainActivity : Activity() {
             showTab("home")
             return
         }
-        AlertDialog.Builder(this)
-            .setTitle("Guardian 종료")
-            .setMessage("앱을 종료하시겠습니까?\n\n종료해도 이미 실행 중인 DNS 보호 VPN은 별도로 중지하지 않는 한 계속 실행됩니다.")
-            .setNegativeButton("취소", null)
-            .setPositiveButton("종료") { _, _ -> finish() }
-            .show()
-            .apply {
-                getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(red)
-                getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(accent)
-            }
+        showExitConfirmation()
     }
 
     override fun onStart() {
@@ -687,6 +729,20 @@ class MainActivity : Activity() {
         val headerSpacer = View(this)
         wrap.addView(headerSpacer, LinearLayout.LayoutParams(0, 1, 1f))
         wrap.addView(companyMark, LinearLayout.LayoutParams(dp(124), dp(42)))
+        val exitButton = TextView(this).apply {
+            text = "⏻"
+            textSize = 22f
+            gravity = Gravity.CENTER
+            setTextColor(muted)
+            background = shape(panel2, 10)
+            contentDescription = "앱 종료"
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { showExitConfirmation() }
+        }
+        wrap.addView(exitButton, LinearLayout.LayoutParams(dp(38), dp(38)).apply {
+            leftMargin = dp(8)
+        })
         return wrap
     }
 
@@ -1439,6 +1495,43 @@ class MainActivity : Activity() {
         // production features or alter LicenseEntitlementStore.
         val developmentPreview = BuildConfig.DEBUG
         val apiReady = LicenseApiClient.isConfigured(this)
+        val settingsPrefs = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
+        val activationExpandedKey = "settings_pro_activation_expanded_v1"
+        val activationExpanded = settingsPrefs.getBoolean(activationExpandedKey, false)
+        val activationPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = shape(panel, 14)
+            visibility = if (activationExpanded) View.VISIBLE else View.GONE
+        }
+        val activationButton = Button(this).apply {
+            text = if (activationExpanded) "PRO 라이선스 활성화 접기" else "PRO 라이선스 활성화"
+            isAllCaps = false
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(bg)
+            background = shape(accent, 12)
+            contentDescription = "PRO 라이선스 활성화 내용 펼치기"
+            setOnClickListener {
+                val expanding = activationPanel.visibility != View.VISIBLE
+                settingsPrefs.edit().putBoolean(activationExpandedKey, expanding).apply()
+                if (expanding && activationPanel.childCount == 0) {
+                    buildLicenseActivation(activationPanel, embedded = true)
+                }
+                animateSettingsPanel(activationPanel, expanding)
+                if (expanding) {
+                    window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                    activationPanel.post {
+                        licenseKeyInput?.let { input ->
+                            input.requestFocus()
+                            val keyboard = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                            keyboard.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                        }
+                    }
+                }
+                text = if (expanding) "PRO 라이선스 활성화 접기" else "PRO 라이선스 활성화"
+                contentDescription = if (expanding) "PRO 라이선스 활성화 내용 접기" else "PRO 라이선스 활성화 내용 펼치기"
+            }
+        }
 
         body.addView(text("Guardian Premium", 26f, white, true))
         body.addView(text(
@@ -1480,17 +1573,13 @@ class MainActivity : Activity() {
                     .format(Date(entitlement.expiresAt * 1000L))
                 addView(text("라이선스 유효 기간 · $expiry 까지", 11f, muted, false).withTop(6))
             }
-            addView(Button(this@MainActivity).apply {
-                text = if (proActive || retainedLicense != null) "PRO 라이선스 관리" else "PRO 라이선스 활성화"
-                isAllCaps = false
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor(bg)
-                background = shape(accent, 12)
-                setOnClickListener {
-                    navigateToTab("license-activation", focusLicenseActivation = true)
-                }
-            }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
+            addView(activationButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
         }.withTop(16))
+
+        if (activationExpanded && activationPanel.childCount == 0) {
+            buildLicenseActivation(activationPanel, embedded = true)
+        }
+        body.addView(activationPanel, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
 
         body.addView(text("멤버십 상태", 18f, white, true).withTop(22))
         body.addView(infoRow(
@@ -1658,11 +1747,12 @@ class MainActivity : Activity() {
             Triple("filtering", "⛨", "필터링"),
             Triple("premium", "◇", "PRO"),
             Triple("support", "?", "지원"),
-            Triple("info", "ⓘ", "정보")
+            Triple("info", "ⓘ", "정보"),
+            Triple("exit", "⏻", "종료")
         )
         val prefs = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
         val selected = prefs.getString("settings_selected_section_v1", "general")
-            ?.takeIf { value -> sections.any { it.first == value } } ?: "general"
+            ?.takeIf { value -> sections.any { it.first == value && it.first != "exit" } } ?: "general"
 
         body.addView(text("설정", 25f, white, true))
         body.addView(text("왼쪽에서 항목을 선택하면 오른쪽에 세부 설정이 표시됩니다.", 12f, muted, false).withTop(4))
@@ -1694,8 +1784,12 @@ class MainActivity : Activity() {
                 isFocusable = true
                 contentDescription = "$label 설정"
                 setOnClickListener {
-                    prefs.edit().putString("settings_selected_section_v1", key).apply()
-                    showTab("settings")
+                    if (key == "exit") {
+                        showExitConfirmation()
+                    } else {
+                        prefs.edit().putString("settings_selected_section_v1", key).apply()
+                        showTab("settings")
+                    }
                 }
             }.withTop(5), LinearLayout.LayoutParams(-1, dp(58)))
         }
@@ -1718,44 +1812,80 @@ class MainActivity : Activity() {
         })
         body.addView(workspace, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
 
-        body.addView(Button(this).apply {
-            text = "앱 종료"
-            isAllCaps = false
-            setTextColor(white)
-            background = shape(panel2, 12)
-            setOnClickListener {
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Guardian 종료")
-                    .setMessage("앱을 종료하시겠습니까?\n\n이미 실행 중인 DNS 보호는 별도로 중지하지 않으면 계속 유지됩니다.")
-                    .setNegativeButton("취소", null)
-                    .setPositiveButton("종료") { _, _ -> finish() }
-                    .show()
-            }
-        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(14) })
     }
 
     private fun buildSettingsFiltering(body: LinearLayout) {
         body.addView(text("필터링", 20f, white, true))
-        body.addView(text("보호 정책과 세부 필터를 관리합니다.", 11f, muted, false).withTop(4))
-        val links = listOf(
-            Triple("보호 및 필터 소스", "보호 상태, 필터 목록과 자동 업데이트", "protection"),
-            Triple("사용자 차단·허용 규칙", "도메인 차단 및 허용 목록", "rules"),
-            Triple("앱별 제외", "선택한 앱의 DNS 필터링 제외", "app-exclusions")
-        )
-        links.forEach { (name, description, destination) ->
-            body.addView(card(panel2, 12).apply {
-                setPadding(dp(12), dp(12), dp(12), dp(12))
-                addView(text(name, 13f, white, true))
-                addView(text(description, 10f, muted, false).withTop(4))
-                addView(Button(this@MainActivity).apply {
-                    text = "열기"
-                    isAllCaps = false
-                    setTextColor(bg)
-                    background = shape(accent, 9)
-                    setOnClickListener { navigateToTab(destination) }
-                }, LinearLayout.LayoutParams(-1, dp(38)).apply { topMargin = dp(8) })
-            }.withTop(8))
+        body.addView(text(
+            "이 화면에는 사용자가 직접 등록한 차단·허용 규칙 전체를 표시합니다. 보호 상태와 공식 필터 소스, 앱별 제외는 각각 전용 메뉴에서 관리합니다.",
+            11f, muted, false
+        ).withTop(4))
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        fun savedRules(key: String): List<String> =
+            (prefs.getString(key, "") ?: "")
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .distinct()
+                .toList()
+
+        fun addRuleGroup(title: String, rules: List<String>, emptyMessage: String) {
+            body.addView(card(panel, 14).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(13), dp(13), dp(13), dp(13))
+                val heading = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(text(title, 14f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(text("${rules.size}개", 11f, accent, true))
+                }
+                addView(heading)
+                if (rules.isEmpty()) {
+                    addView(text(emptyMessage, 11f, muted, false).withTop(9))
+                } else {
+                    val rows = LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                    }
+                    rules.forEachIndexed { index, rule ->
+                        val ruleRow = LinearLayout(this@MainActivity).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding(0, dp(7), 0, dp(7))
+                            addView(text("${index + 1}.", 10f, muted, false),
+                                LinearLayout.LayoutParams(dp(28), -2))
+                            addView(text(rule, 12f, white, false),
+                                LinearLayout.LayoutParams(0, -2, 1f))
+                        }
+                        rows.addView(ruleRow)
+                        if (index < rules.lastIndex) {
+                            rows.addView(View(this@MainActivity).apply {
+                                setBackgroundColor(Color.rgb(66, 70, 77))
+                            }, LinearLayout.LayoutParams(-1, dp(1)))
+                        }
+                    }
+                    addView(rows.withTop(6))
+                }
+            }.withTop(10))
         }
+
+        addRuleGroup(
+            "사용자 차단 규칙",
+            savedRules(GuardianVpnService.KEY_USER_BLOCK),
+            "등록된 사용자 차단 규칙이 없습니다."
+        )
+        addRuleGroup(
+            "사용자 허용 규칙",
+            savedRules(GuardianVpnService.KEY_USER_ALLOW),
+            "등록된 사용자 허용 규칙이 없습니다."
+        )
+        body.addView(Button(this).apply {
+            text = "전체 필터 규칙 편집"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 12)
+            contentDescription = "전체 차단 및 허용 규칙 편집"
+            setOnClickListener { navigateToTab("rules") }
+        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(12) })
     }
 
     private fun buildSettingsSupport(body: LinearLayout) {
@@ -1770,24 +1900,36 @@ class MainActivity : Activity() {
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        body.addView(card(panel, 14).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(14), dp(15), dp(14))
+            addView(text("회사 및 개발자 정보", 14f, white, true))
+            addView(text("(주)유진컨설팅", 14f, accent, true).withTop(9))
+            addView(text("제품: Guardian AdBlock", 12f, white, false).withTop(5))
+            addView(text("제작자: 이학범", 12f, white, false).withTop(4))
+            addView(text("연락처: 010-5201-3121", 12f, muted, false).withTop(4))
+            addView(text("문의 및 지원은 지원 메뉴의 고객 지원 센터를 이용해 주세요.", 11f, muted, false).withTop(8))
+        }.withTop(18))
     }
 
-    private fun buildLicenseActivation(body: LinearLayout) {
-        body.addView(Button(this).apply {
-            text = "←  Premium으로 돌아가기"
-            isAllCaps = false
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            setTextColor(white)
-            background = shape(panel2, 12)
-            setOnClickListener {
-                if (tabBackStack.isNotEmpty()) {
-                    val previous = tabBackStack.removeAt(tabBackStack.lastIndex)
-                    showTab(previous)
-                } else {
-                    showTab("premium")
+    private fun buildLicenseActivation(body: LinearLayout, embedded: Boolean = false) {
+        if (!embedded) {
+            body.addView(Button(this).apply {
+                text = "←  Premium으로 돌아가기"
+                isAllCaps = false
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                setTextColor(white)
+                background = shape(panel2, 12)
+                setOnClickListener {
+                    if (tabBackStack.isNotEmpty()) {
+                        val previous = tabBackStack.removeAt(tabBackStack.lastIndex)
+                        showTab(previous)
+                    } else {
+                        showTab("premium")
+                    }
                 }
-            }
-        }, LinearLayout.LayoutParams(-1, dp(44)).apply { bottomMargin = dp(16) })
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { bottomMargin = dp(16) })
+        }
         body.addView(text("PRO 라이선스 활성화", 25f, white, true))
         body.addView(text("발급받은 라이선스 키를 이 기기에 등록하고 서버 서명 토큰을 확인합니다.", 13f, muted, false).withTop(5))
         val verifiedLicense = LicenseEntitlementStore.current(this)
@@ -1847,7 +1989,7 @@ class MainActivity : Activity() {
                     thread {
                         try {
                             LicenseApiClient.activate(this@MainActivity, key, BuildConfig.VERSION_NAME)
-                            runOnUiThread { tabBackStack.clear(); showTab("premium") }
+                            runOnUiThread { showPremiumAfterLicenseAction(embedded) }
                         } catch (error: Exception) {
                             runOnUiThread {
                                 licenseFeedback.text = "라이선스 활성화 실패: ${SafeFailureSummary.describe(error)}"
@@ -1870,12 +2012,12 @@ class MainActivity : Activity() {
                         thread {
                             try {
                                 LicenseApiClient.refresh(this@MainActivity)
-                                runOnUiThread { tabBackStack.clear(); showTab("premium") }
+                                runOnUiThread { showPremiumAfterLicenseAction(embedded) }
                             } catch (error: Exception) {
                                 runOnUiThread {
                                     if (error is LicenseApiException && error.invalidatesEntitlement) {
                                         // Rebuild settings after the local signed token was cleared.
-                                        tabBackStack.clear(); showTab("premium")
+                                        showPremiumAfterLicenseAction(embedded)
                                     } else {
                                         licenseFeedback.text = "라이선스 갱신 실패: ${SafeFailureSummary.describe(error)}"
                                         isEnabled = true
@@ -1896,7 +2038,7 @@ class MainActivity : Activity() {
                         thread {
                             try {
                                 LicenseApiClient.deactivate(this@MainActivity)
-                                runOnUiThread { tabBackStack.clear(); showTab("premium") }
+                                runOnUiThread { showPremiumAfterLicenseAction(embedded) }
                             } catch (error: Exception) {
                                 runOnUiThread {
                                     licenseFeedback.text = "기기 등록 해제 실패: ${SafeFailureSummary.describe(error)}"
@@ -1915,13 +2057,33 @@ class MainActivity : Activity() {
     private fun buildSettingsGeneral(body: LinearLayout) {
         body.addView(text("일반", 25f, white, true))
         body.addView(text("Guardian 앱 업데이트와 운영 서버 연결을 관리합니다.", 13f, muted, false).withTop(5))
-        body.addView(Button(this).apply {
-            text = "프로그램 업데이트 확인"
+        val settingsPrefs = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
+        val updateExpandedKey = "settings_general_updates_expanded_v1"
+        val updateExpanded = settingsPrefs.getBoolean(updateExpandedKey, false)
+        val updatePanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = shape(panel, 14)
+            visibility = if (updateExpanded) View.VISIBLE else View.GONE
+        }
+        if (updateExpanded) buildUpdates(updatePanel)
+        val updateButton = Button(this).apply {
+            text = if (updateExpanded) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
             isAllCaps = false
             setTextColor(bg)
             background = shape(accent, 12)
-            setOnClickListener { navigateToTab("updates") }
-        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(14) })
+            contentDescription = "프로그램 업데이트 확인 내용 펼치기"
+            setOnClickListener {
+                val expanding = updatePanel.visibility != View.VISIBLE
+                settingsPrefs.edit().putBoolean(updateExpandedKey, expanding).apply()
+                if (expanding && updatePanel.childCount == 0) buildUpdates(updatePanel)
+                animateSettingsPanel(updatePanel, expanding)
+                text = if (expanding) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
+                contentDescription = if (expanding) "프로그램 업데이트 확인 내용 접기" else "프로그램 업데이트 확인 내용 펼치기"
+            }
+        }
+        body.addView(updateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(14) })
+        body.addView(updatePanel, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("운영 서버 주소 (노트북)", 15f, white, true))
@@ -2024,13 +2186,6 @@ class MainActivity : Activity() {
                     filterServerFeedback.text = "빌드 기본 주소로 되돌렸습니다."
                 }
             }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(6) })
-        }.withTop(12))
-        body.addView(card(panel, 14).apply {
-            setPadding(dp(15), dp(13), dp(15), dp(13))
-            addView(text("제작자 및 개발사", 13f, white, true))
-            addView(text("(주)유진컨설팅", 13f, accent, true).withTop(8))
-            addView(text("제작자: 이학범", 12f, white, false).withTop(4))
-            addView(text("연락처: 010-5201-3121", 12f, muted, false).withTop(3))
         }.withTop(12))
         body.addView(text("DNS 업스트림 서버 · 암호화 연결", 18f, white, true).withTop(24))
         body.addView(text("차단되지 않은 DNS 질의를 전달할 서버를 선택합니다.", 12f, muted, false).withTop(5))

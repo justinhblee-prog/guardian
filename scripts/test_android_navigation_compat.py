@@ -58,6 +58,10 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         xml = '<hierarchy><node text="라이선스 및 프리미엄" /></hierarchy>'
         self.assertEqual(resolve_premium_category(xml), "라이선스 및 프리미엄")
 
+    def test_filtering_settings_category_is_supported(self):
+        xml = '<hierarchy><node text="필터링" visible-to-user="true" /></hierarchy>'
+        self.assertEqual(resolve_settings_item(xml, "필터링"), "필터링")
+
     def test_current_app_exclusion_settings_label_is_supported(self):
         xml = '<hierarchy><node text="앱 제외 관리" visible-to-user="true" /></hierarchy>'
         self.assertEqual(resolve_settings_item(xml, "앱 제외 관리"), "앱 제외 관리")
@@ -69,6 +73,10 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
     def test_legacy_filter_settings_label_is_supported(self):
         xml = '<hierarchy><node content-desc="필터 규칙" visible-to-user="true" /></hierarchy>'
         self.assertEqual(resolve_settings_item(xml, "필터 관리"), "필터 규칙")
+
+    def test_missing_filtering_settings_item_fails_closed(self):
+        with self.assertRaises(ValueError):
+            resolve_settings_item('<hierarchy><node text="일반" /></hierarchy>', "필터링")
 
     def test_missing_settings_item_fails_closed(self):
         with self.assertRaises(ValueError):
