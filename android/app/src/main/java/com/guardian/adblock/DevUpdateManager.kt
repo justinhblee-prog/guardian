@@ -226,7 +226,7 @@ internal object DevUpdateManager {
                             .split('/').filter { it.isNotEmpty() }.size >= 2
                 // GitHub's signed release-asset CDN uses query parameters, so retain them.
                 "release-assets.githubusercontent.com",
-                "objects.githubusercontent.com" -> !uri.path.isNullOrBlank()
+                "objects.githubusercontent.com" -> !uri.path.isNullOrBlank() && uri.path != "/"
                 else -> false
             }
     }.getOrDefault(false)
