@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: '0 19 * * *'
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/guardian-daily-filter-publish.yml'
+      - 'server/filter-distribution/**'
   push:
     branches: [main]
     paths:
@@ -20,8 +24,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-workflow:
+    name: Validate filter automation source
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate publisher and approval gate syntax
+        run: |
+          node --check server/filter-distribution/scripts/update-filters.mjs
+          node --check server/filter-distribution/scripts/publish-manifest.mjs
+          node --check server/filter-distribution/scripts/verify-production-approvals.mjs
+          node --check server/filter-distribution/scripts/verify-production-approvals.mjs
+
   build-and-publish:
     name: Collect, validate, sign and publish daily filters
+    if: github.event_name != 'pull_request'
+    needs: validate-workflow
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -45,6 +66,7 @@ jobs:
           const key = process.env.FILTER_SIGNING_PRIVATE_KEY;
           if (!raw) throw new Error('Missing repository variable GUARDIAN_FILTER_SOURCES_JSON.');
           if (!key?.trim()) throw new Error('Missing repository secret GUARDIAN_FILTER_SIGNING_PRIVATE_KEY.');
+          if (!process.env.FILTER_EXPECTED_PUBLIC_KEY?.trim()) throw new Error('Missing GUARDIAN_MANIFEST_PUBLIC_KEY repository secret or variable.');
           const config = JSON.parse(raw);
           if (!Array.isArray(config.sources) || config.sources.length === 0) {
             throw new Error('GUARDIAN_FILTER_SOURCES_JSON must contain a non-empty sources array.');
