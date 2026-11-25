@@ -1374,7 +1374,7 @@ class MainActivity : Activity() {
                                     downloaded = apk
                                     feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 개발 서명 인증서 검증 통과."
                                     setUpdateInstallButtonReady(installButton, true)
-                                    isEnabled = true
+                                    isEnabled = false
                                 }
                             }
                         } else {
@@ -1393,7 +1393,7 @@ class MainActivity : Activity() {
                                     downloaded = apk
                                     feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
                                     setUpdateInstallButtonReady(installButton, true)
-                                    isEnabled = true
+                                    isEnabled = false
                                 }
                             }
                         }
