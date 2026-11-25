@@ -17,5 +17,5 @@ object GuardianNavigation {
     val settingsItems = listOf("general", "filtering", "license-premium", "support", "info", "exit")
 
     fun isSettingsDestination(tab: String): Boolean =
-        tab in setOf("settings", "settings-general", "settings-support", "settings-info", "updates", "rules", "premium")
+        tab in setOf("settings", "settings-general", "settings-support", "settings-info", "updates", "rules", "premium", "license-activation")
 }
