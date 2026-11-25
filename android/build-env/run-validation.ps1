@@ -26,12 +26,22 @@ function Invoke-LoggedNative {
 
     Write-LogLine ""
     Write-LogLine ("> " + $FilePath + " " + ($Arguments -join " "))
-    & $FilePath @Arguments 2>&1 | ForEach-Object {
-        $line = [string]$_
-        Add-Content -LiteralPath $logPath -Value $line -Encoding UTF8
-        Write-Host $line
+    # Windows PowerShell 5.1 promotes redirected native stderr to ErrorRecord.
+    # BuildKit writes normal progress to stderr, so Stop would abort on its first
+    # progress line (for example "#0 building with ...") before the process ends.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & $FilePath @Arguments 2>&1 | ForEach-Object {
+            $line = [string]$_
+            Add-Content -LiteralPath $logPath -Value $line -Encoding UTF8
+            Write-Host $line
+        }
+        $nativeExitCode = $LASTEXITCODE
     }
-    $nativeExitCode = $LASTEXITCODE
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     Write-LogLine ("Exit code: " + $nativeExitCode)
     return [int]$nativeExitCode
 }
