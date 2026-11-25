@@ -1853,6 +1853,46 @@ class MainActivity : Activity() {
             }.withTop(8))
         }
 
+        if (proActive || developmentPreview) {
+            val reportPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            val reportRaw = reportPrefs.getString(PremiumReportPolicy.PREFERENCE_KEY, "").orEmpty()
+            val reportToday = java.time.LocalDate.now()
+            val report7Days = PremiumReportPolicy.summarize(reportRaw, reportToday.minusDays(6), reportToday)
+            val report30Days = PremiumReportPolicy.summarize(reportRaw, reportToday.minusDays(29), reportToday)
+            val formatCount: (Long) -> String = {
+                java.text.NumberFormat.getIntegerInstance(Locale.getDefault()).format(it)
+            }
+            body.addView(card(panel, 16).apply {
+                setPadding(dp(16), dp(15), dp(16), dp(15))
+                addView(text("보호 리포트", 15f, white, true))
+                addView(text(
+                    if (developmentPreview && !proActive) "개발 미리보기 · 실제 이용 권한은 부여되지 않습니다."
+                    else "최근 DNS 보호 활동의 기간별 요약입니다.",
+                    10f, muted, false
+                ).withTop(4))
+                addView(text("최근 7일", 11f, accent, true).withTop(14))
+                addView(text(
+                    "요청 ${formatCount(report7Days.queries)}건  ·  차단 ${formatCount(report7Days.blocked)}건  ·  차단율 ${report7Days.blockRatePercent}%",
+                    12f, white, true
+                ).withTop(5))
+                addView(text("최근 30일", 11f, accent, true).withTop(12))
+                addView(text(
+                    "요청 ${formatCount(report30Days.queries)}건  ·  차단 ${formatCount(report30Days.blocked)}건  ·  전달 ${formatCount(report30Days.forwarded)}건  ·  실패 ${formatCount(report30Days.failed)}건",
+                    11f, white, false
+                ).withTop(5))
+                addView(text(
+                    "광고 ${formatCount(report30Days.ads)}  ·  추적 ${formatCount(report30Days.trackers)}  ·  기타 ${formatCount(report30Days.other)}",
+                    11f, muted, false
+                ).withTop(4))
+                addView(text(
+                    if (report30Days.queries == 0L) "보호가 실행되면 일별 집계가 여기에 표시됩니다."
+                    else "도메인·앱 식별정보 없이 일별 합계만 기기에 저장합니다.",
+                    10f, muted, false
+                ).withTop(9))
+                addView(text("보관 기간: 최근 90일 · 통계 초기화 시 리포트도 함께 초기화", 9f, muted, false).withTop(4))
+            }.withTop(12))
+        }
+
         body.addView(text(
             "개발 미리보기는 UI와 기능 구성을 검토하기 위한 모드입니다. 실제 보안 동작은 각 기능의 엔진 구현과 테스트가 끝난 뒤에만 활성 상태로 표시합니다. 정식 배포 빌드에서는 서버 서명 라이선스로 이용 권한을 판정합니다.",
             10f, muted, false
