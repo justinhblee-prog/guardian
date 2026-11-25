@@ -129,7 +129,7 @@ class FilterUpdateSchedulePolicyTest {
             FilterUpdatePolicy.mainErrorStatus(error, hasUsableCache = true)
         )
         assertEquals(
-            "광고 필터 다운로드 실패(선택한 목록 없음 · 내장 기본 규칙으로 제한 보호 중): network-unavailable",
+            "광고 필터 다운로드 실패(선택한 목록 없음 · 내장 기본 규칙으로 제한 보호 중): 원인을 안전하게 분류할 수 없는 오류",
             FilterUpdatePolicy.mainErrorStatus(error, hasUsableCache = false)
         )
         assertEquals(
