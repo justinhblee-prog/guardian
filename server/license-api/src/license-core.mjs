@@ -10,6 +10,21 @@ const KEY_PATTERN = /^[A-Z0-9-]{20,80}$/;
 const DEVICE_PATTERN = /^[a-fA-F0-9]{64}$/;
 const SALT_PATTERN = /^[a-fA-F0-9]{32}$/;
 
+export function validateLicenseIssueParameters({
+  maxDevices = 1,
+  validDays = 365,
+  planCode = 'custom'
+} = {}) {
+  const planDurations = { monthly_30d: 30, quarterly_90d: 90, annual_365d: 365, short_7d: 7 };
+  if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 20 ||
+      !Number.isInteger(validDays) || validDays < 1 || validDays > 36500 ||
+      typeof planCode !== 'string' || !['custom', ...Object.keys(planDurations)].includes(planCode) ||
+      (planDurations[planCode] !== undefined && validDays !== planDurations[planCode])) {
+    throw Object.assign(new Error('상품 유형, 기기 수 또는 유효 기간 설정을 확인하세요.'), { status: 400 });
+  }
+  return { maxDevices, validDays, planCode };
+}
+
 export function validateDeviceBinding(value) {
   if (typeof value !== 'string' || !DEVICE_PATTERN.test(value)) {
     throw Object.assign(new Error('기기 바인딩 값이 올바르지 않습니다.'), { status: 400 });
