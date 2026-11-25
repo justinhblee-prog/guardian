@@ -58,6 +58,9 @@ class GuardianVpnService : VpnService() {
         const val KEY_DNS_OTHER_BLOCKED = "dns_other_blocked"
         const val KEY_DNS_DIAGNOSTIC = "dns_diagnostic"
         const val KEY_FILTER_READINESS = "filter_readiness_diagnostic"
+        const val KEY_FILTER_RULES_APPLIED_AT = "filter_rules_applied_at"
+        const val KEY_FILTER_RULES_APPLIED_COUNT = "filter_rules_applied_count"
+        const val KEY_FILTER_RULES_APPLY_STATUS = "filter_rules_apply_status"
         const val KEY_DNS_RECENT = "dns_recent"
         private const val CHANNEL = "guardian_protection"
         private const val VIRTUAL_DNS = "10.13.37.2"
@@ -1304,7 +1307,18 @@ class GuardianVpnService : VpnService() {
     }
 
     private fun requestRuleReload() {
-        if (!ruleReloadGate.request()) return
+        if (!running.get()) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putString(KEY_FILTER_RULES_APPLY_STATUS, "보호 터널이 실행 중이 아니어서 규칙 재적용을 건너뛰었습니다.")
+                .apply()
+            android.util.Log.w("Guardian", "VPN rule reload skipped because tunnel is inactive")
+            return
+        }
+        if (!ruleReloadGate.request()) {
+            android.util.Log.i("Guardian", "VPN rule reload coalesced with an active reload")
+            return
+        }
+        android.util.Log.i("Guardian", "VPN rule reload requested")
         thread(name = "guardian-vpn-rule-reload") {
             var completedNormally = false
             try {
@@ -1331,6 +1345,17 @@ class GuardianVpnService : VpnService() {
         if (!running.get()) return
         try {
             loadConfiguredRules()
+            val appliedCount = DomainFilter.blockedRuleCount()
+            val appliedAt = System.currentTimeMillis()
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putLong(KEY_FILTER_RULES_APPLIED_AT, appliedAt)
+                .putInt(KEY_FILTER_RULES_APPLIED_COUNT, appliedCount)
+                .putString(KEY_FILTER_RULES_APPLY_STATUS, "적용 완료")
+                .apply()
+            android.util.Log.i(
+                "Guardian",
+                "VPN rules reload applied; blocked=$appliedCount, appliedAt=$appliedAt"
+            )
             val filterReadiness = getSharedPreferences(PREFS, MODE_PRIVATE)
                 .getString(KEY_FILTER_READINESS, null)
             val status = when {
@@ -1342,6 +1367,9 @@ class GuardianVpnService : VpnService() {
             publishState(true, status)
         } catch (error: Exception) {
             // Keep the previously loaded in-memory rules if the replacement is invalid.
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putString(KEY_FILTER_RULES_APPLY_STATUS, "적용 실패: ${SafeFailureSummary.codeFor(error)}")
+                .apply()
             android.util.Log.w(
                 "GuardianProtection",
                 "Could not reload DNS filter rules: ${SafeFailureSummary.codeFor(error)}"
@@ -1350,6 +1378,9 @@ class GuardianVpnService : VpnService() {
         } catch (error: LinkageError) {
             // Optional parser/runtime linkage failures must not terminate the
             // rule-reload worker or disturb the already active VPN session.
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putString(KEY_FILTER_RULES_APPLY_STATUS, "구성요소 오류: ${SafeFailureSummary.codeFor(error)}")
+                .apply()
             android.util.Log.e(
                 "GuardianProtection",
                 "DNS filter rule reload linkage failure: ${SafeFailureSummary.codeFor(error)}"
