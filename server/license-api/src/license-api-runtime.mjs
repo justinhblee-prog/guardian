@@ -9,9 +9,6 @@ import {
 
 export function createLicenseApiRuntime(environment = process.env, options = {}) {
 const { Pool } = pg;
-const PORT = Number(environment.PORT || 8787);
-// Bind to loopback by default. Phone-hosted deployments can expose the API
-// only through an authenticated private tunnel; containers override HOST.
 const DATABASE_URL = environment.DATABASE_URL;
 const ADMIN_TOKEN = environment.GUARDIAN_ADMIN_TOKEN;
 const PRIVATE_KEY = environment.GUARDIAN_LICENSE_PRIVATE_KEY;
@@ -29,7 +26,7 @@ const RATE_LIMITED_PATHS = new Set([
 ]);
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
-  max: 10,
+  max: Number(environment.PG_POOL_MAX || 5),
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 30_000,
   statement_timeout: 10_000,
