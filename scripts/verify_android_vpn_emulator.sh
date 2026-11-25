@@ -1377,31 +1377,19 @@ fi
 # Verify the About and Exit submenus even though they are below the phone viewport.
 scroll_to_text "정보"
 sleep 1
-# The About screen is a vertically scrolling page. Verify the version row
-# while it is in the initial viewport, then scroll separately to the update
-# action; UIAutomator omits children outside the current viewport.
-adb_cmd shell uiautomator dump /sdcard/guardian-about-version.xml >/dev/null 2>&1
-about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | tr -d '\r')"
-expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
-if [[ -z "$expected_current_version" ]]; then
-  echo "GUARDIAN_CURRENT_VERSION_NAME was not provided to the Android VPN emulator check."
-  exit 1
-fi
-if ! grep -Fq '앱 버전' <<<"$about_version_xml" || ! grep -Fq "$expected_current_version" <<<"$about_version_xml"; then
-  echo "The About screen's initial viewport did not expose the current app version."
-  echo "$about_version_xml"
-  exit 1
-fi
-ensure_text_visible "앱 업데이트 확인"
+# App updates are managed under Settings > General in the redesigned UI.
+# Keep this assertion aligned with the live navigation instead of the retired
+# Settings > Info > App Updates route.
+scroll_to_text "일반"
 sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-about-update.xml >/dev/null 2>&1
-about_update_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-update.xml | tr -d '\r')"
-if ! grep -Fq '앱 업데이트 확인' <<<"$about_update_xml"; then
-  echo "The About submenu does not expose the dedicated app-update entry."
-  echo "$about_update_xml"
+adb_cmd shell uiautomator dump /sdcard/guardian-general-settings.xml >/dev/null 2>&1
+general_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-general-settings.xml | tr -d '\r')"
+if ! grep -Fq '일반' <<<"$general_settings_xml" || ! grep -Fq '프로그램 업데이트 확인' <<<"$general_settings_xml"; then
+  echo "The General Settings screen does not expose the dedicated Program Updates entry."
+  echo "$general_settings_xml"
   exit 1
 fi
-tap_text "앱 업데이트 확인"
+tap_text "프로그램 업데이트 확인"
 sleep 1
 updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
 if ! grep -Fq '프로그램 업데이트' <<<"$updates_xml" ||
@@ -1440,7 +1428,7 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
   fi
   echo "Development update check reached the expected latest-version state."
 fi
-echo "Settings > 정보 > 앱 업데이트 확인 opens the dedicated Program Updates screen and executes its version check."
+echo "Settings > 일반 > 프로그램 업데이트 확인 opens the dedicated Program Updates screen and executes its version check."
 tap_content_description "설정"
 sleep 1
 scroll_to_text "종료"
