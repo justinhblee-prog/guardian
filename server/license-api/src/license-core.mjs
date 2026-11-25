@@ -42,6 +42,27 @@ export function validateLicenseCustomer(value) {
   return { name, email, orderRef: orderRef || null };
 }
 
+export function validateSupportTicketInput(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw Object.assign(new Error('문의 요청은 객체 형식이어야 합니다.'), { status: 400 });
+  }
+  const category = value.category === undefined ? 'question' : value.category;
+  const subject = typeof value.subject === 'string' ? value.subject.trim() : '';
+  const message = typeof value.message === 'string' ? value.message.trim() : '';
+  const email = value.email === undefined ? '' : value.email;
+  const hasControl = /[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]/;
+  if (!['question', 'bug', 'suggestion', 'billing', 'license'].includes(category) ||
+      subject.length < 3 || subject.length > 120 ||
+      message.length < 10 || message.length > 5000 ||
+      hasControl.test(subject) || hasControl.test(message) ||
+      typeof email !== 'string' || email.length > 254 ||
+      (email !== '' && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) ||
+      hasControl.test(email)) {
+    throw Object.assign(new Error('문의 유형, 제목, 내용 또는 이메일을 확인하세요.'), { status: 400 });
+  }
+  return { category, subject, message, email: email.trim() };
+}
+
 export function validateSupportReplyStatus(value) {
   if (value === undefined) return 'answered';
   if (typeof value !== 'string' || !['answered', 'in_progress', 'closed'].includes(value)) {
