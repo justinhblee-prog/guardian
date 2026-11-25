@@ -146,6 +146,11 @@ class GuardianVpnService : VpnService() {
     private val compatibilityResumeInProgress = AtomicBoolean(false)
     private val compatibilityMonitorGeneration = AtomicLong(0L)
 
+    override fun onCreate() {
+        super.onCreate()
+        FilterListManager.recoverPendingProfileSelection(this)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lastStartId = startId
         when (intent?.action) {
