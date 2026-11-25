@@ -54,3 +54,13 @@ class GooglePlayBillingManagerTest {
         }
     }
 }
+
+
+    @Test
+    fun staleBillingCallbacksCannotLaunchAgainstDestroyedActivity() {
+        assertTrue(shouldLaunchGuardianBillingFlow(false, false, false))
+        assertFalse(shouldLaunchGuardianBillingFlow(true, false, false))
+        assertFalse(shouldLaunchGuardianBillingFlow(false, true, false))
+        assertFalse(shouldLaunchGuardianBillingFlow(false, false, true))
+        assertFalse(shouldLaunchGuardianBillingFlow(true, true, true))
+    }
