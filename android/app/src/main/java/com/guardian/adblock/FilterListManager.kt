@@ -109,6 +109,30 @@ object FilterListManager {
         hasAndroidAdsCache: Boolean = true
     ): Boolean = hasCache && selectedKey == cachedKey &&
         (!securityEnabled || hasSecurityCache) && (!androidAdsEnabled || hasAndroidAdsCache)
+    /**
+     * Recover an interrupted profile change after process death. A matching committed cache
+     * proves that the new profile download finished, even if the UI never cleared its marker.
+     */
+    fun recoverPendingProfileSelection(context: Context): Boolean {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val previousKey = prefs.getString(KEY_PENDING_PROFILE_ROLLBACK, null)
+        if (previousKey == null) return false
+        val selectedKey = prefs.getString(KEY_FILTER_PROFILE, "adguard") ?: "adguard"
+        val cachedKey = prefs.getString(KEY_CACHED_PROFILE, null)
+        val rollback = FilterProfileRollbackPolicy.shouldRollback(previousKey, selectedKey, cachedKey) &&
+            profiles.any { it.key == previousKey }
+        val editor = prefs.edit().remove(KEY_PENDING_PROFILE_ROLLBACK)
+        if (rollback) editor.putString(KEY_FILTER_PROFILE, previousKey)
+        if (!editor.commit()) {
+            android.util.Log.e("Guardian", "Could not recover interrupted filter profile selection")
+            return false
+        }
+        if (rollback) {
+            android.util.Log.w("Guardian", "Rolled back interrupted filter profile change: $selectedKey -> $previousKey")
+        }
+        return rollback
+    }
+
     fun cachedProfile(context: Context): FilterProfile {
         val key = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CACHED_PROFILE, null)
         return profiles.firstOrNull { it.key == key } ?: profiles.first()
