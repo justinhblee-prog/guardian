@@ -10,7 +10,8 @@
     "start": "node src/server.mjs",
     "test": "node --test",
     "neon:dev": "npx neon@latest dev",
-    "neon:deploy": "npx neon@latest deploy --env .env"
+    "neon:deploy": "npx neon@latest deploy --env .env",
+    "build:admin-assets": "node scripts/build-admin-assets.mjs"
   },
   "dependencies": {
     "pg": "^8.16.3",
