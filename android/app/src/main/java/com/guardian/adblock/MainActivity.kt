@@ -235,13 +235,15 @@ class MainActivity : Activity() {
         // Enable recurring filter refresh by default. Preserve an explicit user
         // choice made in Protection settings; migrate installations that only
         // received the old forced-off default to the safer current default.
-        if (FilterAutoUpdatePreferencePolicy.shouldApplyDefaultMigration(
-                migrationAlreadyApplied = filterPrefs.getBoolean("filter_auto_update_default_on_v2", false),
-                userChoiceRecorded = filterPrefs.getBoolean("filter_auto_update_user_choice_v1", false)
+        val autoUpdateMigrationApplied = filterPrefs.getBoolean("filter_auto_update_default_on_v2", false)
+        val autoUpdateUserChoiceRecorded = filterPrefs.getBoolean("filter_auto_update_user_choice_v1", false)
+        if (FilterAutoUpdatePreferencePolicy.shouldEnableDefault(
+                migrationAlreadyApplied = autoUpdateMigrationApplied,
+                userChoiceRecorded = autoUpdateUserChoiceRecorded
             )) {
-            if (!filterPrefs.getBoolean("filter_auto_update_user_choice_v1", false)) {
-                filterPrefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, true).apply()
-            }
+            filterPrefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, true).apply()
+        }
+        if (!autoUpdateMigrationApplied) {
             filterPrefs.edit().putBoolean("filter_auto_update_default_on_v2", true).apply()
         }
         // Update discovery is user-initiated from Settings. Do not run a
