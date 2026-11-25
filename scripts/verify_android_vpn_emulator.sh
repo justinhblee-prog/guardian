@@ -887,54 +887,7 @@ done
 tap_content_description "홈"
 echo "Single home protection control and all five bottom-navigation destinations passed."
 
-# Exercise a real Activity recreation in landscape while unsaved user-rule text
-# is present. The tab and draft must survive rotation without saving to prefs.
-echo "Verifying filter-screen and unsaved rule state survive device rotation."
-open_settings_menu_item "필터 관리"
-tap_text "전체 필터 규칙 편집"
-sleep 1
-tap_first_edit_text
-adb_cmd shell input text 'rotation-preserved.example'
-adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-before_rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
-python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if not any("rotation-preserved.example" in node.attrib.get("text","") for node in root.iter("node")):
-    raise SystemExit("Synthetic rule text was not entered before rotation.")' <<<"$before_rotation_xml"
-adb_cmd shell settings put system accelerometer_rotation 0
-adb_cmd shell settings put system user_rotation 1
-sleep 3
-adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
-python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-nodes=list(root.iter("node"))
-selected=any(node.attrib.get("content-desc")=="설정"
-             and node.attrib.get("selected")=="true" for node in nodes)
-filter_editor=any(node.attrib.get("text","")=="허용 도메인" for node in nodes)
-draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
-if not (selected and filter_editor and draft):
-    raise SystemExit("Activity rotation lost the selected filter destination, filter editor, or unsaved rule draft.")' <<<"$rotation_xml"
-if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Activity restored after configuration change; tab=rules scrollY=[1-9][0-9]* hasRuleDraft=true"; then
-  echo "Activity did not retain the unsaved rule editor draft across rotation."
-  adb_cmd logcat -d -s GuardianUI:I | tail -80
-  exit 1
-fi
-if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Saving Activity state; tab=rules scrollY=[1-9][0-9]*"; then
-  echo "Activity did not save the scrolled filter-editor position before rotation."
-  exit 1
-fi
-adb_cmd shell settings put system user_rotation 0
-sleep 2
-# Commit the rule entered before rotation. This verifies that the retained draft
-# can be saved after Activity recreation and reaches the VPN rule engine.
-adb_cmd shell input swipe 540 1500 540 600 450
-sleep 1
-scroll_to_text "규칙 저장 및 적용"
-sleep 1
-adb_cmd shell input keyevent KEYCODE_BACK || true
-tap_content_description "홈"
-echo "Activity rotation state restoration and custom-rule save passed."
+
 
 prefs="$(read_prefs)"
 if grep -q 'name="protection_active".*value="true"' <<<"$prefs"; then
@@ -1302,6 +1255,59 @@ if [[ "$current_version" != "$expected_version" ]]; then
   adb_cmd shell dumpsys package "$PACKAGE" | grep -E 'versionCode|versionName' || true
   exit 1
 fi
+
+# The predecessor APK cannot exercise candidate-only Settings and rule-editor UI.
+# Run Activity recreation and unsaved custom-rule persistence only after the
+# in-place upgrade has confirmed the candidate version is installed.
+# Exercise a real Activity recreation in landscape while unsaved user-rule text
+# is present. The tab and draft must survive rotation without saving to prefs.
+echo "Verifying filter-screen and unsaved rule state survive device rotation."
+open_settings_menu_item "필터 관리"
+tap_text "전체 필터 규칙 편집"
+sleep 1
+tap_first_edit_text
+adb_cmd shell input text 'rotation-preserved.example'
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+before_rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any("rotation-preserved.example" in node.attrib.get("text","") for node in root.iter("node")):
+    raise SystemExit("Synthetic rule text was not entered before rotation.")' <<<"$before_rotation_xml"
+adb_cmd shell settings put system accelerometer_rotation 0
+adb_cmd shell settings put system user_rotation 1
+sleep 3
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+selected=any(node.attrib.get("content-desc")=="설정"
+             and node.attrib.get("selected")=="true" for node in nodes)
+filter_editor=any(node.attrib.get("text","")=="허용 도메인" for node in nodes)
+draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
+if not (selected and filter_editor and draft):
+    raise SystemExit("Activity rotation lost the selected filter destination, filter editor, or unsaved rule draft.")' <<<"$rotation_xml"
+if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Activity restored after configuration change; tab=rules scrollY=[1-9][0-9]* hasRuleDraft=true"; then
+  echo "Activity did not retain the unsaved rule editor draft across rotation."
+  adb_cmd logcat -d -s GuardianUI:I | tail -80
+  exit 1
+fi
+if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Saving Activity state; tab=rules scrollY=[1-9][0-9]*"; then
+  echo "Activity did not save the scrolled filter-editor position before rotation."
+  exit 1
+fi
+adb_cmd shell settings put system user_rotation 0
+sleep 2
+# Commit the rule entered before rotation. This verifies that the retained draft
+# can be saved after Activity recreation and reaches the VPN rule engine.
+adb_cmd shell input swipe 540 1500 540 600 450
+sleep 1
+scroll_to_text "규칙 저장 및 적용"
+sleep 1
+adb_cmd shell input keyevent KEYCODE_BACK || true
+tap_content_description "홈"
+echo "Activity rotation state restoration and custom-rule save passed."
+
 
 # The installed APK may use either the legacy or redesigned five-destination navigation.
 echo "Verifying the current APK's supported five-destination bottom navigation."
