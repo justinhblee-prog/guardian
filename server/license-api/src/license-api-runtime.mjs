@@ -26,7 +26,7 @@ const RATE_LIMITED_PATHS = new Set([
 ]);
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
-  max: Number(environment.PG_POOL_MAX || 5),
+  max: Number(environment.PG_POOL_MAX || 10),
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 30_000,
   statement_timeout: 10_000,
