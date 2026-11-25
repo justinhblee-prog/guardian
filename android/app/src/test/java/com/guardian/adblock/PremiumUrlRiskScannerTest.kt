@@ -16,9 +16,17 @@ class PremiumUrlRiskScannerTest {
     }
 
     @Test fun unicodeInternationalizedHostIsNormalizedAndFlagged() {
+        val result = PremiumUrlRiskScanner.scan("https://bücher.com/login")
+        assertTrue(result.valid)
+        assertEquals("xn--bcher-kva.com", result.host)
+        assertEquals(UrlRiskLevel.HIGH, result.level)
+        assertTrue(result.indicators.any { it.contains("Punycode") })
+    }
+
+    @Test fun modernUnicodeLabelsUnsupportedByLegacyJdkIdnRemainValidAndFlagged() {
         val result = PremiumUrlRiskScanner.scan("https://аррӏе.com/login")
         assertTrue(result.valid)
-        assertEquals("xn--80ak6aa92e.com", result.host)
+        assertEquals("аррӏе.com", result.host)
         assertEquals(UrlRiskLevel.HIGH, result.level)
         assertTrue(result.indicators.any { it.contains("Punycode") })
     }
