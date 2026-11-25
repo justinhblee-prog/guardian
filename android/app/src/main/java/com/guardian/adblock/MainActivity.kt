@@ -1656,7 +1656,7 @@ class MainActivity : Activity() {
             this@MainActivity.licenseKeyInput = licenseKeyInput
             addView(licenseKeyInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
             val licenseFeedback = text(
-                if (LicenseApiClient.configuredBaseUrl(this@MainActivity).isBlank()) "운영 라이선스 서버 주소가 아직 설정되지 않았습니다."
+                if (!LicenseApiClient.isConfigured(this@MainActivity)) "운영 라이선스 HTTPS 주소 또는 앱 내 RSA 검증 공개키가 올바르게 설정되지 않았습니다."
                 else "라이선스 키는 서버에서 확인하며 앱에는 원문을 저장하지 않습니다.",
                 10f, muted, false
             ).withTop(8) as TextView
