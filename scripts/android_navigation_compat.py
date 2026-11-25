@@ -43,7 +43,7 @@ def resolve_premium_category(hierarchy: str) -> str:
     """Return the exact Settings category label used by the current build."""
     root = _root(hierarchy)
     labels = [node.attrib.get("text", "").strip() for node in root.iter("node")]
-    for label in ("라이선스 및 프리미엄", "라이선스 및 Premium"):
+    for label in ("PRO", "라이선스 및 프리미엄", "라이선스 및 Premium"):
         if any(label == text or label in text for text in labels):
             return label
     raise ValueError("No supported License/Premium category is present in Settings")

@@ -1498,6 +1498,7 @@ class MainActivity : Activity() {
         val settingsPrefs = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
         val activationExpandedKey = "settings_pro_activation_expanded_v1"
         val activationExpanded = settingsPrefs.getBoolean(activationExpandedKey, false)
+        val activationActionLabel = if (proActive || retainedLicense != null) "PRO 라이선스 관리" else "PRO 라이선스 활성화"
         val activationPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
@@ -1505,12 +1506,12 @@ class MainActivity : Activity() {
             visibility = if (activationExpanded) View.VISIBLE else View.GONE
         }
         val activationButton = Button(this).apply {
-            text = if (activationExpanded) "PRO 라이선스 활성화 접기" else "PRO 라이선스 활성화"
+            text = if (activationExpanded) "$activationActionLabel 접기" else activationActionLabel
             isAllCaps = false
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(bg)
             background = shape(accent, 12)
-            contentDescription = "PRO 라이선스 활성화 내용 펼치기"
+            contentDescription = "$activationActionLabel 내용 펼치기"
             setOnClickListener {
                 val expanding = activationPanel.visibility != View.VISIBLE
                 settingsPrefs.edit().putBoolean(activationExpandedKey, expanding).apply()
@@ -1528,8 +1529,8 @@ class MainActivity : Activity() {
                         }
                     }
                 }
-                text = if (expanding) "PRO 라이선스 활성화 접기" else "PRO 라이선스 활성화"
-                contentDescription = if (expanding) "PRO 라이선스 활성화 내용 접기" else "PRO 라이선스 활성화 내용 펼치기"
+                text = if (expanding) "$activationActionLabel 접기" else activationActionLabel
+                contentDescription = if (expanding) "$activationActionLabel 내용 접기" else "$activationActionLabel 내용 펼치기"
             }
         }
 
