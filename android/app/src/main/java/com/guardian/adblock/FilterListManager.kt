@@ -7,6 +7,7 @@ import java.nio.file.Files
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import javax.net.ssl.HttpsURLConnection
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Downloads and validates DNS-compatible community filters into app-private storage. */
 object FilterListManager {
@@ -46,6 +47,8 @@ object FilterListManager {
     private fun parsedBlockCount(parsed: FilterRuleParser.Parsed): Int =
         (parsed.blocked.size.toLong() + parsed.importantBlocked.size.toLong())
             .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+
+    private val profileRecoveryChecked = AtomicBoolean(false)
 
     private val profiles = listOf(
         FilterProfile("adguard", "AdGuard DNS Filter · 권장", FILTER_URL, 1000),
@@ -114,6 +117,8 @@ object FilterListManager {
      * proves that the new profile download finished, even if the UI never cleared its marker.
      */
     fun recoverPendingProfileSelection(context: Context): Boolean {
+        // Activity recreation (e.g. rotation) must not roll back a live in-flight download.
+        if (!profileRecoveryChecked.compareAndSet(false, true)) return false
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val previousKey = prefs.getString(KEY_PENDING_PROFILE_ROLLBACK, null)
         if (previousKey == null) return false
@@ -124,6 +129,7 @@ object FilterListManager {
         val editor = prefs.edit().remove(KEY_PENDING_PROFILE_ROLLBACK)
         if (rollback) editor.putString(KEY_FILTER_PROFILE, previousKey)
         if (!editor.commit()) {
+            profileRecoveryChecked.set(false)
             android.util.Log.e("Guardian", "Could not recover interrupted filter profile selection")
             return false
         }
