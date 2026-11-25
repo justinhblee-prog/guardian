@@ -59,6 +59,9 @@ object Ipv4Udp {
         put16(out, 22, request.sourcePort)
         put16(out, 24, udpLength)
         System.arraycopy(dns, 0, out, 28, dns.size)
+        // IPv4 permits an omitted UDP checksum, but synthesized responses should
+        // carry one so the packet is protected against corruption in transit.
+        put16(out, 26, udpChecksum(out, 20, udpLength))
         return out
     }
 
@@ -66,6 +69,25 @@ object Ipv4Udp {
 
     fun u16(b: ByteArray, i: Int) = ((b[i].toInt() and 0xff) shl 8) or (b[i + 1].toInt() and 0xff)
     private fun put16(b: ByteArray, i: Int, v: Int) { b[i] = (v ushr 8).toByte(); b[i + 1] = v.toByte() }
+    private fun udpChecksum(packet: ByteArray, offset: Int, length: Int): Int {
+        var sum = 0L
+        for (i in 12 until 20 step 2) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or (packet[i + 1].toInt() and 0xff)).toLong()
+        }
+        sum += 17L
+        sum += length.toLong()
+        var i = offset
+        val end = offset + length
+        while (i + 1 < end) {
+            sum += (((packet[i].toInt() and 0xff) shl 8) or (packet[i + 1].toInt() and 0xff)).toLong()
+            i += 2
+        }
+        if (i < end) sum += ((packet[i].toInt() and 0xff) shl 8).toLong()
+        while ((sum ushr 16) != 0L) sum = (sum and 0xffff) + (sum ushr 16)
+        val result = sum.inv().toInt() and 0xffff
+        return if (result == 0) 0xffff else result
+    }
+
     private fun validUdpChecksum(packet: ByteArray, offset: Int, length: Int): Boolean {
         var sum = 0L
         // IPv4 pseudo-header: source, destination, zero, protocol, UDP length.
