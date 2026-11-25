@@ -111,6 +111,9 @@ internal object DevUpdateManager {
     }
 
     fun download(context: Context, update: GuardianDevUpdate): File {
+        require(isValidDownloadDescriptor(BuildConfig.VERSION_CODE, update)) {
+            "개발 업데이트 정보가 현재 설치된 앱보다 최신이거나 공식 Guardian 개발 릴리스와 일치하지 않습니다."
+        }
         require(update.signerSha256 == installedSignerSha256(context)) {
             "업데이트 서명 인증서가 현재 설치된 개발 버전과 다릅니다. 설치를 중단했습니다."
         }
@@ -192,6 +195,21 @@ internal object DevUpdateManager {
             uri.rawQuery == null &&
             uri.rawFragment == null &&
             guardianReleaseAssetPath.matches(uri.rawPath.orEmpty())
+    }.getOrDefault(false)
+
+    /**
+     * Revalidate the descriptor at the download boundary instead of relying only on
+     * checkForUpdate(). This prevents stale or internally constructed descriptors from
+     * downloading a non-current, non-official, or malformed development package.
+     */
+    internal fun isValidDownloadDescriptor(installedVersionCode: Int, update: GuardianDevUpdate): Boolean = runCatching {
+        val uri = java.net.URI(update.apkUrl)
+        update.versionCode > installedVersionCode &&
+            update.versionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+-dev")) &&
+            update.sha256.matches(Regex("[a-fA-F0-9]{64}")) &&
+            update.signerSha256.matches(Regex("[a-fA-F0-9]{64}")) &&
+            isGuardianReleaseAssetUrl(update.apkUrl) &&
+            uri.rawPath == "/justinhblee-prog/guardian/releases/download/guardian-dev-v${update.versionCode}/guardian-android-dev.apk"
     }.getOrDefault(false)
 
     private fun isAllowedHttpsHost(url: URL): Boolean =

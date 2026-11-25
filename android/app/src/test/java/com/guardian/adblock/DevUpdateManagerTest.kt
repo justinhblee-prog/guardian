@@ -79,4 +79,41 @@ class DevUpdateManagerTest {
         val html = """<html><a href="https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v999">release</a></html>"""
         assertTrue(DevUpdateManager.developmentReleaseVersionsFromAtom(html).isEmpty())
     }
+    @Test fun downloadDescriptorMustBeNewerAndMatchTheOfficialTagAndAsset() {
+        val valid = GuardianDevUpdate(
+            versionName = "0.7.49-dev",
+            versionCode = 62,
+            sha256 = "a".repeat(64),
+            signerSha256 = "b".repeat(64),
+            apkUrl = "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v62/guardian-android-dev.apk",
+            notes = ""
+        )
+
+        assertTrue(DevUpdateManager.isValidDownloadDescriptor(61, valid))
+        assertFalse(DevUpdateManager.isValidDownloadDescriptor(62, valid))
+        assertFalse(DevUpdateManager.isValidDownloadDescriptor(63, valid))
+        assertFalse(DevUpdateManager.isValidDownloadDescriptor(
+            61, valid.copy(apkUrl = "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v61/guardian-android-dev.apk")
+        ))
+        assertFalse(DevUpdateManager.isValidDownloadDescriptor(
+            61, valid.copy(apkUrl = "https://attacker.example/guardian-dev-v62/guardian-android-dev.apk")
+        ))
+    }
+
+    @Test fun downloadDescriptorRejectsMalformedVersionAndDigests() {
+        val valid = GuardianDevUpdate(
+            versionName = "0.7.49-dev",
+            versionCode = 62,
+            sha256 = "a".repeat(64),
+            signerSha256 = "b".repeat(64),
+            apkUrl = "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v62/guardian-android-dev.apk",
+            notes = ""
+        )
+
+        assertFalse(DevUpdateManager.isValidDownloadDescriptor(61, valid.copy(versionName = "0.7.49")))
+        assertFalse(DevUpdateManager.isValidDownloadDescriptor(61, valid.copy(sha256 = "not-a-sha256")))
+        assertFalse(DevUpdateManager.isValidDownloadDescriptor(61, valid.copy(signerSha256 = "not-a-certificate-fingerprint")))
+    }
+
+
 }
