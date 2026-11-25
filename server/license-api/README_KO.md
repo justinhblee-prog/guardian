@@ -69,50 +69,55 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 
 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
 
-## 무료 클라우드 운영 구성(Cloudflare Workers + Neon)
+## 무료 운영 구성(Neon Functions + Neon PostgreSQL)
 
-기존 Node.js API는 그대로 유지하면서 동일한 요청 처리기를 Cloudflare Workers에서도 사용할 수 있도록 `src/license-api-runtime.mjs`와 `src/worker.mjs`로 분리했습니다. 기존 Docker/Node 배포와 Workers 배포는 같은 API 로직, PostgreSQL 스키마, RSA 서명 포맷을 사용합니다.
+라이선스 API의 기본 무료 운영 대상은 Neon Functions(Node.js 24)와 같은 Neon 프로젝트의 PostgreSQL입니다. 노트북이나 별도 상시 서버가 필요하지 않으며, 기존 Node.js API 로직·DB 스키마·RSA 서명 형식을 그대로 공유합니다. 함수는 `functions/guardianapi/index.mjs`에서 Fetch 요청을 받아 기존 API 런타임으로 전달합니다. 관리자 화면과 ES module 파일도 함수에 번들되어 `/admin`, `/admin.js`, `/admin-model.mjs`로 제공합니다.
 
-### 무료 사용량과 운영상 한계
+### 무료 사용량과 한계
 
-- Cloudflare Workers Free: 하루 100,000 요청, 요청당 CPU 10ms, Hyperdrive 데이터베이스 쿼리 하루 100,000회 한도. 한도를 넘으면 유료 전환 없이 해당 사용량이 재설정될 때까지 요청/쿼리가 실패할 수 있습니다.
-- Neon Free: 프로젝트당 PostgreSQL 1GB, 월 100 CU-hours, 5GB 네트워크 전송량. 5분 비활성 후 컴퓨트가 자동 절전되므로 첫 DB 연결은 지연될 수 있습니다. 월 사용량을 소진하면 다음 주기까지 DB가 정지될 수 있습니다.
-- 이 구성은 초기 무료 운영 및 소규모 배포용입니다. 무료 요금제는 SLA, 상시 DB 컴퓨트, 자동 백업/복구 보장을 제공하지 않습니다. 공개 유료 판매 전에 백업 복구, 장애 복구, 사용량 감시, 관리자 MFA/RBAC 및 부하/보안 검증을 별도로 완료해야 합니다.
-- 유료 플랜으로 자동 전환하거나 초과 사용료가 발생하는 설정은 하지 않습니다. 무료 한도 초과 시 fail-closed로 서비스가 일시 중단되는 쪽을 선택합니다.
+- Neon Free PostgreSQL: 프로젝트당 1GB 저장 공간, 월 100 CU-hours, 5GB 네트워크 전송량. 5분 비활성 후 DB 컴퓨트가 절전되므로 첫 요청은 지연될 수 있습니다.
+- Neon Functions Free: 월 1,000,000회 호출, 활성 컴퓨트 10시간, 대기 컴퓨트 400시간. 함수는 Node.js 24 런타임으로 실행됩니다.
+- Functions 사용 가능 리전은 제한되어 있습니다. 한국 사용자를 위해 지원 리전 중 가까운 AWS Asia Pacific (Singapore, `aws-ap-southeast-1`)을 선택합니다.
+- 무료 한도 초과 시 과금으로 자동 전환하지 않고, 해당 리소스가 한도에 도달해 일시 중단될 수 있습니다. 무료 플랜은 상시 DB 컴퓨트, SLA, 완전한 운영 백업 체계를 보장하지 않습니다.
+- 공개 유료 서비스로 확대하기 전에는 별도 백업/복구 리허설, 사용량 감시, 장애 대응, 관리자 MFA/RBAC, 보안 테스트를 완료해야 합니다. 무료 구성은 초기 소규모 운영 기준입니다.
 
-### 최초 계정 구성 및 배포
+### 최초 구성 및 배포
 
-1. Cloudflare 계정에서 Workers Free를 활성화하고, Neon에서 Free PostgreSQL 프로젝트를 생성합니다. 결제/유료 플랜 전환은 하지 않습니다.
-2. Neon의 pooled PostgreSQL 연결 URL을 로컬 환경 변수 `NEON_DATABASE_URL`로 설정합니다. 연결 URL은 저장소나 채팅에 입력하지 않습니다.
-3. 이 디렉터리에서 다음 명령으로 Hyperdrive 연결을 만듭니다.
+1. Neon 계정에서 Singapore 리전에 Free 프로젝트를 생성하고 PostgreSQL을 활성화합니다. 유료 플랜이나 결제 수단을 전제로 하지 않습니다.
+2. 로컬에서 이 디렉터리로 이동해 Neon CLI에 로그인하고 프로젝트를 연결합니다.
    ```sh
-   npx wrangler hyperdrive create guardian-license-db --connection-string="$NEON_DATABASE_URL"
+   npx neon@latest link
+   npx neon@latest env pull --file .env
    ```
-   반환된 Hyperdrive ID를 `wrangler.toml`의 `[[hyperdrive]].id`에 넣습니다. 실제 ID는 계정별 값이므로 저장소에 임의 ID를 넣어 배포하지 않습니다.
-4. Neon SQL Editor에서 `schema.sql`을 실행하고 `migrations/002_shared_rate_limit_buckets.sql`, `003_support_tickets.sql`, `004_customers.sql`, `005_shared_guardian_product.sql`을 순서대로 적용합니다. 기존 DB에 적용할 때는 먼저 백업/스냅샷을 확보하고 이미 적용된 migration은 재실행하지 않습니다.
-5. 별도 RSA 3072비트 개인키/공개키를 생성합니다. 개인키는 Cloudflare Secret에만 보관하고 공개키만 Android 앱 빌드에 사용합니다.
+   로그인/프로젝트 선택은 Neon 계정 소유자 승인이 필요합니다. `.env`는 로컬 비밀정보 파일이므로 Git에 커밋하지 않습니다.
+3. Neon SQL Editor 또는 `psql`의 `DATABASE_URL_UNPOOLED` 연결로 신규 프로젝트의 `schema.sql`을 실행하고 migration `002_shared_rate_limit_buckets.sql`부터 `005_shared_guardian_product.sql`까지 순서대로 적용합니다. 기존 DB에 적용할 때는 먼저 백업/스냅샷을 확보하고 이미 적용된 migration을 재실행하지 않습니다.
+4. RSA 3072비트 개인키와 공개키를 생성합니다.
    ```sh
    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out guardian-license-private.pem
    openssl pkey -in guardian-license-private.pem -pubout -out guardian-license-public.pem
    ```
-6. 관리자 토큰과 HMAC 비밀값은 각각 독립적으로 생성하고 Cloudflare Worker Secret에 저장합니다. 개인키도 동일하게 저장합니다.
+   개인키는 안전한 로컬 비밀정보 파일에만 두고 GitHub, 앱, 저장소에 커밋하지 않습니다.
+5. 독립적인 관리자 토큰과 HMAC 비밀값을 생성해 `.env`의 `GUARDIAN_ADMIN_TOKEN`, `GUARDIAN_LICENSE_LOOKUP_SECRET`에 넣고, 개인키 PEM 전체를 `GUARDIAN_LICENSE_PRIVATE_KEY`에 넣습니다. `neon.ts`는 세 필수 값이 없으면 배포를 거부하도록 설정되어 있습니다.
    ```sh
    node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
-   npx wrangler secret put GUARDIAN_ADMIN_TOKEN --config wrangler.toml
-   npx wrangler secret put GUARDIAN_LICENSE_LOOKUP_SECRET --config wrangler.toml
-   npx wrangler secret put GUARDIAN_LICENSE_PRIVATE_KEY --config wrangler.toml
    ```
-   각 Secret 명령은 프롬프트에 해당 값만 붙여 넣습니다. 개인키, 관리자 토큰, HMAC 비밀값, DB 연결 URL을 GitHub Actions 변수나 저장소 파일에 넣지 않습니다.
-7. `wrangler.toml`에 실제 Hyperdrive ID를 반영한 후 `npm test`, `npm run edge:dev`, `npm run edge:deploy` 순서로 실행합니다. 배포 후 `/health`와 `/ready`가 모두 200인지 확인합니다. `/ready`는 DB 스키마와 RSA 서명키까지 검사합니다.
-8. Android 빌드에는 `GUARDIAN_LICENSE_API_BASE_URL`을 배포된 HTTPS Worker URL로, `GUARDIAN_LICENSE_PUBLIC_KEY`를 PEM 공개키로 설정합니다. 두 값은 공개키/주소이므로 앱 빌드 변수로 사용할 수 있지만 개인키는 절대 앱에 넣지 않습니다.
-9. 운영 관리자 페이지는 HTTPS의 `/admin`에서 제공됩니다. 관리자 토큰을 안전하게 보관하고 공유 계정 사용을 피합니다.
+6. 테스트 후 Neon Functions를 배포합니다.
+   ```sh
+   npm install
+   npm test
+   npm run neon:deploy
+   npx neon@latest functions get guardianapi
+   ```
+   배포 결과의 `invocation_url`이 실제 API HTTPS 주소입니다. 배포 후 `/health`와 `/ready`가 모두 HTTP 200인지 확인합니다. `/ready`는 DB 스키마와 RSA 서명키까지 검사합니다.
+7. Android 빌드에 `GUARDIAN_LICENSE_API_BASE_URL`을 발급된 함수 URL로, `GUARDIAN_LICENSE_PUBLIC_KEY`를 RSA 공개키로 설정합니다. 앱에는 공개키만 포함하며 개인키는 절대 포함하지 않습니다.
+8. 관리자 화면은 같은 주소의 `/admin`에서 사용합니다. 관리자 토큰은 안전하게 보관하고 브라우저 저장소에 영구 저장하지 않습니다.
 
-### 자동화 및 배포 안전장치
+### 보안·배포 원칙
 
-- GitHub Actions는 테스트와 Worker dry-run까지만 수행하며 실제 배포는 하지 않습니다.
-- 실제 배포는 Cloudflare 계정 인증, Neon DB 생성, Hyperdrive ID, 운영 Secret 입력이 모두 확인된 뒤에만 실행합니다.
-- 무료 한도 초과, DB 연결 실패, 비밀값/서명키 누락 시 라이선스 발급·갱신은 실패 처리합니다. 서명 검증을 우회하거나 무료/PRO 권한을 임의로 부여하지 않습니다.
-- Cloudflare 계정의 배포 권한 및 Neon 프로젝트 생성은 소유자 계정 승인이 필요합니다. 이 저장소만으로 외부 계정을 생성하거나 비밀값을 추측해 배포하지 않습니다.
+- 함수 런타임의 DB 주소는 Neon이 주입하는 `DATABASE_URL_UNPOOLED`(트랜잭션 사용) 또는 `DATABASE_URL`을 사용합니다. DB 주소와 RSA 개인키, 관리자 토큰, HMAC 비밀값을 소스에 저장하지 않습니다.
+- GitHub Actions는 단위/통합 테스트만 수행하며 운영 Neon 프로젝트에 자동 배포하거나 운영 DB를 변경하지 않습니다.
+- DB 연결, 서명키, 관리자 인증 설정이 없거나 무료 사용량이 소진되면 발급/갱신은 실패 처리합니다. 검증 우회나 임의 PRO 권한 부여는 하지 않습니다.
+- Neon 계정 연결, 프로젝트 생성 및 최초 배포는 소유자 계정의 인증이 필요합니다. 저장소만으로 외부 계정을 만들거나 비밀값을 추정해 배포하지 않습니다.
 
 ## API
 - `POST /v1/licenses/activate`: `{ "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`
