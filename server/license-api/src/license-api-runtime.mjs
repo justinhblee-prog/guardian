@@ -7,7 +7,7 @@ import {
   validateDeviceBinding, verifyLicenseKey
 } from './license-core.mjs';
 
-export function createLicenseApiRuntime(environment = process.env) {
+export function createLicenseApiRuntime(environment = process.env, options = {}) {
 const { Pool } = pg;
 const PORT = Number(environment.PORT || 8787);
 // Bind to loopback by default. Phone-hosted deployments can expose the API
@@ -539,12 +539,17 @@ async function revokeLicense(id, req) {
       }
     }
     if (req.method === 'GET' && url.pathname === '/admin.js') {
-      const script = await readFile(new URL('../admin/admin.js', import.meta.url));
+      const script = options.adminAssets?.js ?? await readFile(new URL('../admin/admin.js', import.meta.url));
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY', 'referrer-policy': 'no-referrer', 'permissions-policy': 'camera=(), microphone=(), geolocation=()' });
       return res.end(script);
     }
+    if (req.method === 'GET' && url.pathname === '/admin-model.mjs') {
+      const model = options.adminAssets?.model ?? await readFile(new URL('../admin/admin-model.mjs', import.meta.url));
+      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY', 'referrer-policy': 'no-referrer' });
+      return res.end(model);
+    }
     if (req.method === 'GET' && url.pathname === '/admin') {
-      const html = await readFile(new URL('../admin/index.html', import.meta.url));
+      const html = options.adminAssets?.html ?? await readFile(new URL('../admin/index.html', import.meta.url));
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" });
       return res.end(html);
     }
