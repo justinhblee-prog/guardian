@@ -1834,7 +1834,7 @@ class MainActivity : Activity() {
                         developmentPreview = developmentPreview
                     ),
                     10f,
-                    if (proActive && entitled) accent else Color.rgb(238, 176, 82),
+                    if (PremiumFeatureAccessPolicy.isOperational(feature.id, proActive)) accent else Color.rgb(238, 176, 82),
                     true
                 ).withTop(8))
                 addView(text(feature.engineStatus, 10f, muted, false).withTop(5))
