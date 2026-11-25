@@ -8,7 +8,9 @@
   },
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node --test"
+    "test": "node --test",
+    "edge:dev": "npx wrangler dev --config wrangler.toml",
+    "edge:deploy": "npx wrangler deploy --config wrangler.toml"
   },
   "dependencies": {
     "pg": "^8.16.3"
