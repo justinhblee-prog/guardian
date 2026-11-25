@@ -98,7 +98,7 @@ class FilterUpdatePolicyTest {
     fun missingOrExpiredCacheStillMakesRefreshDue() {
         val interval = FilterUpdateScheduler.MIN_INTERVAL_MS
         assertTrue(FilterUpdatePolicy.isDue(false, 10_000L, interval, 10_001L))
-        assertTrue(FilterUpdatePolicy.isDue(true, 10_000L, interval, 70_000L))
-        assertFalse(FilterUpdatePolicy.isDue(true, 10_000L, interval, 69_999L))
+        assertTrue(FilterUpdatePolicy.isDue(true, 10_000L, interval, 910_000L))
+        assertFalse(FilterUpdatePolicy.isDue(true, 10_000L, interval, 909_999L))
     }
 }
