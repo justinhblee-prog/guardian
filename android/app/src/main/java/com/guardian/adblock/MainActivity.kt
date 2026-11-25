@@ -1031,8 +1031,7 @@ class MainActivity : Activity() {
                     FilterDistributionSettings.configuredBaseUrl(this),
                     BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
                 ),
-                licenseApiConfigured = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
-                    BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank(),
+                licenseApiConfigured = LicenseApiClient.isConfigured(this),
                 filterUpdateErrorPresent = listOf(
                     FilterListManager.KEY_LAST_ERROR,
                     FilterListManager.KEY_SECURITY_LAST_ERROR,
@@ -1427,8 +1426,7 @@ class MainActivity : Activity() {
         // from real signed-license entitlement. Never use this flag to authorize
         // production features or alter LicenseEntitlementStore.
         val developmentPreview = BuildConfig.DEBUG
-        val apiReady = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
-            BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank()
+        val apiReady = LicenseApiClient.isConfigured(this)
 
         body.addView(text("Guardian Premium", 26f, white, true))
         body.addView(text(
