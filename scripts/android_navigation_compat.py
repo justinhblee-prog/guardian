@@ -53,6 +53,7 @@ def resolve_settings_item(hierarchy: str, requested: str) -> str:
     """Resolve current or legacy labels for a Settings destination."""
     root = _root(hierarchy)
     aliases = {
+        "일반": ("일반", "일반 설정"),
         "앱 제외 관리": ("앱 제외 관리", "앱 제외"),
         "필터 관리": ("필터 관리", "필터 규칙"),
     }
