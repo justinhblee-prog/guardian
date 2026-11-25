@@ -44,8 +44,10 @@ internal object DevUpdateManager {
     internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
         shouldFetchReleaseManifest(installedVersionCode, tagVersion) && manifestVersionCode == tagVersion
 
-    fun checkForUpdate(): GuardianDevUpdate? {
+    fun checkForUpdate(onProgress: ((String) -> Unit)? = null): GuardianDevUpdate? {
+        onProgress?.invoke("GitHub 업데이트 목록 연결 중…")
         val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
+        onProgress?.invoke("공개된 개발 버전 비교 중…")
         val candidates = ArrayList<ReleaseCandidate>()
         val tagPattern = Regex("^guardian-dev-v(\\d+)$")
 
@@ -87,6 +89,7 @@ internal object DevUpdateManager {
             require(isGuardianReleaseAssetUrl(candidate.apkUrl)) {
                 "개발 APK 주소가 허용된 GitHub Release가 아닙니다."
             }
+            onProgress?.invoke("새 버전 ${candidate.tagVersion} 배포 정보 확인 중…")
             val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
             if (manifest.optString("packageName") != PACKAGE_NAME) continue
             val versionCode = manifest.optInt("versionCode", 0)
@@ -267,8 +270,8 @@ internal object DevUpdateManager {
     private fun readHttps(address: String, maxBytes: Int): String {
         require(address.startsWith("https://", ignoreCase = true)) { "업데이트 서버는 HTTPS만 허용합니다." }
         val connection = (URL(address).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 12000
-            readTimeout = 15000
+            connectTimeout = 8000
+            readTimeout = 10000
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
             setRequestProperty("Accept", "application/vnd.github+json")
