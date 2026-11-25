@@ -26,8 +26,9 @@ internal data class GuardianDevUpdate(
 internal class GuardianHttpStatusException(val statusCode: Int) : java.io.IOException("HTTP_STATUS_$statusCode")
 
 internal object DevUpdateManager {
+    // Public read-only fallback for exhausted unauthenticated API limits.
     private const val RELEASES_URL =
-        "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=100"    // Public read-only fallback for exhausted unauthenticated API limits.
+        "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=100"
     private const val RELEASES_ATOM_URL =
         "https://github.com/justinhblee-prog/guardian/releases.atom"
     private const val APK_ASSET = "guardian-android-dev.apk"
@@ -125,14 +126,20 @@ internal object DevUpdateManager {
         return null
     }
 
+    internal fun atomTagsFromFeed(payload: String): List<String> {
+        // Keep feed parsing platform-independent so it can be tested on the JVM.
+        val pattern = Regex("https://github\\.com/justinhblee-prog/guardian/releases/tag/(guardian-dev-v([0-9]+))")
+        val seen = LinkedHashSet<String>()
+        for (match in pattern.findAll(payload)) {
+            seen += match.groupValues[1]
+        }
+        return seen.toList()
+    }
+
     internal fun releasesFromAtom(payload: String): JSONArray {
         // Extract only canonical tags from this repository; construct asset URLs locally.
-        val pattern = Regex("https://github\\.com/justinhblee-prog/guardian/releases/tag/(guardian-dev-v([0-9]+))")
         val result = JSONArray()
-        val seen = HashSet<String>()
-        for (match in pattern.findAll(payload)) {
-            val tag = match.groupValues[1]
-            if (!seen.add(tag)) continue
+        for (tag in atomTagsFromFeed(payload)) {
             val assets = JSONArray()
                 .put(JSONObject().put("name", MANIFEST_ASSET).put("browser_download_url", "https://github.com/justinhblee-prog/guardian/releases/download/$tag/$MANIFEST_ASSET"))
                 .put(JSONObject().put("name", APK_ASSET).put("browser_download_url", "https://github.com/justinhblee-prog/guardian/releases/download/$tag/$APK_ASSET"))

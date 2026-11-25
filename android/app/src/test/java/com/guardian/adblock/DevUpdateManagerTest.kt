@@ -25,14 +25,12 @@ class DevUpdateManagerTest {
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 49, 48))
         assertFalse(DevUpdateManager.isNewerMatchingRelease(47, 48, 49))
     }
-    @Test fun atomFallbackBuildsOnlyCanonicalGuardianDevReleaseAssets() {
-        val feed = "https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v72\n" +
-            "https://github.com/attacker/guardian/releases/tag/guardian-dev-v999\n" +
-            "https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v71"
-        val releases = DevUpdateManager.releasesFromAtom(feed)
-        assertTrue(releases.length() == 2)
-        assertTrue(releases.getJSONObject(0).getString("tag_name") == "guardian-dev-v72")
-        assertTrue(releases.getJSONObject(0).getJSONArray("assets").length() == 2)
+    @Test fun atomFallbackAcceptsOnlyCanonicalGuardianDevReleaseTags() {
+        val feed = "https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v72\\n" +
+            "https://github.com/attacker/guardian/releases/tag/guardian-dev-v999\\n" +
+            "https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v71\\n" +
+            "https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v72"
+        assertTrue(DevUpdateManager.atomTagsFromFeed(feed) == listOf("guardian-dev-v72", "guardian-dev-v71"))
     }
     @Test fun acceptsOnlyOfficialHttpsReleaseAssetUrls() {
         assertTrue(DevUpdateManager.isGuardianReleaseAssetUrl(
