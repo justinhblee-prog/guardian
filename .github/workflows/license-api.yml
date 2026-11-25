@@ -70,3 +70,25 @@ jobs:
         run: npm test
       - name: Validate Cloudflare Worker bundle without deploying
         run: npx --yes wrangler@latest deploy --dry-run --outdir /tmp/guardian-license-worker --config wrangler.toml
+      - name: Smoke test the Worker runtime and static admin assets locally
+        run: |
+          npx --yes wrangler@latest dev --local --ip 127.0.0.1 --port 8788 > /tmp/guardian-worker.log 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:8788/health > /tmp/guardian-worker-health.json; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/guardian-worker.log
+            exit 1
+          fi
+          grep -q 'guardian-license-api' /tmp/guardian-worker-health.json
+          curl --silent --fail http://127.0.0.1:8788/admin | grep -qi '<html'
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8788/ready)
+          test "$status" = "503"
+          curl --silent --fail http://127.0.0.1:8788/admin.js | grep -q 'Guardian'
