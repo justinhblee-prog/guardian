@@ -6,6 +6,12 @@ import org.junit.Test
 
 class FilterUpdatePolicyTest {
     @Test
+    fun scheduledRefreshOnlyReloadsVpnRulesAfterAtLeastOneSourceWasUpdated() {
+        assertTrue(FilterUpdatePolicy.shouldReloadRules(anySourceUpdated = true))
+        assertFalse(FilterUpdatePolicy.shouldReloadRules(anySourceUpdated = false))
+    }
+
+    @Test
     fun enabledOptionalFilterRemainsRetryableAfterItsFirstDownloadFails() {
         assertTrue(FilterUpdatePolicy.shouldRetryOptionalUpdate(wasEnabled = true))
         assertFalse(FilterUpdatePolicy.shouldRetryOptionalUpdate(wasEnabled = false))
