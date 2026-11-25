@@ -3859,7 +3859,7 @@ class MainActivity : Activity() {
                 }
                 if (baseError != null) {
                     val rolledBackProfile = rollbackPendingFilterProfile(prefs)
-                    if (rolledBackProfile) hadPreviousMainCache = true
+                    if (rolledBackProfile) hadPreviousMainCache = hasUsableMainFilterCache()
                     val error = baseError!!
                     android.util.Log.e(
                         "Guardian",
@@ -4018,7 +4018,8 @@ class MainActivity : Activity() {
         val previousKey = prefs.getString(FilterListManager.KEY_PENDING_PROFILE_ROLLBACK, null)
         val selectedKey = prefs.getString(FilterListManager.KEY_FILTER_PROFILE, "adguard") ?: "adguard"
         val cachedKey = prefs.getString(FilterListManager.KEY_CACHED_PROFILE, null)
-        val shouldRollback = FilterProfileRollbackPolicy.shouldRollback(previousKey, selectedKey, cachedKey)
+        val shouldRollback = FilterProfileRollbackPolicy.shouldRollback(previousKey, selectedKey, cachedKey) &&
+            FilterListManager.availableProfiles().any { it.key == previousKey }
         val editor = prefs.edit().remove(FilterListManager.KEY_PENDING_PROFILE_ROLLBACK)
         if (shouldRollback) editor.putString(FilterListManager.KEY_FILTER_PROFILE, previousKey)
         val committed = editor.commit()
@@ -4028,6 +4029,14 @@ class MainActivity : Activity() {
         }
         return shouldRollback
     }
+
+    private fun hasUsableMainFilterCache(): Boolean = runCatching {
+        FilterUpdatePolicy.hasUsableMainCache(
+            cacheValid = FilterListManager.hasCachedList(this),
+            selectedProfileKey = FilterListManager.selectedProfile(this).key,
+            cachedProfileKey = FilterListManager.cachedProfile(this).key
+        )
+    }.getOrDefault(false)
 
     private fun syncFilterProfileSpinner() {
         val spinner = filterProfileSpinner ?: return
@@ -4045,7 +4054,8 @@ class MainActivity : Activity() {
         val rolledBackProfile = rollbackPendingFilterProfile(
             getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         )
-        val hasPreviousCacheAfterRollback = hadPreviousMainCache || rolledBackProfile
+        val hasPreviousCacheAfterRollback = hadPreviousMainCache ||
+            (rolledBackProfile && hasUsableMainFilterCache())
         android.util.Log.e(
             "Guardian",
             "Filter update failed: ${SafeFailureSummary.codeFor(error)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(error)}"
