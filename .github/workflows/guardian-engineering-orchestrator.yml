@@ -55,11 +55,14 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > /tmp/guardian-releases.json
+          # Keep the orchestrator build aligned with android-apk.yml. The installed
+          # predecessor is 0.7.51-dev (versionCode 64); never let CI artifacts
+          # be generated from the older historical 0.7.42-dev baseline.
           python3 scripts/resolve_guardian_dev_version.py \
             --releases-json /tmp/guardian-releases.json \
             --commit "$GITHUB_SHA" \
-            --baseline-version "0.7.42-dev" \
-            --baseline-code 55 \
+            --baseline-version "0.7.51-dev" \
+            --baseline-code 64 \
             --github-env "$GITHUB_ENV" \
             --github-output "$GITHUB_OUTPUT"
       - name: Validate development version resolver contract
