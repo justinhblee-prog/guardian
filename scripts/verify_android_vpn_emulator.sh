@@ -1472,28 +1472,18 @@ fi
 echo "Settings > 일반 > 프로그램 업데이트 확인 opens the dedicated Program Updates screen and executes its version check."
 tap_content_description "설정"
 sleep 1
-scroll_to_text "종료"
+# The redesigned Settings workspace places its explicit app-exit control
+# below the right-hand category content, rather than in the old vertical
+# Settings index. Assert the actual control and its confirmation dialog.
+scroll_to_text "앱 종료"
 sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-exit-menu.xml >/dev/null 2>&1
-exit_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-menu.xml | tr -d '\r')"
-if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml"; then
-  echo "The Exit submenu did not expose its explicit Guardian 종료 action."
-  echo "$exit_menu_xml"
-  exit 1
-fi
-# The Settings row can open the confirmation dialog as soon as the UI settles.
-# Handle both states explicitly: tap the row only while the dialog is not open,
-# then use the dialog's actual button rather than its non-clickable title.
-if ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_menu_xml"; then
-  tap_text "Guardian 종료"
-  sleep 1
-  exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
-else
-  exit_confirmation_xml="$exit_menu_xml"
-fi
-if ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
+tap_text "앱 종료"
+sleep 1
+exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
+if ! grep -Fq 'Guardian 종료' <<<"$exit_confirmation_xml" ||
+   ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
    ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
-  echo "The explicit Guardian 종료 action did not open its confirmation dialog."
+  echo "The Settings app-exit control did not open its expected confirmation dialog."
   echo "$exit_confirmation_xml"
   exit 1
 fi
