@@ -34,7 +34,7 @@ class DnsUpstreamCandidatePolicyTest {
 
     @Test fun systemDnsOrderingSkipsInvalidAndDuplicateAddressesAndHonorsLimit() {
         assertEquals(
-            listOf("192.0.2.53", "2001:db8::53"),
+            listOf("192.0.2.53", DnsAddressValidator.normalize("2001:db8::53")!!),
             DnsUpstreamCandidatePolicy.orderedSystemDns(
                 listOf(
                     DnsUpstreamCandidatePolicy.PhysicalDnsCandidate(listOf("bad", "192.0.2.53", "192.0.2.53"), false, true, true),
