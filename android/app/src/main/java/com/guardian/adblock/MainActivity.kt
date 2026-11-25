@@ -3815,6 +3815,7 @@ class MainActivity : Activity() {
                     cachedProfileKey = FilterListManager.cachedProfile(this).key
                 )
             }.getOrDefault(false)
+            try {
             val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
             val securityWasEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
             val androidAdsWasEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
@@ -3967,6 +3968,23 @@ class MainActivity : Activity() {
                 androidAdsFilterSwitch?.isEnabled = true
                 securityFilterCheckBox?.isEnabled = true
                 androidAdsFilterCheckBox?.isEnabled = true
+            }
+            } catch (error: Exception) {
+                handleFilterUpdateFailure(error, hadPreviousMainCache)
+            } catch (error: LinkageError) {
+                handleFilterUpdateFailure(error, hadPreviousMainCache)
+            } finally {
+                // Never leave the Settings controls disabled if post-download processing,
+                // VPN reload dispatch, or UI status formatting fails unexpectedly.
+                filterUpdateRunning.set(false)
+                runOnUiThread {
+                    filterUpdateButton?.isEnabled = true
+                    homeFilterUpdateButton?.isEnabled = true
+                    securityFilterSwitch?.isEnabled = true
+                    androidAdsFilterSwitch?.isEnabled = true
+                    securityFilterCheckBox?.isEnabled = true
+                    androidAdsFilterCheckBox?.isEnabled = true
+                }
             }
         }
     }
