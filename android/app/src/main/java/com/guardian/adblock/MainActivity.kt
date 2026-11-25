@@ -3781,14 +3781,20 @@ class MainActivity : Activity() {
         val count = FilterListManager.cachedBlockCount(this)
         val updated = FilterListManager.lastUpdatedAt(this)
         val time = if (updated > 0L) SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(updated)) else "아직 업데이트되지 않음"
-        val securityCount = FilterListManager.cachedSecurityBlockCount(this)
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val securityOn = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
         val androidAdsOn = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+        val securityCacheReady = securityOn && runCatching {
+            FilterListManager.hasCachedSecurityList(this)
+        }.getOrDefault(false)
+        val androidAdsCacheReady = androidAdsOn && runCatching {
+            FilterListManager.hasCachedAndroidAdsList(this)
+        }.getOrDefault(false)
+        val securityCount = FilterListManager.cachedSecurityBlockCount(this)
         val androidAdsCount = FilterListManager.cachedAndroidAdsBlockCount(this)
         val ignored = FilterListManager.cachedIgnoredCount(this)
-        val securityIgnored = if (securityOn) FilterListManager.cachedSecurityIgnoredCount(this) else 0
-        val androidAdsIgnored = if (androidAdsOn) FilterListManager.cachedAndroidAdsIgnoredCount(this) else 0
+        val securityIgnored = if (securityCacheReady) FilterListManager.cachedSecurityIgnoredCount(this) else 0
+        val androidAdsIgnored = if (androidAdsCacheReady) FilterListManager.cachedAndroidAdsIgnoredCount(this) else 0
         val lastError = prefs.getString(FilterListManager.KEY_LAST_ERROR, null)
         val selectedProfile = FilterListManager.selectedProfile(this)
         val cachedProfile = FilterListManager.cachedProfile(this)
@@ -3802,10 +3808,25 @@ class MainActivity : Activity() {
         val mainErrorStatus = FilterUpdatePolicy.mainErrorStatus(lastError, hasUsableMainCache)
         val securityError = if (securityOn) prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null) else null
         val androidAdsError = if (androidAdsOn) prefs.getString(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR, null) else null
-        val profileLabel = if (FilterListManager.hasCachedList(this) && selectedProfile.key != cachedProfile.key) {
-            "선택: ${selectedProfile.label} · 적용 중: ${cachedProfile.label}"
-        } else selectedProfile.label
-        val summary = "$profileLabel · 광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 앱 광고 ${if (androidAdsOn) androidAdsCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored + androidAdsIgnored}개 제외 · 업데이트: $time"
+        val hasMainCacheFile = runCatching { FilterListManager.hasCachedFile(this) }.getOrDefault(false)
+        val profileLabel = when {
+            hasMainCacheFile && selectedProfile.key != cachedProfile.key ->
+                "선택: ${selectedProfile.label} · 현재 캐시: ${cachedProfile.label} (선택 프로필 미적용)"
+            !hasUsableMainCache -> "${selectedProfile.label} · 기본 필터 캐시 미준비"
+            else -> selectedProfile.label
+        }
+        val mainCountLabel = if (hasUsableMainCache) "${count}개" else "캐시 미적용"
+        val securityCountLabel = when {
+            !securityOn -> "꺼짐"
+            securityCacheReady -> "${securityCount}개"
+            else -> "캐시 미준비"
+        }
+        val androidAdsCountLabel = when {
+            !androidAdsOn -> "꺼짐"
+            androidAdsCacheReady -> "${androidAdsCount}개"
+            else -> "캐시 미준비"
+        }
+        val summary = "$profileLabel · 광고·추적 $mainCountLabel · 보안 $securityCountLabel · 앱 광고 $androidAdsCountLabel · 미지원 규칙 ${ignored + securityIgnored + androidAdsIgnored}개 제외 · 업데이트: $time"
         val signedManifestStatus = FilterListManager.signedManifestStatus(this)
         return listOfNotNull(
             summary,
