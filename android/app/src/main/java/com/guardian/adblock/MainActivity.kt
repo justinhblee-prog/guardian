@@ -1174,7 +1174,7 @@ class MainActivity : Activity() {
 
         body.addView(text("필터 정책 관리", 18f, white, true).withTop(24))
         body.addView(text(
-            "차단 프로필, 광고·추적 목록, 악성코드 보호와 자동 업데이트는 설정의 필터링 메뉴에서 관리합니다. 이 화면은 VPN 연결과 실제 보호 상태에 집중합니다.",
+            "필터 프로필과 차단 규칙은 설정 → 필터링에서 관리합니다.",
             12f, muted, false
         ).withTop(5))
         body.addView(Button(this).apply {
@@ -1276,23 +1276,6 @@ class MainActivity : Activity() {
             addView(filterUpdateButton!!, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
         }
         body.addView(officialFilterCard.withTop(18))
-        body.addView(protectionSwitchCard(
-            "공용 DNS 직접 포착 · 고급",
-            "알려진 공용 DNS 서버 IP로 향하는 연결을 포착합니다. 같은 IP를 사용하는 비DNS 연결에도 영향을 줄 수 있으므로 기본값은 꺼져 있습니다.",
-            getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).getBoolean(
-                GuardianVpnService.KEY_DIRECT_DNS_CAPTURE,
-                GuardianVpnService.DEFAULT_DIRECT_DNS_CAPTURE
-            )
-        ) { checked ->
-            getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
-                .putBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, checked).apply()
-            Toast.makeText(
-                this,
-                if (checked) "고급 DNS 포착 설정을 저장했습니다. 보호를 다시 시작해야 적용됩니다."
-                else "시스템 가상 DNS만 포착하도록 설정했습니다. 보호를 다시 시작해야 적용됩니다.",
-                Toast.LENGTH_LONG
-            ).show()
-        }.withTop(10))
         body.addView(text("사용자 규칙", 16f, white, true).withTop(22))
         body.addView(text("차단 도메인", 14f, white, true).withTop(12))
         body.addView(text("도메인 하나를 한 줄에 입력하세요. 하위 도메인도 함께 차단됩니다.", 12f, muted, false).withTop(5))
@@ -2396,7 +2379,6 @@ class MainActivity : Activity() {
         val options = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val autoUpdateCheck = CheckBox(this).apply {
-            applyToggleTint(this)
             applyToggleTint(this)
             text = "백그라운드에서 필터 자동 업데이트"
             textSize = 12f
