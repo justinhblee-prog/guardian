@@ -34,7 +34,7 @@ Add-ReportLine ("Repository: " + $repoRoot)
 Add-ReportLine ("ADB: " + $adb)
 $devices = Invoke-Adb @("devices")
 if ($devices.ExitCode -ne 0) { throw "ADB devices command failed: $($devices.Output)" }
-$connected = @($devices.Output.Split([char]10) | Where-Object { $_ -match "^\S+\s+device$" } | ForEach-Object { ($_ -split "\s+")[0] })
+$connected = @($devices.Output -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -match "^\S+\s+device(?:\s|$)" } | ForEach-Object { ($_ -split "\s+")[0] })
 if ($Serial) {
     if ($connected -notcontains $Serial) { throw "Requested device '$Serial' is not connected and authorized. Connected: $($connected -join ', ')" }
 } elseif ($connected.Count -eq 1) { $Serial = $connected[0] }
