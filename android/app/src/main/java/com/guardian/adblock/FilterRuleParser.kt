@@ -45,11 +45,17 @@ object FilterRuleParser {
                     addDomain(line.substringAfter('='), allowed).also { if (!it) ignored++ }
                 lower.startsWith("@@||") && hasModifier(line, "badfilter") -> {
                     val domain = adblockDomain(line.substring(4))
-                    if (domain == null) ignored++ else disabledAllowed.add(domain)
+                    // A badfilter must describe the same DNS-wide rule being disabled.
+                    // Context modifiers such as third-party cannot be represented by
+                    // this DNS engine and must never cancel an unrestricted exception.
+                    if (domain == null || !hasOnlySupportedModifiers(line)) ignored++
+                    else disabledAllowed.add(domain)
                 }
                 lower.startsWith("||") && hasModifier(line, "badfilter") -> {
                     val domain = adblockDomain(line.substring(2))
-                    if (domain == null) ignored++
+                    // Ignoring unsupported modifiers is safer than broadening a
+                    // context-scoped badfilter into a domain-wide rule cancellation.
+                    if (domain == null || !hasOnlySupportedModifiers(line)) ignored++
                     else if (hasModifier(line, "important")) disabledImportantBlocked.add(domain)
                     else disabledBlocked.add(domain)
                 }
@@ -104,6 +110,13 @@ object FilterRuleParser {
 
     private fun hasModifier(rule: String, modifier: String): Boolean =
         modifierTokens(rule).any { it.equals(modifier, ignoreCase = true) }
+
+    private fun hasOnlySupportedModifiers(rule: String): Boolean {
+        val supported = setOf("important", "all", "badfilter")
+        return modifierTokens(rule).all {
+            it.isNotBlank() && it.lowercase(Locale.ROOT) in supported
+        }
+    }
 
     private fun adblockDomain(expression: String): String? {
         // Only hostname anchors are safe to represent at DNS level.
