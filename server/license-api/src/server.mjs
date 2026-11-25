@@ -5,7 +5,7 @@ import pg from 'pg';
 import { createPostgresRateLimiter, createRateLimiter } from './rate-limit.mjs';
 import {
   adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey,
-  validateDeviceBinding, validateLicenseIssueParameters, verifyLicenseKey
+  validateDeviceBinding, validateLicenseCustomer, validateLicenseIssueParameters, validateSupportReplyStatus, verifyLicenseKey
 } from './license-core.mjs';
 
 const { Pool } = pg;
@@ -358,7 +358,7 @@ async function replySupportTicket(id, body, req) {
     throw Object.assign(new Error('문의 ID 형식이 올바르지 않습니다.'), { status: 400 });
   }
   const reply = validateSupportText(body.reply, '답변', 2, 5000);
-  const status = ['answered','in_progress','closed'].includes(body.status) ? body.status : 'answered';
+  const status = validateSupportReplyStatus(body.status);
   const result = await pool.query(
     `UPDATE support_tickets SET admin_reply=$2,status=$3,updated_at=now(),replied_at=now()
      WHERE id=$1 RETURNING ticket_ref,status,updated_at,replied_at`,
@@ -370,17 +370,7 @@ async function replySupportTicket(id, body, req) {
 async function createLicense(body) {
   requireEnv();
   requireAdmin(body.req);
-  let customer = null;
-  if (body.customer !== undefined && body.customer !== null) {
-    const name = typeof body.customer.name === 'string' ? body.customer.name.trim() : '';
-    const email = typeof body.customer.email === 'string' ? body.customer.email.trim().toLowerCase() : '';
-    const orderRef = typeof body.customer.orderRef === 'string' ? body.customer.orderRef.trim() : '';
-    if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 ||
-        orderRef.length > 120 || /[\r\n\0]/.test(name + email + orderRef)) {
-      throw Object.assign(new Error('고객명, 올바른 이메일, 주문번호를 확인하세요.'), { status: 400 });
-    }
-    customer = { name, email, orderRef: orderRef || null };
-  }
+  const customer = validateLicenseCustomer(body.customer);
   const issueParameters = validateLicenseIssueParameters({
     maxDevices: body.maxDevices === undefined ? 1 : body.maxDevices,
     validDays: body.validDays === undefined ? 365 : body.validDays,
