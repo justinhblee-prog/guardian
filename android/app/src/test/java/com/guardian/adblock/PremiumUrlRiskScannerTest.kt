@@ -15,6 +15,14 @@ class PremiumUrlRiskScannerTest {
         assertTrue(idn.indicators.any { it.contains("Punycode") })
     }
 
+    @Test fun unicodeInternationalizedHostIsNormalizedAndFlagged() {
+        val result = PremiumUrlRiskScanner.scan("https://аррӏе.com/login")
+        assertTrue(result.valid)
+        assertEquals("xn--80ak6aa92e.com", result.host)
+        assertEquals(UrlRiskLevel.HIGH, result.level)
+        assertTrue(result.indicators.any { it.contains("Punycode") })
+    }
+
     @Test fun flagsIpHostsAndUrlShortenersForReview() {
         val ip = PremiumUrlRiskScanner.scan("https://192.0.2.10/path")
         assertTrue(ip.indicators.any { it.contains("IPv4") })
@@ -24,10 +32,10 @@ class PremiumUrlRiskScannerTest {
 
     @Test fun flagsBrowserCompatibleNonCanonicalIpv4AddressForms() {
         val candidates = listOf(
-            "https://2130706433/path",       // single 32-bit decimal integer
-            "https://0x7f000001/path",      // hexadecimal integer
-            "https://0177.0.0.1/path",      // legacy octal-like dotted form
-            "https://192.168.001.001/path"  // leading-zero dotted form
+            "https://2130706433/path",
+            "https://0x7f000001/path",
+            "https://0177.0.0.1/path",
+            "https://192.168.001.001/path"
         )
         for (candidate in candidates) {
             val result = PremiumUrlRiskScanner.scan(candidate)
@@ -49,6 +57,7 @@ class PremiumUrlRiskScannerTest {
         assertFalse(PremiumUrlRiskScanner.scan("").valid)
         assertFalse(PremiumUrlRiskScanner.scan("x".repeat(2049)).valid)
         assertFalse(PremiumUrlRiskScanner.scan("https:///missing-host").valid)
+        assertFalse(PremiumUrlRiskScanner.scan("https://bad host.example").valid)
     }
 
     @Test fun userInfoCannotHideTheActualHost() {
