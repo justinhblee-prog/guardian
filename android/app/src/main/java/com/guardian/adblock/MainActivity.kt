@@ -103,6 +103,8 @@ class MainActivity : Activity() {
     private var licenseActivationReturnTarget = false
     private var licenseKeyInput: EditText? = null
     private val filterUpdateRunning = AtomicBoolean(false)
+    // UI callbacks from an older download must not overwrite a newer update attempt.
+    private val filterUpdateGeneration = java.util.concurrent.atomic.AtomicLong(0L)
     private val startupFilterCheckStarted = AtomicBoolean(false)
     private val protectionCheckRunning = AtomicBoolean(false)
     @Volatile private var pendingFilterStartNotice: String? = null
@@ -3791,6 +3793,7 @@ class MainActivity : Activity() {
             setFilterUpdateStatus("필터 목록을 이미 다운로드하고 있습니다.")
             return
         }
+        val updateGeneration = filterUpdateGeneration.incrementAndGet()
         // A new foreground attempt supersedes a queued first-run recovery request.
         runCatching { FilterUpdateScheduler.cancelInitialCacheRetry(applicationContext) }
             .onFailure { android.util.Log.w("Guardian", "Initial filter retry cancellation failed: ${SafeFailureSummary.codeFor(it)}") }
@@ -3930,8 +3933,8 @@ class MainActivity : Activity() {
                     "Guardian",
                     "Filter update finished; base=${baseResult != null}, security=${securityResult != null}, androidAds=${androidAdsResult != null}"
                 )
-                filterUpdateRunning.set(false)
                 runOnUiThread {
+                    if (filterUpdateGeneration.get() != updateGeneration) return@runOnUiThread
                     if (securityWasEnabled && securityResult == null && !securityWasCached) {
                         securityFilterSwitch?.isChecked = false
                         securityFilterCheckBox?.isChecked = false
@@ -3970,14 +3973,17 @@ class MainActivity : Activity() {
                     androidAdsFilterCheckBox?.isEnabled = true
                 }
             } catch (error: Exception) {
-                handleFilterUpdateFailure(error, hadPreviousMainCache)
+                handleFilterUpdateFailure(error, hadPreviousMainCache, updateGeneration)
             } catch (error: LinkageError) {
-                handleFilterUpdateFailure(error, hadPreviousMainCache)
+                handleFilterUpdateFailure(error, hadPreviousMainCache, updateGeneration)
             } finally {
                 // Never leave the Settings controls disabled if post-download processing,
                 // VPN reload dispatch, or UI status formatting fails unexpectedly.
-                filterUpdateRunning.set(false)
+                if (filterUpdateGeneration.get() == updateGeneration) {
+                    filterUpdateRunning.set(false)
+                }
                 runOnUiThread {
+                    if (filterUpdateGeneration.get() != updateGeneration) return@runOnUiThread
                     filterUpdateButton?.isEnabled = true
                     homeFilterUpdateButton?.isEnabled = true
                     securityFilterSwitch?.isEnabled = true
@@ -3989,7 +3995,11 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun handleFilterUpdateFailure(error: Throwable, hadPreviousMainCache: Boolean) {
+    private fun handleFilterUpdateFailure(
+        error: Throwable,
+        hadPreviousMainCache: Boolean,
+        updateGeneration: Long
+    ) {
         android.util.Log.e(
             "Guardian",
             "Filter update failed: ${SafeFailureSummary.codeFor(error)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(error)}"
@@ -4000,10 +4010,10 @@ class MainActivity : Activity() {
                     android.util.Log.e("Guardian", "Could not schedule initial filter cache retry: ${SafeFailureSummary.codeFor(retryError)}")
                 }
         }
-        filterUpdateRunning.set(false)
         getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
             .putString(FilterListManager.KEY_LAST_ERROR, SafeFailureSummary.codeFor(error)).apply()
         runOnUiThread {
+            if (filterUpdateGeneration.get() != updateGeneration) return@runOnUiThread
             val cacheMessage = if (hadPreviousMainCache) {
                 "이전 정상 필터를 계속 사용합니다."
             } else {
