@@ -4301,6 +4301,22 @@ class MainActivity : Activity() {
         // process still owns the VPN tunnel before showing protection as active.
         val persistedActive = prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false)
         val active = ProtectionState.isActive(persistedActive, GuardianVpnService.isTunnelActive())
+        rulesFeedback?.let { feedback ->
+            if (currentTab == "rules") {
+                val savedAt = prefs.getLong(GuardianVpnService.KEY_USER_RULES_SAVED_AT, 0L)
+                val appliedAt = prefs.getLong(GuardianVpnService.KEY_FILTER_RULES_APPLIED_AT, 0L)
+                val applyStatus = prefs.getString(GuardianVpnService.KEY_FILTER_RULES_APPLY_STATUS, null)
+                val appliedCount = prefs.getInt(GuardianVpnService.KEY_FILTER_RULES_APPLIED_COUNT, 0)
+                feedback.text = when {
+                    !active -> if (savedAt > 0L) "규칙 저장됨 · 보호 시작 시 적용됩니다." else "규칙은 기기 내부에 안전하게 저장됩니다."
+                    appliedAt >= savedAt && savedAt > 0L && applyStatus == "적용 완료" ->
+                        "VPN 적용 완료 · 활성 차단 규칙 ${String.format(Locale.getDefault(), "%,d", appliedCount)}개"
+                    applyStatus?.startsWith("적용 실패") == true || applyStatus?.startsWith("구성요소 오류") == true ->
+                        "규칙 저장 완료 · VPN 적용 실패: $applyStatus"
+                    else -> "규칙 저장 완료 · VPN 적용 상태 확인 중"
+                }
+            }
+        }
         appFilterFeedback?.let { feedback ->
             val requested = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS, emptySet()).orEmpty()
             val applied = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_APPLIED, emptySet()).orEmpty()
@@ -4420,9 +4436,11 @@ class MainActivity : Activity() {
         val block = parseEditor(blockRulesInput, "차단 목록") ?: return
         val allow = parseEditor(allowRulesInput, "허용 목록") ?: return
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        val savedAt = System.currentTimeMillis()
         val rulesSaved = prefs.edit()
             .putString(GuardianVpnService.KEY_USER_BLOCK, block.joinToString("\n"))
             .putString(GuardianVpnService.KEY_USER_ALLOW, allow.joinToString("\n"))
+            .putLong(GuardianVpnService.KEY_USER_RULES_SAVED_AT, savedAt)
             .commit()
         if (!rulesSaved) {
             rulesFeedback?.text = "규칙을 기기에 저장하지 못했습니다. 저장 공간과 앱 권한을 확인한 뒤 다시 시도해 주세요."
@@ -4433,9 +4451,14 @@ class MainActivity : Activity() {
             GuardianVpnService.isTunnelActive()
         )
         if (protectionActive) {
-            startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
-            rulesFeedback?.text = "규칙을 저장하고 적용을 요청했습니다."
+            try {
+                startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                rulesFeedback?.text = "규칙 저장 완료 · VPN 적용 상태 확인 중"
+            } catch (_: Exception) {
+                rulesFeedback?.text = "규칙은 저장됐지만 VPN 적용 요청에 실패했습니다. 보호를 다시 연결하면 적용됩니다."
+            }
         } else rulesFeedback?.text = "규칙을 저장했습니다. 다음 보호 시작 시 적용됩니다."
+        refreshStatus()
     }
 
     private fun parseEditor(editor: EditText, label: String): List<String>? {
