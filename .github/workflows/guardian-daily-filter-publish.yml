@@ -37,6 +37,8 @@ jobs:
           node --check server/filter-distribution/scripts/update-filters.mjs
           node --check server/filter-distribution/scripts/publish-manifest.mjs
           node --check server/filter-distribution/scripts/verify-production-approvals.mjs
+          cd server/filter-distribution
+          npm test
 
   build-and-publish:
     name: Collect, validate, sign and publish daily filters
