@@ -482,6 +482,7 @@ class MainActivity : Activity() {
                 "GuardianProtection",
                 "Automatic restore deferred because Android VPN consent is not prepared"
             )
+            sendBroadcast(Intent(GuardianVpnService.ACTION_STATUS_CHANGED).setPackage(packageName))
             return
         }
 
