@@ -69,6 +69,7 @@ class MainActivity : Activity() {
     private var upstreamTestButton: Button? = null
     private var filterStatusText: TextView? = null
     private var filterUpdateButton: Button? = null
+    private var filterProfileSpinner: Spinner? = null
     private var homeFilterUpdateButton: Button? = null
     private var homeFilterStatusText: TextView? = null
     private var appFilterFeedback: TextView? = null
@@ -3015,6 +3016,7 @@ class MainActivity : Activity() {
         profileSpinner.adapter = profileAdapter
         val selectedProfileKey = FilterListManager.selectedProfile(this).key
         profileSpinner.setSelection(filterProfiles.indexOfFirst { it.key == selectedProfileKey }.coerceAtLeast(0))
+        filterProfileSpinner = profileSpinner
         profileSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -3027,10 +3029,16 @@ class MainActivity : Activity() {
                     filterStatusText?.text = "필터 업데이트 중에는 프로필을 변경할 수 없습니다."
                     return
                 }
-                profilePrefs.edit()
+                val saved = profilePrefs.edit()
+                    .putString(FilterListManager.KEY_PENDING_PROFILE_ROLLBACK, current)
                     .putString(FilterListManager.KEY_FILTER_PROFILE, selected.key)
-                    .putLong(FilterListManager.KEY_UPDATED_AT, 0L)
-                    .apply()
+                    // Keep the previous cache timestamp intact until the new profile is validated.
+                    .commit()
+                if (!saved) {
+                    profileSpinner.setSelection(currentIndex)
+                    filterStatusText?.text = "프로필 변경 설정을 저장하지 못했습니다. 기존 프로필을 유지합니다."
+                    return
+                }
                 filterStatusText?.text = "선택한 프로필: ${selected.label} · 새 목록을 내려받습니다."
                 startFilterUpdate()
             }
@@ -3831,6 +3839,8 @@ class MainActivity : Activity() {
                     android.util.Log.i("Guardian", "Base filter update request entered")
                     val updatedBase = FilterListManager.update(this)
                     baseResult = updatedBase
+                    // The new profile cache is now validated and committed; discard rollback state.
+                    prefs.edit().remove(FilterListManager.KEY_PENDING_PROFILE_ROLLBACK).apply()
                     // A successful user-triggered first download supersedes any queued
                     // one-time recovery request so WorkManager cannot duplicate it.
                     runCatching { FilterUpdateScheduler.cancelInitialCacheRetry(applicationContext) }
@@ -3843,6 +3853,8 @@ class MainActivity : Activity() {
                     baseError = error
                 }
                 if (baseError != null) {
+                    val rolledBackProfile = rollbackPendingFilterProfile(prefs)
+                    if (rolledBackProfile) hadPreviousMainCache = true
                     val error = baseError!!
                     android.util.Log.e(
                         "Guardian",
@@ -3935,6 +3947,7 @@ class MainActivity : Activity() {
                 )
                 runOnUiThread {
                     if (!FilterUpdateUiGenerationPolicy.shouldApply(updateGeneration, filterUpdateGeneration.get())) return@runOnUiThread
+                    syncFilterProfileSpinner()
                     if (securityWasEnabled && securityResult == null && !securityWasCached) {
                         securityFilterSwitch?.isChecked = false
                         securityFilterCheckBox?.isChecked = false
@@ -3995,11 +4008,37 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun rollbackPendingFilterProfile(prefs: android.content.SharedPreferences): Boolean {
+        val previousKey = prefs.getString(FilterListManager.KEY_PENDING_PROFILE_ROLLBACK, null)
+        val selectedKey = prefs.getString(FilterListManager.KEY_FILTER_PROFILE, "adguard") ?: "adguard"
+        val shouldRollback = FilterProfileRollbackPolicy.shouldRollback(previousKey, selectedKey)
+        val editor = prefs.edit().remove(FilterListManager.KEY_PENDING_PROFILE_ROLLBACK)
+        if (shouldRollback) editor.putString(FilterListManager.KEY_FILTER_PROFILE, previousKey)
+        val committed = editor.commit()
+        if (!committed) {
+            android.util.Log.e("Guardian", "Could not persist filter profile rollback")
+            return false
+        }
+        return shouldRollback
+    }
+
+    private fun syncFilterProfileSpinner() {
+        val spinner = filterProfileSpinner ?: return
+        val profiles = FilterListManager.availableProfiles()
+        val selectedKey = FilterListManager.selectedProfile(this).key
+        val index = profiles.indexOfFirst { it.key == selectedKey }
+        if (index >= 0 && spinner.selectedItemPosition != index) spinner.setSelection(index)
+    }
+
     private fun handleFilterUpdateFailure(
         error: Throwable,
         hadPreviousMainCache: Boolean,
         updateGeneration: Long
     ) {
+        val rolledBackProfile = rollbackPendingFilterProfile(
+            getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        )
+        val hasPreviousCacheAfterRollback = hadPreviousMainCache || rolledBackProfile
         android.util.Log.e(
             "Guardian",
             "Filter update failed: ${SafeFailureSummary.codeFor(error)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(error)}"
@@ -4014,7 +4053,8 @@ class MainActivity : Activity() {
             .putString(FilterListManager.KEY_LAST_ERROR, SafeFailureSummary.codeFor(error)).apply()
         runOnUiThread {
             if (!FilterUpdateUiGenerationPolicy.shouldApply(updateGeneration, filterUpdateGeneration.get())) return@runOnUiThread
-            val cacheMessage = if (hadPreviousMainCache) {
+            syncFilterProfileSpinner()
+            val cacheMessage = if (hasPreviousCacheAfterRollback) {
                 "이전 정상 필터를 계속 사용합니다."
             } else {
                 "앱 내 기본 DNS 규칙으로 보호를 시작할 수 있습니다. 추가 광고·추적 필터는 네트워크 연결이 복구되면 백그라운드에서 자동 재시도합니다."
