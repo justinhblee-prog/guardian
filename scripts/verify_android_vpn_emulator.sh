@@ -1267,25 +1267,35 @@ if [[ "$current_version" != "$expected_version" ]]; then
   exit 1
 fi
 
-# Only after the in-place upgrade has installed the current APK should CI
-# assert the redesigned five-destination navigation introduced by this PR.
-echo "Verifying the current APK's five-destination bottom navigation."
+# The installed APK may use either the legacy or redesigned five-destination navigation.
+echo "Verifying the current APK's supported five-destination bottom navigation."
 adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
 sleep 2
 tap_content_description "홈"
 current_home_xml="$(dump_ui_hierarchy /sdcard/guardian-current-home-navigation.xml)"
+navigation_layout="$(python3 scripts/android_navigation_compat.py navigation <<<"$current_home_xml")"
+case "$navigation_layout" in
+  redesigned) navigation_labels=("보호" "앱 제외" "활동" "설정") ;;
+  legacy:Premium) navigation_labels=("보호" "활동" "Premium" "전체 메뉴") ;;
+  legacy:프리미엄) navigation_labels=("보호" "활동" "프리미엄" "전체 메뉴") ;;
+  *)
+    echo "Unsupported current APK navigation layout: $navigation_layout"
+    exit 1
+    ;;
+esac
+navigation_labels_csv="$(IFS=,; echo "${navigation_labels[*]}")"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
+expected=set(sys.argv[1].split(","))
 nodes=list(root.iter("node"))
-expected={"홈","보호","앱 제외","활동","설정"}
 actual={n.attrib.get("content-desc") for n in nodes
         if n.attrib.get("class")=="android.widget.LinearLayout"
         and n.attrib.get("clickable")=="true"}
 if not expected.issubset(actual):
-    raise SystemExit("Current APK bottom navigation is missing destinations: "+repr(sorted(expected-actual)))
+    raise SystemExit("Current APK navigation is missing destinations: "+repr(sorted(expected-actual)))
 if not any(n.attrib.get("content-desc")=="홈" and n.attrib.get("selected")=="true" for n in nodes):
-    raise SystemExit("Current APK Home destination is not selected.")' <<<"$current_home_xml"
-for navigation_label in "보호" "앱 제외" "활동" "설정"; do
+    raise SystemExit("Current APK Home destination is not selected.")' "$navigation_labels_csv" <<<"$current_home_xml"
+for navigation_label in "${navigation_labels[@]}"; do
   tap_content_description "$navigation_label"
   sleep 1
   current_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-current-navigation.xml)"
@@ -1297,7 +1307,7 @@ if not any(n.attrib.get("content-desc")==sys.argv[1]
     raise SystemExit("Current APK did not select navigation destination: "+sys.argv[1])' "$navigation_label" <<<"$current_navigation_xml"
 done
 tap_content_description "홈"
-echo "Current APK five-destination navigation passed."
+echo "Current APK compatible five-destination navigation passed ($navigation_layout)."
 echo "Verifying opt-in foreground-app VPN auto-pause and automatic resume."
 # Grant the special app-op as the emulator equivalent of the user's Usage Access
 # approval. The UI flow still selects the target app and explicitly enables the feature.
