@@ -125,7 +125,7 @@ class FilterUpdateSchedulePolicyTest {
     @Test fun mainFilterErrorStatusDistinguishesUsableCacheFromMissingCache() {
         val error = "network-unavailable"
         assertEquals(
-            "광고 필터 업데이트 실패(이전 목록 유지): network-unavailable",
+            "광고 필터 업데이트 실패(이전 목록 유지): 원인을 안전하게 분류할 수 없는 오류",
             FilterUpdatePolicy.mainErrorStatus(error, hasUsableCache = true)
         )
         assertEquals(
