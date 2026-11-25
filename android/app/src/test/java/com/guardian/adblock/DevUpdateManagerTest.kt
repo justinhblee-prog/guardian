@@ -5,6 +5,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DevUpdateManagerTest {
+    @Test fun onlyFetchesManifestsForVersionsNewerThanInstalledBuild() {
+        assertTrue(DevUpdateManager.shouldFetchReleaseManifest(59, 60))
+        assertFalse(DevUpdateManager.shouldFetchReleaseManifest(59, 59))
+        assertFalse(DevUpdateManager.shouldFetchReleaseManifest(59, 58))
+    }
+
     @Test fun acceptsOnlyNewerReleaseWhoseTagMatchesManifest() {
         assertTrue(DevUpdateManager.isNewerMatchingRelease(47, 48, 48))
         assertTrue(DevUpdateManager.isNewerMatchingRelease(47, 120, 120))
