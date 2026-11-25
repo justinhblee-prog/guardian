@@ -282,3 +282,31 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
   - PASS: 20,000 concurrent cancel/socket-registration races close exactly once
 - 이 하네스는 순수 Kotlin deadline/소켓 정리 동작만 검증합니다. Android VpnService lifecycle, 실제 기기 네트워크 변경, VPN 소켓 보호 동작 또는 DNS upstream 연결성은 검증하지 않습니다.
 - Android Gradle/JUnit/Lint/APK/에뮬레이터/실기기 검증은 아직 실행하지 않았습니다. GitHub Actions도 실행하지 않았습니다.
+
+
+## Android DNS 사전검사 응답 소유자 및 CNAME 체인 검증 (2026-11-25)
+
+### 확인한 문제와 수정
+- DNS 사전검사는 `example.com A/IN` 질의를 사용하고 응답의 트랜잭션 ID·질문·RCODE·레코드 경계를 확인하고 있었습니다. 그러나 기존 성공 판정은 Answer 섹션 어딘가에 A/IN 레코드가 하나라도 있으면 성공으로 처리했습니다.
+- 따라서 질의한 `example.com`과 관계없는 소유자 이름의 A 레코드가 Answer에 포함된 비정상 응답도 업스트림 연결 성공으로 오인할 수 있었습니다. 이는 실제로 확인된 판정 누락입니다.
+- 성공 판정을 변경해 질의 이름에서 시작하는 Answer 섹션의 CNAME 연결을 따라가고, 그 연결에 도달한 이름의 A/IN 레코드가 있어야 성공으로 인정합니다. 무관한 A 레코드, 끊긴 CNAME, 순환 CNAME, 잘못된 CNAME RDATA 길이는 성공 근거로 인정하지 않습니다.
+- DNS 압축 이름 디코더에 확장 이름 길이 255바이트 제한과 라벨 문자/경계 검사를 추가했습니다. Answer뿐 아니라 Authority/Additional 레코드의 이름 경계 검사에도 동일 디코더를 사용합니다.
+- 정상적인 직접 A 응답과 정상 CNAME→A 응답은 계속 허용합니다. 이 검사는 시작 전 연결성 probe에만 적용되며, 일반 DNS 질의의 정상적인 NXDOMAIN 응답을 차단하지 않습니다.
+
+### 네트워크 전환 및 후보 목록 점검
+- 물리 DNS 서버 목록은 서비스 시작 때 고정 저장하지 않습니다. 각 UDP 질의의 `forwardDns()` 진입 시 `ConnectivityManager.allNetworks`, 각 네트워크의 현재 LinkProperties DNS, 현재 activeNetwork 및 validated/INTERNET capability를 다시 읽어 후보를 구성합니다. 따라서 이전 Wi-Fi DNS 후보 목록을 앱 메모리에 계속 캐시하는 stale-list 결함은 확인되지 않았습니다.
+- VPN 자체 네트워크는 후보에서 제외하고, INTERNET capability가 없는 네트워크도 제외합니다. 후보는 configured resolver → 현재 물리 네트워크 DNS → 공용 fallback 순으로 시도하며, SERVFAIL/REFUSED는 다음 후보로 넘어갑니다. UDP TC 응답은 동일 resolver TCP 재시도를 수행합니다.
+- 별도 NetworkCallback 캐시를 추가하지 않았습니다. 현재 구현은 매 질의 시 최신 LinkProperties를 조회하므로 별도 캐시는 오히려 네트워크 전환 후 stale DNS를 유지할 위험이 있습니다.
+- 다만 실제 Wi-Fi↔모바일 데이터 전환, IPv4-only/IPv6-only 통신망, 통신사 DNS의 SERVFAIL/REFUSED 동작은 Android 기기에서 확인해야 합니다. 소스 점검만으로 통신사 라우팅·방화벽·NAT64 동작을 보증하지 않습니다.
+
+### 테스트 및 실행 결과
+- `DnsUpstreamProbeTest`에 다음 회귀 테스트를 추가했습니다.
+  - 질의 이름과 무관한 A 응답 거부
+  - 정상 CNAME→A 체인 허용
+  - 잘못된 CNAME RDATA 길이 거부
+- 변경된 probe 로직을 순수 Kotlin/JVM 하네스로 컴파일·실행했습니다.
+  - PASS: direct A answer accepted
+  - PASS: unrelated A answer rejected
+  - PASS: valid CNAME-to-A chain accepted
+  - PASS: malformed CNAME target rejected
+- 하네스는 probe 판정 로직을 대상으로 한 JVM 실행이며 Android 전체 소스/Gradle/JUnit 실행은 아닙니다. Android Gradle/JUnit/Lint, APK, 에뮬레이터 및 실기기 검증은 여전히 미실행입니다. GitHub Actions는 실행하지 않았습니다.
