@@ -34,6 +34,23 @@ class SafeFailureSummaryTest {
         assertEquals("IO_FAILURE", SafeFailureSummary.codeFor(first))
     }
 
+    @Test fun diagnosticTypeChainReportsClassesWithoutLeakingMessages() {
+        val error = IllegalStateException(
+            "secret URL https://private.invalid",
+            IOException("private path", SocketTimeoutException("private resolver"))
+        )
+        val chain = SafeFailureSummary.diagnosticTypeChain(error)
+        assertEquals("IllegalStateException -> IOException -> SocketTimeoutException", chain)
+        assertFalse(chain.contains("private"))
+        assertFalse(chain.contains("https://"))
+    }
+
+    @Test fun diagnosticTypeChainStopsAtEightCauses() {
+        var error: Throwable = IOException("private")
+        repeat(12) { error = IllegalStateException("private", error) }
+        assertEquals(8, SafeFailureSummary.diagnosticTypeChain(error).split(" -> ").size)
+    }
+
     @Test fun unknownLegacyOrArbitraryCodeIsGeneric() {
         assertEquals("원인을 안전하게 분류할 수 없는 오류", SafeFailureSummary.describeCode("https://token.invalid/key"))
     }
