@@ -30,8 +30,13 @@ class PremiumFeatureAccessPolicyTest {
     }
 
     @Test
-    fun developmentPreviewIsExplicitAndDoesNotImplyProEntitlement() {
-        assertTrue(PremiumFeatureAccessPolicy.isEntitled(
+    fun developmentPreviewShowsFeatureWithoutGrantingProEntitlement() {
+        assertFalse(PremiumFeatureAccessPolicy.isEntitled(
+            PremiumFeatureAccessPolicy.SECURITY_PROFILES,
+            proActive = false,
+            developmentPreview = true
+        ))
+        assertTrue(PremiumFeatureAccessPolicy.isVisible(
             PremiumFeatureAccessPolicy.SECURITY_PROFILES,
             proActive = false,
             developmentPreview = true
@@ -49,6 +54,11 @@ class PremiumFeatureAccessPolicyTest {
     @Test
     fun unknownFeatureIdsAreAlwaysDenied() {
         assertFalse(PremiumFeatureAccessPolicy.isEntitled(
+            "future_unregistered_feature",
+            proActive = true,
+            developmentPreview = true
+        ))
+        assertFalse(PremiumFeatureAccessPolicy.isVisible(
             "future_unregistered_feature",
             proActive = true,
             developmentPreview = true
