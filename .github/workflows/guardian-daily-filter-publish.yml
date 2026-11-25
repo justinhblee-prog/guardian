@@ -61,6 +61,7 @@ jobs:
         env:
           FILTER_SOURCES_JSON: ${{ vars.GUARDIAN_FILTER_SOURCES_JSON }}
           FILTER_SIGNING_PRIVATE_KEY: ${{ secrets.GUARDIAN_FILTER_SIGNING_PRIVATE_KEY }}
+          FILTER_EXPECTED_PUBLIC_KEY: ${{ secrets.GUARDIAN_MANIFEST_PUBLIC_KEY || vars.GUARDIAN_MANIFEST_PUBLIC_KEY }}
         run: |
           node --input-type=module <<'NODE'
           const raw = process.env.FILTER_SOURCES_JSON;
@@ -101,6 +102,7 @@ jobs:
         env:
           FILTER_SOURCES_JSON: ${{ vars.GUARDIAN_FILTER_SOURCES_JSON }}
           GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: ${{ secrets.GUARDIAN_FILTER_SIGNING_PRIVATE_KEY }}
+          FILTER_EXPECTED_PUBLIC_KEY: ${{ secrets.GUARDIAN_MANIFEST_PUBLIC_KEY || vars.GUARDIAN_MANIFEST_PUBLIC_KEY }}
         run: |
           node --input-type=module <<'NODE'
           import { createPrivateKey, createPublicKey } from 'node:crypto';
