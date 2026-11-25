@@ -874,3 +874,16 @@ Cloudflare, Google, Quad9, AdGuard DNS IPv6 업스트림 프리셋 및 AdGuard �
 - VPN 패킷 경로의 IPv4 UDP DNS 파서는 IPv4 헤더 체크섬과 선택적으로 제공된 UDP 체크섬을 검증합니다. 기존 테스트는 잘못된 UDP 체크섬 거부만 확인하고 유효한 비영(非零) UDP 체크섬의 수락 및 응답 패킷 생성 결과는 직접 검증하지 않았습니다.
 - 유효한 UDP 체크섬을 가진 요청을 파싱하고 응답을 생성한 뒤 IPv4 헤더 체크섬, UDP pseudo-header 체크섬, 응답 포트 역전이 올바른지 확인하는 회귀 테스트를 추가했습니다.
 - 테스트 파일 원격 반영 확인: `b8de0e2c`. Android JUnit/Gradle 실행은 아직 미실행이며, 테스트 통과로 간주하지 않습니다.
+
+
+## 2026-11-25 — Android 최신 필터 업데이트 최적화 검증 및 설치 기록
+
+- 소스 기준 커밋: `23644f27ca0d19fe33f9738e8bb0462425276470`.
+- 변경: 예약 필터 작업은 base/security/Android ads 중 하나 이상이 실제 갱신된 경우에만 활성 VPN에 규칙 재적용을 요청합니다. 모든 소스가 최신 상태이면 전체 규칙 재파싱을 생략합니다.
+- 회귀 테스트 `scheduledRefreshOnlyReloadsVpnRulesAfterAtLeastOneSourceWasUpdated` 추가.
+- 사용자 로컬 Windows Docker/Gradle 검증 결과: Android unit tests, lint, Debug APK 빌드 모두 통과. `BUILD SUCCESSFUL`, `VALIDATION PASSED`.
+- 검증 APK: 3,290,647 bytes; SHA-256 `2BFAEDB426E98BF80969E4A437A2A9BF8E08A112D3B13025B9DC55E1225D4B92`.
+- 결과 번들: `guardian-android-validation-20261125-151654.zip`.
+- 사용자가 해당 APK의 기기 설치 완료를 확인함.
+- 구분: 이 설치 기록은 새 예약 업데이트 최적화의 실제 WorkManager 실행/로그 결과까지 증명하지는 않습니다. 기존 실기기 VPN 연결, 허용 DNS, 차단 DNS, 네트워크 전환 검증은 별도 기록을 유지합니다.
+- Production Release는 여전히 미완료: 실제 production keystore/secrets, 라이선스 API/DB/Tailscale 운영 연결, 필터 재배포 권리 승인 및 공개 signed-filter origin이 준비되지 않았습니다. Debug APK 설치를 정식 배포 승인으로 간주하지 않습니다.
