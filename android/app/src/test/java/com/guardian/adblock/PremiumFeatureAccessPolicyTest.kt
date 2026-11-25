@@ -30,8 +30,7 @@ class PremiumFeatureAccessPolicyTest {
             PremiumFeatureAccessPolicy.APP_PROTECTION,
             PremiumFeatureAccessPolicy.THREAT_ANALYTICS,
             PremiumFeatureAccessPolicy.SECURITY_PROFILES,
-            PremiumFeatureAccessPolicy.PHISHING_SCANNER,
-            PremiumFeatureAccessPolicy.PREMIUM_REPORTS
+            PremiumFeatureAccessPolicy.PHISHING_SCANNER
         ).forEach { feature ->
             assertFalse(PremiumFeatureAccessPolicy.isOperational(feature, proActive = true))
             assertEquals(
@@ -39,6 +38,14 @@ class PremiumFeatureAccessPolicyTest {
                 PremiumFeatureAccessPolicy.statusLabel(feature, proActive = true, developmentPreview = false)
             )
         }
+        assertTrue(PremiumFeatureAccessPolicy.isOperational(
+            PremiumFeatureAccessPolicy.PREMIUM_REPORTS,
+            proActive = true
+        ))
+        assertFalse(PremiumFeatureAccessPolicy.isOperational(
+            PremiumFeatureAccessPolicy.PREMIUM_REPORTS,
+            proActive = false
+        ))
         assertFalse(PremiumFeatureAccessPolicy.isOperational(
             PremiumFeatureAccessPolicy.ADVANCED_FILTERS,
             proActive = false
