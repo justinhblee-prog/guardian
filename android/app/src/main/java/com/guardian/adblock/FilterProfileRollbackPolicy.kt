@@ -1,7 +1,13 @@
 package com.guardian.adblock
 
-/** Keeps a failed profile switch from stranding the app without its previous usable cache. */
+/** Keeps a failed or interrupted profile switch from stranding the app without a usable cache. */
 internal object FilterProfileRollbackPolicy {
-    fun shouldRollback(previousProfileKey: String?, selectedProfileKey: String): Boolean =
-        !previousProfileKey.isNullOrBlank() && previousProfileKey != selectedProfileKey
+    fun shouldRollback(
+        previousProfileKey: String?,
+        selectedProfileKey: String,
+        cachedProfileKey: String?
+    ): Boolean =
+        !previousProfileKey.isNullOrBlank() &&
+            previousProfileKey != selectedProfileKey &&
+            cachedProfileKey != selectedProfileKey
 }
