@@ -3811,120 +3811,157 @@ class MainActivity : Activity() {
                     cachedProfileKey = FilterListManager.cachedProfile(this).key
                 )
             }.getOrDefault(false)
+            val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            val securityWasEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+            val androidAdsWasEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+            val securityWasCached = runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrDefault(false)
+            val androidAdsWasCached = runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrDefault(false)
+
+            var baseResult: FilterListManager.UpdateResult? = null
+            var baseError: Throwable? = null
             try {
                 android.util.Log.i("Guardian", "Base filter update request entered")
-                val result = FilterListManager.update(this)
+                baseResult = FilterListManager.update(this)
                 // A successful user-triggered first download supersedes any queued
                 // one-time recovery request so WorkManager cannot duplicate it.
                 runCatching { FilterUpdateScheduler.cancelInitialCacheRetry(applicationContext) }
                     .onFailure { android.util.Log.w("Guardian", "Initial filter retry cancellation failed: ${SafeFailureSummary.codeFor(it)}") }
-                android.util.Log.i("Guardian", "Base filter downloaded: ${result.blocked} rules, ${result.bytes} bytes")
-                val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
-                val securityWasEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                val androidAdsWasEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
-                val securityWasCached = FilterListManager.hasCachedSecurityList(this)
-                val androidAdsWasCached = FilterListManager.hasCachedAndroidAdsList(this)
-                val securityResult = if (securityWasEnabled) {
-                    try {
-                        FilterListManager.updateSecurity(this).also {
-                            prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("Guardian", "Security filter download failed: ${SafeFailureSummary.codeFor(e)}")
-                        val editor = prefs.edit().putString(
-                            FilterListManager.KEY_SECURITY_LAST_ERROR,
-                            SafeFailureSummary.codeFor(e)
-                        )
-                        if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityWasEnabled, securityWasCached)) {
-                            editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                        }
-                        editor.apply()
-                        null
-                    } catch (e: LinkageError) {
-                        android.util.Log.e("Guardian", "Security filter component unavailable: ${SafeFailureSummary.codeFor(e)}")
-                        val editor = prefs.edit().putString(
-                            FilterListManager.KEY_SECURITY_LAST_ERROR,
-                            SafeFailureSummary.codeFor(e)
-                        )
-                        if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityWasEnabled, securityWasCached)) {
-                            editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                        }
-                        editor.apply()
-                        null
-                    }
-                } else null
-                val androidAdsResult = if (androidAdsWasEnabled) {
-                    try {
-                        FilterListManager.updateAndroidAds(this).also {
-                            prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("Guardian", "Android ads filter download failed: ${SafeFailureSummary.codeFor(e)}")
-                        prefs.edit().putString(
-                            FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
-                            SafeFailureSummary.codeFor(e)
-                        ).apply()
-                        if (!androidAdsWasCached) prefs.edit()
-                            .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
-                        null
-                    } catch (e: LinkageError) {
-                        android.util.Log.e("Guardian", "Android ads filter component unavailable: ${SafeFailureSummary.codeFor(e)}")
-                        prefs.edit().putString(
-                            FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
-                            SafeFailureSummary.codeFor(e)
-                        ).apply()
-                        if (!androidAdsWasCached) prefs.edit()
-                            .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
-                        null
-                    }
-                } else null
-                val active = ProtectionState.isActive(
-                    prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
-                    GuardianVpnService.isTunnelActive()
+                android.util.Log.i("Guardian", "Base filter downloaded: ${baseResult.blocked} rules, ${baseResult.bytes} bytes")
+            } catch (error: Exception) {
+                baseError = error
+            } catch (error: LinkageError) {
+                baseError = error
+            }
+            if (baseError != null) {
+                val error = baseError!!
+                android.util.Log.e(
+                    "Guardian",
+                    "Base filter download failed; continuing independent optional feeds: ${SafeFailureSummary.codeFor(error)}"
                 )
-                // The previous readiness note describes the old cache snapshot.
-                // Clear it before asking the live service to rebuild rules so support
-                // diagnostics never present stale filter availability as current.
+                prefs.edit().putString(FilterListManager.KEY_LAST_ERROR, SafeFailureSummary.codeFor(error)).apply()
+                if (!hadPreviousMainCache) {
+                    runCatching { FilterUpdateScheduler.enqueueInitialCacheRetry(applicationContext) }
+                        .onFailure { retryError ->
+                            android.util.Log.e("Guardian", "Could not schedule initial filter cache retry: ${SafeFailureSummary.codeFor(retryError)}")
+                        }
+                }
+            }
+
+            // Optional feeds are independent sources: a base-feed outage must not
+            // prevent a user-requested security or Android-ads refresh.
+            val securityResult = if (securityWasEnabled) {
+                try {
+                    FilterListManager.updateSecurity(this).also {
+                        prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
+                    }
+                } catch (error: Exception) {
+                    android.util.Log.e("Guardian", "Security filter download failed: ${SafeFailureSummary.codeFor(error)}")
+                    val editor = prefs.edit().putString(
+                        FilterListManager.KEY_SECURITY_LAST_ERROR,
+                        SafeFailureSummary.codeFor(error)
+                    )
+                    if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityWasEnabled, securityWasCached)) {
+                        editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                    }
+                    editor.apply()
+                    null
+                } catch (error: LinkageError) {
+                    android.util.Log.e("Guardian", "Security filter component unavailable: ${SafeFailureSummary.codeFor(error)}")
+                    val editor = prefs.edit().putString(
+                        FilterListManager.KEY_SECURITY_LAST_ERROR,
+                        SafeFailureSummary.codeFor(error)
+                    )
+                    if (FilterUpdatePolicy.shouldDisableOptionalFilter(securityWasEnabled, securityWasCached)) {
+                        editor.putBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                    }
+                    editor.apply()
+                    null
+                }
+            } else null
+
+            val androidAdsResult = if (androidAdsWasEnabled) {
+                try {
+                    FilterListManager.updateAndroidAds(this).also {
+                        prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
+                    }
+                } catch (error: Exception) {
+                    android.util.Log.e("Guardian", "Android ads filter download failed: ${SafeFailureSummary.codeFor(error)}")
+                    prefs.edit().putString(
+                        FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
+                        SafeFailureSummary.codeFor(error)
+                    ).apply()
+                    if (!androidAdsWasCached) prefs.edit()
+                        .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
+                    null
+                } catch (error: LinkageError) {
+                    android.util.Log.e("Guardian", "Android ads filter component unavailable: ${SafeFailureSummary.codeFor(error)}")
+                    prefs.edit().putString(
+                        FilterListManager.KEY_ANDROID_ADS_LAST_ERROR,
+                        SafeFailureSummary.codeFor(error)
+                    ).apply()
+                    if (!androidAdsWasCached) prefs.edit()
+                        .putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, false).apply()
+                    null
+                }
+            } else null
+
+            val active = ProtectionState.isActive(
+                prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                GuardianVpnService.isTunnelActive()
+            )
+            val anySourceUpdated = baseResult != null || securityResult != null || androidAdsResult != null
+            // The previous readiness note describes the old cache snapshot.
+            // Clear it only when a new validated source was installed.
+            if (anySourceUpdated) {
                 prefs.edit().remove(GuardianVpnService.KEY_FILTER_READINESS).apply()
                 if (active) {
-                    startService(Intent(this, GuardianVpnService::class.java).setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                    startService(Intent(this, GuardianVpnService::class.java)
+                        .setAction(GuardianVpnService.ACTION_RELOAD_RULES))
                 }
-                android.util.Log.i(
-                    "Guardian",
-                    "Filter update completed; security=${securityResult != null}, androidAds=${androidAdsResult != null}"
-                )
-                filterUpdateRunning.set(false)
-                runOnUiThread {
-                    if (securityWasEnabled && securityResult == null && !securityWasCached) {
-                        securityFilterSwitch?.isChecked = false
-                        securityFilterCheckBox?.isChecked = false
-                    }
-                    if (androidAdsWasEnabled && androidAdsResult == null && !androidAdsWasCached) {
-                        androidAdsFilterSwitch?.isChecked = false
-                        androidAdsFilterCheckBox?.isChecked = false
-                    }
-                    val securityMessage = if (securityWasEnabled) {
-                        if (securityResult != null) " · 보안 ${securityResult.blocked}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(캐시 없음 · 자동 비활성화)"
-                    } else ""
-                    val androidAdsMessage = if (androidAdsWasEnabled) {
-                        if (androidAdsResult != null) " · Android 앱 광고 ${androidAdsResult.blocked}개" else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)" else " · 앱 광고 필터 다운로드 실패(캐시 없음 · 자동 비활성화)"
-                    } else ""
-                    val signedStatus = FilterListManager.signedManifestStatus(this)?.let { " · $it" } ?: ""
-                    setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage}${androidAdsMessage} · ${result.bytes / 1024}KB$signedStatus")
-                    filterUpdateButton?.text = "필터 목록 업데이트"
-                    filterUpdateButton?.isEnabled = true
-                    homeFilterUpdateButton?.text = "필터 목록 업데이트"
-                    homeFilterUpdateButton?.isEnabled = true
-                    securityFilterSwitch?.isEnabled = true
-                    androidAdsFilterSwitch?.isEnabled = true
-                    securityFilterCheckBox?.isEnabled = true
-                    androidAdsFilterCheckBox?.isEnabled = true
+            }
+            android.util.Log.i(
+                "Guardian",
+                "Filter update finished; base=${baseResult != null}, security=${securityResult != null}, androidAds=${androidAdsResult != null}"
+            )
+            filterUpdateRunning.set(false)
+            runOnUiThread {
+                if (securityWasEnabled && securityResult == null && !securityWasCached) {
+                    securityFilterSwitch?.isChecked = false
+                    securityFilterCheckBox?.isChecked = false
                 }
-            } catch (e: Exception) {
-                handleFilterUpdateFailure(e, hadPreviousMainCache)
-            } catch (e: LinkageError) {
-                handleFilterUpdateFailure(e, hadPreviousMainCache)
+                if (androidAdsWasEnabled && androidAdsResult == null && !androidAdsWasCached) {
+                    androidAdsFilterSwitch?.isChecked = false
+                    androidAdsFilterCheckBox?.isChecked = false
+                }
+                val baseMessage = when {
+                    baseResult != null -> "광고·추적 ${baseResult.blocked}개"
+                    baseError != null && hadPreviousMainCache -> "광고·추적 업데이트 실패(이전 목록 유지)"
+                    baseError != null -> "광고·추적 업데이트 실패(캐시 없음)"
+                    else -> "광고·추적 업데이트 결과 없음"
+                }
+                val securityMessage = if (securityWasEnabled) {
+                    if (securityResult != null) " · 보안 ${securityResult.blocked}개"
+                    else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)"
+                    else " · 보안 목록 다운로드 실패(캐시 없음 · 자동 비활성화)"
+                } else ""
+                val androidAdsMessage = if (androidAdsWasEnabled) {
+                    if (androidAdsResult != null) " · Android 앱 광고 ${androidAdsResult.blocked}개"
+                    else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)"
+                    else " · 앱 광고 필터 다운로드 실패(캐시 없음 · 자동 비활성화)"
+                } else ""
+                val baseErrorMessage = baseError?.let { " · ${SafeFailureSummary.describe(it)}" }.orEmpty()
+                val signedStatus = FilterListManager.signedManifestStatus(this)?.let { " · $it" } ?: ""
+                val totalBytes = baseResult?.bytes ?: 0
+                setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} · $baseMessage$securityMessage$androidAdsMessage$baseErrorMessage · ${totalBytes / 1024}KB$signedStatus")
+                filterUpdateButton?.text = if (baseError != null && !anySourceUpdated) "다시 시도" else "필터 목록 업데이트"
+                filterUpdateButton?.isEnabled = true
+                homeFilterUpdateButton?.text = if (baseError != null && !anySourceUpdated) "다시 시도" else "필터 목록 업데이트"
+                homeFilterUpdateButton?.isEnabled = true
+                securityFilterSwitch?.isEnabled = true
+                androidAdsFilterSwitch?.isEnabled = true
+                securityFilterCheckBox?.isEnabled = true
+                androidAdsFilterCheckBox?.isEnabled = true
             }
         }
     }
