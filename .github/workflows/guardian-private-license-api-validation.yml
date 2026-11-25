@@ -1,0 +1,67 @@
+name: Guardian Private License API Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "server/license-api/windows/Enable-GuardianPrivateApiOnly.ps1"
+      - "server/license-api/windows/README_KO.md"
+      - ".github/workflows/guardian-private-license-api-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "server/license-api/windows/Enable-GuardianPrivateApiOnly.ps1"
+      - "server/license-api/windows/README_KO.md"
+      - ".github/workflows/guardian-private-license-api-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  powershell-policy:
+    name: Parse private API setup and verify fail-closed policy
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse PowerShell without executing Tailscale or GitHub mutations
+        shell: pwsh
+        run: |
+          $path = Resolve-Path 'server/license-api/windows/Enable-GuardianPrivateApiOnly.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List | Out-String | Write-Error
+            exit 1
+          }
+
+      - name: Verify API health precedes the single GitHub variable mutation
+        shell: pwsh
+        run: |
+          $source = Get-Content 'server/license-api/windows/Enable-GuardianPrivateApiOnly.ps1' -Raw
+          if (-not $source.Contains('[switch]$RegisterGitHubVariable')) {
+            throw 'Optional GitHub variable registration switch is missing.'
+          }
+          $healthIndex = $source.IndexOf('$privateReadyUrl = $licenseApiUrl + ''/ready''')
+          $payloadIndex = $source.IndexOf('$privateHealth.database -eq ''ready''')
+          $signerIndex = $source.IndexOf('$privateHealth.signer -eq ''ready''')
+          $setIndex = $source.IndexOf('variable set GUARDIAN_LICENSE_API_BASE_URL')
+          if ($healthIndex -lt 0 -or $payloadIndex -lt $healthIndex -or $signerIndex -lt $payloadIndex -or $setIndex -lt $signerIndex) {
+            throw 'The external HTTPS readiness payload (database + signer) must pass before GitHub variable registration.'
+          }
+          if (-not $source.Contains('for ($attempt = 1; $attempt -le 5; $attempt++)')) {
+            throw 'Bounded retries for Tailscale HTTPS certificate and route propagation are required.'
+          }
+          if ($source -match '(?im)^\s*&?\s*\$tailscale\s+funnel\b') {
+            throw 'Tailscale Funnel must never be enabled by this script.'
+          }
+          if ($source -match 'GUARDIAN_FILTER_APPROVALS_JSON|redistributionApproved') {
+            throw 'Private API URL setup must not modify filter redistribution approvals.'
+          }
+          if ($source -match '(?im)^\s*&?\s*\$ghExecutable\s+variable\s+set\s+(?!GUARDIAN_LICENSE_API_BASE_URL\b)') {
+            throw 'Only GUARDIAN_LICENSE_API_BASE_URL may be changed by this script.'
+          }
+          Write-Host 'Private license API setup policy checks passed.'
