@@ -1,7 +1,9 @@
 package com.guardian.adblock
 
-import java.time.Instant
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 /** A privacy-preserving snapshot built only from counters already collected by the local DNS engine. */
 internal data class PremiumReportSnapshot(
@@ -20,18 +22,19 @@ internal object PremiumReportBuilder {
         fun count(value: Long): Long = value.coerceAtLeast(0L)
         val total = count(snapshot.totalQueries)
         val blocked = count(snapshot.blockedQueries)
-        val forwarded = count(snapshot.forwardedQueries)
-        val failed = count(snapshot.failedQueries)
-        val rate = if (total == 0L) 0.0 else blocked.coerceAtMost(total) * 100.0 / total
+        val rate = if (total == 0L) 0.0 else count(snapshot.blockedQueries).coerceAtMost(total) * 100.0 / total
+        val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ROOT).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }.format(Date(generatedAtEpochMillis))
         return buildString {
             appendLine("Guardian Premium · DNS 보호 리포트")
-            appendLine("생성 시각(UTC): ${Instant.ofEpochMilli(generatedAtEpochMillis)}")
+            appendLine("생성 시각(UTC): $timestamp")
             appendLine("보호 상태: ${if (snapshot.protectionActive) "활성" else "비활성"}")
             appendLine("관측 DNS 질의: $total")
-            appendLine("차단 질의: $blocked")
+            appendLine("차단 질의: ${count(snapshot.blockedQueries)}")
             appendLine("차단 비율: ${String.format(Locale.ROOT, "%.1f%%", rate)}")
-            appendLine("업스트림 전달: $forwarded")
-            appendLine("응답 실패: $failed")
+            appendLine("업스트림 전달: ${count(snapshot.forwardedQueries)}")
+            appendLine("응답 실패: ${count(snapshot.failedQueries)}")
             appendLine("광고 차단: ${count(snapshot.adBlocked)}")
             appendLine("추적 차단: ${count(snapshot.trackerBlocked)}")
             appendLine("기타 차단: ${count(snapshot.otherBlocked)}")
