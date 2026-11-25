@@ -1433,7 +1433,11 @@ class MainActivity : Activity() {
             thumbTintList = ColorStateList(toggleStates, intArrayOf(accent, muted))
             trackTintList = ColorStateList(toggleStates, intArrayOf(Color.rgb(38, 112, 92), Color.rgb(78, 91, 112)))
             contentDescription = title
-            setOnCheckedChangeListener { _, enabled -> onChanged(enabled) }
+            setOnCheckedChangeListener { _, enabled ->
+                // Programmatic reconciliation from persisted worker/service state
+                // must not be treated as a fresh user action (e.g. duplicate reloads).
+                if (!syncingFilterOptions) onChanged(enabled)
+            }
         }
         onToggleCreated?.invoke(toggle)
         row.addView(toggle, LinearLayout.LayoutParams(dp(58), dp(42)))
