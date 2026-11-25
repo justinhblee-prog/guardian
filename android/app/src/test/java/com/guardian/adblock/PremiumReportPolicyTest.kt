@@ -25,7 +25,13 @@ class PremiumReportPolicyTest {
         assertEquals(1L, report.forwarded)
         assertEquals(1L, report.failed)
         assertEquals(60, report.blockRatePercent)
-        assertTrue("Raw domain names must never be persisted", !stored.contains("example.com"))
+        assertEquals(
+            "2026-11-25|5|3|1|1|1|1|1",
+            stored
+        )
+        assertTrue("Serialized rows contain only date and numeric counters", stored.split('|').all {
+            it == day.toString() || it.toLongOrNull() != null
+        })
     }
 
     @Test
@@ -60,6 +66,24 @@ class PremiumReportPolicyTest {
         assertTrue(pruned.contains(today.toString()))
         assertTrue(!pruned.contains(expired.toString()))
         assertTrue(!pruned.contains(today.plusDays(1).toString()))
+    }
+
+    @Test
+    fun duplicateDateRowsAreMergedWithoutLosingCounters() {
+        val day = LocalDate.parse("2026-11-25")
+        val serialized = listOf(
+            "$day|2|1|1|0|0|1|0",
+            "$day|3|2|0|1|1|0|1"
+        ).joinToString("\n")
+
+        val summary = PremiumReportPolicy.summarize(serialized, day, day)
+        assertEquals(5L, summary.queries)
+        assertEquals(3L, summary.blocked)
+        assertEquals(1L, summary.ads)
+        assertEquals(1L, summary.trackers)
+        assertEquals(1L, summary.other)
+        assertEquals(1L, summary.forwarded)
+        assertEquals(1L, summary.failed)
     }
 
     @Test
