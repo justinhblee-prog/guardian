@@ -124,7 +124,7 @@ jobs:
             throw new Error('Filter signing key must be RSA 2048-4096 bits.');
           }
           const publicKey = createPublicKey(privateKey).export({ type: 'spki', format: 'der' }).toString('base64');
-          const expected = process.env.FILTER_EXPECTED_PUBLIC_KEY.trim().replace(/\\s+/g, '');
+          const expected = process.env.FILTER_EXPECTED_PUBLIC_KEY.trim().replace(/\s+/g, '');
           if (publicKey !== expected) throw new Error('Cloud signing key does not match the Android app pinned filter public key. Refusing to publish.');
           await writeFile('dist/guardian-filter-public-key.x509.b64', publicKey + '\n', { mode: 0o644 });
           console.log('Source configuration and matching public key prepared.');
@@ -155,7 +155,7 @@ jobs:
           if (!manifests.length) throw new Error('No manifests generated.');
           for (const name of manifests) {
             const bytes = await readFile(path.join(root, name));
-            const fields = Object.fromEntries(bytes.toString('utf8').trim().split(/\\r?\\n/).map(line => {
+            const fields = Object.fromEntries(bytes.toString('utf8').trim().split(/\r?\n/).map(line => {
               const i = line.indexOf('=');
               if (i < 1) throw new Error('Malformed manifest: ' + name);
               return [line.slice(0, i), line.slice(i + 1)];
