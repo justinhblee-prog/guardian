@@ -1,6 +1,6 @@
 name = "guardian-license-api"
 main = "src/worker.mjs"
-compatibility_date = "2026-11-26"
+compatibility_date = "2026-11-25"
 workers_dev = true
 
 [assets]
