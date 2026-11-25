@@ -8,6 +8,7 @@ New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $logPath = Join-Path $resultsDir "guardian-android-validation-$stamp.log"
 $bundlePath = Join-Path $resultsDir "guardian-android-validation-$stamp.zip"
+$validationSucceeded = $false
 
 Push-Location $repoRoot
 try {
@@ -42,6 +43,7 @@ try {
             "assembleDebug: PASS"
         ) | Set-Content -Encoding UTF8 (Join-Path $resultsDir "guardian-android-validation-$stamp-summary.txt")
 
+        $validationSucceeded = $true
         Write-Host "VALIDATION PASSED"
         Write-Host "APK size: $apkSize bytes"
         Write-Host "APK SHA-256: $apkHash"
@@ -58,6 +60,6 @@ $summaryPath = Join-Path $resultsDir "guardian-android-validation-$stamp-summary
 $archiveInputs = @($logPath)
 if (Test-Path $summaryPath) { $archiveInputs += $summaryPath }
 $apk = Join-Path $repoRoot "android/app/build/outputs/apk/debug/app-debug.apk"
-if (Test-Path $apk) { $archiveInputs += $apk }
+if ($validationSucceeded -and (Test-Path $apk)) { $archiveInputs += $apk }
 Compress-Archive -Path $archiveInputs -DestinationPath $bundlePath -Force
 Write-Host "Result bundle: $bundlePath"
