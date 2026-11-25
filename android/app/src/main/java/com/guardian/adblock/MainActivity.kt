@@ -1552,7 +1552,7 @@ class MainActivity : Activity() {
             Triple("앱별 세밀한 보호 제어", "앱 단위 보호 제외와 예외 정책을 관리하는 기능", "현재 개발 중 · 기기별 VPN 검증 필요"),
             Triple("실시간 위협·DNS 활동 분석", "차단 이벤트와 DNS 요청을 분류해 활동 내역으로 제공", "기본 DNS 처리 존재 · 고급 분석 개발 필요"),
             Triple("보안 프로필 및 자동화", "상황별 보호 정책과 자동 전환을 관리하는 기능", "화면 미리보기 · 자동화 엔진 미구현"),
-            Triple("피싱 링크·앱 코드 검사", "의심 URL과 앱 코드의 위험도를 검사하는 기능", "검사 엔진 미연결 · 실제 탐지 안 함"),
+            Triple("피싱 링크·앱 코드 검사", "의심 URL과 앱 코드의 위험도를 검사하는 기능", "기기 내 URL 휴리스틱 검사 연결 · 앱 코드 분석 미지원"),
             Triple("프리미엄 리포트 및 통계", "누적 차단량과 보호 상태를 요약하고 개인정보 없이 내보내는 기능", "누적 DNS 통계 리포트 구현 · 기간별 집계는 확장 예정")
         )
         previewFeatures.forEach { (name, description, status) ->
@@ -1561,6 +1561,11 @@ class MainActivity : Activity() {
                 addView(text(name, 14f, white, true))
                 addView(text(description, 11f, muted, false).withTop(5))
                 addView(text(status, 10f, Color.rgb(238, 176, 82), true).withTop(8))
+                if (name == "피싱 링크·앱 코드 검사") {
+                    isClickable = true
+                    setOnClickListener { showPremiumUrlRiskScan() }
+                    contentDescription = "URL 위험 신호 검사 열기"
+                }
             }.withTop(8))
         }
 
