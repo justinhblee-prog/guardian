@@ -11,8 +11,14 @@ object DnsUpstreamProbe {
         0x03, 0x63, 0x6f, 0x6d, 0x00, 0x00, 0x01, 0x00, 0x01
     )
 
-    fun isValidResponse(query: ByteArray, response: ByteArray?): Boolean =
-        response != null && DomainFilter.isMatchingResponse(query, response)
+    fun isValidResponse(query: ByteArray, response: ByteArray?): Boolean {
+        if (response == null || !DomainFilter.isMatchingResponse(query, response, allowTruncated = true)) {
+            return false
+        }
+        // A matching transaction/question is not a healthy resolver response when
+        // the resolver reports SERVFAIL or REFUSED; allow fallback to another server.
+        return responseCode(response) !in setOf(2, 5)
+    }
 
     fun responseCode(response: ByteArray): Int? {
         if (response.size < 4) return null
@@ -30,7 +36,7 @@ object DnsUpstreamProbe {
      * every answer/authority/additional record boundary before accepting the probe.
      */
     fun isSuccessfulResolution(query: ByteArray, response: ByteArray?): Boolean {
-        if (response == null || !DomainFilter.isMatchingResponse(query, response)) return false
+        if (response == null || !isValidResponse(query, response)) return false
         if (response.size < 12 || responseCode(response) != 0) return false
         // A TC-marked UDP response is not proof of usable resolution; the caller
         // must retry over TCP instead of installing routes based on a partial answer.
