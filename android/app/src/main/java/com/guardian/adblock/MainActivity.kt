@@ -1527,6 +1527,13 @@ class MainActivity : Activity() {
             ).withTop(6))
             addView(text("검사 엔진 연동 필요", 10f, Color.rgb(238, 176, 82), true).withTop(9))
         }.withTop(10))
+        body.addView(Button(this).apply {
+            text = "URL 위험 신호 검사"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 12)
+            setOnClickListener { showPremiumUrlRiskScan() }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
         body.addView(card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("서명 기반 PRO 라이선스", 15f, white, true))
@@ -1595,6 +1602,49 @@ class MainActivity : Activity() {
             "개발 미리보기는 UI와 기능 구성을 검토하기 위한 모드입니다. 실제 보안 동작은 각 기능의 엔진 구현과 테스트가 끝난 뒤에만 활성 상태로 표시합니다. 정식 배포 빌드에서는 서버 서명 라이선스로 이용 권한을 판정합니다.",
             10f, muted, false
         ).withTop(14))
+    }
+
+
+    private fun showPremiumUrlRiskScan() {
+        val input = EditText(this).apply {
+            hint = "https://example.com"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine(true)
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(4))
+            addView(input, LinearLayout.LayoutParams(-1, dp(52)))
+            addView(text(
+                "기기 내 규칙 기반 1차 점검입니다. 실시간 평판 조회, 악성코드 판정 또는 자동 차단 기능은 아닙니다.",
+                11f, muted, false
+            ).withTop(8))
+        }
+        AlertDialog.Builder(this)
+            .setTitle("URL 위험 신호 검사")
+            .setView(container)
+            .setNegativeButton("취소", null)
+            .setPositiveButton("검사") { _, _ ->
+                val result = PremiumUrlRiskScanner.scan(input.text?.toString().orEmpty())
+                val level = when (result.level) {
+                    UrlRiskLevel.LOW -> "낮음"
+                    UrlRiskLevel.REVIEW -> "주의"
+                    UrlRiskLevel.HIGH -> "높음"
+                }
+                val details = buildString {
+                    appendLine("위험 신호 수준: $level")
+                    result.host?.let { appendLine("호스트: $it") }
+                    if (result.indicators.isEmpty()) appendLine("탐지된 휴리스틱 위험 신호가 없습니다.")
+                    else result.indicators.forEach { appendLine("• $it") }
+                    append("\\n이 결과는 휴리스틱 참고 정보이며 안전을 보증하지 않습니다.")
+                }
+                AlertDialog.Builder(this)
+                    .setTitle("URL 검사 결과")
+                    .setMessage(details)
+                    .setPositiveButton("확인", null)
+                    .show()
+            }
+            .show()
     }
 
     private fun buildSettings(body: LinearLayout) {
