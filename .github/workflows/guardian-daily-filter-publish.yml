@@ -37,7 +37,6 @@ jobs:
           node --check server/filter-distribution/scripts/update-filters.mjs
           node --check server/filter-distribution/scripts/publish-manifest.mjs
           node --check server/filter-distribution/scripts/verify-production-approvals.mjs
-          node --check server/filter-distribution/scripts/verify-production-approvals.mjs
 
   build-and-publish:
     name: Collect, validate, sign and publish daily filters
@@ -119,6 +118,8 @@ jobs:
             throw new Error('Filter signing key must be RSA 2048-4096 bits.');
           }
           const publicKey = createPublicKey(privateKey).export({ type: 'spki', format: 'der' }).toString('base64');
+          const expected = process.env.FILTER_EXPECTED_PUBLIC_KEY.trim().replace(/\\s+/g, '');
+          if (publicKey !== expected) throw new Error('Cloud signing key does not match the Android app pinned filter public key. Refusing to publish.');
           await writeFile('dist/guardian-filter-public-key.x509.b64', publicKey + '\n', { mode: 0o644 });
           console.log('Source configuration and matching public key prepared.');
           NODE
