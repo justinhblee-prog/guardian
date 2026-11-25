@@ -1,5 +1,6 @@
 package com.guardian.adblock
 
+import java.net.IDN
 import java.net.URI
 import java.util.Locale
 
@@ -54,6 +55,28 @@ internal object PremiumUrlRiskScanner {
         }
     }
 
+    /** java.net.URI leaves Unicode authorities without a parsed host; normalize them explicitly. */
+    private fun asciiHost(uri: URI): Pair<String, Boolean>? {
+        val parsed = uri.host
+        val rawHost = parsed ?: run {
+            val authority = uri.rawAuthority ?: return null
+            if (authority.startsWith("[")) {
+                authority.substringBefore("]").removePrefix("[")
+            } else if (authority.count { it == ':' } == 1) {
+                authority.substringBeforeLast(':')
+            } else {
+                authority
+            }
+        }
+        if (rawHost.isBlank() || rawHost.contains('@')) return null
+        return try {
+            IDN.toASCII(rawHost, IDN.USE_STD3_ASCII_RULES)
+                .lowercase(Locale.ROOT) to (rawHost.any { it.code > 127 })
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
     fun scan(input: String): UrlRiskResult {
         val raw = input.trim()
         if (raw.isEmpty() || raw.length > 2048 || raw.any { it.isWhitespace() }) {
@@ -62,14 +85,19 @@ internal object PremiumUrlRiskScanner {
         val candidate = if (raw.contains("://")) raw else "https://$raw"
         val uri = try { URI(candidate) } catch (_: Exception) { null }
             ?: return UrlRiskResult(UrlRiskLevel.HIGH, null, listOf("URL 구문을 해석할 수 없습니다."), false)
-        val host = uri.host?.lowercase(Locale.ROOT)
-            ?: return UrlRiskResult(UrlRiskLevel.HIGH, null, listOf("호스트 이름이 없거나 올바르지 않습니다."), false)
         if (uri.userInfo != null) {
-            return UrlRiskResult(UrlRiskLevel.HIGH, host, listOf("주소에 사용자 정보(@)가 포함되어 실제 호스트를 혼동시킬 수 있습니다."), true)
+            val actualHost = asciiHost(uri)?.first
+            return UrlRiskResult(UrlRiskLevel.HIGH, actualHost, listOf("주소에 사용자 정보(@)가 포함되어 실제 호스트를 혼동시킬 수 있습니다."), true)
         }
+        val normalized = asciiHost(uri)
+            ?: return UrlRiskResult(UrlRiskLevel.HIGH, null, listOf("호스트 이름이 없거나 올바르지 않습니다."), false)
+        val host = normalized.first
+        val unicodeHost = normalized.second
         val indicators = mutableListOf<String>()
         if (!uri.scheme.equals("https", true)) indicators += "HTTPS가 아닌 연결입니다."
-        if (host.startsWith("xn--") || host.split('.').any { it.startsWith("xn--") }) indicators += "국제화 도메인(Punycode)이 포함되어 있습니다."
+        if (unicodeHost || host.startsWith("xn--") || host.split('.').any { it.startsWith("xn--") }) {
+            indicators += "국제화 도메인(Punycode)이 포함되어 있습니다."
+        }
         if (isCanonicalIpv4(host)) {
             indicators += "도메인 대신 IPv4 주소를 직접 사용합니다."
         } else if (isBrowserIpv4Notation(host)) {
