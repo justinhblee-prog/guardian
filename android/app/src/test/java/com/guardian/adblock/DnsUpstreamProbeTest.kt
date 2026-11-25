@@ -25,7 +25,7 @@ class DnsUpstreamProbeTest {
     @Test fun rejectsServfailEvenWhenQuestionAndTransactionIdMatch() {
         val query = DnsUpstreamProbe.query()
         val response = DomainFilter.makeServfail(query)
-        assertTrue(DnsUpstreamProbe.isValidResponse(query, response))
+        assertFalse(DnsUpstreamProbe.isValidResponse(query, response))
         assertFalse(DnsUpstreamProbe.isSuccessfulResolution(query, response))
     }
 
