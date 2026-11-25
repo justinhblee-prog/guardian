@@ -39,7 +39,7 @@ internal object PremiumReportBuilder {
             appendLine("추적 차단: ${count(snapshot.trackerBlocked)}")
             appendLine("기타 차단: ${count(snapshot.otherBlocked)}")
             appendLine()
-            append("참고: 이 리포트는 이 기기에 저장된 누적 DNS 통계입니다. 방문 도메인, 앱 사용 기록, 사용자 규칙은 포함하지 않습니다.")
+            append("참고: 이 리포트는 이 기기에 저장된 누적 DNS 통계입니다. 광고·추적·기타 분류는 도메인 이름 기반 참고용 추정이며 보안 위협 판정이 아닙니다. 방문 도메인, 앱 사용 기록, 사용자 규칙은 포함하지 않습니다.")
         }
     }
 }
