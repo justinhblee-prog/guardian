@@ -33,8 +33,8 @@ export function validateLicenseCustomer(value) {
   const name = typeof value.name === 'string' ? value.name.trim() : '';
   const email = typeof value.email === 'string' ? value.email.trim().toLowerCase() : '';
   const orderRef = typeof value.orderRef === 'string' ? value.orderRef.trim() : '';
-  const hasControl = /[\\u0000-\\u001f\\u007f]/;
-  if (!name || name.length > 120 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+  const hasControl = /[\u0000-\u001f\u007f]/;
+  if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
       email.length > 254 || orderRef.length > 120 ||
       hasControl.test(name) || hasControl.test(email) || hasControl.test(orderRef)) {
     throw Object.assign(new Error('고객명, 올바른 이메일, 주문번호를 확인하세요.'), { status: 400 });
