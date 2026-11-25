@@ -64,6 +64,22 @@ class LicenseApiClientTest {
     }
 
     @Test
+    fun serverStatusExplainsExpiredLocalTokenWithoutGrantingLocalPro() {
+        assertEquals(
+            "서버 확인 완료 · 이 기기의 PRO 라이선스가 활성 상태입니다.",
+            licenseStatusMessage("active", localEntitlementActive = true)
+        )
+        assertEquals(
+            "서버 라이선스는 활성 상태입니다. 로컬 토큰이 만료되어 상태 갱신이 필요합니다.",
+            licenseStatusMessage("active", localEntitlementActive = false)
+        )
+        assertEquals(
+            "서버에서 이 기기의 PRO 이용 권한을 확인하지 못했습니다.",
+            licenseStatusMessage("free", localEntitlementActive = false)
+        )
+    }
+
+    @Test
     fun entitlementMutationsAndStatusShareOneSynchronizationLock() {
         val client = LicenseApiClient::class.java
         val activate = client.getDeclaredMethod(
