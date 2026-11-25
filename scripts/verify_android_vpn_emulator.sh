@@ -1510,6 +1510,13 @@ adb_cmd shell input tap "$cancel_x" "$cancel_y"
 sleep 1
 tap_content_description "설정"
 sleep 1
+# The preceding app-exit check scrolls the right Settings pane to its bottom.
+# Return to the top so the persistent left category rail is inside the viewport.
+for attempt in $(seq 1 5); do
+  adb_cmd shell input swipe 540 420 540 1510 350
+  sleep 0.25
+done
+sleep 1
 
 # Verify the customer-facing support center in the redesigned Settings rail.
 # The support card is rendered in the right workspace after selecting the
