@@ -141,6 +141,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FilterListManager.recoverPendingProfileSelection(this)
         window.statusBarColor = bg
         window.navigationBarColor = bg
         window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
