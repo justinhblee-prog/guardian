@@ -1,12 +1,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomBytes, verify } from 'node:crypto';
-import { adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey, validateDeviceBinding, verifyLicenseKey } from '../src/license-core.mjs';
+import { adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey, validateDeviceBinding, validateLicenseIssueParameters, verifyLicenseKey } from '../src/license-core.mjs';
 
 const device = randomBytes(32).toString('hex');
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const pepper = 'test-only-lookup-secret-32-chars-min';
 const expiresAt = new Date(Date.now() + 86400000).toISOString();
+
+test('license issuance parameters accept explicit defaults and fixed plans', () => {
+  assert.deepEqual(validateLicenseIssueParameters(), {
+    maxDevices: 1, validDays: 365, planCode: 'custom'
+  });
+  assert.deepEqual(validateLicenseIssueParameters({
+    maxDevices: 3, validDays: 90, planCode: 'quarterly_90d'
+  }), {
+    maxDevices: 3, validDays: 90, planCode: 'quarterly_90d'
+  });
+});
+
+test('license issuance rejects malformed values rather than silently defaulting', () => {
+  for (const input of [
+    { maxDevices: '3', validDays: 30, planCode: 'custom' },
+    { maxDevices: 0, validDays: 30, planCode: 'custom' },
+    { maxDevices: 21, validDays: 30, planCode: 'custom' },
+    { maxDevices: 1, validDays: '30', planCode: 'custom' },
+    { maxDevices: 1, validDays: 31, planCode: 'monthly_30d' },
+    { maxDevices: 1, validDays: 30, planCode: 'lifetime' },
+    { maxDevices: null, validDays: 30, planCode: 'custom' }
+  ]) {
+    assert.throws(() => validateLicenseIssueParameters(input), error => error.status === 400);
+  }
+});
 
 test('license keys are random and formatted', () => {
   const a = newLicenseKey();
