@@ -1502,24 +1502,11 @@ sleep 1
 tap_content_description "설정"
 sleep 1
 
-# Verify the customer-facing support center is reachable and its FAQ/form UI
-# renders. The support card now lives in its dedicated Settings > 고객 지원 submenu.
-scroll_to_text "고객 지원"
+# Verify the customer-facing support center in the redesigned Settings rail.
+# The support card is rendered in the right workspace after selecting the
+# persistent left-rail destination; it is no longer a card in a vertical index.
+tap_content_description "지원 설정"
 sleep 1
-for attempt in $(seq 1 20); do
-  adb_cmd shell input swipe 540 500 540 1550 250
-  sleep 0.15
-done
-adb_cmd shell uiautomator dump /sdcard/guardian-support-top.xml >/dev/null 2>&1
-support_top_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-top.xml | tr -d '\r')"
-if ! grep -Fq "고객지원 센터" <<<"$support_top_xml"; then
-  echo "Could not confirm the dedicated Customer Support submenu is visible."
-  echo "$support_top_xml"
-  exit 1
-fi
-
-# The support card is intentionally the first content card in Settings.
-# Verify it at the top immediately; scrolling down would move it out of view.
 adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
 support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
 if ! python3 -c 'import sys, xml.etree.ElementTree as ET
