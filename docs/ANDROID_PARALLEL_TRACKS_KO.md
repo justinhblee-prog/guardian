@@ -14,7 +14,7 @@
 
 | 트랙 | 브랜치 | 상태 확인 시점 HEAD (2026-11-24) | 주요 범위 |
 |---|---|---|---|
-| 무료 Android | `work/android-free-release-followup-20261124` | `055ab469a5d11c29bf2d62c5111570e789ffd6ac` (현재 HEAD) | 복구/진단, 보호 시작 fallback, 정식 updater 검증, 필터 업데이트 UI 세대 보호, 프로필 변경 원자성·복구 |
+| 무료 Android | `work/android-free-release-followup-20261124` | `055ab469a5d11c29bf2d62c5111570e789ffd6ac` (프로필 복구 기능 변경 커밋) | 복구/진단, 보호 시작 fallback, 정식 updater 검증, 필터 업데이트 UI 세대 보호, 프로필 변경 원자성·복구 |
 | PRO 공통 기반 | `work/android-pro-premium-20261124` | `bc025fcfbd0677c6004677791c8f21c671dbe4bc` | fail-closed entitlement, 일별 DNS 리포트 |
 | 고급 필터 | #297 | 별도 엔진/정책 작업 | 필터 범위·출처·갱신 정책 |
 | 앱별 보호 | `work/pro-app-policy-20261124` | `a2802d6beca848f6e1dd42804730895c8541e1e4` | UDP DNS UID 귀속, 앱별 집계/추가 차단 규칙 |
