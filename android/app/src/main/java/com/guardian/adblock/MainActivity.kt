@@ -2334,6 +2334,7 @@ class MainActivity : Activity() {
 
     private fun buildSettingsPremium(body: LinearLayout) {
         val releasableLicense = LicenseEntitlementStore.currentForRefresh(this)
+        val activeLicense = LicenseEntitlementStore.current(this)
         buildPremium(body)
                 body.addView(card(panel, 14).apply {
                     setPadding(dp(15), dp(15), dp(15), dp(15))
@@ -2456,6 +2457,41 @@ class MainActivity : Activity() {
                         }
                     }
                     addView(activateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
+                    if (activeLicense != null) {
+                        val statusButton = Button(this@MainActivity).apply {
+                            text = "서버에서 라이선스 상태 확인"
+                            isAllCaps = false
+                            setTextColor(white)
+                            background = shape(panel2, 12)
+                            setOnClickListener {
+                                isEnabled = false
+                                licenseFeedback.text = "서버에서 기기 등록과 PRO 이용 권한을 확인하고 있습니다."
+                                thread {
+                                    try {
+                                        val status = LicenseApiClient.status(this@MainActivity)
+                                        runOnUiThread {
+                                            if (isActiveLicenseStatus(status.optString("status"))) {
+                                                licenseFeedback.text = "서버 확인 완료 · 이 기기의 PRO 라이선스가 활성 상태입니다."
+                                                licenseFeedback.setTextColor(accent)
+                                                isEnabled = true
+                                            } else {
+                                                // The API client clears a locally cached token when the
+                                                // server reports free/inactive; rebuild the screen as FREE.
+                                                showTab("settings-premium")
+                                            }
+                                        }
+                                    } catch (error: Exception) {
+                                        runOnUiThread {
+                                            licenseFeedback.text = "라이선스 상태 확인 실패: ${SafeFailureSummary.describe(error)}"
+                                            licenseFeedback.setTextColor(red)
+                                            isEnabled = true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        addView(statusButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+                    }
                     if (releasableLicense != null) {
                         val refreshButton = Button(this@MainActivity).apply {
                             text = "라이선스 상태 갱신"
