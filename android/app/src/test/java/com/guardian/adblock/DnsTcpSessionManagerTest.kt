@@ -1245,7 +1245,7 @@ class DnsTcpSessionManagerTest {
         val clientNext = (clientInitial + 1L + dnsQuery().size + 2L) and 0xffffffffL
         val manager = DnsTcpSessionManager(random = deterministicRandom(-2))
         val syn = packet(flags = DnsTcpPacket.SYN, seq = clientInitial,
-            tcpOptions = byteArrayOf(2, 4, 4, 176))
+            tcpOptions = byteArrayOf(2, 4, 4, 176.toByte()))
         val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
         assertEquals(0xfffffffEL, synAck.sequence)
         val serverStart = (synAck.sequence + 1L) and 0xffffffffL
