@@ -3936,7 +3936,7 @@ class MainActivity : Activity() {
                     androidAdsFilterCheckBox?.isChecked = false
                 }
                 val baseMessage = when {
-                    baseResult != null -> "광고·추적 ${baseResult.blocked}개"
+                    baseResult != null -> "광고·추적 ${baseResult?.blocked ?: 0}개"
                     baseError != null && hadPreviousMainCache -> "광고·추적 업데이트 실패(이전 목록 유지)"
                     baseError != null -> "광고·추적 업데이트 실패(캐시 없음)"
                     else -> "광고·추적 업데이트 결과 없음"
