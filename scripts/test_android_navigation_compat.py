@@ -3,6 +3,7 @@ import unittest
 from scripts.android_navigation_compat import (
     resolve_premium_category,
     resolve_premium_entry,
+    resolve_primary_navigation,
     resolve_settings_item,
 )
 
@@ -80,6 +81,36 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
     def test_missing_settings_category_fails_closed(self):
         with self.assertRaises(ValueError):
             resolve_premium_category('<hierarchy><node text="일반" /></hierarchy>')
+
+
+
+class PrimaryNavigationCompatibilityTests(unittest.TestCase):
+    def test_redesigned_five_destination_navigation_is_detected(self):
+        xml = '<hierarchy>' + ''.join(
+            f'<node class="android.widget.LinearLayout" content-desc="{label}" clickable="true" enabled="true" />'
+            for label in ("홈", "보호", "앱 제외", "활동", "설정")
+        ) + '</hierarchy>'
+        self.assertEqual(resolve_primary_navigation(xml), "redesigned")
+
+    def test_legacy_english_premium_navigation_is_detected(self):
+        xml = '<hierarchy>' + ''.join(
+            f'<node class="android.widget.LinearLayout" content-desc="{label}" clickable="true" enabled="true" />'
+            for label in ("홈", "보호", "활동", "Premium", "전체 메뉴")
+        ) + '</hierarchy>'
+        self.assertEqual(resolve_primary_navigation(xml), "legacy:Premium")
+
+    def test_legacy_korean_premium_navigation_is_detected(self):
+        xml = '<hierarchy>' + ''.join(
+            f'<node class="android.widget.LinearLayout" content-desc="{label}" clickable="true" enabled="true" />'
+            for label in ("홈", "보호", "활동", "프리미엄", "전체 메뉴")
+        ) + '</hierarchy>'
+        self.assertEqual(resolve_primary_navigation(xml), "legacy:프리미엄")
+
+    def test_incomplete_navigation_is_rejected(self):
+        xml = '<hierarchy><node class="android.widget.LinearLayout" content-desc="홈" clickable="true" enabled="true" /></hierarchy>'
+        with self.assertRaises(ValueError):
+            resolve_primary_navigation(xml)
+
 
 
 if __name__ == "__main__":

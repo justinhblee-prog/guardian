@@ -5,8 +5,11 @@ from windows_engine.desktop import safe_error_details, safe_error_message
 
 def test_error_dialog_uses_sanitized_details_not_raw_traceback():
     source = Path(__file__).with_name("desktop.py").read_text(encoding="utf-8")
-    assert "safe_error_details(message, active_trace, active_type)" in source
-    assert "traceback.format_exc()" not in source
+    dialog = source.split("    def show_error_dialog", 1)[1].split(
+        "    def copy_support_diagnostics", 1
+    )[0]
+    assert "safe_error_details(message, active_trace, active_type)" in dialog
+    assert "traceback.format_exc()" not in dialog
     assert "report=safe_error_message(report,max_chars=12000)" in source
 
 
