@@ -709,18 +709,30 @@ class MainActivity : Activity() {
             else -> tab
         }
         val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
-        val contentWidth = ResponsiveLayoutPolicy.contentWidthPx(
-            ResponsiveLayoutPolicy.contentAreaWidthDp(screenWidthDp),
-            resources.displayMetrics.density
-        )
+        // Foldables can change the app window width without the Activity being
+        // recreated on every posture transition. Measure the actual ScrollView
+        // viewport instead of freezing the body width from screenWidthDp at build
+        // time; keep the wide-layout content cap while allowing the body to grow.
         scroll.addView(
             body,
             FrameLayout.LayoutParams(
-                contentWidth,
+                ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL
             )
         )
+        scroll.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+            val availableWidth = view.width
+            if (availableWidth > 0) {
+                val targetWidth = minOf(availableWidth, dp(ResponsiveLayoutPolicy.MAX_CONTENT_WIDTH_DP))
+                val params = body.layoutParams as? FrameLayout.LayoutParams
+                if (params != null && params.width != targetWidth) {
+                    params.width = targetWidth
+                    params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                    body.layoutParams = params
+                }
+            }
+        }
         if (focusLicenseActivationOnBuild && tab == "settings-premium") {
             scroll.post {
                 licenseKeyInput?.let { input ->
