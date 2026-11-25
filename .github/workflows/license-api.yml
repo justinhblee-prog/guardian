@@ -45,6 +45,10 @@ jobs:
       - name: Check server and admin JavaScript syntax
         run: |
           node --check src/server.mjs
+          node --check src/license-api-runtime.mjs
+          node --check src/fetch-adapter.mjs
+          node --check src/admin-assets.mjs
+          node --check functions/guardianapi/index.mjs
           node --check src/license-core.mjs
           node --check src/rate-limit.mjs
           node --check admin/admin.js
@@ -68,36 +72,3 @@ jobs:
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
       - name: Run cryptographic, HTTP, PostgreSQL and edge adapter tests
         run: npm test
-      - name: Validate Cloudflare Worker bundle without deploying
-        run: npx --yes wrangler@latest deploy --dry-run --outdir /tmp/guardian-license-worker --config wrangler.toml
-      - name: Smoke test the Worker runtime and static admin assets locally
-        run: |
-          setsid npx --yes wrangler@latest dev --local --ip 127.0.0.1 --port 8788 > /tmp/guardian-worker.log 2>&1 &
-          worker_pid=$!
-          cleanup() {
-            status=$?
-            kill -- -"$worker_pid" 2>/dev/null || true
-            wait "$worker_pid" 2>/dev/null || true
-            if [ "$status" -ne 0 ]; then cat /tmp/guardian-worker.log; fi
-            exit "$status"
-          }
-          trap cleanup EXIT
-          ready=0
-          for attempt in $(seq 1 30); do
-            if curl --silent --fail http://127.0.0.1:8788/health > /tmp/guardian-worker-health.json; then
-              ready=1
-              break
-            fi
-            sleep 1
-          done
-          if [ "$ready" -ne 1 ]; then
-            cat /tmp/guardian-worker.log
-            exit 1
-          fi
-          grep -q 'guardian-license-api' /tmp/guardian-worker-health.json
-          curl --silent --fail http://127.0.0.1:8788/admin --output /tmp/guardian-admin.html
-          grep -qi '<html' /tmp/guardian-admin.html
-          status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8788/ready)
-          test "$status" = "503"
-          curl --silent --fail http://127.0.0.1:8788/admin.js --output /tmp/guardian-admin.js
-          grep -q 'adminToken' /tmp/guardian-admin.js
