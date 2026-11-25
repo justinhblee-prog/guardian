@@ -39,8 +39,8 @@ class Ipv6UdpTest {
         val base = queryPacket()
         val packet = ByteArray(base.size + 16)
         System.arraycopy(base, 0, packet, 0, 40)
-        packet[4] = 0
-        packet[5] = 28 // 16 extension-header bytes + 12 UDP bytes
+        packet[4] = 0.toByte()
+        packet[5] = 28.toByte() // 16 extension-header bytes + 12 UDP bytes
         packet[6] = 0 // Hop-by-Hop Options
         packet[40] = 60 // Destination Options follows
         packet[41] = 0
@@ -63,8 +63,8 @@ class Ipv6UdpTest {
         fun packetWithTwoExtensionHeaders(first: Int, second: Int): ByteArray {
             val packet = ByteArray(base.size + 16)
             System.arraycopy(base, 0, packet, 0, 40)
-            packet[4] = 0
-            packet[5] = 28 // Two 8-byte extension headers + 12-byte UDP datagram
+            packet[4] = 0.toByte()
+            packet[5] = 28.toByte() // Two 8-byte extension headers + 12-byte UDP datagram
             packet[6] = first
             packet[40] = second
             packet[41] = 0
