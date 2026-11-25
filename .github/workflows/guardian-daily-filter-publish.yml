@@ -152,7 +152,6 @@ jobs:
           origin="$RUNNER_TEMP/guardian-filter-origin"
           dist="$GITHUB_WORKSPACE/server/filter-distribution/dist"
           cp -a "$dist/." "$origin/"
-          rm -rf "$origin/.git" 2>/dev/null || true
           git -C "$origin" config user.name "Guardian Filter Publisher"
           git -C "$origin" config user.email "guardian-filter-publisher@users.noreply.github.com"
           git -C "$origin" add --all
