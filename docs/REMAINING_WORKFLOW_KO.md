@@ -99,3 +99,26 @@ Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 �
 - 별도 Android run [44785000260](https://github.com/justinhblee-prog/guardian/actions/runs/44785000260)은 완료 success이며 emulator install/launch 및 VPN DNS E2E 성공. 단, head SHA는 `bdb63e201f1e7aa0cc92a322e93c4c206e21f816`로 현재 main SHA와 다르므로 최신 main 검증으로 대체하지 않습니다.
 - main 개발 APK `0.7.34-dev` (versionCode 47)은 별도 artifact에서 다운로드 및 SHA-256 검증 후 사용자에게 전달했습니다. 이는 debug/dev 서명 APK이며 Production release가 아닙니다.
 - 실기기 Samsung `Library file not found`는 여전히 미확정입니다. 새 진단은 실제 단말에서 발생한 root cause frame을 보존하기 위한 개선이며, 단말 로그 없이 원인을 해결했다고 주장하지 않습니다.
+
+## 2026-11-25 — Samsung Fold7 실기기 및 로컬 검증 갱신
+
+- 검증 소스 커밋: `2c8104048d828776e343d28fd2638101bc9600dd` (branch `work/android-free-release-followup-20261124`).
+- 사용자 노트북 Docker 기반 검증 스크립트 `android/build-env/run-validation.ps1`: **VALIDATION PASSED**. Android JUnit, Lint, Debug APK 빌드가 모두 성공했습니다.
+- APK: `com.guardian.adblock`, 3,295,911 bytes, SHA-256 `DB88FBAF9FA8041E0C5435C3B7E184A5F632B48A1AE08C6EF9349A1B9FFACD2C`.
+- Samsung Galaxy Z Fold7 실기기에서 해당 APK 설치 후 사용자가 정상 작동을 확인했습니다. 접힘/펼침 시 본문 너비 및 하단 내비게이션 재배치가 정상 동작해 폴더블 레이아웃 수용 확인을 갱신합니다.
+- 기존 동일 기기에서 VPN CONNECTED/TUN 활성, 허용 도메인 DNS 응답, 차단 도메인 DNS 실패, 화면 잠금·백그라운드 이후 VPN 유지가 확인된 기록을 유지합니다. 이번 레이아웃 수정으로 인해 이미 통과한 DNS 매트릭스를 불필요하게 반복하지 않습니다.
+- License API/PostgreSQL의 QA 발급 → 기기 활성화 → 상태 조회 → refresh → 기기 해제 → Free 전환, 로컬 및 Tailscale HTTPS `/ready` 응답은 2026-11-20 사용자 실행 결과를 유효한 기존 증거로 유지합니다. 이를 미검증으로 되돌리지 않습니다.
+
+### 현재 남은 Android 1.0 외부 출시 게이트
+
+1. **Production 서명:** 실제 운영 keystore와 안전한 secret 공급 경로. 저장소의 검증 코드는 키/alias/private-key/certificate를 검사하고 실제 운영키가 없으면 Release 빌드를 거부합니다.
+2. **필터 원본 권리 및 공개 배포:** 현재 예시 원본 7개는 재배포 승인 플래그와 근거가 비어 있습니다. 권리 근거 없이 승인으로 바꾸거나 원본 데이터를 공개하지 않습니다. 기존 외부 원본 직접 다운로드/로컬 필터 동작 검증과 Guardian이 원본을 재배포할 권한은 서로 다른 문제입니다.
+3. **운영 엔드포인트 구성:** 기존 QA 로컬/Tailscale API 성공과 공개 고객용 HTTPS 운영 endpoint는 구분합니다. 실제 외부 배포 도메인·TLS·운영 비밀값은 임의로 만들거나 공개 Funnel로 전환하지 않습니다.
+4. **Release 산출물:** 위 조건이 준비된 뒤 production-signed APK의 package/version/signer fingerprint/SHA-256, 신규 설치 및 업그레이드를 확인합니다.
+
+### 완료 판정 갱신
+
+- Android 무료 보호 기능 개발 및 핵심 Fold7 실기기 동작: **완료로 취급**합니다. 이후 새 결함이 보고되지 않는 한 이미 통과한 기능을 반복 개발/검증하지 않습니다.
+- Android 1.0 정식 배포: **외부 운영·서명 게이트 때문에 아직 미완료**입니다. 무료 기능 구현이 미완료라는 의미가 아닙니다.
+- 다음 개발 우선순위는 운영 게이트를 코드/문서 측면에서 닫을 수 있도록 준비하면서 License API 운영·관리 기능과 Premium 엔진을 병행하는 것입니다.
+
