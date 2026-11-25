@@ -91,4 +91,4 @@ jobs:
           curl --silent --fail http://127.0.0.1:8788/admin | grep -qi '<html'
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8788/ready)
           test "$status" = "503"
-          curl --silent --fail http://127.0.0.1:8788/admin.js | grep -q 'Guardian'
+          curl --silent --fail http://127.0.0.1:8788/admin.js | grep -q 'adminToken'
