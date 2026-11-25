@@ -34,7 +34,7 @@ internal object PremiumReportPolicy {
         val failed: Long
     ) {
         val blockRatePercent: Int
-            get() = if (queries <= 0L) 0 else ((blocked * 100L) / queries).coerceIn(0L, 100L).toInt()
+            get() = if (queries <= 0L) 0 else ((blocked.toDouble() * 100.0) / queries.toDouble()).toInt().coerceIn(0, 100)
     }
 
     fun record(
