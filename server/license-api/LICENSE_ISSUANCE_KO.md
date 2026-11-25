@@ -4,7 +4,7 @@
 
 ## 현재 구현으로 가능한 발급 정책
 
-- 제품 코드: `guardian-android-pro` (현재 API에서 활성 제품으로 고정 조회)
+- DB 제품 코드: `guardian-pro` (신규 공통 제품 migration 기준). 서명 entitlement의 플랫폼 공통 product claim은 `guardian`이며, Android 구형 `guardian-android` claim도 검증기가 호환합니다.
 - 유효 기간: 1~36,500일
 - 최대 기기 수: 1~20대
 - 기본값: 365일, 1대
