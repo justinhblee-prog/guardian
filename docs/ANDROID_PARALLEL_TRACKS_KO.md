@@ -14,7 +14,7 @@
 
 | 트랙 | 브랜치 | 상태 확인 시점 HEAD (2026-11-24) | 주요 범위 |
 |---|---|---|---|
-| 무료 Android | `work/android-free-release-followup-20261124` | `42aedc04cb063c7d233dce39ea50a7053daece24` (현재 HEAD) | 복구/진단, 보호 시작 fallback, 정식 updater 검증, 필터 업데이트 UI 세대 보호, 프로필 변경 원자성·복구 |
+| 무료 Android | `work/android-free-release-followup-20261124` | `055ab469a5d11c29bf2d62c5111570e789ffd6ac` (현재 HEAD) | 복구/진단, 보호 시작 fallback, 정식 updater 검증, 필터 업데이트 UI 세대 보호, 프로필 변경 원자성·복구 |
 | PRO 공통 기반 | `work/android-pro-premium-20261124` | `bc025fcfbd0677c6004677791c8f21c671dbe4bc` | fail-closed entitlement, 일별 DNS 리포트 |
 | 고급 필터 | #297 | 별도 엔진/정책 작업 | 필터 범위·출처·갱신 정책 |
 | 앱별 보호 | `work/pro-app-policy-20261124` | `a2802d6beca848f6e1dd42804730895c8541e1e4` | UDP DNS UID 귀속, 앱별 집계/추가 차단 규칙 |
@@ -47,6 +47,6 @@
 - `FilterUpdateUiGenerationPolicyTest`는 동일 세대 허용, 이전·미래 세대 거부, 초기 세대 일치의 네 경우를 포함합니다.
 - 실제 정책 Kotlin 소스를 `kotlinc`로 컴파일하고 독립 하네스 4개 사례를 실행해 통과했습니다.
 - 프로필 변경은 이전 프로필 키를 먼저 영속화한 뒤 새 프로필을 선택합니다. 새 피드 검증에 실패하면 이전 프로필로 되돌리고, 기존 캐시의 갱신 시각을 보존합니다.
-- 앱/서비스 프로세스가 다운로드 도중 종료된 경우 시작 시 pending marker와 실제 cached profile을 대조합니다. 새 캐시가 이미 커밋된 경우 새 프로필을 유지하고, 그렇지 않으면 이전 프로필로 복구합니다.
+- 앱/서비스 프로세스가 다운로드 도중 종료된 경우 프로세스당 한 번만 pending marker와 실제 cached profile을 대조합니다. 새 캐시가 이미 커밋된 경우 새 프로필을 유지하고, 그렇지 않으면 이전 프로필로 복구합니다. 화면 회전 등 Activity 재생성은 진행 중인 다운로드를 되돌리지 않습니다.
 - `FilterProfileRollbackPolicyTest` 및 실제 정책 소스를 이용한 `kotlinc` 독립 하네스(경계 6개 + 결정적 사례 100,000개)가 통과했습니다.
 - Android Gradle/JUnit 및 UI 계측 검증은 별도 릴리스 게이트로 남아 있습니다.
