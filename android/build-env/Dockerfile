@@ -28,4 +28,6 @@ RUN mkdir -p "${ANDROID_HOME}/cmdline-tools" /opt/gradle \
     && java -version && gradle --version && sdkmanager --version
 
 WORKDIR /workspace
-CMD ["bash", "android/build-env/run-validation.sh"]
+# Windows checkouts may convert the mounted shell script to CRLF. Normalize it
+# inside Linux before Bash parses it, independent of core.autocrlf settings.
+CMD ["bash", "-lc", "sed -i 's/\\r$//' android/build-env/run-validation.sh && exec bash android/build-env/run-validation.sh"]
