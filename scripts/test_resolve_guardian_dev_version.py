@@ -79,6 +79,16 @@ class GuardianDevVersionTests(unittest.TestCase):
         self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
                          ("0.7.50-dev", 63, "guardian-dev-v63"))
 
+    def test_installed_050_floor_forces_next_public_release_above_installed_apk(self):
+        releases = [{
+            "tag_name": "guardian-dev-v58",
+            "name": "Guardian AdBlock 0.7.45-dev",
+            "draft": False, "prerelease": True, "body": ""
+        }]
+        result = resolve_next_version(releases, "3" * 40, "0.7.50-dev", 63)
+        self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
+                         ("0.7.51-dev", 64, "guardian-dev-v64"))
+
     def test_release_version_name_cannot_override_higher_installed_floor(self):
         releases = [{
             "tag_name": "guardian-dev-v70",
