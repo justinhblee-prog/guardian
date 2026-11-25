@@ -23,6 +23,8 @@ internal data class GuardianDevUpdate(
     val notes: String
 )
 
+internal class GuardianHttpStatusException(val statusCode: Int) : java.io.IOException("HTTP_STATUS_$statusCode")
+
 internal object DevUpdateManager {
     private const val RELEASES_URL =
         "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=100"
@@ -279,7 +281,8 @@ internal object DevUpdateManager {
         try {
             connection.connect()
             check(isAllowedHttpsHost(connection.url)) { "업데이트 확인 요청이 허용되지 않은 서버로 리디렉션되었습니다." }
-            check(connection.responseCode in 200..299) { "업데이트 확인 실패: HTTP ${connection.responseCode}" }
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) throw GuardianHttpStatusException(responseCode)
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
