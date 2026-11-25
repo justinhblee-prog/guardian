@@ -311,13 +311,7 @@ function validateSupportText(value, label, min, max) {
 }
 async function createSupportTicket(body) {
   requireEnv();
-  const category = ['question','bug','suggestion','billing','license'].includes(body.category) ? body.category : 'question';
-  const subject = validateSupportText(body.subject, '제목', 3, 120);
-  const message = validateSupportText(body.message, '문의 내용', 10, 5000);
-  const email = typeof body.email === 'string' ? body.email.trim().slice(0, 254) : '';
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw Object.assign(new Error('이메일 주소 형식을 확인하세요.'), { status: 400 });
-  }
+  const { category, subject, message, email } = validateSupportTicketInput(body);
   const ticketRef = `GDN-${randomBytes(6).toString('hex').toUpperCase()}`;
   const accessToken = randomBytes(32).toString('base64url');
   await pool.query(
