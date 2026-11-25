@@ -5,7 +5,7 @@ import pg from 'pg';
 import { createPostgresRateLimiter, createRateLimiter } from './rate-limit.mjs';
 import {
   adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey,
-  validateDeviceBinding, validateLicenseCustomer, validateLicenseIssueParameters, validateSupportReplyStatus, verifyLicenseKey
+  validateDeviceBinding, validateLicenseCustomer, validateLicenseIssueParameters, validateSupportReplyStatus, validateSupportTicketInput, verifyLicenseKey
 } from './license-core.mjs';
 
 const { Pool } = pg;
