@@ -168,6 +168,7 @@ class GuardianVpnService : VpnService() {
                 // process death cannot lose the user's explicit request to keep protection on.
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                     .putBoolean(KEY_RESTORE_REQUESTED, true).commit()
+                if (deferStartUntilVpnConsent(startId)) return START_NOT_STICKY
                 if (!ensureForegroundServiceNotification(startId)) return START_NOT_STICKY
                 val foregroundTarget = startForegroundAppMonitor()
                 if (foregroundTarget != null) {
@@ -198,6 +199,7 @@ class GuardianVpnService : VpnService() {
                     restoreRequested = restoreRequested
                 )
                 if (shouldRestore) {
+                    if (deferStartUntilVpnConsent(startId)) return START_NOT_STICKY
                     if (!ensureForegroundServiceNotification(startId)) return START_NOT_STICKY
                     val foregroundTarget = startForegroundAppMonitor()
                     if (foregroundTarget != null) {
@@ -216,6 +218,28 @@ class GuardianVpnService : VpnService() {
         // If Android reclaims the process, recreate the service and TUN when
         // the last persisted state says the user had protection enabled.
         return START_STICKY
+    }
+
+    /**
+     * VPN consent can be revoked when another VPN app is authorized. A receiver or
+     * sticky service restart cannot show Android's consent UI, so preserve the
+     * durable user intent and defer all socket preflight work until the Activity
+     * obtains consent again.
+     */
+    private fun deferStartUntilVpnConsent(startId: Int): Boolean {
+        if (VpnService.prepare(this) == null) return false
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+            .putBoolean(KEY_ACTIVE, false)
+            .putBoolean(KEY_RECOVERY_PENDING, false)
+            .putString(
+                KEY_STATUS,
+                "Android VPN 권한 재승인이 필요합니다. Guardian을 열고 보호 시작을 눌러 주세요."
+            )
+            .commit()
+        Log.w("GuardianProtection", "VPN start deferred because Android VPN consent is not prepared")
+        sendBroadcast(Intent(ACTION_STATUS_CHANGED).setPackage(packageName))
+        stopSelf(startId)
+        return true
     }
 
     /**
