@@ -22,6 +22,9 @@ internal fun isSupportedGuardianSubscriptionRecurrenceMode(mode: Int): Boolean =
     mode == ProductDetails.RecurrenceMode.INFINITE_RECURRING ||
         mode == ProductDetails.RecurrenceMode.FINITE_RECURRING
 
+internal fun shouldLaunchGuardianBillingFlow(managerClosed: Boolean, activityFinishing: Boolean, activityDestroyed: Boolean): Boolean =
+    !managerClosed && !activityFinishing && !activityDestroyed
+
 internal fun parseGuardianPlayProductIds(value: String): List<String> {
     val values = value.split(',').map { it.trim() }.filter { it.isNotEmpty() }
     require(values.size <= 10) { "Google Play 구독 상품은 최대 10개까지 설정할 수 있습니다." }
@@ -62,6 +65,7 @@ internal class GooglePlayBillingManager(
     private val connectionCallbacks = mutableListOf<(BillingResult?) -> Unit>()
     private val processingTokens = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var connected = false
+    @Volatile private var closed = false
     private var connecting = false
 
     private val billingClient = BillingClient.newBuilder(appContext)
@@ -73,6 +77,7 @@ internal class GooglePlayBillingManager(
         .build()
 
     fun queryProducts(callback: (List<GuardianPlayProduct>, String?) -> Unit) {
+        if (closed) return
         if (productIds.isEmpty()) {
             callback(emptyList(), "Google Play 구독 상품 ID가 빌드 설정에 등록되지 않았습니다.")
             return
@@ -92,6 +97,7 @@ internal class GooglePlayBillingManager(
                 .setProductList(products)
                 .build()
             billingClient.queryProductDetailsAsync(params) { result, detailsResult ->
+                if (closed) return@queryProductDetailsAsync
                 if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                     callback(emptyList(), "Google Play 상품 정보를 불러오지 못했습니다. (${result.responseCode})")
                     return@queryProductDetailsAsync
@@ -119,6 +125,7 @@ internal class GooglePlayBillingManager(
 
     /** Query current subscriptions on app resume/restore; never trusts cached local purchases. */
     fun restorePurchases(silentIfEmpty: Boolean = false) {
+        if (closed) return
         ensureConnected { connectionError ->
             if (connectionError != null) {
                 onPurchaseOutcome(GuardianBillingOutcome(false, "Google Play 구매 내역을 조회할 수 없습니다."))
@@ -129,6 +136,7 @@ internal class GooglePlayBillingManager(
                 .includeSuspendedSubscriptions(true)
                 .build()
             billingClient.queryPurchasesAsync(params) { result, purchases ->
+                if (closed) return@queryPurchasesAsync
                 if (result.responseCode != BillingClient.BillingResponseCode.OK) {
                     onPurchaseOutcome(GuardianBillingOutcome(false, "구매 복원에 실패했습니다. (${result.responseCode})"))
                     return@queryPurchasesAsync
@@ -148,7 +156,9 @@ internal class GooglePlayBillingManager(
         require(productId in productIds) { "Guardian에서 허용하지 않은 구독 상품입니다." }
         // ProductDetails and offer tokens are deliberately queried immediately
         // before launching; Google advises against long-lived ProductDetails caches.
+        if (!shouldLaunchGuardianBillingFlow(closed, activity.isFinishing, activity.isDestroyed)) return
         queryProducts { products, error ->
+            if (!shouldLaunchGuardianBillingFlow(closed, activity.isFinishing, activity.isDestroyed)) return@queryProducts
             if (error != null) {
                 onPurchaseOutcome(GuardianBillingOutcome(false, error))
                 return@queryProducts
@@ -177,6 +187,7 @@ internal class GooglePlayBillingManager(
     private fun ensureConnected(callback: (BillingResult?) -> Unit) {
         var startConnection = false
         synchronized(connectionLock) {
+            if (closed) return
             if (billingClient.isReady) {
                 connected = true
             } else {
@@ -195,20 +206,26 @@ internal class GooglePlayBillingManager(
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(result: BillingResult) {
                 val callbacks = synchronized(connectionLock) {
-                    connected = result.responseCode == BillingClient.BillingResponseCode.OK
                     connecting = false
-                    connectionCallbacks.toList().also { connectionCallbacks.clear() }
+                    if (closed) {
+                        connectionCallbacks.clear()
+                        emptyList()
+                    } else {
+                        connected = result.responseCode == BillingClient.BillingResponseCode.OK
+                        connectionCallbacks.toList().also { connectionCallbacks.clear() }
+                    }
                 }
                 callbacks.forEach { it(if (connected) null else result) }
             }
 
             override fun onBillingServiceDisconnected() {
-                connected = false
+                if (!closed) connected = false
             }
         })
     }
 
     private fun onPurchasesUpdated(result: BillingResult, purchases: List<Purchase>) {
+        if (closed) return
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> processPurchases(purchases)
             BillingClient.BillingResponseCode.USER_CANCELED ->
@@ -220,6 +237,7 @@ internal class GooglePlayBillingManager(
     }
 
     private fun processPurchases(purchases: List<Purchase>) {
+        if (closed) return
         if (purchases.isEmpty()) {
             onPurchaseOutcome(GuardianBillingOutcome(false, "확인할 Google Play 구매 내역이 없습니다."))
             return
@@ -243,6 +261,7 @@ internal class GooglePlayBillingManager(
         if (!processingTokens.add(purchase.purchaseToken)) return
         thread(name = "guardian-google-play-verify") {
             try {
+                if (closed) return@thread
                 val response = LicenseApiClient.verifyGooglePlayPurchase(
                     appContext,
                     purchase.purchaseToken,
@@ -251,6 +270,7 @@ internal class GooglePlayBillingManager(
                 )
                 if (!response.optBoolean("entitled", false)) {
                     mainHandler.post {
+                        if (closed) return@post
                         onPurchaseOutcome(
                             GuardianBillingOutcome(false, "Google Play에서 활성 PRO 구독을 확인하지 못했습니다.")
                         )
@@ -259,10 +279,12 @@ internal class GooglePlayBillingManager(
                 }
                 if (purchase.isAcknowledged) {
                     mainHandler.post {
+                        if (closed) return@post
                         onPurchaseOutcome(GuardianBillingOutcome(true, "Google Play 구독 확인 및 PRO 활성화가 완료되었습니다."))
                     }
                 } else {
                     mainHandler.post {
+                        if (closed) return@post
                         billingClient.acknowledgePurchase(
                             AcknowledgePurchaseParams.newBuilder()
                                 .setPurchaseToken(purchase.purchaseToken)
@@ -285,6 +307,7 @@ internal class GooglePlayBillingManager(
                 }
             } catch (error: Exception) {
                 mainHandler.post {
+                    if (closed) return@post
                     onPurchaseOutcome(
                         GuardianBillingOutcome(false, "구독 서버 검증에 실패했습니다: ${SafeFailureSummary.describe(error)}")
                     )
@@ -297,6 +320,7 @@ internal class GooglePlayBillingManager(
 
     override fun close() {
         synchronized(connectionLock) {
+            closed = true
             connectionCallbacks.clear()
             connecting = false
         }
