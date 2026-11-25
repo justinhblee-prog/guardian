@@ -1,0 +1,170 @@
+name: Guardian Daily Filter Build and Publish
+
+on:
+  # 04:00 Asia/Seoul (19:00 UTC on the previous day).
+  schedule:
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/guardian-daily-filter-publish.yml'
+      - 'server/filter-distribution/scripts/**'
+      - 'server/filter-distribution/sources.example.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: guardian-daily-filter-publish
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    name: Collect, validate, sign and publish daily filters
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Guardian source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate required cloud configuration
+        env:
+          FILTER_SOURCES_JSON: ${{ vars.GUARDIAN_FILTER_SOURCES_JSON }}
+          FILTER_SIGNING_PRIVATE_KEY: ${{ secrets.GUARDIAN_FILTER_SIGNING_PRIVATE_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          const raw = process.env.FILTER_SOURCES_JSON;
+          const key = process.env.FILTER_SIGNING_PRIVATE_KEY;
+          if (!raw) throw new Error('Missing repository variable GUARDIAN_FILTER_SOURCES_JSON.');
+          if (!key?.trim()) throw new Error('Missing repository secret GUARDIAN_FILTER_SIGNING_PRIVATE_KEY.');
+          const config = JSON.parse(raw);
+          if (!Array.isArray(config.sources) || config.sources.length === 0) {
+            throw new Error('GUARDIAN_FILTER_SOURCES_JSON must contain a non-empty sources array.');
+          }
+          console.log('Cloud configuration present; source count:', config.sources.length);
+          NODE
+
+      - name: Prepare existing public origin as publisher baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          origin="$RUNNER_TEMP/guardian-filter-origin"
+          mkdir -p "$origin"
+          git -C "$origin" init
+          git -C "$origin" remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git -C "$origin" fetch --no-tags origin refs/heads/guardian-filter-data; then
+            git -C "$origin" checkout -B guardian-filter-data FETCH_HEAD
+            mkdir -p server/filter-distribution/dist
+            cp -a "$origin/." server/filter-distribution/dist/
+            rm -rf server/filter-distribution/dist/.git
+            echo "Existing signed origin loaded as anti-rollback baseline."
+          else
+            git -C "$origin" checkout --orphan guardian-filter-data
+            echo "No public origin branch exists yet; first publication will create it."
+          fi
+
+      - name: Build source configuration and public key
+        working-directory: server/filter-distribution
+        env:
+          FILTER_SOURCES_JSON: ${{ vars.GUARDIAN_FILTER_SOURCES_JSON }}
+          GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: ${{ secrets.GUARDIAN_FILTER_SIGNING_PRIVATE_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { createPrivateKey, createPublicKey } from 'node:crypto';
+          import { mkdir, writeFile } from 'node:fs/promises';
+          const supplied = JSON.parse(process.env.FILTER_SOURCES_JSON);
+          const config = {
+            baseUrl: 'https://raw.githubusercontent.com/justinhblee-prog/guardian/guardian-filter-data/',
+            outputDir: 'dist',
+            tempDir: '.guardian-filter-update',
+            sources: supplied.sources
+          };
+          await writeFile('sources.json', JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+          await mkdir('dist', { recursive: true });
+          const privateKey = createPrivateKey(process.env.GUARDIAN_FILTER_SIGNING_PRIVATE_KEY.replace(/\\n/g, '\n'));
+          const bits = privateKey.asymmetricKeyDetails?.modulusLength ?? 0;
+          if (privateKey.asymmetricKeyType !== 'rsa' || bits < 2048 || bits > 4096) {
+            throw new Error('Filter signing key must be RSA 2048-4096 bits.');
+          }
+          const publicKey = createPublicKey(privateKey).export({ type: 'spki', format: 'der' }).toString('base64');
+          await writeFile('dist/guardian-filter-public-key.x509.b64', publicKey + '\n', { mode: 0o644 });
+          console.log('Source configuration and matching public key prepared.');
+          NODE
+
+      - name: Enforce third-party redistribution approvals
+        run: node server/filter-distribution/scripts/verify-production-approvals.mjs server/filter-distribution/sources.json
+
+      - name: Collect upstream filters, validate and sign manifests
+        working-directory: server/filter-distribution
+        env:
+          GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: ${{ secrets.GUARDIAN_FILTER_SIGNING_PRIVATE_KEY }}
+        run: npm run update -- ./sources.json
+
+      - name: Verify complete public payload before publishing
+        working-directory: server/filter-distribution
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { createHash, createPublicKey, verify } from 'node:crypto';
+          import { readFile, readdir } from 'node:fs/promises';
+          import path from 'node:path';
+          const root = 'dist';
+          const keyText = (await readFile(path.join(root, 'guardian-filter-public-key.x509.b64'), 'ascii')).trim();
+          const publicKey = createPublicKey({ key: Buffer.from(keyText, 'base64'), format: 'der', type: 'spki' });
+          const names = await readdir(root);
+          const manifests = names.filter(name => name.endsWith('.manifest'));
+          if (!manifests.length) throw new Error('No manifests generated.');
+          for (const name of manifests) {
+            const bytes = await readFile(path.join(root, name));
+            const fields = Object.fromEntries(bytes.toString('utf8').trim().split(/\\r?\\n/).map(line => {
+              const i = line.indexOf('=');
+              if (i < 1) throw new Error('Malformed manifest: ' + name);
+              return [line.slice(0, i), line.slice(i + 1)];
+            }));
+            const id = name.slice(0, -'.manifest'.length);
+            if (fields.sourceId !== id || !/^[a-f0-9]{64}$/.test(fields.sha256)) throw new Error('Invalid manifest metadata: ' + name);
+            const signatureName = id + '.' + fields.sourceVersion + '.' + fields.generatedAt + '.sig';
+            const filterName = path.join(root, 'filters', id, fields.sourceVersion + '.txt');
+            const signature = Buffer.from((await readFile(path.join(root, signatureName), 'ascii')).trim(), 'base64');
+            if (!verify('RSA-SHA256', bytes, publicKey, signature)) throw new Error('RSA signature failed: ' + id);
+            const filter = await readFile(filterName);
+            if (createHash('sha256').update(filter).digest('hex') !== fields.sha256) throw new Error('SHA-256 failed: ' + id);
+            console.log('PASS', id, fields.sourceVersion, filter.length, 'bytes');
+          }
+          NODE
+
+      - name: Publish immutable assets and manifests to GitHub Pages origin branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          origin="$RUNNER_TEMP/guardian-filter-origin"
+          dist="$GITHUB_WORKSPACE/server/filter-distribution/dist"
+          cp -a "$dist/." "$origin/"
+          rm -rf "$origin/.git" 2>/dev/null || true
+          git -C "$origin" config user.name "Guardian Filter Publisher"
+          git -C "$origin" config user.email "guardian-filter-publisher@users.noreply.github.com"
+          git -C "$origin" add --all
+          if git -C "$origin" diff --cached --quiet; then
+            echo "No public filter changes to publish."
+            exit 0
+          fi
+          git -C "$origin" commit -m "Publish signed Guardian filters $(date -u +%Y-%m-%d)"
+          git -C "$origin" push origin HEAD:refs/heads/guardian-filter-data
+
+      - name: Remove temporary signing and source material
+        if: always()
+        run: |
+          rm -f server/filter-distribution/sources.json
+          rm -rf server/filter-distribution/.guardian-filter-update
