@@ -1339,9 +1339,11 @@ class MainActivity : Activity() {
                 downloaded = null
                 feedback.text = if (developmentBuild) "공식 개발 릴리스 확인 중…" else "공식 정식 릴리스 확인 중…"
                 thread(name = "guardian-app-update-menu") {
+                    var updateStage = "업데이트 확인 준비"
                     try {
                         if (developmentBuild) {
                             val update = DevUpdateManager.checkForUpdate { stage ->
+                                updateStage = stage
                                 runOnUiThread { feedback.text = stage }
                             }
                             if (update == null) {
@@ -1350,6 +1352,7 @@ class MainActivity : Activity() {
                                     isEnabled = true
                                 }
                             } else {
+                                updateStage = "새 버전 APK 다운로드 및 검증"
                                 runOnUiThread {
                                     feedback.text = "새 개발 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
                                 }
@@ -1362,6 +1365,7 @@ class MainActivity : Activity() {
                                 }
                             }
                         } else {
+                            updateStage = "정식 릴리스 확인"
                             val update = GuardianStableUpdateManager.checkForUpdate()
                             if (update == null) {
                                 runOnUiThread {
@@ -1382,10 +1386,16 @@ class MainActivity : Activity() {
                             }
                         }
                     } catch (error: Exception) {
+                        val failureTypes = SafeFailureSummary.diagnosticTypeChain(error)
+                        val failureCode = SafeFailureSummary.codeFor(error)
+                        android.util.Log.e(
+                            "GuardianUpdater",
+                            "Update flow failed at stage='$updateStage'; code=$failureCode; causes=$failureTypes"
+                        )
                         runOnUiThread {
                             downloaded = null
                             setUpdateInstallButtonReady(installButton, false)
-                            feedback.text = "업데이트 확인 또는 다운로드 실패: " + SafeFailureSummary.describe(error)
+                            feedback.text = "업데이트 실패 [$updateStage]: " + SafeFailureSummary.describe(error)
                             isEnabled = true
                         }
                     }
