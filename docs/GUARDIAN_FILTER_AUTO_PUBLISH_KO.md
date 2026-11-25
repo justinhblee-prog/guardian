@@ -17,6 +17,7 @@ GitHub 저장소의 Settings → Secrets and variables → Actions에 다음 값
 ### Repository secret
 
 - `GUARDIAN_FILTER_SIGNING_PRIVATE_KEY`: 현재 Android 앱에 고정된 공개키와 짝을 이루는 RSA 개인키 PEM. 기존 운영키를 재사용하며 새 키를 임의 생성하거나 교체하지 않습니다.
+- `GUARDIAN_MANIFEST_PUBLIC_KEY`: Android 앱 빌드에 고정된 필터 RSA 공개키(Base64). secret 또는 variable로 등록할 수 있으며, workflow는 개인키에서 추출한 공개키와 일치하지 않으면 게시를 거부합니다.
 
 ### Repository variable
 
