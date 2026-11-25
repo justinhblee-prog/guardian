@@ -167,7 +167,7 @@ class FilterUpdateSchedulePolicyTest {
     }
 
     @Test fun futureTimestampAfterClockRollbackMakesRefreshDue() {
-        assertFalse(FilterUpdatePolicy.isDue(true, 200_000L, 6L * 60L * 60L * 1000L, 100_000L))
+        assertTrue(FilterUpdatePolicy.isDue(true, 200_000L, 6L * 60L * 60L * 1000L, 100_000L))
     }
 
     @Test fun invalidIntervalUsesWorkManagerMinimum() {
