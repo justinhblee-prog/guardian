@@ -65,8 +65,8 @@ class Ipv6UdpTest {
             System.arraycopy(base, 0, packet, 0, 40)
             packet[4] = 0.toByte()
             packet[5] = 28.toByte() // Two 8-byte extension headers + 12-byte UDP datagram
-            packet[6] = first
-            packet[40] = second
+            packet[6] = first.toByte()
+            packet[40] = second.toByte()
             packet[41] = 0
             packet[48] = 17
             packet[49] = 0
