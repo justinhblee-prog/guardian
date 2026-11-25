@@ -29,7 +29,7 @@ internal object PremiumFeatureAccessPolicy {
         Feature(THREAT_ANALYTICS, "실시간 위협·DNS 활동 분석", "차단 이벤트와 DNS 요청을 분류해 활동 내역으로 제공", "기본 DNS 통계 존재 · 고급 분석 엔진 개발 필요", false),
         Feature(SECURITY_PROFILES, "보안 프로필 및 자동화", "상황별 보호 정책과 자동 전환을 관리하는 기능", "프로필 자동화 엔진 개발 필요", false),
         Feature(PHISHING_SCANNER, "피싱 링크·앱 코드 검사", "의심 URL과 앱 코드의 위험도를 검사하는 기능", "검사 엔진 미연결 · 실제 탐지 안 함", false),
-        Feature(PREMIUM_REPORTS, "프리미엄 리포트 및 통계", "기간별 차단량과 보호 상태를 요약하는 기능", "기간별 리포트 엔진 개발 필요", false)
+        Feature(PREMIUM_REPORTS, "프리미엄 리포트 및 통계", "기간별 차단량과 보호 상태를 요약하는 기능", "최근 90일 개인정보 비식별 DNS 집계 및 7일·30일 리포트 연결됨", true)
     )
 
     private val knownFeatures = features.mapTo(HashSet()) { it.id }
