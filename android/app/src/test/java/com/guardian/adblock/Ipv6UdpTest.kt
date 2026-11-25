@@ -90,8 +90,8 @@ class Ipv6UdpTest {
         fun packetWithSegmentsLeft(segmentsLeft: Int): ByteArray {
             val packet = ByteArray(base.size + 8)
             System.arraycopy(base, 0, packet, 0, 40)
-            packet[4] = 0
-            packet[5] = 20
+            packet[4] = 0.toByte()
+            packet[5] = 20.toByte()
             packet[6] = 43 // Routing header
             packet[40] = 17 // UDP follows
             packet[41] = 0
@@ -113,8 +113,8 @@ class Ipv6UdpTest {
     @Test fun rejectsUndersizedIpv6AuthenticationHeader() {
         val packet = ByteArray(60)
         packet[0] = 0x60
-        packet[4] = 0
-        packet[5] = 20
+        packet[4] = 0.toByte()
+        packet[5] = 20.toByte()
         packet[6] = 51 // Authentication Header
         packet[40] = 17 // UDP follows
         packet[41] = 0 // AH length field describes only 8 bytes; RFC minimum is 12
@@ -124,7 +124,7 @@ class Ipv6UdpTest {
     @Test fun rejectsTruncatedUdpHeaderAfterValidExtensionHeader() {
         val packet = ByteArray(52)
         packet[0] = 0x60
-        packet[4] = 0
+        packet[4] = 0.toByte()
         packet[5] = 12
         packet[6] = 60 // Destination Options
         packet[40] = 17 // UDP follows
@@ -136,8 +136,8 @@ class Ipv6UdpTest {
         val base = queryPacket()
         val fragment = ByteArray(base.size + 8)
         System.arraycopy(base, 0, fragment, 0, 40)
-        fragment[4] = 0
-        fragment[5] = 20
+        fragment[4] = 0.toByte()
+        fragment[5] = 20.toByte()
         fragment[6] = 44
         fragment[40] = 17
         fragment[41] = 0
@@ -146,8 +146,8 @@ class Ipv6UdpTest {
 
         val malformed = ByteArray(base.size + 8)
         System.arraycopy(base, 0, malformed, 0, 40)
-        malformed[4] = 0
-        malformed[5] = 20
+        malformed[4] = 0.toByte()
+        malformed[5] = 20.toByte()
         malformed[6] = 60
         malformed[40] = 17
         malformed[41] = 10
@@ -176,7 +176,7 @@ class Ipv6UdpTest {
         val dns = byteArrayOf(1, 2, 3, 4)
         val packet = ByteArray(40 + 8 + dns.size)
         packet[0] = 0x60
-        packet[4] = 0
+        packet[4] = 0.toByte()
         packet[5] = 12
         packet[6] = 17
         packet[7] = 64
