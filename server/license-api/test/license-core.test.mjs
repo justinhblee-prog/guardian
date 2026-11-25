@@ -77,8 +77,8 @@ test('support ticket inputs apply only omitted defaults and reject malformed val
     { subject: 'Valid', message: 'long enough message', email: null },
     { subject: 'Valid', message: 'long enough message', email: 'not-email' },
     { subject: 'Valid', message: 'long enough message', email: 'x'.repeat(250) + '@example.com' },
-    { subject: 'Bad\\u0000Subject', message: 'long enough message' },
-    { subject: 'Valid', message: 'bad\\u0000message' },
+    { subject: 'Bad\u0000Subject', message: 'long enough message' },
+    { subject: 'Valid', message: 'bad\u0000message' },
     []
   ]) {
     assert.throws(() => validateSupportTicketInput(input), error => error.status === 400);
