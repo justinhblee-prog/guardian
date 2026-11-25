@@ -42,6 +42,7 @@ class GuardianVpnService : VpnService() {
         const val PREFS = "guardian_settings"
         const val KEY_USER_BLOCK = "user_block_domains"
         const val KEY_USER_ALLOW = "user_allow_domains"
+        const val KEY_USER_RULES_SAVED_AT = "user_rules_saved_at"
         const val KEY_ACTIVE = "protection_active"
         // Durable user intent, separate from whether this process currently owns a live TUN.
         const val KEY_RESTORE_REQUESTED = "protection_restore_requested"
