@@ -56,7 +56,7 @@ internal fun licenseStatusMessage(status: String, localEntitlementActive: Boolea
         else -> "서버가 알 수 없는 라이선스 상태를 반환했습니다."
     }
 
-/** Parse only an HTTPS origin; API paths are appended from fixed internal constants. */
+/** A saved API origin and pinned RSA key must both be valid before the UI reports readiness. */
 internal fun isLicenseApiConfigurationReady(baseUrl: String, encodedPublicKey: String): Boolean =
     try {
         parseLicenseApiBaseUrl(baseUrl)
