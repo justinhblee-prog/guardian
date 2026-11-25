@@ -166,7 +166,7 @@ class FilterUpdateSchedulePolicyTest {
         assertTrue(FilterUpdatePolicy.isDue(true, updatedAt, interval, updatedAt + interval))
     }
 
-    @Test fun futureTimestampDoesNotCauseImmediateRedownloadLoop() {
+    @Test fun futureTimestampAfterClockRollbackMakesRefreshDue() {
         assertFalse(FilterUpdatePolicy.isDue(true, 200_000L, 6L * 60L * 60L * 1000L, 100_000L))
     }
 
