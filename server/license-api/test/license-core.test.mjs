@@ -53,8 +53,8 @@ test('customer validation rejects malformed objects and control characters', () 
     [],
     {},
     { name: 'Name', email: 'not-an-email' },
-    { name: 'Name\\nInjected', email: 'user@example.com' },
-    { name: 'Name', email: 'user@example.com', orderRef: 'ORDER\\u0000X' },
+    { name: 'Name\nInjected', email: 'user@example.com' },
+    { name: 'Name', email: 'user@example.com', orderRef: 'ORDER\u0000X' },
     { name: 'x'.repeat(121), email: 'user@example.com' },
     { name: 'Name', email: 'x'.repeat(250) + '@example.com' }
   ]) {
