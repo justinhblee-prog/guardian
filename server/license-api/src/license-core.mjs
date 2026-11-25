@@ -25,6 +25,31 @@ export function validateLicenseIssueParameters({
   return { maxDevices, validDays, planCode };
 }
 
+export function validateLicenseCustomer(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw Object.assign(new Error('고객 정보는 객체 형식이어야 합니다.'), { status: 400 });
+  }
+  const name = typeof value.name === 'string' ? value.name.trim() : '';
+  const email = typeof value.email === 'string' ? value.email.trim().toLowerCase() : '';
+  const orderRef = typeof value.orderRef === 'string' ? value.orderRef.trim() : '';
+  const hasControl = /[\\u0000-\\u001f\\u007f]/;
+  if (!name || name.length > 120 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+      email.length > 254 || orderRef.length > 120 ||
+      hasControl.test(name) || hasControl.test(email) || hasControl.test(orderRef)) {
+    throw Object.assign(new Error('고객명, 올바른 이메일, 주문번호를 확인하세요.'), { status: 400 });
+  }
+  return { name, email, orderRef: orderRef || null };
+}
+
+export function validateSupportReplyStatus(value) {
+  if (value === undefined) return 'answered';
+  if (typeof value !== 'string' || !['answered', 'in_progress', 'closed'].includes(value)) {
+    throw Object.assign(new Error('문의 답변 상태 값이 올바르지 않습니다.'), { status: 400 });
+  }
+  return value;
+}
+
 export function validateDeviceBinding(value) {
   if (typeof value !== 'string' || !DEVICE_PATTERN.test(value)) {
     throw Object.assign(new Error('기기 바인딩 값이 올바르지 않습니다.'), { status: 400 });
