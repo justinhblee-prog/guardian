@@ -1474,12 +1474,15 @@ tap_content_description "설정"
 sleep 1
 # The redesigned Settings workspace places its explicit app-exit control
 # below the right-hand category content, rather than in the old vertical
-# Settings index. Assert the actual control and its confirmation dialog.
-scroll_to_text "앱 종료"
-sleep 1
-tap_text "앱 종료"
-sleep 1
+# Settings index. UIAutomator can expose the confirmation dialog between the
+# visibility probe and the tap helper (the underlying text then disappears).
+# Treat an already-open, exact Guardian exit dialog as the expected state.
 exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
+if ! grep -Fq 'Guardian 종료' <<<"$exit_confirmation_xml"; then
+  scroll_to_text "앱 종료"
+  sleep 1
+  exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
+fi
 if ! grep -Fq 'Guardian 종료' <<<"$exit_confirmation_xml" ||
    ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
    ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
@@ -1487,7 +1490,23 @@ if ! grep -Fq 'Guardian 종료' <<<"$exit_confirmation_xml" ||
   echo "$exit_confirmation_xml"
   exit 1
 fi
-tap_text "취소"
+# Resolve the actual Android dialog Cancel button by its stable resource ID;
+# the generic text helper can race a modal transition and inspect stale text.
+cancel_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("resource-id")=="android:id/button2"
+        and node.attrib.get("text","").strip()=="취소"
+        and node.attrib.get("visible-to-user","true")=="true"
+        and node.attrib.get("clickable")=="true"
+        and node.attrib.get("enabled")=="true"):
+        p=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(p)==2:
+            x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2); raise SystemExit(0)
+raise SystemExit("Guardian exit dialog Cancel button was not actionable.")' <<<"$exit_confirmation_xml")"
+read -r cancel_x cancel_y <<<"$cancel_bounds"
+adb_cmd shell input tap "$cancel_x" "$cancel_y"
 sleep 1
 tap_content_description "설정"
 sleep 1
