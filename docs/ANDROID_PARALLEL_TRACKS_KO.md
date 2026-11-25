@@ -14,7 +14,7 @@
 
 | 트랙 | 브랜치 | 상태 확인 시점 HEAD (2026-11-24) | 주요 범위 |
 |---|---|---|---|
-| 무료 Android | `work/android-free-release-20261124` | `42eef8343a8fe8262bbc081c0baea9a24b1c9be3` | 복구/진단, 보호 시작 fallback, 정식 updater 검증 |
+| 무료 Android | `work/android-free-release-followup-20261124` | `23e6d7d6f67167163e870c953d50a85cc9e6a0c8` (이번 기능 변경 기준 HEAD) | 복구/진단, 보호 시작 fallback, 정식 updater 검증, 필터 업데이트 UI 세대 보호 |
 | PRO 공통 기반 | `work/android-pro-premium-20261124` | `bc025fcfbd0677c6004677791c8f21c671dbe4bc` | fail-closed entitlement, 일별 DNS 리포트 |
 | 고급 필터 | #297 | 별도 엔진/정책 작업 | 필터 범위·출처·갱신 정책 |
 | 앱별 보호 | `work/pro-app-policy-20261124` | `a2802d6beca848f6e1dd42804730895c8541e1e4` | UDP DNS UID 귀속, 앱별 집계/추가 차단 규칙 |
@@ -40,3 +40,10 @@
 - 피싱 URL 및 APK DEX 검사는 정적 휴리스틱입니다. 전체 악성코드 탐지/백신이라고 표시하지 않습니다.
 - PRO entitlement production-ready 목록은 Android 통합 검증 전까지 비워 둡니다.
 - PR #290은 사용자의 명시적 승인 전까지 열어 두고 병합하지 않습니다.
+
+## 최근 무료 Android 회귀 점검 (2026-11-25)
+
+- 필터 수동 업데이트 완료/실패 콜백에 시도 세대(generation)를 부여했습니다. 이전 다운로드의 지연된 UI 콜백이 새 업데이트의 상태 문구나 버튼 활성 상태를 덮어쓰지 않도록 세대 일치 여부를 확인합니다.
+- `FilterUpdateUiGenerationPolicyTest`는 동일 세대 허용, 이전·미래 세대 거부, 초기 세대 일치의 네 경우를 포함합니다.
+- 실제 정책 Kotlin 소스를 `kotlinc`로 컴파일하고 독립 하네스 4개 사례를 실행해 통과했습니다.
+- Android Gradle/JUnit 및 UI 계측 검증은 별도 릴리스 게이트로 남아 있습니다.
