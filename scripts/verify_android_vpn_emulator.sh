@@ -1699,6 +1699,39 @@ fi
 
 tap_content_description "VPN 자동 일시중지 앱 선택"
 sleep 1
+# The app inventory is shared with App Exclusions and is protected by an
+# explicit first-use disclosure. Accept that disclosure in the test flow when
+# it has not already been accepted; otherwise the next search tap silently
+# lands on the Settings page and the picker remains unopened.
+adb_cmd shell uiautomator dump /sdcard/guardian-compatibility-disclosure.xml >/dev/null 2>&1
+compatibility_disclosure_xml="$(adb_cmd exec-out cat /sdcard/guardian-compatibility-disclosure.xml | tr -d '\\r')"
+if grep -Fq '설치 앱 목록 접근 안내' <<<"$compatibility_disclosure_xml"; then
+  if ! grep -Fq '앱별 보호 제외 및 선택 앱 자동 VPN 일시중지 기능' <<<"$compatibility_disclosure_xml"; then
+    echo "Unexpected app-inventory disclosure content in compatibility picker."
+    echo "$compatibility_disclosure_xml"
+    exit 1
+  fi
+  tap_text "동의하고 계속"
+  sleep 2
+fi
+# Wait for the actual picker search control rather than assuming the dialog
+# opened synchronously after the disclosure transition.
+compatibility_search_ready=0
+for attempt in $(seq 1 20); do
+  adb_cmd shell rm -f /sdcard/guardian-compatibility-picker.xml
+  adb_cmd shell uiautomator dump /sdcard/guardian-compatibility-picker.xml >/dev/null 2>&1
+  compatibility_picker_xml="$(adb_cmd exec-out cat /sdcard/guardian-compatibility-picker.xml | tr -d '\\r')"
+  if grep -Fq 'VPN 자동 일시중지 앱 검색 입력' <<<"$compatibility_picker_xml"; then
+    compatibility_search_ready=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$compatibility_search_ready" -ne 1 ]]; then
+  echo "Compatibility app picker did not open after its first-use disclosure."
+  echo "$compatibility_picker_xml"
+  exit 1
+fi
 tap_content_description "VPN 자동 일시중지 앱 검색 입력"
 sleep 1
 adb_cmd shell input text 'com.android.settings'
