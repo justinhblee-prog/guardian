@@ -38,10 +38,18 @@ class PremiumFeatureAccessPolicyTest {
                 PremiumFeatureAccessPolicy.statusLabel(feature, proActive = true, developmentPreview = false)
             )
         }
-        assertTrue(PremiumFeatureAccessPolicy.isOperational(
+        assertFalse(PremiumFeatureAccessPolicy.isOperational(
             PremiumFeatureAccessPolicy.PREMIUM_REPORTS,
             proActive = true
         ))
+        assertEquals(
+            "PRO 권한 확인 · 기능 엔진 개발 중",
+            PremiumFeatureAccessPolicy.statusLabel(
+                PremiumFeatureAccessPolicy.PREMIUM_REPORTS,
+                proActive = true,
+                developmentPreview = false
+            )
+        )
         assertFalse(PremiumFeatureAccessPolicy.isOperational(
             PremiumFeatureAccessPolicy.PREMIUM_REPORTS,
             proActive = false
