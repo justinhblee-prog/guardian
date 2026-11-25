@@ -3821,13 +3821,14 @@ class MainActivity : Activity() {
             var baseError: Throwable? = null
             try {
                 android.util.Log.i("Guardian", "Base filter update request entered")
-                baseResult = FilterListManager.update(this)
+                val updatedBase = FilterListManager.update(this)
+                baseResult = updatedBase
                 // A successful user-triggered first download supersedes any queued
                 // one-time recovery request so WorkManager cannot duplicate it.
                 runCatching { FilterUpdateScheduler.cancelInitialCacheRetry(applicationContext) }
                     .onFailure { android.util.Log.w("Guardian", "Initial filter retry cancellation failed: ${SafeFailureSummary.codeFor(it)}") }
                 prefs.edit().remove(FilterListManager.KEY_LAST_ERROR).apply()
-                android.util.Log.i("Guardian", "Base filter downloaded: ${baseResult.blocked} rules, ${baseResult.bytes} bytes")
+                android.util.Log.i("Guardian", "Base filter downloaded: ${updatedBase.blocked} rules, ${updatedBase.bytes} bytes")
             } catch (error: Exception) {
                 baseError = error
             } catch (error: LinkageError) {
