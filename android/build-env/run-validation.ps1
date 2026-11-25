@@ -47,7 +47,7 @@ try {
         throw "Docker Desktop is not running or the Docker CLI is unavailable."
     }
 
-    if ((Invoke-LoggedNative -FilePath "docker" -Arguments @("build", "--pull", "--progress=plain", "-f", "android/build-env/Dockerfile", "-t", "guardian-android-build-env", ".")) -ne 0) {
+    if ((Invoke-LoggedNative -FilePath "docker" -Arguments @("buildx", "build", "--pull", "--progress=plain", "--load", "-f", "android/build-env/Dockerfile", "-t", "guardian-android-build-env", ".")) -ne 0) {
         throw "Android build environment image creation failed. See the Docker build output above."
     }
 
