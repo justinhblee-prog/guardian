@@ -30,9 +30,9 @@ class GuardianDevVersionTests(unittest.TestCase):
             "draft": False, "prerelease": True,
             "body": "Guardian-Source-Commit: " + "b" * 40
         })
-        result = resolve_next_version(self.releases, "b" * 40, "0.7.49-dev", 62)
+        result = resolve_next_version(self.releases, "b" * 40, "0.7.42-dev", 55)
         self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
-                         ("0.7.49-dev", 62, "guardian-dev-v55"))
+                         ("0.7.42-dev", 55, "guardian-dev-v55"))
         self.assertTrue(result["reused"])
 
     def test_older_commit_cannot_republish_after_newer_release(self):
@@ -68,6 +68,26 @@ class GuardianDevVersionTests(unittest.TestCase):
         result = resolve_next_version(releases, "f" * 40, "0.7.49-dev", 62)
         self.assertEqual((result["version_name"], result["version_code"]),
                          ("0.7.100-dev", 100))
+
+    def test_installed_049_floor_is_never_rolled_back_when_release_api_is_behind(self):
+        releases = [{
+            "tag_name": "guardian-dev-v58",
+            "name": "Guardian AdBlock 0.7.45-dev",
+            "draft": False, "prerelease": True, "body": ""
+        }]
+        result = resolve_next_version(releases, "1" * 40, "0.7.49-dev", 62)
+        self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
+                         ("0.7.50-dev", 63, "guardian-dev-v63"))
+
+    def test_release_version_name_cannot_override_higher_installed_floor(self):
+        releases = [{
+            "tag_name": "guardian-dev-v70",
+            "name": "Guardian AdBlock 0.7.48-dev",
+            "draft": False, "prerelease": True, "body": ""
+        }]
+        result = resolve_next_version(releases, "2" * 40, "0.7.49-dev", 62)
+        self.assertEqual((result["version_name"], result["version_code"]),
+                         ("0.7.50-dev", 71))
 
 
 if __name__ == "__main__":
