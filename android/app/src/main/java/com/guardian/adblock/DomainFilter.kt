@@ -24,6 +24,16 @@ object DomainFilter {
         "nr-data.net", "sentry.io", "bugsnag.com", "branch.io",
         "adjust.com", "appsflyer.com", "kochava.com"
     )
+    private val adMarkers = arrayOf(
+        "doubleclick", "googlesyndication", "googleadservices", "adservice",
+        "adsystem", "adserver", "adnxs", "adform", "taboola", "outbrain",
+        "criteo", "popads", "adroll", "advert"
+    )
+    private val trackerMarkers = arrayOf(
+        "analytics", "tracking", "track.", "telemetry", "metrics", "pixel.",
+        "scorecardresearch", "quantserve", "mixpanel", "segment.", "amplitude",
+        "hotjar", "matomo", "clarity.ms"
+    )
     private data class RuleSet(val blocked: Set<String>, val allowed: Set<String>, val importantBlocked: Set<String>)
     @Volatile private var activeRules = RuleSet(bootstrapBlocked, emptySet(), emptySet())
 
@@ -87,16 +97,6 @@ object DomainFilter {
      */
     fun classifyBlockedDomain(domain: String): BlockCategory {
         val value = domain.lowercase(java.util.Locale.ROOT)
-        val adMarkers = listOf(
-            "doubleclick", "googlesyndication", "googleadservices", "adservice",
-            "adsystem", "adserver", "adnxs", "adform", "taboola", "outbrain",
-            "criteo", "popads", "adroll", "advert"
-        )
-        val trackerMarkers = listOf(
-            "analytics", "tracking", "track.", "telemetry", "metrics", "pixel.",
-            "scorecardresearch", "quantserve", "mixpanel", "segment.", "amplitude",
-            "hotjar", "matomo", "clarity.ms"
-        )
         return when {
             adMarkers.any(value::contains) -> BlockCategory.AD
             trackerMarkers.any(value::contains) -> BlockCategory.TRACKER
