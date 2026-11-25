@@ -50,3 +50,11 @@
 - 앱/서비스 프로세스가 다운로드 도중 종료된 경우 프로세스당 한 번만 pending marker와 실제 cached profile을 대조합니다. 새 캐시가 이미 커밋된 경우 새 프로필을 유지하고, 그렇지 않으면 이전 프로필로 복구합니다. 화면 회전 등 Activity 재생성은 진행 중인 다운로드를 되돌리지 않습니다.
 - `FilterProfileRollbackPolicyTest` 및 실제 정책 소스를 이용한 `kotlinc` 독립 하네스(경계 6개 + 결정적 사례 100,000개)가 통과했습니다.
 - Android Gradle/JUnit 및 UI 계측 검증은 별도 릴리스 게이트로 남아 있습니다.
+
+## Android 로컬 Gradle 검증 환경 (2026-11-25)
+
+- `android/build-env/Dockerfile`에 Ubuntu 24.04 + OpenJDK 17 + Android SDK 35/build-tools 35.0.0 + Gradle 8.9 환경을 정의했습니다. 기존 Android APK workflow와 도구 버전을 맞췄습니다.
+- Windows 11 실행 진입점은 `android/build-env/run-validation.ps1`이며, JUnit(`testDebugUnitTest`), Lint(`lintDebug`), Debug APK(`assembleDebug`), APK 크기/SHA-256 확인을 순서대로 수행합니다.
+- `android/build-env/run-validation.sh`와 한국어 실행 안내를 추가했습니다. Debug 전용이며 릴리스 키/비밀값을 요구하지 않습니다.
+- 현재 ChatGPT 작업 컨테이너에는 Docker/Podman, Gradle, Android SDK가 없고 외부 DNS가 차단되어 SDK/Gradle 다운로드가 불가능합니다. 따라서 환경 정의와 스크립트 정적 구문 검사까지만 확인했으며 Docker 이미지 생성, Android Gradle/JUnit/Lint 및 APK 빌드는 아직 실행되지 않았습니다.
+- GitHub Actions 실행이나 저장소 Actions 설정/과금 변경은 수행하지 않았습니다.
