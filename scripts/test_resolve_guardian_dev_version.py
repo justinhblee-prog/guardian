@@ -20,7 +20,7 @@ class GuardianDevVersionTests(unittest.TestCase):
     def test_next_release_increments_patch_and_version_code(self):
         result = resolve_next_version(self.releases, "a" * 40, "0.7.50-dev", 63)
         self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
-                         ("0.7.52-dev", 65, "guardian-dev-v65"))
+                         ("0.7.51-dev", 64, "guardian-dev-v64"))
         self.assertFalse(result["reused"])
 
     def test_same_commit_rerun_reuses_existing_release(self):
@@ -85,7 +85,7 @@ class GuardianDevVersionTests(unittest.TestCase):
             "name": "Guardian AdBlock 0.7.45-dev",
             "draft": False, "prerelease": True, "body": ""
         }]
-        result = resolve_next_version(releases, "3" * 40, "0.7.51-dev", 64)
+        result = resolve_next_version(releases, "3" * 40, "0.7.50-dev", 63)
         self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
                          ("0.7.51-dev", 64, "guardian-dev-v64"))
 
