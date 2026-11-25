@@ -12,6 +12,7 @@ import javax.net.ssl.HttpsURLConnection
 object FilterListManager {
     const val FILTER_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt"
     const val KEY_FILTER_PROFILE = "filter_profile"
+    const val KEY_PENDING_PROFILE_ROLLBACK = "filter_profile_pending_rollback"
     const val KEY_CACHED_PROFILE = "filter_cached_profile"
     const val SECURITY_FILTER_URL = "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/tif.medium.txt"
     const val ANDROID_ADS_URL = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_53.txt"
