@@ -3934,7 +3934,7 @@ class MainActivity : Activity() {
                     "Filter update finished; base=${baseResult != null}, security=${securityResult != null}, androidAds=${androidAdsResult != null}"
                 )
                 runOnUiThread {
-                    if (filterUpdateGeneration.get() != updateGeneration) return@runOnUiThread
+                    if (!FilterUpdateUiGenerationPolicy.shouldApply(updateGeneration, filterUpdateGeneration.get())) return@runOnUiThread
                     if (securityWasEnabled && securityResult == null && !securityWasCached) {
                         securityFilterSwitch?.isChecked = false
                         securityFilterCheckBox?.isChecked = false
@@ -3979,11 +3979,11 @@ class MainActivity : Activity() {
             } finally {
                 // Never leave the Settings controls disabled if post-download processing,
                 // VPN reload dispatch, or UI status formatting fails unexpectedly.
-                if (filterUpdateGeneration.get() == updateGeneration) {
+                if (FilterUpdateUiGenerationPolicy.shouldApply(updateGeneration, filterUpdateGeneration.get())) {
                     filterUpdateRunning.set(false)
                 }
                 runOnUiThread {
-                    if (filterUpdateGeneration.get() != updateGeneration) return@runOnUiThread
+                    if (!FilterUpdateUiGenerationPolicy.shouldApply(updateGeneration, filterUpdateGeneration.get())) return@runOnUiThread
                     filterUpdateButton?.isEnabled = true
                     homeFilterUpdateButton?.isEnabled = true
                     securityFilterSwitch?.isEnabled = true
@@ -4013,7 +4013,7 @@ class MainActivity : Activity() {
         getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE).edit()
             .putString(FilterListManager.KEY_LAST_ERROR, SafeFailureSummary.codeFor(error)).apply()
         runOnUiThread {
-            if (filterUpdateGeneration.get() != updateGeneration) return@runOnUiThread
+            if (!FilterUpdateUiGenerationPolicy.shouldApply(updateGeneration, filterUpdateGeneration.get())) return@runOnUiThread
             val cacheMessage = if (hadPreviousMainCache) {
                 "이전 정상 필터를 계속 사용합니다."
             } else {
