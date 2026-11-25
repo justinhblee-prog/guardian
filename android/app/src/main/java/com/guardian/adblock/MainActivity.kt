@@ -1726,8 +1726,8 @@ class MainActivity : Activity() {
         // from real signed-license entitlement. Never use this flag to authorize
         // production features or alter LicenseEntitlementStore.
         val developmentPreview = BuildConfig.DEBUG
-        val apiReady = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
-            BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank()
+        val apiReady = isLicensePublicKeyConfigurationValid(BuildConfig.LICENSE_PUBLIC_KEY) &&
+            runCatching { parseLicenseApiBaseUrl(LicenseApiClient.configuredBaseUrl(this)) }.isSuccess
 
         body.addView(text("Guardian Premium", 26f, white, true))
         body.addView(text(
