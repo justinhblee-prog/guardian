@@ -1341,10 +1341,12 @@ class MainActivity : Activity() {
                 thread(name = "guardian-app-update-menu") {
                     try {
                         if (developmentBuild) {
-                            val update = DevUpdateManager.checkForUpdate()
+                            val update = DevUpdateManager.checkForUpdate { stage ->
+                                runOnUiThread { feedback.text = stage }
+                            }
                             if (update == null) {
                                 runOnUiThread {
-                                    feedback.text = "현재 설치된 개발 버전이 최신입니다."
+                                    feedback.text = "공개된 개발 릴리스 중 현재 설치 버전보다 새로운 버전이 없습니다."
                                     isEnabled = true
                                 }
                             } else {
