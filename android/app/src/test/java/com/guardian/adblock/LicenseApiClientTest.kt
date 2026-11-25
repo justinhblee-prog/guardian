@@ -108,6 +108,18 @@ class LicenseApiClientTest {
     }
 
     @Test
+    fun savedHttpsEndpointAndPinnedPublicKeyDetermineApiReadiness() {
+        val generator = KeyPairGenerator.getInstance("RSA")
+        generator.initialize(2048)
+        val publicKey = Base64.getEncoder().encodeToString(generator.generateKeyPair().public.encoded)
+
+        assertTrue(isLicenseApiConfigurationReady("https://license.example.com", publicKey))
+        assertFalse(isLicenseApiConfigurationReady("", publicKey))
+        assertFalse(isLicenseApiConfigurationReady("http://license.example.com", publicKey))
+        assertFalse(isLicenseApiConfigurationReady("https://license.example.com", "not-base64!"))
+    }
+
+    @Test
     fun acceptsHttpsOriginAndOptionalRootSlash() {
         assertEquals("https://licenses.example.com", parseLicenseApiBaseUrl("https://licenses.example.com/").toString())
         assertEquals("https://licenses.example.com:8443", parseLicenseApiBaseUrl("https://licenses.example.com:8443").toString())
