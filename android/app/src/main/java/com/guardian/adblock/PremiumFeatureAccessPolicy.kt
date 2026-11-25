@@ -24,7 +24,7 @@ internal object PremiumFeatureAccessPolicy {
     )
 
     val features = listOf(
-        Feature(ADVANCED_FILTERS, "고급 광고·추적 차단", "필터 엔진 기반 차단 정책과 사용자 규칙을 확장하는 기능", "기본 필터 엔진 연결됨 · 프리미엄 정책 확장 필요", true),
+        Feature(ADVANCED_FILTERS, "고급 광고·추적 차단", "여러 DNS 필터 프로필과 보안·Android 광고 필터를 조합하는 기능", "5종 DNS 프로필 및 보안·Android 광고 필터 엔진 연결됨", true),
         Feature(APP_PROTECTION, "앱별 세밀한 보호 제어", "앱 단위 보호 제외와 예외 정책을 관리하는 기능", "기본 앱 제외 기능 존재 · 프리미엄 정책 연결 필요", false),
         Feature(THREAT_ANALYTICS, "실시간 위협·DNS 활동 분석", "차단 이벤트와 DNS 요청을 분류해 활동 내역으로 제공", "기본 DNS 통계 존재 · 고급 분석 엔진 개발 필요", false),
         Feature(SECURITY_PROFILES, "보안 프로필 및 자동화", "상황별 보호 정책과 자동 전환을 관리하는 기능", "프로필 자동화 엔진 개발 필요", false),
