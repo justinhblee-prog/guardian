@@ -39,7 +39,7 @@ internal object PremiumUrlRiskScanner {
         val indicators = mutableListOf<String>()
         if (!uri.scheme.equals("https", true)) indicators += "HTTPS가 아닌 연결입니다."
         if (host.startsWith("xn--") || host.split('.').any { it.startsWith("xn--") }) indicators += "국제화 도메인(Punycode)이 포함되어 있습니다."
-        if (host.matches(Regex("""(?:\\d{1,3}\\.){3}\\d{1,3}"""))) indicators += "도메인 대신 IPv4 주소를 직접 사용합니다."
+        if (host.matches(Regex("""(?:\d{1,3}\.){3}\d{1,3}"""))) indicators += "도메인 대신 IPv4 주소를 직접 사용합니다."
         if (host.count { it == '.' } >= 4) indicators += "하위 도메인이 비정상적으로 많습니다."
         if (host in shorteners) indicators += "목적지를 숨길 수 있는 URL 단축 서비스입니다."
         val pathAndQuery = (uri.rawPath.orEmpty() + "?" + uri.rawQuery.orEmpty()).lowercase(Locale.ROOT)
