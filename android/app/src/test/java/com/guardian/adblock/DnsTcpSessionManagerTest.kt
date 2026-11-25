@@ -1465,7 +1465,8 @@ class DnsTcpSessionManagerTest {
         val manager = newManager()
         val query = dnsQuery()
         val framedQuery = byteArrayOf((query.size ushr 8).toByte(), query.size.toByte()) + query
-        val syn = packet(flags = DnsTcpPacket.SYN, seq = 8000, window = 0)
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = 8000, window = 0,
+            tcpOptions = byteArrayOf(2, 4, 4, 176.toByte()))
         val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
         val serverStart = (synAck.sequence + 1L) and 0xffffffffL
         val clientNext = 8001L + framedQuery.size
