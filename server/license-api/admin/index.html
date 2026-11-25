@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="dark"><meta name="theme-color" content="#0a101e"><link rel="manifest" href="/admin-manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="/guardian-icon.svg">
 <title>Guardian · License Admin</title>
 <style>
 :root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:#0a101e;color:#f1f6ff;font-synthesis:none}
@@ -16,7 +16,7 @@ button:disabled{opacity:.55;cursor:wait}
 .shell{width:min(1160px,100%);margin:0 auto;padding:28px 22px 56px}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
 .brand{display:flex;align-items:center;gap:13px}
-.brand-mark{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(145deg,#7658f5,#4830c7);font-size:23px;font-weight:900;box-shadow:0 8px 28px #4930c755}
+.brand-mark{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:#101c2c;box-shadow:0 8px 28px #0005;overflow:hidden}.brand-mark img{width:100%;height:100%;object-fit:contain}
 .brand-name{font-size:16px;font-weight:850;letter-spacing:2px}.brand-sub{color:#9aaac4;font-size:11px;margin-top:4px;letter-spacing:1.5px}
 .top-note{font-size:12px;color:#9aaac4;text-align:right}
 h1{font-size:26px;letter-spacing:-.5px;margin:0 0 7px}h2{font-size:17px;margin:0 0 6px}h3{font-size:14px;margin:0}
@@ -59,12 +59,43 @@ button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
 .notice{font-size:11px;color:#91a2bd;line-height:1.55;margin-top:10px}
 @media(max-width:850px){.content-grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.toolbar{grid-template-columns:minmax(0,1fr) 1fr}.toolbar button{grid-column:auto}}
 @media(max-width:560px){.shell{padding:20px 14px 40px}.topbar{align-items:flex-start}.top-note{max-width:125px;font-size:10px}h1{font-size:22px}.panel{padding:16px}.auth-row{grid-template-columns:1fr}.auth-row button{width:100%}.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}.toolbar button{grid-column:1/-1}.issue-grid{grid-template-columns:1fr}.stats{gap:8px}.stat{padding:13px}.stat-value{font-size:22px}.license-top{align-items:flex-start}.license-meta{display:grid;gap:6px}}
+
+/* Compact, touch-first responsive layout shared by phone and tablet PWA. */
+@media(max-width:560px){
+  body{min-height:100dvh}
+  .shell{padding:14px 12px calc(28px + env(safe-area-inset-bottom))}
+  .topbar{gap:8px;margin-bottom:16px}
+  .brand{gap:9px}.brand-mark{width:38px;height:38px;border-radius:12px}
+  .brand-name{font-size:14px;letter-spacing:1.4px}.brand-sub{font-size:9px;letter-spacing:1px}
+  .top-note{max-width:105px;font-size:9px;line-height:1.45}
+  h1{font-size:21px}.intro{margin-bottom:16px}
+  .stats{gap:7px;margin:14px 0}
+  .stat{padding:11px 10px;border-radius:12px}.stat-label{font-size:10px}.stat-value{font-size:21px;margin-top:5px}
+  .content-grid{gap:12px}.stack{gap:12px}
+  .panel{padding:13px;border-radius:14px}
+  .panel-head{gap:8px;margin-bottom:12px}
+  .issue-grid{gap:9px;margin:12px 0}
+  input,select{min-height:44px;padding:11px 12px;font-size:16px}
+  button{min-height:44px;padding:11px 13px}
+  .toolbar{grid-template-columns:1fr 1fr;gap:8px}
+  .toolbar input{grid-column:1/-1}
+  .toolbar button{grid-column:1/-1}
+  .license-card{padding:12px}.license-meta{gap:7px}
+  .actions button{min-height:42px}
+  .device-row{align-items:flex-start;flex-wrap:wrap}
+  .device-row button{margin-left:auto}
+}
+@media(min-width:561px) and (max-width:850px){
+  .shell{padding:20px 16px 36px}
+  .content-grid{grid-template-columns:1fr}
+  .stats{gap:9px}.stat{padding:13px}
+}
 </style>
 </head>
 <body>
 <main class="shell">
   <header class="topbar">
-    <div class="brand"><div class="brand-mark" aria-hidden="true">G</div><div><div class="brand-name">GUARDIAN</div><div class="brand-sub">LICENSE CONTROL CENTER</div></div></div>
+    <div class="brand"><div class="brand-mark" aria-hidden="true"><img src="/guardian-icon.svg" alt="" width="38" height="38"></div><div><div class="brand-name">GUARDIAN</div><div class="brand-sub">LICENSE CONTROL CENTER</div></div></div>
     <div class="top-note">보안 관리자 전용<br>HTTPS 연결 권장</div>
   </header>
 
@@ -96,7 +127,7 @@ button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
         <section class="panel">
           <div class="panel-head"><div><h2>새 라이선스 발급</h2><p class="muted">발급 키는 생성 직후 한 번만 표시됩니다.</p></div></div>
           <div class="issue-grid">
-            <div class="field full"><label for="planPreset">라이선스 기간 프리셋</label><select id="planPreset"><option value="annual_365d">Pro 연간 · 365일</option><option value="monthly_30d">Pro 월간 · 30일</option><option value="quarterly_90d">Pro 90일</option><option value="short_7d">Pro 단기 · 7일</option><option value="custom">직접 입력</option></select></div>
+            <div class="field full"><label for="planPreset">라이선스 기간 프리셋</label><select id="planPreset"><option value="annual_365d">Pro 연간 · 365일</option><option value="monthly_30d">Pro 월간 · 30일</option><option value="quarterly_90d">Pro 90일</option><option value="short_7d">Pro 단기 · 7일</option><option value="permanent">영구 이용 · PERMANENT</option><option value="custom">직접 입력</option></select></div>
             <div class="field full"><label for="customerName">고객명</label><input id="customerName" maxlength="120" autocomplete="name" placeholder="고객 이름"></div>
             <div class="field"><label for="customerEmail">고객 이메일</label><input id="customerEmail" type="email" maxlength="254" autocomplete="email" placeholder="customer@example.com"></div>
             <div class="field"><label for="orderRef">주문번호 (선택)</label><input id="orderRef" maxlength="120" placeholder="결제 주문번호"></div>
@@ -113,12 +144,33 @@ button.ghost{background:transparent;color:#b8c6dc;border:1px solid #344966}
         </section>
         <section class="panel">
           <div class="panel-head"><div><h2>관리 세션</h2><p class="muted">작업이 끝나면 관리자 연결을 종료하세요.</p></div></div>
+          <button class="secondary" id="rotateAdminToken" style="width:100%">관리자 토큰 재발급</button>
+          <div id="rotatedTokenPanel" hidden>
+            <p class="notice">새 토큰이 발급되었습니다. 기존 토큰은 즉시 폐기되었습니다. 새 토큰은 이 화면에서만 확인할 수 있으므로 암호 관리자에 보관하세요.</p>
+            <div class="key" id="rotatedAdminToken"></div>
+            <button class="secondary" id="copyAdminToken" style="width:100%">새 관리자 토큰 복사</button>
+          </div>
           <button class="secondary" id="disconnect" style="width:100%">관리자 연결 종료</button>
           <p class="notice">라이선스 키와 관리자 토큰은 화면 외부로 자동 전송하거나 저장하지 않습니다.</p>
         </section>
       </div>
 
       <div class="stack">
+        <section class="panel">
+          <div class="panel-head"><div><h2>제품 업데이트 배포</h2><p class="muted">모바일에서도 Android / Windows 버전을 등록할 수 있습니다. 설치 파일은 HTTPS 배포 저장소에 먼저 올린 뒤 URL과 SHA-256을 등록하세요.</p></div></div>
+          <div class="issue-grid">
+            <div class="field"><label for="updatePlatform">플랫폼</label><select id="updatePlatform"><option value="android">Android</option><option value="windows">Windows</option></select></div>
+            <div class="field"><label for="updateChannel">배포 채널</label><select id="updateChannel"><option value="stable">정식 (Stable)</option><option value="beta">베타 (Beta)</option></select></div>
+            <div class="field"><label for="updateVersion">버전</label><input id="updateVersion" placeholder="1.2.0" maxlength="40"></div>
+            <div class="field"><label for="updateMinVersion">최소 지원 버전 (선택)</label><input id="updateMinVersion" placeholder="1.0.0" maxlength="40"></div>
+            <div class="field full"><label for="updateDownloadUrl">HTTPS 다운로드 주소</label><input id="updateDownloadUrl" type="url" placeholder="https://..."></div>
+            <div class="field full"><label for="updateSha256">SHA-256 (64자리)</label><input id="updateSha256" maxlength="64" autocapitalize="off" spellcheck="false"></div>
+            <div class="field full"><label for="updateNotes">릴리스 노트</label><textarea id="updateNotes" rows="3" maxlength="8000" placeholder="변경 사항 및 수정 내용"></textarea></div>
+            <label class="field full"><span><input id="updateMandatory" type="checkbox"> 필수 업데이트로 지정</span></label>
+          </div>
+          <div class="toolbar"><button id="publishUpdate" style="width:100%">업데이트 버전 게시</button><button class="secondary" id="refreshUpdates">업데이트 목록 새로고침</button></div>
+          <div class="license-list" id="updates"><div class="empty">관리자 인증이 필요합니다.</div></div>
+        </section>
         <section class="panel">
           <div class="panel-head"><div><h2>라이선스 목록</h2><p class="muted">최근 발급된 최대 200건 · 기기별 관리 및 정지</p></div></div>
           <div class="toolbar">

@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS licenses (
   key_hash text NOT NULL,
   key_lookup text NOT NULL UNIQUE,
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','revoked','expired')),
-  expires_at timestamptz NOT NULL,
+  expires_at timestamptz,
   max_devices integer NOT NULL DEFAULT 1 CHECK (max_devices BETWEEN 1 AND 20),
   created_at timestamptz NOT NULL DEFAULT now(),
   revoked_at timestamptz
@@ -93,3 +93,30 @@ CREATE TABLE IF NOT EXISTS support_tickets (
 );
 CREATE INDEX IF NOT EXISTS support_tickets_status_time_idx
   ON support_tickets(status, created_at DESC);
+
+-- Persist a single Guardian administrator bearer-token verifier.
+-- The random token itself is never stored in PostgreSQL.
+CREATE TABLE IF NOT EXISTS admin_credentials (
+  singleton_id smallint PRIMARY KEY DEFAULT 1 CHECK (singleton_id = 1),
+  token_hash char(64) NOT NULL CHECK (token_hash ~ '^[a-f0-9]{64}$'),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Guardian Android and Windows product update metadata.
+CREATE TABLE IF NOT EXISTS guardian_updates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  platform text NOT NULL CHECK (platform IN ('android','windows')),
+  channel text NOT NULL CHECK (channel IN ('stable','beta')),
+  version text NOT NULL,
+  download_url text NOT NULL CHECK (download_url LIKE 'https://%'),
+  sha256 char(64) NOT NULL CHECK (sha256 ~ '^[a-f0-9]{64}$'),
+  min_supported_version text,
+  mandatory boolean NOT NULL DEFAULT false,
+  release_notes text NOT NULL DEFAULT '',
+  active boolean NOT NULL DEFAULT true,
+  published_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(platform,channel,version)
+);
+CREATE INDEX IF NOT EXISTS guardian_updates_latest_idx
+  ON guardian_updates(platform,channel,published_at DESC) WHERE active=true;

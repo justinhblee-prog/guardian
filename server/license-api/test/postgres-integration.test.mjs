@@ -16,7 +16,7 @@ if (!databaseUrl) {
 
   const { default: pg } = await import('pg');
   const pool = new pg.Pool({ connectionString: databaseUrl });
-  const { server, pool: apiPool } = await import('../src/server.mjs');
+  const { server, pool: apiPool, initializeAdminAuth } = await import('../src/server.mjs');
   let baseUrl;
   const adminHeaders = {
     'content-type': 'application/json',
@@ -48,9 +48,52 @@ if (!databaseUrl) {
   };
 
   before(async () => {
-    await pool.query('TRUNCATE api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE admin_credentials, guardian_updates, api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  test('concurrent first-run admin startup creates one token and only its hash persists across restarts', async () => {
+    const emittedTokens = [];
+    const [first, concurrent] = await Promise.all([
+      initializeAdminAuth({ configuredToken: null, logToken: token => emittedTokens.push(token) }),
+      initializeAdminAuth({ configuredToken: null, logToken: token => emittedTokens.push(token) })
+    ]);
+    assert.equal(emittedTokens.length, 1);
+    const firstToken = emittedTokens[0];
+    assert.match(firstToken, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(Number(first.generated) + Number(concurrent.generated), 1);
+    assert.equal(first.tokenHash, concurrent.tokenHash);
+    assert.equal(first.tokenHash, (await import('node:crypto')).createHash('sha256').update(firstToken).digest('hex'));
+    const stored = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
+    assert.equal(stored.rows[0].token_hash, first.tokenHash);
+    assert.equal(stored.rows[0].token_hash.includes(firstToken), false);
+
+    let secondLog = '';
+    const second = await initializeAdminAuth({ configuredToken: null, logToken: token => { secondLog = token; } });
+    assert.equal(second.generated, false);
+    assert.equal(second.tokenHash, first.tokenHash);
+    assert.equal(secondLog, '');
+
+    adminHeaders.authorization = `Bearer ${firstToken}`;
+    const accepted = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: adminHeaders });
+    assert.equal(accepted.status, 200);
+    const rejectedLegacy = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: { authorization: `Bearer ${process.env.GUARDIAN_ADMIN_TOKEN}` } });
+    assert.equal(rejectedLegacy.status, 401);
+
+    const rotated = await post('/v1/admin/token/rotate', {}, adminHeaders);
+    assert.equal(rotated.status, 200);
+    const rotatedData = await rotated.json();
+    assert.match(rotatedData.adminToken, /^[A-Za-z0-9_-]{43}$/);
+    const oldTokenAfterRotation = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: { authorization: `Bearer ${firstToken}` } });
+    assert.equal(oldTokenAfterRotation.status, 401);
+    adminHeaders.authorization = `Bearer ${rotatedData.adminToken}`;
+    const newTokenAfterRotation = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: adminHeaders });
+    assert.equal(newTokenAfterRotation.status, 200);
+
+    const afterRestart = await initializeAdminAuth({ configuredToken: null, logToken: () => { throw new Error('persisted token must not be reissued'); } });
+    assert.equal(afterRestart.generated, false);
+    assert.equal(afterRestart.tokenHash, (await import('node:crypto')).createHash('sha256').update(rotatedData.adminToken).digest('hex'));
   });
 
   test('PostgreSQL rate limiter prunes expired buckets during bounded cleanup', async () => {
@@ -111,6 +154,34 @@ if (!databaseUrl) {
     const response = await fetch(`${baseUrl}/ready`);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ok: true, service: 'guardian-license-api', database: 'ready', signer: 'ready' });
+  });
+
+  test('admins can publish Android and Windows update metadata for public client checks', async () => {
+    const version = `0.0.${Math.floor(Date.now() / 1000)}`;
+    const payload = {
+      platform: 'android', channel: 'stable', version,
+      downloadUrl: 'https://downloads.example.com/guardian.apk',
+      sha256: 'a'.repeat(64), minSupportedVersion: '1.0.0',
+      mandatory: true, releaseNotes: 'Update metadata integration test'
+    };
+    const denied = await fetch(`${baseUrl}/v1/admin/updates`);
+    assert.equal(denied.status, 401);
+
+    const published = await post('/v1/admin/updates', payload, adminHeaders);
+    assert.equal(published.status, 200);
+    const created = await published.json();
+    assert.equal(created.update.version, version);
+    assert.equal(created.update.mandatory, true);
+
+    const latest = await fetch(`${baseUrl}/v1/updates/latest?platform=android&channel=stable`);
+    assert.equal(latest.status, 200);
+    const current = await latest.json();
+    assert.equal(current.update.version, version);
+    assert.equal(current.update.sha256, payload.sha256);
+    assert.equal(current.update.download_url, payload.downloadUrl);
+
+    const invalid = await post('/v1/admin/updates', { ...payload, version: `0.0.${Math.floor(Date.now() / 1000) + 1}`, downloadUrl: 'http://downloads.example.com/guardian.apk' }, adminHeaders);
+    assert.equal(invalid.status, 400);
   });
 
   after(async () => {
@@ -449,13 +520,33 @@ if (!databaseUrl) {
   });
 
 
-  test('existing license databases can apply migrations 002 through 005 repeatedly', async () => {
+  test('permanent licenses remain active, enforce device limits, and issue short-lived signed tokens', async () => {
+    const response = await post('/v1/admin/licenses', { planCode: 'permanent', validDays: null, maxDevices: 2 }, adminHeaders);
+    assert.equal(response.status, 200);
+    const created = await response.json();
+    assert.equal(created.license.expires_at, null);
+    const firstDevice = '1'.repeat(64), secondDevice = '2'.repeat(64), overflowDevice = '3'.repeat(64);
+    const first = await post('/v1/licenses/activate', { licenseKey: created.licenseKey, deviceBinding: firstDevice, appVersion: 'permanent-test' });
+    assert.equal(first.status, 200); assertSignedToken(await first.json());
+    const second = await post('/v1/licenses/activate', { licenseKey: created.licenseKey, deviceBinding: secondDevice, appVersion: 'permanent-test' });
+    assert.equal(second.status, 200); assertSignedToken(await second.json());
+    const overflow = await post('/v1/licenses/activate', { licenseKey: created.licenseKey, deviceBinding: overflowDevice, appVersion: 'permanent-test' });
+    assert.equal(overflow.status, 409);
+    const status = await post('/v1/licenses/status', { deviceBinding: firstDevice, licenseRef: created.license.license_ref });
+    assert.equal((await status.json()).status, 'active');
+    const listed = await fetch(`${baseUrl}/v1/admin/licenses`, { headers: adminHeaders });
+    assert.equal(listed.status, 200);
+    assert.ok((await listed.json()).licenses.some(item => item.id === created.license.id && item.expires_at === null));
+  });
+
+  test('existing license databases can apply migrations 002 through 006 repeatedly', async () => {
     await pool.query('DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
     for (const migrationPath of [
       new URL('../migrations/002_shared_rate_limit_buckets.sql', import.meta.url),
       new URL('../migrations/003_support_tickets.sql', import.meta.url),
       new URL('../migrations/004_customers.sql', import.meta.url),
-      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url)
+      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url),
+      new URL('../migrations/006_permanent_licenses.sql', import.meta.url)
     ]) {
       const sql = readFileSync(migrationPath, 'utf8');
       await pool.query(sql);
@@ -484,6 +575,10 @@ if (!databaseUrl) {
     assert.equal(event.rowCount, 1);
     assert.equal(event.rows[0].metadata.planCode, 'monthly_30d');
     assert.equal(event.rows[0].metadata.days, 30);
+
+    const permanent = await post('/v1/admin/licenses', { planCode: 'permanent', validDays: null, maxDevices: 3 }, adminHeaders);
+    assert.equal(permanent.status, 200);
+    assert.equal((await permanent.json()).license.expires_at, null);
 
     const mismatch = await post('/v1/admin/licenses', {
       planCode: 'monthly_30d', validDays: 31, maxDevices: 2

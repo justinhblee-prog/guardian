@@ -15,6 +15,8 @@ const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1';
 const DATABASE_URL = process.env.DATABASE_URL;
 const ADMIN_TOKEN = process.env.GUARDIAN_ADMIN_TOKEN;
+let ACTIVE_ADMIN_TOKEN_HASH = null;
+let ADMIN_AUTH_READY = typeof ADMIN_TOKEN === 'string' && ADMIN_TOKEN.length >= 32;
 const PRIVATE_KEY = process.env.GUARDIAN_LICENSE_PRIVATE_KEY;
 const LOOKUP_SECRET = process.env.GUARDIAN_LICENSE_LOOKUP_SECRET;
 const TOKEN_TTL_SECONDS = 24 * 60 * 60;
@@ -25,7 +27,7 @@ const rateLimitOptions = {
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers',
+  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers', '/v1/admin/updates', '/v1/admin/token/rotate', '/v1/updates/latest',
   '/v1/support/tickets', '/v1/admin/support/tickets', '/v1/support/tickets/lookup'
 ]);
 const pool = DATABASE_URL ? new Pool({
@@ -82,18 +84,88 @@ async function readBody(req) {
   }
   return parsed;
 }
+function hashAdminToken(token) {
+  return createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
+// The database stores only a SHA-256 verifier. The random bearer token is
+// printed once during first boot; replicas use INSERT ... ON CONFLICT to avoid
+// generating different credentials during concurrent startup.
+async function initializeAdminAuth({ configuredToken = ADMIN_TOKEN, logToken = token => {
+  console.warn('\n[GUARDIAN ADMIN INITIAL TOKEN] Save this token in a password manager. It is shown only once.\n' + token + '\n');
+} } = {}) {
+  if (!pool) throw new Error('관리자 인증 자동 초기화에는 PostgreSQL이 필요합니다.');
+
+  // A database credential always wins over an environment override. This
+  // keeps deliberate token rotation persistent across restarts.
+  const existing = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
+  if (existing.rowCount) {
+    ACTIVE_ADMIN_TOKEN_HASH = existing.rows[0].token_hash;
+    ADMIN_AUTH_READY = true;
+    return { generated: false, tokenHash: ACTIVE_ADMIN_TOKEN_HASH };
+  }
+
+  const generated = !(typeof configuredToken === 'string' && configuredToken.length >= 32);
+  const token = generated ? randomBytes(32).toString('base64url') : configuredToken;
+  const tokenHash = hashAdminToken(token);
+  const inserted = await pool.query(
+    `INSERT INTO admin_credentials(singleton_id, token_hash)
+     VALUES(1,$1) ON CONFLICT(singleton_id) DO NOTHING RETURNING token_hash`,
+    [tokenHash]
+  );
+  if (inserted.rowCount) {
+    ACTIVE_ADMIN_TOKEN_HASH = inserted.rows[0].token_hash;
+    ADMIN_AUTH_READY = true;
+    if (generated) logToken(token);
+    return { generated, tokenHash: ACTIVE_ADMIN_TOKEN_HASH };
+  }
+
+  const winner = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
+  if (!winner.rowCount) throw new Error('관리자 인증 초기화 결과를 확인할 수 없습니다.');
+  ACTIVE_ADMIN_TOKEN_HASH = winner.rows[0].token_hash;
+  ADMIN_AUTH_READY = true;
+  return { generated: false, tokenHash: ACTIVE_ADMIN_TOKEN_HASH };
+}
 function requireEnv() {
   if (!pool) throw Object.assign(new Error('서버 데이터베이스가 구성되지 않았습니다.'), { status: 503 });
   if (!LOOKUP_SECRET || LOOKUP_SECRET.length < 32) throw Object.assign(new Error('라이선스 조회용 서버 비밀값이 구성되지 않았습니다.'), { status: 503 });
-  if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 32) throw Object.assign(new Error('관리자 인증 토큰이 구성되지 않았습니다.'), { status: 503 });
+  if (!ADMIN_AUTH_READY) throw Object.assign(new Error('관리자 인증 초기화가 완료되지 않았습니다.'), { status: 503 });
 }
-function requireAdmin(req) {
+async function requireAdmin(req) {
   const authorization = req.headers.authorization || '';
   const match = /^Bearer\s+([^\s]+)$/i.exec(authorization);
   const supplied = match?.[1] || '';
-  if (!adminTokenMatches(supplied, ADMIN_TOKEN)) {
+  const current = await pool.query('SELECT token_hash FROM admin_credentials WHERE singleton_id=1');
+  const expectedHash = current.rows[0]?.token_hash;
+  if (!expectedHash) throw Object.assign(new Error('관리자 인증 정보가 초기화되지 않았습니다.'), { status: 503 });
+  ACTIVE_ADMIN_TOKEN_HASH = expectedHash;
+  if (!adminTokenMatches(hashAdminToken(supplied), expectedHash)) {
     throw Object.assign(new Error('관리자 인증에 실패했습니다.'), { status: 401 });
   }
+}
+
+async function rotateAdminToken(req) {
+  requireEnv();
+  await requireAdmin(req);
+  const authorization = req.headers.authorization || '';
+  const supplied = /^Bearer\s+([^\s]+)$/i.exec(authorization)?.[1] || '';
+  const previousHash = hashAdminToken(supplied);
+  const nextToken = randomBytes(32).toString('base64url');
+  const nextHash = hashAdminToken(nextToken);
+  const result = await pool.query(
+    `UPDATE admin_credentials SET token_hash=$1, updated_at=now()
+     WHERE singleton_id=1 AND token_hash=$2 RETURNING updated_at`,
+    [nextHash, previousHash]
+  );
+  if (!result.rowCount) {
+    throw Object.assign(new Error('관리자 토큰이 이미 변경되었습니다. 새 토큰으로 다시 인증하세요.'), { status: 409 });
+  }
+  ACTIVE_ADMIN_TOKEN_HASH = nextHash;
+  await pool.query(
+    "INSERT INTO license_events(event_type,actor,metadata) VALUES('admin_token_rotated','admin',$1::jsonb)",
+    [JSON.stringify({ rotatedAt: result.rows[0].updated_at })]
+  );
+  return { adminToken: nextToken, rotatedAt: result.rows[0].updated_at };
 }
 function validateUuid(value, label) {
   if (typeof value !== 'string' ||
@@ -113,7 +185,7 @@ function validateLicenseRef(value) {
 }
 async function listActivations(licenseId, req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const id = validateUuid(licenseId, '라이선스 ID');
   const license = await pool.query('SELECT id FROM licenses WHERE id=$1', [id]);
   if (!license.rowCount) throw Object.assign(new Error('라이선스를 찾을 수 없습니다.'), { status: 404 });
@@ -131,7 +203,7 @@ async function listActivations(licenseId, req) {
 }
 async function deactivateActivation(licenseId, activationId, req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const id = validateUuid(licenseId, '라이선스 ID');
   const activation = validateUuid(activationId, '기기 등록 ID');
   const client = await pool.connect();
@@ -210,7 +282,7 @@ async function activate(body) {
     const found = await client.query(
       `SELECT l.*, p.code AS product_code, p.active AS product_active
        FROM licenses l JOIN products p ON p.id=l.product_id
-       WHERE l.key_lookup=$1 AND l.status='active' AND l.expires_at>now() AND p.active=true
+       WHERE l.key_lookup=$1 AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>now()) AND p.active=true
        FOR UPDATE OF l`, [candidate.keyLookup]
     );
     let license = null;
@@ -257,7 +329,7 @@ async function refresh(body) {
        SELECT l.* FROM licenses l JOIN activations a ON a.license_id=l.id
        JOIN products p ON p.id=l.product_id
        WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
-       AND l.status='active' AND l.expires_at>now() AND p.active=true
+       AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>now()) AND p.active=true
        LIMIT 1 FOR UPDATE OF l, a`,
       [device, licenseRef]
     );
@@ -343,7 +415,7 @@ async function getSupportTicket(ticketRef, token) {
 }
 async function listSupportTickets(req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const result = await pool.query(
     `SELECT id,ticket_ref,email,category,subject,message,status,admin_reply,created_at,updated_at,replied_at
      FROM support_tickets ORDER BY CASE status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'answered' THEN 2 ELSE 3 END,
@@ -353,7 +425,7 @@ async function listSupportTickets(req) {
 }
 async function replySupportTicket(id, body, req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     throw Object.assign(new Error('문의 ID 형식이 올바르지 않습니다.'), { status: 400 });
   }
@@ -382,13 +454,14 @@ async function createLicense(body) {
     customer = { name, email, orderRef: orderRef || null };
   }
   const maxDevices = Number.isInteger(body.maxDevices) ? body.maxDevices : 1;
-  const days = Number.isInteger(body.validDays) ? body.validDays : 365;
-  const planDurations = { monthly_30d: 30, quarterly_90d: 90, annual_365d: 365, short_7d: 7 };
+  const days = body.validDays === null ? null : (Number.isInteger(body.validDays) ? body.validDays : 365);
+  const planDurations = { monthly_30d: 30, quarterly_90d: 90, annual_365d: 365, short_7d: 7, permanent: null };
   const planCode = typeof body.planCode === 'string' ? body.planCode : 'custom';
   const expectedDays = planDurations[planCode];
   if (!['custom', ...Object.keys(planDurations)].includes(planCode) ||
       (expectedDays !== undefined && days !== expectedDays) ||
-      maxDevices < 1 || maxDevices > 20 || days < 1 || days > 36500) {
+      maxDevices < 1 || maxDevices > 20 ||
+      (planCode === 'permanent' ? days !== null : (!Number.isInteger(days) || days < 1 || days > 36500))) {
     throw Object.assign(new Error('기기 수 또는 유효 기간 설정이 범위를 벗어났습니다.'), { status: 400 });
   }
   const key = newLicenseKey();
@@ -412,11 +485,11 @@ async function createLicense(body) {
     const ref = randomUUID();
     const inserted = await client.query(
       `INSERT INTO licenses(license_ref,product_id,customer_id,order_ref,key_salt,key_hash,key_lookup,expires_at,max_devices)
-       VALUES($1,$2,$3,$4,$5,$6,$7,now()+($8::int * interval '1 day'),$9)
+       VALUES($1,$2,$3,$4,$5,$6,$7,CASE WHEN $8::int IS NULL THEN NULL ELSE now()+($8::int * interval '1 day') END,$9)
        RETURNING id,license_ref,status,expires_at,max_devices,created_at`,
       [ref, product.rows[0].id, customerId, customer?.orderRef || null, hashed.saltHex, hashed.hashHex, hashed.keyLookup, days, maxDevices]
     );
-    await recordEvent(client, inserted.rows[0].id, 'issued', 'admin', { planCode, maxDevices, days, customerLinked: Boolean(customerId) });
+    await recordEvent(client, inserted.rows[0].id, 'issued', 'admin', { planCode, maxDevices, days, permanent: planCode === 'permanent', customerLinked: Boolean(customerId) });
     await client.query('COMMIT');
     return { license: inserted.rows[0], licenseKey: key };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
@@ -424,7 +497,7 @@ async function createLicense(body) {
 }
 async function listLicenses(req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const result = await pool.query(
     `SELECT l.id,l.license_ref,l.status,l.expires_at,l.max_devices,l.created_at,
       count(a.id) FILTER (WHERE a.deactivated_at IS NULL)::int AS active_devices
@@ -435,12 +508,12 @@ async function listLicenses(req) {
 }
 async function listCustomers(req, search = '') {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const q = String(search).trim().slice(0, 100);
   const result = await pool.query(
     `SELECT c.id,c.name,c.email,c.created_at,c.updated_at,
        count(DISTINCT l.id)::int AS license_count,
-       count(DISTINCT l.id) FILTER (WHERE l.status='active' AND l.expires_at>now())::int AS active_licenses,
+       count(DISTINCT l.id) FILTER (WHERE l.status='active' AND (l.expires_at IS NULL OR l.expires_at>now()))::int AS active_licenses,
        max(l.created_at) AS last_license_issued
      FROM customers c LEFT JOIN licenses l ON l.customer_id=c.id
      WHERE ($1='' OR c.name ILIKE '%' || $1 || '%' OR c.email ILIKE '%' || $1 || '%')
@@ -451,7 +524,7 @@ async function listCustomers(req, search = '') {
 }
 async function listAuditEvents(req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   const result = await pool.query(
     `SELECT e.id,e.event_type,e.actor,e.metadata,e.created_at,l.license_ref
      FROM license_events e LEFT JOIN licenses l ON l.id=e.license_id
@@ -461,7 +534,7 @@ async function listAuditEvents(req) {
 }
 async function revokeLicense(id, req) {
   requireEnv();
-  requireAdmin(req);
+  await requireAdmin(req);
   if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
     throw Object.assign(new Error('라이선스 ID 형식이 올바르지 않습니다.'), { status: 400 });
   }
@@ -479,6 +552,65 @@ async function revokeLicense(id, req) {
     return { revoked: true };
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
+}
+
+
+function validateRelease(body) {
+  const platform = ['android','windows'].includes(body.platform) ? body.platform : '';
+  const channel = ['stable','beta'].includes(body.channel) ? body.channel : '';
+  const version = typeof body.version === 'string' ? body.version.trim() : '';
+  const downloadUrl = typeof body.downloadUrl === 'string' ? body.downloadUrl.trim() : '';
+  const sha256 = typeof body.sha256 === 'string' ? body.sha256.trim().toLowerCase() : '';
+  const minSupportedVersion = typeof body.minSupportedVersion === 'string' ? body.minSupportedVersion.trim() : '';
+  const releaseNotes = typeof body.releaseNotes === 'string' ? body.releaseNotes.trim() : '';
+  let parsedDownloadUrl = null;
+  try { parsedDownloadUrl = new URL(downloadUrl); } catch {}
+  if (!platform || !channel || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version) ||
+      !parsedDownloadUrl || parsedDownloadUrl.protocol !== 'https:' || !parsedDownloadUrl.hostname || parsedDownloadUrl.username || parsedDownloadUrl.password || downloadUrl.length > 2048 ||
+      !/^[a-f0-9]{64}$/.test(sha256) ||
+      (minSupportedVersion && !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(minSupportedVersion)) ||
+      (body.mandatory === true && !minSupportedVersion) || releaseNotes.length > 8000) {
+    throw Object.assign(new Error('플랫폼, 채널, 버전, HTTPS 다운로드 주소, SHA-256 및 릴리스 정보를 확인하세요.'), { status: 400 });
+  }
+  return { platform, channel, version, downloadUrl, sha256, minSupportedVersion: minSupportedVersion || null,
+    releaseNotes, mandatory: body.mandatory === true };
+}
+async function listAdminUpdates(req) {
+  requireEnv(); await requireAdmin(req);
+  const result = await pool.query(
+    `SELECT id,platform,channel,version,download_url,sha256,min_supported_version,mandatory,release_notes,published_at,active
+     FROM guardian_updates ORDER BY published_at DESC LIMIT 100`
+  );
+  return { updates: result.rows };
+}
+async function publishUpdate(body, req) {
+  requireEnv(); await requireAdmin(req);
+  const x = validateRelease(body);
+  const result = await pool.query(
+    `INSERT INTO guardian_updates(platform,channel,version,download_url,sha256,min_supported_version,mandatory,release_notes)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+     ON CONFLICT(platform,channel,version) DO UPDATE SET
+       download_url=EXCLUDED.download_url,sha256=EXCLUDED.sha256,
+       min_supported_version=EXCLUDED.min_supported_version,mandatory=EXCLUDED.mandatory,
+       release_notes=EXCLUDED.release_notes,published_at=now(),active=true
+     RETURNING id,platform,channel,version,download_url,sha256,min_supported_version,mandatory,release_notes,published_at,active`,
+    [x.platform,x.channel,x.version,x.downloadUrl,x.sha256,x.minSupportedVersion,x.mandatory,x.releaseNotes]
+  );
+  return { update: result.rows[0] };
+}
+async function latestUpdate(url) {
+  requireEnv();
+  const platform = url.searchParams.get('platform');
+  const channel = url.searchParams.get('channel') || 'stable';
+  if (!['android','windows'].includes(platform) || !['stable','beta'].includes(channel)) {
+    throw Object.assign(new Error('플랫폼 또는 채널 값이 올바르지 않습니다.'), { status: 400 });
+  }
+  const result = await pool.query(
+    `SELECT platform,channel,version,download_url,sha256,min_supported_version,mandatory,release_notes,published_at
+     FROM guardian_updates WHERE platform=$1 AND channel=$2 AND active=true
+     ORDER BY published_at DESC LIMIT 1`, [platform,channel]
+  );
+  return { update: result.rows[0] || null };
 }
 
 const server = http.createServer(async (req, res) => {
@@ -512,6 +644,10 @@ const server = http.createServer(async (req, res) => {
         return json(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' });
       }
     }
+    if (req.method === 'GET' && url.pathname === '/v1/updates/latest') {
+      const latest = await latestUpdate(url);
+      return json(res, 200, latest);
+    }
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
     if (req.method === 'GET' && url.pathname === '/ready') {
       try {
@@ -525,9 +661,11 @@ const server = http.createServer(async (req, res) => {
              to_regclass('public.license_events') AS license_events,
              to_regclass('public.api_rate_limit_buckets') AS api_rate_limit_buckets,
              to_regclass('public.support_tickets') AS support_tickets,
-             to_regclass('public.customers') AS customers`
+             to_regclass('public.customers') AS customers,
+             to_regclass('public.guardian_updates') AS guardian_updates,
+             to_regclass('public.admin_credentials') AS admin_credentials`
         );
-        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers'];
+        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers', 'guardian_updates', 'admin_credentials'];
         if (requiredTables.some(table => !schema.rows[0]?.[table])) {
           throw new Error('license_database_schema_not_initialized');
         }
@@ -542,12 +680,28 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY', 'referrer-policy': 'no-referrer', 'permissions-policy': 'camera=(), microphone=(), geolocation=()' });
       return res.end(script);
     }
+    if (req.method === 'GET' && url.pathname === '/admin-manifest.webmanifest') {
+      const asset = await readFile(new URL('../admin/manifest.webmanifest', import.meta.url));
+      res.writeHead(200, { 'content-type': 'application/manifest+json; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' });
+      return res.end(asset);
+    }
+    if (req.method === 'GET' && url.pathname === '/guardian-icon.svg') {
+      const asset = await readFile(new URL('../admin/guardian-icon.svg', import.meta.url));
+      res.writeHead(200, { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
+      return res.end(asset);
+    }
+    if (req.method === 'GET' && url.pathname === '/admin-sw.js') {
+      const asset = await readFile(new URL('../admin/admin-sw.js', import.meta.url));
+      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'service-worker-allowed': '/', 'x-content-type-options': 'nosniff' });
+      return res.end(asset);
+    }
     if (req.method === 'GET' && url.pathname === '/admin') {
       const html = await readFile(new URL('../admin/index.html', import.meta.url));
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" });
       return res.end(html);
     }
     if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
+    if (req.method === 'GET' && url.pathname === '/v1/admin/updates') return json(res, 200, await listAdminUpdates(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/support/tickets') return json(res, 200, await listSupportTickets(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/customers') return json(res, 200, await listCustomers(req, url.searchParams.get('q') || ''));
@@ -576,10 +730,12 @@ const server = http.createServer(async (req, res) => {
          JOIN activations a ON a.license_id=l.id
          JOIN products p ON p.id=l.product_id AND p.active=true
          WHERE a.device_binding=$1 AND l.license_ref=$2 AND a.deactivated_at IS NULL
-           AND l.status='active' AND l.expires_at>now()
+           AND l.status='active' AND (l.expires_at IS NULL OR l.expires_at>now())
          LIMIT 1`, [device, licenseRef]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
     } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
+    else if (url.pathname === '/v1/admin/updates') result = await publishUpdate(body, req);
+    else if (url.pathname === '/v1/admin/token/rotate') result = await rotateAdminToken(req);
     else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
       const id = url.pathname.split('/')[4];
       result = await revokeLicense(id, req);
@@ -598,8 +754,13 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  server.listen(PORT, HOST, () => {
-    console.log(`Guardian License API listening on :${PORT}`);
+  initializeAdminAuth().then(() => {
+    server.listen(PORT, HOST, () => {
+      console.log(`Guardian License API listening on :${PORT}`);
+    });
+  }).catch(error => {
+    console.error('Guardian License API startup failed:', error.message);
+    process.exitCode = 1;
   });
 }
-export { server, pool };
+export { server, pool, initializeAdminAuth };

@@ -45,7 +45,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ./Setup-GuardianServer.ps1 -SkipAutoStart
 ```
 
-설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·관리자 토큰·HMAC 비밀값을 생성합니다. 외부 데이터 경로에 ACL을 적용하고 기존 `.env`는 덮어쓰지 않습니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `%LOCALAPPDATA%\Guardian\secrets\guardian-filter-private.dpapi`에 보관하고 평문 PEM 임시 파일은 삭제합니다. Docker 환경 파일, 필터 설정·dist·로그와 백업도 외부 경로에 저장합니다.
+설치 스크립트는 라이선스 API의 RSA 3072-bit 키쌍, 필터 서명 RSA 3072-bit 키쌍, DB 비밀번호·HMAC 비밀값을 생성합니다. 관리자 bearer token은 API 최초 실행 시 자동 생성되어 PostgreSQL에 해시로 영구 저장되며, 최초 실행 로그에 한 번만 표시됩니다. 외부 데이터 경로에 ACL을 적용하고 기존 `.env`는 덮어쓰지 않습니다. 필터 서명 개인키는 현재 Windows 사용자 DPAPI로 암호화해 `%LOCALAPPDATA%\Guardian\secrets\guardian-filter-private.dpapi`에 보관하고 평문 PEM 임시 파일은 삭제합니다. Docker 환경 파일, 필터 설정·dist·로그와 백업도 외부 경로에 저장합니다.
 
 ## 노트북에서 공개키를 포함한 Android APK 다시 빌드
 최초 설치 스크립트가 만든 두 공개키를 앱에 고정하려면 Android Studio/JDK 17, Android SDK 및 Gradle 8.9가 설치되고 `gradle` 명령이 PATH에 등록된 노트북에서 다음을 실행합니다.
@@ -69,9 +69,9 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 관리자 화면은 반응형 웹 화면이므로 별도의 모바일 앱이나 별도 라이선스 DB를 만들지 않습니다. 노트북과 모바일이 동일한 라이선스 API/PostgreSQL을 사용합니다.
 
-- **노트북:** `http://127.0.0.1:8787/admin`에 접속해 관리자 토큰으로 인증합니다.
+- **노트북:** `http://127.0.0.1:8787/admin`에 접속해 최초 실행 로그에서 한 번 표시된 관리자 토큰으로 인증합니다.
 - **모바일:** Tailscale에 로그인하고 노트북과 같은 tailnet에 연결한 뒤 `https://<노트북 MagicDNS 이름>/admin`에 접속합니다. `Enable-GuardianPrivateAccess.ps1`가 출력하는 HTTPS 주소 뒤에 `/admin`을 붙이면 됩니다.
-- 두 화면에서 발급·조회·정지·기기 해제한 결과는 같은 서버에 즉시 반영됩니다. 발급 키는 생성 직후 한 번만 표시되며, 관리자 토큰은 브라우저 저장소에 저장되지 않습니다.
+- 두 화면에서 발급·조회·정지·기기 해제한 결과는 같은 서버에 즉시 반영됩니다. 발급 키는 생성 직후 한 번만 표시되며, 관리자 토큰은 브라우저 저장소에 저장되지 않습니다. 최초 토큰은 `docker compose logs api`에서 확인하고 암호 관리자에 보관하십시오.
 - 라이선스 관리 API는 tailnet 내부에서만 접근합니다. 공유기 포트포워딩이나 Tailscale Funnel로 공개하지 마세요.
 
 

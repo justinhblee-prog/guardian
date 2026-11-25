@@ -1,0 +1,63 @@
+name: Guardian License Manager Windows
+on:
+  pull_request:
+    paths:
+      - 'apps/GuardianLicenseManager/**'
+      - '.github/workflows/guardian-license-manager.yml'
+  push:
+    branches: [main, 'feature/**']
+    paths:
+      - 'apps/GuardianLicenseManager/**'
+      - '.github/workflows/guardian-license-manager.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore apps/GuardianLicenseManager/GuardianLicenseManager.csproj
+      - name: Build
+        run: dotnet build apps/GuardianLicenseManager/GuardianLicenseManager.csproj -c Release --no-restore
+      - name: Publish self-contained Windows app
+        run: dotnet publish apps/GuardianLicenseManager/GuardianLicenseManager.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/GuardianLicenseManager
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $compiler)) { throw "Inno Setup compiler not found: $compiler" }
+          & $compiler 'apps/GuardianLicenseManager/installer/GuardianLicenseManager.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+      - name: Install and uninstall smoke test
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem 'artifacts/installer' -Filter '*.exe' | Select-Object -First 1
+          if (!$installer -or $installer.Length -lt 1000000) { throw 'Installer missing or unexpectedly small' }
+          $installDir = Join-Path $env:RUNNER_TEMP 'GuardianLicenseManagerSmoke'
+          Start-Process -FilePath $installer.FullName -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$installDir`"" -Wait
+          if (!(Test-Path (Join-Path $installDir 'GuardianLicenseManager.exe'))) { throw 'Installed application executable missing' }
+          $uninstaller = Join-Path $installDir 'unins000.exe'
+          if (Test-Path $uninstaller) { Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait }
+          "Installer SHA256: $((Get-FileHash $installer.FullName -Algorithm SHA256).Hash)"
+          "Installer bytes: $($installer.Length)"
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: guardian-license-manager-installer-win-x64
+          path: artifacts/installer/*.exe
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload portable Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: guardian-license-manager-portable-win-x64
+          path: artifacts/GuardianLicenseManager/
+          if-no-files-found: error
+          retention-days: 30

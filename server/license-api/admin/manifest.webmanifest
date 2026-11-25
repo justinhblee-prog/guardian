@@ -1,0 +1,1 @@
+{"id":"/admin","name":"Guardian License Manager","short_name":"Guardian Admin","description":"Guardian license issuance and administration","start_url":"/admin","scope":"/","display":"standalone","orientation":"any","background_color":"#0a101e","theme_color":"#0a101e","icons":[{"src":"/guardian-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

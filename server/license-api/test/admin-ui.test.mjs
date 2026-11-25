@@ -16,6 +16,7 @@ test("effective status treats expired timestamps as expired without changing API
   assert.equal(effectiveLicenseStatus(licenses[0], now), "active");
   assert.equal(effectiveLicenseStatus(licenses[1], now), "expired");
   assert.equal(effectiveLicenseStatus(licenses[2], now), "revoked");
+  assert.equal(effectiveLicenseStatus({ status: "active", expires_at: null }, now), "active");
   assert.equal(licenses[1].status, "active");
 });
 
@@ -38,6 +39,7 @@ test("license sorting supports expiry, device count and newest", () => {
 test("license issue form accepts only bounded integer values", () => {
   assert.deepEqual(validateIssueInput("365", "2"), { validDays: 365, maxDevices: 2, planCode: "custom" });
   assert.deepEqual(validateIssueInput("30", "2", "monthly_30d"), { validDays: 30, maxDevices: 2, planCode: "monthly_30d" });
+  assert.deepEqual(validateIssueInput("", "5", "permanent"), { validDays: null, maxDevices: 5, planCode: "permanent" });
   assert.throws(() => validateIssueInput("31", "2", "monthly_30d"), /상품과 유효 기간/);
   assert.throws(() => validateIssueInput("30", "2", "lifetime"), /상품 유형/);
   for (const [days, devices] of [["0", "1"], ["36501", "1"], ["1.5", "1"], ["365", "0"], ["365", "21"], ["365", "1.5"]]) {
@@ -90,6 +92,7 @@ test("support inbox and license plan controls are wired without replacing the cu
   const html = await readFile(new URL("../admin/index.html", import.meta.url), "utf8");
   const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
   assert.match(html, /id="planPreset"/);
+  assert.match(html, /value="permanent"[^>]*>영구 이용 · PERMANENT/);
   assert.match(html, /id="supportTickets"/);
   assert.match(html, /id="customers"/);
   assert.match(js, /api\("\/v1\/admin\/support\/tickets"\)/);

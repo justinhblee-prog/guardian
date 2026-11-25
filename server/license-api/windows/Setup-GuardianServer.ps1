@@ -51,7 +51,7 @@ function New-Secret([int]$Bytes=48) {
   return [Convert]::ToHexString($buffer).ToLowerInvariant()
 }
 $pem = (Get-Content -Raw $licensePrivate).Trim() -replace "\r?\n", '\n'
-$lines = @("POSTGRES_PASSWORD=$(New-Secret 48)","GUARDIAN_ADMIN_TOKEN=$(New-Secret 64)","GUARDIAN_LICENSE_LOOKUP_SECRET=$(New-Secret 64)","GUARDIAN_LICENSE_PRIVATE_KEY=$pem",'PORT=8787','GUARDIAN_RATE_LIMIT_WINDOW_MS=60000','GUARDIAN_RATE_LIMIT_MAX=30')
+$lines = @("POSTGRES_PASSWORD=$(New-Secret 48)","GUARDIAN_LICENSE_LOOKUP_SECRET=$(New-Secret 64)","GUARDIAN_LICENSE_PRIVATE_KEY=$pem",'PORT=8787','GUARDIAN_RATE_LIMIT_WINDOW_MS=60000','GUARDIAN_RATE_LIMIT_MAX=30')
 [IO.File]::WriteAllText($paths.LicenseEnv,($lines -join [Environment]::NewLine)+[Environment]::NewLine,[Text.UTF8Encoding]::new($false))
 Remove-Item -LiteralPath $licensePrivate -Force
 $filterEnvText = 'HOST=0.0.0.0'+[Environment]::NewLine+'PORT=8788'+[Environment]::NewLine+'GUARDIAN_FILTER_DIST_DIR=/app/dist'+[Environment]::NewLine
