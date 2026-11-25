@@ -36,6 +36,10 @@ jobs:
           node-version: 22
       - name: Install API dependencies
         run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Verify bundled admin assets match source files
+        run: |
+          npm run build:admin-assets
+          git diff --exit-code -- src/admin-assets.mjs
       - name: Verify Chrome extension generated rules match shared source
         run: |
           node ../../scripts/build_chrome_extension.mjs
@@ -48,6 +52,7 @@ jobs:
           node --check src/license-api-runtime.mjs
           node --check src/fetch-adapter.mjs
           node --check src/admin-assets.mjs
+          node --check scripts/build-admin-assets.mjs
           node --check functions/guardianapi/index.mjs
           node --experimental-strip-types --check neon.ts
           node --check src/license-core.mjs
