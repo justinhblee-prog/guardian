@@ -1122,27 +1122,6 @@ if grep -Eq 'PING guardian-ci-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-b
   exit 1
 fi
 
-echo "Triggering a domain blocked only by the saved user rule."
-before_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-before_custom_blocked="${before_custom_blocked:-0}"
-adb_cmd shell ping -c 1 -W 5 "rotation-preserved.example" >/tmp/guardian-custom-blocked-dns.txt 2>&1 || true
-sleep 2
-prefs="$(read_prefs)"
-after_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-after_custom_blocked="${after_custom_blocked:-0}"
-if (( after_custom_blocked <= before_custom_blocked )); then
-  echo "Saved custom block rule did not increment Guardian's blocked DNS counter."
-  cat /tmp/guardian-custom-blocked-dns.txt || true
-  read_prefs
-  exit 1
-fi
-if grep -Eq 'PING rotation-preserved\.example \([^)]*\)' /tmp/guardian-custom-blocked-dns.txt; then
-  echo "Custom-blocked domain unexpectedly resolved to an address."
-  cat /tmp/guardian-custom-blocked-dns.txt || true
-  read_prefs
-  exit 1
-fi
-
 echo "VPN E2E passed: tunnel active, allowed DNS resolved, built-in and saved custom block rules returned no address."
 echo "Custom blocked lookup:"
 cat /tmp/guardian-custom-blocked-dns.txt || true
@@ -1304,9 +1283,35 @@ adb_cmd shell input swipe 540 1500 540 600 450
 sleep 1
 scroll_to_text "규칙 저장 및 적용"
 sleep 1
+tap_text "규칙 저장 및 적용"
+sleep 2
 adb_cmd shell input keyevent KEYCODE_BACK || true
 tap_content_description "홈"
 echo "Activity rotation state restoration and custom-rule save passed."
+
+# Check a user-defined domain only after the candidate editor has actually
+# saved and applied the rule; the predecessor APK cannot satisfy this test.
+prefs="$(read_prefs)"
+before_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_custom_blocked="${before_custom_blocked:-0}"
+echo "Triggering DNS lookup for the saved custom block rule."
+adb_cmd shell ping -c 1 -W 5 "rotation-preserved.example" >/tmp/guardian-custom-blocked-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_custom_blocked="${after_custom_blocked:-0}"
+if (( after_custom_blocked <= before_custom_blocked )); then
+  echo "Saved custom block rule did not increment Guardian's blocked DNS counter after save."
+  cat /tmp/guardian-custom-blocked-dns.txt || true
+  read_prefs
+  exit 1
+fi
+if grep -Eq 'PING rotation-preserved\\.example \\([^)]*\\)' /tmp/guardian-custom-blocked-dns.txt; then
+  echo "Custom-blocked domain unexpectedly resolved to an address."
+  cat /tmp/guardian-custom-blocked-dns.txt || true
+  read_prefs
+  exit 1
+fi
 
 
 # The installed APK may use either the legacy or redesigned five-destination navigation.
