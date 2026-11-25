@@ -50,13 +50,13 @@ export function validateSupportTicketInput(value) {
   const subject = typeof value.subject === 'string' ? value.subject.trim() : '';
   const message = typeof value.message === 'string' ? value.message.trim() : '';
   const email = value.email === undefined ? '' : value.email;
-  const hasControl = /[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]/;
+  const hasControl = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
   if (!['question', 'bug', 'suggestion', 'billing', 'license'].includes(category) ||
       subject.length < 3 || subject.length > 120 ||
       message.length < 10 || message.length > 5000 ||
       hasControl.test(subject) || hasControl.test(message) ||
       typeof email !== 'string' || email.length > 254 ||
-      (email !== '' && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) ||
+      (email !== '' && !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email.trim())) ||
       hasControl.test(email)) {
     throw Object.assign(new Error('문의 유형, 제목, 내용 또는 이메일을 확인하세요.'), { status: 400 });
   }
