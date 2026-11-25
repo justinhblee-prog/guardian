@@ -38,8 +38,11 @@ internal object DevUpdateManager {
         val notes: String
     )
 
+    internal fun shouldFetchReleaseManifest(installedVersionCode: Int, tagVersion: Int): Boolean =
+        tagVersion > installedVersionCode
+
     internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
-        tagVersion > installedVersionCode && manifestVersionCode == tagVersion
+        shouldFetchReleaseManifest(installedVersionCode, tagVersion) && manifestVersionCode == tagVersion
 
     fun checkForUpdate(): GuardianDevUpdate? {
         val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
@@ -73,6 +76,11 @@ internal object DevUpdateManager {
         }
 
         for (candidate in candidates.sortedByDescending { it.tagVersion }) {
+            // Releases older than or equal to the installed build can never be offered.
+            // Skip their manifests: otherwise a device on a newer, not-yet-published build
+            // downloads dozens of old JSON files one by one before reporting "up to date".
+            if (!shouldFetchReleaseManifest(BuildConfig.VERSION_CODE, candidate.tagVersion)) continue
+
             require(isGuardianReleaseAssetUrl(candidate.manifestUrl)) {
                 "개발 업데이트 manifest 주소가 허용된 GitHub Release가 아닙니다."
             }
