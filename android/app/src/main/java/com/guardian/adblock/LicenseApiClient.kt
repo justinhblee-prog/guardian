@@ -44,6 +44,18 @@ internal fun isLicensePublicKeyConfigurationValid(encoded: String): Boolean =
 internal fun isActiveLicenseStatus(status: String): Boolean =
     status.equals("active", ignoreCase = true)
 
+/** Distinguishes server-side license validity from the locally cached token's expiry. */
+internal fun licenseStatusMessage(status: String, localEntitlementActive: Boolean): String =
+    when {
+        isActiveLicenseStatus(status) && localEntitlementActive ->
+            "서버 확인 완료 · 이 기기의 PRO 라이선스가 활성 상태입니다."
+        isActiveLicenseStatus(status) ->
+            "서버 라이선스는 활성 상태입니다. 로컬 토큰이 만료되어 상태 갱신이 필요합니다."
+        status.equals("free", ignoreCase = true) || status.equals("inactive", ignoreCase = true) ->
+            "서버에서 이 기기의 PRO 이용 권한을 확인하지 못했습니다."
+        else -> "서버가 알 수 없는 라이선스 상태를 반환했습니다."
+    }
+
 /** Parse only an HTTPS origin; API paths are appended from fixed internal constants. */
 internal fun parseLicenseApiBaseUrl(value: String): URL {
     val base = value.trim()
@@ -170,7 +182,10 @@ internal object LicenseApiClient {
 
     @Synchronized
     fun status(context: Context): JSONObject {
-        val current = LicenseEntitlementStore.current(context)
+        // An expired but correctly signed token is still a safe lookup credential.
+        // It must not grant local Pro access, but it lets the user distinguish an
+        // expired local token from a license that was revoked on the server.
+        val current = LicenseEntitlementStore.currentForRefresh(context)
             ?: return JSONObject().put("status", "free")
         val response = try {
             post(context,
