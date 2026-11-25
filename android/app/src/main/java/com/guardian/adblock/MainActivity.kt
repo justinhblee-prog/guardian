@@ -465,6 +465,26 @@ class MainActivity : Activity() {
             prefs.getBoolean(AppForegroundPauseSettings.KEY_PAUSED, false)
         ) return
 
+        // A boot/update restore must never probe upstream sockets until Android
+        // has authorized this package as the active VPN app. Keep the durable
+        // user intent, but wait for the normal foreground consent flow.
+        if (VpnService.prepare(this) != null) {
+            prefs.edit()
+                .putBoolean(GuardianVpnService.KEY_ACTIVE, false)
+                .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
+                .remove("protection_recovery_requested_at")
+                .putString(
+                    GuardianVpnService.KEY_STATUS,
+                    "Android VPN 권한 재승인이 필요합니다. 보호 시작을 눌러 권한을 승인해 주세요."
+                )
+                .commit()
+            android.util.Log.w(
+                "GuardianProtection",
+                "Automatic restore deferred because Android VPN consent is not prepared"
+            )
+            return
+        }
+
         val now = System.currentTimeMillis()
         val pending = prefs.getBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
         val pendingAt = prefs.getLong("protection_recovery_requested_at", 0L)
