@@ -274,7 +274,7 @@ class GuardianDesktop:
         self.activity_updated.pack(anchor='w',pady=4)
         tk.Button(self.pages['activity'],text='지금 새로고침',command=self.refresh,width=18,height=2,bg='#294e70',fg='white',relief='flat').pack(anchor='w',pady=12)
         tk.Label(self.pages['activity'],text='통계는 Guardian DNS 엔진이 실행 중일 때 갱신됩니다. 현재는 DNS 요청의 도메인별 상세 이력은 저장하지 않습니다.',wraplength=720,justify='left',fg='#f0c477',bg='#101820').pack(anchor='w',pady=12)
-        self._section('premium','라이선스 및 Premium','공통 Guardian 라이선스와 기기 활성화를 관리합니다.')
+        self._section('premium','라이선스 및 프리미엄','공통 Guardian 라이선스와 기기 활성화를 관리합니다.')
         tk.Button(self.pages['premium'],text='라이선스 관리',command=self.open_license_settings,width=22,height=2,bg='#5946a8',fg='white',relief='flat').pack(anchor='w',pady=8)
         self._section('updates','프로그램 업데이트','Guardian Windows 앱의 새 버전을 확인합니다. 필터 목록 갱신과 다른 기능입니다.')
         self.update_version=tk.Label(self.pages['updates'],text='설치 버전: 0.1.0-dev',fg='#d7e0e8',bg='#101820',font=('Segoe UI',12,'bold')); self.update_version.pack(anchor='w',pady=10)
@@ -288,7 +288,7 @@ class GuardianDesktop:
         settings_items=[
             ('general','일반','프로그램 업데이트와 운영 환경'),
             ('filters','필터링','차단 목록과 필터 서버'),
-            ('premium','라이선스 및 Premium','이용 권한과 등록 기기'),
+            ('premium','라이선스 및 프리미엄','이용 권한과 등록 기기'),
             ('support','고객 지원','오류 진단과 지원 정보'),
             ('info','정보','앱 버전과 제품 정보'),
             ('exit','종료','Guardian 앱 종료')
@@ -304,7 +304,7 @@ class GuardianDesktop:
         tk.Button(self.pages['support'],text='현재 진단 정보 복사',command=self.copy_support_diagnostics,bg='#294e70',fg='white',relief='flat',padx=16,pady=10).pack(anchor='w',pady=8)
         self._section('info','정보','Guardian AdBlock for Windows')
         tk.Label(self.pages['info'],text='Guardian AdBlock · Windows 10/11\n버전 0.1.0-dev\nDNS 보호 엔진 · IPv4/IPv6 · 필터 업데이트 · 공통 라이선스',justify='left',fg='#bdcbd7',bg='#101820').pack(anchor='w',pady=10)
-        tk.Button(self.pages['info'],text='라이선스 및 Premium 열기',command=lambda:self.show_page('premium'),bg='#5946a8',fg='white',relief='flat',padx=16,pady=10).pack(anchor='w',pady=8)
+        tk.Button(self.pages['info'],text='라이선스 및 프리미엄 열기',command=lambda:self.show_page('premium'),bg='#5946a8',fg='white',relief='flat',padx=16,pady=10).pack(anchor='w',pady=8)
         self.show_page('home')
         self.refresh_license_status()
         root.protocol('WM_DELETE_WINDOW',self.close); self.recover_previous_state(); self.refresh()
@@ -315,7 +315,7 @@ class GuardianDesktop:
     def show_page(self,page):
         for frame in self.pages.values(): frame.pack_forget()
         self.pages[page].pack(fill='both',expand=True)
-        labels={'home':'홈','protection':'보호','filters':'필터링','exclusions':'앱 제외','activity':'활동','premium':'라이선스 및 Premium','updates':'프로그램 업데이트','settings':'설정','general':'일반','support':'고객 지원','info':'정보'}
+        labels={'home':'홈','protection':'보호','filters':'필터링','exclusions':'앱 제외','activity':'활동','premium':'라이선스 및 프리미엄','updates':'프로그램 업데이트','settings':'설정','general':'일반','support':'고객 지원','info':'정보'}
         self.page_title.configure(text=labels[page]); self.current_page=page
         selected_nav='settings' if page in ('settings','general','filters','premium','updates','support','info') else page
         for key,button in self.nav_buttons.items(): button.configure(bg='#234a43' if key==selected_nav else '#111e2a',fg='white' if key==selected_nav else '#bdcbd7')

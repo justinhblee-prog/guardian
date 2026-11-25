@@ -1609,7 +1609,7 @@ class MainActivity : Activity() {
         val items = listOf(
             Triple("settings-general", "일반", "프로그램 업데이트와 운영 환경"),
             Triple("rules", "필터링", "필터 프로필과 사용자 차단·허용 규칙"),
-            Triple("premium", "라이선스 및 Premium", "이용 기간, 라이선스 활성화와 허용 기기"),
+            Triple("premium", GuardianNavigation.LICENSE_PREMIUM_LABEL, "이용 기간, 라이선스 활성화와 허용 기기"),
             Triple("settings-support", "고객 지원", "자주 묻는 질문과 오류·문의 접수"),
             Triple("settings-info", "정보", "앱 버전과 개인정보·제품 정보")
         )

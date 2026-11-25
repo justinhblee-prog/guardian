@@ -4,6 +4,8 @@ package com.guardian.adblock
 data class GuardianNavigationItem(val id: String, val icon: String, val label: String)
 
 object GuardianNavigation {
+    const val LICENSE_PREMIUM_LABEL = "라이선스 및 프리미엄"
+
     val primaryItems = listOf(
         GuardianNavigationItem("home", "⌂", "홈"),
         GuardianNavigationItem("protection", "◈", "보호"),

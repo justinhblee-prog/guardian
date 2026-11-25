@@ -6,6 +6,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GuardianNavigationTest {
+    @Test fun licensePremiumLabelMatchesApprovedKoreanHierarchy() {
+        assertEquals("라이선스 및 프리미엄", GuardianNavigation.LICENSE_PREMIUM_LABEL)
+    }
+
     @Test fun primaryNavigationMatchesApprovedFiveDestinations() {
         assertEquals(
             listOf("home", "protection", "app-exclusions", "activity", "settings"),
