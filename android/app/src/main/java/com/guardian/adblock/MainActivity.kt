@@ -4420,8 +4420,14 @@ class MainActivity : Activity() {
         val block = parseEditor(blockRulesInput, "차단 목록") ?: return
         val allow = parseEditor(allowRulesInput, "허용 목록") ?: return
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-        prefs.edit().putString(GuardianVpnService.KEY_USER_BLOCK, block.joinToString("\n"))
-            .putString(GuardianVpnService.KEY_USER_ALLOW, allow.joinToString("\n")).apply()
+        val rulesSaved = prefs.edit()
+            .putString(GuardianVpnService.KEY_USER_BLOCK, block.joinToString("\n"))
+            .putString(GuardianVpnService.KEY_USER_ALLOW, allow.joinToString("\n"))
+            .commit()
+        if (!rulesSaved) {
+            rulesFeedback?.text = "규칙을 기기에 저장하지 못했습니다. 저장 공간과 앱 권한을 확인한 뒤 다시 시도해 주세요."
+            return
+        }
         val protectionActive = ProtectionState.isActive(
             prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
             GuardianVpnService.isTunnelActive()
