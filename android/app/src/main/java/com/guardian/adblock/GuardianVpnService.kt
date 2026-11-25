@@ -231,6 +231,7 @@ class GuardianVpnService : VpnService() {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putBoolean(KEY_ACTIVE, false)
             .putBoolean(KEY_RECOVERY_PENDING, false)
+            .remove("protection_recovery_requested_at")
             .putString(
                 KEY_STATUS,
                 "Android VPN 권한 재승인이 필요합니다. Guardian을 열고 보호 시작을 눌러 주세요."
