@@ -66,15 +66,17 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          # Every build, including PR validation, must be newer than the latest
-          # published APK so the emulator can perform a real in-place upgrade.
+          # 0.7.49-dev (versionCode 62) is the minimum version already installed
+          # by the active device-validation track, even though it was not published
+          # as a GitHub release. Never derive the app version from release tags alone.
+          # Every build must be newer than both this installed baseline and releases.
           # Main reruns reuse the release version for the same source commit.
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
           python3 scripts/resolve_guardian_dev_version.py \
             --releases-json release/guardian-releases.json \
             --commit "$GITHUB_SHA" \
-            --baseline-version "0.7.42-dev" \
-            --baseline-code 55 \
+            --baseline-version "0.7.49-dev" \
+            --baseline-code 62 \
             --github-env "$GITHUB_ENV" \
             --github-output "$GITHUB_OUTPUT"
           echo "Version resolution completed."
