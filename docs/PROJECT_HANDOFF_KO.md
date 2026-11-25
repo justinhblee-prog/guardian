@@ -331,3 +331,12 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
 - 이번 단계에서는 실제 소스와 테스트 케이스를 정적으로 대조했습니다. Android Gradle/JUnit, Lint, APK 및 기기 검증을 실행했다고 간주하지 않습니다.
 - 파일 시스템 강제 종료 시점별 복구, 대용량 실제 필터의 메모리 사용량, signed manifest 서버의 운영 응답, 사용자 규칙을 편집하는 동안의 실제 VPN 트래픽 반영은 별도 통합/기기 검증이 필요합니다.
 - GitHub Actions는 실행하지 않았습니다.
+
+
+## Android 필터 업데이트 테스트 컴파일 오류 수정 (2026-11-25)
+
+- `FilterUpdateSchedulePolicyTest`의 `shouldDisableOptionalFilter` 호출 3곳이 존재하지 않는 named argument `hadValidCache`를 사용하고 있었습니다.
+- 실제 함수 시그니처는 `hasUsableCache`이므로 Kotlin named-argument 해석 단계에서 테스트 소스가 컴파일되지 않는 명확한 불일치였습니다.
+- 세 호출의 인자명을 실제 구현 시그니처와 일치하도록 수정했습니다.
+- 수정 후 원격 소스를 다시 가져와 구현 시그니처와 세 테스트 호출을 대조했고, 남은 `hadValidCache` 사용이 0건임을 확인했습니다.
+- 이는 테스트 소스의 정적 불일치 수정입니다. Android Gradle/JUnit을 실행한 것은 아니며 전체 테스트 컴파일 성공을 의미하지 않습니다.
