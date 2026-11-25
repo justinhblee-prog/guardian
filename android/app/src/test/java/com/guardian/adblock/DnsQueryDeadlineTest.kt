@@ -47,7 +47,6 @@ class DnsQueryDeadlineTest {
             DnsQueryDeadline.afterMillis(0L)
         }
     }
-}
 
     @Test fun explicitCancellationClosesRegisteredSocketImmediately() {
         val closed = java.util.concurrent.atomic.AtomicBoolean(false)
