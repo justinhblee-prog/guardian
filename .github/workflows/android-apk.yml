@@ -18,6 +18,8 @@ on:
       - 'scripts/test_resolve_guardian_dev_version.py'
       - 'scripts/verify_android_emulator.sh'
       - 'scripts/verify_android_vpn_emulator.sh'
+      - 'scripts/android_navigation_compat.py'
+      - 'scripts/test_android_navigation_compat.py'
       - 'scripts/verify_android_responsive_emulator.sh'
       - 'scripts/verify_guardian_crash_log.py'
       - 'scripts/test_verify_guardian_crash_log.py'
@@ -86,8 +88,8 @@ jobs:
           bash -n scripts/verify_android_emulator.sh
           bash -n scripts/verify_android_vpn_emulator.sh
           bash -n scripts/verify_android_responsive_emulator.sh
-          python3 -m py_compile scripts/verify_guardian_crash_log.py scripts/resolve_android_dialog_row.py
-          python3 -m unittest scripts/test_verify_guardian_crash_log.py scripts/test_resolve_android_dialog_row.py scripts/test_resolve_guardian_dev_version.py
+          python3 -m py_compile scripts/verify_guardian_crash_log.py scripts/resolve_android_dialog_row.py scripts/android_navigation_compat.py
+          python3 -m unittest scripts/test_verify_guardian_crash_log.py scripts/test_resolve_android_dialog_row.py scripts/test_resolve_guardian_dev_version.py scripts/test_android_navigation_compat.py
 
       - name: Verify VPN manifest and branded launcher assets
         run: |
