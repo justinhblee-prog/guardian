@@ -1514,7 +1514,14 @@ sleep 1
 # Verify the customer-facing support center in the redesigned Settings rail.
 # The support card is rendered in the right workspace after selecting the
 # persistent left-rail destination; it is no longer a card in a vertical index.
-tap_content_description "지원 설정"
+# The redesigned Settings rail exposes both a clickable parent description
+# ("지원 설정") and a visible child label ("지원"). Some API 35 UIAutomator
+# snapshots omit the parent content description while retaining the child.
+# Prefer the stable parent, then fall back to the visible label and its clickable
+# ancestor so this check follows the actual UI rather than failing on a11y tree shape.
+if ! tap_content_description "지원 설정"; then
+  tap_text "지원"
+fi
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
 support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
