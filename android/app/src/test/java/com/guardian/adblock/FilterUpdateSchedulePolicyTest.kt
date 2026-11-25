@@ -59,9 +59,9 @@ class FilterUpdateSchedulePolicyTest {
     }
 
     @Test fun disablesOptionalFilterOnlyWhenItsFirstDownloadFailsWithoutCache() {
-        assertTrue(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hadValidCache = false))
-        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hadValidCache = true))
-        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = false, hadValidCache = false))
+        assertTrue(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hasUsableCache = false))
+        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = true, hasUsableCache = true))
+        assertFalse(FilterUpdatePolicy.shouldDisableOptionalFilter(wasEnabled = false, hasUsableCache = false))
     }
 
     @Test fun preservesSupportedSixHourAndDailyIntervals() {
