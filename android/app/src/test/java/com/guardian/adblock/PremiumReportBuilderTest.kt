@@ -25,6 +25,7 @@ class PremiumReportBuilderTest {
         assertTrue(report.contains("광고 차단: 30"))
         assertTrue(report.contains("보호 상태: 활성"))
         assertTrue(report.contains("방문 도메인, 앱 사용 기록, 사용자 규칙은 포함하지 않습니다"))
+        assertTrue(report.contains("도메인 이름 기반 참고용 추정이며 보안 위협 판정이 아닙니다"))
         assertFalse(report.contains("example.com"))
     }
 
