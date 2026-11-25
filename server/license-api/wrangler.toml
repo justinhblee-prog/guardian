@@ -11,3 +11,4 @@ run_worker_first = ["/health", "/ready", "/v1/*", "/admin", "/admin.js"]
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "00000000000000000000000000000000"
+localConnectionString = "postgres://guardian:guardian_test_password@127.0.0.1:5432/guardian_test"
