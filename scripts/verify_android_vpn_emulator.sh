@@ -28,11 +28,22 @@ adb_cmd shell settings delete global private_dns_specifier >/dev/null 2>&1 || tr
 # filter refresh may still be running. Do not force-stop that process: doing so
 # cancels the very downloads this readiness gate is waiting for. Bring the
 # existing Activity back to the foreground and verify that Android accepted it.
-launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1)"
+launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1 || true)"
 printf '%s\\n' "$launch_result"
-grep -q 'Status: ok' <<<"$launch_result"
+if ! grep -q 'Status: ok' <<<"$launch_result"; then
+  echo "am start -W did not return its normal status line; verifying the resumed Activity directly."
+fi
 sleep 3
-foreground="$(adb_cmd shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tail -1 || true)"
+foreground="$(adb_cmd shell dumpsys activity activities 2>/dev/null | grep -E 'mResumedActivity|topResumedActivity' | tail -1 || true)"
+if ! grep -q "$PACKAGE" <<<"$foreground"; then
+  echo "Guardian Activity was not confirmed in the foreground; retrying the launch."
+  for attempt in 1 2 3; do
+    adb_cmd shell am start -n "$PACKAGE/.MainActivity" >/dev/null 2>&1 || true
+    sleep 2
+    foreground="$(adb_cmd shell dumpsys activity activities 2>/dev/null | grep -E 'mResumedActivity|topResumedActivity' | tail -1 || true)"
+    grep -q "$PACKAGE" <<<"$foreground" && break
+  done
+fi
 echo "Guardian foreground activity: ${foreground:-not reported}"
 grep -q "$PACKAGE" <<<"$foreground"
 
@@ -146,18 +157,93 @@ raise SystemExit(1)' "$wanted" <<<"$xml")" || {
 # published APKs still expose Filter and App Exclusions as direct bottom tabs.
 # This script first exercises the previously published APK during upgrade E2E,
 # so select the matching navigation model from the live accessibility tree.
+# Resolve the Premium entry from the actual navigation tree. The published
+# predecessor exposes a direct Premium tab, while current builds place it
+# under Settings. Do not assume the Korean label or the legacy tab exists.
+open_license_premium_menu() {
+  local xml entry category
+  xml="$(dump_ui_hierarchy /sdcard/guardian-license-navigation.xml)"
+  entry="$(python3 scripts/android_navigation_compat.py entry <<<"$xml")" || {
+    echo "Could not resolve the Guardian Premium navigation entry."
+    echo "$xml"
+    return 1
+  }
+  case "$entry" in
+    direct:Premium) tap_content_description "Premium" ;;
+    direct:프리미엄) tap_content_description "프리미엄" ;;
+    settings) tap_content_description "설정" ;;
+    all-menu) tap_content_description "전체 메뉴" ;;
+    *)
+      echo "Unsupported Guardian Premium navigation route: $entry"
+      return 1
+      ;;
+  esac
+  if [[ "$entry" == "settings" || "$entry" == "all-menu" ]]; then
+    sleep 1
+    xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+    category="$(python3 scripts/android_navigation_compat.py category <<<"$xml")" || {
+      echo "Settings does not expose a supported License/Premium category."
+      echo "$xml"
+      return 1
+    }
+    scroll_to_text "$category"
+  fi
+  sleep 1
+}
+
 open_settings_menu_item() {
   local title="$1"
-  local xml
+  local xml target
   xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+  # The predecessor APK used a dedicated "전체 메뉴" destination alongside
+  # a separate Premium tab. Prefer that exact legacy route when it is present;
+  # the detail page can also contain a nested control named "설정", which must
+  # not be mistaken for the bottom-navigation destination.
   if grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
-    tap_content_description "전체 메뉴"
-    sleep 1
-    tap_text "$title"
+    # The published 0.7.45 predecessor can retain a nested Settings detail
+    # page even when its generic All Menu tab is already selected. Re-select
+    # the route from Home so the legacy category index is actually restored.
+    if grep -Fq 'content-desc="홈"' <<<"$xml"; then
+      tap_content_description "홈"
+      sleep 0.5
+    fi
+    xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+    if grep -Fq 'content-desc="전체 메뉴"' <<<"$xml"; then
+      tap_content_description "전체 메뉴"
+      sleep 1
+    fi
+  elif grep -Fq 'content-desc="설정"' <<<"$xml"; then
+    tap_content_description "설정"
+    # On current phones, tapping Settings while a detail page is open must
+    # return to the six-category index. Wait for that semantic state, not an
+    # arbitrary sleep; otherwise a stale detail hierarchy can be mistaken for
+    # the menu.
+    local index_ready=0
+    for attempt in $(seq 1 8); do
+      sleep 0.4
+      xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+      if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+expected={"일반 설정 열기","필터링 설정 열기","라이선스 및 프리미엄 설정 열기","고객 지원 설정 열기","정보 설정 열기","종료 설정 열기"}
+visible={n.attrib.get("content-desc","") for n in root.iter("node")
+         if n.attrib.get("visible-to-user","true")=="true"
+         and n.attrib.get("clickable")=="true"
+         and n.attrib.get("enabled")=="true"}
+raise SystemExit(0 if expected.intersection(visible) else 1)' <<<"$xml"; then
+        index_ready=1
+        break
+      fi
+    done
+    if [[ "$index_ready" -ne 1 ]]; then
+      echo "Settings navigation did not return to the phone category index."
+      echo "Expected one of the six category entries; current hierarchy follows:"
+      echo "$xml"
+      return 1
+    fi
   else
     case "$title" in
-      "앱 제외 관리") tap_content_description "앱 제외" ;;
-      "필터 관리") tap_content_description "필터 규칙" ;;
+      "앱 제외 관리") tap_content_description "앱 제외"; sleep 1 ;;
+      "필터 관리") tap_content_description "필터 규칙"; sleep 1 ;;
       *)
         echo "Legacy navigation fallback is not defined for menu item: $title"
         echo "$xml"
@@ -165,6 +251,18 @@ open_settings_menu_item() {
         ;;
     esac
   fi
+
+  # The previous published APK uses the shorter "앱 제외" label, while the
+  # redesigned Settings screen uses "앱 제외 관리". Resolve from the live
+  # accessibility hierarchy instead of assuming the newest label exists.
+  xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+  target="$(python3 scripts/android_navigation_compat.py settings-item "$title" <<<"$xml")" || {
+    echo "Could not resolve Settings menu item '$title' from the live UI."
+    echo "$xml"
+    return 1
+  }
+  echo "Resolved Settings item: $title -> $target"
+  scroll_to_text "$target"
   sleep 1
 }
 
@@ -187,6 +285,11 @@ scroll_to_text() {
     xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
     if grep -Fq "text=\"$wanted\"" <<<"$xml"; then
       if tap_text "$wanted"; then return 0; fi
+    elif grep -Fq "content-desc=\"$wanted\"" <<<"$xml"; then
+      # Collapsed Android settings rails expose category labels as accessibility
+      # descriptions instead of visible text nodes. Resolve the semantic target
+      # directly; swiping the content pane cannot scroll the sidebar item.
+      if tap_content_description "$wanted"; then return 0; fi
     fi
     echo "Scrolling to visible control '$wanted' (attempt $attempt/10; display ${width}x${height})."
     adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
@@ -264,7 +367,7 @@ cache_ready() {
 
 echo "Verifying the dedicated Guardian Premium menu and license activation focus."
 dismiss_dev_update_prompt
-tap_content_description "프리미엄"
+open_license_premium_menu
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
@@ -305,7 +408,7 @@ adb_cmd shell input keyevent KEYCODE_BACK || true
 # The PRO feature cards are below the membership details on a phone-sized
 # viewport. Return to Premium, scroll the actual page, and verify the feature
 # card only after it enters the visible UI hierarchy.
-tap_content_description "프리미엄"
+open_license_premium_menu
 sleep 1
 premium_features_visible=0
 for attempt in $(seq 1 8); do
@@ -422,7 +525,7 @@ echo "Verifying the app-exclusion search field is automatically revealed and fil
 # Detect the installed version instead of applying the candidate label to the
 # legacy APK before the in-place upgrade step.
 adb_cmd shell uiautomator dump /sdcard/guardian-navigation.xml >/dev/null 2>&1
-navigation_xml="$(adb_cmd shell cat /sdcard/guardian-navigation.xml | tr -d '\\r')"
+navigation_xml="$(adb_cmd shell cat /sdcard/guardian-navigation.xml | tr -d '\r')"
 if grep -Fq 'content-desc="보호 설정"' <<<"$navigation_xml"; then
   tap_content_description "보호 설정"
 elif grep -Fq 'content-desc="보호"' <<<"$navigation_xml"; then
@@ -720,10 +823,9 @@ controls=[node.attrib.get("text","").strip() for node in nodes
     and node.attrib.get("clickable")=="true"]
 if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))
-# This phase deliberately runs against the published predecessor APK.
-# Its navigation contract is the seven-item Korean layout; the new five-item
-# layout is asserted again after the current APK is installed below.
-expected={"홈","보호 설정","앱 제외","DNS 활동","프리미엄","필터 규칙","설정"}
+# This phase runs against the published predecessor APK 0.7.45-dev.
+# That build already contains the five-destination navigation redesign.
+expected={"홈","보호","활동","Premium","전체 메뉴"}
 actual={node.attrib.get("content-desc") for node in nodes
         if node.attrib.get("class")=="android.widget.LinearLayout"
         and node.attrib.get("clickable")=="true"}
@@ -732,7 +834,7 @@ if not expected.issubset(actual):
 if not any(node.attrib.get("content-desc")=="홈" and node.attrib.get("selected")=="true"
            for node in nodes):
     raise SystemExit("Home is not the selected bottom-navigation destination.")' <<<"$home_navigation_xml"
-for navigation_label in "보호 설정" "앱 제외" "DNS 활동" "프리미엄" "필터 규칙" "설정"; do
+for navigation_label in "보호" "활동" "Premium" "전체 메뉴"; do
   tap_content_description "$navigation_label"
   sleep 1
   navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-navigation.xml)"
@@ -913,9 +1015,20 @@ if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.andro
   exit 1
 fi
 tap_content_description "앱별 보호 제외 변경사항 저장"
-prefs="$(read_prefs)"
-if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
-  echo "Explicit Save control was tapped but the selected package was not persisted."
+# ADB input tap returns before Android has necessarily dispatched the click
+# listener and committed SharedPreferences. Poll the durable state rather than
+# racing the UI thread with an immediate run-as read.
+excluded_saved=0
+for attempt in $(seq 1 20); do
+  prefs="$(read_prefs)"
+  if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+    excluded_saved=1
+    break
+  fi
+  sleep 0.5
+done
+if [[ "$excluded_saved" -ne 1 ]]; then
+  echo "Explicit Save control was tapped but the selected package was not persisted after 10 seconds."
   read_prefs
   exit 1
 fi
@@ -944,9 +1057,17 @@ if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.and
   exit 1
 fi
 tap_content_description "앱별 보호 제외 변경사항 저장"
-prefs="$(read_prefs)"
-if grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
-  echo "Explicit Save control was tapped but the removed package remained persisted."
+excluded_removed=0
+for attempt in $(seq 1 20); do
+  prefs="$(read_prefs)"
+  if ! grep -A2 -B1 'name="excluded_apps"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+    excluded_removed=1
+    break
+  fi
+  sleep 0.5
+done
+if [[ "$excluded_removed" -ne 1 ]]; then
+  echo "Explicit Save control was tapped but the removed package remained persisted after 10 seconds."
   read_prefs
   exit 1
 fi
@@ -1156,7 +1277,7 @@ current_home_xml="$(dump_ui_hierarchy /sdcard/guardian-current-home-navigation.x
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
-expected={"홈","보호","활동","Premium","전체 메뉴"}
+expected={"홈","보호","앱 제외","활동","설정"}
 actual={n.attrib.get("content-desc") for n in nodes
         if n.attrib.get("class")=="android.widget.LinearLayout"
         and n.attrib.get("clickable")=="true"}
@@ -1164,7 +1285,7 @@ if not expected.issubset(actual):
     raise SystemExit("Current APK bottom navigation is missing destinations: "+repr(sorted(expected-actual)))
 if not any(n.attrib.get("content-desc")=="홈" and n.attrib.get("selected")=="true" for n in nodes):
     raise SystemExit("Current APK Home destination is not selected.")' <<<"$current_home_xml"
-for navigation_label in "보호" "활동" "Premium" "전체 메뉴"; do
+for navigation_label in "보호" "앱 제외" "활동" "설정"; do
   tap_content_description "$navigation_label"
   sleep 1
   current_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-current-navigation.xml)"
@@ -1188,7 +1309,7 @@ sleep 2
 # The bottom-navigation label is a non-clickable child of the tab item.
 # Target the clickable parent via its accessibility content description, then
 # assert that the Settings page actually opened before scrolling its content.
-tap_content_description "전체 메뉴"
+tap_content_description "설정"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-settings-tab.xml >/dev/null 2>&1
 settings_tab_xml="$(adb_cmd shell cat /sdcard/guardian-settings-tab.xml | tr -d '\r')"
@@ -1196,26 +1317,158 @@ python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
 texts={node.attrib.get("text","") for node in nodes}
-selected_settings=any(node.attrib.get("content-desc")=="전체 메뉴"
+selected_settings=any(node.attrib.get("content-desc")=="설정"
                       and node.attrib.get("selected")=="true"
                       for node in nodes)
-if "Guardian 앱 정보와 보호 정책" not in texts or not selected_settings:
-    raise SystemExit("Guardian Settings tab did not open after tapping its clickable navigation parent.")' <<<"$settings_tab_xml"
+required_settings = {"설정", "일반", "필터링", "라이선스 및 프리미엄"}
+missing_settings = required_settings - texts
+if missing_settings or not selected_settings:
+    raise SystemExit("Guardian Settings landing page is missing agreed categories: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
+# The Settings page is a vertically scrollable list. A single accessibility
+# hierarchy dump only includes rows intersecting the current viewport. Reveal
+# the lower category without activating it: scroll_to_text intentionally taps
+# its target, which would replace the landing list with the Premium detail page.
+ensure_text_visible() {
+  local wanted="$1" attempt size width height center_x start_y end_y xml
+  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
+  width="${size%x*}"
+  height="${size#*x}"
+  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
+    echo "Could not determine a usable emulator display size: $size"
+    return 1
+  fi
+  center_x=$((width / 2))
+  start_y=$((height * 4 / 5))
+  end_y=$((height / 5))
+  for attempt in $(seq 1 10); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
+    if grep -Fq "text=\"$wanted\"" <<<"$xml"; then
+      echo "Visible without activation: $wanted"
+      return 0
+    fi
+    echo "Scrolling to reveal '$wanted' without opening it (attempt $attempt/10)."
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Could not reveal the category without activating it: $wanted"
+  dump_ui_hierarchy /sdcard/guardian-scroll-target.xml
+  return 1
+}
+ensure_text_visible "라이선스 및 프리미엄"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-license-menu.xml >/dev/null 2>&1
+license_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-license-menu.xml | tr -d '\r')"
+if ! grep -Fq '라이선스 및 프리미엄' <<<"$license_menu_xml"; then
+  echo "The License and Premium Settings entry did not become visible after scrolling."
+  echo "$license_menu_xml"
+  exit 1
+fi
+
+# Verify the About and Exit submenus even though they are below the phone viewport.
+scroll_to_text "정보"
+sleep 1
+# The About screen is a vertically scrolling page. Verify the version row
+# while it is in the initial viewport, then scroll separately to the update
+# action; UIAutomator omits children outside the current viewport.
+adb_cmd shell uiautomator dump /sdcard/guardian-about-version.xml >/dev/null 2>&1
+about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | tr -d '\r')"
+expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
+if [[ -z "$expected_current_version" ]]; then
+  echo "GUARDIAN_CURRENT_VERSION_NAME was not provided to the Android VPN emulator check."
+  exit 1
+fi
+if ! grep -Fq '앱 버전' <<<"$about_version_xml" || ! grep -Fq "$expected_current_version" <<<"$about_version_xml"; then
+  echo "The About screen's initial viewport did not expose the current app version."
+  echo "$about_version_xml"
+  exit 1
+fi
+ensure_text_visible "앱 업데이트 확인"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-about-update.xml >/dev/null 2>&1
+about_update_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-update.xml | tr -d '\r')"
+if ! grep -Fq '앱 업데이트 확인' <<<"$about_update_xml"; then
+  echo "The About submenu does not expose the dedicated app-update entry."
+  echo "$about_update_xml"
+  exit 1
+fi
+tap_text "앱 업데이트 확인"
+sleep 1
+updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
+if ! grep -Fq '프로그램 업데이트' <<<"$updates_xml" ||
+   ! grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$updates_xml" ||
+   ! grep -Fq '업데이트 설치' <<<"$updates_xml"; then
+  echo "The dedicated Program Updates screen is missing its version-check/install controls."
+  echo "$updates_xml"
+  exit 1
+fi
+
+# Exercise the actual development update check, not only the presence of its
+# controls. PR builds are intentionally not published as releases, so the
+# currently published manifest must resolve to "already latest" for this
+# higher versionCode. This validates network/API parsing and the no-update UI
+# without downloading or installing an untrusted/unpublished build.
+if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
+  tap_text "개발 업데이트 확인"
+  update_check_ready=0
+  for attempt in $(seq 1 20); do
+    sleep 1
+    updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-result.xml)"
+    if grep -Fq '현재 설치된 개발 버전이 최신입니다.' <<<"$updates_xml"; then
+      update_check_ready=1
+      break
+    fi
+    if grep -Eq '업데이트 확인에 실패|업데이트를 확인할 수 없습니다|오류' <<<"$updates_xml"; then
+      echo "Development update check returned an error instead of a valid latest-version response."
+      echo "$updates_xml"
+      exit 1
+    fi
+  done
+  if [[ "$update_check_ready" -ne 1 ]]; then
+    echo "Development update check did not reach the expected latest-version state."
+    echo "$updates_xml"
+    exit 1
+  fi
+  echo "Development update check reached the expected latest-version state."
+fi
+echo "Settings > 정보 > 앱 업데이트 확인 opens the dedicated Program Updates screen and executes its version check."
+tap_content_description "설정"
+sleep 1
+scroll_to_text "종료"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-exit-menu.xml >/dev/null 2>&1
+exit_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-menu.xml | tr -d '\r')"
+if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml"; then
+  echo "The Exit submenu did not expose its explicit Guardian 종료 action."
+  echo "$exit_menu_xml"
+  exit 1
+fi
+tap_text "Guardian 종료"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-exit-confirmation.xml >/dev/null 2>&1
+exit_confirmation_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-confirmation.xml | tr -d '\r')"
+if ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
+   ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
+  echo "The explicit Guardian 종료 action did not open its confirmation dialog."
+  echo "$exit_confirmation_xml"
+  exit 1
+fi
+tap_text "취소"
+sleep 1
+tap_content_description "설정"
+sleep 1
 
 # Verify the customer-facing support center is reachable and its FAQ/form UI
-# renders. Do not submit a real ticket from the emulator fixture.
-# The preceding VPN auto-pause acceptance test may leave Settings scrolled well below
-# the support card. Reset the Settings ScrollView to its top before searching for
-# the support entry; otherwise a downward-only search can never find a card above
-# the retained scroll position.
+# renders. The support card now lives in its dedicated Settings > 고객 지원 submenu.
+scroll_to_text "고객 지원"
+sleep 1
 for attempt in $(seq 1 20); do
   adb_cmd shell input swipe 540 500 540 1550 250
   sleep 0.15
 done
 adb_cmd shell uiautomator dump /sdcard/guardian-support-top.xml >/dev/null 2>&1
 support_top_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-top.xml | tr -d '\r')"
-if ! grep -Fq "Guardian 앱 정보와 보호 정책" <<<"$support_top_xml"; then
-  echo "Could not confirm Settings returned to its top before support-center verification."
+if ! grep -Fq "고객지원 센터" <<<"$support_top_xml"; then
+  echo "Could not confirm the dedicated Customer Support submenu is visible."
   echo "$support_top_xml"
   exit 1
 fi
@@ -1235,11 +1488,11 @@ required = (
 missing = [item for item in required if not any(item in text for text in texts)]
 if missing:
     raise SystemExit("Customer support Settings text missing: " + ", ".join(missing))' <<<"$support_settings_xml"; then
-  echo "Customer support center card is missing from the top of Settings."
+  echo "Customer support center card is missing from the dedicated support submenu."
   echo "$support_settings_xml"
   exit 1
 fi
-echo "Customer support center found at the top of Settings."
+echo "Customer support center found in the dedicated Support submenu."
 
 tap_text "자주 묻는 질문 (Q&A)"
 sleep 1
@@ -1289,10 +1542,68 @@ echo "Customer support center FAQ, inquiry submission form, and private lookup U
 
 
 auto_pause_picker_visible=0
-# The Settings tab opens at its top after the app is relaunched. Scroll down
-# through account/DNS settings until the compatibility card appears. The card is
-# deliberately placed before the large installed-app inventory, so this search
-# does not depend on the number of installed packages or an old scroll offset.
+# Support dialogs can return to the previously active destination on some
+# Android builds. Reset through Home before entering Settings so this assertion
+# validates the actual Settings route rather than relying on a stale tab state.
+tap_content_description "홈"
+sleep 1
+# Compatibility and auto-pause controls now live in Full Menu > Filtering.
+# Navigate to that submenu explicitly before searching its scrollable content.
+settings_tab_selected=0
+settings_navigation_label="설정"
+settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
+# Published predecessor versions use a "전체 메뉴" bottom destination;
+# current builds use "설정". Resolve the actual clickable navigation control
+# from the live hierarchy so the test never taps a nested settings label.
+if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+raise SystemExit(0 if any(n.attrib.get("content-desc")=="전체 메뉴"
+    and n.attrib.get("clickable")=="true"
+    and n.attrib.get("visible-to-user","true")=="true"
+    for n in root.iter("node")) else 1)' <<<"$settings_navigation_xml"; then
+  settings_navigation_label="전체 메뉴"
+fi
+for attempt in $(seq 1 3); do
+  tap_content_description "$settings_navigation_label"
+  sleep 1
+  settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+wanted=sys.argv[1]
+if any(node.attrib.get("content-desc")==wanted
+       and node.attrib.get("selected")=="true"
+       and node.attrib.get("clickable")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' "$settings_navigation_label" <<<"$settings_navigation_xml"; then
+    settings_tab_selected=1
+    break
+  fi
+  echo "$settings_navigation_label navigation did not become selected (attempt $attempt/3); retrying."
+done
+if [[ "$settings_tab_selected" -ne 1 ]]; then
+  echo "Could not select the $settings_navigation_label navigation destination before checking VPN auto-pause."
+  echo "$settings_navigation_xml"
+  exit 1
+fi
+# The predecessor exposes Filtering as a direct Full Menu item; current builds
+# expose it as a Settings category card. Select the route supported by the
+# actual screen rather than substring-matching descriptions in DNS details.
+if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
+  legacy_filter_target="$(python3 scripts/android_navigation_compat.py settings-item "필터 관리" <<<"$settings_navigation_xml" 2>/dev/null || true)"
+  if [[ -z "$legacy_filter_target" ]]; then
+    echo "Legacy Full Menu does not expose a compatible Filtering destination."
+    echo "$settings_navigation_xml"
+    exit 1
+  fi
+  scroll_to_text "$legacy_filter_target"
+else
+  ensure_text_visible "필터링"
+  # The category card exposes its clickable accessibility label with the
+  # action suffix; the visible title itself is a non-clickable TextView.
+  tap_content_description "필터링 설정 열기"
+fi
+sleep 1
 for attempt in $(seq 1 24); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   auto_pause_settings_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
