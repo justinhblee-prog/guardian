@@ -119,6 +119,7 @@ class GuardianVpnService : VpnService() {
                     .putLong(KEY_DNS_TRACKER_BLOCKED, 0L)
                     .putLong(KEY_DNS_OTHER_BLOCKED, 0L)
                     .putString(KEY_DNS_RECENT, "")
+                    .remove(PremiumReportPolicy.PREFERENCE_KEY)
                     .putString(KEY_DNS_DIAGNOSTIC, "")
                     .apply()
             }
@@ -1118,6 +1119,18 @@ class GuardianVpnService : VpnService() {
             val forwardedCount = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_FORWARDED, 0L), if (forwarded) 1L else 0L)
             val failedCount = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_FAILED, 0L), if (!blocked && !forwarded) 1L else 0L)
             val category = if (blocked) DomainFilter.classifyBlockedDomain(domain) else null
+            val reportCategory = when (category) {
+                DomainFilter.BlockCategory.AD -> "ad"
+                DomainFilter.BlockCategory.TRACKER -> "tracker"
+                DomainFilter.BlockCategory.OTHER, null -> null
+            }
+            val reportSnapshot = PremiumReportPolicy.record(
+                prefs.getString(PremiumReportPolicy.PREFERENCE_KEY, "").orEmpty(),
+                java.time.LocalDate.now(),
+                blocked,
+                forwarded,
+                reportCategory
+            )
             val adBlocked = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_AD_BLOCKED, 0L),
                 if (category == DomainFilter.BlockCategory.AD) 1L else 0L)
             val trackerBlocked = DnsStatsCounterPolicy.add(prefs.getLong(KEY_DNS_TRACKER_BLOCKED, 0L),
@@ -1140,6 +1153,7 @@ class GuardianVpnService : VpnService() {
                 .putLong(KEY_DNS_TRACKER_BLOCKED, trackerBlocked)
                 .putLong(KEY_DNS_OTHER_BLOCKED, otherBlocked)
                 .putString(KEY_DNS_RECENT, lines.joinToString("\n"))
+                .putString(PremiumReportPolicy.PREFERENCE_KEY, reportSnapshot)
                 .apply()
             if (!blocked && !forwarded) {
                 prefs.edit().putString(
