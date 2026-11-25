@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomBytes, verify } from 'node:crypto';
-import { adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey, validateDeviceBinding, validateLicenseIssueParameters, verifyLicenseKey } from '../src/license-core.mjs';
+import { adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey, validateDeviceBinding, validateLicenseCustomer, validateLicenseIssueParameters, validateSupportReplyStatus, verifyLicenseKey } from '../src/license-core.mjs';
 
 const device = randomBytes(32).toString('hex');
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -31,6 +31,44 @@ test('license issuance rejects malformed values rather than silently defaulting'
   ]) {
     assert.throws(() => validateLicenseIssueParameters(input), error => error.status === 400);
   }
+});
+
+test('customer validation normalizes valid values and permits an omitted customer', () => {
+  assert.equal(validateLicenseCustomer(undefined), null);
+  assert.equal(validateLicenseCustomer(null), null);
+  assert.deepEqual(validateLicenseCustomer({
+    name: '  Guardian User  ',
+    email: ' USER@Example.COM ',
+    orderRef: '  ORDER-123  '
+  }), {
+    name: 'Guardian User',
+    email: 'user@example.com',
+    orderRef: 'ORDER-123'
+  });
+});
+
+test('customer validation rejects malformed objects and control characters', () => {
+  for (const value of [
+    'customer',
+    [],
+    {},
+    { name: 'Name', email: 'not-an-email' },
+    { name: 'Name\\nInjected', email: 'user@example.com' },
+    { name: 'Name', email: 'user@example.com', orderRef: 'ORDER\\u0000X' },
+    { name: 'x'.repeat(121), email: 'user@example.com' },
+    { name: 'Name', email: 'x'.repeat(250) + '@example.com' }
+  ]) {
+    assert.throws(() => validateLicenseCustomer(value), error => error.status === 400);
+  }
+});
+
+test('support reply status defaults only when omitted and rejects unknown states', () => {
+  assert.equal(validateSupportReplyStatus(undefined), 'answered');
+  for (const value of ['unknown', '', null, 1, true, 'ANSWERED']) {
+    assert.throws(() => validateSupportReplyStatus(value), error => error.status === 400);
+  }
+  assert.equal(validateSupportReplyStatus('in_progress'), 'in_progress');
+  assert.equal(validateSupportReplyStatus('closed'), 'closed');
 });
 
 test('license keys are random and formatted', () => {
