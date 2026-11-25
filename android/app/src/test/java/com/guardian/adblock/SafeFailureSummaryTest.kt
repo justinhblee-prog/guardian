@@ -51,6 +51,13 @@ class SafeFailureSummaryTest {
         assertEquals(8, SafeFailureSummary.diagnosticTypeChain(error).split(" -> ").size)
     }
 
+    @Test fun updaterHttpStatusesAreSpecificAndDoNotExposeResponseBodies() {
+        assertEquals("HTTP_403", SafeFailureSummary.codeFor(GuardianHttpStatusException(403)))
+        assertEquals("HTTP_429", SafeFailureSummary.codeFor(GuardianHttpStatusException(429)))
+        assertEquals("GitHub 접근 제한(HTTP 403)", SafeFailureSummary.describe(GuardianHttpStatusException(403)))
+        assertEquals("GitHub 요청 한도 초과(HTTP 429)", SafeFailureSummary.describe(GuardianHttpStatusException(429)))
+    }
+
     @Test fun unknownLegacyOrArbitraryCodeIsGeneric() {
         assertEquals("원인을 안전하게 분류할 수 없는 오류", SafeFailureSummary.describeCode("https://token.invalid/key"))
     }
