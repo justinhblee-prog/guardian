@@ -93,7 +93,7 @@ class PremiumReportPolicyTest {
             "$day|2|3|0|0|0|0|0",
             "$day|2|1|1|1|0|0|0",
             "$day|2|1|0|0|0|2|0"
-        ).joinToString("\\n")
+        ).joinToString("\n")
 
         val summary = PremiumReportPolicy.summarize(corruptRows, day, day)
         assertEquals(0L, summary.queries)
