@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, randomBytes, verify } from 'node:crypto';
-import { adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey, validateDeviceBinding, validateLicenseCustomer, validateLicenseIssueParameters, validateSupportReplyStatus, verifyLicenseKey } from '../src/license-core.mjs';
+import { adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey, validateDeviceBinding, validateLicenseCustomer, validateLicenseIssueParameters, validateSupportReplyStatus, validateSupportTicketInput, verifyLicenseKey } from '../src/license-core.mjs';
 
 const device = randomBytes(32).toString('hex');
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -59,6 +59,29 @@ test('customer validation rejects malformed objects and control characters', () 
     { name: 'Name', email: 'x'.repeat(250) + '@example.com' }
   ]) {
     assert.throws(() => validateLicenseCustomer(value), error => error.status === 400);
+  }
+});
+
+test('support ticket inputs apply only omitted defaults and reject malformed values', () => {
+  assert.deepEqual(validateSupportTicketInput({
+    subject: '  Help  ', message: '  Please help me  '
+  }), { category: 'question', subject: 'Help', message: 'Please help me', email: '' });
+  assert.deepEqual(validateSupportTicketInput({
+    category: 'bug', subject: 'Bug report', message: 'Something is broken', email: ' user@example.com '
+  }), { category: 'bug', subject: 'Bug report', message: 'Something is broken', email: 'user@example.com' });
+  for (const input of [
+    { subject: 'ok', message: 'long enough message' },
+    { subject: 'Valid', message: 'short' },
+    { subject: 'Valid', message: 'long enough message', category: 'other' },
+    { subject: 'Valid', message: 'long enough message', category: null },
+    { subject: 'Valid', message: 'long enough message', email: null },
+    { subject: 'Valid', message: 'long enough message', email: 'not-email' },
+    { subject: 'Valid', message: 'long enough message', email: 'x'.repeat(250) + '@example.com' },
+    { subject: 'Bad\\u0000Subject', message: 'long enough message' },
+    { subject: 'Valid', message: 'bad\\u0000message' },
+    []
+  ]) {
+    assert.throws(() => validateSupportTicketInput(input), error => error.status === 400);
   }
 });
 
