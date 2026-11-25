@@ -4441,6 +4441,7 @@ class MainActivity : Activity() {
             .putString(GuardianVpnService.KEY_USER_BLOCK, block.joinToString("\n"))
             .putString(GuardianVpnService.KEY_USER_ALLOW, allow.joinToString("\n"))
             .putLong(GuardianVpnService.KEY_USER_RULES_SAVED_AT, savedAt)
+            .putString(GuardianVpnService.KEY_FILTER_RULES_APPLY_STATUS, "적용 대기")
             .commit()
         if (!rulesSaved) {
             rulesFeedback?.text = "규칙을 기기에 저장하지 못했습니다. 저장 공간과 앱 권한을 확인한 뒤 다시 시도해 주세요."
