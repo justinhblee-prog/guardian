@@ -185,7 +185,7 @@ object ProtectionDiagnostics {
             .split(" <- ")
             .mapNotNull { token ->
                 token.trim().takeIf {
-                    it.matches(Regex("(?:[A-Za-z_][A-Za-z0-9_]*\\.)+[A-Za-z_$][A-Za-z0-9_$]*(?:\\$[A-Za-z0-9_$]+)*\\.[A-Za-z_$<>][A-Za-z0-9_$<>]*:-?[0-9]{1,8}"))
+                    it.matches(Regex("(?:com\\.guardian\\.)[A-Za-z0-9_$.]+\\.[A-Za-z_$<>][A-Za-z0-9_$<>]*:-?[0-9]{1,8}"))
                 }
             }
             .take(16)
