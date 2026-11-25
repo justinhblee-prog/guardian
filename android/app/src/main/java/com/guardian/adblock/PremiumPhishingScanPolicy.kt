@@ -45,9 +45,9 @@ internal object PremiumPhishingScanPolicy {
                 "웹 주소가 아닌 위험할 수 있는 URI 스킴입니다.")
         }
         if (uri.rawAuthority.isNullOrBlank() || uri.host.isNullOrBlank() ||
-            uri.port !in -1..65535 || uri.fragment?.length ?: 0 > MAX_COMPONENT_LENGTH ||
-            uri.rawPath?.length ?: 0 > MAX_COMPONENT_LENGTH ||
-            uri.rawQuery?.length ?: 0 > MAX_COMPONENT_LENGTH
+            uri.port !in -1..65535 || ((uri.fragment?.length ?: 0) > MAX_COMPONENT_LENGTH) ||
+            ((uri.rawPath?.length ?: 0) > MAX_COMPONENT_LENGTH) ||
+            ((uri.rawQuery?.length ?: 0) > MAX_COMPONENT_LENGTH)
         ) return invalid()
 
         val host = uri.host.trimEnd('.').lowercase(Locale.ROOT)
@@ -93,7 +93,7 @@ internal object PremiumPhishingScanPolicy {
         if (host.startsWith("[") && host.endsWith("]")) return true
         if (host.matches(Regex("[0-9.]+"))) {
             val parts = host.split('.')
-            return parts.size == 4 && parts.all { it.toIntOrNull() in 0..255 }
+            return parts.size == 4 && parts.all { part -> part.toIntOrNull()?.let { it in 0..255 } == true }
         }
         return false
     }
