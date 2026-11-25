@@ -125,7 +125,7 @@ jobs:
 
   audit-and-continue:
     name: Audit completed Android work and verify delivered artifacts
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_branch == 'main'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
