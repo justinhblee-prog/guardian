@@ -1115,7 +1115,7 @@ class MainActivity : Activity() {
             GuardianVpnService.isTunnelActive()
         )
         body.addView(text("보호 설정", 25f, white, true))
-        body.addView(text("실시간 DNS 보호와 주요 차단 기능을 한곳에서 관리합니다.", 13f, muted, false).withTop(5))
+        body.addView(text("VPN 연결 상태와 실제 DNS 보호 범위, 진단 정보를 확인합니다.", 13f, muted, false).withTop(5))
 
         val control = card(panel, 20).apply {
             orientation = LinearLayout.VERTICAL
@@ -1641,7 +1641,7 @@ class MainActivity : Activity() {
         
                 body.addView(card(panel, 14).apply {
                     setPadding(dp(15), dp(15), dp(15), dp(15))
-                    addView(text("PRO 라이선스 활성화", 15f, white, true))
+                    addView(text("라이선스 키 입력", 15f, white, true))
                     addView(text(
                         "발급받은 라이선스 키를 입력하면 서버에서 기기 등록 후 서명 토큰을 발급합니다.",
                         11f, muted, false
@@ -1681,7 +1681,7 @@ class MainActivity : Activity() {
                             thread {
                                 try {
                                     LicenseApiClient.activate(this@MainActivity, key, BuildConfig.VERSION_NAME)
-                                    runOnUiThread { { tabBackStack.clear(); showTab("premium") } }
+                                    runOnUiThread { tabBackStack.clear(); showTab("premium") }
                                 } catch (error: Exception) {
                                     runOnUiThread {
                                         licenseFeedback.text = "라이선스 활성화 실패: ${SafeFailureSummary.describe(error)}"
@@ -1704,12 +1704,12 @@ class MainActivity : Activity() {
                                 thread {
                                     try {
                                         LicenseApiClient.refresh(this@MainActivity)
-                                        runOnUiThread { { tabBackStack.clear(); showTab("premium") } }
+                                        runOnUiThread { tabBackStack.clear(); showTab("premium") }
                                     } catch (error: Exception) {
                                         runOnUiThread {
                                             if (error is LicenseApiException && error.invalidatesEntitlement) {
                                                 // Rebuild settings after the local signed token was cleared.
-                                                { tabBackStack.clear(); showTab("premium") }
+                                                tabBackStack.clear(); showTab("premium")
                                             } else {
                                                 licenseFeedback.text = "라이선스 갱신 실패: ${SafeFailureSummary.describe(error)}"
                                                 isEnabled = true
@@ -1730,7 +1730,7 @@ class MainActivity : Activity() {
                                 thread {
                                     try {
                                         LicenseApiClient.deactivate(this@MainActivity)
-                                        runOnUiThread { { tabBackStack.clear(); showTab("premium") } }
+                                        runOnUiThread { tabBackStack.clear(); showTab("premium") }
                                     } catch (error: Exception) {
                                         runOnUiThread {
                                             licenseFeedback.text = "기기 등록 해제 실패: ${SafeFailureSummary.describe(error)}"
