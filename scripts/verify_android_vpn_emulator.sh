@@ -1364,14 +1364,12 @@ texts={node.attrib.get("text","") for node in nodes}
 selected_settings=any(node.attrib.get("content-desc")=="설정"
                       and node.attrib.get("selected")=="true"
                       for node in nodes)
-required_settings = {"설정", "일반", "필터링", "라이선스 및 프리미엄"}
+required_settings = {"설정", "일반", "필터링", "PRO", "지원", "정보"}
 missing_settings = required_settings - texts
 if missing_settings or not selected_settings:
     raise SystemExit("Guardian Settings landing page is missing agreed categories: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
-# The Settings page is a vertically scrollable list. A single accessibility
-# hierarchy dump only includes rows intersecting the current viewport. Reveal
-# the lower category without activating it: scroll_to_text intentionally taps
-# its target, which would replace the landing list with the Premium detail page.
+# Settings is now a persistent compact left rail with a right-side content
+# workspace. All five categories remain visible without scrolling.
 ensure_text_visible() {
   local wanted="$1" attempt size width height center_x start_y end_y xml
   size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
@@ -1398,12 +1396,12 @@ ensure_text_visible() {
   dump_ui_hierarchy /sdcard/guardian-scroll-target.xml
   return 1
 }
-ensure_text_visible "라이선스 및 프리미엄"
+ensure_text_visible "PRO"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-license-menu.xml >/dev/null 2>&1
 license_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-license-menu.xml | tr -d '\r')"
-if ! grep -Fq '라이선스 및 프리미엄' <<<"$license_menu_xml"; then
-  echo "The License and Premium Settings entry did not become visible after scrolling."
+if ! grep -Fq 'PRO' <<<"$license_menu_xml"; then
+  echo "The compact PRO Settings rail entry is not visible."
   echo "$license_menu_xml"
   exit 1
 fi
