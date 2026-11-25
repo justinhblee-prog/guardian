@@ -43,7 +43,7 @@ class GuardianDevVersionTests(unittest.TestCase):
              "draft": False, "prerelease": True, "body": "Guardian-Source-Commit: " + "d" * 40}
         ])
         with self.assertRaisesRegex(ValueError, "older release"):
-            resolve_next_version(self.releases, "c" * 40, "0.7.49-dev", 62)
+            resolve_next_version(self.releases, "c" * 40, "0.7.42-dev", 55)
 
     def test_ignores_drafts_and_stable_releases(self):
         self.releases.extend([
