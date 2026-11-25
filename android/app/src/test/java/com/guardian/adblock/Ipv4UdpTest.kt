@@ -12,8 +12,11 @@ class Ipv4UdpTest {
             destinationPort = 53,
             payload = ByteArray(12)
         )
-        assertFailsWith<IllegalArgumentException> {
+        try {
             Ipv4Udp.response(request, ByteArray(65_508))
+            fail("Expected oversized IPv4 response to be rejected")
+        } catch (_: IllegalArgumentException) {
+            // Expected: IPv4 total length cannot exceed 65,535 bytes.
         }
         assertEquals(65_535, Ipv4Udp.response(request, ByteArray(65_507)).size)
     }
