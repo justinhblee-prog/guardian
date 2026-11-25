@@ -2427,7 +2427,6 @@ class MainActivity : Activity() {
         ).withTop(3))
         val securityCheck = CheckBox(this).apply {
             applyToggleTint(this)
-            applyToggleTint(this)
             text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence · 전체 사용자)"
             textSize = 12f
             setTextColor(white)
@@ -2449,7 +2448,6 @@ class MainActivity : Activity() {
         securityFilterCheckBox = securityCheck
         options.addView(securityCheck)
         val androidAdsCheck = CheckBox(this).apply {
-            applyToggleTint(this)
             applyToggleTint(this)
             text = "Android 앱 광고 SDK 차단 (AWAvenue Ads Rule)"
             textSize = 12f
@@ -2480,7 +2478,6 @@ class MainActivity : Activity() {
             10f, muted, false
         ).withTop(2))
         val directDnsCheck = CheckBox(this).apply {
-            applyToggleTint(this)
             applyToggleTint(this)
             text = "공용 DNS 직접 질의 포착 (고급 · 일부 비DNS 연결 영향 가능)"
             textSize = 12f
