@@ -27,7 +27,9 @@ internal class GuardianHttpStatusException(val statusCode: Int) : java.io.IOExce
 
 internal object DevUpdateManager {
     private const val RELEASES_URL =
-        "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=100"
+        "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=100"    // Public read-only fallback for exhausted unauthenticated API limits.
+    private const val RELEASES_ATOM_URL =
+        "https://github.com/justinhblee-prog/guardian/releases.atom"
     private const val APK_ASSET = "guardian-android-dev.apk"
     private const val MANIFEST_ASSET = "guardian-android-dev.json"
     private const val PACKAGE_NAME = "com.guardian.adblock"
@@ -48,7 +50,13 @@ internal object DevUpdateManager {
 
     fun checkForUpdate(onProgress: ((String) -> Unit)? = null): GuardianDevUpdate? {
         onProgress?.invoke("GitHub 업데이트 목록 연결 중…")
-        val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
+        val releases = try {
+            JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
+        } catch (error: GuardianHttpStatusException) {
+            if (error.statusCode != 403 && error.statusCode != 429) throw error
+            onProgress?.invoke("GitHub API 제한 감지 · 공개 릴리스 피드로 재시도 중…")
+            releasesFromAtom(readHttps(RELEASES_ATOM_URL, 1024 * 1024))
+        }
         onProgress?.invoke("공개된 개발 버전 비교 중…")
         val candidates = ArrayList<ReleaseCandidate>()
         val tagPattern = Regex("^guardian-dev-v(\\d+)$")
@@ -117,6 +125,21 @@ internal object DevUpdateManager {
         return null
     }
 
+    internal fun releasesFromAtom(payload: String): JSONArray {
+        // Extract only canonical tags from this repository; construct asset URLs locally.
+        val pattern = Regex("https://github\\.com/justinhblee-prog/guardian/releases/tag/(guardian-dev-v([0-9]+))")
+        val result = JSONArray()
+        val seen = HashSet<String>()
+        for (match in pattern.findAll(payload)) {
+            val tag = match.groupValues[1]
+            if (!seen.add(tag)) continue
+            val assets = JSONArray()
+                .put(JSONObject().put("name", MANIFEST_ASSET).put("browser_download_url", "https://github.com/justinhblee-prog/guardian/releases/download/$tag/$MANIFEST_ASSET"))
+                .put(JSONObject().put("name", APK_ASSET).put("browser_download_url", "https://github.com/justinhblee-prog/guardian/releases/download/$tag/$APK_ASSET"))
+            result.put(JSONObject().put("draft", false).put("prerelease", true).put("tag_name", tag).put("body", "").put("assets", assets))
+        }
+        return result
+    }
     fun download(context: Context, update: GuardianDevUpdate): File {
         require(update.signerSha256 == installedSignerSha256(context)) {
             "업데이트 서명 인증서가 현재 설치된 개발 버전과 다릅니다. 설치를 중단했습니다."
