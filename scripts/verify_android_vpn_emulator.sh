@@ -1292,13 +1292,13 @@ echo "Activity rotation state restoration and custom-rule save passed."
 # Check a user-defined domain only after the candidate editor has actually
 # saved and applied the rule; the predecessor APK cannot satisfy this test.
 prefs="$(read_prefs)"
-before_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\\1/p' <<<"$prefs" | tail -1)"
 before_custom_blocked="${before_custom_blocked:-0}"
 echo "Triggering DNS lookup for the saved custom block rule."
 adb_cmd shell ping -c 1 -W 5 "rotation-preserved.example" >/tmp/guardian-custom-blocked-dns.txt 2>&1 || true
 sleep 2
 prefs="$(read_prefs)"
-after_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\\1/p' <<<"$prefs" | tail -1)"
 after_custom_blocked="${after_custom_blocked:-0}"
 if (( after_custom_blocked <= before_custom_blocked )); then
   echo "Saved custom block rule did not increment Guardian's blocked DNS counter after save."
