@@ -1374,13 +1374,22 @@ if ! grep -Fq '라이선스 및 프리미엄' <<<"$license_menu_xml"; then
   exit 1
 fi
 
-# Verify the About and Exit submenus even though they are below the phone viewport.
+# Verify the About submenu's version row, then navigate back through the
+# actual Settings category index before opening General. A detail-page swipe
+# cannot select a sibling category and previously left the test on About.
 scroll_to_text "정보"
 sleep 1
-# App updates are managed under Settings > General in the redesigned UI.
-# Keep this assertion aligned with the live navigation instead of the retired
-# Settings > Info > App Updates route.
-scroll_to_text "일반"
+adb_cmd shell uiautomator dump /sdcard/guardian-about-version.xml >/dev/null 2>&1
+about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | tr -d '\r')"
+expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
+if [[ -z "$expected_current_version" ]] ||
+   ! grep -Fq '앱 버전' <<<"$about_version_xml" ||
+   ! grep -Fq "$expected_current_version" <<<"$about_version_xml"; then
+  echo "The About screen did not expose the expected current app version."
+  echo "$about_version_xml"
+  exit 1
+fi
+open_settings_menu_item "일반"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-general-settings.xml >/dev/null 2>&1
 general_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-general-settings.xml | tr -d '\r')"
