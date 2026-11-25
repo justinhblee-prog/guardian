@@ -122,3 +122,13 @@ Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 �
 - Android 1.0 정식 배포: **외부 운영·서명 게이트 때문에 아직 미완료**입니다. 무료 기능 구현이 미완료라는 의미가 아닙니다.
 - 다음 개발 우선순위는 운영 게이트를 코드/문서 측면에서 닫을 수 있도록 준비하면서 License API 운영·관리 기능과 Premium 엔진을 병행하는 것입니다.
 
+## 2026-11-25 — Premium 리포트 엔진 1차 구현
+
+- `PremiumReportPolicy`를 추가해 DNS 질의를 날짜별 합계로 집계하고 최근 90일만 보관하도록 했습니다.
+- 저장 데이터는 날짜와 요청/차단/광고/추적/기타/전달/실패 카운터뿐이며 도메인명, 앱 패키지, IP 및 원시 DNS 이벤트는 리포트 저장소에 넣지 않습니다.
+- 기존 DNS 통계 초기화 동작과 연동해 사용자가 통계를 초기화하면 Premium 리포트 집계도 함께 초기화합니다.
+- Premium 화면 개발 미리보기에 최근 7일/30일 요청·차단·차단율·분류별 집계를 표시하도록 연결했습니다. 실제 PRO 권한이 없는 개발 미리보기는 권한을 부여하지 않습니다.
+- 회귀 테스트 소스 `PremiumReportPolicyTest`에 분류/집계, 기간 경계, 90일 보존, 손상 데이터 무시 및 카운터 포화 검사를 추가했습니다.
+- **현재 판정: 코드 및 테스트 소스 반영, JUnit/Lint/실기기 검증 대기.** 검증 통과 전에는 `PREMIUM_REPORTS` 엔진을 operational로 표시하지 않도록 게이트를 유지합니다.
+- 변경은 `work/android-free-release-followup-20261124` 브랜치에 반영했습니다. 이번 구현은 Premium Reports 첫 번째 범위이며 Threat Analytics, Security Profiles, Phishing Scanner, App Protection의 미완성 엔진을 완료로 간주하지 않습니다.
+
