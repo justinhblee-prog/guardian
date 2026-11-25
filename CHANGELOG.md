@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-25 — Android 정식 업데이트 URL 검증 강화
+- 정식 APK/manifest URL을 릴리스 태그와 자산 파일명까지 정확히 고정하고, HTTPS GitHub 및 공식 Release CDN 외부 리디렉션을 차단합니다.
+
 ## 2026-11-24 — Android 개발 업데이트 URL 허용 범위 강화
 - 업데이트 manifest/APK 주소가 정확한 Guardian 개발 릴리스 태그와 두 허용 파일명에만 일치하도록 경로 검증을 좁혔습니다.
 - 비표준 포트, 사용자 정보, query/fragment, 다른 저장소·태그·파일명 및 경로 탐색 URL을 회귀 테스트로 거부합니다.
