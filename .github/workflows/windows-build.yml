@@ -11,6 +11,8 @@ on:
       - "requirements-windows-build.txt"
       - "scripts/build_windows.ps1"
       - "scripts/windows_dns_task_smoke.py"
+      - "scripts/verify_guardian_versions.py"
+      - "scripts/test_verify_guardian_versions.py"
       - ".github/workflows/windows-build.yml"
   pull_request:
     paths:
@@ -34,6 +36,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Enforce cross-platform version consistency
+        run: |
+          python scripts/verify_guardian_versions.py
+          python -m unittest scripts/test_verify_guardian_versions.py
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
       - name: Build EXE and installer
@@ -85,6 +91,13 @@ jobs:
           if (-not (Test-Path "$installDir\GuardianDnsProxy\_internal")) { throw "Installed DNS daemon runtime dependencies are missing" }
           $task = Get-ScheduledTask -TaskName GuardianDnsProxy -ErrorAction SilentlyContinue
           if (-not $task) { throw "Boot-start DNS task was not registered" }
+          $daemonExe = Join-Path $installDir "GuardianDnsProxy\GuardianDnsProxy.exe"
+          if (-not (Test-Path -LiteralPath $daemonExe -PathType Leaf)) { throw "Installed DNS daemon executable is missing: $daemonExe" }
+          $taskXml = [xml](Export-ScheduledTask -TaskName GuardianDnsProxy)
+          $taskCommand = [Environment]::ExpandEnvironmentVariables([string]$taskXml.Task.Actions.Exec.Command)
+          if ([IO.Path]::GetFullPath($taskCommand) -ne [IO.Path]::GetFullPath($daemonExe)) {
+            throw "Scheduled DNS task points to '$taskCommand' instead of installed executable '$daemonExe'"
+          }
           python scripts/windows_dns_task_smoke.py
           if ($LASTEXITCODE -ne 0) { throw "Installed SYSTEM DNS task failed its IPv4 UDP/TCP loopback smoke test" }
           $restoreTest = Start-Process -FilePath "$installDir\GuardianAdBlock.exe" -ArgumentList "--restore-dns" -Wait -PassThru

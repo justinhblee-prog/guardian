@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -24,8 +23,8 @@ internal data class GuardianDevUpdate(
 )
 
 internal object DevUpdateManager {
-    private const val RELEASES_URL =
-        "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=100"
+    private const val RELEASES_ATOM_URL =
+        "https://github.com/justinhblee-prog/guardian/releases.atom"
     private const val APK_ASSET = "guardian-android-dev.apk"
     private const val MANIFEST_ASSET = "guardian-android-dev.json"
     private const val PACKAGE_NAME = "com.guardian.adblock"
@@ -41,38 +40,45 @@ internal object DevUpdateManager {
     internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
         tagVersion > installedVersionCode && manifestVersionCode == tagVersion
 
-    fun checkForUpdate(): GuardianDevUpdate? {
-        val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
-        val candidates = ArrayList<ReleaseCandidate>()
-        val tagPattern = Regex("^guardian-dev-v(\\d+)$")
+    /**
+     * GitHub's public REST release-list endpoint is unauthenticated in installed apps and
+     * can be rate-limited. The public Releases Atom feed avoids that API quota. It does not
+     * expose a prerelease flag, so accept only this repository's strictly named dev tags,
+     * then require the release manifest to match the tag and installed package policy.
+     */
+    internal fun developmentReleaseVersionsFromAtom(atomXml: String): List<Int> {
+        val atomFeed = Regex(
+            """<feed\b[^>]*xmlns=["']http://www\.w3\.org/2005/Atom["']""",
+            RegexOption.IGNORE_CASE
+        )
+        if (!atomFeed.containsMatchIn(atomXml)) return emptyList()
 
-        // GitHub sorts releases by commit-created time, not semantic/version order.
-        // Collect all valid development releases and select by the numeric tag version.
-        for (index in 0 until releases.length()) {
-            val release = releases.optJSONObject(index) ?: continue
-            if (release.optBoolean("draft", true) || !release.optBoolean("prerelease", false)) continue
-            val tagVersion = tagPattern.matchEntire(release.optString("tag_name"))
-                ?.groupValues?.getOrNull(1)?.toIntOrNull() ?: continue
-            val assets = release.optJSONArray("assets") ?: continue
-            var manifestUrl: String? = null
-            var apkUrl: String? = null
-            for (assetIndex in 0 until assets.length()) {
-                val asset = assets.optJSONObject(assetIndex) ?: continue
-                when (asset.optString("name")) {
-                    MANIFEST_ASSET -> manifestUrl = asset.optString("browser_download_url")
-                    APK_ASSET -> apkUrl = asset.optString("browser_download_url")
-                }
-            }
-            if (manifestUrl.isNullOrBlank() || apkUrl.isNullOrBlank()) continue
-            candidates += ReleaseCandidate(
+        val releaseLink = Regex(
+            """href=["']https://github\.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v([0-9]+)["']""",
+            RegexOption.IGNORE_CASE
+        )
+        return releaseLink.findAll(atomXml)
+            .mapNotNull { it.groupValues.getOrNull(1)?.toIntOrNull() }
+            .distinct()
+            .sortedDescending()
+            .toList()
+    }
+
+    private fun releaseAssetUrl(version: Int, assetName: String): String =
+        "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v$version/$assetName"
+
+    fun checkForUpdate(): GuardianDevUpdate? {
+        val atomFeed = readHttps(RELEASES_ATOM_URL, 512 * 1024)
+        val candidates = developmentReleaseVersionsFromAtom(atomFeed).map { tagVersion ->
+            ReleaseCandidate(
                 tagVersion = tagVersion,
-                manifestUrl = manifestUrl,
-                apkUrl = apkUrl,
-                notes = release.optString("body").take(2000)
+                manifestUrl = releaseAssetUrl(tagVersion, MANIFEST_ASSET),
+                apkUrl = releaseAssetUrl(tagVersion, APK_ASSET),
+                notes = ""
             )
         }
 
-        for (candidate in candidates.sortedByDescending { it.tagVersion }) {
+        for (candidate in candidates) {
             require(isGuardianReleaseAssetUrl(candidate.manifestUrl)) {
                 "개발 업데이트 manifest 주소가 허용된 GitHub Release가 아닙니다."
             }
@@ -105,6 +111,9 @@ internal object DevUpdateManager {
     }
 
     fun download(context: Context, update: GuardianDevUpdate): File {
+        require(isValidDownloadDescriptor(BuildConfig.VERSION_CODE, update)) {
+            "개발 업데이트 정보가 현재 설치된 앱보다 최신이거나 공식 Guardian 개발 릴리스와 일치하지 않습니다."
+        }
         require(update.signerSha256 == installedSignerSha256(context)) {
             "업데이트 서명 인증서가 현재 설치된 개발 버전과 다릅니다. 설치를 중단했습니다."
         }
@@ -173,18 +182,39 @@ internal object DevUpdateManager {
         return true
     }
 
+    private val guardianReleaseAssetPath = Regex(
+        "^/justinhblee-prog/guardian/releases/download/guardian-dev-v[1-9][0-9]*/guardian-android-dev\\.(?:apk|json)$"
+    )
+
     internal fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
         val uri = java.net.URI(address)
         uri.scheme.equals("https", true) &&
             uri.host.equals("github.com", true) &&
-            uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
-            uri.userInfo == null && uri.query == null && uri.fragment == null
+            uri.port in setOf(-1, 443) &&
+            uri.rawUserInfo == null &&
+            uri.rawQuery == null &&
+            uri.rawFragment == null &&
+            guardianReleaseAssetPath.matches(uri.rawPath.orEmpty())
+    }.getOrDefault(false)
+
+    /**
+     * Revalidate the descriptor at the download boundary instead of relying only on
+     * checkForUpdate(). This prevents stale or internally constructed descriptors from
+     * downloading a non-current, non-official, or malformed development package.
+     */
+    internal fun isValidDownloadDescriptor(installedVersionCode: Int, update: GuardianDevUpdate): Boolean = runCatching {
+        val uri = java.net.URI(update.apkUrl)
+        update.versionCode > installedVersionCode &&
+            update.versionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+-dev")) &&
+            update.sha256.matches(Regex("[a-fA-F0-9]{64}")) &&
+            update.signerSha256.matches(Regex("[a-fA-F0-9]{64}")) &&
+            isGuardianReleaseAssetUrl(update.apkUrl) &&
+            uri.rawPath == "/justinhblee-prog/guardian/releases/download/guardian-dev-v${update.versionCode}/guardian-android-dev.apk"
     }.getOrDefault(false)
 
     private fun isAllowedHttpsHost(url: URL): Boolean =
         url.protocol.equals("https", true) &&
-            (url.host.equals("api.github.com", true) ||
-                url.host.equals("github.com", true) ||
+            (url.host.equals("github.com", true) ||
                 url.host.equals("release-assets.githubusercontent.com", true) ||
                 url.host.equals("objects.githubusercontent.com", true))
 
@@ -263,7 +293,7 @@ internal object DevUpdateManager {
             readTimeout = 15000
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
-            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("Accept", "application/atom+xml, application/json;q=0.9, */*;q=0.8")
         }
         try {
             connection.connect()

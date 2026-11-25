@@ -48,8 +48,8 @@ internal object GuardianStableUpdateManager {
             require(!manifestUrl.isNullOrBlank() && !apkUrl.isNullOrBlank()) {
                 "최신 정식 Release에 guardian-android.json 또는 guardian-android.apk가 없습니다."
             }
-            require(isGuardianReleaseAssetUrl(manifestUrl)) { "정식 업데이트 manifest 주소가 Guardian 공식 GitHub Release가 아닙니다." }
-            require(isGuardianReleaseAssetUrl(apkUrl)) { "정식 APK 주소가 Guardian 공식 GitHub Release가 아닙니다." }
+            require(isGuardianReleaseAssetUrl(manifestUrl, tag, MANIFEST_ASSET)) { "정식 업데이트 manifest 주소가 Guardian 공식 GitHub Release가 아닙니다." }
+            require(isGuardianReleaseAssetUrl(apkUrl, tag, APK_ASSET)) { "정식 APK 주소가 Guardian 공식 GitHub Release가 아닙니다." }
 
             val manifest = JSONObject(readHttps(manifestUrl, 64 * 1024))
             require(manifest.optInt("manifestVersion", 0) == 1) { "지원하지 않는 정식 업데이트 manifest 버전입니다." }
@@ -71,6 +71,15 @@ internal object GuardianStableUpdateManager {
     }
 
     fun download(context: Context, update: GuardianStableUpdate): File {
+        require(GuardianStableUpdatePolicy.isNewerVersion(BuildConfig.VERSION_CODE, update.versionCode)) {
+            "정식 업데이트 버전이 현재 설치된 앱보다 최신이 아닙니다."
+        }
+        require(GuardianStableUpdatePolicy.isSha256(update.sha256) && GuardianStableUpdatePolicy.isSha256(update.signerSha256)) {
+            "정식 업데이트 검증 정보의 SHA-256 형식이 올바르지 않습니다."
+        }
+        require(isGuardianReleaseAssetUrl(update.apkUrl, "v${update.versionName}", APK_ASSET)) {
+            "정식 APK 주소가 허용된 Guardian Release 자산이 아닙니다."
+        }
         require(update.signerSha256 == installedSignerSha256(context)) {
             "정식 업데이트 서명 인증서가 현재 설치된 앱과 다릅니다. 기존 개발판에서 정식판으로 전환하려면 백업 후 정식 APK를 새로 설치해야 합니다."
         }
@@ -83,6 +92,7 @@ internal object GuardianStableUpdateManager {
         }
         try {
             connection.connect()
+            check(isAllowedReleaseDownloadHost(connection.url)) { "정식 APK 다운로드가 허용되지 않은 서버로 리디렉션되었습니다." }
             check(connection.responseCode in 200..299) { "정식 APK 다운로드 실패: HTTP ${connection.responseCode}" }
             val expectedLength = connection.contentLengthLong
             check(expectedLength in 1..MAX_APK_BYTES) { "정식 APK 파일 크기가 허용 범위를 벗어났습니다." }
@@ -173,12 +183,32 @@ internal object GuardianStableUpdateManager {
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
-    private fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
+    internal fun isGuardianReleaseAssetUrl(address: String, tag: String, assetName: String): Boolean = runCatching {
+        if (!GuardianStableUpdatePolicy.isStableRelease(false, false, tag)) return@runCatching false
+        if (assetName !in setOf(APK_ASSET, MANIFEST_ASSET)) return@runCatching false
         val uri = java.net.URI(address)
-        uri.scheme.equals("https", true) && uri.host.equals("github.com", true) &&
-            uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
-            uri.userInfo == null && uri.query == null && uri.fragment == null
+        uri.scheme.equals("https", true) &&
+            uri.host?.equals("github.com", true) == true &&
+            uri.port in setOf(-1, 443) &&
+            uri.rawUserInfo == null &&
+            uri.rawQuery == null &&
+            uri.rawFragment == null &&
+            uri.rawPath == "/justinhblee-prog/guardian/releases/download/$tag/$assetName"
     }.getOrDefault(false)
+
+    internal fun isAllowedHttpsHost(url: URL): Boolean =
+        url.protocol.equals("https", true) &&
+            url.port in setOf(-1, 443) &&
+            url.userInfo == null &&
+            setOf(
+                "api.github.com",
+                "github.com",
+                "release-assets.githubusercontent.com",
+                "objects.githubusercontent.com"
+            ).any { url.host.equals(it, true) }
+
+    internal fun isAllowedReleaseDownloadHost(url: URL): Boolean =
+        isAllowedHttpsHost(url) && !url.host.equals("api.github.com", true)
 
     private fun readHttps(address: String, maxBytes: Int): String {
         require(address.startsWith("https://", true)) { "업데이트 서버는 HTTPS만 허용합니다." }
@@ -189,6 +219,7 @@ internal object GuardianStableUpdateManager {
         }
         try {
             connection.connect()
+            check(isAllowedHttpsHost(connection.url)) { "정식 업데이트 확인 요청이 허용되지 않은 서버로 리디렉션되었습니다." }
             check(connection.responseCode in 200..299) { "정식 업데이트 확인 실패: HTTP ${connection.responseCode}" }
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream(); val buffer = ByteArray(8192)

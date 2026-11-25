@@ -36,7 +36,8 @@ verify_layout() {
   python3 -c '
 import sys,xml.etree.ElementTree as ET
 mode=sys.argv[1]; root=ET.fromstring(sys.stdin.read()); nodes=list(root.iter("node"))
-labels=("홈","보호","활동","Premium","전체 메뉴"); found={}
+# The redesigned five-destination navigation is identical on phone, tablet, and desktop widths.
+labels=("홈","보호","앱 제외","활동","설정"); found={}
 for label in labels:
     matches=[n for n in nodes if n.attrib.get("content-desc")==label and n.attrib.get("visible-to-user","true")=="true" and n.attrib.get("clickable")=="true"]
     if not matches: raise SystemExit("Missing visible navigation destination: "+label)

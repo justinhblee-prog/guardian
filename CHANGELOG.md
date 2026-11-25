@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-11-25 — Android 정식 업데이트 URL 검증 강화
+- 정식 APK/manifest URL을 릴리스 태그와 자산 파일명까지 정확히 고정하고, HTTPS GitHub 및 공식 Release CDN 외부 리디렉션을 차단합니다.
+
+## 2026-11-24 — Android 개발 업데이트 URL 허용 범위 강화
+- 업데이트 manifest/APK 주소가 정확한 Guardian 개발 릴리스 태그와 두 허용 파일명에만 일치하도록 경로 검증을 좁혔습니다.
+- 비표준 포트, 사용자 정보, query/fragment, 다른 저장소·태그·파일명 및 경로 탐색 URL을 회귀 테스트로 거부합니다.
+
+## 2026-11-24 — Android 개발 업데이트 조회 안정화
+- 앱 업데이트 버전 탐색을 인증 없는 GitHub REST 릴리스 목록 API에서 공개 Releases Atom feed로 전환해 API rate-limit 의존성을 제거했습니다.
+- 정확한 Guardian 저장소의 \`guardian-dev-vN\` 태그만 숫자 버전순으로 확인하고, 기존 manifest·패키지·SHA-256·개발 서명 인증서 검증은 유지합니다.
+- 잘못된 저장소/호스트, 비개발 태그, 비-Atom 응답을 거부하는 회귀 테스트를 추가했습니다.
+
+## 2026-11-24 — Android 설정 탐색 E2E 회귀 방지
+- Android UI 자동화가 현재 화면 안의 비클릭 정적 `설정` 라벨을 하단 내비게이션으로 오인하지 않도록, 표시·활성·클릭 가능한 실제 내비게이션 컨트롤만 경로로 인정합니다.
+- 구형 `Premium` 탭, 중간 `전체 메뉴`, 현재 `설정` 경로의 호환 테스트와 숨김·비활성·비클릭 항목 거부 테스트를 추가했습니다.
+
+## 2026-11-23 — Windows 조용한 DNS 실행 및 반응형 설정 탐색
+- Windows DNS 어댑터 조회·변경에 사용하는 PowerShell 실행에 CREATE_NO_WINDOW 및 STARTF_USESHOWWINDOW를 적용해 보호 시작/중지 중 콘솔 창이 표시되지 않도록 수정했습니다.
+- Windows 설정 카테고리는 항목 선택만으로 자동 축소되지 않으며, 사용자가 접기 버튼을 누를 때만 아이콘 레일로 전환됩니다.
+- Android 휴대폰 설정은 좌우 분할/아이콘 레일을 제거하고, 전체 폭 카테고리 목록과 전체 폭 상세 화면을 순서대로 표시하도록 변경했습니다. 태블릿은 분할 레이아웃을 유지하되 카테고리 선택만으로 자동 축소하지 않습니다.
+- Windows 기본 창 크기를 최대 1200×760으로 조정하고 화면 크기에 맞춰 축소되도록 변경했습니다.
+- Windows PowerShell 숨김 실행과 설정 메뉴 유지 동작에 회귀 테스트를 추가했습니다. CI/에뮬레이터 검증 전에는 실행 확인으로 간주하지 않습니다.
+
+## 2026-11-23 — 개발 버전 기준값 단일화 및 회귀 방지
+- Android VPN E2E가 이전 개발 APK의 `앱 제외` 메뉴를 현재 `앱 제외 관리`와 구분하도록 접근성 트리 기반 메뉴 별칭 해석과 회귀 테스트를 추가했습니다.
+- 이번 수정 전 런타임 검증은 VPN 시작 전 메뉴 탐색에서 중단됐으며, VPN 차단 동작의 통과 근거로 사용하지 않습니다.
+- Android 개발 버전 계산기의 기본 기준을 마지막 개발 릴리스 `0.7.48-dev / versionCode 61`로 맞췄습니다.
+- CI workflow에서 별도 버전 기준값을 중복 전달하지 않고, 계산기의 단일 기준값을 사용하도록 변경했습니다.
+- 회귀 테스트가 계산기 기준에서 산출되는 다음 버전(`0.7.49 / versionCode 62`)과 Android Gradle fallback의 일치를 검사하도록 추가했습니다.
+- 이 변경은 버전 기준값의 일관성을 검사하는 자동화이며, APK 빌드·실기기 설치·업데이트 검증 완료를 의미하지 않습니다.
+
 ## v0.7.10-dev — DNS fallback and upgrade verification (2026-11-16)
 - Retry the next configured DNS resolver when an upstream returns a matching SERVFAIL or REFUSED response instead of treating that error packet as a usable answer.
 - Require a successful A-record resolution before installing DNS-only VPN routes; the connectivity diagnostic now uses the same success criteria.

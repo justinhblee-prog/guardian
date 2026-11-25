@@ -89,6 +89,9 @@ class MainActivity : Activity() {
     private var activityChart: ActivityStatsChart? = null
     private var receiverRegistered = false
     private var currentTab = "home"
+    private var selectedSettingsCategory = "settings-general"
+    private var settingsSidebarCollapsed = false
+    private var phoneSettingsShowingDetail = false
     // Reused across tab rebuilds to keep navigation taps responsive.
     private var companyLogoBitmap: android.graphics.Bitmap? = null
     private var contentScrollView: ScrollView? = null
@@ -118,11 +121,11 @@ class MainActivity : Activity() {
         }
     }
 
-    private val bg = Color.rgb(10, 16, 30)
-    private val panel = Color.rgb(20, 29, 48)
-    private val panel2 = Color.rgb(27, 39, 61)
-    private val accent = Color.rgb(72, 220, 174)
-    private val muted = Color.rgb(151, 166, 190)
+    private val bg = Color.rgb(9, 17, 29)
+    private val panel = Color.rgb(17, 31, 47)
+    private val panel2 = Color.rgb(25, 48, 65)
+    private val accent = Color.rgb(55, 211, 190)
+    private val muted = Color.rgb(151, 174, 192)
     private val white = Color.rgb(241, 246, 255)
     private val red = Color.rgb(255, 112, 125)
 
@@ -139,19 +142,41 @@ class MainActivity : Activity() {
             persistedTab
         )
         val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
-        val retainedRuleDraft = lastNonConfigurationInstance as? RuleEditorDraft
+        val restoredBlockDraft = savedInstanceState?.getString(STATE_BLOCK_RULES_DRAFT)
+        val restoredAllowDraft = savedInstanceState?.getString(STATE_ALLOW_RULES_DRAFT)
+        val hasRuleDraft = restoredBlockDraft != null && restoredAllowDraft != null
         if (savedInstanceState != null) {
             android.util.Log.i(
                 "GuardianUI",
-                "Activity restored after configuration change; tab=$restoredTab scrollY=$restoredScrollY hasRuleDraft=${retainedRuleDraft != null}"
+                "Activity restored after configuration change; tab=$restoredTab scrollY=$restoredScrollY hasRuleDraft=$hasRuleDraft"
             )
         }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
-        showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
-        if (restoredTab == "rules") {
-            retainedRuleDraft?.let { draft ->
-                blockRulesInput.setText(draft.blockRules)
-                allowRulesInput.setText(draft.allowRules)
+        val savedSettingsCategory = savedInstanceState?.getString(STATE_SETTINGS_CATEGORY)
+        selectedSettingsCategory = when (savedSettingsCategory) {
+            "settings-general" -> "settings-general"
+            "settings-filtering" -> "settings-filtering"
+            "settings-premium" -> "settings-premium"
+            "settings-support" -> "settings-support"
+            "settings-about" -> "settings-about"
+            "settings-exit" -> "settings-exit"
+            else -> restoredTab.takeIf { it.startsWith("settings-") } ?: "settings-general"
+        }
+        val screenTab = if (
+            ResponsiveLayoutPolicy.usesSettingsSplitPane(resources.configuration.screenWidthDp) &&
+            restoredTab.startsWith("settings-") &&
+            !restoreLicenseFocus
+        ) {
+            selectedSettingsCategory = restoredTab
+            "settings"
+        } else {
+            restoredTab
+        }
+        showTab(screenTab, focusLicenseActivation = restoreLicenseFocus)
+        if (restoredTab == "settings-filtering") {
+            if (hasRuleDraft) {
+                blockRulesInput.setText(restoredBlockDraft)
+                allowRulesInput.setText(restoredAllowDraft)
             }
         }
         if (restoredScrollY > 0 && !restoreLicenseFocus) {
@@ -159,7 +184,7 @@ class MainActivity : Activity() {
                 scroll.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
                     override fun onGlobalLayout() {
                         scroll.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                        if (restoredTab == "rules" && retainedRuleDraft != null) {
+                        if (restoredTab == "settings-filtering" && hasRuleDraft) {
                             val editorBounds = android.graphics.Rect()
                             blockRulesInput.getDrawingRect(editorBounds)
                             scroll.offsetDescendantRectToMyCoords(blockRulesInput, editorBounds)
@@ -285,22 +310,22 @@ class MainActivity : Activity() {
         val savedScrollY = contentScrollView?.scrollY ?: 0
         android.util.Log.i("GuardianUI", "Saving Activity state; tab=$currentTab scrollY=$savedScrollY")
         outState.putString(STATE_CURRENT_TAB, currentTab)
+        outState.putString(STATE_SETTINGS_CATEGORY, selectedSettingsCategory)
         outState.putBoolean(STATE_FOCUS_LICENSE_ACTIVATION, focusLicenseActivationOnBuild)
         outState.putInt(STATE_SCROLL_Y, savedScrollY)
+        if (currentTab == "settings-filtering" && ::blockRulesInput.isInitialized && ::allowRulesInput.isInitialized) {
+            outState.putString(STATE_BLOCK_RULES_DRAFT, blockRulesInput.text.toString())
+            outState.putString(STATE_ALLOW_RULES_DRAFT, allowRulesInput.text.toString())
+        }
         super.onSaveInstanceState(outState)
-    }
-
-    private data class RuleEditorDraft(val blockRules: String, val allowRules: String)
-
-    override fun onRetainNonConfigurationInstance(): Any? {
-        if (currentTab != "rules" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
-        val draft = RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
-        android.util.Log.i("GuardianUI", "Retaining rule editor draft; blockChars=${draft.blockRules.length} allowChars=${draft.allowRules.length}")
-        return draft
     }
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        if (currentTab.startsWith("settings-")) {
+            showTab("settings")
+            return
+        }
         if (currentTab != "home") {
             showTab("home")
             return
@@ -344,12 +369,20 @@ class MainActivity : Activity() {
         checkStartupFilterReadiness()
         if (usageAccessSettingsOpened) {
             usageAccessSettingsOpened = false
-            if (currentTab == "settings") {
-                showTab("settings")
+            if (currentTab.startsWith("settings")) {
+                showTab(currentTab)
                 refreshStatus()
             }
         }
         restoreProtectionAfterUpdateIfNeeded()
+    }
+
+    override fun onStop() {
+        if (receiverRegistered) {
+            unregisterReceiver(stateReceiver)
+            receiverRegistered = false
+        }
+        super.onStop()
     }
 
     /**
@@ -394,14 +427,6 @@ class MainActivity : Activity() {
         }
     }
 
-    override fun onStop() {
-        if (receiverRegistered) {
-            unregisterReceiver(stateReceiver)
-            receiverRegistered = false
-        }
-        super.onStop()
-    }
-
     @Deprecated("Deprecated in Android API")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -432,6 +457,19 @@ class MainActivity : Activity() {
         if (tab != "settings") {
             showTab(tab)
             return
+        }
+        // A tap on the Settings bottom-navigation destination is an explicit
+        // request to return to the category index. Do this before assigning
+        // currentTab: showTab() uses the previous destination to decide whether
+        // a phone should start on the category index or retain a detail page.
+        // Without this reset, returning to Settings from an already-open detail
+        // page leaves the user stranded in that detail screen and automation
+        // cannot reach sibling categories such as App Exclusions.
+        if (!ResponsiveLayoutPolicy.usesSettingsSplitPane(
+                resources.configuration.screenWidthDp.coerceAtLeast(1)
+            ) && (currentTab != "settings" || phoneSettingsShowingDetail)
+        ) {
+            phoneSettingsShowingDetail = false
         }
         currentTab = tab
         val loadingRoot = LinearLayout(this).apply {
@@ -466,12 +504,20 @@ class MainActivity : Activity() {
         focusLicenseActivation: Boolean = false,
         focusAppExclusions: Boolean = false
     ) {
+        val previousTab = currentTab
+        val entryWidthDp = resources.configuration.screenWidthDp.coerceAtLeast(1)
+        if (tab == "settings" && previousTab != "settings" &&
+            !ResponsiveLayoutPolicy.usesSettingsSplitPane(entryWidthDp)
+        ) {
+            // Phones use a full-width category list, then a full-width detail page.
+            phoneSettingsShowingDetail = false
+        }
         currentTab = tab
         getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
             .putString(PREF_LAST_SELECTED_TAB, tab)
             .apply()
-        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings"
-        focusAppExclusionsOnBuild = focusAppExclusions && tab == "settings"
+        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings-premium"
+        focusAppExclusionsOnBuild = focusAppExclusions && tab == "app-exclusions"
         licenseKeyInput = null
         startButton = null
         protectionStatusText = null
@@ -531,16 +577,35 @@ class MainActivity : Activity() {
         when (tab) {
             "home" -> buildHome(body)
             "protection" -> buildProtection(body)
-            "rules" -> buildRules(body)
             "activity" -> buildActivity(body)
-            "premium" -> buildPremium(body)
+            "premium" -> buildSettingsPremium(body)
             "updates" -> buildUpdates(body)
+            "settings-general" -> buildSettingsGeneral(body)
+            "settings-filtering" -> buildSettingsFiltering(body)
+            "settings-premium" -> buildSettingsPremium(body)
+            "settings-support" -> {
+                body.addView(text("고객 지원", 25f, white, true))
+                body.addView(buildSupportCenterCard().withTop(12))
+            }
+            "settings-about" -> buildSettingsAbout(body)
+            "settings-exit" -> {
+                buildSettingsLanding(body)
+                AlertDialog.Builder(this).setTitle("Guardian 종료")
+                    .setMessage("앱을 종료하시겠습니까? 실행 중인 DNS 보호는 종료 후에도 유지됩니다.")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("종료") { _, _ -> finish() }
+                    .show()
+            }
             "app-exclusions" -> {
                 body.addView(text("앱 제외", 25f, white, true))
                 body.addView(text("선택한 앱의 네트워크를 Guardian DNS 필터링에서 제외합니다.", 13f, muted, false).withTop(5))
                 buildAppExclusions(body)
             }
-            else -> buildSettings(body)
+            else -> buildSettingsLanding(body)
+        }
+        val navSelection = when {
+            tab.startsWith("settings-") || tab in setOf("premium", "updates", "rules") -> "settings"
+            else -> tab
         }
         val usesNavigationRail = ResponsiveLayoutPolicy.usesNavigationRail(screenWidthDp)
         val contentWidth = ResponsiveLayoutPolicy.contentWidthPx(
@@ -555,7 +620,7 @@ class MainActivity : Activity() {
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL
             )
         )
-        if (focusLicenseActivationOnBuild && tab == "settings") {
+        if (focusLicenseActivationOnBuild && tab == "settings-premium") {
             scroll.post {
                 licenseKeyInput?.let { input ->
                     val bounds = android.graphics.Rect()
@@ -572,7 +637,7 @@ class MainActivity : Activity() {
             }
         }
 
-        if (focusAppExclusionsOnBuild && tab == "settings") {
+        if (focusAppExclusionsOnBuild && tab == "app-exclusions") {
             window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
             scroll.post {
                 appExclusionsSearchInput?.let { input ->
@@ -594,12 +659,12 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
                 setBackgroundColor(bg)
             }
-            workspace.addView(bottomNav(tab, asRail = true), LinearLayout.LayoutParams(dp(88), -1))
+            workspace.addView(bottomNav(navSelection, asRail = true), LinearLayout.LayoutParams(dp(88), -1))
             workspace.addView(scroll, LinearLayout.LayoutParams(0, -1, 1f))
             root.addView(workspace, LinearLayout.LayoutParams(-1, 0, 1f))
         } else {
             root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-            root.addView(bottomNav(tab))
+            root.addView(bottomNav(navSelection))
         }
         setContentView(root)
         root.requestApplyInsets()
@@ -672,10 +737,10 @@ class MainActivity : Activity() {
     }
 
     private fun buildHome(body: LinearLayout) {
-        val homeBg = Color.rgb(29, 29, 29)
-        val homePanel = Color.rgb(57, 57, 57)
-        val homeGreen = Color.rgb(105, 179, 132)
-        val homeOrange = Color.rgb(244, 116, 74)
+        val homeBg = Color.rgb(14, 29, 43)
+        val homePanel = Color.rgb(19, 38, 55)
+        val homeGreen = Color.rgb(55, 211, 190)
+        val homeOrange = Color.rgb(239, 164, 91)
         val wideDashboard = ResponsiveLayoutPolicy.usesTwoColumnDashboard(resources.configuration.screenWidthDp)
 
         body.addView(text("보호 대시보드", 24f, white, true))
@@ -686,10 +751,10 @@ class MainActivity : Activity() {
             setPadding(dp(20), dp(20), dp(20), dp(20))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(22, 38, 56), Color.rgb(34, 48, 64))
+                intArrayOf(Color.rgb(13, 39, 55), Color.rgb(19, 54, 68))
             ).apply {
                 cornerRadius = dp(22).toFloat()
-                setStroke(dp(1), Color.rgb(65, 91, 116))
+                setStroke(dp(1), Color.rgb(48, 112, 126))
             }
         }
         val brandRow = LinearLayout(this).apply {
@@ -727,15 +792,29 @@ class MainActivity : Activity() {
         hero.addView(power, LinearLayout.LayoutParams(-1, dp(58)))
         body.addView(hero.withTop(18))
 
-        val metrics = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val metrics = LinearLayout(this).apply {
+            orientation = if (wideDashboard) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        }
         blockRateValue = text("0%", 22f, homeGreen, true)
         blockedCountValue = text("0", 22f, homeOrange, true)
         queryCountValue = text("0", 22f, white, true)
-        metrics.addView(metricCard("차단률", blockRateValue!!, homeGreen), LinearLayout.LayoutParams(0, dp(104), 1f))
-        metrics.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
-        metrics.addView(metricCard("차단된 질의", blockedCountValue!!, homeOrange), LinearLayout.LayoutParams(0, dp(104), 1f))
-        metrics.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
-        metrics.addView(metricCard("전체 DNS", queryCountValue!!, white), LinearLayout.LayoutParams(0, dp(104), 1f))
+        val rateCard = metricCard("차단률", blockRateValue!!, homeGreen)
+        val blockedCard = metricCard("차단된 질의", blockedCountValue!!, homeOrange)
+        val queryCard = metricCard("전체 DNS", queryCountValue!!, white)
+        if (wideDashboard) {
+            metrics.addView(rateCard, LinearLayout.LayoutParams(0, dp(104), 1f))
+            metrics.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+            metrics.addView(blockedCard, LinearLayout.LayoutParams(0, dp(104), 1f))
+            metrics.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+            metrics.addView(queryCard, LinearLayout.LayoutParams(0, dp(104), 1f))
+        } else {
+            val firstRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            firstRow.addView(rateCard, LinearLayout.LayoutParams(0, dp(104), 1f))
+            firstRow.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
+            firstRow.addView(blockedCard, LinearLayout.LayoutParams(0, dp(104), 1f))
+            metrics.addView(firstRow)
+            metrics.addView(queryCard, LinearLayout.LayoutParams(-1, dp(92)).apply { topMargin = dp(8) })
+        }
         body.addView(metrics.withTop(16))
 
         val versionName = try {
@@ -1499,7 +1578,7 @@ class MainActivity : Activity() {
                 setTextColor(bg)
                 background = shape(accent, 12)
                 setOnClickListener {
-                    showTab("settings", focusLicenseActivation = true)
+                    showTab("settings-premium", focusLicenseActivation = true)
                 }
             }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
         }.withTop(16))
@@ -1575,465 +1654,693 @@ class MainActivity : Activity() {
         ).withTop(14))
     }
 
-    private fun buildSettings(body: LinearLayout) {
-        body.addView(text("전체 메뉴", 25f, white, true))
-        body.addView(text("보호 정책, 필터, 앱 제외, 업데이트와 지원을 한곳에서 관리합니다.", 13f, muted, false).withTop(5))
-        val menuItems = listOf(
-            Triple("updates", "프로그램 업데이트", "Guardian 앱 업데이트 확인 및 설치"),
-            Triple("rules", "필터 관리", "필터 프로필과 사용자 차단·허용 규칙"),
-            Triple("app-exclusions", "앱 제외 관리", "DNS 필터링에서 제외할 앱 선택")
+    private fun buildSettingsLanding(body: LinearLayout) {
+        data class SettingsEntry(val symbol: String, val title: String, val description: String, val target: String)
+        val sections = listOf(
+            SettingsEntry("◉", "일반", "앱 동작, DNS 연결 및 기본 환경", "settings-general"),
+            SettingsEntry("◈", "필터링", "광고·추적 차단, 보호 정책과 사용자 규칙", "settings-filtering"),
+            SettingsEntry("◇", "라이선스 및 프리미엄", "이용 기간, 허용 기기와 프리미엄 기능", "settings-premium"),
+            SettingsEntry("✉", "고객 지원", "도움말, 시스템 진단과 오류 내용 복사", "settings-support"),
+            SettingsEntry("ⓘ", "정보", "제품 정보, 개인정보 및 앱 업데이트", "settings-about"),
+            SettingsEntry("⏻", "종료", "앱 종료 및 백그라운드 보호 안내", "settings-exit")
         )
-        menuItems.forEach { (target, title, description) ->
-            body.addView(card(panel, 14).apply {
+        val screenWidthDp = resources.configuration.screenWidthDp
+        body.addView(text("설정", 27f, white, true))
+        body.addView(text("Guardian을 원하는 방식으로 관리하세요.", 13f, muted, false).withTop(5))
+        if (ResponsiveLayoutPolicy.usesSettingsSplitPane(screenWidthDp)) {
+            val split = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.TOP
+            }.withTop(18) as LinearLayout
+            val categoryPanel = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(15), dp(13), dp(15), dp(13))
-                addView(text(title, 15f, white, true))
-                addView(text(description, 11f, muted, false).withTop(4))
-                setOnClickListener { showTab(target) }
-                isClickable = true
-                isFocusable = true
-            }.withTop(9))
+                setPadding(dp(8), dp(8), dp(8), dp(8))
+                background = shape(Color.rgb(17, 31, 47), 20)
+            }
+            val detailPanel = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(20), dp(18), dp(20), dp(20))
+                background = shape(Color.rgb(27, 27, 30), 20)
+            }
+            split.addView(categoryPanel, LinearLayout.LayoutParams(
+                dp(if (settingsSidebarCollapsed) 68 else 260),
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ).apply { marginEnd = dp(14) })
+            val sidebarToggle = Button(this).apply {
+                text = if (settingsSidebarCollapsed) ">" else "<  메뉴 접기"
+                isAllCaps = false
+                textSize = if (settingsSidebarCollapsed) 20f else 12f
+                setTextColor(accent)
+                background = shape(panel2, 12)
+                contentDescription = if (settingsSidebarCollapsed) "설정 메뉴 펼치기" else "설정 메뉴 접기"
+                setOnClickListener {
+                    settingsSidebarCollapsed = !settingsSidebarCollapsed
+                    showTab("settings")
+                }
+            }
+            categoryPanel.addView(sidebarToggle, LinearLayout.LayoutParams(-1, dp(42)).apply {
+                bottomMargin = dp(8)
+            })
+            sections.forEachIndexed { index, (symbol, title, description, target) ->
+                val selected = selectedSettingsCategory == target
+                categoryPanel.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(13), dp(14), dp(10), dp(14))
+                    background = shape(if (selected) Color.rgb(27, 72, 81) else Color.TRANSPARENT, 16)
+                    addView(text(symbol, 19f, if (selected) white else muted, true),
+                        LinearLayout.LayoutParams(dp(30), -2))
+                    if (!settingsSidebarCollapsed) {
+                        val labels = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+                        labels.addView(text(title, 14f, white, true))
+                        labels.addView(text(description, 10f, muted, false).withTop(3))
+                        addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+                    } else {
+                        gravity = Gravity.CENTER
+                    }
+                    contentDescription = title
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        selectedSettingsCategory = target
+                        showTab("settings")
+                    }
+                }.apply {
+                    if (index > 0) setPadding(paddingLeft, dp(12), paddingRight, dp(12))
+                }.withTop(3))
+            }
+            when (selectedSettingsCategory) {
+                "settings-general" -> buildSettingsGeneral(detailPanel)
+                "settings-filtering" -> buildSettingsFiltering(detailPanel)
+                "settings-premium" -> buildSettingsPremium(detailPanel)
+                "settings-support" -> {
+                    detailPanel.addView(text("고객 지원", 25f, white, true))
+                    detailPanel.addView(buildSupportCenterCard().withTop(12))
+                    detailPanel.addView(text("진단 정보와 오류 내용은 직접 확인하고 복사할 수 있습니다.", 11f, muted, false).withTop(10))
+                }
+                "settings-about" -> buildSettingsAbout(detailPanel)
+                "settings-exit" -> {
+                    detailPanel.addView(text("종료", 25f, white, true))
+                    detailPanel.addView(text("앱을 닫아도 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다.", 12f, muted, false).withTop(8))
+                    detailPanel.addView(Button(this).apply {
+                        text = "Guardian 종료"
+                        isAllCaps = false
+                        setTextColor(white)
+                        background = shape(Color.rgb(139, 57, 64), 12)
+                        setOnClickListener {
+                            AlertDialog.Builder(this@MainActivity).setTitle("Guardian 종료")
+                                .setMessage("앱을 종료하시겠습니까? 실행 중인 DNS 보호는 종료 후에도 유지됩니다.")
+                                .setNegativeButton("취소", null)
+                                .setPositiveButton("종료") { _, _ -> finish() }
+                                .show()
+                        }
+                    }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(16) })
+                }
+                else -> buildSettingsGeneral(detailPanel)
+            }
+            val detailScroll = ScrollView(this).apply {
+                isFillViewport = true
+                clipToPadding = false
+                addView(detailPanel, FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ))
+            }
+            split.addView(detailScroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+            body.addView(split, LinearLayout.LayoutParams(-1, dp(660)))
+            return
         }
-        body.addView(text("앱 정보 및 고객 지원", 18f, white, true).withTop(22))
-        body.addView(text("Guardian 앱 정보와 보호 정책", 13f, muted, false).withTop(5))
-        body.addView(buildSupportCenterCard().withTop(12))
-        body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent))
-        body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
-        body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
-        body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
-        body.addView(card(panel, 14).apply {
-            setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("운영 서버 주소 (노트북)", 15f, white, true))
-            addView(text(
-                "노트북에서 Guardian 운영서버를 실행한 뒤 HTTPS 주소를 입력하세요. 주소가 바뀌면 여기서 변경할 수 있습니다.",
-                11f, muted, false
-            ).withTop(5))
-            val serverUrlInput = EditText(this@MainActivity).apply {
-                hint = "https://guardian.example.com"
-                setHintTextColor(muted)
-                setTextColor(white)
-                textSize = 13f
-                setSingleLine(true)
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-                setPadding(dp(12), dp(12), dp(12), dp(12))
-                background = shape(panel2, 11)
-                setText(LicenseApiClient.configuredBaseUrl(this@MainActivity))
-            }
-            addView(serverUrlInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
-            val serverFeedback = text(
-                "현재 주소: " + LicenseApiClient.configuredBaseUrl(this@MainActivity).ifBlank { "미설정 (운영서버 미연결)" },
-                10f, muted, false
-            ).withTop(7) as TextView
-            addView(serverFeedback)
-            addView(Button(this@MainActivity).apply {
-                text = "운영 서버 주소 저장"
-                isAllCaps = false
-                setTextColor(bg)
-                background = shape(accent, 12)
-                setOnClickListener {
-                    try {
-                        LicenseApiClient.saveBaseUrl(this@MainActivity, serverUrlInput.text.toString())
-                        LicenseRefreshScheduler.sync(this@MainActivity)
-                        serverFeedback.text = "저장 완료 · 라이선스 자동 갱신 일정에 새 서버 주소를 반영했습니다."
-                    } catch (error: Exception) {
-                        serverFeedback.text = "운영 서버 설정 실패: ${SafeFailureSummary.describe(error)}"
-                    }
-                }
-            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-            addView(Button(this@MainActivity).apply {
-                text = "빌드 기본 주소로 되돌리기"
-                isAllCaps = false
-                setTextColor(white)
-                background = shape(panel2, 12)
-                setOnClickListener {
-                    LicenseApiClient.resetBaseUrl(this@MainActivity)
-                    LicenseRefreshScheduler.sync(this@MainActivity)
-                    serverUrlInput.setText(BuildConfig.LICENSE_API_BASE_URL)
-                    serverFeedback.text = "빌드 기본 주소로 되돌렸습니다."
-                }
-            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(6) })
-        }.withTop(12))
-        body.addView(card(panel, 14).apply {
-            setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("서명 필터 배포 서버", 15f, white, true))
-            addView(text(
-                "필터 파일은 앱에 포함된 공개키로 서명을 검증합니다. 노트북 서버의 HTTPS 주소를 바꾸면 다음 업데이트부터 새 주소를 사용합니다.",
-                11f, muted, false
-            ).withTop(5))
-            val filterServerInput = EditText(this@MainActivity).apply {
-                hint = "https://filters.example.com"
-                setHintTextColor(muted)
-                setTextColor(white)
-                textSize = 13f
-                setSingleLine(true)
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-                setPadding(dp(12), dp(12), dp(12), dp(12))
-                background = shape(panel2, 11)
-                setText(FilterDistributionSettings.configuredBaseUrl(this@MainActivity))
-            }
-            addView(filterServerInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
-            val filterServerFeedback = text(
-                "현재 주소: " + FilterDistributionSettings.configuredBaseUrl(this@MainActivity)
-                    .ifBlank { "미설정 · 서명 배포 서버 연결 전에는 기존 필터 공급원을 사용합니다." },
-                10f, muted, false
-            ).withTop(7) as TextView
-            addView(filterServerFeedback)
-            addView(Button(this@MainActivity).apply {
-                text = "필터 서버 주소 저장"
-                isAllCaps = false
-                setTextColor(bg)
-                background = shape(accent, 12)
-                setOnClickListener {
-                    try {
-                        FilterDistributionSettings.saveBaseUrl(this@MainActivity, filterServerInput.text.toString())
-                        filterServerFeedback.text = "저장 완료 · 다음 필터 업데이트부터 새 HTTPS 서버와 앱 내 서명 공개키를 사용합니다."
-                    } catch (error: Exception) {
-                        filterServerFeedback.text = "필터 서버 설정 실패: ${SafeFailureSummary.describe(error)}"
-                    }
-                }
-            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-            addView(Button(this@MainActivity).apply {
-                text = "빌드 기본 주소로 되돌리기"
-                isAllCaps = false
-                setTextColor(white)
-                background = shape(panel2, 12)
-                setOnClickListener {
-                    FilterDistributionSettings.resetBaseUrl(this@MainActivity)
-                    filterServerInput.setText(BuildConfig.FILTER_MANIFEST_BASE_URL)
-                    filterServerFeedback.text = "빌드 기본 주소로 되돌렸습니다."
-                }
-            }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(6) })
-        }.withTop(12))
-        body.addView(card(panel, 14).apply {
-            setPadding(dp(15), dp(13), dp(15), dp(13))
-            addView(text("제작자 및 개발사", 13f, white, true))
-            addView(text("(주)유진컨설팅", 13f, accent, true).withTop(8))
-            addView(text("제작자: 이학범", 12f, white, false).withTop(4))
-            addView(text("연락처: 010-5201-3121", 12f, muted, false).withTop(3))
-        }.withTop(12))
-        val verifiedLicense = LicenseEntitlementStore.current(this)
-        // Keep an expired-but-valid signed token available for device-slot release.
-        // It must never be presented as an active Pro entitlement.
-        val releasableLicense = LicenseEntitlementStore.currentForRefresh(this)
-        body.addView(infoRow(
-            "라이선스",
-            when {
-                verifiedLicense != null -> "서버 서명 및 이 기기 등록을 확인했습니다"
-                releasableLicense != null -> "라이선스가 만료되었습니다 · 이 기기 등록 해제 가능"
-                else -> "서명 라이선스 미등록 · 무료 보호 기능 사용 중"
-            },
-            if (verifiedLicense != null) "PRO" else "FREE",
-            if (verifiedLicense != null) accent else muted
-        ))
 
+        // Phone layout deliberately avoids a cramped side-by-side rail.
+        // Show the six settings categories at full width, then open the selected
+        // category as a full-width detail page with a clear back-to-menu action.
+        if (!phoneSettingsShowingDetail) {
+            sections.forEach { (symbol, title, description, target) ->
+                body.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(16), dp(15), dp(14), dp(15))
+                    background = shape(panel, 15)
+                    addView(text(symbol, 21f, accent, true),
+                        LinearLayout.LayoutParams(dp(38), -2))
+                    val labels = LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        addView(text(title, 14f, white, true))
+                        addView(text(description, 11f, muted, false).withTop(4))
+                    }
+                    addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(text("›", 24f, muted, true))
+                    isClickable = true
+                    isFocusable = true
+                    contentDescription = "$title 설정 열기"
+                    setOnClickListener {
+                        selectedSettingsCategory = target
+                        phoneSettingsShowingDetail = true
+                        showTab("settings")
+                    }
+                }.withTop(9))
+            }
+            return
+        }
+
+        body.addView(Button(this).apply {
+            text = "‹  설정 메뉴"
+            isAllCaps = false
+            textSize = 13f
+            setTextColor(accent)
+            background = shape(panel2, 11)
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            setPadding(dp(14), 0, dp(14), 0)
+            setOnClickListener {
+                phoneSettingsShowingDetail = false
+                showTab("settings")
+            }
+        }.withTop(12))
+        val phoneDetail = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(16), dp(15), dp(18))
+            background = shape(Color.rgb(27, 27, 30), 16)
+        }
+        when (selectedSettingsCategory) {
+            "settings-general" -> buildSettingsGeneral(phoneDetail)
+            "settings-filtering" -> buildSettingsFiltering(phoneDetail)
+            "settings-premium" -> buildSettingsPremium(phoneDetail)
+            "settings-support" -> {
+                phoneDetail.addView(text("고객 지원", 21f, white, true))
+                phoneDetail.addView(buildSupportCenterCard().withTop(10))
+                phoneDetail.addView(text("진단 정보와 오류 내용은 직접 확인하고 복사할 수 있습니다.", 11f, muted, false).withTop(8))
+            }
+            "settings-about" -> buildSettingsAbout(phoneDetail)
+            "settings-exit" -> {
+                phoneDetail.addView(text("종료", 21f, white, true))
+                phoneDetail.addView(text("앱을 닫아도 DNS 보호는 명시적으로 중지하지 않는 한 유지됩니다.", 11f, muted, false).withTop(8))
+                phoneDetail.addView(Button(this).apply {
+                    text = "Guardian 종료"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(Color.rgb(139, 57, 64), 12)
+                    setOnClickListener {
+                        AlertDialog.Builder(this@MainActivity).setTitle("Guardian 종료")
+                            .setMessage("앱을 종료하시겠습니까? 실행 중인 DNS 보호는 종료 후에도 유지됩니다.")
+                            .setNegativeButton("취소", null)
+                            .setPositiveButton("종료") { _, _ -> finish() }
+                            .show()
+                    }
+                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(12) })
+            }
+            else -> buildSettingsGeneral(phoneDetail)
+        }
+        body.addView(phoneDetail, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+    }
+
+    private fun buildSettingsGeneral(body: LinearLayout) {
+        body.addView(text("일반", 25f, white, true))
+        body.addView(text("앱 표시와 기본 동작, 알림 권한을 관리합니다.", 13f, muted, false).withTop(5))
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("PRO 라이선스 활성화", 15f, white, true))
-            addView(text(
-                "발급받은 라이선스 키를 입력하면 서버에서 기기 등록 후 서명 토큰을 발급합니다.",
-                11f, muted, false
-            ).withTop(5))
-            val licenseKeyInput = EditText(this@MainActivity).apply {
-                hint = "GDN-XXXX-XXXX-..."
-                contentDescription = "PRO 라이선스 활성화 코드 입력"
-                setHintTextColor(muted)
-                setTextColor(white)
-                textSize = 13f
-                setSingleLine(true)
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                setPadding(dp(12), dp(12), dp(12), dp(12))
-                background = shape(panel2, 11)
-            }
-            this@MainActivity.licenseKeyInput = licenseKeyInput
-            addView(licenseKeyInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
-            val licenseFeedback = text(
-                if (LicenseApiClient.configuredBaseUrl(this@MainActivity).isBlank()) "운영 라이선스 서버 주소가 아직 설정되지 않았습니다."
-                else "라이선스 키는 서버에서 확인하며 앱에는 원문을 저장하지 않습니다.",
-                10f, muted, false
-            ).withTop(8) as TextView
-            addView(licenseFeedback)
-            val activateButton = Button(this@MainActivity).apply {
-                text = "라이선스 활성화"
+            addView(text("표시 및 언어", 15f, white, true))
+            addView(infoRow("표시 언어", "현재 앱 인터페이스 언어", "한국어", accent))
+            addView(infoRow("화면 테마", "Guardian 기본 화면 테마", "다크", accent))
+            addView(infoRow("백그라운드 동작", "앱 창을 닫아도 실행 중인 DNS 보호 유지", "유지", accent))
+        }.withTop(12))
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("알림 권한", 15f, white, true))
+            addView(text("보호 상태와 업데이트 알림은 Android 시스템 알림 권한을 사용합니다.", 11f, muted, false).withTop(5))
+            addView(Button(this@MainActivity).apply {
+                text = "Android 알림 설정 열기"
                 isAllCaps = false
-                setTextColor(bg)
-                background = shape(accent, 12)
+                setTextColor(white)
+                background = shape(panel2, 12)
                 setOnClickListener {
-                    val key = licenseKeyInput.text.toString().trim()
-                    if (key.isBlank()) {
-                        licenseFeedback.text = "라이선스 키를 입력하세요."
-                        return@setOnClickListener
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    startActivity(intent)
+                }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+        }.withTop(10))
+    }
+
+    private fun buildSettingsFiltering(body: LinearLayout) {
+        body.addView(text("필터링", 25f, white, true))
+        body.addView(text("보호 정책, DNS 연결, 필터 서버와 사용자 규칙을 관리합니다.", 13f, muted, false).withTop(5))
+        buildProtection(body)
+        buildRules(body)
+                body.addView(card(panel, 14).apply {
+                    setPadding(dp(15), dp(15), dp(15), dp(15))
+                    addView(text("서명 필터 배포 서버", 15f, white, true))
+                    addView(text(
+                        "필터 파일은 앱에 포함된 공개키로 서명을 검증합니다. 노트북 서버의 HTTPS 주소를 바꾸면 다음 업데이트부터 새 주소를 사용합니다.",
+                        11f, muted, false
+                    ).withTop(5))
+                    val filterServerInput = EditText(this@MainActivity).apply {
+                        hint = "https://filters.example.com"
+                        setHintTextColor(muted)
+                        setTextColor(white)
+                        textSize = 13f
+                        setSingleLine(true)
+                        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+                        setPadding(dp(12), dp(12), dp(12), dp(12))
+                        background = shape(panel2, 11)
+                        setText(FilterDistributionSettings.configuredBaseUrl(this@MainActivity))
                     }
-                    isEnabled = false
-                    licenseFeedback.text = "서버에 라이선스 활성화를 요청하고 있습니다."
-                    thread {
-                        try {
-                            LicenseApiClient.activate(this@MainActivity, key, BuildConfig.VERSION_NAME)
-                            runOnUiThread { showTab("settings") }
-                        } catch (error: Exception) {
-                            runOnUiThread {
-                                licenseFeedback.text = "라이선스 활성화 실패: ${SafeFailureSummary.describe(error)}"
-                                isEnabled = true
+                    addView(filterServerInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+                    val filterServerFeedback = text(
+                        "현재 주소: " + FilterDistributionSettings.configuredBaseUrl(this@MainActivity)
+                            .ifBlank { "미설정 · 서명 배포 서버 연결 전에는 기존 필터 공급원을 사용합니다." },
+                        10f, muted, false
+                    ).withTop(7) as TextView
+                    addView(filterServerFeedback)
+                    addView(Button(this@MainActivity).apply {
+                        text = "필터 서버 주소 저장"
+                        isAllCaps = false
+                        setTextColor(bg)
+                        background = shape(accent, 12)
+                        setOnClickListener {
+                            try {
+                                FilterDistributionSettings.saveBaseUrl(this@MainActivity, filterServerInput.text.toString())
+                                filterServerFeedback.text = "저장 완료 · 다음 필터 업데이트부터 새 HTTPS 서버와 앱 내 서명 공개키를 사용합니다."
+                            } catch (error: Exception) {
+                                filterServerFeedback.text = "필터 서버 설정 실패: ${SafeFailureSummary.describe(error)}"
+                            }
+                        }
+                    }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+                    addView(Button(this@MainActivity).apply {
+                        text = "빌드 기본 주소로 되돌리기"
+                        isAllCaps = false
+                        setTextColor(white)
+                        background = shape(panel2, 12)
+                        setOnClickListener {
+                            FilterDistributionSettings.resetBaseUrl(this@MainActivity)
+                            filterServerInput.setText(BuildConfig.FILTER_MANIFEST_BASE_URL)
+                            filterServerFeedback.text = "빌드 기본 주소로 되돌렸습니다."
+                        }
+                    }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(6) })
+                }.withTop(12))
+        body.addView(text("DNS 업스트림 서버 · 암호화 연결", 18f, white, true).withTop(24))
+                body.addView(text("차단되지 않은 DNS 질의를 전달할 서버를 선택합니다.", 12f, muted, false).withTop(5))
+                val dnsPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+                val knownDnsOptions = listOf(
+                    "Cloudflare · IPv4 · 1.1.1.1" to "1.1.1.1",
+                    "Cloudflare · IPv6 · 2606:4700:4700::1111" to "2606:4700:4700::1111",
+                    "Google · IPv4 · 8.8.8.8" to "8.8.8.8",
+                    "Google · IPv6 · 2001:4860:4860::8888" to "2001:4860:4860::8888",
+                    "Quad9 · IPv4 · 9.9.9.9" to "9.9.9.9",
+                    "Quad9 · IPv6 · 2620:fe::fe" to "2620:fe::fe",
+                    "AdGuard DNS · IPv4 · 광고/추적 차단" to "94.140.14.14",
+                    "AdGuard DNS · IPv6 · 광고/추적 차단" to "2a10:50c0::ad1:ff",
+                    "AdGuard DNS 가족 보호 · IPv4 · 성인 콘텐츠 차단" to "94.140.14.15",
+                    "AdGuard DNS 가족 보호 · IPv6 · 성인 콘텐츠 차단" to "2a10:50c0::bad1:ff"
+                )
+                val currentDns = dnsPrefs.getString(GuardianVpnService.KEY_UPSTREAM_DNS, GuardianVpnService.DEFAULT_UPSTREAM_DNS)
+                    ?: GuardianVpnService.DEFAULT_UPSTREAM_DNS
+                var tlsHostInput: EditText? = null
+                val dnsOptions = knownDnsOptions.toMutableList()
+                if (knownDnsOptions.none { it.second == currentDns }) {
+                    dnsOptions.add(0, "사용자 지정 · $currentDns" to currentDns)
+                }
+                val dnsSpinner = Spinner(this)
+                val dnsAdapter = darkSpinnerAdapter(dnsOptions.map { it.first })
+                dnsSpinner.background = shape(panel2, 12)
+                dnsSpinner.setPadding(dp(8), dp(3), dp(8), dp(3))
+                dnsSpinner.setPopupBackgroundDrawable(shape(panel, 12))
+                dnsSpinner.adapter = dnsAdapter
+                val selectedDns = dnsOptions.indexOfFirst { it.second == currentDns }.coerceAtLeast(0)
+                dnsSpinner.setSelection(selectedDns)
+                dnsSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                    override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                        val selectedAddress = dnsOptions[position].second
+                        val previousAddress = dnsPrefs.getString(
+                            GuardianVpnService.KEY_UPSTREAM_DNS,
+                            GuardianVpnService.DEFAULT_UPSTREAM_DNS
+                        )
+                        // Spinner emits an initial selection when Settings is rendered.
+                        // Do not overwrite a user's custom TLS hostname or reload filter
+                        // rules unless the resolver address actually changed.
+                        if (previousAddress != selectedAddress) {
+                            dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_DNS, selectedAddress).apply()
+                            defaultTlsHostForDns(selectedAddress)?.let { host ->
+                                dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, host).apply()
+                                tlsHostInput?.setText(host)
                             }
                         }
                     }
                 }
-            }
-            addView(activateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
-            if (releasableLicense != null) {
-                val refreshButton = Button(this@MainActivity).apply {
-                    text = "라이선스 상태 갱신"
+                body.addView(card(panel, 14).apply {
+                    setPadding(dp(12), dp(5), dp(12), dp(5))
+                    addView(dnsSpinner)
+                }.withTop(10))
+                val transportOptions = listOf(
+                    "UDP · 일반 DNS/53" to "udp",
+                    "TCP · DNS/53" to "tcp",
+                    "DNS-over-TLS · 암호화/853" to "dot",
+                    "DNS-over-HTTPS · 암호화/443" to "doh"
+                )
+                val currentTransport = dnsPrefs.getString(
+                    GuardianVpnService.KEY_UPSTREAM_TRANSPORT,
+                    GuardianVpnService.DEFAULT_UPSTREAM_TRANSPORT
+                ) ?: GuardianVpnService.DEFAULT_UPSTREAM_TRANSPORT
+                val transportSpinner = Spinner(this).apply {
+                    background = shape(panel2, 12)
+                    setPadding(dp(8), dp(3), dp(8), dp(3))
+                    setPopupBackgroundDrawable(shape(panel, 12))
+                    adapter = darkSpinnerAdapter(transportOptions.map { it.first })
+                    setSelection(transportOptions.indexOfFirst { it.second == currentTransport }.coerceAtLeast(0))
+                }
+                body.addView(text("암호화 DNS · 업스트림 전송 방식", 15f, white, true).withTop(16))
+                body.addView(card(panel, 14).apply {
+                    setPadding(dp(12), dp(5), dp(12), dp(5))
+                    addView(transportSpinner)
+                }.withTop(8))
+        
+                val currentTlsHost = dnsPrefs.getString(
+                    GuardianVpnService.KEY_UPSTREAM_TLS_HOST,
+                    defaultTlsHostForDns(currentDns) ?: GuardianVpnService.DEFAULT_UPSTREAM_TLS_HOST
+                ) ?: GuardianVpnService.DEFAULT_UPSTREAM_TLS_HOST
+                tlsHostInput = EditText(this).apply {
+                    hint = "TLS 인증서 호스트 이름 (예: cloudflare-dns.com)"
+                    setHintTextColor(muted)
+                    setTextColor(white)
+                    textSize = 13f
+                    setSingleLine(true)
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    setPadding(dp(13), dp(12), dp(13), dp(12))
+                    background = shape(panel2, 12)
+                    setText(currentTlsHost)
+                    visibility = if (currentTransport == "dot" || currentTransport == "doh") View.VISIBLE else View.GONE
+                }
+                body.addView(tlsHostInput!!, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+                val tlsHostFeedback = text(
+                    "DoT/DoH는 TLS 인증서와 호스트 이름을 검증합니다. 사용자 지정 DNS IP를 선택했다면 해당 IP에 맞는 인증서 호스트를 입력하세요.",
+                    10f, muted, false
+                ).withTop(6) as TextView
+                tlsHostFeedback.visibility = if (currentTransport == "dot" || currentTransport == "doh") View.VISIBLE else View.GONE
+                body.addView(tlsHostFeedback)
+                val tlsHostSaveButton = Button(this).apply {
+                    text = "TLS 호스트 저장"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(panel2, 12)
+                    visibility = if (currentTransport == "dot" || currentTransport == "doh") View.VISIBLE else View.GONE
+                    setOnClickListener {
+                        val normalized = DnsTlsHostValidator.normalize(tlsHostInput?.text?.toString().orEmpty())
+                        if (normalized == null) {
+                            tlsHostFeedback.text = "올바른 DNS 호스트 이름을 입력하세요. IP 주소나 밑줄은 사용할 수 없습니다."
+                            tlsHostFeedback.setTextColor(red)
+                        } else {
+                            dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, normalized).apply()
+                            tlsHostInput?.setText(normalized)
+                            tlsHostFeedback.text = "TLS 인증서 호스트 저장 완료: $normalized"
+                            tlsHostFeedback.setTextColor(accent)
+                            if (ProtectionState.isActive(
+                                    dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                                    GuardianVpnService.isTunnelActive()
+                                )) {
+                                startService(Intent(this@MainActivity, GuardianVpnService::class.java)
+                                    .setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                            }
+                        }
+                    }
+                }
+                body.addView(tlsHostSaveButton, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(8) })
+                transportSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                    override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+                    override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                        val mode = transportOptions[position].second
+                        val previous = dnsPrefs.getString(
+                            GuardianVpnService.KEY_UPSTREAM_TRANSPORT,
+                            GuardianVpnService.DEFAULT_UPSTREAM_TRANSPORT
+                        )
+                        if (previous != mode) {
+                            dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TRANSPORT, mode).apply()
+                            val showTls = mode == "dot" || mode == "doh"
+                            tlsHostInput?.visibility = if (showTls) View.VISIBLE else View.GONE
+                            tlsHostFeedback.visibility = if (showTls) View.VISIBLE else View.GONE
+                            tlsHostSaveButton.visibility = if (showTls) View.VISIBLE else View.GONE
+                            if (ProtectionState.isActive(
+                                    dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
+                                    GuardianVpnService.isTunnelActive()
+                                )) {
+                                startService(Intent(this@MainActivity, GuardianVpnService::class.java)
+                                    .setAction(GuardianVpnService.ACTION_RELOAD_RULES))
+                            }
+                        }
+                    }
+                }
+        
+                body.addView(text(
+                    "시스템 가상 DNS의 업스트림은 즉시 변경됩니다. 공용 DNS 직접 포착을 사용하는 경우 새 서버 경로는 보호를 중지하고 다시 시작해야 적용됩니다.",
+                    10f, muted, false
+                ).withTop(7))
+                val customDnsInput = EditText(this).apply {
+                    hint = "사용자 지정 IPv4/IPv6 주소"
+                    setHintTextColor(muted)
+                    setTextColor(white)
+                    textSize = 13f
+                    setSingleLine(true)
+                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    setPadding(dp(13), dp(12), dp(13), dp(12))
+                    background = shape(panel2, 12)
+                    if (knownDnsOptions.none { it.second == currentDns }) setText(currentDns)
+                }
+                body.addView(customDnsInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+                val customDnsFeedback = text("IP 주소만 입력할 수 있습니다. 호스트 이름은 허용하지 않습니다.", 11f, muted, false).withTop(6) as TextView
+                body.addView(customDnsFeedback)
+                body.addView(Button(this).apply {
+                    text = "사용자 지정 DNS 저장"
                     isAllCaps = false
                     setTextColor(white)
                     background = shape(panel2, 12)
                     setOnClickListener {
-                        isEnabled = false
-                        licenseFeedback.text = "서버에서 라이선스 상태를 확인하고 있습니다."
-                        thread {
+                        val normalized = DnsAddressValidator.normalize(customDnsInput.text.toString())
+                        if (normalized == null) {
+                            customDnsFeedback.text = "올바른 IPv4 또는 IPv6 주소를 입력하세요."
+                            customDnsFeedback.setTextColor(red)
+                        } else {
+                            dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_DNS, normalized).apply()
+                            defaultTlsHostForDns(normalized)?.let { host ->
+                                dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, host).apply()
+                                tlsHostInput?.setText(host)
+                            }
+                            var index = dnsOptions.indexOfFirst { it.second == normalized }
+                            if (index < 0) {
+                                dnsOptions.add(0, "사용자 지정 · $normalized" to normalized)
+                                dnsAdapter.clear()
+                                dnsAdapter.addAll(dnsOptions.map { it.first })
+                                index = 0
+                            }
+                            dnsSpinner.setSelection(index)
+                            customDnsInput.setText(normalized)
+                            customDnsFeedback.text = "DNS 서버 저장 완료: $normalized"
+                            customDnsFeedback.setTextColor(accent)
+                        }
+                    }
+                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+                // Keep the device-wide compatibility option ahead of the large installed-app
+                // inventory so it remains discoverable without scrolling through every app.
+                buildCompatibilityPauseSection(body)
+                body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
+    }
+
+    private fun buildSettingsPremium(body: LinearLayout) {
+        val releasableLicense = LicenseEntitlementStore.currentForRefresh(this)
+        buildPremium(body)
+                body.addView(card(panel, 14).apply {
+                    setPadding(dp(15), dp(15), dp(15), dp(15))
+                    addView(text("운영 서버 주소 (노트북)", 15f, white, true))
+                    addView(text(
+                        "노트북에서 Guardian 운영서버를 실행한 뒤 HTTPS 주소를 입력하세요. 주소가 바뀌면 여기서 변경할 수 있습니다.",
+                        11f, muted, false
+                    ).withTop(5))
+                    val serverUrlInput = EditText(this@MainActivity).apply {
+                        hint = "https://guardian.example.com"
+                        setHintTextColor(muted)
+                        setTextColor(white)
+                        textSize = 13f
+                        setSingleLine(true)
+                        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+                        setPadding(dp(12), dp(12), dp(12), dp(12))
+                        background = shape(panel2, 11)
+                        setText(LicenseApiClient.configuredBaseUrl(this@MainActivity))
+                    }
+                    addView(serverUrlInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+                    val serverFeedback = text(
+                        "현재 주소: " + LicenseApiClient.configuredBaseUrl(this@MainActivity).ifBlank { "미설정 (운영서버 미연결)" },
+                        10f, muted, false
+                    ).withTop(7) as TextView
+                    addView(serverFeedback)
+                    addView(Button(this@MainActivity).apply {
+                        text = "운영 서버 주소 저장"
+                        isAllCaps = false
+                        setTextColor(bg)
+                        background = shape(accent, 12)
+                        setOnClickListener {
                             try {
-                                LicenseApiClient.refresh(this@MainActivity)
-                                runOnUiThread { showTab("settings") }
+                                LicenseApiClient.saveBaseUrl(this@MainActivity, serverUrlInput.text.toString())
+                                LicenseRefreshScheduler.sync(this@MainActivity)
+                                serverFeedback.text = "저장 완료 · 라이선스 자동 갱신 일정에 새 서버 주소를 반영했습니다."
                             } catch (error: Exception) {
-                                runOnUiThread {
-                                    if (error is LicenseApiException && error.invalidatesEntitlement) {
-                                        // Rebuild settings after the local signed token was cleared.
-                                        showTab("settings")
-                                    } else {
-                                        licenseFeedback.text = "라이선스 갱신 실패: ${SafeFailureSummary.describe(error)}"
+                                serverFeedback.text = "운영 서버 설정 실패: ${SafeFailureSummary.describe(error)}"
+                            }
+                        }
+                    }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+                    addView(Button(this@MainActivity).apply {
+                        text = "빌드 기본 주소로 되돌리기"
+                        isAllCaps = false
+                        setTextColor(white)
+                        background = shape(panel2, 12)
+                        setOnClickListener {
+                            LicenseApiClient.resetBaseUrl(this@MainActivity)
+                            LicenseRefreshScheduler.sync(this@MainActivity)
+                            serverUrlInput.setText(BuildConfig.LICENSE_API_BASE_URL)
+                            serverFeedback.text = "빌드 기본 주소로 되돌렸습니다."
+                        }
+                    }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(6) })
+                }.withTop(12))
+                body.addView(card(panel, 14).apply {
+                    setPadding(dp(15), dp(15), dp(15), dp(15))
+                    addView(text("PRO 라이선스 활성화", 15f, white, true))
+                    addView(text(
+                        "발급받은 라이선스 키를 입력하면 서버에서 기기 등록 후 서명 토큰을 발급합니다.",
+                        11f, muted, false
+                    ).withTop(5))
+                    val licenseKeyInput = EditText(this@MainActivity).apply {
+                        hint = "GDN-XXXX-XXXX-..."
+                        contentDescription = "PRO 라이선스 활성화 코드 입력"
+                        setHintTextColor(muted)
+                        setTextColor(white)
+                        textSize = 13f
+                        setSingleLine(true)
+                        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                        setPadding(dp(12), dp(12), dp(12), dp(12))
+                        background = shape(panel2, 11)
+                    }
+                    this@MainActivity.licenseKeyInput = licenseKeyInput
+                    addView(licenseKeyInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
+                    val licenseFeedback = text(
+                        if (LicenseApiClient.configuredBaseUrl(this@MainActivity).isBlank()) "운영 라이선스 서버 주소가 아직 설정되지 않았습니다."
+                        else "라이선스 키는 서버에서 확인하며 앱에는 원문을 저장하지 않습니다.",
+                        10f, muted, false
+                    ).withTop(8) as TextView
+                    addView(licenseFeedback)
+                    val activateButton = Button(this@MainActivity).apply {
+                        text = "라이선스 활성화"
+                        isAllCaps = false
+                        setTextColor(bg)
+                        background = shape(accent, 12)
+                        setOnClickListener {
+                            val key = licenseKeyInput.text.toString().trim()
+                            if (key.isBlank()) {
+                                licenseFeedback.text = "라이선스 키를 입력하세요."
+                                return@setOnClickListener
+                            }
+                            isEnabled = false
+                            licenseFeedback.text = "서버에 라이선스 활성화를 요청하고 있습니다."
+                            thread {
+                                try {
+                                    LicenseApiClient.activate(this@MainActivity, key, BuildConfig.VERSION_NAME)
+                                    runOnUiThread { showTab("settings-premium") }
+                                } catch (error: Exception) {
+                                    runOnUiThread {
+                                        licenseFeedback.text = "라이선스 활성화 실패: ${SafeFailureSummary.describe(error)}"
                                         isEnabled = true
                                     }
                                 }
                             }
                         }
                     }
-                }
-                addView(refreshButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-                val deactivateButton = Button(this@MainActivity).apply {
-                    text = "이 기기 라이선스 해제"
-                    isAllCaps = false
-                    setTextColor(white)
-                    background = shape(panel2, 12)
-                    setOnClickListener {
-                        isEnabled = false
-                        thread {
-                            try {
-                                LicenseApiClient.deactivate(this@MainActivity)
-                                runOnUiThread { showTab("settings") }
-                            } catch (error: Exception) {
-                                runOnUiThread {
-                                    licenseFeedback.text = "기기 등록 해제 실패: ${SafeFailureSummary.describe(error)}"
-                                    isEnabled = true
+                    addView(activateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
+                    if (releasableLicense != null) {
+                        val refreshButton = Button(this@MainActivity).apply {
+                            text = "라이선스 상태 갱신"
+                            isAllCaps = false
+                            setTextColor(white)
+                            background = shape(panel2, 12)
+                            setOnClickListener {
+                                isEnabled = false
+                                licenseFeedback.text = "서버에서 라이선스 상태를 확인하고 있습니다."
+                                thread {
+                                    try {
+                                        LicenseApiClient.refresh(this@MainActivity)
+                                        runOnUiThread { showTab("settings-premium") }
+                                    } catch (error: Exception) {
+                                        runOnUiThread {
+                                            if (error is LicenseApiException && error.invalidatesEntitlement) {
+                                                // Rebuild settings after the local signed token was cleared.
+                                                showTab("settings-premium")
+                                            } else {
+                                                licenseFeedback.text = "라이선스 갱신 실패: ${SafeFailureSummary.describe(error)}"
+                                                isEnabled = true
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
+                        addView(refreshButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+                        val deactivateButton = Button(this@MainActivity).apply {
+                            text = "이 기기 라이선스 해제"
+                            isAllCaps = false
+                            setTextColor(white)
+                            background = shape(panel2, 12)
+                            setOnClickListener {
+                                isEnabled = false
+                                thread {
+                                    try {
+                                        LicenseApiClient.deactivate(this@MainActivity)
+                                        runOnUiThread { showTab("settings-premium") }
+                                    } catch (error: Exception) {
+                                        runOnUiThread {
+                                            licenseFeedback.text = "기기 등록 해제 실패: ${SafeFailureSummary.describe(error)}"
+                                            isEnabled = true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        addView(deactivateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
                     }
-                }
-                addView(deactivateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-            }
-        }.withTop(12))
-        body.addView(text("DNS 업스트림 서버 · 암호화 연결", 18f, white, true).withTop(24))
-        body.addView(text("차단되지 않은 DNS 질의를 전달할 서버를 선택합니다.", 12f, muted, false).withTop(5))
-        val dnsPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
-        val knownDnsOptions = listOf(
-            "Cloudflare · IPv4 · 1.1.1.1" to "1.1.1.1",
-            "Cloudflare · IPv6 · 2606:4700:4700::1111" to "2606:4700:4700::1111",
-            "Google · IPv4 · 8.8.8.8" to "8.8.8.8",
-            "Google · IPv6 · 2001:4860:4860::8888" to "2001:4860:4860::8888",
-            "Quad9 · IPv4 · 9.9.9.9" to "9.9.9.9",
-            "Quad9 · IPv6 · 2620:fe::fe" to "2620:fe::fe",
-            "AdGuard DNS · IPv4 · 광고/추적 차단" to "94.140.14.14",
-            "AdGuard DNS · IPv6 · 광고/추적 차단" to "2a10:50c0::ad1:ff",
-            "AdGuard DNS 가족 보호 · IPv4 · 성인 콘텐츠 차단" to "94.140.14.15",
-            "AdGuard DNS 가족 보호 · IPv6 · 성인 콘텐츠 차단" to "2a10:50c0::bad1:ff"
-        )
-        val currentDns = dnsPrefs.getString(GuardianVpnService.KEY_UPSTREAM_DNS, GuardianVpnService.DEFAULT_UPSTREAM_DNS)
-            ?: GuardianVpnService.DEFAULT_UPSTREAM_DNS
-        var tlsHostInput: EditText? = null
-        val dnsOptions = knownDnsOptions.toMutableList()
-        if (knownDnsOptions.none { it.second == currentDns }) {
-            dnsOptions.add(0, "사용자 지정 · $currentDns" to currentDns)
-        }
-        val dnsSpinner = Spinner(this)
-        val dnsAdapter = darkSpinnerAdapter(dnsOptions.map { it.first })
-        dnsSpinner.background = shape(panel2, 12)
-        dnsSpinner.setPadding(dp(8), dp(3), dp(8), dp(3))
-        dnsSpinner.setPopupBackgroundDrawable(shape(panel, 12))
-        dnsSpinner.adapter = dnsAdapter
-        val selectedDns = dnsOptions.indexOfFirst { it.second == currentDns }.coerceAtLeast(0)
-        dnsSpinner.setSelection(selectedDns)
-        dnsSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val selectedAddress = dnsOptions[position].second
-                val previousAddress = dnsPrefs.getString(
-                    GuardianVpnService.KEY_UPSTREAM_DNS,
-                    GuardianVpnService.DEFAULT_UPSTREAM_DNS
-                )
-                // Spinner emits an initial selection when Settings is rendered.
-                // Do not overwrite a user's custom TLS hostname or reload filter
-                // rules unless the resolver address actually changed.
-                if (previousAddress != selectedAddress) {
-                    dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_DNS, selectedAddress).apply()
-                    defaultTlsHostForDns(selectedAddress)?.let { host ->
-                        dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, host).apply()
-                        tlsHostInput?.setText(host)
-                    }
-                }
-            }
-        }
-        body.addView(card(panel, 14).apply {
-            setPadding(dp(12), dp(5), dp(12), dp(5))
-            addView(dnsSpinner)
-        }.withTop(10))
-        val transportOptions = listOf(
-            "UDP · 일반 DNS/53" to "udp",
-            "TCP · DNS/53" to "tcp",
-            "DNS-over-TLS · 암호화/853" to "dot",
-            "DNS-over-HTTPS · 암호화/443" to "doh"
-        )
-        val currentTransport = dnsPrefs.getString(
-            GuardianVpnService.KEY_UPSTREAM_TRANSPORT,
-            GuardianVpnService.DEFAULT_UPSTREAM_TRANSPORT
-        ) ?: GuardianVpnService.DEFAULT_UPSTREAM_TRANSPORT
-        val transportSpinner = Spinner(this).apply {
-            background = shape(panel2, 12)
-            setPadding(dp(8), dp(3), dp(8), dp(3))
-            setPopupBackgroundDrawable(shape(panel, 12))
-            adapter = darkSpinnerAdapter(transportOptions.map { it.first })
-            setSelection(transportOptions.indexOfFirst { it.second == currentTransport }.coerceAtLeast(0))
-        }
-        body.addView(text("암호화 DNS · 업스트림 전송 방식", 15f, white, true).withTop(16))
-        body.addView(card(panel, 14).apply {
-            setPadding(dp(12), dp(5), dp(12), dp(5))
-            addView(transportSpinner)
-        }.withTop(8))
+                }.withTop(12))
+    }
 
-        val currentTlsHost = dnsPrefs.getString(
-            GuardianVpnService.KEY_UPSTREAM_TLS_HOST,
-            defaultTlsHostForDns(currentDns) ?: GuardianVpnService.DEFAULT_UPSTREAM_TLS_HOST
-        ) ?: GuardianVpnService.DEFAULT_UPSTREAM_TLS_HOST
-        tlsHostInput = EditText(this).apply {
-            hint = "TLS 인증서 호스트 이름 (예: cloudflare-dns.com)"
-            setHintTextColor(muted)
-            setTextColor(white)
-            textSize = 13f
-            setSingleLine(true)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            setPadding(dp(13), dp(12), dp(13), dp(12))
-            background = shape(panel2, 12)
-            setText(currentTlsHost)
-            visibility = if (currentTransport == "dot" || currentTransport == "doh") View.VISIBLE else View.GONE
-        }
-        body.addView(tlsHostInput!!, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
-        val tlsHostFeedback = text(
-            "DoT/DoH는 TLS 인증서와 호스트 이름을 검증합니다. 사용자 지정 DNS IP를 선택했다면 해당 IP에 맞는 인증서 호스트를 입력하세요.",
-            10f, muted, false
-        ).withTop(6) as TextView
-        tlsHostFeedback.visibility = if (currentTransport == "dot" || currentTransport == "doh") View.VISIBLE else View.GONE
-        body.addView(tlsHostFeedback)
-        val tlsHostSaveButton = Button(this).apply {
-            text = "TLS 호스트 저장"
-            isAllCaps = false
-            setTextColor(white)
-            background = shape(panel2, 12)
-            visibility = if (currentTransport == "dot" || currentTransport == "doh") View.VISIBLE else View.GONE
-            setOnClickListener {
-                val normalized = DnsTlsHostValidator.normalize(tlsHostInput?.text?.toString().orEmpty())
-                if (normalized == null) {
-                    tlsHostFeedback.text = "올바른 DNS 호스트 이름을 입력하세요. IP 주소나 밑줄은 사용할 수 없습니다."
-                    tlsHostFeedback.setTextColor(red)
-                } else {
-                    dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, normalized).apply()
-                    tlsHostInput?.setText(normalized)
-                    tlsHostFeedback.text = "TLS 인증서 호스트 저장 완료: $normalized"
-                    tlsHostFeedback.setTextColor(accent)
-                    if (ProtectionState.isActive(
-                            dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
-                            GuardianVpnService.isTunnelActive()
-                        )) {
-                        startService(Intent(this@MainActivity, GuardianVpnService::class.java)
-                            .setAction(GuardianVpnService.ACTION_RELOAD_RULES))
-                    }
-                }
-            }
-        }
-        body.addView(tlsHostSaveButton, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(8) })
-        transportSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val mode = transportOptions[position].second
-                val previous = dnsPrefs.getString(
-                    GuardianVpnService.KEY_UPSTREAM_TRANSPORT,
-                    GuardianVpnService.DEFAULT_UPSTREAM_TRANSPORT
-                )
-                if (previous != mode) {
-                    dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TRANSPORT, mode).apply()
-                    val showTls = mode == "dot" || mode == "doh"
-                    tlsHostInput?.visibility = if (showTls) View.VISIBLE else View.GONE
-                    tlsHostFeedback.visibility = if (showTls) View.VISIBLE else View.GONE
-                    tlsHostSaveButton.visibility = if (showTls) View.VISIBLE else View.GONE
-                    if (ProtectionState.isActive(
-                            dnsPrefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
-                            GuardianVpnService.isTunnelActive()
-                        )) {
-                        startService(Intent(this@MainActivity, GuardianVpnService::class.java)
-                            .setAction(GuardianVpnService.ACTION_RELOAD_RULES))
-                    }
-                }
-            }
-        }
-
-        body.addView(text(
-            "시스템 가상 DNS의 업스트림은 즉시 변경됩니다. 공용 DNS 직접 포착을 사용하는 경우 새 서버 경로는 보호를 중지하고 다시 시작해야 적용됩니다.",
-            10f, muted, false
-        ).withTop(7))
-        val customDnsInput = EditText(this).apply {
-            hint = "사용자 지정 IPv4/IPv6 주소"
-            setHintTextColor(muted)
-            setTextColor(white)
-            textSize = 13f
-            setSingleLine(true)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            setPadding(dp(13), dp(12), dp(13), dp(12))
-            background = shape(panel2, 12)
-            if (knownDnsOptions.none { it.second == currentDns }) setText(currentDns)
-        }
-        body.addView(customDnsInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
-        val customDnsFeedback = text("IP 주소만 입력할 수 있습니다. 호스트 이름은 허용하지 않습니다.", 11f, muted, false).withTop(6) as TextView
-        body.addView(customDnsFeedback)
+    private fun buildSettingsAbout(body: LinearLayout) {
+        body.addView(text("정보", 25f, white, true))
+        body.addView(infoRow("앱 버전", "Guardian AdBlock", BuildConfig.VERSION_NAME, accent).withTop(12))
+        body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
+        body.addView(infoRow("데이터 저장", "사용자 규칙 및 설정 저장 위치", "기기 내부", accent))
+        body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
         body.addView(Button(this).apply {
-            text = "사용자 지정 DNS 저장"
+            text = "앱 업데이트 확인"
             isAllCaps = false
-            setTextColor(white)
-            background = shape(panel2, 12)
-            setOnClickListener {
-                val normalized = DnsAddressValidator.normalize(customDnsInput.text.toString())
-                if (normalized == null) {
-                    customDnsFeedback.text = "올바른 IPv4 또는 IPv6 주소를 입력하세요."
-                    customDnsFeedback.setTextColor(red)
-                } else {
-                    dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_DNS, normalized).apply()
-                    defaultTlsHostForDns(normalized)?.let { host ->
-                        dnsPrefs.edit().putString(GuardianVpnService.KEY_UPSTREAM_TLS_HOST, host).apply()
-                        tlsHostInput?.setText(host)
-                    }
-                    var index = dnsOptions.indexOfFirst { it.second == normalized }
-                    if (index < 0) {
-                        dnsOptions.add(0, "사용자 지정 · $normalized" to normalized)
-                        dnsAdapter.clear()
-                        dnsAdapter.addAll(dnsOptions.map { it.first })
-                        index = 0
-                    }
-                    dnsSpinner.setSelection(index)
-                    customDnsInput.setText(normalized)
-                    customDnsFeedback.text = "DNS 서버 저장 완료: $normalized"
-                    customDnsFeedback.setTextColor(accent)
-                }
-            }
-        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-        // Keep the device-wide compatibility option ahead of the large installed-app
-        // inventory so it remains discoverable without scrolling through every app.
-        buildCompatibilityPauseSection(body)
-        body.addView(text("현재 DNS 필터는 UDP/53 및 TCP/53 요청을 처리합니다. 업스트림은 UDP/TCP, DNS-over-TLS 또는 DNS-over-HTTPS를 선택할 수 있습니다. 앱 자체 DoH/DoT 우회 요청, IPv6 확장 헤더·IP 조각화, 앱 내부 광고는 필터링하지 못할 수 있습니다.", 12f, muted, false).withTop(14))
+            setTextColor(bg)
+            background = shape(accent, 12)
+            contentDescription = "Guardian 앱 업데이트 확인 및 설치"
+            setOnClickListener { showTab("updates") }
+        }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(14) })
+        body.addView(text("앱 업데이트는 여기에서 확인합니다. 필터 목록 갱신은 설정 > 필터링에서 별도로 관리합니다.", 11f, muted, false).withTop(7))
+        body.addView(text("정책·오픈소스 및 라이선스 고지는 배포 문서와 함께 관리합니다.", 11f, muted, false).withTop(12))
+                body.addView(card(panel, 14).apply {
+                    setPadding(dp(15), dp(13), dp(15), dp(13))
+                    addView(text("제작자 및 개발사", 13f, white, true))
+                    addView(text("(주)유진컨설팅", 13f, accent, true).withTop(8))
+                    addView(text("제작자: 이학범", 12f, white, false).withTop(4))
+                    addView(text("연락처: 010-5201-3121", 12f, muted, false).withTop(3))
+                }.withTop(12))
+                val verifiedLicense = LicenseEntitlementStore.current(this)
+                // Keep an expired-but-valid signed token available for device-slot release.
+                // It must never be presented as an active Pro entitlement.
+                val releasableLicense = LicenseEntitlementStore.currentForRefresh(this)
+                body.addView(infoRow(
+                    "라이선스",
+                    when {
+                        verifiedLicense != null -> "서버 서명 및 이 기기 등록을 확인했습니다"
+                        releasableLicense != null -> "라이선스가 만료되었습니다 · 이 기기 등록 해제 가능"
+                        else -> "서명 라이선스 미등록 · 무료 보호 기능 사용 중"
+                    },
+                    if (verifiedLicense != null) "PRO" else "FREE",
+                    if (verifiedLicense != null) accent else muted
+                ))
     }
 
 
@@ -2267,36 +2574,56 @@ class MainActivity : Activity() {
     }
 
     private fun bottomNav(selected: String, asRail: Boolean = false): View {
+        val horizontal = !asRail
         val nav = LinearLayout(this).apply {
             orientation = if (asRail) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setBackgroundColor(Color.rgb(15, 23, 39))
-            setPadding(if (asRail) dp(7) else dp(5), dp(8), if (asRail) dp(7) else dp(5), dp(8))
+            setPadding(if (asRail) dp(7) else dp(4), dp(6), if (asRail) dp(7) else dp(4), dp(6))
+            if (horizontal) minimumHeight = dp(72)
+            // Keep labels above Android's gesture/navigation area on edge-to-edge devices.
+            if (horizontal) {
+                setOnApplyWindowInsetsListener { view, insets ->
+                    val bottomInset = if (Build.VERSION.SDK_INT >= 30) {
+                        insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+                    } else {
+                        @Suppress("DEPRECATION")
+                        insets.systemWindowInsetBottom
+                    }
+                    view.setPadding(dp(4), dp(8), dp(4), dp(8) + bottomInset)
+                    insets
+                }
+            }
         }
         val items = listOf(
             Triple("home", "⌂", "홈"),
             Triple("protection", "◈", "보호"),
+            Triple("app-exclusions", "▣", "앱 제외"),
             Triple("activity", "▤", "활동"),
-            Triple("premium", "✦", "Premium"),
-            Triple("settings", "⚙", "전체 메뉴")
+            Triple("settings", "⚙", "설정")
         )
         items.forEach { (id, icon, label) ->
-            val active = selected == id || (id == "settings" && selected in setOf("updates", "rules", "app-exclusions"))
+            val active = selected == id
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4), if (asRail) dp(4) else 0, if (asRail) dp(12) else dp(4))
+                setPadding(if (asRail) dp(4) else dp(2), if (asRail) dp(12) else dp(5), if (asRail) dp(4) else dp(2), if (asRail) dp(12) else dp(5))
                 contentDescription = label
                 isSelected = active
                 setOnClickListener { navigateToTab(id) }
                 if (active) background = shape(Color.rgb(31, 54, 76), 14)
             }
-            item.addView(text(icon, if (asRail) 24f else 21f, if (active) accent else muted, true).apply { gravity = Gravity.CENTER })
-            item.addView(text(label, if (asRail) 11f else 10f, if (active) white else muted, active).apply { gravity = Gravity.CENTER; setPadding(0, dp(2), 0, 0) })
+            item.addView(text(icon, if (asRail) 24f else 20f, if (active) accent else muted, true).apply { gravity = Gravity.CENTER })
+            item.addView(text(label, if (asRail) 11f else 10f, if (active) white else muted, active).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, dp(2), 0, 0)
+                maxLines = 1
+                includeFontPadding = false
+            })
             if (asRail) {
                 nav.addView(item, LinearLayout.LayoutParams(-1, dp(68)))
             } else {
-                nav.addView(item, LinearLayout.LayoutParams(0, dp(48), 1f))
+                nav.addView(item, LinearLayout.LayoutParams(0, dp(58), 1f))
             }
         }
         return nav
@@ -3895,9 +4222,12 @@ class MainActivity : Activity() {
         private const val MAX_USER_RULES = 1000
         private const val KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED = "app_inventory_disclosure_accepted_v1"
         private const val STATE_CURRENT_TAB = "guardian.ui.current_tab"
+        private const val STATE_SETTINGS_CATEGORY = "guardian.ui.settings_category"
         private const val UI_STATE_PREFS = "guardian_ui_state"
         private const val PREF_LAST_SELECTED_TAB = "last_selected_tab"
         private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
         private const val STATE_SCROLL_Y = "guardian.ui.scroll_y"
+        private const val STATE_BLOCK_RULES_DRAFT = "guardian.ui.block_rules_draft"
+        private const val STATE_ALLOW_RULES_DRAFT = "guardian.ui.allow_rules_draft"
     }
 }

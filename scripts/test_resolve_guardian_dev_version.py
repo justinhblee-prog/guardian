@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from resolve_guardian_dev_version import resolve_next_version
+from resolve_guardian_dev_version import DEFAULT_BASELINE_CODE, DEFAULT_BASELINE_VERSION, bump_patch, resolve_next_version
 
 
 class GuardianDevVersionTests(unittest.TestCase):
@@ -16,6 +16,11 @@ class GuardianDevVersionTests(unittest.TestCase):
             "prerelease": True,
             "body": "Legacy release without source marker."
         }]
+
+    def test_default_baseline_matches_android_fallback_version(self):
+        gradle = (Path(__file__).resolve().parents[1] / "android/app/build.gradle.kts").read_text(encoding="utf-8")
+        self.assertIn('getOrElse("' + bump_patch(DEFAULT_BASELINE_VERSION).removesuffix("-dev") + '")', gradle)
+        self.assertIn("getOrElse(" + str(DEFAULT_BASELINE_CODE + 1) + ")", gradle)
 
     def test_next_release_increments_patch_and_version_code(self):
         result = resolve_next_version(self.releases, "a" * 40, "0.7.42-dev", 55)

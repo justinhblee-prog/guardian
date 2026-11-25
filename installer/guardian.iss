@@ -1,5 +1,5 @@
 #define MyAppName "Guardian AdBlock"
-#define MyAppVersion "0.1.0-dev"
+#define MyAppVersion "0.7.49"
 #define MyAppPublisher "Eugene Consulting"
 #define MyAppExeName "GuardianAdBlock.exe"
 
