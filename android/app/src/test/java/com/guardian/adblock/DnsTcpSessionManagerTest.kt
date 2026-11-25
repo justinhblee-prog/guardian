@@ -447,6 +447,7 @@ class DnsTcpSessionManagerTest {
         p[40] = 0xcf.toByte(); p[41] = 0x08; p[42] = 0; p[43] = 53
         p[44] = (seq ushr 24).toByte(); p[45] = (seq ushr 16).toByte()
         p[46] = (seq ushr 8).toByte(); p[47] = seq.toByte()
+        p[51] = 1 // ACK the deterministic server SYN-ACK sequence (0 -> 1).
         p[52] = 0x50; p[53] = flags.toByte()
         p[54] = 0xff.toByte(); p[55] = 0xff.toByte()
         payload.copyInto(p, 60)
@@ -490,11 +491,19 @@ class DnsTcpSessionManagerTest {
             DomainFilter.makeServfail(it)
         }
         assertEquals(2, calls)
-        assertEquals(2, replies.size)
-        val first = DnsTcpPacket.parse(replies[0], replies[0].size, 53000)!!
-        val second = DnsTcpPacket.parse(replies[1], replies[1].size, 53000)!!
-        assertEquals((first.sequence + first.payload.size) and 0xffffffffL, second.sequence)
-        assertEquals(4001L + payload.size, second.acknowledgement)
+        // TCP may coalesce answers for multiple DNS frames into one stream segment.
+        assertEquals(1, replies.size)
+        val combined = DnsTcpPacket.parse(replies.single(), replies.single().size, 53000)!!
+        var offset = 0
+        repeat(2) {
+            val answerLength = ((combined.payload[offset].toInt() and 0xff) shl 8) or
+                (combined.payload[offset + 1].toInt() and 0xff)
+            val answer = combined.payload.copyOfRange(offset + 2, offset + 2 + answerLength)
+            assertTrue(DomainFilter.isMatchingResponse(query, answer))
+            offset += answerLength + 2
+        }
+        assertEquals(combined.payload.size, offset)
+        assertEquals(4001L + payload.size, combined.acknowledgement)
     }
 
     @Test fun boundsQueuedDnsTcpResponsesAcrossManyQueries() {
@@ -1082,7 +1091,9 @@ class DnsTcpSessionManagerTest {
             seq = 8601, acknowledgment = serverStart, payload = framedQuery, window = 0)
         val answer = ByteArray(5000) { (it and 0xff).toByte() }
         var calls = 0
-        assertTrue(manager.handle(request, request.size) { calls++; answer }.isEmpty())
+        val queuedAck = manager.handle(request, request.size) { calls++; answer }
+        assertEquals(1, queuedAck.size)
+        assertTrue(DnsTcpPacket.parse(queuedAck.single(), queuedAck.single().size, 53000)!!.payload.isEmpty())
 
         val windowUpdate = packet(flags = DnsTcpPacket.ACK, seq = 8601L + framedQuery.size,
             acknowledgment = serverStart, window = 2048)
@@ -1233,7 +1244,8 @@ class DnsTcpSessionManagerTest {
         val clientInitial = 0xfffffffCL
         val clientNext = (clientInitial + 1L + dnsQuery().size + 2L) and 0xffffffffL
         val manager = DnsTcpSessionManager(random = deterministicRandom(-2))
-        val syn = packet(flags = DnsTcpPacket.SYN, seq = clientInitial)
+        val syn = packet(flags = DnsTcpPacket.SYN, seq = clientInitial,
+            tcpOptions = byteArrayOf(2, 4, 4, 176))
         val synAck = DnsTcpPacket.parse(manager.handle(syn, syn.size) { null }.single(), 40, 53000)!!
         assertEquals(0xfffffffEL, synAck.sequence)
         val serverStart = (synAck.sequence + 1L) and 0xffffffffL
@@ -1392,7 +1404,9 @@ class DnsTcpSessionManagerTest {
         val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
             seq = 8501, acknowledgment = serverStart, payload = framedQuery, window = 0)
         val answer = ByteArray(5000) { (it and 0xff).toByte() }
-        assertTrue(manager.handle(request, request.size) { answer }.isEmpty())
+        val queuedAck = manager.handle(request, request.size) { answer }
+        assertEquals(1, queuedAck.size)
+        assertTrue(DnsTcpPacket.parse(queuedAck.single(), queuedAck.single().size, 53000)!!.payload.isEmpty())
 
         val firstWindow = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
             acknowledgment = serverStart, window = 2048)
@@ -1458,7 +1472,9 @@ class DnsTcpSessionManagerTest {
         val request = packet(flags = DnsTcpPacket.ACK or DnsTcpPacket.PSH,
             seq = 8001, acknowledgment = serverStart, payload = framedQuery, window = 0)
         val largeAnswer = ByteArray(5000) { (it and 0xff).toByte() }
-        assertTrue(manager.handle(request, request.size) { largeAnswer }.isEmpty())
+        val queuedAck = manager.handle(request, request.size) { largeAnswer }
+        assertEquals(1, queuedAck.size)
+        assertTrue(DnsTcpPacket.parse(queuedAck.single(), queuedAck.single().size, 53000)!!.payload.isEmpty())
 
         val firstWindow = packet(flags = DnsTcpPacket.ACK, seq = clientNext,
             acknowledgment = serverStart, window = 2048)
