@@ -75,6 +75,16 @@ internal fun decodeLicenseApiResponseUtf8(bytes: ByteArray): String =
         throw IllegalArgumentException("라이선스 API 응답이 올바른 UTF-8이 아닙니다.")
     }
 
+/** Validate the complete client-side license service configuration without network access. */
+internal fun isLicenseServiceConfigurationValid(baseUrl: String, encodedPublicKey: String): Boolean =
+    try {
+        parseLicenseApiBaseUrl(baseUrl)
+        validateLicensePublicKeyConfiguration(encodedPublicKey)
+        true
+    } catch (_: Exception) {
+        false
+    }
+
 /** HTTP failures retain their status so background work can distinguish retryable outages. */
 internal class LicenseApiException(
     val statusCode: Int,
@@ -99,6 +109,10 @@ internal object LicenseApiClient {
             .getString(KEY_LICENSE_API_BASE_URL, null)
             ?.takeIf { it.isNotBlank() }
             ?: BuildConfig.LICENSE_API_BASE_URL
+
+    /** Includes a user-saved HTTPS origin, not only the build-time default. */
+    fun isConfigured(context: Context): Boolean =
+        isLicenseServiceConfigurationValid(configuredBaseUrl(context), BuildConfig.LICENSE_PUBLIC_KEY)
 
     fun saveBaseUrl(context: Context, value: String) {
         val normalized = parseLicenseApiBaseUrl(value).toExternalForm().trimEnd('/')
