@@ -70,5 +70,5 @@ jobs:
           pg_isready -h localhost -p 5432
       - name: Initialize PostgreSQL integration schema
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
-      - name: Run cryptographic, HTTP, PostgreSQL and edge adapter tests
+      - name: Run cryptographic, HTTP, PostgreSQL and Neon Function tests
         run: npm test
