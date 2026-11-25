@@ -3023,8 +3023,8 @@ class MainActivity : Activity() {
                 val selected = filterProfiles[position]
                 val current = profilePrefs.getString(FilterListManager.KEY_FILTER_PROFILE, "adguard") ?: "adguard"
                 if (selected.key == current) return
+                val currentIndex = filterProfiles.indexOfFirst { it.key == current }.coerceAtLeast(0)
                 if (filterUpdateRunning.get()) {
-                    val currentIndex = filterProfiles.indexOfFirst { it.key == current }.coerceAtLeast(0)
                     profileSpinner.setSelection(currentIndex)
                     filterStatusText?.text = "필터 업데이트 중에는 프로필을 변경할 수 없습니다."
                     return
@@ -3040,7 +3040,11 @@ class MainActivity : Activity() {
                     return
                 }
                 filterStatusText?.text = "선택한 프로필: ${selected.label} · 새 목록을 내려받습니다."
-                startFilterUpdate()
+                if (!startFilterUpdate()) {
+                    rollbackPendingFilterProfile(profilePrefs)
+                    syncFilterProfileSpinner()
+                    filterStatusText?.text = "다른 필터 업데이트가 시작되어 프로필 변경을 취소했습니다."
+                }
             }
         }
         wrapper.addView(profileSpinner)
@@ -3796,10 +3800,10 @@ class MainActivity : Activity() {
         protectionFeedback?.text = message
     }
 
-    private fun startFilterUpdate() {
+    private fun startFilterUpdate(): Boolean {
         if (!filterUpdateRunning.compareAndSet(false, true)) {
             setFilterUpdateStatus("필터 목록을 이미 다운로드하고 있습니다.")
-            return
+            return false
         }
         val updateGeneration = filterUpdateGeneration.incrementAndGet()
         // A new foreground attempt supersedes a queued first-run recovery request.
@@ -3819,7 +3823,7 @@ class MainActivity : Activity() {
         setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} 목록을 내려받아 규칙을 검증합니다.")
         android.util.Log.i("Guardian", "Starting filter update for ${FilterListManager.selectedProfile(this).key}")
         thread(name = "guardian-filter-update") {
-            val hadPreviousMainCache = runCatching {
+            var hadPreviousMainCache = runCatching {
                 FilterUpdatePolicy.hasUsableMainCache(
                     cacheValid = FilterListManager.hasCachedList(this),
                     selectedProfileKey = FilterListManager.selectedProfile(this).key,
@@ -4005,6 +4009,7 @@ class MainActivity : Activity() {
                     androidAdsFilterCheckBox?.isEnabled = true
                 }
             }
+            true
         }
     }
 
