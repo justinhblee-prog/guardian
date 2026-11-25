@@ -1431,7 +1431,7 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
   for attempt in $(seq 1 20); do
     sleep 1
     updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-result.xml)"
-    if grep -Fq '현재 설치된 개발 버전이 최신입니다.' <<<"$updates_xml"; then
+    if grep -Fq '공개된 개발 릴리스 중 현재 설치 버전보다 새로운 버전이 없습니다.' <<<"$updates_xml"; then
       update_check_ready=1
       break
     fi
