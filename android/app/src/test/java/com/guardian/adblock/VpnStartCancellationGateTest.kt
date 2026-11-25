@@ -124,7 +124,6 @@ class VpnStartCancellationGateTest {
         assertFalse(gate.isCurrent(first))
         assertTrue(gate.isCurrent(second))
     }
-}
 
     @Test fun stopCancellationWaitsForAnInFlightTunnelCommit() {
         val gate = VpnStartCancellationGate()
