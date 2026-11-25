@@ -2849,6 +2849,9 @@ class MainActivity : Activity() {
 
     private fun bottomNav(selected: String, asRail: Boolean = false): View {
         val horizontal = !asRail
+        // Keep this value in the function scope: navigation item builders below
+        // also use it to size their touch targets and labels.
+        val expandedBottomNav = horizontal && resources.configuration.screenWidthDp >= 600
         val nav = LinearLayout(this).apply {
             orientation = if (asRail) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -2856,7 +2859,6 @@ class MainActivity : Activity() {
             setPadding(if (asRail) dp(7) else dp(4), dp(6), if (asRail) dp(7) else dp(4), dp(6))
             // Give the bottom destinations a larger, easier-to-hit target on
             // foldable/tablet widths while keeping the content area compact.
-            val expandedBottomNav = horizontal && resources.configuration.screenWidthDp >= 600
             if (horizontal) minimumHeight = dp(if (expandedBottomNav) 104 else 88)
             // Keep labels above Android's gesture/navigation area on edge-to-edge devices.
             if (horizontal) {
