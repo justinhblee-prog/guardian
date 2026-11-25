@@ -235,7 +235,10 @@ class MainActivity : Activity() {
         // Enable recurring filter refresh by default. Preserve an explicit user
         // choice made in Protection settings; migrate installations that only
         // received the old forced-off default to the safer current default.
-        if (!filterPrefs.getBoolean("filter_auto_update_default_on_v2", false)) {
+        if (FilterAutoUpdatePreferencePolicy.shouldApplyDefaultMigration(
+                migrationAlreadyApplied = filterPrefs.getBoolean("filter_auto_update_default_on_v2", false),
+                userChoiceRecorded = filterPrefs.getBoolean("filter_auto_update_user_choice_v1", false)
+            )) {
             if (!filterPrefs.getBoolean("filter_auto_update_user_choice_v1", false)) {
                 filterPrefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, true).apply()
             }
@@ -2866,7 +2869,12 @@ class MainActivity : Activity() {
             setTextColor(white)
             isChecked = prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
             setOnCheckedChangeListener { _, checked ->
-                prefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).apply()
+                // Both the Protection switch and this checkbox are explicit user controls.
+                // Record the choice so the one-time default migration never overrides it.
+                prefs.edit()
+                    .putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked)
+                    .putBoolean("filter_auto_update_user_choice_v1", true)
+                    .apply()
                 FilterUpdateScheduler.sync(this@MainActivity)
             }
         }
