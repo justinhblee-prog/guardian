@@ -1598,28 +1598,73 @@ class MainActivity : Activity() {
     }
 
     private fun buildSettings(body: LinearLayout) {
-        body.addView(text("설정", 25f, white, true))
-        body.addView(text("기능별 설정을 선택해 관리합니다.", 13f, muted, false).withTop(5))
-        val items = listOf(
-            Triple("settings-general", "일반", "프로그램 업데이트와 운영 환경"),
-            Triple("rules", "필터링", "필터 프로필과 사용자 차단·허용 규칙"),
-            Triple("premium", GuardianNavigation.LICENSE_PREMIUM_LABEL, "이용 기간, 라이선스 활성화와 허용 기기"),
-            Triple("settings-support", "고객 지원", "자주 묻는 질문과 오류·문의 접수"),
-            Triple("settings-info", "정보", "앱 버전과 개인정보·제품 정보")
+        val sections = listOf(
+            Triple("general", "⚙", "일반"),
+            Triple("filtering", "⛨", "필터링"),
+            Triple("premium", "◇", "PRO"),
+            Triple("support", "?", "지원"),
+            Triple("info", "ⓘ", "정보")
         )
-        items.forEach { (target, title, description) ->
-            body.addView(card(panel, 14).apply {
+        val prefs = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
+        val selected = prefs.getString("settings_selected_section_v1", "general")
+            ?.takeIf { value -> sections.any { it.first == value } } ?: "general"
+
+        body.addView(text("설정", 25f, white, true))
+        body.addView(text("왼쪽에서 항목을 선택하면 오른쪽에 세부 설정이 표시됩니다.", 12f, muted, false).withTop(4))
+
+        val workspace = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.TOP
+        }
+        val rail = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(3), dp(8), dp(3), dp(8))
+            background = shape(panel, 14)
+        }
+        sections.forEach { (key, glyph, label) ->
+            val active = key == selected
+            rail.addView(card(if (active) Color.rgb(39, 83, 82) else panel, 11).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(15), dp(14), dp(15), dp(14))
-                addView(text(title, 15f, white, true))
-                addView(text(description, 11f, muted, false).withTop(4))
-                setOnClickListener { navigateToTab(target) }
+                gravity = Gravity.CENTER
+                setPadding(dp(2), dp(8), dp(2), dp(8))
+                minimumHeight = dp(56)
+                addView(text(glyph, 21f, if (active) accent else white, true).apply {
+                    gravity = Gravity.CENTER
+                    contentDescription = label
+                })
+                addView(text(label, 9f, if (active) accent else muted, active).apply {
+                    gravity = Gravity.CENTER
+                }.withTop(2))
                 isClickable = true
                 isFocusable = true
-            }.withTop(9))
+                contentDescription = "$label 설정"
+                setOnClickListener {
+                    prefs.edit().putString("settings_selected_section_v1", key).apply()
+                    showTab("settings")
+                }
+            }.withTop(5), LinearLayout.LayoutParams(-1, dp(58)))
         }
+        workspace.addView(rail, LinearLayout.LayoutParams(dp(62), -2))
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = shape(panel, 14)
+        }
+        when (selected) {
+            "filtering" -> buildSettingsFiltering(content)
+            "premium" -> buildPremium(content)
+            "support" -> buildSettingsSupport(content)
+            "info" -> buildSettingsInfo(content)
+            else -> buildSettingsGeneral(content)
+        }
+        workspace.addView(content, LinearLayout.LayoutParams(0, -2, 1f).apply {
+            leftMargin = dp(8)
+        })
+        body.addView(workspace, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+
         body.addView(Button(this).apply {
-            text = "종료"
+            text = "앱 종료"
             isAllCaps = false
             setTextColor(white)
             background = shape(panel2, 12)
@@ -1631,7 +1676,31 @@ class MainActivity : Activity() {
                     .setPositiveButton("종료") { _, _ -> finish() }
                     .show()
             }
-        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(18) })
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(14) })
+    }
+
+    private fun buildSettingsFiltering(body: LinearLayout) {
+        body.addView(text("필터링", 20f, white, true))
+        body.addView(text("보호 정책과 세부 필터를 관리합니다.", 11f, muted, false).withTop(4))
+        val links = listOf(
+            Triple("보호 및 필터 소스", "보호 상태, 필터 목록과 자동 업데이트", "protection"),
+            Triple("사용자 차단·허용 규칙", "도메인 차단 및 허용 목록", "rules"),
+            Triple("앱별 제외", "선택한 앱의 DNS 필터링 제외", "app-exclusions")
+        )
+        links.forEach { (name, description, destination) ->
+            body.addView(card(panel2, 12).apply {
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                addView(text(name, 13f, white, true))
+                addView(text(description, 10f, muted, false).withTop(4))
+                addView(Button(this@MainActivity).apply {
+                    text = "열기"
+                    isAllCaps = false
+                    setTextColor(bg)
+                    background = shape(accent, 9)
+                    setOnClickListener { navigateToTab(destination) }
+                }, LinearLayout.LayoutParams(-1, dp(38)).apply { topMargin = dp(8) })
+            }.withTop(8))
+        }
     }
 
     private fun buildSettingsSupport(body: LinearLayout) {
