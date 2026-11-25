@@ -122,12 +122,16 @@ export function createGooglePlayBillingVerifier({
         throw new GooglePlayBillingError('billing_oauth_unavailable', 'Google Play 인증 서버에 연결할 수 없습니다.', 502);
       }
       const payload = await readJson(response, 'billing_oauth_invalid_response');
+      const expiresInSeconds = Number(payload.expires_in);
       if (!response.ok || typeof payload.access_token !== 'string' ||
-          !Number.isFinite(Number(payload.expires_in)) || Number(payload.expires_in) <= 0) {
+          payload.access_token.length < 1 || payload.access_token.length > 8192 ||
+          !Number.isSafeInteger(expiresInSeconds) || expiresInSeconds <= 0) {
         throw new GooglePlayBillingError('billing_oauth_rejected', 'Google Play 서버 인증에 실패했습니다.', 502);
       }
+      // Google OAuth access tokens are short-lived. Never let an unexpected
+      // response extend the in-memory cache beyond the documented one-hour JWT grant.
       cachedAccessToken = payload.access_token;
-      tokenExpiresAt = current + Number(payload.expires_in) * 1000;
+      tokenExpiresAt = current + Math.min(expiresInSeconds, 3600) * 1000;
       return cachedAccessToken;
     })();
     try {
