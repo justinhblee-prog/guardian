@@ -2842,9 +2842,10 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setBackgroundColor(Color.rgb(15, 23, 39))
             setPadding(if (asRail) dp(7) else dp(4), dp(6), if (asRail) dp(7) else dp(4), dp(6))
-            // Reserve enough vertical room for both icon and full label, then
-            // let the navigation-bar inset extend the container below the touch targets.
-            if (horizontal) minimumHeight = dp(82)
+            // Give the bottom destinations a larger, easier-to-hit target on
+            // foldable/tablet widths while keeping the content area compact.
+            val expandedBottomNav = horizontal && resources.configuration.screenWidthDp >= 600
+            if (horizontal) minimumHeight = dp(if (expandedBottomNav) 104 else 88)
             // Keep labels above Android's gesture/navigation area on edge-to-edge devices.
             if (horizontal) {
                 setOnApplyWindowInsetsListener { view, insets ->
@@ -2854,7 +2855,8 @@ class MainActivity : Activity() {
                         @Suppress("DEPRECATION")
                         insets.systemWindowInsetBottom
                     }
-                    view.setPadding(dp(4), dp(8), dp(4), dp(8) + bottomInset)
+                    val verticalPadding = if (expandedBottomNav) dp(10) else dp(8)
+                    view.setPadding(dp(4), verticalPadding, dp(4), verticalPadding + bottomInset)
                     insets
                 }
             }
@@ -2871,14 +2873,19 @@ class MainActivity : Activity() {
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(if (asRail) dp(4) else dp(2), if (asRail) dp(12) else dp(7), if (asRail) dp(4) else dp(2), if (asRail) dp(12) else dp(7))
+                setPadding(
+                    if (asRail) dp(4) else dp(3),
+                    if (asRail) dp(12) else dp(if (expandedBottomNav) 10 else 8),
+                    if (asRail) dp(4) else dp(3),
+                    if (asRail) dp(12) else dp(if (expandedBottomNav) 10 else 8)
+                )
                 contentDescription = label
                 isSelected = active
                 setOnClickListener { navigateToTab(id) }
                 if (active) background = shape(Color.rgb(31, 54, 76), 14)
             }
-            item.addView(text(icon, if (asRail) 24f else 20f, if (active) accent else muted, true).apply { gravity = Gravity.CENTER })
-            item.addView(text(label, if (asRail) 11f else 10f, if (active) white else muted, active).apply {
+            item.addView(text(icon, if (asRail) 24f else if (expandedBottomNav) 26f else 21f, if (active) accent else muted, true).apply { gravity = Gravity.CENTER })
+            item.addView(text(label, if (asRail) 11f else if (expandedBottomNav) 12f else 11f, if (active) white else muted, active).apply {
                 gravity = Gravity.CENTER
                 setPadding(0, dp(2), 0, 0)
                 maxLines = 1
@@ -2887,7 +2894,7 @@ class MainActivity : Activity() {
             if (asRail) {
                 nav.addView(item, LinearLayout.LayoutParams(-1, dp(68)))
             } else {
-                nav.addView(item, LinearLayout.LayoutParams(0, dp(66), 1f))
+                nav.addView(item, LinearLayout.LayoutParams(0, dp(if (expandedBottomNav) 82 else 70), 1f))
             }
         }
         return nav
