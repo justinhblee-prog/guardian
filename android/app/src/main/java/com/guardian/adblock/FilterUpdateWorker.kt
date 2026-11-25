@@ -58,10 +58,12 @@ class FilterUpdateWorker(
             )
             var baseUpdateSucceeded = false
             var baseUpdateFailed = false
+            var anySourceUpdated = false
             if (baseUpdateDue) {
                 try {
                     FilterListManager.update(applicationContext)
                     baseUpdateSucceeded = true
+                    anySourceUpdated = true
                 } catch (error: Exception) {
                     // The optional feeds are independent sources. A failed base refresh
                     // must not prevent security/Android-ads feeds from refreshing in this run.
@@ -86,6 +88,7 @@ class FilterUpdateWorker(
                 )) {
                 try {
                     FilterListManager.updateSecurity(applicationContext)
+                    anySourceUpdated = true
                     prefs.edit().remove(FilterListManager.KEY_SECURITY_LAST_ERROR).apply()
                 } catch (e: Exception) {
                     // A failed first download is just as retry-worthy as a failed refresh:
@@ -117,6 +120,7 @@ class FilterUpdateWorker(
                 )) {
                 try {
                     FilterListManager.updateAndroidAds(applicationContext)
+                    anySourceUpdated = true
                     prefs.edit().remove(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR).apply()
                 } catch (e: Exception) {
                     // Retry initial population too; otherwise WorkManager would mark the
@@ -144,12 +148,13 @@ class FilterUpdateWorker(
                 prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
                 GuardianVpnService.isTunnelActive()
             )
-            if (active) {
+            if (active && anySourceUpdated) {
                 applicationContext.startService(
                     Intent(applicationContext, GuardianVpnService::class.java)
                         .setAction(GuardianVpnService.ACTION_RELOAD_RULES)
                 )
             }
+            android.util.Log.i("Guardian", "Scheduled filter update finished; changed=$anySourceUpdated, baseFailed=$baseUpdateFailed, optionalFailed=$optionalFailure")
             applicationContext.sendBroadcast(
                 Intent(ACTION_FILTERS_CHANGED).setPackage(applicationContext.packageName)
             )
