@@ -6,11 +6,12 @@ import org.junit.Test
 
 class FilterProfileRollbackPolicyTest {
     @Test
-    fun rollsBackOnlyWhenARealPreviousProfileExistsAndSelectionChanged() {
-        assertTrue(FilterProfileRollbackPolicy.shouldRollback("adguard", "hagezi_pro"))
-        assertFalse(FilterProfileRollbackPolicy.shouldRollback("adguard", "adguard"))
-        assertFalse(FilterProfileRollbackPolicy.shouldRollback(null, "hagezi_pro"))
-        assertFalse(FilterProfileRollbackPolicy.shouldRollback("", "hagezi_pro"))
-        assertFalse(FilterProfileRollbackPolicy.shouldRollback("   ", "hagezi_pro"))
+    fun rollsBackOnlyWhenPreviousProfileExistsAndNewCacheWasNotCommitted() {
+        assertTrue(FilterProfileRollbackPolicy.shouldRollback("adguard", "hagezi_pro", "adguard"))
+        assertFalse(FilterProfileRollbackPolicy.shouldRollback("adguard", "adguard", "adguard"))
+        assertFalse(FilterProfileRollbackPolicy.shouldRollback("adguard", "hagezi_pro", "hagezi_pro"))
+        assertFalse(FilterProfileRollbackPolicy.shouldRollback(null, "hagezi_pro", null))
+        assertFalse(FilterProfileRollbackPolicy.shouldRollback("", "hagezi_pro", null))
+        assertFalse(FilterProfileRollbackPolicy.shouldRollback("   ", "hagezi_pro", null))
     }
 }
