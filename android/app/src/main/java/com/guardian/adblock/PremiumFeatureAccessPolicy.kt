@@ -37,6 +37,12 @@ internal object PremiumFeatureAccessPolicy {
         featureId: String,
         proActive: Boolean,
         developmentPreview: Boolean
+    ): Boolean = featureId in knownFeatures && proActive
+
+    fun isVisible(
+        featureId: String,
+        proActive: Boolean,
+        developmentPreview: Boolean
     ): Boolean = featureId in knownFeatures && (proActive || developmentPreview)
 
     fun statusLabel(
