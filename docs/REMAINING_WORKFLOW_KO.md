@@ -131,4 +131,5 @@ Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 �
 - 회귀 테스트 소스 `PremiumReportPolicyTest`에 분류/집계, 기간 경계, 90일 보존, 손상 데이터 무시 및 카운터 포화 검사를 추가했습니다.
 - **현재 판정: 코드 및 테스트 소스 반영, JUnit/Lint/실기기 검증 대기.** 검증 통과 전에는 `PREMIUM_REPORTS` 엔진을 operational로 표시하지 않도록 게이트를 유지합니다.
 - 변경은 `work/android-free-release-followup-20261124` 브랜치에 반영했습니다. 이번 구현은 Premium Reports 첫 번째 범위이며 Threat Analytics, Security Profiles, Phishing Scanner, App Protection의 미완성 엔진을 완료로 간주하지 않습니다.
+- 라이선스 UI의 서버 준비 상태 판정도 수정했습니다. 이제 빌드 기본 URL만 보지 않고 Settings에 저장된 HTTPS API origin과 앱 고정 RSA 공개키를 함께 검증합니다. 회귀 테스트는 사용자 지정 HTTPS origin, 빈/HTTP 주소, 잘못된 공개키를 포함합니다. JUnit 검증 전까지 이 수정 역시 테스트 대기 상태입니다.
 
