@@ -92,23 +92,3 @@ class GuardianDevVersionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-    def test_installed_049_floor_is_never_rolled_back_when_release_api_is_behind(self):
-        releases = [{
-            "tag_name": "guardian-dev-v58",
-            "name": "Guardian AdBlock 0.7.45-dev",
-            "draft": False, "prerelease": True, "body": ""
-        }]
-        result = resolve_next_version(releases, "1" * 40, "0.7.49-dev", 62)
-        self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
-                         ("0.7.50-dev", 63, "guardian-dev-v63"))
-
-    def test_release_version_name_cannot_override_higher_installed_floor(self):
-        releases = [{
-            "tag_name": "guardian-dev-v70",
-            "name": "Guardian AdBlock 0.7.48-dev",
-            "draft": False, "prerelease": True, "body": ""
-        }]
-        result = resolve_next_version(releases, "2" * 40, "0.7.49-dev", 62)
-        self.assertEqual((result["version_name"], result["version_code"]),
-                         ("0.7.50-dev", 71))
