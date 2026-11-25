@@ -163,4 +163,4 @@ class VpnStartCancellationGateTest {
         assertFalse(gate.isCurrent(start))
         assertFalse(guard.hasActiveSession())
     }
-
+}
