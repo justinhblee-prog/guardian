@@ -101,8 +101,9 @@ internal object PremiumReportPolicy {
             val date = try { LocalDate.parse(parts[0]) } catch (_: DateTimeParseException) { return@forEach }
             val values = parts.drop(1).map { it.toLongOrNull()?.takeIf { n -> n >= 0L } ?: return@forEach }
             val incoming = DailyTotals(date, values[0], values[1], values[2], values[3], values[4], values[5], values[6])
+            if (!isConsistent(incoming)) return@forEach
             val previous = rows[date]
-            rows[date] = if (previous == null) incoming else DailyTotals(
+            val merged = if (previous == null) incoming else DailyTotals(
                 date,
                 add(previous.queries, incoming.queries),
                 add(previous.blocked, incoming.blocked),
@@ -112,9 +113,15 @@ internal object PremiumReportPolicy {
                 add(previous.forwarded, incoming.forwarded),
                 add(previous.failed, incoming.failed)
             )
+            if (isConsistent(merged)) rows[date] = merged
         }
         return rows.values.toList()
     }
+
+    private fun isConsistent(row: DailyTotals): Boolean =
+        row.blocked <= row.queries &&
+            add(add(row.ads, row.trackers), row.other) <= row.blocked &&
+            add(add(row.blocked, row.forwarded), row.failed) <= row.queries
 
     private fun encode(row: DailyTotals): String = listOf(
         row.date.toString(), row.queries, row.blocked, row.ads, row.trackers,
