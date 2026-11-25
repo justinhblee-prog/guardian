@@ -70,9 +70,31 @@ def resolve_settings_item(hierarchy: str, requested: str) -> str:
     raise ValueError("No visible compatible Settings item for: " + requested)
 
 
+def resolve_primary_navigation(hierarchy: str) -> str:
+    """Identify the legacy or redesigned five-destination navigation in an APK."""
+    root = _root(hierarchy)
+    descriptions = {
+        node.attrib.get("content-desc", "").strip()
+        for node in root.iter("node")
+        if node.attrib.get("visible-to-user", "true") == "true"
+        and node.attrib.get("enabled", "true") == "true"
+        and node.attrib.get("clickable", "false") == "true"
+    }
+    redesigned = {"홈", "보호", "앱 제외", "활동", "설정"}
+    if redesigned.issubset(descriptions):
+        return "redesigned"
+    legacy_base = {"홈", "보호", "활동", "전체 메뉴"}
+    if legacy_base.issubset(descriptions):
+        if "Premium" in descriptions:
+            return "legacy:Premium"
+        if "프리미엄" in descriptions:
+            return "legacy:프리미엄"
+    raise ValueError("Current APK does not expose a supported five-destination navigation")
+
+
 def main() -> int:
-    if len(sys.argv) not in (2, 3) or sys.argv[1] not in {"entry", "category", "settings-item"}:
-        print("usage: android_navigation_compat.py entry|category|settings-item [title]", file=sys.stderr)
+    if len(sys.argv) not in (2, 3) or sys.argv[1] not in {"entry", "category", "settings-item", "navigation"}:
+        print("usage: android_navigation_compat.py entry|category|settings-item|navigation [title]", file=sys.stderr)
         return 2
     if sys.argv[1] == "settings-item" and len(sys.argv) != 3:
         print("settings-item requires a requested title", file=sys.stderr)
@@ -83,6 +105,8 @@ def main() -> int:
             value = resolve_premium_entry(hierarchy)
         elif sys.argv[1] == "category":
             value = resolve_premium_category(hierarchy)
+        elif sys.argv[1] == "navigation":
+            value = resolve_primary_navigation(hierarchy)
         else:
             value = resolve_settings_item(hierarchy, sys.argv[2])
     except ValueError as exc:
