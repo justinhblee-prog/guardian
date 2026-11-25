@@ -23,6 +23,37 @@ internal object PremiumUrlRiskScanner {
         "signin", "update", "confirm", "crypto"
     )
 
+    /** Browser URL parsers accept several non-canonical IPv4 spellings. */
+    private fun isCanonicalIpv4(host: String): Boolean {
+        val octets = host.split('.')
+        if (octets.size != 4) return false
+        return octets.all { octet ->
+            octet.isNotEmpty() &&
+                octet.length <= 3 &&
+                (octet == "0" || !octet.startsWith('0')) &&
+                octet.all { it in '0'..'9' } &&
+                (octet.toIntOrNull()?.let { it in 0..255 } == true)
+        }
+    }
+
+    /**
+     * WHATWG-style URL parsing treats one-to-four decimal or 0x-prefixed
+     * hexadecimal labels as IPv4 candidates (including legacy octal-like
+     * decimal forms). Flag them for review even when java.net.URI reports a
+     * syntactically valid hostname rather than a canonical dotted quad.
+     */
+    private fun isBrowserIpv4Notation(host: String): Boolean {
+        val labels = host.split('.')
+        if (labels.size !in 1..4) return false
+        return labels.all { label ->
+            label.isNotEmpty() && (
+                label.all { it in '0'..'9' } ||
+                    (label.startsWith("0x") && label.length > 2 &&
+                        label.drop(2).all { it in '0'..'9' || it in 'a'..'f' })
+                )
+        }
+    }
+
     fun scan(input: String): UrlRiskResult {
         val raw = input.trim()
         if (raw.isEmpty() || raw.length > 2048 || raw.any { it.isWhitespace() }) {
@@ -39,7 +70,11 @@ internal object PremiumUrlRiskScanner {
         val indicators = mutableListOf<String>()
         if (!uri.scheme.equals("https", true)) indicators += "HTTPS가 아닌 연결입니다."
         if (host.startsWith("xn--") || host.split('.').any { it.startsWith("xn--") }) indicators += "국제화 도메인(Punycode)이 포함되어 있습니다."
-        if (host.matches(Regex("""(?:\d{1,3}\.){3}\d{1,3}"""))) indicators += "도메인 대신 IPv4 주소를 직접 사용합니다."
+        if (isCanonicalIpv4(host)) {
+            indicators += "도메인 대신 IPv4 주소를 직접 사용합니다."
+        } else if (isBrowserIpv4Notation(host)) {
+            indicators += "IPv4 주소로 해석될 수 있는 비표준 숫자 호스트 표기입니다."
+        }
         if (host.count { it == '.' } >= 4) indicators += "하위 도메인이 비정상적으로 많습니다."
         if (host in shorteners) indicators += "목적지를 숨길 수 있는 URL 단축 서비스입니다."
         val pathAndQuery = (uri.rawPath.orEmpty() + "?" + uri.rawQuery.orEmpty()).lowercase(Locale.ROOT)

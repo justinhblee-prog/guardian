@@ -22,6 +22,22 @@ class PremiumUrlRiskScannerTest {
         assertEquals(UrlRiskLevel.REVIEW, short.level)
     }
 
+    @Test fun flagsBrowserCompatibleNonCanonicalIpv4AddressForms() {
+        val candidates = listOf(
+            "https://2130706433/path",       // single 32-bit decimal integer
+            "https://0x7f000001/path",      // hexadecimal integer
+            "https://0177.0.0.1/path",      // legacy octal-like dotted form
+            "https://192.168.001.001/path"  // leading-zero dotted form
+        )
+        for (candidate in candidates) {
+            val result = PremiumUrlRiskScanner.scan(candidate)
+            assertTrue("Expected IPv4 warning for $candidate: ${result.indicators}",
+                result.indicators.any { it.contains("IPv4") })
+            assertEquals("Non-canonical IP notation must not be scored LOW for $candidate",
+                UrlRiskLevel.REVIEW, result.level)
+        }
+    }
+
     @Test fun ordinaryHttpsUrlHasNoHeuristicIndicators() {
         val result = PremiumUrlRiskScanner.scan("https://www.example.org/about")
         assertTrue(result.valid)
