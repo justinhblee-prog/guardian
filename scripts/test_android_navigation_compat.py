@@ -66,6 +66,14 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         xml = '<hierarchy><node text="필터링" visible-to-user="true" /></hierarchy>'
         self.assertEqual(resolve_settings_item(xml, "필터링"), "필터링")
 
+    def test_legacy_filter_management_label_is_supported_for_filtering_category(self):
+        xml = '<hierarchy><node text="필터 관리" visible-to-user="true" /></hierarchy>'
+        self.assertEqual(resolve_settings_item(xml, "필터링"), "필터 관리")
+
+    def test_legacy_filter_rules_label_is_supported_for_filtering_category(self):
+        xml = '<hierarchy><node content-desc="필터 규칙" visible-to-user="true" /></hierarchy>'
+        self.assertEqual(resolve_settings_item(xml, "필터링"), "필터 규칙")
+
     def test_current_app_exclusion_settings_label_is_supported(self):
         xml = '<hierarchy><node text="앱 제외 관리" visible-to-user="true" /></hierarchy>'
         self.assertEqual(resolve_settings_item(xml, "앱 제외 관리"), "앱 제외 관리")
