@@ -109,3 +109,10 @@ object FilterUpdateScheduler {
         )
     }
 }
+
+
+/** One-time default migration must never overwrite a previously recorded user choice. */
+internal object FilterAutoUpdatePreferencePolicy {
+    fun shouldApplyDefaultMigration(migrationAlreadyApplied: Boolean, userChoiceRecorded: Boolean): Boolean =
+        !migrationAlreadyApplied
+}
