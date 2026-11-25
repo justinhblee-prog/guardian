@@ -133,3 +133,11 @@ Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 �
 - 변경은 `work/android-free-release-followup-20261124` 브랜치에 반영했습니다. 이번 구현은 Premium Reports 첫 번째 범위이며 Threat Analytics, Security Profiles, Phishing Scanner, App Protection의 미완성 엔진을 완료로 간주하지 않습니다.
 - 라이선스 UI의 서버 준비 상태 판정도 수정했습니다. 이제 빌드 기본 URL만 보지 않고 Settings에 저장된 HTTPS API origin과 앱 고정 RSA 공개키를 함께 검증합니다. 회귀 테스트는 사용자 지정 HTTPS origin, 빈/HTTP 주소, 잘못된 공개키를 포함합니다. JUnit 검증 전까지 이 수정 역시 테스트 대기 상태입니다.
 
+## 2026-11-25 — Premium 리포트 무결성 및 라이선스 발급 입력 검증 보강
+
+- Premium 리포트 화면은 현재 개발 미리보기에서만 표시하도록 게이트를 수정했습니다. 실제 PRO 사용자에게는 엔진 검증 전 기능을 사용할 수 있는 것처럼 노출하지 않습니다.
+- 리포트 저장 형식 테스트를 날짜 + 숫자 카운터의 정확한 직렬화 문자열 비교로 강화했습니다. 중복 날짜 행 병합, 카운터 간 불일치 데이터 거부, 90일 경계 및 포화 연산도 테스트합니다.
+- 리포트 파서는 날짜별 blocked <= queries, 분류별 합계 <= blocked, blocked + forwarded + failed <= queries 불변식을 위반하는 손상 행을 무시합니다.
+- License API 관리자 발급 요청에서 숫자 문자열·null·잘못된 플랜 기간을 기본값으로 조용히 대체하던 동작을 제거했습니다. 이제 maxDevices, validDays, planCode를 엄격하게 검증하고 잘못된 요청은 HTTP 400으로 거부합니다. 값이 생략된 경우에만 명시적 기본값(1기기/365일/custom)을 적용합니다.
+- license-core.test.mjs에 고정 플랜·기본값·잘못된 자료형·범위·기간 불일치 테스트를 추가했습니다.
+- **검증 상태:** Android JUnit/Lint 및 License API Node/PostgreSQL 테스트는 이 변경 묶음에서 아직 실행하지 않았습니다. 테스트 소스 추가만으로 통과 판정을 내리지 않습니다.
