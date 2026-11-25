@@ -1460,10 +1460,16 @@ if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml"; then
   echo "$exit_menu_xml"
   exit 1
 fi
-tap_text "Guardian 종료"
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-exit-confirmation.xml >/dev/null 2>&1
-exit_confirmation_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-confirmation.xml | tr -d '\r')"
+# The Settings row can open the confirmation dialog as soon as the UI settles.
+# Handle both states explicitly: tap the row only while the dialog is not open,
+# then use the dialog's actual button rather than its non-clickable title.
+if ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_menu_xml"; then
+  tap_text "Guardian 종료"
+  sleep 1
+  exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
+else
+  exit_confirmation_xml="$exit_menu_xml"
+fi
 if ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
    ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
   echo "The explicit Guardian 종료 action did not open its confirmation dialog."
