@@ -2464,7 +2464,7 @@ class MainActivity : Activity() {
                         }
                     }
                     addView(activateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
-                    if (activeLicense != null) {
+                    if (releasableLicense != null) {
                         val statusButton = Button(this@MainActivity).apply {
                             text = "서버에서 라이선스 상태 확인"
                             isAllCaps = false
@@ -2477,9 +2477,15 @@ class MainActivity : Activity() {
                                     try {
                                         val status = LicenseApiClient.status(this@MainActivity)
                                         runOnUiThread {
-                                            if (isActiveLicenseStatus(status.optString("status"))) {
-                                                licenseFeedback.text = "서버 확인 완료 · 이 기기의 PRO 라이선스가 활성 상태입니다."
-                                                licenseFeedback.setTextColor(accent)
+                                            val serverStatus = status.optString("status")
+                                            if (isActiveLicenseStatus(serverStatus)) {
+                                                licenseFeedback.text = licenseStatusMessage(
+                                                    serverStatus,
+                                                    localEntitlementActive = activeLicense != null
+                                                )
+                                                licenseFeedback.setTextColor(
+                                                    if (activeLicense != null) accent else Color.rgb(238, 176, 82)
+                                                )
                                                 isEnabled = true
                                             } else {
                                                 // The API client clears a locally cached token when the
