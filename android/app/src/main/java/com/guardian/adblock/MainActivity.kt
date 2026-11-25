@@ -4012,6 +4012,7 @@ class MainActivity : Activity() {
             }
             true
         }
+        return true
     }
 
     private fun rollbackPendingFilterProfile(prefs: android.content.SharedPreferences): Boolean {
