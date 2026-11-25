@@ -1241,7 +1241,7 @@ fi
 # Exercise a real Activity recreation in landscape while unsaved user-rule text
 # is present. The tab and draft must survive rotation without saving to prefs.
 echo "Verifying filter-screen and unsaved rule state survive device rotation."
-open_settings_menu_item "필터 관리"
+open_settings_menu_item "필터링"
 tap_text "전체 필터 규칙 편집"
 sleep 1
 tap_first_edit_text
@@ -1436,7 +1436,7 @@ if [[ -z "$expected_current_version" ]] ||
   echo "$about_version_xml"
   exit 1
 fi
-open_settings_menu_item "필터 관리"
+open_settings_menu_item "필터링"
 sleep 1
 filtering_settings_xml="$(dump_ui_hierarchy /sdcard/guardian-filtering-settings.xml)"
 python3 -c 'import sys,xml.etree.ElementTree as ET
