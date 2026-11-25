@@ -224,19 +224,30 @@ open_settings_menu_item() {
       xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
       if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-expected={"일반 설정 열기","필터링 설정 열기","라이선스 및 프리미엄 설정 열기","고객 지원 설정 열기","정보 설정 열기","종료 설정 열기"}
-visible={n.attrib.get("content-desc","") for n in root.iter("node")
-         if n.attrib.get("visible-to-user","true")=="true"
-         and n.attrib.get("clickable")=="true"
-         and n.attrib.get("enabled")=="true"}
-raise SystemExit(0 if expected.intersection(visible) else 1)' <<<"$xml"; then
+parents={child: parent for parent in root.iter() for child in parent}
+expected={"일반","필터링","라이선스 및 프리미엄","고객 지원","정보"}
+found=set()
+for node in root.iter("node"):
+    if node.attrib.get("visible-to-user","true")!="true":
+        continue
+    if node.attrib.get("text","").strip() not in expected:
+        continue
+    parent=parents.get(node)
+    while parent is not None:
+        if (parent.attrib.get("visible-to-user","true")=="true"
+            and parent.attrib.get("clickable")=="true"
+            and parent.attrib.get("enabled")=="true"):
+            found.add(node.attrib.get("text","").strip())
+            break
+        parent=parents.get(parent)
+raise SystemExit(0 if found else 1)' <<<"$xml"; then
         index_ready=1
         break
       fi
     done
     if [[ "$index_ready" -ne 1 ]]; then
       echo "Settings navigation did not return to the phone category index."
-      echo "Expected one of the six category entries; current hierarchy follows:"
+      echo "Expected the Settings category index; current hierarchy follows:"
       echo "$xml"
       return 1
     fi
