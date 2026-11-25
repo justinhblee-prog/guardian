@@ -66,17 +66,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          # 0.7.49-dev (versionCode 62) is the minimum version already installed
-          # by the active device-validation track, even though it was not published
-          # as a GitHub release. Never derive the app version from release tags alone.
-          # Every build must be newer than both this installed baseline and releases.
+          # 0.7.50-dev (versionCode 63) is already installed on the active device.
+          # This build was distributed as a CI artifact, not a GitHub Release, so the
+          # public release list still lags behind the installed app. Keep the installed
+          # baseline explicit: the next main-branch release must be versionCode 64+.
+          # Never derive the app version from public release tags alone.
           # Main reruns reuse the release version for the same source commit.
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
           python3 scripts/resolve_guardian_dev_version.py \
             --releases-json release/guardian-releases.json \
             --commit "$GITHUB_SHA" \
-            --baseline-version "0.7.49-dev" \
-            --baseline-code 62 \
+            --baseline-version "0.7.50-dev" \
+            --baseline-code 63 \
             --github-env "$GITHUB_ENV" \
             --github-output "$GITHUB_OUTPUT"
           echo "Version resolution completed."
