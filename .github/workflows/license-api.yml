@@ -66,5 +66,7 @@ jobs:
           pg_isready -h localhost -p 5432
       - name: Initialize PostgreSQL integration schema
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
-      - name: Run cryptographic, HTTP and PostgreSQL integration tests
+      - name: Run cryptographic, HTTP, PostgreSQL and edge adapter tests
         run: npm test
+      - name: Validate Cloudflare Worker bundle without deploying
+        run: npx --yes wrangler@latest deploy --dry-run --outdir /tmp/guardian-license-worker --config wrangler.toml
