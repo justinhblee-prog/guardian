@@ -20,6 +20,7 @@ internal object SafeFailureSummary {
         var depth = 0
         while (current != null && depth < 8 && seen.add(current)) {
             val code = when (current) {
+                is GuardianHttpStatusException -> "HTTP_${current.statusCode}"
                 is SocketTimeoutException -> "NETWORK_TIMEOUT"
                 is UnknownHostException -> "DNS_RESOLUTION_FAILED"
                 is SSLException -> "TLS_FAILURE"
@@ -63,6 +64,10 @@ internal object SafeFailureSummary {
         "INVALID_CONFIGURATION_OR_RESPONSE" -> "설정 또는 응답 형식 확인 필요"
         "INVALID_RUNTIME_STATE" -> "보호 엔진 내부 상태 오류"
         "IO_FAILURE" -> "네트워크 또는 입출력 오류"
+        "HTTP_403" -> "GitHub 접근 제한(HTTP 403)"
+        "HTTP_404" -> "업데이트 목록을 찾을 수 없음(HTTP 404)"
+        "HTTP_429" -> "GitHub 요청 한도 초과(HTTP 429)"
+        "HTTP_500", "HTTP_502", "HTTP_503", "HTTP_504" -> "GitHub 서버 일시 오류(${code.removePrefix("HTTP_")})"
         else -> "원인을 안전하게 분류할 수 없는 오류"
     }
 }
