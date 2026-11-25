@@ -87,6 +87,21 @@ class PremiumReportPolicyTest {
     }
 
     @Test
+    fun inconsistentPersistedCountersAreIgnored() {
+        val day = LocalDate.parse("2026-11-25")
+        val corruptRows = listOf(
+            "$day|2|3|0|0|0|0|0",
+            "$day|2|1|1|1|0|0|0",
+            "$day|2|1|0|0|0|2|0"
+        ).joinToString("\\n")
+
+        val summary = PremiumReportPolicy.summarize(corruptRows, day, day)
+        assertEquals(0L, summary.queries)
+        assertEquals(0L, summary.blocked)
+        assertEquals(0L, summary.forwarded)
+    }
+
+    @Test
     fun malformedRowsAreIgnoredAndCountersSaturate() {
         val today = LocalDate.parse("2026-11-25")
         val corrupt = "not-a-date|1|1|1|1|1|1|1\n2026-11-25|-1|0|0|0|0|0|0"
