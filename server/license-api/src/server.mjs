@@ -5,7 +5,7 @@ import pg from 'pg';
 import { createPostgresRateLimiter, createRateLimiter } from './rate-limit.mjs';
 import {
   adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey,
-  validateDeviceBinding, verifyLicenseKey
+  validateDeviceBinding, validateLicenseIssueParameters, verifyLicenseKey
 } from './license-core.mjs';
 
 const { Pool } = pg;
@@ -381,16 +381,12 @@ async function createLicense(body) {
     }
     customer = { name, email, orderRef: orderRef || null };
   }
-  const maxDevices = Number.isInteger(body.maxDevices) ? body.maxDevices : 1;
-  const days = Number.isInteger(body.validDays) ? body.validDays : 365;
-  const planDurations = { monthly_30d: 30, quarterly_90d: 90, annual_365d: 365, short_7d: 7 };
-  const planCode = typeof body.planCode === 'string' ? body.planCode : 'custom';
-  const expectedDays = planDurations[planCode];
-  if (!['custom', ...Object.keys(planDurations)].includes(planCode) ||
-      (expectedDays !== undefined && days !== expectedDays) ||
-      maxDevices < 1 || maxDevices > 20 || days < 1 || days > 36500) {
-    throw Object.assign(new Error('기기 수 또는 유효 기간 설정이 범위를 벗어났습니다.'), { status: 400 });
-  }
+  const issueParameters = validateLicenseIssueParameters({
+    maxDevices: body.maxDevices === undefined ? 1 : body.maxDevices,
+    validDays: body.validDays === undefined ? 365 : body.validDays,
+    planCode: body.planCode === undefined ? 'custom' : body.planCode
+  });
+  const { maxDevices, validDays: days, planCode } = issueParameters;
   const key = newLicenseKey();
   const hashed = await hashLicenseKey(key, LOOKUP_SECRET);
   const client = await pool.connect();
