@@ -56,7 +56,7 @@ export function validateSupportTicketInput(value) {
       message.length < 10 || message.length > 5000 ||
       hasControl.test(subject) || hasControl.test(message) ||
       typeof email !== 'string' || email.length > 254 ||
-      (email !== '' && !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email.trim())) ||
+      (email !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) ||
       hasControl.test(email)) {
     throw Object.assign(new Error('문의 유형, 제목, 내용 또는 이메일을 확인하세요.'), { status: 400 });
   }
