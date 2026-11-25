@@ -148,7 +148,7 @@ class FilterUpdateWorker(
                 prefs.getBoolean(GuardianVpnService.KEY_ACTIVE, false),
                 GuardianVpnService.isTunnelActive()
             )
-            if (active && anySourceUpdated) {
+            if (active && FilterUpdatePolicy.shouldReloadRules(anySourceUpdated)) {
                 applicationContext.startService(
                     Intent(applicationContext, GuardianVpnService::class.java)
                         .setAction(GuardianVpnService.ACTION_RELOAD_RULES)
@@ -244,6 +244,9 @@ internal object FilterUpdatePolicy {
             "광고 필터 다운로드 실패(선택한 목록 없음 · 내장 기본 규칙으로 제한 보호 중): ${SafeFailureSummary.describeCode(errorCode)}"
         }
     }
+
+    /** Avoid a full active-rule parse when every scheduled source was still fresh. */
+    fun shouldReloadRules(anySourceUpdated: Boolean): Boolean = anySourceUpdated
 
     /** Preserve the last failure until a due refresh actually succeeds. */
     fun shouldClearBaseError(updateWasDue: Boolean, updateSucceeded: Boolean): Boolean =
