@@ -24,6 +24,24 @@ class ProtectionRestoreReceiver : BroadcastReceiver() {
             return
         }
 
+        // Android may revoke VPN authorization (for example, when another VPN
+        // app is selected). A boot receiver cannot display the consent dialog.
+        // Preserve the user's durable intent and wait for the foreground UI.
+        if (android.net.VpnService.prepare(context) != null) {
+            prefs.edit()
+                .putBoolean(GuardianVpnService.KEY_ACTIVE, false)
+                .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
+                .remove("protection_recovery_requested_at")
+                .putString(
+                    GuardianVpnService.KEY_STATUS,
+                    "Android VPN 권한 재승인이 필요합니다. Guardian을 열고 보호 시작을 눌러 주세요."
+                )
+                .commit()
+            Log.w("GuardianProtection", "Automatic restore deferred; Android VPN consent is not prepared: action=$action")
+            context.sendBroadcast(Intent(GuardianVpnService.ACTION_STATUS_CHANGED).setPackage(context.packageName))
+            return
+        }
+
         // Clear the stale "active" bit before relaunching the service. The UI must
         // not claim protection is live until the new TUN has actually been established.
         prefs.edit()
