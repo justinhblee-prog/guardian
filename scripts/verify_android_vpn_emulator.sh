@@ -95,6 +95,29 @@ for node in root.iter("node"):
   adb_cmd shell input tap "$x" "$y"
 }
 
+
+tap_clickable_parent_of_text() {
+  local wanted="$1" xml bounds
+  xml="$(dump_ui_hierarchy /sdcard/guardian-window.xml)"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+parents={child:parent for parent in root.iter() for child in parent}
+for node in root.iter("node"):
+    if node.attrib.get("text","").strip()==sys.argv[1] and node.attrib.get("visible-to-user","true")=="true":
+        parent=parents.get(node)
+        while parent is not None:
+            if parent.attrib.get("clickable")=="true" and parent.attrib.get("enabled")=="true" and parent.attrib.get("visible-to-user","true")=="true":
+                p=parent.attrib.get("bounds","").strip("[]").split("][")
+                if len(p)==2:
+                    x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
+                    print((x1+x2)//2,(y1+y2)//2); raise SystemExit(0)
+            parent=parents.get(parent)
+raise SystemExit("No clickable parent found for exact visible text: "+sys.argv[1])' "$wanted" <<<"$xml")"
+  local x y
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 tap_content_description() {
   local wanted="$1"
   local xml bounds
@@ -1625,7 +1648,10 @@ else
   ensure_text_visible "필터링"
   # The category card exposes its clickable accessibility label with the
   # action suffix; the visible title itself is a non-clickable TextView.
-  tap_content_description "필터링 설정 열기"
+  # The Settings category title is a non-clickable TextView inside a clickable card.
+  # Resolve and tap that parent from the live hierarchy instead of relying on a
+  # content-description suffix that is not exposed by every Android build.
+  tap_clickable_parent_of_text "필터링"
 fi
 sleep 1
 for attempt in $(seq 1 24); do
