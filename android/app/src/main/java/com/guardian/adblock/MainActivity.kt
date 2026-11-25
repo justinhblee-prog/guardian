@@ -4048,7 +4048,7 @@ class MainActivity : Activity() {
             "Guardian",
             "Filter update failed: ${SafeFailureSummary.codeFor(error)}; causeTypes=${SafeFailureSummary.diagnosticTypeChain(error)}"
         )
-        if (!hadPreviousMainCache) {
+        if (!hasPreviousCacheAfterRollback) {
             runCatching { FilterUpdateScheduler.enqueueInitialCacheRetry(applicationContext) }
                 .onFailure { retryError ->
                     android.util.Log.e("Guardian", "Could not schedule initial filter cache retry: ${SafeFailureSummary.codeFor(retryError)}")
