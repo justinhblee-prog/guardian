@@ -121,3 +121,45 @@ test('reuses a short-lived OAuth access token across purchase lookups', async ()
   await verifier.verifySubscription({ purchaseToken: 'token-two', productId: 'guardian_pro_monthly' });
   assert.equal(calls.filter(call => call.url === 'https://oauth2.googleapis.com/token').length, 1);
 });
+
+
+test('rejects empty OAuth access tokens instead of caching unusable credentials', async () => {
+  let publisherCalls = 0;
+  const verifier = createGooglePlayBillingVerifier({
+    serviceAccountJson,
+    now,
+    fetchImpl: async url => {
+      if (String(url) === 'https://oauth2.googleapis.com/token') {
+        return Response.json({ access_token: '', expires_in: 3600 });
+      }
+      publisherCalls++;
+      return Response.json(activeSubscription());
+    }
+  });
+  await assert.rejects(
+    verifier.verifySubscription({ purchaseToken: 'valid-token', productId: 'guardian_pro_monthly' }),
+    error => error instanceof GooglePlayBillingError &&
+      error.code === 'billing_oauth_rejected' && error.status === 502
+  );
+  assert.equal(publisherCalls, 0);
+});
+
+test('caps unexpectedly long OAuth expiry values at one hour', async () => {
+  let currentTime = now();
+  let oauthCalls = 0;
+  const verifier = createGooglePlayBillingVerifier({
+    serviceAccountJson,
+    now: () => currentTime,
+    fetchImpl: async url => {
+      if (String(url) === 'https://oauth2.googleapis.com/token') {
+        oauthCalls++;
+        return Response.json({ access_token: 'publisher-test-token-' + oauthCalls, expires_in: 86400 });
+      }
+      return Response.json(activeSubscription());
+    }
+  });
+  await verifier.verifySubscription({ purchaseToken: 'token-one', productId: 'guardian_pro_monthly' });
+  currentTime += 3601 * 1000;
+  await verifier.verifySubscription({ purchaseToken: 'token-two', productId: 'guardian_pro_monthly' });
+  assert.equal(oauthCalls, 2);
+});
