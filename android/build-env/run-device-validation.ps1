@@ -66,12 +66,14 @@ $allowedResolved = $allowed.Output -match "(?im)^PING\s+$([regex]::Escape($Allow
 $allowedReachable = $allowed.Output -match "1 received|1 packets transmitted, 1 received|0% packet loss"
 $blockedNameFailure = $blocked.Output -match "(?i)unknown host|temporary failure in name resolution|Name or service not known"
 $blockedResolved = $blocked.Output -match "(?im)^PING\s+$([regex]::Escape($BlockedDomain))\s+\("
-$ipv6Resolved = $ipv6.Output -match "(?im)^PING\s+$([regex]::Escape($Ipv6Domain))\s*\("
+# ping6 emits "connect: Network is unreachable" only after resolving the hostname
+# to an IPv6 address; it indicates a routing limitation, not a DNS lookup failure.
+$ipv6Resolved = ($ipv6.Output -match "(?im)^PING\s+$([regex]::Escape($Ipv6Domain))\s*\(") -or
+    ($ipv6.Output -match "(?i)connect:\s*Network is unreachable")
 $script:results["Allowed domain resolved"] = $allowedResolved
 $script:results["Allowed domain ICMP reachable"] = $allowedReachable
 $script:results["Blocked domain DNS blocked"] = ($blockedNameFailure -and -not $blockedResolved)
-$script:results["Blocked domain unexpectedly resolved"] = $blockedResolved
-$script:results["IPv6 domain AAAA resolution observed"] = $ipv6Resolved
+$script:results["IPv6 domain AAAA lookup reached socket stage"] = $ipv6Resolved
 # 3. IPv6 policy route (not general IPv6 Internet reachability)
 $route = Test-DeviceCommand "IPv6 policy route to Cloudflare resolver" @("ip", "-6", "route", "get", "2606:4700:4700::1111")
 $script:results["IPv6 policy route uses tun0"] = ($route.Output -match "dev tun0")
