@@ -7,19 +7,19 @@ import org.junit.Test
 class FilterAutoUpdatePreferencePolicyTest {
     @Test
     fun appliesDefaultOnlyBeforeMigration() {
-        assertTrue(FilterAutoUpdatePreferencePolicy.shouldApplyDefaultMigration(
+        assertTrue(FilterAutoUpdatePreferencePolicy.shouldEnableDefault(
             migrationAlreadyApplied = false,
             userChoiceRecorded = false
         ))
-        assertTrue(FilterAutoUpdatePreferencePolicy.shouldApplyDefaultMigration(
+        assertFalse(FilterAutoUpdatePreferencePolicy.shouldEnableDefault(
             migrationAlreadyApplied = false,
             userChoiceRecorded = true
         ))
-        assertFalse(FilterAutoUpdatePreferencePolicy.shouldApplyDefaultMigration(
+        assertFalse(FilterAutoUpdatePreferencePolicy.shouldEnableDefault(
             migrationAlreadyApplied = true,
             userChoiceRecorded = false
         ))
-        assertFalse(FilterAutoUpdatePreferencePolicy.shouldApplyDefaultMigration(
+        assertFalse(FilterAutoUpdatePreferencePolicy.shouldEnableDefault(
             migrationAlreadyApplied = true,
             userChoiceRecorded = true
         ))
