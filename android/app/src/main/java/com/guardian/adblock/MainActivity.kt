@@ -1534,7 +1534,7 @@ class MainActivity : Activity() {
             Triple("실시간 위협·DNS 활동 분석", "차단 이벤트와 DNS 요청을 분류해 활동 내역으로 제공", "기본 DNS 처리 존재 · 고급 분석 개발 필요"),
             Triple("보안 프로필 및 자동화", "상황별 보호 정책과 자동 전환을 관리하는 기능", "화면 미리보기 · 자동화 엔진 미구현"),
             Triple("피싱 링크·앱 코드 검사", "의심 URL과 앱 코드의 위험도를 검사하는 기능", "검사 엔진 미연결 · 실제 탐지 안 함"),
-            Triple("프리미엄 리포트 및 통계", "기간별 차단량과 보호 상태를 요약하는 기능", "리포트 엔진 개발 필요")
+            Triple("프리미엄 리포트 및 통계", "누적 차단량과 보호 상태를 요약하고 개인정보 없이 내보내는 기능", "누적 DNS 통계 리포트 구현 · 기간별 집계는 확장 예정")
         )
         previewFeatures.forEach { (name, description, status) ->
             body.addView(card(panel, 14).apply {
@@ -1543,6 +1543,40 @@ class MainActivity : Activity() {
                 addView(text(description, 11f, muted, false).withTop(5))
                 addView(text(status, 10f, Color.rgb(238, 176, 82), true).withTop(8))
             }.withTop(8))
+        }
+
+        if (proActive) {
+            val reportPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            val reportSnapshot = PremiumReportSnapshot(
+                totalQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
+                blockedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
+                forwardedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
+                failedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
+                adBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
+                trackerBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
+                otherBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L),
+                protectionActive = GuardianVpnService.isTunnelActive()
+            )
+            val reportText = PremiumReportBuilder.build(reportSnapshot, System.currentTimeMillis())
+            body.addView(card(panel, 16).apply {
+                setPadding(dp(15), dp(15), dp(15), dp(15))
+                addView(text("프리미엄 DNS 리포트", 15f, white, true))
+                addView(text(
+                    "이 기기에서 수집한 누적 DNS 통계를 기반으로 생성합니다. 방문 도메인과 사용자 규칙은 포함하지 않습니다.",
+                    11f, muted, false
+                ).withTop(5))
+                addView(Button(this@MainActivity).apply {
+                    text = "리포트 복사"
+                    isAllCaps = false
+                    setTextColor(bg)
+                    background = shape(accent, 12)
+                    setOnClickListener {
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian Premium DNS Report", reportText))
+                        Toast.makeText(this@MainActivity, "개인정보를 제외한 DNS 리포트를 복사했습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(12) })
+            }.withTop(14))
         }
 
         body.addView(text(
