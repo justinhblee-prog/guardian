@@ -1496,7 +1496,7 @@ class DnsTcpSessionManagerTest {
     )
 
     private fun packet(flags: Int, seq: Long, payload: ByteArray = byteArrayOf(),
-                       acknowledgment: Long = 0L, window: Int = 8192,
+                       acknowledgment: Long = 1L, window: Int = 8192,
                        tcpOptions: ByteArray = byteArrayOf()): ByteArray {
         require(tcpOptions.size <= 40 && tcpOptions.size % 4 == 0)
         val tcpHeaderLength = 20 + tcpOptions.size
