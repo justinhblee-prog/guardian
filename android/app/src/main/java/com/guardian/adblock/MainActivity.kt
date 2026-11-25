@@ -1855,7 +1855,9 @@ class MainActivity : Activity() {
             }.withTop(8))
         }
 
-        if (proActive || developmentPreview) {
+        // Do not expose an unvalidated premium engine to a production PRO account.
+        // Development preview remains presentation-only and never grants entitlement.
+        if (developmentPreview) {
             val reportPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
             val reportRaw = reportPrefs.getString(PremiumReportPolicy.PREFERENCE_KEY, "").orEmpty()
             val reportToday = java.time.LocalDate.now()
