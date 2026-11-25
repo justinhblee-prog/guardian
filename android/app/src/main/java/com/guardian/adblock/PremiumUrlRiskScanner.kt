@@ -24,7 +24,6 @@ internal object PremiumUrlRiskScanner {
         "signin", "update", "confirm", "crypto"
     )
 
-    /** Browser URL parsers accept several non-canonical IPv4 spellings. */
     private fun isCanonicalIpv4(host: String): Boolean {
         val octets = host.split('.')
         if (octets.size != 4) return false
@@ -37,12 +36,7 @@ internal object PremiumUrlRiskScanner {
         }
     }
 
-    /**
-     * WHATWG-style URL parsing treats one-to-four decimal or 0x-prefixed
-     * hexadecimal labels as IPv4 candidates (including legacy octal-like
-     * decimal forms). Flag them for review even when java.net.URI reports a
-     * syntactically valid hostname rather than a canonical dotted quad.
-     */
+    /** WHATWG-style URL parsing accepts one-to-four decimal or hexadecimal IPv4 labels. */
     private fun isBrowserIpv4Notation(host: String): Boolean {
         val labels = host.split('.')
         if (labels.size !in 1..4) return false
@@ -55,7 +49,11 @@ internal object PremiumUrlRiskScanner {
         }
     }
 
-    /** java.net.URI leaves Unicode authorities without a parsed host; normalize them explicitly. */
+    /**
+     * java.net.IDN implements an older IDNA profile and rejects some valid modern
+     * Unicode labels (for example U+04CF). Keep those hosts valid and visibly flagged
+     * rather than incorrectly rejecting the entire URL. Supported labels are punycoded.
+     */
     private fun asciiHost(uri: URI): Pair<String, Boolean>? {
         val parsed = uri.host
         val rawHost = parsed ?: run {
@@ -69,11 +67,12 @@ internal object PremiumUrlRiskScanner {
             }
         }
         if (rawHost.isBlank() || rawHost.contains('@')) return null
+        val unicodeHost = rawHost.any { it.code > 127 }
         return try {
             IDN.toASCII(rawHost, IDN.USE_STD3_ASCII_RULES)
-                .lowercase(Locale.ROOT) to (rawHost.any { it.code > 127 })
+                .lowercase(Locale.ROOT) to unicodeHost
         } catch (_: IllegalArgumentException) {
-            null
+            if (unicodeHost) rawHost.lowercase(Locale.ROOT) to true else null
         }
     }
 
