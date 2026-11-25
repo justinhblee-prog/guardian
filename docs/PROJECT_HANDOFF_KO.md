@@ -310,3 +310,24 @@ Android 1.0 게이트가 닫힌 뒤 Windows를 진행합니다.
   - PASS: valid CNAME-to-A chain accepted
   - PASS: malformed CNAME target rejected
 - 하네스는 probe 판정 로직을 대상으로 한 JVM 실행이며 Android 전체 소스/Gradle/JUnit 실행은 아닙니다. Android Gradle/JUnit/Lint, APK, 에뮬레이터 및 실기기 검증은 여전히 미실행입니다. GitHub Actions는 실행하지 않았습니다.
+
+
+## Android 필터 규칙·캐시·우선순위 정적 감사 (2026-11-25)
+
+### 감사 범위
+- `FilterRuleParser`: hosts/adblock DNS 규칙, 예외, important, badfilter, 지원하지 않는 modifier, BOM, 대용량 Reader 파싱
+- `DomainFilter`: 규칙 snapshot 원자 교체, 부모 도메인 일치, 차단 우선순위, 사용자 규칙 병합
+- `FilterStartupGate` 및 `GuardianVpnService.loadConfiguredRules()`: 필수 번들 baseline과 선택 필터 분리, 선택 캐시 실패 격리
+- `FilterCacheStore` 및 `FilterListManager`: 임시 파일 fsync, 백업/복구, 메타데이터 commit 실패 롤백, 서명 캐시 해시 및 anti-rollback 복구
+
+### 확인 결과
+- DNS 규칙 우선순위는 important block → allow → 일반 block이며, 중요 차단 규칙은 사용자 allow로 해제되지 않습니다.
+- 서브도메인은 부모 규칙을 상속합니다. 사용자 규칙과 다운로드 규칙은 새 RuleSet을 완성한 뒤 volatile 참조 한 번으로 교체합니다.
+- 선택 필터는 누락·손상·최소 규칙 수 미달 시 해당 소스만 건너뛰고, 필수 번들/긴급 baseline으로 VPN 시작을 유지합니다.
+- 캐시 교체는 새 파일 fsync 후 교체하며, 메타데이터 commit 실패 시 기존 캐시 바이트와 메타데이터 복구를 시도합니다. signed cache는 저장된 SHA-256과 anti-rollback watermark를 함께 확인합니다.
+- 초기에 의심한 context-scoped `badfilter` 취소 문제는 실제 결함이 아니었습니다. `adblockDomain()`이 이미 지원하지 않는 modifier(예: `third-party`)를 거부하므로 DNS-wide 규칙 취소로 확대되지 않습니다. 이를 중복 보강하려던 임시 수정은 영향이 없도록 되돌렸습니다. 불필요한 변경은 최종 소스에 남기지 않았습니다.
+
+### 검증 범위와 미확인 항목
+- 이번 단계에서는 실제 소스와 테스트 케이스를 정적으로 대조했습니다. Android Gradle/JUnit, Lint, APK 및 기기 검증을 실행했다고 간주하지 않습니다.
+- 파일 시스템 강제 종료 시점별 복구, 대용량 실제 필터의 메모리 사용량, signed manifest 서버의 운영 응답, 사용자 규칙을 편집하는 동안의 실제 VPN 트래픽 반영은 별도 통합/기기 검증이 필요합니다.
+- GitHub Actions는 실행하지 않았습니다.
