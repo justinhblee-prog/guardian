@@ -1622,6 +1622,21 @@ class MainActivity : Activity() {
     }
 
     private fun buildLicenseActivation(body: LinearLayout) {
+        body.addView(Button(this).apply {
+            text = "←  Premium으로 돌아가기"
+            isAllCaps = false
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            setTextColor(white)
+            background = shape(panel2, 12)
+            setOnClickListener {
+                if (tabBackStack.isNotEmpty()) {
+                    val previous = tabBackStack.removeAt(tabBackStack.lastIndex)
+                    showTab(previous)
+                } else {
+                    showTab("premium")
+                }
+            }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { bottomMargin = dp(16) })
         body.addView(text("PRO 라이선스 활성화", 25f, white, true))
         body.addView(text("발급받은 라이선스 키를 이 기기에 등록하고 서버 서명 토큰을 확인합니다.", 13f, muted, false).withTop(5))
         val verifiedLicense = LicenseEntitlementStore.current(this)
