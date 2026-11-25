@@ -13,7 +13,7 @@ $validationSucceeded = $false
 $failureMessage = $null
 
 function Write-LogLine {
-    param([Parameter(Mandatory = $true)][string]$Message)
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Message)
     Add-Content -LiteralPath $logPath -Value $Message -Encoding UTF8
     Write-Host $Message
 }
