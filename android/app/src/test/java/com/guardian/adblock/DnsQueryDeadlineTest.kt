@@ -110,4 +110,4 @@ class DnsQueryDeadlineTest {
             assertEquals(1, closeCount.get())
         }
     }
-
+}
