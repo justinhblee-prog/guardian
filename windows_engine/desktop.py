@@ -1,6 +1,68 @@
 """Tkinter desktop control panel for Guardian Windows DNS protection."""
-import json,os,sys,socket,struct,subprocess,time,urllib.request,webbrowser,traceback
+import json,os,sys,socket,struct,subprocess,time,urllib.request,webbrowser,traceback,re
 from pathlib import Path
+
+def safe_error_message(message, max_chars=4000):
+    """Redact credentials, endpoints, addresses and local paths from support text."""
+    value = str(message)
+    value = re.sub(r"https?://[^\s\"'<>]+", "[URL redacted]", value, flags=re.IGNORECASE)
+    value = re.sub(
+        r"(?i)\b(authorization)\s*[:=]\s*(?:bearer\s+)?[^\s,;]+",
+        r"\1=[REDACTED]",
+        value,
+    )
+    value = re.sub(r"(?i)\b(bearer)\s+[^\s,;]+", r"\1 [REDACTED]", value)
+    value = re.sub(
+        r"(?i)\b(token|api[_ -]?key|secret|password|license[_ -]?key)\b\s*[:=]\s*[^\s,;]+",
+        lambda match: match.group(1) + "=[REDACTED]",
+        value,
+    )
+    value = re.sub(
+        r"(?i)\b(host|hostname|server|endpoint)\s*[:=]\s*(['\"]?)[^'\"\s,]+",
+        lambda match: match.group(1) + "=[REDACTED]",
+        value,
+    )
+    value = re.sub(r"(?i)(?:[A-Z]:\\|\\\\)[^\s\"'<>]+", "[path redacted]", value)
+    value = re.sub(
+        r"(?<![A-Za-z0-9])/(?:home|Users|root|tmp|var|etc|opt|mnt|run)/[^\s\"'<>]+",
+        "[path redacted]",
+        value,
+    )
+    value = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "[IP redacted]", value)
+    limit = max(256, min(int(max_chars), 12000))
+    return value[:limit]
+
+
+def safe_traceback_summary(traceback_object):
+    """Keep only bounded module/function/line identity; omit source paths and messages."""
+    if traceback_object is None:
+        return ""
+    frames = traceback.extract_tb(traceback_object)[-12:]
+    summary = []
+    for frame in frames:
+        filename = frame.filename.replace("\\", "/").rsplit("/", 1)[-1]
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,120}", filename):
+            filename = "[module]"
+        function = frame.name
+        if not re.fullmatch(r"[A-Za-z0-9_.<>-]{1,120}", function):
+            function = "[call]"
+        summary.append(f"{filename}:{max(int(frame.lineno), 0)} in {function}")
+    return "\n".join(summary)
+
+
+def safe_error_details(message, traceback_object=None, error_type=None):
+    """Build a support-safe error summary and a path-free bounded call trace."""
+    kind = getattr(error_type, "__name__", "")
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,80}", kind):
+        kind = ""
+    summary = safe_error_message(message)
+    detail = f"{kind}: {summary}" if kind else summary
+    frames = safe_traceback_summary(traceback_object)
+    if frames:
+        detail += "\n\n호출 경로 (파일 경로·소스·오류 메시지 제외):\n" + frames
+    return detail
+
+
 import tkinter as tk
 from tkinter import messagebox
 from dns_engine import DomainRules,DnsProxy
@@ -258,10 +320,8 @@ class GuardianDesktop:
         selected_nav='settings' if page in ('settings','general','filters','premium','updates','support','info') else page
         for key,button in self.nav_buttons.items(): button.configure(bg='#234a43' if key==selected_nav else '#111e2a',fg='white' if key==selected_nav else '#bdcbd7')
     def show_error_dialog(self,title,message):
-        details=str(message)
-        active_trace=traceback.format_exc()
-        if active_trace.strip() and active_trace.strip() != "NoneType: None":
-            details += "\n\n상세 오류 및 호출 경로:\n" + active_trace
+        active_type, _, active_trace = sys.exc_info()
+        details = safe_error_details(message, active_trace, active_type)
         dialog=tk.Toplevel(self.root); dialog.title(title+" · 오류"); dialog.geometry("820x560"); dialog.minsize(620,420); dialog.configure(bg="#101820")
         dialog.transient(self.root)
         tk.Label(dialog,text=title,font=("Segoe UI",14,"bold"),fg="#ff9b85",bg="#101820").pack(anchor="w",padx=18,pady=(16,8))
@@ -285,6 +345,7 @@ class GuardianDesktop:
         dialog.grab_set()
     def copy_support_diagnostics(self):
         report="Guardian AdBlock Windows 진단 정보\n상태: "+self.status.get()+"\n\n"+daemon_readiness_diagnosis()
+        report=safe_error_message(report,max_chars=12000)
         try:
             self.root.clipboard_clear(); self.root.clipboard_append(report); self.root.update()
             messagebox.showinfo("Guardian 진단 정보","진단 정보를 클립보드에 복사했습니다.")
