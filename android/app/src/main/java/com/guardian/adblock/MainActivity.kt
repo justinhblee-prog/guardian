@@ -4016,7 +4016,8 @@ class MainActivity : Activity() {
     private fun rollbackPendingFilterProfile(prefs: android.content.SharedPreferences): Boolean {
         val previousKey = prefs.getString(FilterListManager.KEY_PENDING_PROFILE_ROLLBACK, null)
         val selectedKey = prefs.getString(FilterListManager.KEY_FILTER_PROFILE, "adguard") ?: "adguard"
-        val shouldRollback = FilterProfileRollbackPolicy.shouldRollback(previousKey, selectedKey)
+        val cachedKey = prefs.getString(FilterListManager.KEY_CACHED_PROFILE, null)
+        val shouldRollback = FilterProfileRollbackPolicy.shouldRollback(previousKey, selectedKey, cachedKey)
         val editor = prefs.edit().remove(FilterListManager.KEY_PENDING_PROFILE_ROLLBACK)
         if (shouldRollback) editor.putString(FilterListManager.KEY_FILTER_PROFILE, previousKey)
         val committed = editor.commit()
