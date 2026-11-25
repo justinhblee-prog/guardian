@@ -3799,30 +3799,13 @@ class MainActivity : Activity() {
                 cachedProfileKey = cachedProfile.key
             )
         }.getOrDefault(false)
-        val securityCacheReady = !securityOn || runCatching {
-            FilterListManager.hasCachedSecurityList(this)
-        }.getOrDefault(false)
-        val androidAdsCacheReady = !androidAdsOn || runCatching {
-            FilterListManager.hasCachedAndroidAdsList(this)
-        }.getOrDefault(false)
         val mainErrorStatus = FilterUpdatePolicy.mainErrorStatus(lastError, hasUsableMainCache)
         val securityError = if (securityOn) prefs.getString(FilterListManager.KEY_SECURITY_LAST_ERROR, null) else null
         val androidAdsError = if (androidAdsOn) prefs.getString(FilterListManager.KEY_ANDROID_ADS_LAST_ERROR, null) else null
-        val profileLabel = if (FilterListManager.hasCachedFile(this) && selectedProfile.key != cachedProfile.key) {
+        val profileLabel = if (FilterListManager.hasCachedList(this) && selectedProfile.key != cachedProfile.key) {
             "선택: ${selectedProfile.label} · 적용 중: ${cachedProfile.label}"
         } else selectedProfile.label
-        val mainCountLabel = if (hasUsableMainCache) "${count}개" else "캐시 없음"
-        val securityCountLabel = when {
-            !securityOn -> "끔"
-            securityCacheReady -> "${securityCount}개"
-            else -> "준비 중"
-        }
-        val androidAdsCountLabel = when {
-            !androidAdsOn -> "끔"
-            androidAdsCacheReady -> "${androidAdsCount}개"
-            else -> "준비 중"
-        }
-        val summary = "$profileLabel · 광고·추적 $mainCountLabel · 보안 $securityCountLabel · 앱 광고 $androidAdsCountLabel · 미지원 규칙 ${ignored + securityIgnored + androidAdsIgnored}개 제외 · 업데이트: $time"
+        val summary = "$profileLabel · 광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 앱 광고 ${if (androidAdsOn) androidAdsCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored + androidAdsIgnored}개 제외 · 업데이트: $time"
         val signedManifestStatus = FilterListManager.signedManifestStatus(this)
         return listOfNotNull(
             summary,
