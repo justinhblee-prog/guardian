@@ -49,7 +49,7 @@ internal object PremiumUrlRiskScanner {
             // "notapple" or "mygoogleanalytics".
             val brandLikeLabel = normalized.split('.').any { label ->
                 label == brand || label.startsWith("$brand-") ||
-                    label.startsWith("$brand.") ||
+                    label.endsWith("-$brand") ||
                     label.startsWith("${brand}login") ||
                     label.startsWith("${brand}secure") ||
                     label.startsWith("${brand}verify")
