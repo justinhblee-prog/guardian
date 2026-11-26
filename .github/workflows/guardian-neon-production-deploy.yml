@@ -72,38 +72,21 @@ jobs:
         run: npm test
 
       - name: Package bundled Neon Function with root entrypoint
+        env:
+          BUNDLE_ENTRY: ${{ runner.temp }}/guardianapi-bundle/dist/index.mjs
         run: |
           set -euo pipefail
           bundle="$RUNNER_TEMP/guardianapi-bundle"
           mkdir -p "$bundle/dist"
-          cat > "$bundle/index.mjs" <<'EOF'
-          import { attachDatabasePool } from '@neon/functions';
-          import { createLicenseApiRuntime } from './src/license-api-runtime.mjs';
-          import { handleFetchRequest } from './src/fetch-adapter.mjs';
-          import { adminAssets } from './src/admin-assets.mjs';
-          const env = process.env;
-          const runtime = createLicenseApiRuntime(env, { adminAssets });
-          if (runtime.pool && env.NEON_BRANCH) attachDatabasePool(runtime.pool);
-          export default {
-            async fetch(request) {
-              const forwarded = request.headers.get('x-forwarded-for') || '';
-              const addresses = forwarded.split(',').map(value => value.trim()).filter(Boolean);
-              return handleFetchRequest(request, runtime, addresses.at(-1) || 'unknown');
-            }
-          };
-          EOF
-          mkdir -p "$bundle/src"
-          cp src/license-api-runtime.mjs src/fetch-adapter.mjs src/admin-assets.mjs src/license-core.mjs src/rate-limit.mjs "$bundle/src/"
-          cp package.json "$bundle/package.json"
-          npx --yes esbuild@0.25.12 "$bundle/index.mjs" \
+          npx --yes esbuild@0.25.12 functions/guardianapi/index.mjs \
             --bundle --platform=node --target=node24 --format=esm \
-            --banner:js='import{createRequire as ___cr}from"module";import{fileURLToPath as ___f}from"url";import{dirname as ___d}from"path";const require=___cr(import.meta.url);const __filename=___f(import.meta.url);const __dirname=___d(__filename);' \
+            --banner:js='import{createRequire as ___cr}from"module";import{fileURLToPath as ___f}from"url";import{dirname as ___d}from"path";const require=___cr(import.meta.url);const __filename=___f(import.meta.url);const __dirname=___d(import.meta.url);' \
             --outfile="$bundle/dist/index.mjs"
           node --check "$bundle/dist/index.mjs"
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import { pathToFileURL } from 'node:url';
-          const moduleUrl = pathToFileURL(process.env.BUNDLE_ENTRY || '');
+          const moduleUrl = pathToFileURL(process.env.BUNDLE_ENTRY);
           const { default: app } = await import(moduleUrl.href);
           const health = await app.fetch(new Request('https://guardian.example/health'));
           assert.equal(health.status, 200);
@@ -113,7 +96,7 @@ jobs:
           NODE
           (cd "$bundle/dist" && zip -q "$RUNNER_TEMP/guardianapi.zip" index.mjs)
           unzip -t "$RUNNER_TEMP/guardianapi.zip"
-          test "$(unzip -Z1 "$RUNNER_TEMP/guardianapi.zip" | tr -d '\r')" = 'index.mjs'
+          test "$(unzip -Z1 "$RUNNER_TEMP/guardianapi.zip" | tr -d '\\r')" = 'index.mjs'
           echo "Neon ZIP contains exactly one bundled root entrypoint: index.mjs"
 
       - name: Deploy to Neon and verify live readiness
