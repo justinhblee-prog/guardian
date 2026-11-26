@@ -100,9 +100,31 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         upstream.search || upstream.hash) {
       throw new Error(`Source ${source.id} must use a clean HTTPS URL.`);
     }
-    // Fetching and signing a third-party list is separate from permission to
-    // redistribute it with a commercial app. Require a traceable approval
-    // before any upstream request or manifest publication.
+    // A license label alone does not establish the provenance of every
+    // upstream component in an aggregated list. Require a traceable, source-
+    // specific compliance review before any upstream request or publication.
+    const cleanHttpsReference = value => {
+      if (typeof value !== 'string' || !value.trim()) return false;
+      try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'https:' && !parsed.username && !parsed.password &&
+          !parsed.search && !parsed.hash;
+      } catch {
+        return false;
+      }
+    };
+    if (!cleanHttpsReference(source.upstreamRepository) ||
+        !cleanHttpsReference(source.licenseUrl) ||
+        typeof source.upstreamVersion !== 'string' ||
+        !/^[A-Za-z0-9._+-]{1,128}$/.test(source.upstreamVersion) ||
+        source.thirdPartyProvenanceReviewed !== true ||
+        typeof source.complianceEvidenceRef !== 'string' ||
+        !source.complianceEvidenceRef.trim() ||
+        source.complianceEvidenceRef.length > 256) {
+      throw new Error(
+        `Source ${source.id} is missing its upstream repository, license URL, version, third-party provenance review or compliance evidence reference.`
+      );
+    }
     if (typeof source.licenseId !== 'string' ||
         !/^[A-Za-z0-9.+-]{1,64}$/.test(source.licenseId) ||
         source.redistributionApproved !== true ||
@@ -110,7 +132,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         !source.redistributionApprovalRef.trim() ||
         source.redistributionApprovalRef.length > 128) {
       throw new Error(
-        `Source ${source.id} is not approved for redistribution; set licenseId, redistributionApproved=true and redistributionApprovalRef only after license review.`
+        `Source ${source.id} is not approved for redistribution; set licenseId, redistributionApproved=true and redistributionApprovalRef only after license-compliance review.`
       );
     }
     return { ...source, upstream };
