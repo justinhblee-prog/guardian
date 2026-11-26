@@ -1980,6 +1980,9 @@ fi
 before_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_reboot_dns="${before_reboot_dns:-0}"
 
+before_reboot_restore_at="$(sed -n 's/.*name="protection_recovery_requested_at"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_reboot_restore_at="${before_reboot_restore_at:-0}"
+
 # KEY_ACTIVE is persisted across reboot. If left true, the recovery wait below
 # can pass immediately even when BOOT_COMPLETED was never delivered and no new
 # VPN service/TUN was created. Keep the durable user intent, but clear only the
@@ -2016,9 +2019,13 @@ echo "Android emulator reboot completed; waiting for the boot receiver to restor
 reboot_recovery=0
 for attempt in $(seq 1 60); do
   prefs="$(read_prefs)"
+  recovery_requested_at="$(sed -n 's/.*name="protection_recovery_requested_at"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+  recovery_requested_at="${recovery_requested_at:-0}"
   if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
-     ! grep -q 'name="protection_recovery_pending"[^>]*value="true"' <<<"$prefs"; then
+     ! grep -q 'name="protection_recovery_pending"[^>]*value="true"' <<<"$prefs" &&
+     (( recovery_requested_at > before_reboot_restore_at )); then
     reboot_recovery=1
+    echo "Boot receiver recovery marker advanced: before=$before_reboot_restore_at after=$recovery_requested_at"
     break
   fi
   sleep 2
@@ -2026,7 +2033,7 @@ done
 if [[ "$reboot_recovery" -ne 1 ]]; then
   echo "Guardian did not automatically restore VPN protection after Android reboot."
   read_prefs
-  adb_cmd logcat -d -t 5000 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION|startForegroundService' | tail -260 || true
+  adb_cmd logcat -d -t 5000 | grep -E 'GuardianProtection|GuardianVpn|ProtectionRestoreReceiver|BOOT_COMPLETED|FATAL EXCEPTION|startForegroundService' | tail -300 || true
   adb_cmd shell dumpsys vpn || true
   adb_cmd shell dumpsys connectivity | tail -180 || true
   exit 1
