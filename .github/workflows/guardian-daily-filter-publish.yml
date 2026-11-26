@@ -42,7 +42,7 @@ jobs:
 
   build-and-publish:
     name: Collect, validate, sign and publish daily filters
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: validate-workflow
     permissions:
       contents: write
