@@ -92,6 +92,18 @@ class PremiumUrlRiskScannerTest {
         assertFalse(official.indicators.any { it.contains("브랜드명") })
     }
 
+    @Test fun brandSubstringInsideAnUnrelatedWordIsNotAnImpersonationSignal() {
+        listOf(
+            "https://notapple.example/",
+            "https://mygoogleanalytics.example/",
+            "https://paypalish.example/"
+        ).forEach { candidate ->
+            val result = PremiumUrlRiskScanner.scan(candidate)
+            assertFalse("Unexpected brand impersonation signal for $candidate",
+                result.indicators.any { it.contains("브랜드명") })
+        }
+    }
+
     @Test fun ordinaryHttpsUrlHasNoHeuristicIndicators() {
         val result = PremiumUrlRiskScanner.scan("https://www.example.org/about")
         assertTrue(result.valid)
