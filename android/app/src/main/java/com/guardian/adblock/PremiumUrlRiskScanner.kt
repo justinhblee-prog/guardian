@@ -134,7 +134,7 @@ internal object PremiumUrlRiskScanner {
         if (suspiciousTerms.any { pathAndQuery.contains(it) }) indicators += "로그인·인증·결제 관련 단어가 경로 또는 쿼리에 포함되어 있습니다."
         if (raw.count { it == '%' } >= 5) indicators += "퍼센트 인코딩이 과도하게 포함되어 있습니다."
         val level = when {
-            indicators.size >= 3 || indicators.any { it.startsWith("HTTPS가 아닌") || it.startsWith("국제화") } -> UrlRiskLevel.HIGH
+            indicators.size >= 3 || indicators.any { it.startsWith("HTTPS가 아닌") || it.startsWith("국제화") || it.startsWith("유명 서비스 브랜드명") } -> UrlRiskLevel.HIGH
             indicators.isNotEmpty() -> UrlRiskLevel.REVIEW
             else -> UrlRiskLevel.LOW
         }
