@@ -96,9 +96,25 @@ def resolve_primary_navigation(hierarchy: str) -> str:
     raise ValueError("Current APK does not expose a supported five-destination navigation")
 
 
+def resolve_dialog_dismiss_label(hierarchy: str) -> str:
+    """Resolve the visible FAQ dialog button across localized Android builds."""
+    root = _root(hierarchy)
+    for label in ("확인", "닫기"):
+        if any(
+            node.attrib.get("class") == "android.widget.Button"
+            and node.attrib.get("text", "").strip() == label
+            and node.attrib.get("visible-to-user", "true") == "true"
+            and node.attrib.get("enabled", "false") == "true"
+            and node.attrib.get("clickable", "false") == "true"
+            for node in root.iter("node")
+        ):
+            return label
+    raise ValueError("No visible clickable FAQ dialog dismissal button is present")
+
+
 def main() -> int:
-    if len(sys.argv) not in (2, 3) or sys.argv[1] not in {"entry", "category", "settings-item", "navigation"}:
-        print("usage: android_navigation_compat.py entry|category|settings-item|navigation [title]", file=sys.stderr)
+    if len(sys.argv) not in (2, 3) or sys.argv[1] not in {"entry", "category", "settings-item", "navigation", "dismiss"}:
+        print("usage: android_navigation_compat.py entry|category|settings-item|navigation|dismiss [title]", file=sys.stderr)
         return 2
     if sys.argv[1] == "settings-item" and len(sys.argv) != 3:
         print("settings-item requires a requested title", file=sys.stderr)
@@ -111,6 +127,8 @@ def main() -> int:
             value = resolve_premium_category(hierarchy)
         elif sys.argv[1] == "navigation":
             value = resolve_primary_navigation(hierarchy)
+        elif sys.argv[1] == "dismiss":
+            value = resolve_dialog_dismiss_label(hierarchy)
         else:
             value = resolve_settings_item(hierarchy, sys.argv[2])
     except ValueError as exc:
