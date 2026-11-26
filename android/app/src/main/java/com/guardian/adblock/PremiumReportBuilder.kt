@@ -19,10 +19,10 @@ internal data class PremiumReportSnapshot(
 
 internal object PremiumReportBuilder {
     fun build(snapshot: PremiumReportSnapshot, generatedAtEpochMillis: Long): String {
-        fun count(value: Long): Long = value.coerceAtLeast(0L)
-        val total = count(snapshot.totalQueries)
-        val blocked = count(snapshot.blockedQueries)
-        val rate = if (total == 0L) 0.0 else count(snapshot.blockedQueries).coerceAtMost(total) * 100.0 / total
+        fun count(value: Long): String = String.format(Locale.getDefault(), "%,d", value.coerceAtLeast(0L))
+        val total = snapshot.totalQueries.coerceAtLeast(0L)
+        val blocked = snapshot.blockedQueries.coerceAtLeast(0L)
+        val rate = if (total == 0L) 0.0 else blocked.coerceAtMost(total) * 100.0 / total
         val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ROOT).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }.format(Date(generatedAtEpochMillis))
@@ -30,8 +30,8 @@ internal object PremiumReportBuilder {
             appendLine("Guardian Premium · DNS 보호 리포트")
             appendLine("생성 시각(UTC): $timestamp")
             appendLine("보호 상태: ${if (snapshot.protectionActive) "활성" else "비활성"}")
-            appendLine("관측 DNS 질의: $total")
-            appendLine("차단 질의: ${count(snapshot.blockedQueries)}")
+            appendLine("관측 DNS 질의: ${count(total)}")
+            appendLine("차단 질의: ${count(blocked)}")
             appendLine("차단 비율: ${String.format(Locale.ROOT, "%.1f%%", rate)}")
             appendLine("업스트림 전달: ${count(snapshot.forwardedQueries)}")
             appendLine("응답 실패: ${count(snapshot.failedQueries)}")
