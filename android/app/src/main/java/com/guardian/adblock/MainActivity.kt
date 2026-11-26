@@ -1701,6 +1701,13 @@ class MainActivity : Activity() {
 
 
     private fun showPremiumUrlRiskScan() {
+        // PRO URL analysis must never be available in a production FREE build.
+        // DEBUG preview is intentionally retained for development and does not grant entitlement.
+        if (LicenseEntitlementStore.current(this) == null && !BuildConfig.DEBUG) {
+            Toast.makeText(this, "URL 위험 신호 검사는 PRO 라이선스 활성화 후 이용할 수 있습니다.", Toast.LENGTH_LONG).show()
+            showTab("license-activation")
+            return
+        }
         val input = EditText(this).apply {
             hint = "https://example.com"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
