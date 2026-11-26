@@ -1791,16 +1791,20 @@ class MainActivity : Activity() {
         }
         sections.forEach { (key, glyph, label) ->
             val active = key == selected
-            rail.addView(card(if (active) Color.rgb(39, 83, 82) else panel, 11).apply {
+            rail.addView(card(
+                if (active) Color.rgb(39, 83, 82)
+                else if (key == "exit") Color.rgb(76, 39, 49)
+                else panel, 11
+            ).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
                 setPadding(dp(2), dp(8), dp(2), dp(8))
                 minimumHeight = dp(56)
-                addView(text(glyph, 21f, if (active) accent else white, true).apply {
+                addView(text(glyph, 21f, if (active) accent else if (key == "exit") red else white, true).apply {
                     gravity = Gravity.CENTER
                     contentDescription = label
                 })
-                addView(text(label, 9f, if (active) accent else muted, active).apply {
+                addView(text(label, 9f, if (active) accent else if (key == "exit") red else muted, active || key == "exit").apply {
                     gravity = Gravity.CENTER
                 }.withTop(2))
                 isClickable = true
@@ -1923,9 +1927,13 @@ class MainActivity : Activity() {
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
-        body.addView(infoRow("자료 배포 URL", "Guardian 공식 GitHub 저장소", "GitHub", accent).apply {
+        body.addView(infoRow("앱 업데이트·배포 URL", "Guardian 공식 APK 및 소스 배포", "GitHub Releases", accent).apply {
             isClickable = true
-            setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/justinhblee-prog/guardian"))) }
+            setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/justinhblee-prog/guardian/releases"))) }
+        })
+        body.addView(infoRow("필터 목록 배포 URL", "자동 갱신되는 필터 데이터 저장소", "GitHub", accent).apply {
+            isClickable = true
+            setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/justinhblee-prog/guardian/tree/guardian-filter-data"))) }
         })
         body.addView(card(panel, 14).apply {
             orientation = LinearLayout.VERTICAL
