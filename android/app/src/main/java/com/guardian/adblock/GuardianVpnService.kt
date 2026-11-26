@@ -1001,7 +1001,7 @@ class GuardianVpnService : VpnService() {
         var socket: DatagramSocket? = null
         return try {
             socket = DatagramSocket()
-            if (!protect(socket)) {
+            if (isTunnelActive() && !protect(socket)) {
                 lastUpstreamFailure = "UDP: VPN 소켓 우회 설정 실패"
                 return null
             }
@@ -1034,7 +1034,7 @@ class GuardianVpnService : VpnService() {
         var socket: Socket? = null
         return try {
             socket = Socket()
-            if (!protect(socket)) {
+            if (isTunnelActive() && !protect(socket)) {
                 lastUpstreamFailure = "TCP: VPN 소켓 우회 설정 실패"
                 return null
             }
@@ -1104,7 +1104,7 @@ class GuardianVpnService : VpnService() {
             val address = InetAddress.getByName(upstreamAddress)
             val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
             socket = factory.createSocket() as SSLSocket
-            if (!protect(socket)) {
+            if (isTunnelActive() && !protect(socket)) {
                 lastUpstreamFailure = "DoT: VPN 소켓 우회 설정 실패"
                 return null
             }
@@ -1144,7 +1144,7 @@ class GuardianVpnService : VpnService() {
             val address = InetAddress.getByName(upstreamAddress)
             val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
             socket = factory.createSocket() as SSLSocket
-            if (!protect(socket)) {
+            if (isTunnelActive() && !protect(socket)) {
                 lastUpstreamFailure = "DoH: VPN 소켓 우회 설정 실패"
                 return null
             }
