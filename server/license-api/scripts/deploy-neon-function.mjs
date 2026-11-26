@@ -20,7 +20,7 @@ function requiredValue(name) {
   return value.trim();
 }
 
-function validateSecrets() {
+async function validateSecrets() {
   const values = Object.fromEntries(required.map(name => [name, requiredValue(name)]));
   if (values.GUARDIAN_ADMIN_TOKEN.length < 32) {
     throw new Error('GUARDIAN_ADMIN_TOKEN must contain at least 32 characters.');
@@ -75,7 +75,7 @@ async function neonRequest(url, apiKey, init = {}) {
 }
 
 async function main() {
-  const values = validateSecrets();
+  const values = await validateSecrets();
   const zipPath = resolve(process.argv[2] || '');
   if (!process.argv[2]) throw new Error('Usage: node scripts/deploy-neon-function.mjs <function-bundle.zip>');
   const zipInfo = await stat(zipPath);
