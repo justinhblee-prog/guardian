@@ -43,20 +43,36 @@ async function validateSecrets() {
   const gradleSource = await readFile(gradlePath, 'utf8');
   const pinnedMatch = /val guardianLicensePublicKey\s*=\s*[\s\S]*?\.getOrElse\("([A-Za-z0-9+/=]+)"\)/.exec(gradleSource);
   if (!pinnedMatch) throw new Error('Could not read the default license public key pinned in Android build configuration.');
-  const pinnedPublicKey = pinnedMatch[1];
-  const derivedPublicKey = createPublicKey(key).export({ type: 'spki', format: 'der' }).toString('base64');
-  if (derivedPublicKey !== pinnedPublicKey) {
-    throw new Error('License private key does not match the public key pinned in the Android source. Refusing deployment.');
+  const defaultPinnedPublicKey = pinnedMatch[1];
+  // A coordinated production keypair may replace the development fallback.
+  // The same repository variable is injected into the production Android
+  // build, so validate the private key against that exact public key instead
+  // of rejecting every safely provisioned non-default keypair.
+  const expectedPublicKey = (process.env.GUARDIAN_LICENSE_PUBLIC_KEY || defaultPinnedPublicKey).trim();
+  let expectedKey;
+  try {
+    expectedKey = createPublicKey({
+      key: Buffer.from(expectedPublicKey, 'base64'),
+      format: 'der',
+      type: 'spki'
+    });
+  } catch {
+    throw new Error('GUARDIAN_LICENSE_PUBLIC_KEY must be a valid Base64 X.509 RSA public key.');
   }
-  if (process.env.GUARDIAN_LICENSE_PUBLIC_KEY &&
-      process.env.GUARDIAN_LICENSE_PUBLIC_KEY.trim() !== pinnedPublicKey) {
-    throw new Error('GUARDIAN_LICENSE_PUBLIC_KEY repository variable differs from the Android-pinned public key.');
+  const expectedBits = expectedKey.asymmetricKeyDetails?.modulusLength ?? 0;
+  if (expectedKey.asymmetricKeyType !== 'rsa' || expectedBits < 2048 || expectedBits > 4096) {
+    throw new Error('GUARDIAN_LICENSE_PUBLIC_KEY must be an RSA key between 2048 and 4096 bits.');
+  }
+  const derivedPublicKey = createPublicKey(key).export({ type: 'spki', format: 'der' }).toString('base64');
+  if (derivedPublicKey !== expectedPublicKey) {
+    throw new Error('License private key does not match GUARDIAN_LICENSE_PUBLIC_KEY (or the Android default when no override is configured). Refusing deployment.');
   }
   const apiUrlMatch = /val guardianLicenseApiBaseUrl\s*=\s*[\s\S]*?\.getOrElse\("([^"]+)"\)/.exec(gradleSource);
   if (!apiUrlMatch) throw new Error('Could not read the default license API URL pinned in Android build configuration.');
   values.GUARDIAN_LICENSE_API_BASE_URL = (process.env.GUARDIAN_LICENSE_API_BASE_URL || apiUrlMatch[1]).trim().replace(/\/+$/, '');
 
   values.GUARDIAN_LICENSE_PRIVATE_KEY = pem;
+  values.GUARDIAN_LICENSE_PUBLIC_KEY = expectedPublicKey;
   return values;
 }
 
