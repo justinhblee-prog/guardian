@@ -62,3 +62,4 @@ class GooglePlayBillingManagerTest {
         assertFalse(shouldLaunchGuardianBillingFlow(false, false, true))
         assertFalse(shouldLaunchGuardianBillingFlow(true, true, true))
     }
+}
