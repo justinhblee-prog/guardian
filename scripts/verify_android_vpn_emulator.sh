@@ -1486,18 +1486,40 @@ fi
 tap_text "프로그램 업데이트 확인"
 sleep 1
 updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
+# The updater is embedded in the right-hand Settings workspace. On a phone,
+# its install control can be below the initial viewport even though the panel
+# expanded correctly. Verify the panel header/check action first, then scroll
+# the workspace until the install action is actually visible.
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 visible={node.attrib.get("text","").strip() for node in root.iter("node")
          if node.attrib.get("visible-to-user","true")=="true"}
-required={"일반","프로그램 업데이트","개발 업데이트 확인","업데이트 설치"}
+required={"일반","프로그램 업데이트","개발 업데이트 확인"}
 missing=required-visible
 if missing:
-    raise SystemExit("Inline Program Updates panel is missing: "+repr(sorted(missing)))' <<<"$updates_xml" || {
+    raise SystemExit("Inline Program Updates panel did not expand; missing: "+repr(sorted(missing)))' <<<"$updates_xml" || {
   echo "The inline Program Updates panel did not expand inside Settings > General."
   echo "$updates_xml"
   exit 1
 }
+install_visible=0
+for attempt in $(seq 1 8); do
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+raise SystemExit(0 if any(node.attrib.get("text","").strip()=="업데이트 설치"
+  and node.attrib.get("visible-to-user","true")=="true" for node in root.iter("node")) else 1)' <<<"$updates_xml"; then
+    install_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 800 1510 800 980 350
+  sleep 0.35
+  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
+done
+if [[ "$install_visible" -ne 1 ]]; then
+  echo "The expanded Program Updates panel does not expose its install action after scrolling."
+  echo "$updates_xml"
+  exit 1
+fi
 
 # Exercise the actual development update check, not only the presence of its
 # controls. PR builds are intentionally not published as releases, so the
