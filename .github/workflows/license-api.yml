@@ -78,3 +78,34 @@ jobs:
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
       - name: Run cryptographic, HTTP, PostgreSQL and Neon Function tests
         run: npm test
+      - name: Package deployable Neon Function bundle
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/guardianapi-bundle"
+          mkdir -p "$bundle/src"
+          cp src/license-api-runtime.mjs src/fetch-adapter.mjs src/admin-assets.mjs src/license-core.mjs src/rate-limit.mjs "$bundle/src/"
+          cp package.json "$bundle/package.json"
+          cat > "$bundle/index.mjs" <<'EOF'
+          import { attachDatabasePool } from '@neon/functions';
+          import { createLicenseApiRuntime } from './src/license-api-runtime.mjs';
+          import { handleFetchRequest } from './src/fetch-adapter.mjs';
+          import { adminAssets } from './src/admin-assets.mjs';
+          const env = process.env;
+          const runtime = createLicenseApiRuntime(env, { adminAssets });
+          if (runtime.pool && env.NEON_BRANCH) attachDatabasePool(runtime.pool);
+          export default {
+            async fetch(request) {
+              const forwarded = request.headers.get('x-forwarded-for') || '';
+              const addresses = forwarded.split(',').map(value => value.trim()).filter(Boolean);
+              return handleFetchRequest(request, runtime, addresses.at(-1) || 'unknown');
+            }
+          };
+          EOF
+          (cd "$bundle" && zip -q -r "$RUNNER_TEMP/guardianapi.zip" index.mjs package.json src)
+          unzip -l "$RUNNER_TEMP/guardianapi.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guardian-neon-function-bundle
+          path: ${{ runner.temp }}/guardianapi.zip
+          if-no-files-found: error
+          retention-days: 3
