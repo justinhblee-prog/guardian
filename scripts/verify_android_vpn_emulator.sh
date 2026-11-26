@@ -1613,7 +1613,7 @@ tap_text "광고 차단이 되지 않아요"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
 support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
-grep -Fq 'DNS 기반 광고·추적 도메인' <<<"$support_faq_answer_xml" || {
+grep -Fq '앱 내부에 포함된 광고' <<<"$support_faq_answer_xml" || {
   echo "Customer support FAQ answer did not render."
   echo "$support_faq_answer_xml"
   exit 1
