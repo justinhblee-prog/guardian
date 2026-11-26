@@ -102,6 +102,12 @@ jobs:
           };
           EOF
           (cd "$bundle" && zip -q -r "$RUNNER_TEMP/guardianapi.zip" index.mjs package.json src)
+          # Validate the deployable ZIP itself, not just the outer Actions artifact.
+          # Neon Functions requires index.mjs or index.js at the ZIP root.
+          unzip -t "$RUNNER_TEMP/guardianapi.zip"
+          unzip -Z1 "$RUNNER_TEMP/guardianapi.zip" | grep -Fx 'index.mjs'
+          unzip -Z1 "$RUNNER_TEMP/guardianapi.zip" | grep -Fx 'package.json'
+          unzip -Z1 "$RUNNER_TEMP/guardianapi.zip" | grep -Fx 'src/license-api-runtime.mjs'
           unzip -l "$RUNNER_TEMP/guardianapi.zip"
       - uses: actions/upload-artifact@v4
         with:
