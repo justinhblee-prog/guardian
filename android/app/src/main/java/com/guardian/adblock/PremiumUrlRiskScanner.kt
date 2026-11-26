@@ -49,6 +49,29 @@ internal object PremiumUrlRiskScanner {
         }
     }
 
+    /** Reject malformed or out-of-range explicit ports before extracting a fallback host. */
+    private fun hasValidExplicitPort(uri: URI): Boolean {
+        val authority = uri.rawAuthority ?: return false
+        val hostPort = authority.substringAfterLast('@')
+        val portText = when {
+            hostPort.startsWith("[") -> {
+                val closingBracket = hostPort.indexOf(']')
+                if (closingBracket < 0) return false
+                val suffix = hostPort.substring(closingBracket + 1)
+                when {
+                    suffix.isEmpty() -> null
+                    suffix.startsWith(":") -> suffix.drop(1)
+                    else -> return false
+                }
+            }
+            hostPort.count { it == ':' } == 1 -> hostPort.substringAfterLast(':')
+            hostPort.count { it == ':' } > 1 -> return false
+            else -> null
+        } ?: return true
+        if (portText.isEmpty() || !portText.all { it in '0'..'9' }) return false
+        return portText.toIntOrNull()?.let { it in 0..65535 } == true
+    }
+
     private fun isCanonicalIpv4(host: String): Boolean {
         val octets = host.split('.')
         if (octets.size != 4) return false
@@ -112,6 +135,9 @@ internal object PremiumUrlRiskScanner {
         if (uri.userInfo != null) {
             val actualHost = asciiHost(uri)?.first
             return UrlRiskResult(UrlRiskLevel.HIGH, actualHost, listOf("주소에 사용자 정보(@)가 포함되어 실제 호스트를 혼동시킬 수 있습니다."), true)
+        }
+        if (!hasValidExplicitPort(uri)) {
+            return UrlRiskResult(UrlRiskLevel.HIGH, null, listOf("포트 번호가 잘못되었거나 허용 범위를 벗어났습니다."), false)
         }
         val normalized = asciiHost(uri)
             ?: return UrlRiskResult(UrlRiskLevel.HIGH, null, listOf("호스트 이름이 없거나 올바르지 않습니다."), false)
