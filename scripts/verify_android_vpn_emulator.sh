@@ -1618,7 +1618,8 @@ grep -Fq 'DNS 기반 광고·추적 도메인' <<<"$support_faq_answer_xml" || {
   echo "$support_faq_answer_xml"
   exit 1
 }
-tap_text "확인"
+faq_dismiss_label="$(python3 scripts/android_navigation_compat.py dismiss <<<"$support_faq_answer_xml")"
+tap_text "$faq_dismiss_label"
 # The Settings support card is taller than the phone viewport; scroll its
 # remaining actions into view before tapping the inquiry form entry.
 scroll_to_text "문의 및 의견 보내기"
