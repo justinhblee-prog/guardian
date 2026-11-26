@@ -1959,3 +1959,86 @@ if [[ "$protection_stopped" -ne 1 ]]; then
   exit 1
 fi
 echo "Home protection start/stop toggle passed."
+
+echo "Verifying automatic VPN protection recovery after a full Android device reboot."
+tap_text "보호 시작"
+protection_started=0
+for attempt in $(seq 1 30); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
+     ! grep -q 'name="protection_recovery_pending"[^>]*value="true"' <<<"$prefs"; then
+    protection_started=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$protection_started" -ne 1 ]]; then
+  echo "Could not establish VPN protection before the reboot recovery test."
+  read_prefs
+  exit 1
+fi
+before_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_reboot_dns="${before_reboot_dns:-0}"
+echo "Rebooting Android emulator while Guardian VPN protection is active."
+adb_cmd reboot
+timeout --signal=TERM --kill-after=2s 30s adb wait-for-device
+boot_completed=0
+for attempt in $(seq 1 60); do
+  boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+  if [[ "$boot_state" == "1" ]]; then
+    boot_completed=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$boot_completed" -ne 1 ]]; then
+  echo "Android emulator did not finish rebooting within the bounded recovery window."
+  adb_cmd logcat -d -t 2500 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION' | tail -180 || true
+  exit 1
+fi
+echo "Android emulator reboot completed; waiting for the boot receiver to restore Guardian."
+reboot_recovery=0
+for attempt in $(seq 1 60); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
+     ! grep -q 'name="protection_recovery_pending"[^>]*value="true"' <<<"$prefs"; then
+    reboot_recovery=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$reboot_recovery" -ne 1 ]]; then
+  echo "Guardian did not automatically restore VPN protection after Android reboot."
+  read_prefs
+  adb_cmd logcat -d -t 5000 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION|startForegroundService' | tail -260 || true
+  adb_cmd shell dumpsys vpn || true
+  adb_cmd shell dumpsys connectivity | tail -180 || true
+  exit 1
+fi
+adb_cmd shell ping -c 1 -W 5 example.com >/tmp/guardian-after-reboot-allowed-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_reboot_dns="${after_reboot_dns:-0}"
+if (( after_reboot_dns <= before_reboot_dns )); then
+  echo "Guardian VPN restored after reboot, but DNS query processing did not resume."
+  read_prefs
+  cat /tmp/guardian-after-reboot-allowed-dns.txt || true
+  exit 1
+fi
+before_reboot_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_reboot_blocked="${before_reboot_blocked:-0}"
+adb_cmd shell ping -c 1 -W 5 "guardian-reboot-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-after-reboot-blocked-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_reboot_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_reboot_blocked="${after_reboot_blocked:-0}"
+if (( after_reboot_blocked <= before_reboot_blocked )) ||
+   grep -Eq 'PING guardian-reboot-[^ ]*\\.doubleclick\\.net \\([^)]*\\)' /tmp/guardian-after-reboot-blocked-dns.txt; then
+  echo "Guardian reboot recovery did not resume DNS ad blocking."
+  read_prefs
+  cat /tmp/guardian-after-reboot-blocked-dns.txt || true
+  adb_cmd logcat -d -t 4000 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION' | tail -220 || true
+  exit 1
+fi
+echo "Device reboot recovery passed: boot receiver restored VPN protection, allowed DNS resumed, and the ad test domain was blocked."
