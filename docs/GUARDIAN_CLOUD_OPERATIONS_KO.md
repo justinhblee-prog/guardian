@@ -35,6 +35,8 @@ Repository → Settings → Secrets and variables → Actions에서 아래 항�
 **Repository Variables**
 - `NEON_PROJECT_ID`: 대상 Neon 프로젝트 ID
 - `NEON_BRANCH_ID`: 대상 Neon 브랜치 ID
+- `GUARDIAN_LICENSE_PUBLIC_KEY` (선택): Android Gradle 기본 공개키와 동일해야 합니다.
+- `GUARDIAN_LICENSE_API_BASE_URL` (선택): 실제 배포될 Neon Function URL과 동일해야 합니다. 미설정 시 Android Gradle 기본값을 사용합니다.
 
 비밀값은 채팅, Git, 로그, APK, 공개 필터 브랜치에 입력하지 않습니다. 이 워크플로는 누락된 값이나 잘못된 RSA 키를 감지하면 배포 전에 중단합니다. Neon API 키는 배포 요청 인증에만 사용하며 함수 환경변수로 전달하지 않습니다. Neon이 제공하는 `DATABASE_URL`은 함수 런타임에 자동 주입됩니다.
 
