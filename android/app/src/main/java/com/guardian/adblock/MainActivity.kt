@@ -2612,6 +2612,7 @@ class MainActivity : Activity() {
         dialog.show()
     }
 
+    // Keep the ticket lookup secret encrypted at rest with a non-exportable Android Keystore AES key.
     private fun storeSupportLookupCredentials(ticketRef: String, accessToken: String) {
         if (ticketRef.isBlank() || accessToken.isBlank()) return
         runCatching {
