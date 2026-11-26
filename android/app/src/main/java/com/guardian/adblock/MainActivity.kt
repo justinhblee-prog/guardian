@@ -1690,6 +1690,20 @@ class MainActivity : Activity() {
                         Toast.makeText(this@MainActivity, "개인정보를 제외한 DNS 리포트를 복사했습니다.", Toast.LENGTH_SHORT).show()
                     }
                 }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(12) })
+                addView(Button(this@MainActivity).apply {
+                    text = "리포트 공유"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(panel2, 12)
+                    setOnClickListener {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "Guardian Premium DNS 보호 리포트")
+                            putExtra(Intent.EXTRA_TEXT, reportText)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "DNS 리포트 공유"))
+                    }
+                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
             }.withTop(14))
         }
 
