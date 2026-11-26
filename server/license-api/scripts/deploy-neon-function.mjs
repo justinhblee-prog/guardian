@@ -92,7 +92,6 @@ async function main() {
     GUARDIAN_RATE_LIMIT_MAX: '30'
   };
 
-  const deploymentRequestedAt = Date.now();
   const form = new FormData();
   form.append('zip', new Blob([zipBytes], { type: 'application/zip' }), basename(zipPath));
   form.append('runtime', 'nodejs24');
@@ -101,15 +100,11 @@ async function main() {
     method: 'POST',
     body: form
   });
-  const deploymentId = requested.id ?? requested.deployment_id ?? requested.deploymentId ?? requested.deployment?.id ?? requested.data?.id;
+  const deploymentId = requested.id ?? requested.deployment_id ?? requested.deploymentId ?? requested.deployment?.id ?? requested.deployment?.deployment_id ?? requested.data?.id;
   if (deploymentId === undefined || deploymentId === null) {
     throw new Error('Neon did not return a deployment ID; refusing to infer success from a possibly older active deployment.');
   }
-  if (deploymentId !== undefined) {
-    console.log(`Neon accepted Guardian API deployment #${deploymentId}.`);
-  } else {
-    console.log('Neon accepted Guardian API deployment; checking current deployment state.');
-  }
+  console.log(`Neon accepted Guardian API deployment #${deploymentId}.`);
 
   let functionInfo;
   let current;
@@ -140,18 +135,22 @@ async function main() {
   for (const path of ['health', 'ready']) {
     let verified = false;
     for (let attempt = 1; attempt <= 6; attempt += 1) {
-      const response = await fetch(new URL(path, functionOrigin), {
-        headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(15_000)
-      });
-      if (response.ok) {
-        if (path === 'health') {
-          verified = true;
-        } else {
-          const payload = await response.json();
-          verified = payload?.ok === true;
+      try {
+        const response = await fetch(new URL(path, functionOrigin), {
+          headers: { accept: 'application/json' },
+          signal: AbortSignal.timeout(15_000)
+        });
+        if (response.ok) {
+          if (path === 'health') {
+            verified = true;
+          } else {
+            const payload = await response.json();
+            verified = payload?.ok === true;
+          }
+          if (verified) break;
         }
-        if (verified) break;
+      } catch {
+        // Allow bounded retries for route propagation and cold-start delays.
       }
       if (attempt < 6) await delay(5_000);
     }
