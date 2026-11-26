@@ -2017,7 +2017,10 @@ if [[ "$reboot_recovery" -ne 1 ]]; then
 fi
 before_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_reboot_dns="${before_reboot_dns:-0}"
-adb_cmd shell ping -c 1 -W 5 example.com >/tmp/guardian-after-reboot-allowed-dns.txt 2>&1 || true
+# Use a per-run hostname so Android/netd or app resolver caches cannot satisfy this
+# post-reboot probe without sending a fresh DNS request through the restored VPN.
+REBOOT_DNS_PROBE="guardian-reboot-${GITHUB_RUN_ID:-test}.example.com"
+adb_cmd shell ping -c 1 -W 5 "$REBOOT_DNS_PROBE" >/tmp/guardian-after-reboot-allowed-dns.txt 2>&1 || true
 sleep 2
 prefs="$(read_prefs)"
 after_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
