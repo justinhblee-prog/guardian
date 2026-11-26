@@ -37,9 +37,9 @@ internal object PremiumReportBuilder {
             appendLine("응답 실패: ${count(snapshot.failedQueries)}")
             appendLine("광고 차단: ${count(snapshot.adBlocked)}")
             appendLine("추적 차단: ${count(snapshot.trackerBlocked)}")
-            appendLine("기타 차단: ${count(snapshot.otherBlocked)}")
+            appendLine("미분류 차단: ${count(snapshot.otherBlocked)}")
             appendLine()
-            append("참고: 이 리포트는 이 기기에 저장된 누적 DNS 통계입니다. 광고·추적·기타 분류는 도메인 이름 기반 참고용 추정이며 보안 위협 판정이 아닙니다. 방문 도메인, 앱 사용 기록, 사용자 규칙은 포함하지 않습니다.")
+            append("참고: 이 리포트는 이 기기에 저장된 누적 DNS 통계입니다. 광고·추적 분류는 도메인 이름 기반 참고용 추정이며, 미분류 차단은 유형을 확인할 수 없는 요청으로 보안 위협 판정이 아닙니다. 방문 도메인, 앱 사용 기록, 사용자 규칙은 포함하지 않습니다.")
         }
     }
 }
