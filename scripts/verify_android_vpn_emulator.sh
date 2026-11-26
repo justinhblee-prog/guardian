@@ -2037,29 +2037,25 @@ if [[ "$reboot_recovery" -ne 1 ]]; then
   adb_cmd shell dumpsys connectivity | tail -180 || true
   exit 1
 fi
-before_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-before_reboot_dns="${before_reboot_dns:-0}"
+before_reboot_dns="$(extract_pref_number undefined "$prefs")"
 # Use a per-run hostname so Android/netd or app resolver caches cannot satisfy this
 # post-reboot probe without sending a fresh DNS request through the restored VPN.
 REBOOT_DNS_PROBE="guardian-reboot-${GITHUB_RUN_ID:-test}.example.com"
 adb_cmd shell ping -c 1 -W 5 "$REBOOT_DNS_PROBE" >/tmp/guardian-after-reboot-allowed-dns.txt 2>&1 || true
 sleep 2
 prefs="$(read_prefs)"
-after_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-after_reboot_dns="${after_reboot_dns:-0}"
+after_reboot_dns="$(extract_pref_number undefined "$prefs")"
 if (( after_reboot_dns <= before_reboot_dns )); then
   echo "Guardian VPN restored after reboot, but DNS query processing did not resume."
   read_prefs
   cat /tmp/guardian-after-reboot-allowed-dns.txt || true
   exit 1
 fi
-before_reboot_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-before_reboot_blocked="${before_reboot_blocked:-0}"
+before_reboot_blocked="$(extract_pref_number undefined "$prefs")"
 adb_cmd shell ping -c 1 -W 5 "guardian-reboot-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-after-reboot-blocked-dns.txt 2>&1 || true
 sleep 2
 prefs="$(read_prefs)"
-after_reboot_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-after_reboot_blocked="${after_reboot_blocked:-0}"
+after_reboot_blocked="$(extract_pref_number undefined "$prefs")"
 if (( after_reboot_blocked <= before_reboot_blocked )) ||
    grep -Eq 'PING guardian-reboot-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-after-reboot-blocked-dns.txt; then
   echo "Guardian reboot recovery did not resume DNS ad blocking."
