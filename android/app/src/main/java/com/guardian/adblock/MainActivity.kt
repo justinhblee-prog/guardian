@@ -883,7 +883,7 @@ class MainActivity : Activity() {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("실시간 DNS 통계", 14f, white, true))
             statsText = text(
-                "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)}",
+                "질의 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L))} · 차단 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L))} · 전달 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))} · 실패 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L))} · 무시 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0L))}",
                 12f, accent, true
             ).withTop(10) as TextView
             addView(statsText!!)
@@ -908,7 +908,7 @@ class MainActivity : Activity() {
             addView(text("예상 절약 데이터", 11f, muted, false).withTop(14))
             savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(4) as TextView
             addView(savedDataValue!!)
-            addView(text("광고/추적 구분은 도메인 이름 기반 추정 분류입니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치이며 실제 전송량 측정값이 아닙니다.", 10f, muted, false).withTop(8))
+            addView(text("광고·추적은 도메인 이름 기반 추정 분류입니다. 미분류는 필터 목록에 유형 정보가 없거나 도메인 이름만으로 유형을 판별할 수 없는 차단 요청이며, 별도 위협 유형을 뜻하지 않습니다. 최근 DNS 활동에서 실제 도메인을 확인할 수 있습니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치입니다.", 10f, muted, false).withTop(8))
         }
         body.addView(chartCard.withTop(12))
         body.addView(Button(this).apply {
@@ -4072,7 +4072,7 @@ class MainActivity : Activity() {
                 message
             )
         }
-        statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
+        statsText?.text = "질의 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L))} · 차단 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L))} · 전달 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))} · 실패 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L))} · 무시 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0L))}"
         val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
         val blockedQueries = prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)
         val blockRate = if (totalQueries > 0L) blockedQueries * 100.0 / totalQueries else 0.0
@@ -4222,6 +4222,9 @@ class MainActivity : Activity() {
             }
         }
 
+    private fun formatCount(value: Long): String =
+        String.format(Locale.getDefault(), "%,d", value.coerceAtLeast(0L))
+
     private fun estimatedSavedDataLabel(blockedQueries: Long): String {
         val bytes = blockedQueries.coerceAtLeast(0L).toDouble() * 24.0 * 1024.0
         return if (bytes >= 1024.0 * 1024.0) {
@@ -4239,7 +4242,7 @@ class MainActivity : Activity() {
             typeface = Typeface.DEFAULT
         }
         private val values = LongArray(4)
-        private val labels = arrayOf("광고 차단", "추적 차단", "기타 차단", "정상 전달")
+        private val labels = arrayOf("광고 차단", "추적 차단", "미분류 차단", "정상 전달")
         private val colors = intArrayOf(Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), accent, muted)
 
         fun update(ads: Long, trackers: Long, other: Long, forwarded: Long) {
