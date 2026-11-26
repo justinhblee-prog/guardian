@@ -1732,7 +1732,7 @@ class MainActivity : Activity() {
             setPadding(dp(20), dp(8), dp(20), dp(4))
             addView(input, LinearLayout.LayoutParams(-1, dp(52)))
             addView(text(
-                "기기 내 규칙 기반 1차 점검입니다. 실시간 평판 조회, 악성코드 판정 또는 자동 차단 기능은 아닙니다.",
+                "기기 내 규칙 기반 1차 점검입니다. 입력한 주소는 외부 서버로 전송하지 않습니다. 실시간 평판 조회, 악성코드 판정 또는 자동 차단 기능은 아닙니다.",
                 11f, muted, false
             ).withTop(8))
         }
@@ -1758,6 +1758,19 @@ class MainActivity : Activity() {
                 AlertDialog.Builder(this)
                     .setTitle("URL 검사 결과")
                     .setMessage(details)
+                    .setNeutralButton("결과 복사") { _, _ ->
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian URL Scan", details))
+                        Toast.makeText(this, "검사 결과를 복사했습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton("공유") { _, _ ->
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "Guardian URL 위험 신호 검사")
+                            putExtra(Intent.EXTRA_TEXT, details)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "검사 결과 공유"))
+                    }
                     .setPositiveButton("확인", null)
                     .show()
             }
