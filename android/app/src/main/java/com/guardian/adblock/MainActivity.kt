@@ -3894,7 +3894,7 @@ class MainActivity : Activity() {
                 // The bundled rules are sufficient to bring up the DNS VPN safely.
                 // Downloaded lists are optional enhancements and must never be a hard
                 // prerequisite for creating the tunnel on a first install/offline device.
-                val bundled = assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
+                val bundled = assets.open(BundledFilterRules.ASSET_NAME).bufferedReader().use(BundledFilterRules::parse)
                 val baselineReady = FilterStartupGate.hasUsableBundledBaseline(
                     bundled.blocked.size,
                     bundled.importantBlocked.size
@@ -3923,7 +3923,7 @@ class MainActivity : Activity() {
             } catch (error: Exception) {
                 android.util.Log.e("GuardianProtection", "Bundled filter asset could not be loaded: ${SafeFailureSummary.codeFor(error)}")
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
-                false to "앱 내 기본 필터 라이브러리를 읽지 못했습니다. 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
+                false to "앱에 포함된 기본 DNS 규칙 파일을 읽지 못했습니다. 앱 업데이트 후에도 계속되면 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
             } catch (error: LinkageError) {
                 android.util.Log.e("GuardianProtection", "Bundled filter component could not be loaded: ${SafeFailureSummary.codeFor(error)}")
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
