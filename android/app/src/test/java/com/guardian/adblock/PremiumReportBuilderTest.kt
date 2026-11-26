@@ -8,8 +8,8 @@ class PremiumReportBuilderTest {
     @Test fun reportContainsRealCountersAndPrivacyNotice() {
         val report = PremiumReportBuilder.build(
             PremiumReportSnapshot(
-                totalQueries = 200,
-                blockedQueries = 50,
+                totalQueries = 1200,
+                blockedQueries = 1050,
                 forwardedQueries = 140,
                 failedQueries = 10,
                 adBlocked = 30,
@@ -20,9 +20,10 @@ class PremiumReportBuilderTest {
             0L
         )
         assertTrue(report.contains("1970-01-01T00:00:00Z"))
-        assertTrue(report.contains("관측 DNS 질의: 200"))
-        assertTrue(report.contains("차단 비율: 25.0%"))
+        assertTrue(report.contains("관측 DNS 질의: 1,200"))
+        assertTrue(report.contains("차단 비율: 87.5%"))
         assertTrue(report.contains("광고 차단: 30"))
+        assertTrue(report.contains("미분류 차단: 5"))
         assertTrue(report.contains("보호 상태: 활성"))
         assertTrue(report.contains("방문 도메인, 앱 사용 기록, 사용자 규칙은 포함하지 않습니다"))
         assertTrue(report.contains("도메인 이름 기반 참고용 추정이며 보안 위협 판정이 아닙니다"))
