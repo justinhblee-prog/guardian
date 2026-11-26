@@ -1980,7 +1980,7 @@ fi
 before_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_reboot_dns="${before_reboot_dns:-0}"
 
-before_reboot_restore_at="$(sed -n 's/.*name="protection_recovery_requested_at"[^>]*value="\([0-9]*\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_reboot_restore_at="$(sed -n 's/.*name="protection_recovery_requested_at"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_reboot_restore_at="${before_reboot_restore_at:-0}"
 
 # KEY_ACTIVE is persisted across reboot. If left true, the recovery wait below
@@ -2019,7 +2019,7 @@ echo "Android emulator reboot completed; waiting for the boot receiver to restor
 reboot_recovery=0
 for attempt in $(seq 1 60); do
   prefs="$(read_prefs)"
-  recovery_requested_at="$(sed -n 's/.*name="protection_recovery_requested_at"[^>]*value="\([0-9]*\)".*/\\1/p' <<<"$prefs" | tail -1)"
+  recovery_requested_at="$(sed -n 's/.*name="protection_recovery_requested_at"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
   recovery_requested_at="${recovery_requested_at:-0}"
   if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
      ! grep -q 'name="protection_recovery_pending"[^>]*value="true"' <<<"$prefs" &&
