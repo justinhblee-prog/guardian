@@ -1539,7 +1539,7 @@ class MainActivity : Activity() {
                 cornerRadius = dp(13).toFloat()
                 setStroke(dp(1), Color.rgb(111, 239, 201))
             }
-            contentDescription = "$activationActionLabel 내용 펼치기"
+            contentDescription = if (activationExpanded) "$activationActionLabel 내용 접기" else "$activationActionLabel 내용 펼치기"
             setOnClickListener {
                 val expanding = activationPanel.visibility != View.VISIBLE
                 settingsPrefs.edit().putBoolean(activationExpandedKey, expanding).apply()
@@ -3113,7 +3113,7 @@ class MainActivity : Activity() {
         })
 
         val appsButton = Button(this).apply {
-            text = "일시중지 앱 선택 (${selected.size}개)"
+            text = "일시중지 앱 선택 (${formatCount(selected.size.toLong())}개)"
             setTextColor(white)
             background = shape(panel2, 10)
             contentDescription = "VPN 자동 일시중지 앱 선택"
@@ -3493,9 +3493,9 @@ class MainActivity : Activity() {
             !usageAccess -> "사용 정보 접근 권한을 허용해야 선택 앱의 실행 상태를 감지할 수 있습니다."
             selected.isEmpty() -> "일시중지할 앱을 선택하면 Wallet 등 호환성 문제가 있는 앱에서 자동 전환할 수 있습니다."
             enabled -> "자동 일시중지 활성화 · 선택 앱 종료 후 VPN 자동 재연결"
-            else -> "선택 앱 ${selected.size}개 저장됨 · 자동 일시중지 꺼짐"
+            else -> "선택 앱 ${formatCount(selected.size.toLong())}개 저장됨 · 자동 일시중지 꺼짐"
         }
-        compatibilityAppsButton?.text = "일시중지 앱 선택 (${selected.size}개)"
+        compatibilityAppsButton?.text = "일시중지 앱 선택 (${formatCount(selected.size.toLong())}개)"
     }
 
     private fun refreshAppExclusionsAppliedStatus() {
@@ -3509,9 +3509,9 @@ class MainActivity : Activity() {
             GuardianVpnService.isTunnelActive()
         )
         target.text = when {
-            !active -> "VPN 미연결 · 저장된 제외 ${requested.size}개 · 다음 보호 연결 때 적용"
-            rejected.isNotEmpty() -> "VPN 연결됨 · 제외 적용 ${applied.size}/${requested.size}개 · 적용 실패 ${rejected.size}개"
-            else -> "VPN 연결됨 · 앱별 보호 제외 ${applied.size}/${requested.size}개 적용"
+            !active -> "VPN 미연결 · 저장된 제외 ${formatCount(requested.size.toLong())}개 · 다음 보호 연결 때 적용"
+            rejected.isNotEmpty() -> "VPN 연결됨 · 제외 적용 ${formatCount(applied.size.toLong())}/${formatCount(requested.size.toLong())}개 · 적용 실패 ${formatCount(rejected.size.toLong())}개"
+            else -> "VPN 연결됨 · 앱별 보호 제외 ${formatCount(applied.size.toLong())}/${formatCount(requested.size.toLong())}개 적용"
         }
         target.setTextColor(if (active && rejected.isNotEmpty()) red else muted)
     }
@@ -3623,7 +3623,7 @@ class MainActivity : Activity() {
         body.addView(card.withTop(10))
         body.addView(appListCard.withTop(8))
         appFilterFeedback = text(
-            "설치 앱 ${apps.size}개 · 보호 제외 앱 ${excluded.size}개",
+            "설치 앱 ${formatCount(apps.size.toLong())}개 · 보호 제외 앱 ${formatCount(excluded.size.toLong())}개",
             11f, muted, false
         ).withTop(8) as TextView
         body.addView(appFilterFeedback!!)
@@ -3674,9 +3674,9 @@ class MainActivity : Activity() {
         fun updateSaveState() {
             val dirty = excluded != savedExclusions
             saveButton.isEnabled = dirty
-            saveButton.text = if (dirty) "변경사항 저장 (${excluded.size}개 제외 선택)" else "변경사항 저장"
+            saveButton.text = if (dirty) "변경사항 저장 (${formatCount(excluded.size.toLong())}개 제외 선택)" else "변경사항 저장"
             if (dirty) {
-                appFilterFeedback?.text = "저장되지 않은 변경사항 · 제외 앱 ${excluded.size}개"
+                appFilterFeedback?.text = "저장되지 않은 변경사항 · 제외 앱 ${formatCount(excluded.size.toLong())}개"
             }
         }
         fun renderApps(rawQuery: String) {
@@ -3732,7 +3732,7 @@ class MainActivity : Activity() {
             }
             updateSaveState()
             if (excluded == savedExclusions) {
-                appFilterFeedback?.text = "검색 결과 ${visible.size}개 / 전체 ${apps.size}개 · 저장된 제외 앱 ${excluded.size}개"
+                appFilterFeedback?.text = "검색 결과 ${formatCount(visible.size.toLong())}개 / 전체 ${formatCount(apps.size.toLong())}개 · 저장된 제외 앱 ${formatCount(excluded.size.toLong())}개"
             }
         }
         search.addTextChangedListener(object : android.text.TextWatcher {
@@ -4096,10 +4096,10 @@ class MainActivity : Activity() {
             val applied = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_APPLIED, emptySet()).orEmpty()
             val stale = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_ERROR, emptySet()).orEmpty()
             feedback.text = when {
-                stale.isNotEmpty() -> "제외 적용 실패 또는 미설치 앱 ${stale.size}개 · 적용 ${applied.size}/${requested.size}"
+                stale.isNotEmpty() -> "제외 적용 실패 또는 미설치 앱 ${formatCount(stale.size.toLong())}개 · 적용 ${formatCount(applied.size.toLong())}/${formatCount(requested.size.toLong())}"
                 active && requested != applied -> "제외 적용 확인 필요 · 적용 ${applied.size}/${requested.size}"
-                active -> "앱별 보호 제외 적용 완료 · ${applied.size}개"
-                else -> "제외 앱 ${requested.size}개 저장됨 · 보호 연결 시 적용"
+                active -> "앱별 보호 제외 적용 완료 · ${formatCount(applied.size.toLong())}개"
+                else -> "제외 앱 ${formatCount(requested.size.toLong())}개 저장됨 · 보호 연결 시 적용"
             }
         }
         val recoveryPending = prefs.getBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false) && !active
@@ -4234,7 +4234,7 @@ class MainActivity : Activity() {
             }
             domains.add(domain)
             if (domains.size > MAX_USER_RULES) {
-                rulesFeedback?.text = "${label}은 최대 ${MAX_USER_RULES}개까지 등록할 수 있습니다."
+                rulesFeedback?.text = "${label}은 최대 ${formatCount(MAX_USER_RULES.toLong())}개까지 등록할 수 있습니다."
                 return null
             }
         }
