@@ -811,7 +811,7 @@ class GuardianVpnService : VpnService() {
         val minimumRuleCounts = mutableListOf<Int>()
         val unavailable = mutableListOf<String>()
         sources.add {
-            assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
+            assets.open(BundledFilterRules.ASSET_NAME).bufferedReader().use(BundledFilterRules::parse)
         }
         minimumRuleCounts.add(1)
 
