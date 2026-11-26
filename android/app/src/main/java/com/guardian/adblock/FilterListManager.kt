@@ -6,6 +6,7 @@ import java.io.File
 import java.nio.file.Files
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.util.Locale
 import javax.net.ssl.HttpsURLConnection
 
 /** Downloads and validates DNS-compatible community filters into app-private storage. */
@@ -422,7 +423,7 @@ object FilterListManager {
             val parsed = FilterRuleParser.parse(FilterManifestVerifier.decodeUtf8Lenient(bytes))
             android.util.Log.i("Guardian", "Filter parsing completed: cache=$cacheName blocked=${parsed.blocked.size + parsed.importantBlocked.size} elapsedMs=${System.currentTimeMillis() - startedAt}")
             require((parsed.blocked.size + parsed.importantBlocked.size) >= minimumRules) {
-                "필터 검증 실패: 유효한 차단 도메인이 ${parsed.blocked.size + parsed.importantBlocked.size}개뿐입니다."
+                "필터 검증 실패: 유효한 차단 도메인이 ${String.format(Locale.ROOT, "%,d", parsed.blocked.size + parsed.importantBlocked.size)}개뿐입니다."
             }
             val target = File(context.filesDir, cacheName)
             val now = System.currentTimeMillis()
