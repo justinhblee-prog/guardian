@@ -21,6 +21,19 @@ class DnsActivitySummaryTest {
         )
     }
 
+    @Test fun groupsDomainNamesWithoutCaseOrTrailingDotDifferences() {
+        val raw = listOf(
+            "차단 · ADS.Example.",
+            "차단 · ads.example",
+            "차단 · Tracker.Example."
+        ).joinToString("\n")
+
+        assertEquals(
+            "ads.example · 2회\ntracker.example · 1회",
+            DnsActivitySummary.recentBlockedDomains(raw)
+        )
+    }
+
     @Test fun limitsResultsAndHandlesEmptyOrMalformedHistory() {
         val raw = listOf(
             "차단 · z.example",
