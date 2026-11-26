@@ -108,4 +108,6 @@ jobs:
           GUARDIAN_ADMIN_TOKEN: ${{ secrets.GUARDIAN_ADMIN_TOKEN }}
           GUARDIAN_LICENSE_LOOKUP_SECRET: ${{ secrets.GUARDIAN_LICENSE_LOOKUP_SECRET }}
           GUARDIAN_LICENSE_PRIVATE_KEY: ${{ secrets.GUARDIAN_LICENSE_PRIVATE_KEY }}
+          GUARDIAN_LICENSE_PUBLIC_KEY: ${{ vars.GUARDIAN_LICENSE_PUBLIC_KEY }}
+          GUARDIAN_LICENSE_API_BASE_URL: ${{ vars.GUARDIAN_LICENSE_API_BASE_URL }}
         run: node scripts/deploy-neon-function.mjs "$RUNNER_TEMP/guardianapi.zip"
