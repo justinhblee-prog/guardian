@@ -80,7 +80,7 @@ jobs:
           mkdir -p "$bundle/dist"
           npx --yes esbuild@0.25.12 functions/guardianapi/index.mjs \
             --bundle --platform=node --target=node24 --format=esm \
-            --banner:js='import{createRequire as ___cr}from"module";import{fileURLToPath as ___f}from"url";import{dirname as ___d}from"path";const require=___cr(import.meta.url);const __filename=___f(import.meta.url);const __dirname=___d(import.meta.url);' \
+            --banner:js='import{createRequire as ___cr}from"module";import{fileURLToPath as ___f}from"url";import{dirname as ___d}from"path";const require=___cr(import.meta.url);const __filename=___f(import.meta.url);const __dirname=___d(___f(import.meta.url));' \
             --outfile="$bundle/dist/index.mjs"
           node --check "$bundle/dist/index.mjs"
           node --input-type=module <<'NODE'
