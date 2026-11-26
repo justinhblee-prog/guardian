@@ -2015,7 +2015,7 @@ if [[ "$reboot_recovery" -ne 1 ]]; then
   adb_cmd shell dumpsys connectivity | tail -180 || true
   exit 1
 fi
-before_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\\1/p' <<<"$prefs" | tail -1)"
 before_reboot_dns="${before_reboot_dns:-0}"
 adb_cmd shell ping -c 1 -W 5 example.com >/tmp/guardian-after-reboot-allowed-dns.txt 2>&1 || true
 sleep 2
