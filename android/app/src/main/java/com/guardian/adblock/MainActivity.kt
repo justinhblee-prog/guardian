@@ -2218,7 +2218,7 @@ class MainActivity : Activity() {
                 cornerRadius = dp(13).toFloat()
                 setStroke(dp(1), Color.rgb(111, 239, 201))
             }
-            contentDescription = "프로그램 업데이트 확인 내용 펼치기"
+            contentDescription = if (updateExpanded) "프로그램 업데이트 확인 내용 접기" else "프로그램 업데이트 확인 내용 펼치기"
             setOnClickListener {
                 val expanding = updatePanel.visibility != View.VISIBLE
                 settingsPrefs.edit().putBoolean(updateExpandedKey, expanding).apply()
@@ -2232,9 +2232,9 @@ class MainActivity : Activity() {
         body.addView(updatePanel, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("운영 서버 주소 (노트북)", 15f, white, true))
+            addView(text("라이선스 서버 주소 (고급 설정)", 15f, white, true))
             addView(text(
-                "노트북에서 Guardian 운영서버를 실행한 뒤 HTTPS 주소를 입력하세요. 주소가 바뀌면 여기서 변경할 수 있습니다.",
+                "기본 클라우드 라이선스 서버를 사용합니다. 별도 자체 호스팅 서버를 운영하는 경우에만 HTTPS 주소를 변경하세요. 개인 노트북을 계속 켜둘 필요는 없습니다.",
                 11f, muted, false
             ).withTop(5))
             val serverUrlInput = EditText(this@MainActivity).apply {
