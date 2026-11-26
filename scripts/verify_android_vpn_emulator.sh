@@ -1424,6 +1424,10 @@ fi
 # cannot select a sibling category and previously left the test on About.
 scroll_to_text "정보"
 sleep 1
+# The company/developer disclosure is intentionally below the version and
+# distribution rows on a phone viewport. Reveal it without tapping its
+# non-clickable heading before asserting the complete About content.
+ensure_text_visible "회사 및 개발자 정보"
 adb_cmd shell uiautomator dump /sdcard/guardian-about-version.xml >/dev/null 2>&1
 about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | tr -d '\r')"
 expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
