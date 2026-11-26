@@ -729,20 +729,7 @@ class MainActivity : Activity() {
         val headerSpacer = View(this)
         wrap.addView(headerSpacer, LinearLayout.LayoutParams(0, 1, 1f))
         wrap.addView(companyMark, LinearLayout.LayoutParams(dp(124), dp(42)))
-        val exitButton = TextView(this).apply {
-            text = "⏻"
-            textSize = 22f
-            gravity = Gravity.CENTER
-            setTextColor(muted)
-            background = shape(panel2, 10)
-            contentDescription = "앱 종료"
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { showExitConfirmation() }
-        }
-        wrap.addView(exitButton, LinearLayout.LayoutParams(dp(38), dp(38)).apply {
-            leftMargin = dp(8)
-        })
+        // Exit is provided in Settings; keep the brand header uncluttered.
         return wrap
     }
 
@@ -1936,6 +1923,10 @@ class MainActivity : Activity() {
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        body.addView(infoRow("자료 배포 URL", "Guardian 공식 GitHub 저장소", "GitHub", accent).apply {
+            isClickable = true
+            setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/justinhblee-prog/guardian"))) }
+        })
         body.addView(card(panel, 14).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(15), dp(14), dp(15), dp(14))
@@ -2104,17 +2095,21 @@ class MainActivity : Activity() {
         }
         if (updateExpanded) buildUpdates(updatePanel)
         val updateButton = Button(this).apply {
-            text = if (updateExpanded) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
+            text = (if (updateExpanded) "⌄  " else "›  ") + if (updateExpanded) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
             isAllCaps = false
+            gravity = Gravity.CENTER_VERTICAL
             setTextColor(bg)
-            background = shape(accent, 12)
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(accent, Color.rgb(48, 174, 154))).apply {
+                cornerRadius = dp(13).toFloat()
+                setStroke(dp(1), Color.rgb(111, 239, 201))
+            }
             contentDescription = "프로그램 업데이트 확인 내용 펼치기"
             setOnClickListener {
                 val expanding = updatePanel.visibility != View.VISIBLE
                 settingsPrefs.edit().putBoolean(updateExpandedKey, expanding).apply()
                 if (expanding && updatePanel.childCount == 0) buildUpdates(updatePanel)
                 animateSettingsPanel(updatePanel, expanding)
-                text = if (expanding) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
+                text = (if (expanding) "⌄  " else "›  ") + if (expanding) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
                 contentDescription = if (expanding) "프로그램 업데이트 확인 내용 접기" else "프로그램 업데이트 확인 내용 펼치기"
             }
         }
@@ -2467,35 +2462,51 @@ class MainActivity : Activity() {
     }
 
     private fun showSupportFaq() {
-        val questions = arrayOf(
-            "광고 차단이 되지 않아요",
-            "VPN 보호가 연결되지 않아요",
-            "특정 앱을 보호에서 제외하고 싶어요",
-            "Samsung Wallet에서 VPN 경고가 나와요",
-            "필터 업데이트는 어떻게 하나요?",
-            "Pro 라이선스는 어떻게 활성화하나요?",
-            "기기 변경 또는 라이선스 만료"
-        )
+        val questions = arrayOf("광고 차단이 되지 않아요", "VPN 보호가 연결되지 않아요", "특정 앱을 보호에서 제외하고 싶어요", "Samsung Wallet에서 VPN 경고가 나와요", "필터 업데이트는 어떻게 하나요?", "Pro 라이선스는 어떻게 활성화하나요?", "기기 변경 또는 라이선스 만료")
         val answers = arrayOf(
             "Guardian은 DNS 기반 광고·추적 도메인을 차단합니다. 앱 내부 광고, 자체 DNS 암호화(DoH/DoT), 이미 내려받은 콘텐츠 광고는 차단되지 않을 수 있습니다. 보호 상태와 필터 업데이트 시각을 확인하세요.",
-            "Android VPN 권한을 허용하고 다른 VPN 앱과 충돌하는지 확인하세요. 계속 실패하면 오류 신고에 보호 진단 정보를 직접 첨부해 주세요.",
-            "설정의 앱 제외에서 앱 이름 또는 패키지명을 검색하고 선택한 뒤 변경사항 저장을 누르세요. 저장 후 VPN에 적용된 앱 수와 실패 수를 확인하세요.",
-            "앱별 트래픽 제외와 기기 전체 VPN 연결 해제는 다릅니다. 금융 앱이 VPN 연결 자체를 감지하면 자동 일시중지 호환성 설정을 사용해야 할 수 있으며, 일시중지 중에는 다른 앱도 VPN DNS 보호를 받지 못합니다.",
-            "필터 규칙 또는 보호 설정에서 필터 업데이트를 실행하세요. 자동 업데이트는 설정한 주기에 따라 동작합니다.",
-            "프리미엄 화면에서 발급받은 라이선스 키를 입력하고 활성화하세요. 활성화에는 운영 라이선스 서버 연결이 필요합니다.",
-            "라이선스 관리자는 등록 기기를 해제할 수 있습니다. 만료·정지된 키는 관리자에게 갱신 또는 상태 확인을 요청하세요."
+            "Android VPN 권한을 허용하고 다른 VPN 앱과 충돌하는지 확인하세요. 계속 실패하면 오류 신고를 접수해 주세요.",
+            "설정의 앱 제외에서 앱 이름 또는 패키지명을 검색하고 선택한 뒤 변경사항 저장을 누르세요.",
+            "앱별 트래픽 제외와 기기 전체 VPN 연결 해제는 다릅니다. 금융 앱이 VPN 연결 자체를 감지하면 자동 일시중지 호환성 설정을 사용할 수 있습니다.",
+            "설정의 일반 또는 필터링에서 업데이트를 실행하세요. 자동 업데이트는 설정한 주기에 따라 동작합니다.",
+            "PRO 라이선스 화면에서 발급받은 라이선스 키를 입력하고 활성화하세요. 운영 라이선스 서버 연결이 필요합니다.",
+            "라이선스 관리자에게 등록 기기 해제 또는 갱신을 요청하세요."
         )
-        AlertDialog.Builder(this)
-            .setTitle("Guardian 자주 묻는 질문")
-            .setItems(questions) { _, which ->
-                AlertDialog.Builder(this)
-                    .setTitle(questions[which])
-                    .setMessage(answers[which])
-                    .setPositiveButton("확인", null)
-                    .show()
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
+        questions.indices.forEach { index ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = shape(panel2, 11)
+                setPadding(dp(12), dp(11), dp(12), dp(11))
             }
-            .setNegativeButton("닫기", null)
-            .show()
+            val question = TextView(this).apply {
+                text = "＋  " + questions[index]
+                textSize = 13f
+                setTextColor(white)
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER_VERTICAL
+                minHeight = dp(34)
+                isClickable = true
+                isFocusable = true
+            }
+            val answer = TextView(this).apply {
+                text = answers[index]
+                textSize = 12f
+                setTextColor(muted)
+                setPadding(dp(4), dp(10), dp(4), dp(3))
+                visibility = View.GONE
+            }
+            question.setOnClickListener {
+                val expanded = answer.visibility != View.VISIBLE
+                answer.visibility = if (expanded) View.VISIBLE else View.GONE
+                question.text = (if (expanded) "⌄  " else "＋  ") + questions[index]
+            }
+            row.addView(question)
+            row.addView(answer)
+            content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+        }
+        val scroll = ScrollView(this).apply { isFillViewport = true; addView(content) }
+        AlertDialog.Builder(this).setTitle("Guardian 자주 묻는 질문").setView(scroll).setNegativeButton("닫기", null).show()
     }
 
     private fun showSupportSubmitDialog() {
@@ -2566,7 +2577,10 @@ class MainActivity : Activity() {
                     }
                     runOnUiThread {
                         result.onSuccess { response ->
-                            val receipt = "접수 번호: ${response.optString("ticketRef")}\n조회 코드: ${response.optString("accessToken")}\n\n이 정보는 다시 표시되지 않으므로 안전한 곳에 보관하세요."
+                            val ticketRefValue = response.optString("ticketRef")
+                            val accessTokenValue = response.optString("accessToken")
+                            storeSupportLookupCredentials(ticketRefValue, accessTokenValue)
+                            val receipt = "접수 번호: $ticketRefValue\\n조회 코드: $accessTokenValue\\n\\n앱에 안전하게 저장되어 다음부터 자동으로 입력됩니다."
                             dialog.dismiss()
                             AlertDialog.Builder(this@MainActivity)
                                 .setTitle("문의 접수 완료")
@@ -2590,6 +2604,44 @@ class MainActivity : Activity() {
         dialog.show()
     }
 
+    private fun storeSupportLookupCredentials(ticketRef: String, accessToken: String) {
+        if (ticketRef.isBlank() || accessToken.isBlank()) return
+        runCatching {
+            val alias = "guardian.support.lookup.v1"
+            val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            val secretKey = (keyStore.getKey(alias, null) as? javax.crypto.SecretKey) ?: run {
+                val generator = javax.crypto.KeyGenerator.getInstance("AES", "AndroidKeyStore")
+                generator.init(android.security.keystore.KeyGenParameterSpec.Builder(
+                    alias,
+                    android.security.keystore.KeyProperties.PURPOSE_ENCRYPT or android.security.keystore.KeyProperties.PURPOSE_DECRYPT
+                ).setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setRandomizedEncryptionRequired(true).build())
+                generator.generateKey()
+            }
+            val payload = org.json.JSONObject().put("ticketRef", ticketRef).put("accessToken", accessToken).toString().toByteArray(Charsets.UTF_8)
+            val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, secretKey)
+            val encrypted = cipher.doFinal(payload)
+            getSharedPreferences("guardian_support_private", MODE_PRIVATE).edit()
+                .putString("lookup_credentials_v1", Base64.encodeToString(cipher.iv + encrypted, Base64.NO_WRAP)).apply()
+        }.onFailure { android.util.Log.e("GuardianSupport", "Secure support credential storage failed") }
+    }
+
+    private fun loadSupportLookupCredentials(): Pair<String, String>? = runCatching {
+        val storedText = getSharedPreferences("guardian_support_private", MODE_PRIVATE).getString("lookup_credentials_v1", null) ?: return null
+        val stored = Base64.decode(storedText, Base64.NO_WRAP)
+        require(stored.size > 12)
+        val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val secretKey = keyStore.getKey("guardian.support.lookup.v1", null) as javax.crypto.SecretKey
+        val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(javax.crypto.Cipher.DECRYPT_MODE, secretKey, javax.crypto.spec.GCMParameterSpec(128, stored.copyOfRange(0, 12)))
+        val json = org.json.JSONObject(String(cipher.doFinal(stored.copyOfRange(12, stored.size)), Charsets.UTF_8))
+        val ticket = json.optString("ticketRef")
+        val token = json.optString("accessToken")
+        if (ticket.isBlank() || token.isBlank()) null else ticket to token
+    }.getOrNull()
+
     private fun showSupportLookupDialog() {
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -2604,9 +2656,15 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(10), dp(12), dp(10))
             background = shape(panel2, 10)
         }
-        val ticketRef = input("접수 번호 (GDN-...)")
-        val accessToken = input("접수 시 발급된 조회 코드")
-        form.addView(ticketRef)
+        val savedCredentials = loadSupportLookupCredentials()
+        val ticketRef = input("접수 번호")
+        val accessToken = input("조회 코드")
+        savedCredentials?.let { ticketRef.setText(it.first); accessToken.setText(it.second) }
+        form.addView(text(
+            if (savedCredentials != null) "이 기기에서 접수한 문의 정보를 자동으로 불러왔습니다." else "저장된 문의가 없습니다. 먼저 문의를 접수해 주세요.",
+            11f, if (savedCredentials != null) accent else muted, false
+        ))
+        form.addView(ticketRef, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         form.addView(accessToken, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         val dialog = AlertDialog.Builder(this)
             .setTitle("내 문의 답변 확인")
@@ -2664,7 +2722,9 @@ class MainActivity : Activity() {
             orientation = if (asRail) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setBackgroundColor(Color.rgb(15, 23, 39))
-            setPadding(if (asRail) dp(7) else dp(5), dp(8), if (asRail) dp(7) else dp(5), dp(8))
+            setPadding(if (asRail) dp(7) else dp(5), dp(5), if (asRail) dp(7) else dp(5), dp(12))
+            clipChildren = false
+            clipToPadding = false
         }
         val items = GuardianNavigation.primaryItems.map { Triple(it.id, it.icon, it.label) }
         items.forEach { (id, icon, label) ->
@@ -2683,7 +2743,7 @@ class MainActivity : Activity() {
             if (asRail) {
                 nav.addView(item, LinearLayout.LayoutParams(-1, dp(68)))
             } else {
-                nav.addView(item, LinearLayout.LayoutParams(0, dp(48), 1f))
+                nav.addView(item, LinearLayout.LayoutParams(0, dp(54), 1f))
             }
         }
         return nav
