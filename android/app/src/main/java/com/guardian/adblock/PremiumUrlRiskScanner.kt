@@ -24,6 +24,31 @@ internal object PremiumUrlRiskScanner {
         "signin", "update", "confirm", "crypto"
     )
 
+    // Brand roots are intentionally exact and conservative. This flags brand names
+    // embedded in unrelated registrable domains without claiming a threat verdict.
+    private val trustedBrandRoots = mapOf(
+        "apple" to setOf("apple.com"),
+        "amazon" to setOf("amazon.com", "amazon.co.uk", "amazon.de", "amazon.co.jp"),
+        "google" to setOf("google.com", "google.co.uk", "google.de", "google.co.jp"),
+        "microsoft" to setOf("microsoft.com", "microsoftonline.com"),
+        "paypal" to setOf("paypal.com", "paypal.co.uk", "paypal.de"),
+        "facebook" to setOf("facebook.com"),
+        "instagram" to setOf("instagram.com"),
+        "netflix" to setOf("netflix.com"),
+        "whatsapp" to setOf("whatsapp.com"),
+        "binance" to setOf("binance.com"),
+        "coinbase" to setOf("coinbase.com"),
+        "steam" to setOf("steampowered.com", "steamcommunity.com")
+    )
+
+    private fun hasBrandImpersonationSignal(host: String): Boolean {
+        val normalized = host.trimEnd('.').lowercase(Locale.ROOT)
+        return trustedBrandRoots.any { (brand, roots) ->
+            val brandInLabel = normalized.split('.').any { label -> label.contains(brand) }
+            brandInLabel && roots.none { normalized == it || normalized.endsWith(".$it") }
+        }
+    }
+
     private fun isCanonicalIpv4(host: String): Boolean {
         val octets = host.split('.')
         if (octets.size != 4) return false
@@ -104,6 +129,7 @@ internal object PremiumUrlRiskScanner {
         }
         if (host.count { it == '.' } >= 4) indicators += "하위 도메인이 비정상적으로 많습니다."
         if (host in shorteners) indicators += "목적지를 숨길 수 있는 URL 단축 서비스입니다."
+        if (hasBrandImpersonationSignal(host)) indicators += "유명 서비스 브랜드명이 공식 도메인이 아닌 호스트에 포함되어 있습니다. 주소를 직접 확인하세요."
         val pathAndQuery = (uri.rawPath.orEmpty() + "?" + uri.rawQuery.orEmpty()).lowercase(Locale.ROOT)
         if (suspiciousTerms.any { pathAndQuery.contains(it) }) indicators += "로그인·인증·결제 관련 단어가 경로 또는 쿼리에 포함되어 있습니다."
         if (raw.count { it == '%' } >= 5) indicators += "퍼센트 인코딩이 과도하게 포함되어 있습니다."
