@@ -33,21 +33,35 @@ export function verifyProductionRedistributionApprovals(config) {
         !/^[A-Za-z0-9.+-]{1,64}$/.test(source.licenseId)) {
       errors.push(id + ': licenseId is missing or malformed.');
     }
-    let sourceUrl;
-    try {
-      sourceUrl = new URL(source.url);
-    } catch {
-      errors.push(id + ': source url must be a valid HTTPS URL.');
-    }
-    if (sourceUrl && (
-      sourceUrl.protocol !== 'https:' ||
-      !sourceUrl.hostname ||
-      sourceUrl.username ||
-      sourceUrl.password ||
-      sourceUrl.search ||
-      sourceUrl.hash
-    )) {
+    const cleanHttpsUrl = value => {
+      if (typeof value !== 'string' || !value.trim()) return false;
+      try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'https:' && Boolean(parsed.hostname) &&
+          !parsed.username && !parsed.password && !parsed.search && !parsed.hash;
+      } catch {
+        return false;
+      }
+    };
+    if (!cleanHttpsUrl(source.url)) {
       errors.push(id + ': source url must use HTTPS and must not contain credentials, a query or a fragment.');
+    }
+    if (!cleanHttpsUrl(source.upstreamRepository)) {
+      errors.push(id + ': upstreamRepository must be a clean HTTPS URL.');
+    }
+    if (!cleanHttpsUrl(source.licenseUrl)) {
+      errors.push(id + ': licenseUrl must be a clean HTTPS URL.');
+    }
+    if (typeof source.upstreamVersion !== 'string' ||
+        !/^[A-Za-z0-9._+-]{1,128}$/.test(source.upstreamVersion)) {
+      errors.push(id + ': upstreamVersion is missing or malformed.');
+    }
+    if (source.thirdPartyProvenanceReviewed !== true) {
+      errors.push(id + ': thirdPartyProvenanceReviewed must be explicitly true after upstream data-source review.');
+    }
+    if (typeof source.complianceEvidenceRef !== 'string' ||
+        !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(source.complianceEvidenceRef)) {
+      errors.push(id + ': complianceEvidenceRef must identify a traceable source-specific compliance record.');
     }
     if (!Number.isSafeInteger(source.minimumRules) || source.minimumRules < 1) {
       errors.push(id + ': minimumRules must be a positive safe integer.');
