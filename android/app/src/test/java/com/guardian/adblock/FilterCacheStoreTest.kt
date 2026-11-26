@@ -11,6 +11,31 @@ class FilterCacheStoreTest {
     private fun newFolder(): File = Files.createTempDirectory("guardian-filter-cache-test").toFile()
 
     @Test
+    fun downloadedFilterCleanupRemovesOnlyCacheGenerationsAndPreservesOtherFiles() {
+        val folder = newFolder()
+        val names = listOf("adguard_dns_filter.txt", "hagezi_threat_intelligence.txt", "awavenue_android_ads.txt")
+        names.forEach { name ->
+            File(folder, name).writeText("cache")
+            File(folder, "$name.bak").writeText("backup")
+            File(folder, "$name.tmp").writeText("temporary")
+        }
+        File(folder, "manifest_timestamps.properties").writeText("security=123")
+        File(folder, "filter_rules.txt").writeText("||doubleclick.net^")
+
+        names.forEach { name ->
+            listOf(name, "$name.bak", "$name.tmp").forEach { File(folder, it).delete() }
+        }
+
+        names.forEach { name ->
+            assertFalse(File(folder, name).exists())
+            assertFalse(File(folder, "$name.bak").exists())
+            assertFalse(File(folder, "$name.tmp").exists())
+        }
+        assertTrue(File(folder, "manifest_timestamps.properties").exists())
+        assertTrue(File(folder, "filter_rules.txt").exists())
+    }
+
+    @Test
     fun successfulReplacementCommitsNewBytesAndRemovesBackup() {
         val folder = newFolder()
         val target = File(folder, "filter.txt").apply { writeText("old") }
