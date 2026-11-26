@@ -690,7 +690,7 @@ jobs:
           digest = hashlib.sha256(pathlib.Path(apk_path).read_bytes()).hexdigest()
           assert manifest["packageName"] == "com.guardian.adblock"
           assert isinstance(manifest["versionCode"], int) and manifest["versionCode"] > 0
-          assert re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+-dev", manifest["versionName"])
+          assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-dev", manifest["versionName"])
           assert manifest["sha256"] == digest
           assert manifest["signerSha256"] == "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
           print(manifest["versionCode"], manifest["versionName"])
