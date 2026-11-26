@@ -1,4 +1,4 @@
-import { createPrivateKey } from 'node:crypto';
+import { createPrivateKey, createPublicKey } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -35,6 +35,24 @@ function validateSecrets() {
   if (key.asymmetricKeyType !== 'rsa' || bits < 2048 || bits > 4096) {
     throw new Error('GUARDIAN_LICENSE_PRIVATE_KEY must be an RSA key between 2048 and 4096 bits.');
   }
+
+  // Bind the deployed signer to the key actually pinned by the Android source.
+  // A syntactically valid but unrelated RSA key would make every license fail
+  // verification on already-installed clients.
+  const gradlePath = resolve(process.cwd(), '../../android/app/build.gradle.kts');
+  const gradleSource = await readFile(gradlePath, 'utf8');
+  const pinnedMatch = /val guardianLicensePublicKey\\s*=\\s*[\\s\\S]*?\\.getOrElse\\("([A-Za-z0-9+/=]+)"\\)/.exec(gradleSource);
+  if (!pinnedMatch) throw new Error('Could not read the default license public key pinned in Android build configuration.');
+  const pinnedPublicKey = pinnedMatch[1];
+  const derivedPublicKey = createPublicKey(key).export({ type: 'spki', format: 'der' }).toString('base64');
+  if (derivedPublicKey !== pinnedPublicKey) {
+    throw new Error('License private key does not match the public key pinned in the Android source. Refusing deployment.');
+  }
+  if (process.env.GUARDIAN_LICENSE_PUBLIC_KEY &&
+      process.env.GUARDIAN_LICENSE_PUBLIC_KEY.trim() !== pinnedPublicKey) {
+    throw new Error('GUARDIAN_LICENSE_PUBLIC_KEY repository variable differs from the Android-pinned public key.');
+  }
+
   values.GUARDIAN_LICENSE_PRIVATE_KEY = pem;
   return values;
 }
