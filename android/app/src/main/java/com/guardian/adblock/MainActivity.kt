@@ -1253,7 +1253,7 @@ class MainActivity : Activity() {
         body.addView(Button(this).apply {
             text = "필터링 설정 열기"
             isAllCaps = false
-            setTextColor(bg)
+            setTextColor(white)
             background = shape(panel2, 12)
             setOnClickListener { navigateToTab("rules") }
         }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
@@ -1530,11 +1530,15 @@ class MainActivity : Activity() {
             visibility = if (activationExpanded) View.VISIBLE else View.GONE
         }
         val activationButton = Button(this).apply {
-            text = if (activationExpanded) "$activationActionLabel 접기" else activationActionLabel
+            text = (if (activationExpanded) "⌃  " else "⌄  ") + if (activationExpanded) "$activationActionLabel 접기" else activationActionLabel
             isAllCaps = false
+            gravity = Gravity.CENTER_VERTICAL
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(bg)
-            background = shape(accent, 12)
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(accent, Color.rgb(48, 174, 154))).apply {
+                cornerRadius = dp(13).toFloat()
+                setStroke(dp(1), Color.rgb(111, 239, 201))
+            }
             contentDescription = "$activationActionLabel 내용 펼치기"
             setOnClickListener {
                 val expanding = activationPanel.visibility != View.VISIBLE
@@ -1553,7 +1557,7 @@ class MainActivity : Activity() {
                         }
                     }
                 }
-                text = if (expanding) "$activationActionLabel 접기" else activationActionLabel
+                text = (if (expanding) "⌃  " else "⌄  ") + if (expanding) "$activationActionLabel 접기" else activationActionLabel
                 contentDescription = if (expanding) "$activationActionLabel 내용 접기" else "$activationActionLabel 내용 펼치기"
             }
         }
@@ -1903,7 +1907,7 @@ class MainActivity : Activity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     addView(text(title, 14f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
-                    addView(text("${rules.size}개", 11f, accent, true))
+                    addView(text("${formatCount(rules.size.toLong())}개", 11f, accent, true))
                 }
                 addView(heading)
                 if (rules.isEmpty()) {
@@ -1971,7 +1975,7 @@ class MainActivity : Activity() {
             body.addView(infoRow(
                 label,
                 if (available) "다운로드 캐시 사용 가능" else "다운로드 캐시 없음",
-                if (available) "${count}개 규칙" else "미설치",
+                if (available) "${formatCount(count.toLong())}개 규칙" else "미설치",
                 if (available) accent else muted
             ).withTop(8))
         }
@@ -3794,7 +3798,7 @@ class MainActivity : Activity() {
         val profileLabel = if (FilterListManager.hasCachedList(this) && selectedProfile.key != cachedProfile.key) {
             "선택: ${selectedProfile.label} · 적용 중: ${cachedProfile.label}"
         } else selectedProfile.label
-        val summary = "$profileLabel · 광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 앱 광고 ${if (androidAdsOn) androidAdsCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored + androidAdsIgnored}개 제외 · 업데이트: $time"
+        val summary = "$profileLabel · 광고·추적 ${formatCount(count.toLong())}개 · 보안 ${formatCount((if (securityOn) securityCount else 0).toLong())}개 · 앱 광고 ${formatCount((if (androidAdsOn) androidAdsCount else 0).toLong())}개 · 미지원 규칙 ${formatCount((ignored + securityIgnored + androidAdsIgnored).toLong())}개 제외 · 업데이트: $time"
         val signedManifestStatus = FilterListManager.signedManifestStatus(this)
         return listOfNotNull(
             summary,
@@ -3901,13 +3905,13 @@ class MainActivity : Activity() {
                         androidAdsFilterCheckBox?.isChecked = false
                     }
                     val securityMessage = if (securityWasEnabled) {
-                        if (securityResult != null) " · 보안 ${securityResult.blocked}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(캐시 없음 · 자동 비활성화)"
+                        if (securityResult != null) " · 보안 ${formatCount(securityResult.blocked.toLong())}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(캐시 없음 · 자동 비활성화)"
                     } else ""
                     val androidAdsMessage = if (androidAdsWasEnabled) {
-                        if (androidAdsResult != null) " · Android 앱 광고 ${androidAdsResult.blocked}개" else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)" else " · 앱 광고 필터 다운로드 실패(캐시 없음 · 자동 비활성화)"
+                        if (androidAdsResult != null) " · Android 앱 광고 ${formatCount(androidAdsResult.blocked.toLong())}개" else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)" else " · 앱 광고 필터 다운로드 실패(캐시 없음 · 자동 비활성화)"
                     } else ""
                     val signedStatus = FilterListManager.signedManifestStatus(this)?.let { " · $it" } ?: ""
-                    setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage}${androidAdsMessage} · ${result.bytes / 1024}KB$signedStatus")
+                    setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} · 광고·추적 ${formatCount(result.blocked.toLong())}개 · 미지원 ${formatCount(result.ignored.toLong())}개 제외${securityMessage}${androidAdsMessage} · ${formatCount((result.bytes / 1024).toLong())}KB$signedStatus")
                     filterUpdateButton?.text = "필터 목록 업데이트"
                     filterUpdateButton?.isEnabled = true
                     homeFilterUpdateButton?.text = "필터 목록 업데이트"
