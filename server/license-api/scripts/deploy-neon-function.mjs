@@ -52,6 +52,9 @@ async function validateSecrets() {
       process.env.GUARDIAN_LICENSE_PUBLIC_KEY.trim() !== pinnedPublicKey) {
     throw new Error('GUARDIAN_LICENSE_PUBLIC_KEY repository variable differs from the Android-pinned public key.');
   }
+  const apiUrlMatch = /val guardianLicenseApiBaseUrl\\s*=\\s*[\\s\\S]*?\\.getOrElse\\("([^"]+)"\\)/.exec(gradleSource);
+  if (!apiUrlMatch) throw new Error('Could not read the default license API URL pinned in Android build configuration.');
+  values.GUARDIAN_LICENSE_API_BASE_URL = (process.env.GUARDIAN_LICENSE_API_BASE_URL || apiUrlMatch[1]).trim().replace(/\\/+$/, '');
 
   values.GUARDIAN_LICENSE_PRIVATE_KEY = pem;
   return values;
@@ -129,6 +132,9 @@ async function main() {
   const invocationUrl = functionData.invocation_url;
   if (typeof invocationUrl !== 'string' || !invocationUrl.startsWith('https://')) {
     throw new Error('Neon reports a completed deployment but did not return an HTTPS invocation URL.');
+  }
+  if (values.GUARDIAN_LICENSE_API_BASE_URL !== invocationUrl.replace(/\\/+$/, '')) {
+    throw new Error('Android GUARDIAN_LICENSE_API_BASE_URL does not match the deployed Neon Function URL. Refusing to report a usable production API.');
   }
 
   const functionOrigin = invocationUrl.endsWith('/') ? invocationUrl : `${invocationUrl}/`;
