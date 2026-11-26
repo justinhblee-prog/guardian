@@ -15,7 +15,7 @@
 
 1. 격리된 PostgreSQL에 스키마와 migration 002~005를 적용합니다.
 2. 라이선스 API·암호화·Neon 어댑터 테스트를 실행합니다.
-3. Neon이 요구하는 ZIP 루트 `index.mjs`를 포함한 함수 번들을 생성하고 검사합니다.
+3. Neon이 요구하는 실행 번들을 esbuild로 Node.js 24 ESM 단일 파일로 묶고, ZIP 최상위에 `index.mjs` 하나만 포함하는지 검사합니다. `pg` 등 CommonJS 의존성의 런타임 호환 배너를 적용하고, 번들 자체의 `/health` 및 fail-closed `/ready` 스모크 테스트를 통과해야 다음 단계로 진행합니다.
 4. Neon API로 Function `guardianapi`를 배포합니다.
 5. Function 배포 상태가 `completed`인지 확인합니다.
 6. 실제 `/ready` 응답에서 `ok=true`를 확인해야만 성공으로 종료합니다.
