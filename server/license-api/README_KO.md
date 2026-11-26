@@ -32,7 +32,7 @@ npm test
 npm start
 ```
 
-운영에서는 반드시 HTTPS reverse proxy 또는 HTTPS를 제공하는 호스팅 플랫폼 뒤에 배치하고, 관리자 페이지도 HTTPS로만 접근시켜야 합니다. API의 rate limit 카운터는 PostgreSQL에 저장되어 동일 DB를 사용하는 여러 API 인스턴스 사이에서 공유됩니다. 프록시 뒤에서는 소켓 peer 기준이 프록시 주소가 될 수 있으므로, 공개 운영 환경에서는 프록시/WAF에서 신뢰 가능한 실제 클라이언트 IP 기준 추가 분산 rate limit을 반드시 적용해야 합니다. `GUARDIAN_RATE_LIMIT_WINDOW_MS`(기본 60000)와 `GUARDIAN_RATE_LIMIT_MAX`(기본 30)로 앱 내부 창과 요청 수를 조정할 수 있습니다. 데이터베이스 백업, Secret Manager, 로그 접근통제, 분산 rate limit/WAF, 모니터링, 복구 계획을 추가로 구성한 후 공개해야 합니다. 이 저장소의 서버는 운영 호스팅에 배포된 상태가 아닙니다.
+운영에서는 반드시 HTTPS reverse proxy 또는 HTTPS를 제공하는 호스팅 플랫폼 뒤에 배치하고, 관리자 페이지도 HTTPS로만 접근시켜야 합니다. API의 rate limit 카운터는 PostgreSQL에 저장되어 동일 DB를 사용하는 여러 API 인스턴스 사이에서 공유됩니다. 프록시 뒤에서는 소켓 peer 기준이 프록시 주소가 될 수 있으므로, 공개 운영 환경에서는 프록시/WAF에서 신뢰 가능한 실제 클라이언트 IP 기준 추가 분산 rate limit을 반드시 적용해야 합니다. `GUARDIAN_RATE_LIMIT_WINDOW_MS`(기본 60000)와 `GUARDIAN_RATE_LIMIT_MAX`(기본 30)로 앱 내부 창과 요청 수를 조정할 수 있습니다. 데이터베이스 백업, Secret Manager, 로그 접근통제, 분산 rate limit/WAF, 모니터링, 복구 계획을 추가로 구성한 후 공개해야 합니다. 2026-11-26 기준 무료 운영 인스턴스는 Neon 프로젝트 `guardian-license-api`의 `production` 브랜치에 수동 배포되어 있습니다. API 주소는 `https://br-shiny-mountain-bi4ia7g2-guardianapi.compute.c-5.ap-southeast-1.aws.neon.tech`이며, 배포된 함수 버전은 1입니다. 운영 DB 스키마와 기본 상품 레코드는 생성했으며, 공개 HTTPS 요청의 `/health`·`/ready` 응답 및 Android 실기기 발급·활성화 E2E는 별도 확인 전까지 완료로 간주하지 않습니다.
 
 ## Docker Compose 배포 준비
 
