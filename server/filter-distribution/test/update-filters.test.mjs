@@ -218,6 +218,11 @@ test('updater refuses third-party filter redistribution without explicit legal a
         id: 'unreviewed',
         url: 'https://upstream.example/filter.txt',
         minimumRules: 1,
+        upstreamRepository: 'https://upstream.example/project',
+        licenseUrl: 'https://upstream.example/LICENSE',
+        upstreamVersion: 'test-1',
+        thirdPartyProvenanceReviewed: true,
+        complianceEvidenceRef: 'test-fixture',
         licenseId: 'GPL-3.0',
         redistributionApproved: false,
         redistributionApprovalRef: ''
@@ -243,6 +248,11 @@ test('updater requires a traceable approval reference even when approval flag is
         id: 'untraceable',
         url: 'https://upstream.example/filter.txt',
         minimumRules: 1,
+        upstreamRepository: 'https://upstream.example/project',
+        licenseUrl: 'https://upstream.example/LICENSE',
+        upstreamVersion: 'test-1',
+        thirdPartyProvenanceReviewed: true,
+        complianceEvidenceRef: 'test-fixture',
         licenseId: 'GPL-3.0',
         redistributionApproved: true,
         redistributionApprovalRef: '   '
