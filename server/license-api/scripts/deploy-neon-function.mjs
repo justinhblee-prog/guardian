@@ -92,6 +92,7 @@ async function main() {
     GUARDIAN_RATE_LIMIT_MAX: '30'
   };
 
+  const deploymentRequestedAt = Date.now();
   const form = new FormData();
   form.append('zip', new Blob([zipBytes], { type: 'application/zip' }), basename(zipPath));
   form.append('runtime', 'nodejs24');
@@ -108,44 +109,56 @@ async function main() {
   }
 
   let functionInfo;
+  let current;
+  let matchingDeployment = false;
   const deadline = Date.now() + 180_000;
   while (Date.now() < deadline) {
     functionInfo = await neonRequest(base, values.NEON_API_KEY);
-    const current = functionInfo.current_deployment ?? functionInfo.function?.current_deployment;
-    if (current?.status === 'completed') break;
-    if (current?.status === 'failed') {
+    current = functionInfo.current_deployment ?? functionInfo.function?.current_deployment;
+    matchingDeployment = deploymentId !== undefined
+      ? String(current?.id) === String(deploymentId)
+      : Number.isFinite(Date.parse(current?.created_at ?? '')) &&
+        Date.parse(current.created_at) >= deploymentRequestedAt - 10_000;
+    if (matchingDeployment && current?.status === 'completed') break;
+    if (matchingDeployment && current?.status === 'failed') {
       throw new Error(`Neon reports deployment failed (deployment ${current.id ?? 'unknown'}).`);
     }
     await delay(5_000);
   }
 
-  const current = functionInfo?.current_deployment ?? functionInfo?.function?.current_deployment;
-  if (current?.status !== 'completed') {
-    throw new Error(`Neon deployment did not reach completed status within 180 seconds (last status: ${current?.status ?? 'unknown'}).`);
+  if (!matchingDeployment || current?.status !== 'completed') {
+    throw new Error(`Requested Neon deployment did not reach completed status within 180 seconds (last status: ${current?.status ?? 'unknown'}).`);
   }
   const invocationUrl = functionInfo.invocation_url ?? functionInfo.function?.invocation_url;
   if (typeof invocationUrl !== 'string' || !invocationUrl.startsWith('https://')) {
     throw new Error('Neon reports a completed deployment but did not return an HTTPS invocation URL.');
   }
 
-  let ready = false;
-  for (let attempt = 1; attempt <= 6; attempt += 1) {
-    const response = await fetch(new URL('ready', invocationUrl.endsWith('/') ? invocationUrl : `${invocationUrl}/`), {
-      headers: { accept: 'application/json' },
-      signal: AbortSignal.timeout(15_000)
-    });
-    if (response.ok) {
-      const payload = await response.json();
-      if (payload?.ok === true) {
-        ready = true;
-        break;
+  const functionOrigin = invocationUrl.endsWith('/') ? invocationUrl : `${invocationUrl}/`;
+  for (const path of ['health', 'ready']) {
+    let verified = false;
+    for (let attempt = 1; attempt <= 6; attempt += 1) {
+      const response = await fetch(new URL(path, functionOrigin), {
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(15_000)
+      });
+      if (response.ok) {
+        if (path === 'health') {
+          verified = true;
+        } else {
+          const payload = await response.json();
+          verified = payload?.ok === true;
+        }
+        if (verified) break;
       }
+      if (attempt < 6) await delay(5_000);
     }
-    if (attempt < 6) await delay(5_000);
+    if (!verified) {
+      throw new Error(`Neon deployment completed, but /${path} did not pass its live check. Production API remains unverified.`);
+    }
   }
-  if (!ready) throw new Error('Neon deployment completed, but /ready did not report ok=true. Production API remains unverified.');
 
-  console.log('Guardian License API deployment completed and /ready returned ok=true.');
+  console.log('Guardian License API deployment completed; /health and /ready returned successful responses.');
   console.log(`Invocation URL: ${invocationUrl}`);
 }
 
