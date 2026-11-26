@@ -2580,7 +2580,7 @@ class MainActivity : Activity() {
                             val ticketRefValue = response.optString("ticketRef")
                             val accessTokenValue = response.optString("accessToken")
                             storeSupportLookupCredentials(ticketRefValue, accessTokenValue)
-                            val receipt = "접수 번호: $ticketRefValue\\n조회 코드: $accessTokenValue\\n\\n앱에 안전하게 저장되어 다음부터 자동으로 입력됩니다."
+                            val receipt = "접수 번호: $ticketRefValue\n조회 코드: $accessTokenValue\n\n앱에 안전하게 저장되어 다음부터 자동으로 입력됩니다."
                             dialog.dismiss()
                             AlertDialog.Builder(this@MainActivity)
                                 .setTitle("문의 접수 완료")
