@@ -1,6 +1,6 @@
 name: Guardian Neon Production License API Deploy
 
-on:
+"on":
   workflow_dispatch:
 
 permissions:
