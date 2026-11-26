@@ -509,8 +509,8 @@ jobs:
           AVD_CONFIG="$ANDROID_AVD_HOME/$AVD_NAME.avd/config.ini"
           for setting in "hw.lcd.width=720" "hw.lcd.height=1280" "hw.lcd.density=240" "hw.ramSize=3072" "hw.cpu.ncore=4"; do
             key="${setting%%=*}"
-            if grep -qE "^\${key}=" "$AVD_CONFIG"; then
-              sed -i -E "s/^\${key}=.*/\${setting}/" "$AVD_CONFIG"
+            if grep -Fq "$key=" "$AVD_CONFIG"; then
+              sed -i "s|^$key=.*|$setting|" "$AVD_CONFIG"
             else
               echo "$setting" >> "$AVD_CONFIG"
             fi
