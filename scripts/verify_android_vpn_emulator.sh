@@ -289,6 +289,15 @@ raise SystemExit(0 if found else 1)' <<<"$xml"; then
   # The previous published APK uses the shorter "앱 제외" label, while the
   # redesigned Settings screen uses "앱 제외 관리". Resolve from the live
   # accessibility hierarchy instead of assuming the newest label exists.
+  # The Settings workspace is one vertically scrollable surface. After an
+  # About/Support detail check, the left category rail can be scrolled so its
+  # first entries (General and Filtering) are above the viewport. Reset the
+  # shared scroll surface to its top before resolving a category; otherwise
+  # UIAutomator correctly reports those rail entries as not visible.
+  for reset_attempt in $(seq 1 5); do
+    adb_cmd shell input swipe 540 420 540 1510 350
+    sleep 0.2
+  done
   xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
   target="$(python3 scripts/android_navigation_compat.py settings-item "$title" <<<"$xml")" || {
     echo "Could not resolve Settings menu item '$title' from the live UI."
