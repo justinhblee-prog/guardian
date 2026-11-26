@@ -63,6 +63,7 @@ class MainActivity : Activity() {
     private var rulesFeedback: TextView? = null
     private var statsText: TextView? = null
     private var recentText: TextView? = null
+    private var blockedDomainSummaryText: TextView? = null
     private var diagnosticText: TextView? = null
     private var selfTestText: TextView? = null
     private var upstreamTestText: TextView? = null
@@ -540,6 +541,7 @@ class MainActivity : Activity() {
         androidAdsFilterCheckBox = null
         statsText = null
         recentText = null
+        blockedDomainSummaryText = null
         diagnosticText = null
         selfTestText = null
         upstreamTestText = null
@@ -981,6 +983,15 @@ class MainActivity : Activity() {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(recentText!!)
         }.withTop(10))
+        body.addView(text("최근 차단 도메인 빈도 · 최근 DNS 기록 기준", 13f, white, true).withTop(16))
+        blockedDomainSummaryText = text(
+            DnsActivitySummary.recentBlockedDomains(prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null)),
+            11f, muted, false
+        ).withTop(7) as TextView
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            addView(blockedDomainSummaryText!!)
+        }.withTop(8))
         diagnosticText = text(
             "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}",
             11f, muted, false
@@ -4086,7 +4097,9 @@ class MainActivity : Activity() {
         trackerBlockedValue?.text = String.format(Locale.getDefault(), "%,d", trackerCount)
         savedDataValue?.text = estimatedSavedDataLabel(blockedQueries)
         activityChart?.update(adCount, trackerCount, otherCount, prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))
-        recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
+        val recentDns = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null)
+        recentText?.text = recentDns ?: "아직 기록된 DNS 활동이 없습니다."
+        blockedDomainSummaryText?.text = DnsActivitySummary.recentBlockedDomains(recentDns)
         diagnosticText?.text = "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}"
         updateCompatibilityPauseStatus()
     }
