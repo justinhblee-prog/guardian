@@ -121,6 +121,16 @@ class GuardianDevVersionTests(unittest.TestCase):
         self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
                          ("0.7.53-dev", 66, "guardian-dev-v66"))
 
+    def test_installed_053_floor_forces_next_update_above_delivered_apk(self):
+        releases = [{
+            "tag_name": "guardian-dev-v66",
+            "name": "Guardian AdBlock 0.7.53-dev",
+            "draft": False, "prerelease": True, "body": ""
+        }]
+        result = resolve_next_version(releases, "6" * 40, "0.7.53-dev", 66)
+        self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
+                         ("0.7.54-dev", 67, "guardian-dev-v67"))
+
 
 if __name__ == "__main__":
     unittest.main()
