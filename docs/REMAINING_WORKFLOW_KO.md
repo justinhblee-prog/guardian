@@ -99,3 +99,23 @@ Android 1.0 출시 필수 조건이 닫힌 뒤 Windows 보호 엔진과 설치 �
 - 별도 Android run [44785000260](https://github.com/justinhblee-prog/guardian/actions/runs/44785000260)은 완료 success이며 emulator install/launch 및 VPN DNS E2E 성공. 단, head SHA는 `bdb63e201f1e7aa0cc92a322e93c4c206e21f816`로 현재 main SHA와 다르므로 최신 main 검증으로 대체하지 않습니다.
 - main 개발 APK `0.7.34-dev` (versionCode 47)은 별도 artifact에서 다운로드 및 SHA-256 검증 후 사용자에게 전달했습니다. 이는 debug/dev 서명 APK이며 Production release가 아닙니다.
 - 실기기 Samsung `Library file not found`는 여전히 미확정입니다. 새 진단은 실제 단말에서 발생한 root cause frame을 보존하기 위한 개선이며, 단말 로그 없이 원인을 해결했다고 주장하지 않습니다.
+
+
+## 2026-11-21 — 사용자 우선순위 변경: 비결제 제품 기능 우선
+
+사용자 결정에 따라 **Google Play 구매/구독 및 결제 서버 운영 배포는 후순위로 연기**합니다. 관련 PR #249/#250의 구현과 테스트는 보존하되, 지금은 결제 연동을 위해 추가 운영 자격증명·Play Console 설정·결제 서버 배포를 진행하지 않습니다.
+
+### 우선순위
+1. Android 보호 엔진과 핵심 UX/설정 완성: VPN lifecycle, DNS 허용/차단, 사용자 규칙, 앱별 제외, 복구 및 실기기 수용 증거.
+2. 필터 엔진과 서명 배포 경로: manifest/RSA/SHA-256 검증, 캐시·업데이트·오프라인 복구. 실제 원본은 재배포 권리 승인 전까지 계속 fail-closed.
+3. Android 태블릿/대형 화면: 휴대폰 회귀 없이 adaptive layout, landscape, resize/split-screen, 회전 상태 보존.
+4. Windows 보호 엔진: 서비스 lifecycle, DNS interception/forwarding, shared filter integration, 오류 시 DNS 복구, installer upgrade/uninstall 및 실제 PC 검증. 전용 추적은 #253.
+5. Android/Windows 공통 필터·업데이트 계약 및 교차 플랫폼 회귀 검증.
+6. Google Play BillingClient 실구매·복원·환불과 결제 서버 운영 배포는 위 제품 기능 우선 작업 이후 재개.
+
+### 병렬화 경계
+- Android 보호/태블릿 UI, 필터 검증·테스트, Windows 엔진/installer audit는 독립 파일과 독립 CI 경로를 우선 병렬 처리합니다.
+- 동일 API/공유 필터 계약 변경은 충돌 방지를 위해 한 트랙에서 기준을 정한 뒤 다른 트랙에 반영합니다.
+- Play 결제 관련 PR은 Draft로 보존하며, 이번 우선순위 변경만으로 병합·폐기하지 않습니다.
+- GitHub Actions billing/runner/usage 설정을 변경하거나 유료 리소스를 사용하지 않습니다.
+- 에뮬레이터·CI 성공은 실기기/실제 PC 보호 검증을 대체하지 않습니다.
