@@ -1530,9 +1530,9 @@ fi
 echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater panel and executes its version check."
 tap_content_description "설정"
 sleep 1
-# A global header action exposes app exit on every screen. The same
-# confirmation flow is also available from the Settings rail.
-tap_content_description "앱 종료"
+# The redesigned app removed the global header exit action. Exit is now
+# a dedicated Settings rail category; tap its clickable parent description.
+tap_content_description "종료 설정"
 sleep 1
 exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
 if ! grep -Fq 'Guardian 종료' <<<"$exit_confirmation_xml" ||
