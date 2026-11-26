@@ -420,10 +420,28 @@ text=" ".join(node.attrib.get("text","") for node in root.iter("node"))
 for expected in ("Guardian Premium", "GUARDIAN  /  PRO MEMBERSHIP"):
     if expected not in text:
         raise SystemExit("Premium screen is missing expected content: "+expected)' <<<"$premium_xml"
-if grep -Fq 'text="PRO 라이선스 활성화"' <<<"$premium_xml"; then
-  tap_text "PRO 라이선스 활성화"
+if grep -Fq 'PRO 라이선스 활성화' <<<"$premium_xml"; then
+  # The visible button now includes an up/down arrow prefix. Match the
+  # stable content description rather than an obsolete exact text attribute.
+  if grep -Fq 'content-desc="PRO 라이선스 활성화 내용 펼치기"' <<<"$premium_xml"; then
+    tap_content_description "PRO 라이선스 활성화 내용 펼치기"
+  elif grep -Fq 'content-desc="PRO 라이선스 활성화 내용 접기"' <<<"$premium_xml"; then
+    : # The persisted accordion state is already expanded.
+  else
+    echo "PRO activation accordion is present but has no supported accessibility state."
+    echo "$premium_xml"
+    exit 1
+  fi
 else
-  tap_text "PRO 라이선스 관리"
+  if grep -Fq 'content-desc="PRO 라이선스 관리 내용 펼치기"' <<<"$premium_xml"; then
+    tap_content_description "PRO 라이선스 관리 내용 펼치기"
+  elif grep -Fq 'content-desc="PRO 라이선스 관리 내용 접기"' <<<"$premium_xml"; then
+    : # The persisted accordion state is already expanded.
+  else
+    echo "Premium screen did not expose an accessible license activation/manage accordion."
+    echo "$premium_xml"
+    exit 1
+  fi
 fi
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
