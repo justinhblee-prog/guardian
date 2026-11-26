@@ -1980,7 +1980,8 @@ fi
 extract_pref_number() {
   local key="$1"
   local xml="$2"
-  if [[ "$xml" =~ name=\"$key\"[^>]*value=\"([0-9]+)\" ]]; then
+  local pattern="name=\"${key}\"[^>]*value=\"([0-9]+)\""
+  if [[ "$xml" =~ $pattern ]]; then
     printf '%s' "${BASH_REMATCH[1]}"
   else
     printf '0'
