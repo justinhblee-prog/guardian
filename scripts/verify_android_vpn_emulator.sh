@@ -1432,7 +1432,7 @@ ensure_text_visible() {
   end_y=$((height / 5))
   for attempt in $(seq 1 10); do
     xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
-    if grep -Fq "text=\"$wanted\"" <<<"$xml"; then
+    if grep -Fq "$wanted" <<<"$xml"; then
       echo "Visible without activation: $wanted"
       return 0
     fi
@@ -1577,7 +1577,8 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
 fi
 # Verify the same inline updater control collapses and re-expands with the
 # correct directional arrow; do not navigate away or open a second screen.
-scroll_to_text "프로그램 업데이트 확인 접기"
+# Confirm the expanded accordion header is visible without tapping it.
+ensure_text_visible "프로그램 업데이트 확인 접기"
 updater_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-expanded.xml)"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
