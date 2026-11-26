@@ -422,6 +422,26 @@ class MainActivity : Activity() {
 
         val lastAttempt = prefs.getLong("protection_ui_restore_retry_at", 0L)
         if (now - lastAttempt < 15_000L) return
+
+        // A boot receiver cannot display Android's VPN consent UI. If Android
+        // revoked Guardian's prepared-VPN grant, request consent when the user
+        // next opens the app instead of repeatedly starting a service that
+        // cannot establish a TUN interface.
+        val vpnConsent = VpnService.prepare(this)
+        if (vpnConsent != null) {
+            prefs.edit()
+                .putLong("protection_ui_restore_retry_at", now)
+                .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
+                .putString(
+                    GuardianVpnService.KEY_STATUS,
+                    "Android VPN 권한이 해제되었습니다. 다시 승인하면 보호가 재개됩니다."
+                )
+                .commit()
+            android.util.Log.i("GuardianProtection", "UI recovery requires renewed Android VPN consent")
+            startActivityForResult(vpnConsent, REQUEST_VPN)
+            return
+        }
+
         prefs.edit()
             .putLong("protection_ui_restore_retry_at", now)
             .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, true)
