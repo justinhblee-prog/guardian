@@ -208,22 +208,28 @@ object FilterListManager {
         return target
     }
 
-    /** Remove downloaded community filter generations without touching bundled baseline rules. */
-    @Synchronized
-    fun clearDownloadedSources(context: Context): Int {
-        val cacheNames = listOf(CACHE_FILE, SECURITY_CACHE_FILE, ANDROID_ADS_CACHE_FILE)
+    /** Delete only app-downloaded filter cache generations; bundled rules and rollback history are excluded. */
+    internal fun deleteDownloadedCacheFiles(directory: File): Int {
+        val names = listOf(CACHE_FILE, SECURITY_CACHE_FILE, ANDROID_ADS_CACHE_FILE)
         var removedBytes = 0L
-        for (name in cacheNames) {
-            val target = File(context.filesDir, name)
-            listOf(target, File(context.filesDir, "$name.bak"), File(context.filesDir, "$name.tmp")).forEach { file ->
+        for (name in names) {
+            listOf(name, "$name.bak", "$name.tmp").forEach { fileName ->
+                val file = File(directory, fileName)
                 if (file.isFile) removedBytes += file.length()
                 try {
                     Files.deleteIfExists(file.toPath())
                 } catch (error: Exception) {
-                    throw IllegalStateException("다운로드 필터 파일을 삭제하지 못했습니다: $name", error)
+                    throw IllegalStateException("다운로드 필터 파일을 삭제하지 못했습니다: $fileName", error)
                 }
             }
         }
+        return removedBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    }
+
+    /** Remove downloaded community filter generations without touching bundled baseline rules. */
+    @Synchronized
+    fun clearDownloadedSources(context: Context): Int {
+        val removedBytes = deleteDownloadedCacheFiles(context.filesDir)
 
         val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val metadata = preferences.edit()
@@ -244,7 +250,7 @@ object FilterListManager {
         }
         check(metadata.commit()) { "필터 캐시 삭제 상태를 저장하지 못했습니다." }
         // Keep manifest_timestamps.properties: anti-rollback history must survive cache deletion.
-        return removedBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        return removedBytes
     }
 
     fun hasCachedFile(context: Context): Boolean =
