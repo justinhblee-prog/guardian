@@ -503,6 +503,20 @@ jobs:
           fi
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           "$AVDMANAGER" create avd --force --name "$AVD_NAME" --package 'system-images;android-35;google_apis;x86_64' --device 'pixel_2' <<< 'no'
+          # SwiftShader on hosted runners is CPU-bound. Keep the normal boot
+          # resolution compact so System UI and UIAutomator remain responsive;
+          # the responsive-layout test explicitly expands to tablet dimensions.
+          AVD_CONFIG="$ANDROID_AVD_HOME/$AVD_NAME.avd/config.ini"
+          for setting in "hw.lcd.width=720" "hw.lcd.height=1280" "hw.lcd.density=240" "hw.ramSize=3072" "hw.cpu.ncore=4"; do
+            key="${setting%%=*}"
+            if grep -qE "^\${key}=" "$AVD_CONFIG"; then
+              sed -i -E "s/^\${key}=.*/\${setting}/" "$AVD_CONFIG"
+            else
+              echo "$setting" >> "$AVD_CONFIG"
+            fi
+          done
+          echo "=== AVD resource profile ==="
+          grep -E '^(hw.lcd.width|hw.lcd.height|hw.lcd.density|hw.ramSize|hw.cpu.ncore)=' "$AVD_CONFIG"
           echo "=== AVD manager inventory ==="
           "$AVDMANAGER" list avd
           echo "=== AVD files ==="
@@ -528,7 +542,7 @@ jobs:
           echo "Android emulator upstream DNS servers: $HOST_DNS_SERVERS"
           getent ahostsv4 adguardteam.github.io | head -n 3
           adb start-server
-          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -dns-server "$HOST_DNS_SERVERS" -netfast > "$AVD_LOG" 2>&1 &
+          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -memory 3072 -cores 4 -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -dns-server "$HOST_DNS_SERVERS" -netfast > "$AVD_LOG" 2>&1 &
           EMULATOR_PID=$!
           echo "Started emulator PID=$EMULATOR_PID, log=$AVD_LOG"
           ready=0
@@ -565,6 +579,11 @@ jobs:
             exit 1
           fi
           echo "Android emulator boot completed on emulator-5554."
+          # Disable non-functional system animations to reduce SwiftShader CPU
+          # pressure and avoid System UI ANRs during long accessibility flows.
+          adb -s emulator-5554 shell settings put global window_animation_scale 0
+          adb -s emulator-5554 shell settings put global transition_animation_scale 0
+          adb -s emulator-5554 shell settings put global animator_duration_scale 0
           bash scripts/verify_android_emulator.sh
           bash scripts/verify_android_vpn_emulator.sh
           bash scripts/verify_android_responsive_emulator.sh
@@ -594,6 +613,12 @@ jobs:
           capture getprop adb shell getprop
           capture logcat adb logcat -d -t 12000
           capture activities adb shell dumpsys activity activities
+          capture last-anr adb shell dumpsys activity lastanr
+          capture connectivity adb shell dumpsys connectivity
+          capture systemui-memory adb shell dumpsys meminfo com.android.systemui
+          capture guardian-memory adb shell dumpsys meminfo com.guardian.adblock
+          capture guardian-services adb shell dumpsys activity services com.guardian.adblock
+          capture guardian-prefs adb shell run-as com.guardian.adblock cat shared_prefs/guardian_settings.xml
           capture ui-dump adb shell uiautomator dump /sdcard/guardian-window.xml
           if timeout --signal=TERM --kill-after=3s 15s adb exec-out cat /sdcard/guardian-window.xml > emulator-diagnostics/ui-hierarchy.xml 2>&1; then :; fi
           if timeout --signal=TERM --kill-after=3s 15s adb exec-out screencap -p > emulator-diagnostics/screen.png 2>/dev/null; then :; fi
