@@ -19,6 +19,10 @@ class ProtectionRestoreReceiver : BroadcastReceiver() {
         val restoreRequested = if (prefs.contains(GuardianVpnService.KEY_RESTORE_REQUESTED)) {
             prefs.getBoolean(GuardianVpnService.KEY_RESTORE_REQUESTED, false)
         } else null // Migrate existing installations that predate the durable intent flag.
+        Log.i(
+            "GuardianProtection",
+            "Restore receiver invoked; action=$action protectionPreviouslyActive=$persistedActive restoreRequested=$restoreRequested"
+        )
         if (!ProtectionRestorePolicy.shouldRestore(action, persistedActive, restoreRequested)) {
             Log.i("GuardianProtection", "Skipping automatic restore; action=$action protectionPreviouslyActive=$persistedActive restoreRequested=$restoreRequested")
             return
