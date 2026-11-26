@@ -1977,14 +1977,14 @@ if [[ "$protection_started" -ne 1 ]]; then
   read_prefs
   exit 1
 fi
-before_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_reboot_dns="${before_reboot_dns:-0}"
 echo "Rebooting Android emulator while Guardian VPN protection is active."
 adb_cmd reboot
 timeout --signal=TERM --kill-after=2s 30s adb wait-for-device
 boot_completed=0
 for attempt in $(seq 1 60); do
-  boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+  boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
   if [[ "$boot_state" == "1" ]]; then
     boot_completed=1
     break
@@ -2018,7 +2018,7 @@ fi
 adb_cmd shell ping -c 1 -W 5 example.com >/tmp/guardian-after-reboot-allowed-dns.txt 2>&1 || true
 sleep 2
 prefs="$(read_prefs)"
-after_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 after_reboot_dns="${after_reboot_dns:-0}"
 if (( after_reboot_dns <= before_reboot_dns )); then
   echo "Guardian VPN restored after reboot, but DNS query processing did not resume."
@@ -2026,15 +2026,15 @@ if (( after_reboot_dns <= before_reboot_dns )); then
   cat /tmp/guardian-after-reboot-allowed-dns.txt || true
   exit 1
 fi
-before_reboot_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+before_reboot_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 before_reboot_blocked="${before_reboot_blocked:-0}"
 adb_cmd shell ping -c 1 -W 5 "guardian-reboot-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-after-reboot-blocked-dns.txt 2>&1 || true
 sleep 2
 prefs="$(read_prefs)"
-after_reboot_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\\([0-9]*\\)".*/\\1/p' <<<"$prefs" | tail -1)"
+after_reboot_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
 after_reboot_blocked="${after_reboot_blocked:-0}"
 if (( after_reboot_blocked <= before_reboot_blocked )) ||
-   grep -Eq 'PING guardian-reboot-[^ ]*\\.doubleclick\\.net \\([^)]*\\)' /tmp/guardian-after-reboot-blocked-dns.txt; then
+   grep -Eq 'PING guardian-reboot-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-after-reboot-blocked-dns.txt; then
   echo "Guardian reboot recovery did not resume DNS ad blocking."
   read_prefs
   cat /tmp/guardian-after-reboot-blocked-dns.txt || true
