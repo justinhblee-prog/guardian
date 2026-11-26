@@ -63,7 +63,7 @@ class PremiumUrlRiskScannerTest {
         cases.forEach { candidate ->
             val result = PremiumUrlRiskScanner.scan(candidate)
             assertTrue("Expected brand impersonation signal for $candidate", result.indicators.any { it.contains("브랜드명") })
-            assertTrue(result.level != UrlRiskLevel.LOW)
+            assertEquals(UrlRiskLevel.HIGH, result.level)
         }
         val official = PremiumUrlRiskScanner.scan("https://accounts.google.com/signin")
         assertFalse(official.indicators.any { it.contains("브랜드명") })
