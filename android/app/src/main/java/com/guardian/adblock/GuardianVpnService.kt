@@ -173,6 +173,9 @@ class GuardianVpnService : VpnService() {
         return START_STICKY
     }
 
+    private fun isAlwaysOnForDiagnostics(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isAlwaysOn
+
     private fun ensureForegroundServiceNotification() {
         createNotificationChannel()
         startForeground(41, buildNotification())
@@ -522,7 +525,7 @@ class GuardianVpnService : VpnService() {
         val consentRequiredBeforeStart = VpnService.prepare(this) != null
         android.util.Log.i(
             "GuardianProtection",
-            "VPN authorization preflight; consentRequired=$consentRequiredBeforeStart alwaysOn=$isAlwaysOn"
+            "VPN authorization preflight; consentRequired=$consentRequiredBeforeStart alwaysOn=${isAlwaysOnForDiagnostics()}"
         )
         if (consentRequiredBeforeStart) {
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
