@@ -14,6 +14,8 @@ test('Neon deployment guard reads the Android-pinned license key and API URL', a
   assert.ok(apiUrl.startsWith('https://'), 'Android license API URL must use HTTPS.');
 
   const deployScript = await readFile(new URL('../scripts/deploy-neon-function.mjs', import.meta.url), 'utf8');
-  assert.match(deployScript, /derivedPublicKey !== pinnedPublicKey/);
+  assert.match(deployScript, /process\.env\.GUARDIAN_LICENSE_PUBLIC_KEY \|\| defaultPinnedPublicKey/);
+  assert.match(deployScript, /derivedPublicKey !== expectedPublicKey/);
+  assert.match(deployScript, /GUARDIAN_LICENSE_PUBLIC_KEY must be a valid Base64 X\.509 RSA public key/);
   assert.match(deployScript, /GUARDIAN_LICENSE_API_BASE_URL !== invocationUrl/);
 });
