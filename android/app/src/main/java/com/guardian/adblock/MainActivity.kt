@@ -1752,7 +1752,8 @@ class MainActivity : Activity() {
                     result.host?.let { appendLine("호스트: $it") }
                     if (result.indicators.isEmpty()) appendLine("탐지된 휴리스틱 위험 신호가 없습니다.")
                     else result.indicators.forEach { appendLine("• $it") }
-                    append("\\n이 결과는 휴리스틱 참고 정보이며 안전을 보증하지 않습니다.")
+                    appendLine()
+                    append("이 결과는 휴리스틱 참고 정보이며 안전을 보증하지 않습니다.")
                 }
                 AlertDialog.Builder(this)
                     .setTitle("URL 검사 결과")
