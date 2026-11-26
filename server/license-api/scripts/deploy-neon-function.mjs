@@ -101,7 +101,10 @@ async function main() {
     method: 'POST',
     body: form
   });
-  const deploymentId = requested.id ?? requested.deployment?.id ?? requested.data?.id;
+  const deploymentId = requested.id ?? requested.deployment_id ?? requested.deploymentId ?? requested.deployment?.id ?? requested.data?.id;
+  if (deploymentId === undefined || deploymentId === null) {
+    throw new Error('Neon did not return a deployment ID; refusing to infer success from a possibly older active deployment.');
+  }
   if (deploymentId !== undefined) {
     console.log(`Neon accepted Guardian API deployment #${deploymentId}.`);
   } else {
@@ -114,11 +117,9 @@ async function main() {
   const deadline = Date.now() + 180_000;
   while (Date.now() < deadline) {
     functionInfo = await neonRequest(base, values.NEON_API_KEY);
-    current = functionInfo.current_deployment ?? functionInfo.function?.current_deployment;
-    matchingDeployment = deploymentId !== undefined
-      ? String(current?.id) === String(deploymentId)
-      : Number.isFinite(Date.parse(current?.created_at ?? '')) &&
-        Date.parse(current.created_at) >= deploymentRequestedAt - 10_000;
+    const functionData = functionInfo.data ?? functionInfo.function ?? functionInfo;
+    current = functionData.current_deployment;
+    matchingDeployment = String(current?.id) === String(deploymentId);
     if (matchingDeployment && current?.status === 'completed') break;
     if (matchingDeployment && current?.status === 'failed') {
       throw new Error(`Neon reports deployment failed (deployment ${current.id ?? 'unknown'}).`);
@@ -129,7 +130,8 @@ async function main() {
   if (!matchingDeployment || current?.status !== 'completed') {
     throw new Error(`Requested Neon deployment did not reach completed status within 180 seconds (last status: ${current?.status ?? 'unknown'}).`);
   }
-  const invocationUrl = functionInfo.invocation_url ?? functionInfo.function?.invocation_url;
+  const functionData = functionInfo.data ?? functionInfo.function ?? functionInfo;
+  const invocationUrl = functionData.invocation_url;
   if (typeof invocationUrl !== 'string' || !invocationUrl.startsWith('https://')) {
     throw new Error('Neon reports a completed deployment but did not return an HTTPS invocation URL.');
   }
