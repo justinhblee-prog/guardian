@@ -94,6 +94,7 @@ class MainActivity : Activity() {
     private var contentScrollView: ScrollView? = null
     private var focusLicenseActivationOnBuild = false
     private var licenseKeyInput: EditText? = null
+    private var googlePlayBillingManager: GooglePlayBillingManager? = null
     private val filterUpdateRunning = AtomicBoolean(false)
     private val startupFilterCheckStarted = AtomicBoolean(false)
     private val protectionCheckRunning = AtomicBoolean(false)
@@ -333,6 +334,11 @@ class MainActivity : Activity() {
         // cache metadata whenever the screen becomes visible again.
         filterStatusText?.text = filterStatusDescription()
         upstreamTestText?.text = upstreamTestDescription()
+        if (currentTab == "settings-premium") {
+            // Re-query Play purchases after returning from the billing UI or
+            // after the app resumes, so interrupted callbacks are recoverable.
+            getGooglePlayBillingManager()?.restorePurchases(silentIfEmpty = true)
+        }
     }
 
     override fun onResume() {
@@ -394,6 +400,8 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
+        googlePlayBillingManager?.close()
+        googlePlayBillingManager = null
         if (receiverRegistered) {
             unregisterReceiver(stateReceiver)
             receiverRegistered = false
@@ -1332,7 +1340,7 @@ class MainActivity : Activity() {
         // from real signed-license entitlement. Never use this flag to authorize
         // production features or alter LicenseEntitlementStore.
         val developmentPreview = BuildConfig.DEBUG
-        val apiReady = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
+        val apiReady = LicenseApiClient.configuredBaseUrl(this).isNotBlank() &&
             BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank()
 
         body.addView(text("Guardian Premium", 26f, white, true))
@@ -1386,6 +1394,8 @@ class MainActivity : Activity() {
                 }
             }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
         }.withTop(16))
+
+        buildGooglePlaySubscriptionCard(body, apiReady)
 
         body.addView(text("멤버십 상태", 18f, white, true).withTop(22))
         body.addView(infoRow(
@@ -1456,6 +1466,109 @@ class MainActivity : Activity() {
             "개발 미리보기는 UI와 기능 구성을 검토하기 위한 모드입니다. 실제 보안 동작은 각 기능의 엔진 구현과 테스트가 끝난 뒤에만 활성 상태로 표시합니다. 정식 배포 빌드에서는 서버 서명 라이선스로 이용 권한을 판정합니다.",
             10f, muted, false
         ).withTop(14))
+    }
+
+
+    private fun configuredPlayProductIds(): List<String> =
+        parseGuardianPlayProductIds(BuildConfig.PLAY_SUBSCRIPTION_PRODUCT_IDS)
+
+    private fun getGooglePlayBillingManager(): GooglePlayBillingManager? {
+        val productIds = try {
+            configuredPlayProductIds()
+        } catch (error: IllegalArgumentException) {
+            Toast.makeText(this, error.message ?: "Google Play 상품 설정을 확인하세요.", Toast.LENGTH_LONG).show()
+            return null
+        }
+        if (productIds.isEmpty()) return null
+        googlePlayBillingManager?.let { return it }
+        return GooglePlayBillingManager(this, productIds) { outcome ->
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                Toast.makeText(this, outcome.message, Toast.LENGTH_LONG).show()
+                if (outcome.success) showTab("settings-premium")
+            }
+        }.also { googlePlayBillingManager = it }
+    }
+
+    private fun buildGooglePlaySubscriptionCard(body: LinearLayout, apiReady: Boolean) {
+        val productIds = try {
+            configuredPlayProductIds()
+        } catch (error: IllegalArgumentException) {
+            emptyList()
+        }
+        body.addView(card(panel, 16).apply {
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            addView(text("Google Play PRO 구독", 16f, white, true))
+            addView(text(
+                "Google Play 결제 후 서버가 구매를 직접 검증하고 이 기기에 서명된 PRO 권한을 발급합니다.",
+                11f, muted, false
+            ).withTop(5))
+            if (!apiReady) {
+                addView(text(
+                    "운영 라이선스 API 주소와 검증 공개키를 앱 빌드에 설정한 뒤 사용할 수 있습니다.",
+                    11f, Color.rgb(238, 176, 82), true
+                ).withTop(10))
+            } else if (productIds.isEmpty()) {
+                addView(text(
+                    "Google Play 상품 ID가 빌드 설정에 등록되지 않았습니다.",
+                    11f, Color.rgb(238, 176, 82), true
+                ).withTop(10))
+            } else {
+                val productsContainer = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                }
+                val productStatus = text("Google Play 상품 정보를 확인하고 있습니다.", 11f, muted, false).withTop(10) as TextView
+                addView(productStatus)
+                addView(productsContainer, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+                addView(text(
+                    "구매 복원은 현재 Google 계정의 구독을 다시 조회합니다. 구독 취소와 결제 관리는 Play 스토어에서 할 수 있습니다.",
+                    10f, muted, false
+                ).withTop(8))
+                val restoreButton = Button(this@MainActivity).apply {
+                    text = "구매 복원"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(panel2, 12)
+                    setOnClickListener {
+                        getGooglePlayBillingManager()?.restorePurchases()
+                    }
+                }
+                addView(restoreButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
+                val manager = getGooglePlayBillingManager()
+                if (manager == null) {
+                    productStatus.text = "Google Play 결제 설정을 초기화할 수 없습니다."
+                } else {
+                    manager.queryProducts { products, error ->
+                        runOnUiThread {
+                            if (isFinishing || isDestroyed) return@runOnUiThread
+                            productsContainer.removeAllViews()
+                            when {
+                                error != null -> productStatus.text = error
+                                products.isEmpty() -> productStatus.text = "Google Play Console에 등록된 구독 상품을 찾을 수 없습니다."
+                                else -> {
+                                    productStatus.text = "구매 가능한 구독 상품"
+                                    products.forEach { product ->
+                                        val purchaseButton = Button(this@MainActivity).apply {
+                                            text = "${product.title} · ${product.formattedPrice}"
+                                            isAllCaps = false
+                                            setTextColor(bg)
+                                            background = shape(accent, 12)
+                                            setOnClickListener {
+                                                getGooglePlayBillingManager()?.launchPurchase(this@MainActivity, product.productId)
+                                            }
+                                        }
+                                        productsContainer.addView(
+                                            purchaseButton,
+                                            LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(6) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }.withTop(16))
     }
 
     private fun buildSettings(body: LinearLayout) {

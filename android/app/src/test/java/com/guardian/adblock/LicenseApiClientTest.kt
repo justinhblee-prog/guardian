@@ -55,6 +55,14 @@ class LicenseApiClientTest {
     }
 
     @Test
+    fun playRevocationClearsOnlyTheMatchingSignedLicense() {
+        assertTrue(shouldClearEntitlementForLicenseRef("license-play-123", "license-play-123"))
+        assertFalse(shouldClearEntitlementForLicenseRef("license-manual-456", "license-play-123"))
+        assertFalse(shouldClearEntitlementForLicenseRef(null, "license-play-123"))
+        assertFalse(shouldClearEntitlementForLicenseRef("license-play-123", ""))
+    }
+
+    @Test
     fun statusEndpointRequiresExplicitActiveStatusToRetainProEntitlement() {
         assertTrue(isActiveLicenseStatus("active"))
         assertTrue(isActiveLicenseStatus("ACTIVE"))

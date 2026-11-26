@@ -112,6 +112,7 @@ jobs:
           grep -q 'android.permission.QUERY_ALL_PACKAGES' android/app/src/main/AndroidManifest.xml
           grep -q 'tools:ignore="QueryAllPackagesPermission"' android/app/src/main/AndroidManifest.xml
           grep -q 'android.permission.PACKAGE_USAGE_STATS' android/app/src/main/AndroidManifest.xml
+          grep -q 'com.android.vending.BILLING' android/app/src/main/AndroidManifest.xml
           grep -q 'UsageStatsManager' android/app/src/main/java/com/guardian/adblock/ForegroundAppMonitor.kt
           grep -q 'AppForegroundPauseSettings.KEY_PAUSED' android/app/src/main/java/com/guardian/adblock/GuardianVpnService.kt
           test -s docs/APP_FOREGROUND_AUTO_PAUSE_KO.md

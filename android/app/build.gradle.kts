@@ -31,6 +31,8 @@ val guardianLicensePublicKey = providers.gradleProperty("guardianLicensePublicKe
     .orElse(providers.environmentVariable("GUARDIAN_LICENSE_PUBLIC_KEY")).getOrElse("")
 val guardianLicenseApiBaseUrl = providers.gradleProperty("guardianLicenseApiBaseUrl")
     .orElse(providers.environmentVariable("GUARDIAN_LICENSE_API_BASE_URL")).getOrElse("")
+val guardianPlaySubscriptionProductIds = providers.gradleProperty("guardianPlaySubscriptionProductIds")
+    .orElse(providers.environmentVariable("GUARDIAN_PLAY_PRODUCT_IDS")).getOrElse("")
 val guardianReleaseStoreFile = providers.gradleProperty("guardianReleaseStoreFile")
     .orElse(providers.environmentVariable("GUARDIAN_RELEASE_STORE_FILE")).orNull
 val guardianReleaseStorePassword = providers.gradleProperty("guardianReleaseStorePassword")
@@ -184,6 +186,7 @@ android {
         buildConfigField("String", "FILTER_MANIFEST_PUBLIC_KEY", guardianBuildConfigString(guardianManifestPublicKey))
         buildConfigField("String", "LICENSE_PUBLIC_KEY", guardianBuildConfigString(guardianLicensePublicKey))
         buildConfigField("String", "LICENSE_API_BASE_URL", guardianBuildConfigString(guardianLicenseApiBaseUrl))
+        buildConfigField("String", "PLAY_SUBSCRIPTION_PRODUCT_IDS", guardianBuildConfigString(guardianPlaySubscriptionProductIds))
     }
     signingConfigs {
         // A fixed development-only certificate is required so successive debug APKs
@@ -233,5 +236,6 @@ android {
 
 dependencies {
     implementation("androidx.work:work-runtime:2.12.0")
+    implementation("com.android.billingclient:billing:9.1.0")
     testImplementation("junit:junit:4.13.2")
 }
