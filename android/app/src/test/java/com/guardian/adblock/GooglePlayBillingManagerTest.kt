@@ -53,8 +53,6 @@ class GooglePlayBillingManagerTest {
             parseGuardianPlayProductIds((1..11).joinToString(",") { "guardian_pro_$it" })
         }
     }
-}
-
 
     @Test
     fun staleBillingCallbacksCannotLaunchAgainstDestroyedActivity() {
