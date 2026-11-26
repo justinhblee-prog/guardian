@@ -54,6 +54,7 @@ jobs:
           node --check src/admin-assets.mjs
           node --check scripts/build-admin-assets.mjs
           node --check functions/guardianapi/index.mjs
+          node --check scripts/deploy-neon-function.mjs
           node --experimental-strip-types --check neon.ts
           node --check src/license-core.mjs
           node --check src/rate-limit.mjs
