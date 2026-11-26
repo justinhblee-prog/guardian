@@ -1951,7 +1951,7 @@ class MainActivity : Activity() {
             body.addView(infoRow(
                 label,
                 if (available) "다운로드 캐시 사용 가능" else "다운로드 캐시 없음",
-                if (available) "$count개 규칙" else "미설치",
+                if (available) "${count}개 규칙" else "미설치",
                 if (available) accent else muted
             ).withTop(8))
         }
