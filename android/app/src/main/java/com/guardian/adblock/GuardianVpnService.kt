@@ -648,11 +648,11 @@ class GuardianVpnService : VpnService() {
             }
             val diagnostic = establishError?.let {
                 ProtectionDiagnostics.exceptionTraceSummary(it)
-            } ?: "Builder.establish returned null; consentRequired=$consentRequiredAfterFailure; alwaysOn=$isAlwaysOn"
+            } ?: "Builder.establish returned null; consentRequired=$consentRequiredAfterFailure; alwaysOn=not-queried"
             getSharedPreferences(PREFS, MODE_PRIVATE).edit()
                 .putString(KEY_STARTUP_TRACE, diagnostic)
                 .commit()
-            android.util.Log.e("GuardianProtection", "VPN interface establishment returned null; consentRequired=$consentRequiredAfterFailure alwaysOn=$isAlwaysOn")
+            android.util.Log.e("GuardianProtection", "VPN interface establishment returned null; consentRequired=$consentRequiredAfterFailure alwaysOn=not-queried")
             val message = if (consentRequiredAfterFailure) {
                 "Android VPN 권한이 해제되어 다시 승인이 필요합니다."
             } else {
