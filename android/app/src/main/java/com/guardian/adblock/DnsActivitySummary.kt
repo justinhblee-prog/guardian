@@ -13,7 +13,10 @@ internal object DnsActivitySummary {
             .lineSequence()
             .mapNotNull { line ->
                 if (!line.startsWith("차단 · ")) return@mapNotNull null
-                line.removePrefix("차단 · ").trim().takeIf { it.isNotEmpty() }
+                line.removePrefix("차단 · ").trim()
+                    .trimEnd('.')
+                    .lowercase(Locale.ROOT)
+                    .takeIf { it.isNotEmpty() && it.none(Char::isWhitespace) }
             }
             .groupingBy { it }
             .eachCount()
