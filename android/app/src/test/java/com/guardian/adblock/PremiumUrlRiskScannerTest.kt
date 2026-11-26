@@ -54,6 +54,21 @@ class PremiumUrlRiskScannerTest {
         }
     }
 
+    @Test fun flagsBrandNamesEmbeddedInUnrelatedDomainsButAllowsOfficialDomains() {
+        val cases = listOf(
+            "https://paypal-login.example/path",
+            "https://accounts.google.com.evil.example/",
+            "https://secure-microsoft.example/"
+        )
+        cases.forEach { candidate ->
+            val result = PremiumUrlRiskScanner.scan(candidate)
+            assertTrue("Expected brand impersonation signal for $candidate", result.indicators.any { it.contains("브랜드명") })
+            assertTrue(result.level != UrlRiskLevel.LOW)
+        }
+        val official = PremiumUrlRiskScanner.scan("https://accounts.google.com/signin")
+        assertFalse(official.indicators.any { it.contains("브랜드명") })
+    }
+
     @Test fun ordinaryHttpsUrlHasNoHeuristicIndicators() {
         val result = PremiumUrlRiskScanner.scan("https://www.example.org/about")
         assertTrue(result.valid)
