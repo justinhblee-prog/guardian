@@ -144,7 +144,7 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 ### 보안·배포 원칙
 
 - 함수 런타임의 DB 주소는 Neon이 주입하는 `DATABASE_URL_UNPOOLED`(트랜잭션 사용) 또는 `DATABASE_URL`을 사용합니다. DB 주소와 RSA 개인키, 관리자 토큰, HMAC 비밀값을 소스에 저장하지 않습니다.
-- GitHub Actions는 단위/통합 테스트만 수행하며 운영 Neon 프로젝트에 자동 배포하거나 운영 DB를 변경하지 않습니다.
+- 기존 `Guardian License API` 워크플로는 단위/통합 테스트와 배포 ZIP 검증만 수행합니다. 운영 배포는 별도 수동 실행 워크플로 `.github/workflows/guardian-neon-production-deploy.yml`에서만 수행하며, 필수 Secret/Variable이 준비되지 않으면 배포 전에 중단합니다. 이 워크플로는 Neon 배포 완료와 실제 `/ready` 응답의 `ok=true`까지 확인합니다. 설정 항목과 키 보존 원칙은 [`docs/GUARDIAN_CLOUD_OPERATIONS_KO.md`](../../docs/GUARDIAN_CLOUD_OPERATIONS_KO.md)를 참조하세요.
 - DB 연결, 서명키, 관리자 인증 설정이 없거나 무료 사용량이 소진되면 발급/갱신은 실패 처리합니다. 검증 우회나 임의 PRO 권한 부여는 하지 않습니다.
 - Neon 계정 연결, 프로젝트 생성 및 최초 배포는 소유자 계정의 인증이 필요합니다. 저장소만으로 외부 계정을 만들거나 비밀값을 추정해 배포하지 않습니다.
 
