@@ -23,6 +23,35 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - `PORT`: 기본 8787
 - `PGSSLMODE=require`: PostgreSQL TLS 사용 시 설정
 
+## 관리자 토큰 분실·비상 복구
+
+관리자 토큰은 고객 라이선스 키와 별개인 서버 전용 Bearer 비밀값입니다. 앱이나 브라우저 저장소에 넣지 말고, 비밀번호 관리자에 보관합니다.
+
+### 분실했을 때
+
+1. Neon 계정 소유자가 Neon Console에 로그인합니다. 계정 이메일/비밀번호와 계정의 MFA를 사용하며, 이 절차는 Guardian 관리자 토큰에 의존하지 않습니다.
+2. 프로젝트 `guardian-license-api`의 `production` 브랜치에서 Function `guardianapi`를 엽니다.
+3. Function 배포 환경변수 `GUARDIAN_ADMIN_TOKEN`을 새 48바이트 이상 무작위 값으로 교체합니다. 기존 값은 확인하거나 복구하려 하지 않습니다.
+4. 새 환경변수만 변경하는 Function 배포를 수행합니다. Neon API의 기존 Function 배포는 환경변수만 갱신할 수 있으며, 미지정 환경변수는 유지됩니다. CLI를 쓸 경우 저장소의 `server/license-api` 디렉터리에서 다음처럼 Function 소스와 새 값을 지정합니다.
+   ```sh
+   npx neon@latest functions deploy guardianapi --src functions/guardianapi/index.mjs --runtime nodejs24 --env GUARDIAN_ADMIN_TOKEN=<새_무작위_토큰>
+   ```
+5. 배포 상태가 `completed`인지 확인한 뒤 `/admin`에 새 토큰으로 로그인합니다. 이전 토큰은 더 이상 인증되지 않습니다.
+6. 새 토큰을 비밀번호 관리자에 저장하고, 임시 파일·터미널 기록·클립보드 공유본은 정리합니다.
+
+새 토큰은 운영체제의 암호학적 난수 생성기로 생성합니다. Node.js 예:
+```sh
+node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
+```
+
+### 복구 시 영향
+
+- 기존 라이선스 키, 고객 정보, 만료일, 기기 활성화, 감사 기록은 PostgreSQL에 보관되므로 삭제되거나 재발급되지 않습니다.
+- Android/Windows 앱의 공개키·라이선스 API 주소와 고객의 PRO 활성화 상태는 변경되지 않습니다.
+- 관리자 대시보드 로그인 토큰만 교체됩니다. 새 토큰 배포 중에는 관리자 요청이 잠시 실패할 수 있습니다.
+- Neon 계정 자체를 분실한 경우에는 Neon 계정 복구 절차가 먼저 필요합니다. 별도 이메일 비밀번호 재설정이나 공개 복구 URL은 제공하지 않습니다.
+- 관리자 토큰을 분실한 상황에서 인증 없이 토큰을 재설정하는 공개 API는 만들지 않습니다. 복구 권한은 Neon 프로젝트 소유자 계정에만 둡니다.
+
 ## 초기 구동
 ```sh
 cd server/license-api
