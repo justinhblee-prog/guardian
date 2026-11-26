@@ -22,9 +22,9 @@ class FilterCacheStoreTest {
         File(folder, "manifest_timestamps.properties").writeText("security=123")
         File(folder, "filter_rules.txt").writeText("||doubleclick.net^")
 
-        names.forEach { name ->
-            listOf(name, "$name.bak", "$name.tmp").forEach { File(folder, it).delete() }
-        }
+        val removedBytes = FilterListManager.deleteDownloadedCacheFiles(folder)
+
+        assertTrue(removedBytes > 0)
 
         names.forEach { name ->
             assertFalse(File(folder, name).exists())
