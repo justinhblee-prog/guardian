@@ -75,7 +75,30 @@ pwsh -File .\server\license-api\windows\Prepare-GuardianProductionRelease.ps1 -S
 
 2026-11-26 확인 결과 Neon Function `guardianapi`의 마지막 배포는 실패 상태이며, 환경변수 목록에는 `GUARDIAN_ADMIN_TOKEN`만 있었다. 실패 원인은 키 검증 이전의 번들 진입점 오류(`index.mjs`가 ZIP 루트에 없음)였다. 따라서 라이선스 운영 서명은 아직 서비스 상태가 아니다.
 
-## 5. 등록 및 검증 순서
+
+## 5. 로그인 및 권한 분리 정책
+
+Guardian Android 앱은 일반 사용자 로그인을 요구하지 않는다. 앱 업데이트 확인은 공개 GitHub Release의 읽기 전용 메타데이터와 APK 자산을 사용하므로 계정/비밀번호 입력 없이 동작해야 한다.
+
+| 사용자/기능 | 인증 정책 | 허용 범위 |
+|---|---|---|
+| 일반 사용자 앱 사용 | 앱 로그인 없음 | 보호 기능, 필터 설정, 안정판 업데이트 확인 |
+| 개발판 검증자 | 앱 로그인 없음 | 개발 빌드에서만 개발 Release 확인 및 APK 검증 |
+| 개발판/정식판 게시 | GitHub 계정 권한 및 보호된 Actions Secret | 승인된 저장소 운영자/워크플로만 Release 게시 |
+| PRO 사용자 | 로그인 대신 라이선스 키 활성화 및 entitlement 검증 | 구매/발급된 PRO 권한 확인 |
+| 라이선스 운영 관리자 | 서버 API의 별도 관리자 Bearer 인증 | 라이선스 발급·회수·운영 조회 등 허가된 관리 API |
+
+운영 원칙:
+
+- 개발/정식 업데이트 채널 선택은 빌드 유형과 배포 정책으로 결정한다. 업데이트 확인을 위해 Guardian 계정 로그인을 추가하지 않는다.
+- 개발판은 내부 검증 빌드에서만 노출하고, 일반 정식판 사용자에게 개발판 Release를 제시하지 않는다.
+- GitHub Release 게시 권한은 앱 내부 화면이나 앱 사용자 계정과 연결하지 않는다. GitHub 권한 및 저장소의 보호된 Secret/Environment에서 통제한다.
+- PRO 라이선스 활성화는 관리자 로그인과 다르다. 사용자는 라이선스 키를 제출하고 서버가 서명된 entitlement를 반환하며, 앱은 내장 공개키로 검증한다.
+- 관리자 Bearer token, HMAC secret, RSA 개인키는 Android 앱에 절대 포함하지 않는다. 관리자 작업은 별도 운영 도구/보안된 서버 측 호출로 제한한다.
+- 향후 관리자 웹 콘솔이 필요해지면 별도 운영자 인증(개인별 계정, 최소 권한, 감사 로그, 토큰 회전)을 구축한다. 이를 일반 사용자 앱 로그인으로 대체하지 않는다.
+- 인증이 필요한 관리자 API는 인증 누락/오류 시 fail-closed로 거부한다. 공개 업데이트 확인 API에는 관리자 토큰을 요구하지 않는다.
+
+## 6. 등록 및 검증 순서
 
 1. 기존 설치/배포 APK의 signer SHA-256과 기존 keystore 보유 여부를 확인한다. 일치하는 기존 운영 keystore가 없으면 앱 서명키 교체를 진행하지 않는다.
 2. 필터 공개키가 Android 앱에 고정된 키와 일치하는지 확인하고, 그 공개키에 대응하는 개인키를 안전한 로컬 환경에서 검증한다.
@@ -85,7 +108,7 @@ pwsh -File .\server\license-api\windows\Prepare-GuardianProductionRelease.ps1 -S
 6. Android Release keystore의 네 GitHub Secrets를 한 묶음으로 등록하고, 서명된 Direct APK와 Play AAB를 생성한다.
 7. 각 서명 산출물의 인증서 지문, 앱 버전, versionCode, SHA-256을 기록한다. 운영 배포는 별도 수동 승인 workflow에서만 실행한다.
 
-## 6. 백업 및 회전 정책
+## 7. 백업 및 회전 정책
 
 - Android keystore와 두 RSA 개인키는 서로 다른 암호화 백업 세트로 보관한다. 백업 복구 가능 여부를 정기적으로 검증하되 개인키를 채팅/이메일/저장소로 전송하지 않는다.
 - 키 파일은 Git 저장소 및 OneDrive 밖의 Guardian 비밀 폴더에 두고 Windows ACL을 적용한다. DPAPI 파일은 해당 Windows 사용자/기기 종속이므로, DPAPI 파일 하나만을 유일한 백업으로 간주하지 않는다.
@@ -93,7 +116,7 @@ pwsh -File .\server\license-api\windows\Prepare-GuardianProductionRelease.ps1 -S
 - 키를 잃어버렸거나 노출이 의심되면 임의로 덮어쓰지 말고, 영향 범위와 기존 설치 앱의 업데이트 가능성을 먼저 평가한다.
 - Secret 값 자체는 조회/출력하지 않는다. 설정 존재 여부, 키 지문 일치, 실제 서명·검증 결과만 보고한다.
 
-## 7. 현재 운영 판정
+## 8. 현재 운영 판정
 
 - Android 개발용 debug APK 서명: CI 검증에 사용된 개발 서명과 운영 keystore는 별개다.
 - Android 운영 서명: 준비 스크립트는 있으나 실제 Secret/기존 keystore 상태 미확인.
