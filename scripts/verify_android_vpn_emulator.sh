@@ -427,8 +427,12 @@ if grep -Fq 'PRO 라이선스 활성화' <<<"$premium_xml"; then
     tap_content_description "PRO 라이선스 활성화 내용 펼치기"
   elif grep -Fq 'content-desc="PRO 라이선스 활성화 내용 접기"' <<<"$premium_xml"; then
     : # The persisted accordion state is already expanded.
+  elif grep -Fq 'text="PRO 라이선스 활성화"' <<<"$premium_xml"; then
+    # Legacy predecessor builds open a dedicated activation screen and do not
+    # expose the current accordion content description.
+    tap_text "PRO 라이선스 활성화"
   else
-    echo "PRO activation accordion is present but has no supported accessibility state."
+    echo "PRO activation control is present but has no supported legacy/current accessibility state."
     echo "$premium_xml"
     exit 1
   fi
@@ -437,8 +441,10 @@ else
     tap_content_description "PRO 라이선스 관리 내용 펼치기"
   elif grep -Fq 'content-desc="PRO 라이선스 관리 내용 접기"' <<<"$premium_xml"; then
     : # The persisted accordion state is already expanded.
+  elif grep -Fq 'text="PRO 라이선스 관리"' <<<"$premium_xml"; then
+    tap_text "PRO 라이선스 관리"
   else
-    echo "Premium screen did not expose an accessible license activation/manage accordion."
+    echo "Premium screen did not expose a supported legacy/current license activation/manage control."
     echo "$premium_xml"
     exit 1
   fi
