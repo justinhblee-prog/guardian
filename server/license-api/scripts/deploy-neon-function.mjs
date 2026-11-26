@@ -41,7 +41,7 @@ function validateSecrets() {
   // verification on already-installed clients.
   const gradlePath = resolve(process.cwd(), '../../android/app/build.gradle.kts');
   const gradleSource = await readFile(gradlePath, 'utf8');
-  const pinnedMatch = /val guardianLicensePublicKey\\s*=\\s*[\\s\\S]*?\\.getOrElse\\("([A-Za-z0-9+/=]+)"\\)/.exec(gradleSource);
+  const pinnedMatch = /val guardianLicensePublicKey\s*=\s*[\s\S]*?\.getOrElse\("([A-Za-z0-9+/=]+)"\)/.exec(gradleSource);
   if (!pinnedMatch) throw new Error('Could not read the default license public key pinned in Android build configuration.');
   const pinnedPublicKey = pinnedMatch[1];
   const derivedPublicKey = createPublicKey(key).export({ type: 'spki', format: 'der' }).toString('base64');
