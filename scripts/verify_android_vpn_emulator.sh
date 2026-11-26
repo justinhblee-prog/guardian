@@ -1928,8 +1928,30 @@ if [[ "$compatibility_row_ready" -ne 1 ]]; then
   exit 1
 fi
 tap_checkbox "com.android.settings"
+sleep 0.5
+compatibility_selected_xml="$(dump_ui_hierarchy /sdcard/guardian-compatibility-selected.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("class")=="android.widget.CheckBox"
+       and node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com.android.settings"
+       and node.attrib.get("checked")=="true"
+       for node in root.iter("node")):
+    raise SystemExit("Tapping the Settings package did not check its VPN auto-pause selection.")' <<<"$compatibility_selected_xml"
 tap_text "저장"
-sleep 1
+compatibility_selection_saved=0
+for attempt in $(seq 1 20); do
+  prefs="$(read_prefs)"
+  if grep -A4 -B1 'name="app_foreground_auto_pause_packages"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+    compatibility_selection_saved=1
+    break
+  fi
+  sleep 0.5
+done
+if [[ "$compatibility_selection_saved" -ne 1 ]]; then
+  echo "Saving the VPN auto-pause app selection did not persist com.android.settings."
+  read_prefs
+  exit 1
+fi
 adb_cmd shell input swipe 540 1450 540 1000 350
 sleep 1
 tap_content_description "선택 앱 실행 중 VPN 자동 일시중지"
