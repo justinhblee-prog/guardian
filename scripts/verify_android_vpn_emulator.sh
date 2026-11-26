@@ -1933,7 +1933,7 @@ compatibility_selected_xml="$(dump_ui_hierarchy /sdcard/guardian-compatibility-s
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if not any(node.attrib.get("class")=="android.widget.CheckBox"
-       and node.attrib.get("text","").rstrip().rsplit("\\n",1)[-1].strip()=="com.android.settings"
+       and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
        and node.attrib.get("checked")=="true"
        for node in root.iter("node")):
     raise SystemExit("Tapping the Settings package did not check its VPN auto-pause selection.")' <<<"$compatibility_selected_xml"
