@@ -503,11 +503,10 @@ jobs:
           fi
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           "$AVDMANAGER" create avd --force --name "$AVD_NAME" --package 'system-images;android-35;google_apis;x86_64' --device 'pixel_2' <<< 'no'
-          # SwiftShader on hosted runners is CPU-bound. Keep the normal boot
-          # resolution compact so System UI and UIAutomator remain responsive;
-          # the responsive-layout test explicitly expands to tablet dimensions.
+          # Preserve the 1080x1920 physical display expected by coordinate-based
+          # regression gestures; improve memory/CPU headroom without shrinking it.
           AVD_CONFIG="$ANDROID_AVD_HOME/$AVD_NAME.avd/config.ini"
-          for setting in "hw.lcd.width=720" "hw.lcd.height=1280" "hw.lcd.density=240" "hw.ramSize=3072" "hw.cpu.ncore=4"; do
+          for setting in "hw.lcd.width=1080" "hw.lcd.height=1920" "hw.lcd.density=420" "hw.ramSize=3072" "hw.cpu.ncore=4"; do
             key="${setting%%=*}"
             if grep -Fq "$key=" "$AVD_CONFIG"; then
               sed -i "s|^$key=.*|$setting|" "$AVD_CONFIG"
@@ -615,6 +614,8 @@ jobs:
           capture activities adb shell dumpsys activity activities
           capture last-anr adb shell dumpsys activity lastanr
           capture connectivity adb shell dumpsys connectivity
+          capture display-size adb shell wm size
+          capture display-density adb shell wm density
           capture systemui-memory adb shell dumpsys meminfo com.android.systemui
           capture guardian-memory adb shell dumpsys meminfo com.guardian.adblock
           capture guardian-services adb shell dumpsys activity services com.guardian.adblock
