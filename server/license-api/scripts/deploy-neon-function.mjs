@@ -39,7 +39,7 @@ async function validateSecrets() {
   // Bind the deployed signer to the key actually pinned by the Android source.
   // A syntactically valid but unrelated RSA key would make every license fail
   // verification on already-installed clients.
-  const gradlePath = resolve(process.cwd(), '../../android/app/build.gradle.kts');
+  const gradlePath = new URL('../../../android/app/build.gradle.kts', import.meta.url);
   const gradleSource = await readFile(gradlePath, 'utf8');
   const pinnedMatch = /val guardianLicensePublicKey\s*=\s*[\s\S]*?\.getOrElse\("([A-Za-z0-9+/=]+)"\)/.exec(gradleSource);
   if (!pinnedMatch) throw new Error('Could not read the default license public key pinned in Android build configuration.');
