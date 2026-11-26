@@ -208,6 +208,45 @@ object FilterListManager {
         return target
     }
 
+    /** Remove downloaded community filter generations without touching bundled baseline rules. */
+    @Synchronized
+    fun clearDownloadedSources(context: Context): Int {
+        val cacheNames = listOf(CACHE_FILE, SECURITY_CACHE_FILE, ANDROID_ADS_CACHE_FILE)
+        var removedBytes = 0L
+        for (name in cacheNames) {
+            val target = File(context.filesDir, name)
+            listOf(target, File(context.filesDir, "$name.bak"), File(context.filesDir, "$name.tmp")).forEach { file ->
+                if (file.isFile) removedBytes += file.length()
+                try {
+                    Files.deleteIfExists(file.toPath())
+                } catch (error: Exception) {
+                    throw IllegalStateException("다운로드 필터 파일을 삭제하지 못했습니다: $name", error)
+                }
+            }
+        }
+
+        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val metadata = preferences.edit()
+            .remove(KEY_CACHED_PROFILE)
+            .remove(KEY_UPDATED_AT).remove(KEY_BLOCK_COUNT).remove(KEY_IGNORED_COUNT)
+            .remove(KEY_SECURITY_UPDATED_AT).remove(KEY_SECURITY_BLOCK_COUNT).remove(KEY_SECURITY_IGNORED_COUNT)
+            .remove(KEY_ANDROID_ADS_UPDATED_AT).remove(KEY_ANDROID_ADS_BLOCK_COUNT).remove(KEY_ANDROID_ADS_IGNORED_COUNT)
+            .remove(KEY_LAST_ERROR).remove(KEY_SECURITY_LAST_ERROR).remove(KEY_ANDROID_ADS_LAST_ERROR)
+            .putBoolean(KEY_SECURITY_ENABLED, false)
+            .putBoolean(KEY_ANDROID_ADS_ENABLED, false)
+        for (profile in profiles) {
+            val keys = manifestPreferenceKeys(CACHE_FILE, profile.key)
+            metadata.remove(keys.first).remove(keys.second).remove(keys.third)
+        }
+        for (cacheName in listOf(SECURITY_CACHE_FILE, ANDROID_ADS_CACHE_FILE)) {
+            val keys = manifestPreferenceKeys(cacheName)
+            metadata.remove(keys.first).remove(keys.second).remove(keys.third)
+        }
+        check(metadata.commit()) { "필터 캐시 삭제 상태를 저장하지 못했습니다." }
+        // Keep manifest_timestamps.properties: anti-rollback history must survive cache deletion.
+        return removedBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    }
+
     fun hasCachedFile(context: Context): Boolean =
         recoverCache(context, CACHE_FILE).let { it.isFile && it.length() > 0L }
 
