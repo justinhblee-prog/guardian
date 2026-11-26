@@ -1433,12 +1433,12 @@ if [[ -z "$expected_current_version" ]]; then
   echo "The current APK version name was not passed to the About verification."
   exit 1
 fi
-ensure_text_visible "앱 버전"
+ensure_text_visible "버전 코드"
 adb_cmd shell uiautomator dump /sdcard/guardian-about-version.xml >/dev/null 2>&1
 about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | tr -d '\r')"
-if ! grep -Fq '앱 버전' <<<"$about_version_xml" ||
+if ! grep -Fq '버전 코드' <<<"$about_version_xml" ||
    ! grep -Fq "$expected_current_version" <<<"$about_version_xml"; then
-  echo "The About screen did not expose the expected installed app version: $expected_current_version"
+  echo "The About screen did not expose the expected installed app version code: $expected_current_version"
   echo "$about_version_xml"
   exit 1
 fi
