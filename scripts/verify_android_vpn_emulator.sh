@@ -1424,20 +1424,31 @@ fi
 # cannot select a sibling category and previously left the test on About.
 scroll_to_text "정보"
 sleep 1
-# The company/developer disclosure is intentionally below the version and
-# distribution rows on a phone viewport. Reveal it without tapping its
-# non-clickable heading before asserting the complete About content.
-ensure_text_visible "회사 및 개발자 정보"
+# The About page is taller than a phone viewport. Verify the version row
+# and company disclosure in separate snapshots: scrolling to the company block
+# necessarily moves the version row above the visible viewport. UIAutomator
+# reports visible nodes only, so requiring both in one dump is a false failure.
+expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
+if [[ -z "$expected_current_version" ]]; then
+  echo "The current APK version name was not passed to the About verification."
+  exit 1
+fi
+ensure_text_visible "앱 버전"
 adb_cmd shell uiautomator dump /sdcard/guardian-about-version.xml >/dev/null 2>&1
 about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | tr -d '\r')"
-expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
-if [[ -z "$expected_current_version" ]] ||
-   ! grep -Fq '앱 버전' <<<"$about_version_xml" ||
-   ! grep -Fq "$expected_current_version" <<<"$about_version_xml" ||
-   ! grep -Fq '회사 및 개발자 정보' <<<"$about_version_xml" ||
-   ! grep -Fq '(주)유진컨설팅' <<<"$about_version_xml"; then
-  echo "The About screen did not expose the expected app version and company information."
+if ! grep -Fq '앱 버전' <<<"$about_version_xml" ||
+   ! grep -Fq "$expected_current_version" <<<"$about_version_xml"; then
+  echo "The About screen did not expose the expected installed app version: $expected_current_version"
   echo "$about_version_xml"
+  exit 1
+fi
+ensure_text_visible "회사 및 개발자 정보"
+adb_cmd shell uiautomator dump /sdcard/guardian-about-company.xml >/dev/null 2>&1
+about_company_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-company.xml | tr -d '\r')"
+if ! grep -Fq '회사 및 개발자 정보' <<<"$about_company_xml" ||
+   ! grep -Fq '(주)유진컨설팅' <<<"$about_company_xml"; then
+  echo "The About screen did not expose the expected company information."
+  echo "$about_company_xml"
   exit 1
 fi
 open_settings_menu_item "필터링"
