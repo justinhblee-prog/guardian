@@ -31,6 +31,29 @@ class PremiumUrlRiskScannerTest {
         assertTrue(result.indicators.any { it.contains("Punycode") })
     }
 
+    @Test fun rejectsMalformedAndOutOfRangeExplicitPorts() {
+        val invalidPorts = listOf(
+            "https://example.com:abc/path",
+            "https://example.com:-1/path",
+            "https://example.com:65536/path",
+            "https://example.com:999999999999999999999/path"
+        )
+        invalidPorts.forEach { candidate ->
+            val result = PremiumUrlRiskScanner.scan(candidate)
+            assertFalse("Expected invalid port to be rejected: $candidate", result.valid)
+            assertTrue(result.indicators.any { it.contains("포트 번호") })
+        }
+    }
+
+    @Test fun acceptsValidExplicitPorts() {
+        listOf("https://example.com:0/path", "https://example.com:443/path", "https://example.com:65535/path")
+            .forEach { candidate ->
+                val result = PremiumUrlRiskScanner.scan(candidate)
+                assertTrue("Expected valid port to be accepted: $candidate", result.valid)
+                assertEquals(UrlRiskLevel.LOW, result.level)
+            }
+    }
+
     @Test fun flagsIpHostsAndUrlShortenersForReview() {
         val ip = PremiumUrlRiskScanner.scan("https://192.0.2.10/path")
         assertTrue(ip.indicators.any { it.contains("IPv4") })
