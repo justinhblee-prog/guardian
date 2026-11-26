@@ -57,14 +57,16 @@ Neon 프로젝트/브랜치 ID는 코드에 고정하지 않아 잘못된 프로
 
 필터 목록의 저장소 라이선스가 모든 포함 upstream 데이터의 재배포 권리를 자동으로 증명하지는 않습니다. 각 공급원에 대해 다음을 기록하고 확인해야 합니다.
 
-- 원본 프로젝트와 고정된 upstream URL
-- SPDX 라이선스 식별자 및 해당 버전/커밋
-- 원본 LICENSE/NOTICE 및 저작권 고지
-- upstream 구성 요소 및 제3자 목록의 출처
-- 앱에 포함하거나 별도 파일로 재배포할 때의 의무
-- 검토 결과와 증빙 URL/문서, 검토일
+- `upstreamRepository`: 원본 프로젝트 저장소
+- `licenseUrl` 및 `licenseId`: 원본 LICENSE/NOTICE 위치와 SPDX 식별자
+- `upstreamVersion`: registry/upstream이 공개한 목록 버전(고정 commit이 아니면 그 사실을 명시)
+- `thirdPartyProvenanceReviewed`: 집계된 원본 내부의 제3자 입력 출처까지 검토했는지
+- `complianceEvidenceRef`: 소스별 검토 기록·고지 사본·대응 소스 패키지 점검 기록을 가리키는 참조
+- `redistributionApproved` 및 `redistributionApprovalRef`: 위 검토를 마친 뒤 Guardian 내부 배포 게이트를 승인했는지와 그 기록
 
-검토가 끝나지 않은 소스는 계속 차단합니다. 공개 라이선스가 확인된 것과 앱 번들 재배포 가능 여부가 검토된 것을 같은 상태로 취급하지 않습니다. 검토되지 않은 공급원에 대해 `redistributionApproved=true`를 일괄 설정하지 않습니다.
+GPL-3.0/MPL-2.0은 그 자체로 상업적 배포를 일괄 금지하는 표시는 아닙니다. 다만 실제 배포물의 형태, 원본·수정 여부, 앱과의 결합 관계에 따라 라이선스 사본, 저작권/출처 고지, 적용되는 대응 소스 등의 의무가 생길 수 있습니다. `redistributionApproved`는 원저작권자의 별도 허가를 받았다는 뜻이 아니라, Guardian이 해당 라이선스 의무를 충족할 수 있다고 내부 검토했다는 뜻입니다.
+
+검토가 끝나지 않은 소스는 계속 차단합니다. 공개 라이선스가 확인된 것과 앱 번들 재배포 의무를 검토한 것을 같은 상태로 취급하지 않습니다. 검토되지 않은 공급원에 대해 `thirdPartyProvenanceReviewed=true` 또는 `redistributionApproved=true`를 일괄 설정하지 않습니다.
 
 ## 무료 운영 및 한도
 
