@@ -1985,7 +1985,7 @@ before_reboot_dns="${before_reboot_dns:-0}"
 # VPN service/TUN was created. Keep the durable user intent, but clear only the
 # cached active bit in this disposable emulator fixture so the receiver must
 # establish a fresh tunnel before the test can proceed.
-adb_cmd shell run-as "$PACKAGE" sh -c 'sed "s/name="'"'"'protection_active'"'"'"'"'"' value="'"'"'true'"'"'"'"'"' />/name="'"'"'protection_active'"'"'"'"'"' value="'"'"'false'"'"'"'"'"' />/" shared_prefs/guardian_settings.xml > shared_prefs/guardian_settings.xml.tmp && mv shared_prefs/guardian_settings.xml.tmp shared_prefs/guardian_settings.xml'
+adb_cmd shell run-as "$PACKAGE" sh -c "sed -i 's/name=\"protection_active\" value=\"true\"/name=\"protection_active\" value=\"false\"/' shared_prefs/guardian_settings.xml"
 prefs="$(read_prefs)"
 if ! grep -q 'name="protection_active"[^>]*value="false"' <<<"$prefs" ||
    ! grep -q 'name="protection_restore_requested"[^>]*value="true"' <<<"$prefs"; then
