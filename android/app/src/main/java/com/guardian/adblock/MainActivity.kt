@@ -2186,7 +2186,7 @@ class MainActivity : Activity() {
         }
         if (updateExpanded) buildUpdates(updatePanel)
         val updateButton = Button(this).apply {
-            text = (if (updateExpanded) "⌄  " else "›  ") + if (updateExpanded) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
+            text = (if (updateExpanded) "⌃  " else "⌄  ") + if (updateExpanded) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
             isAllCaps = false
             gravity = Gravity.CENTER_VERTICAL
             setTextColor(bg)
@@ -2200,7 +2200,7 @@ class MainActivity : Activity() {
                 settingsPrefs.edit().putBoolean(updateExpandedKey, expanding).apply()
                 if (expanding && updatePanel.childCount == 0) buildUpdates(updatePanel)
                 animateSettingsPanel(updatePanel, expanding)
-                text = (if (expanding) "⌄  " else "›  ") + if (expanding) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
+                text = (if (expanding) "⌃  " else "⌄  ") + if (expanding) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
                 contentDescription = if (expanding) "프로그램 업데이트 확인 내용 접기" else "프로그램 업데이트 확인 내용 펼치기"
             }
         }
@@ -2571,7 +2571,7 @@ class MainActivity : Activity() {
                 setPadding(dp(12), dp(11), dp(12), dp(11))
             }
             val question = TextView(this).apply {
-                text = "＋  " + questions[index]
+                text = "⌄  " + questions[index]
                 textSize = 13f
                 setTextColor(white)
                 typeface = Typeface.DEFAULT_BOLD
@@ -2590,7 +2590,7 @@ class MainActivity : Activity() {
             question.setOnClickListener {
                 val expanded = answer.visibility != View.VISIBLE
                 answer.visibility = if (expanded) View.VISIBLE else View.GONE
-                question.text = (if (expanded) "⌄  " else "＋  ") + questions[index]
+                question.text = (if (expanded) "⌃  " else "⌄  ") + questions[index]
             }
             row.addView(question)
             row.addView(answer)
