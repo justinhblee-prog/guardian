@@ -44,8 +44,17 @@ internal object PremiumUrlRiskScanner {
     private fun hasBrandImpersonationSignal(host: String): Boolean {
         val normalized = host.trimEnd('.').lowercase(Locale.ROOT)
         return trustedBrandRoots.any { (brand, roots) ->
-            val brandInLabel = normalized.split('.').any { label -> label.contains(brand) }
-            brandInLabel && roots.none { normalized == it || normalized.endsWith(".$it") }
+            // Match a brand as a complete label or an obvious brand-prefixed lure
+            // (for example, "paypal-login"), not arbitrary substrings such as
+            // "notapple" or "mygoogleanalytics".
+            val brandLikeLabel = normalized.split('.').any { label ->
+                label == brand || label.startsWith("$brand-") ||
+                    label.startsWith("$brand.") ||
+                    label.startsWith("${brand}login") ||
+                    label.startsWith("${brand}secure") ||
+                    label.startsWith("${brand}verify")
+            }
+            brandLikeLabel && roots.none { normalized == it || normalized.endsWith(".$it") }
         }
     }
 
