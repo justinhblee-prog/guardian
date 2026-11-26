@@ -60,6 +60,17 @@ jobs:
           node --check src/rate-limit.mjs
           node --check admin/admin.js
           node --check test/postgres-integration.test.mjs
+      - name: Validate guarded Neon production deployment workflow
+        run: |
+          ruby - <<'RUBY'
+          require 'yaml'
+          workflow = YAML.load_file('../../.github/workflows/guardian-neon-production-deploy.yml', aliases: true)
+          abort 'Neon deployment must be workflow_dispatch only.' unless workflow.fetch('on').keys == ['workflow_dispatch']
+          abort 'Neon deployment must be restricted to main.' unless workflow.dig('jobs', 'deploy', 'steps').any? { |item| item['name'] == 'Require the protected main branch' }
+          abort 'Neon deployment must use serialized production concurrency.' unless workflow.dig('concurrency', 'cancel-in-progress') == false
+          abort 'Neon deployment must not run on a PR or push trigger.' if workflow.fetch('on').key?('pull_request') || workflow.fetch('on').key?('push')
+          puts 'Guarded Neon production deployment workflow YAML and trigger policy passed.'
+          RUBY
       - name: Validate Docker Compose deployment configuration
         run: |
           cp .env.example .env
