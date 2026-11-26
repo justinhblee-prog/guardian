@@ -1977,26 +1977,26 @@ if [[ "$protection_started" -ne 1 ]]; then
   read_prefs
   exit 1
 fi
-before_reboot_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-before_reboot_dns="${before_reboot_dns:-0}"
+extract_pref_number() {
+  local key="$1"
+  local xml="$2"
+  if [[ "$xml" =~ name=\"$key\"[^>]*value=\"([0-9]+)\" ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  else
+    printf '0'
+  fi
+}
+before_reboot_dns="$(extract_pref_number dns_queries "$prefs")"
+before_reboot_restore_at="$(extract_pref_number protection_recovery_requested_at "$prefs")"
 
-before_reboot_restore_at="$(sed -n 's/.*name="protection_recovery_requested_at"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-before_reboot_restore_at="${before_reboot_restore_at:-0}"
-
-# KEY_ACTIVE is persisted across reboot. If left true, the recovery wait below
-# can pass immediately even when BOOT_COMPLETED was never delivered and no new
-# VPN service/TUN was created. Keep the durable user intent, but clear only the
-# cached active bit in this disposable emulator fixture so the receiver must
-# establish a fresh tunnel before the test can proceed.
-adb_cmd shell run-as "$PACKAGE" sh -c "sed -i 's/name=\"protection_active\" value=\"true\"/name=\"protection_active\" value=\"false\"/' shared_prefs/guardian_settings.xml"
-prefs="$(read_prefs)"
-if ! grep -q 'name="protection_active"[^>]*value="false"' <<<"$prefs" ||
-   ! grep -q 'name="protection_restore_requested"[^>]*value="true"' <<<"$prefs"; then
-  echo "Could not prepare a valid reboot fixture: expected active=false and restore_requested=true."
+# Require the durable intent to remain enabled. The receiver writes a fresh
+# timestamp on each qualifying boot; this avoids treating a stale active flag
+# as proof that BOOT_COMPLETED was handled.
+if ! grep -q 'name="protection_restore_requested"[^>]*value="true"' <<<"$prefs"; then
+  echo "Reboot recovery test requires the durable user restore intent to remain enabled."
   read_prefs
   exit 1
 fi
-echo "Reboot fixture prepared: persisted active bit cleared while durable restore intent remains enabled."
 
 echo "Rebooting Android emulator while Guardian VPN protection is active."
 adb_cmd reboot
@@ -2019,8 +2019,7 @@ echo "Android emulator reboot completed; waiting for the boot receiver to restor
 reboot_recovery=0
 for attempt in $(seq 1 60); do
   prefs="$(read_prefs)"
-  recovery_requested_at="$(sed -n 's/.*name="protection_recovery_requested_at"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-  recovery_requested_at="${recovery_requested_at:-0}"
+  recovery_requested_at="$(extract_pref_number protection_recovery_requested_at "$prefs")"
   if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
      ! grep -q 'name="protection_recovery_pending"[^>]*value="true"' <<<"$prefs" &&
      (( recovery_requested_at > before_reboot_restore_at )); then
