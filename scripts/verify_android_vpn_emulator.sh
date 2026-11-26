@@ -1549,7 +1549,35 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
   fi
   echo "Development update check reached the expected latest-version state."
 fi
-echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater panel and executes its version check."
+# Verify the same inline updater control collapses and re-expands with the
+# correct directional arrow; do not navigate away or open a second screen.
+scroll_to_text "프로그램 업데이트 확인 접기"
+updater_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-expanded.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+texts=[n.attrib.get("text","") for n in root.iter("node")]
+if not any(t.startswith("⌃") and "프로그램 업데이트 확인 접기" in t for t in texts):
+    raise SystemExit("Expanded updater control must show the upward collapse arrow.")' <<<"$updater_expanded_xml"
+tap_text "프로그램 업데이트 확인 접기"
+sleep 1
+updater_collapsed_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-collapsed.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+texts=[n.attrib.get("text","") for n in root.iter("node")]
+if not any(t.startswith("⌄") and "프로그램 업데이트 확인" in t and "접기" not in t for t in texts):
+    raise SystemExit("Collapsed updater control must show the downward expand arrow.")
+if any("개발 업데이트 확인" in t for t in texts):
+    raise SystemExit("Updater contents remained visible after collapse.")
+print("Program Updates inline collapse/expand arrow toggle passed.")' <<<"$updater_collapsed_xml"
+tap_text "프로그램 업데이트 확인"
+sleep 1
+updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
+grep -Fq '개발 업데이트 확인' <<<"$updater_reopened_xml" || {
+  echo "Program Updates panel did not reopen after its collapse test."
+  echo "$updater_reopened_xml"
+  exit 1
+}
+echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater panel, executes its version check, and passes the arrow collapse/expand test."
 tap_content_description "설정"
 sleep 1
 # The redesigned app removed the global header exit action. Exit is now
@@ -1635,11 +1663,28 @@ tap_text "광고 차단이 되지 않아요"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
 support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
-grep -Fq '앱 내부에 포함된 광고' <<<"$support_faq_answer_xml" || {
-  echo "Customer support FAQ answer did not render."
-  echo "$support_faq_answer_xml"
-  exit 1
-}
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+texts=[n.attrib.get("text","") for n in root.iter("node")]
+if not any(t.startswith("⌃") and "광고 차단이 되지 않아요" in t for t in texts):
+    raise SystemExit("Expanded FAQ question must show the upward collapse arrow.")
+if not any("앱 내부에 포함된 광고" in t for t in texts):
+    raise SystemExit("Customer support FAQ answer did not render inline.")' <<<"$support_faq_answer_xml"
+tap_text "광고 차단이 되지 않아요"
+sleep 1
+support_faq_collapsed_xml="$(dump_ui_hierarchy /sdcard/guardian-support-faq-collapsed.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+texts=[n.attrib.get("text","") for n in root.iter("node")]
+if not any(t.startswith("⌄") and "광고 차단이 되지 않아요" in t for t in texts):
+    raise SystemExit("Collapsed FAQ question must show the downward expand arrow.")
+if any("앱 내부에 포함된 광고" in t for t in texts):
+    raise SystemExit("FAQ answer remained visible after collapsing the question.")
+print("FAQ inline answer and up/down arrow toggle passed.")' <<<"$support_faq_collapsed_xml"
+tap_text "광고 차단이 되지 않아요"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
+support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
 faq_dismiss_label="$(python3 scripts/android_navigation_compat.py dismiss <<<"$support_faq_answer_xml")"
 tap_text "$faq_dismiss_label"
 # The Settings support card is taller than the phone viewport; scroll its
