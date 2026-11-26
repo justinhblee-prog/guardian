@@ -1785,6 +1785,7 @@ class MainActivity : Activity() {
         val sections = listOf(
             Triple("general", "⚙", "일반"),
             Triple("filtering", "⛨", "필터링"),
+            Triple("sources", "⌫", "소스 삭제"),
             Triple("premium", "◇", "PRO"),
             Triple("support", "?", "지원"),
             Triple("info", "ⓘ", "정보"),
@@ -1846,6 +1847,7 @@ class MainActivity : Activity() {
         }
         when (selected) {
             "filtering" -> buildSettingsFiltering(content)
+            "sources" -> buildSettingsSources(content)
             "premium" -> buildPremium(content)
             "support" -> buildSettingsSupport(content)
             "info" -> buildSettingsInfo(content)
@@ -1930,6 +1932,70 @@ class MainActivity : Activity() {
             contentDescription = "전체 차단 및 허용 규칙 편집"
             setOnClickListener { navigateToTab("rules") }
         }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(12) })
+    }
+
+    private fun buildSettingsSources(body: LinearLayout) {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        body.addView(text("보호 및 필터 소스 삭제", 20f, white, true))
+        body.addView(text(
+            "다운로드한 광고·추적, 보안, Android 앱 광고 필터 캐시를 삭제합니다. 앱에 내장된 기본 DNS 차단 규칙과 사용자 차단·허용 규칙은 삭제하지 않습니다.",
+            11f, muted, false
+        ).withTop(5))
+
+        val sources = listOf(
+            Triple("광고·추적 필터", FilterListManager.hasCachedList(this), FilterListManager.cachedBlockCount(this)),
+            Triple("악성코드·피싱 필터", FilterListManager.hasCachedSecurityList(this), FilterListManager.cachedSecurityBlockCount(this)),
+            Triple("Android 앱 광고 필터", FilterListManager.hasCachedAndroidAdsList(this), FilterListManager.cachedAndroidAdsBlockCount(this))
+        )
+        sources.forEach { (label, available, count) ->
+            body.addView(infoRow(
+                label,
+                if (available) "다운로드 캐시 사용 가능" else "다운로드 캐시 없음",
+                if (available) "$count개 규칙" else "미설치",
+                if (available) accent else muted
+            ).withTop(8))
+        }
+        body.addView(card(panel2, 12).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            addView(text("삭제 후 보호 동작", 13f, white, true))
+            addView(text(
+                "기본 내장 DNS 규칙은 계속 적용됩니다. 선택형 보안·앱 광고 소스는 자동으로 꺼지며, 광고·추적 필터는 다음 업데이트 때 다시 내려받을 수 있습니다.",
+                10f, muted, false
+            ).withTop(5))
+        }.withTop(14))
+        body.addView(Button(this).apply {
+            text = "다운로드 필터 소스 모두 삭제"
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            background = shape(Color.rgb(145, 54, 61), 12)
+            contentDescription = "다운로드된 필터 소스 캐시 삭제"
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("다운로드 필터 소스를 삭제할까요?")
+                    .setMessage("다운로드한 필터 캐시만 삭제합니다. 내장 기본 DNS 규칙과 사용자 규칙은 유지됩니다. 보호가 실행 중이면 기본 규칙으로 다시 적용합니다.")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("삭제") { _, _ ->
+                        try {
+                            val removedBytes = FilterListManager.clearDownloadedSources(this@MainActivity)
+                            reloadProtectionRulesIfActive(prefs)
+                            Toast.makeText(
+                                this@MainActivity,
+                                "다운로드 필터 소스를 삭제했습니다. (${removedBytes / 1024}KB)",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            showTab("settings")
+                        } catch (error: Exception) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "삭제 실패: ${error.message ?: error.javaClass.simpleName}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                    .show()
+            }
+        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(16) })
     }
 
     private fun buildSettingsSupport(body: LinearLayout) {
