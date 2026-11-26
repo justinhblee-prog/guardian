@@ -1361,6 +1361,12 @@ class MainActivity : Activity() {
 
         val developmentBuild = BuildConfig.DEBUG
         val stableUpdaterEnabled = BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED
+        val channelDescription = when {
+            developmentBuild -> "개발 채널 · 내부 검증 전용입니다. 일반 사용자에게 개발판을 배포하지 않습니다."
+            stableUpdaterEnabled -> "안정 채널 · 공식 정식 Release만 확인합니다."
+            else -> "안정 채널 · Google Play 배포 유형입니다. 앱 업데이트는 Play 스토어가 관리합니다."
+        }
+        body.addView(text(channelDescription, 12f, accent, false).withTop(9))
         val feedback = text(
             when {
                 developmentBuild -> "개발 버전 업데이트 확인 전"
