@@ -1374,40 +1374,26 @@ if ! grep -Fq '라이선스 및 프리미엄' <<<"$license_menu_xml"; then
   exit 1
 fi
 
-# Verify the About and Exit submenus even though they are below the phone viewport.
-scroll_to_text "정보"
+# Verify the General settings update accordion. The app-update control belongs
+# under Settings > General (not Settings > About); keep this test aligned with
+# the agreed product navigation and avoid scrolling a non-scrollable About page.
+scroll_to_text "일반"
 sleep 1
-# The About screen is a vertically scrolling page. Verify the version row
-# while it is in the initial viewport, then scroll separately to the update
-# action; UIAutomator omits children outside the current viewport.
-adb_cmd shell uiautomator dump /sdcard/guardian-about-version.xml >/dev/null 2>&1
-about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | tr -d '\r')"
-expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
-if [[ -z "$expected_current_version" ]]; then
-  echo "GUARDIAN_CURRENT_VERSION_NAME was not provided to the Android VPN emulator check."
+general_xml="$(dump_ui_hierarchy /sdcard/guardian-general-settings.xml)"
+if ! grep -Fq '프로그램 업데이트 확인 펼치기' <<<"$general_xml"; then
+  echo "Settings > General does not expose the agreed update accordion."
+  echo "$general_xml"
   exit 1
 fi
-if ! grep -Fq '앱 버전' <<<"$about_version_xml" || ! grep -Fq "$expected_current_version" <<<"$about_version_xml"; then
-  echo "The About screen's initial viewport did not expose the current app version."
-  echo "$about_version_xml"
-  exit 1
-fi
-ensure_text_visible "앱 업데이트 확인"
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-about-update.xml >/dev/null 2>&1
-about_update_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-update.xml | tr -d '\r')"
-if ! grep -Fq '앱 업데이트 확인' <<<"$about_update_xml"; then
-  echo "The About submenu does not expose the dedicated app-update entry."
-  echo "$about_update_xml"
-  exit 1
-fi
-tap_text "앱 업데이트 확인"
+tap_content_description "프로그램 업데이트 확인 펼치기"
 sleep 1
 updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
 if ! grep -Fq '프로그램 업데이트' <<<"$updates_xml" ||
+   ! grep -Fq '관리자 채널 인증' <<<"$updates_xml" ||
+   ! grep -Fq '관리자 인증 토큰' <<<"$updates_xml" ||
    ! grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$updates_xml" ||
    ! grep -Fq '업데이트 설치' <<<"$updates_xml"; then
-  echo "The dedicated Program Updates screen is missing its version-check/install controls."
+  echo "The expanded General update accordion is missing update or administrator-authentication controls."
   echo "$updates_xml"
   exit 1
 fi
@@ -1415,8 +1401,8 @@ fi
 # Exercise the actual development update check, not only the presence of its
 # controls. PR builds are intentionally not published as releases, so the
 # currently published manifest must resolve to "already latest" for this
-# higher versionCode. This validates network/API parsing and the no-update UI
-# without downloading or installing an untrusted/unpublished build.
+# higher versionCode. This validates network/API parsing without installing
+# an unpublished artifact.
 if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
   tap_text "개발 업데이트 확인"
   update_check_ready=0
@@ -1440,7 +1426,11 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
   fi
   echo "Development update check reached the expected latest-version state."
 fi
-echo "Settings > 정보 > 앱 업데이트 확인 opens the dedicated Program Updates screen and executes its version check."
+echo "Settings > General > Program Updates accordion and administrator authentication controls passed."
+# Navigate away and back so the Settings category index is restored before
+# validating the separate Exit category.
+tap_content_description "홈"
+sleep 1
 tap_content_description "설정"
 sleep 1
 scroll_to_text "종료"
