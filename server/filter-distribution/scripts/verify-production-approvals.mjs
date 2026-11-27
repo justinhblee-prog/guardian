@@ -58,9 +58,28 @@ export function verifyProductionRedistributionApprovals(config) {
     } else if (/^(rolling(?:-unpinned)?|unpinned|latest|main|master|head)$/i.test(source.upstreamVersion)) {
       errors.push(id + ': upstreamVersion must identify a pinned, reviewable source revision; floating labels are not allowed.');
     }
+    const commitSha = typeof source.upstreamCommitSha === 'string' &&
+      /^[a-f0-9]{40,64}$/i.test(source.upstreamCommitSha);
+    let sourceUrlPinsCommit = false;
+    if (commitSha && typeof source.url === 'string') {
+      try {
+        const segments = new URL(source.url).pathname.split('/').filter(Boolean);
+        sourceUrlPinsCommit = segments.some(segment =>
+          segment.toLowerCase() === source.upstreamCommitSha.toLowerCase() ||
+          segment.toLowerCase().endsWith('@' + source.upstreamCommitSha.toLowerCase())
+        );
+      } catch {
+        sourceUrlPinsCommit = false;
+      }
+    }
+    if (!commitSha) {
+      errors.push(id + ': upstreamCommitSha must be a full 40-64 character immutable Git commit hash.');
+    } else if (!sourceUrlPinsCommit) {
+      errors.push(id + ': source url must contain the exact upstreamCommitSha as a path segment or @revision.');
+    }
     if (typeof source.url === 'string' &&
         /@(?:latest|main|master|head)(?:\/|$)/i.test(source.url)) {
-      errors.push(id + ': source url must pin an immutable upstream revision; floating @latest/@main/@master/@head references are not allowed.');
+      errors.push(id + ': floating @latest/@main/@master/@head source references are not allowed.');
     }
     if (source.thirdPartyProvenanceReviewed !== true) {
       errors.push(id + ': thirdPartyProvenanceReviewed must be explicitly true after upstream data-source review.');
