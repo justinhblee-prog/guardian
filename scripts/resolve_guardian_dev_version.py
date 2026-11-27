@@ -79,6 +79,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--releases-json", required=True)
     parser.add_argument("--commit", required=True)
+    # The last verified installable APK is 0.7.57-dev / versionCode 70; never reuse it.
     parser.add_argument("--baseline-version", default="0.7.57-dev")
     parser.add_argument("--baseline-code", type=int, default=70)
     parser.add_argument("--github-env", required=True)
