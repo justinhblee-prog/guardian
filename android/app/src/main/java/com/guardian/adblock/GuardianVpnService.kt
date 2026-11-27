@@ -50,6 +50,10 @@ class GuardianVpnService : VpnService() {
         const val KEY_DNS_IGNORED = "dns_ignored"
         const val KEY_DNS_AD_BLOCKED = "dns_ad_blocked"
         const val KEY_DNS_TRACKER_BLOCKED = "dns_tracker_blocked"
+        const val KEY_DNS_ANALYTICS_BLOCKED = "dns_analytics_blocked"
+        const val KEY_DNS_TELEMETRY_BLOCKED = "dns_telemetry_blocked"
+        const val KEY_DNS_FINGERPRINTING_BLOCKED = "dns_fingerprinting_blocked"
+        const val KEY_DNS_SOCIAL_BLOCKED = "dns_social_blocked"
         const val KEY_DNS_OTHER_BLOCKED = "dns_other_blocked"
         const val KEY_DNS_DIAGNOSTIC = "dns_diagnostic"
         const val KEY_FILTER_READINESS = "filter_readiness_diagnostic"
@@ -801,6 +805,14 @@ class GuardianVpnService : VpnService() {
                 if (category == DomainFilter.BlockCategory.AD) 1L else 0L
             val trackerBlocked = prefs.getLong(KEY_DNS_TRACKER_BLOCKED, 0L) +
                 if (category == DomainFilter.BlockCategory.TRACKER) 1L else 0L
+            val analyticsBlocked = prefs.getLong(KEY_DNS_ANALYTICS_BLOCKED, 0L) +
+                if (category == DomainFilter.BlockCategory.ANALYTICS) 1L else 0L
+            val telemetryBlocked = prefs.getLong(KEY_DNS_TELEMETRY_BLOCKED, 0L) +
+                if (category == DomainFilter.BlockCategory.TELEMETRY) 1L else 0L
+            val fingerprintingBlocked = prefs.getLong(KEY_DNS_FINGERPRINTING_BLOCKED, 0L) +
+                if (category == DomainFilter.BlockCategory.FINGERPRINTING) 1L else 0L
+            val socialBlocked = prefs.getLong(KEY_DNS_SOCIAL_BLOCKED, 0L) +
+                if (category == DomainFilter.BlockCategory.SOCIAL) 1L else 0L
             val otherBlocked = prefs.getLong(KEY_DNS_OTHER_BLOCKED, 0L) +
                 if (category == DomainFilter.BlockCategory.OTHER) 1L else 0L
             val outcome = when {
@@ -817,6 +829,10 @@ class GuardianVpnService : VpnService() {
                 .putLong(KEY_DNS_FAILED, failedCount)
                 .putLong(KEY_DNS_AD_BLOCKED, adBlocked)
                 .putLong(KEY_DNS_TRACKER_BLOCKED, trackerBlocked)
+                .putLong(KEY_DNS_ANALYTICS_BLOCKED, analyticsBlocked)
+                .putLong(KEY_DNS_TELEMETRY_BLOCKED, telemetryBlocked)
+                .putLong(KEY_DNS_FINGERPRINTING_BLOCKED, fingerprintingBlocked)
+                .putLong(KEY_DNS_SOCIAL_BLOCKED, socialBlocked)
                 .putLong(KEY_DNS_OTHER_BLOCKED, otherBlocked)
                 .putString(KEY_DNS_RECENT, lines.joinToString("\n"))
                 .apply()

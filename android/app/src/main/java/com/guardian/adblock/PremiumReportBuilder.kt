@@ -14,7 +14,11 @@ internal data class PremiumReportSnapshot(
     val adBlocked: Long,
     val trackerBlocked: Long,
     val otherBlocked: Long,
-    val protectionActive: Boolean
+    val protectionActive: Boolean,
+    val analyticsBlocked: Long = 0L,
+    val telemetryBlocked: Long = 0L,
+    val fingerprintingBlocked: Long = 0L,
+    val socialBlocked: Long = 0L
 )
 
 internal object PremiumReportBuilder {
@@ -52,11 +56,15 @@ internal object PremiumReportBuilder {
             appendLine("응답 실패 비율: ${String.format(Locale.ROOT, "%.1f%%", failedRate)}")
             appendLine("광고 차단: ${count(snapshot.adBlocked)}")
             appendLine("추적 차단: ${count(snapshot.trackerBlocked)}")
-            appendLine("미분류 차단: ${count(snapshot.otherBlocked)}")
+            appendLine("분석 차단: ${count(snapshot.analyticsBlocked)}")
+            appendLine("텔레메트리 차단: ${count(snapshot.telemetryBlocked)}")
+            appendLine("핑거프린팅 차단: ${count(snapshot.fingerprintingBlocked)}")
+            appendLine("소셜 위젯 차단: ${count(snapshot.socialBlocked)}")
+            appendLine("미분류·기존 기록: ${count(snapshot.otherBlocked)}")
             appendLine()
             appendLine("상태 점검: $health")
             appendLine()
-            append("참고: 이 리포트는 이 기기에 저장된 누적 DNS 통계입니다. 광고·추적 분류는 도메인 이름 기반 참고용 추정이며, 미분류 차단은 유형을 확인할 수 없는 요청으로 보안 위협 판정이 아닙니다. 방문 도메인, 앱 사용 기록, 사용자 규칙은 포함하지 않습니다.")
+            append("참고: 이 리포트는 이 기기에 저장된 누적 DNS 통계입니다. 광고·추적·분석·텔레메트리·핑거프린팅·소셜 유형은 도메인 이름 기반 참고용 추정이며, 미분류·기존 기록은 과거 유형별 기록이 없거나 판단 근거가 부족한 요청입니다. 미분류는 보안 위협 판정이 아닙니다. 방문 도메인, 앱 사용 기록, 사용자 규칙은 포함하지 않습니다.")
         }
     }
 }
