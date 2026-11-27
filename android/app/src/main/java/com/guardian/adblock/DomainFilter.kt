@@ -73,7 +73,9 @@ object DomainFilter {
         val adMarkers = listOf(
             "doubleclick", "googlesyndication", "googleadservices", "adservice",
             "adsystem", "adserver", "adnxs", "adform", "taboola", "outbrain",
-            "criteo", "popads", "adroll", "advert"
+            "criteo", "popads", "adroll", "advert", "pubmatic", "openx", "rubiconproject",
+            "casalemedia", "2mdn", "adsrvr", "media.net", "yieldmo", "sharethrough",
+            "360yield", "bidswitch", "lijit", "serving-sys", "adcolony", "inmobi", "adsymptotic"
         )
         val trackerMarkers = listOf(
             "analytics", "tracking", "track.", "telemetry", "metrics", "pixel.",
