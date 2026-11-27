@@ -39,6 +39,22 @@ test('production approval gate accepts complete source-specific compliance evide
   );
 });
 
+test('production approval gate rejects floating upstream versions and mutable CDN references', () => {
+  for (const overrides of [
+    { upstreamVersion: 'rolling-unpinned' },
+    { upstreamVersion: 'latest' },
+    { url: 'https://cdn.jsdelivr.net/gh/example/filter@latest/list.txt' },
+    { url: 'https://cdn.jsdelivr.net/gh/example/filter@main/list.txt' }
+  ]) {
+    assert.throws(
+      () => verifyProductionRedistributionApprovals({
+        sources: [reviewedSource(overrides)]
+      }),
+      /pinned|floating/
+    );
+  }
+});
+
 test('production approval gate rejects missing provenance review before approval', () => {
   assert.throws(
     () => verifyProductionRedistributionApprovals({
