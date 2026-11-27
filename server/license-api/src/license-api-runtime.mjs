@@ -503,8 +503,8 @@ function validateUpdateMetadata(body) {
     throw Object.assign(new Error('업데이트 버전 또는 무결성 정보가 올바르지 않습니다.'), { status: 400 });
   }
   const versionPattern = channel === 'stable'
-    ? /^\\d+\\.\\d+\\.\\d+$/
-    : channel === 'beta' ? /^\\d+\\.\\d+\\.\\d+-beta(?:\\.\\d+)?$/ : /^\\d+\\.\\d+\\.\\d+-dev$/;
+    ? /^\d+\.\d+\.\d+$/
+    : channel === 'beta' ? /^\d+\.\d+\.\d+-beta(?:\.\d+)?$/ : /^\d+\.\d+\.\d+-dev$/;
   if (!versionPattern.test(versionName)) {
     throw Object.assign(new Error('채널과 버전 이름이 일치하지 않습니다.'), { status: 400 });
   }
@@ -672,7 +672,7 @@ async function listAdminUpdates(req) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" });
       return res.end(html);
     }
-    const updateChannelMatch = /^\\/v1\\/updates\\/(stable|beta|dev)$/.exec(url.pathname);
+    const updateChannelMatch = /^\/v1\/updates\/(stable|beta|dev)$/.exec(url.pathname);
     if (req.method === 'GET' && updateChannelMatch) {
       return json(res, 200, await getUpdateManifest(updateChannelMatch[1], req));
     }
