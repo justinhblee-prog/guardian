@@ -14,7 +14,8 @@ internal data class PremiumReportSnapshot(
     val adBlocked: Long,
     val trackerBlocked: Long,
     val otherBlocked: Long,
-    val protectionActive: Boolean
+    val protectionActive: Boolean,
+    val dailyStats: List<DailyDnsStats> = emptyList()
 )
 
 internal object PremiumReportBuilder {
@@ -53,6 +54,16 @@ internal object PremiumReportBuilder {
             appendLine("광고 차단: ${count(snapshot.adBlocked)}")
             appendLine("추적 차단: ${count(snapshot.trackerBlocked)}")
             appendLine("미분류 차단: ${count(snapshot.otherBlocked)}")
+            appendLine()
+            appendLine("최근 7일 일별 DNS 요약")
+            val recentDays = snapshot.dailyStats.sortedBy { it.date }.takeLast(7)
+            if (recentDays.isEmpty()) {
+                appendLine("일별 데이터가 아직 없습니다.")
+            } else {
+                recentDays.forEach { day ->
+                    appendLine("${day.date}: 질의 ${count(day.totalQueries)} · 차단 ${count(day.blockedQueries)} · 전달 ${count(day.forwardedQueries)} · 실패 ${count(day.failedQueries)}")
+                }
+            }
             appendLine()
             appendLine("상태 점검: $health")
             appendLine()
