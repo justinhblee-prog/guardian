@@ -282,6 +282,17 @@ jobs:
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
           echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='${GUARDIAN_VERSION_CODE}' versionName='${GUARDIAN_VERSION_NAME}'"
 
+      - name: Verify current APK signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='android/app/build/outputs/apk/debug/app-debug.apk'
+          EXPECTED_SIGNER='edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c'
+          ACTUAL_SIGNER="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          test "$ACTUAL_SIGNER" = "$EXPECTED_SIGNER"
+          echo "APK_SIGNER_SHA256=$ACTUAL_SIGNER" >> "$GITHUB_ENV"
+          echo "Current APK signing certificate independently verified: $ACTUAL_SIGNER"
+
       - name: Verify APK exists and calculate checksum
         shell: bash
         run: |
@@ -339,6 +350,7 @@ jobs:
           - Android lintDebug: 통과
           - assembleDebug: 통과
           - APK SHA-256: ${APK_SHA256}
+          - APK 서명 인증서 SHA-256: ${APK_SIGNER_SHA256}
           - 전체 소스 ZIP: Guardian-AdBlock-Source-${GUARDIAN_VERSION_NAME}.zip
           - 전체 소스 ZIP 크기: ${SOURCE_BYTES} bytes
           - 전체 소스 ZIP SHA-256: ${SOURCE_SHA256}
@@ -355,7 +367,8 @@ jobs:
           set -euo pipefail
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           SHA256="$(sha256sum "$APK" | awk '{print $1}')"
-          SIGNER_SHA256='edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c'
+          test "${#APK_SIGNER_SHA256}" -eq 64
+          SIGNER_SHA256="$APK_SIGNER_SHA256"
           cat > release/guardian-android-dev.json <<EOF
           {
             "packageName": "com.guardian.adblock",
@@ -373,7 +386,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import hashlib, json, pathlib, re
+          import hashlib, json, os, pathlib, re
           apk = pathlib.Path("android/app/build/outputs/apk/debug/app-debug.apk")
           manifest = json.loads(pathlib.Path("release/guardian-android-dev.json").read_text())
           assert manifest["packageName"] == "com.guardian.adblock"
@@ -381,8 +394,8 @@ jobs:
           assert manifest["versionName"] == "${{ env.GUARDIAN_VERSION_NAME }}"
           assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-dev", manifest["versionName"])
           assert manifest["sha256"] == hashlib.sha256(apk.read_bytes()).hexdigest()
-          assert manifest["signerSha256"] == "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
-          print("Development update manifest exactly matches the built APK.")
+          assert manifest["signerSha256"] == os.environ["APK_SIGNER_SHA256"]
+          print("Development update manifest exactly matches the built APK and independently verified signer.")
           PY
 
       - name: Upload verified Android debug and source package

@@ -29,6 +29,18 @@ class AndroidWorkflowPermissionTests(unittest.TestCase):
         self.assertNotIn("gh release create", build)
         self.assertNotIn("gh release upload", build)
 
+    def test_built_apk_signer_is_independently_verified_before_manifest_creation(self):
+        verify_step = WORKFLOW.index("- name: Verify current APK signing certificate")
+        manifest_step = WORKFLOW.index("- name: Create development update manifest")
+        self.assertLess(verify_step, manifest_step)
+        signer_step = WORKFLOW[verify_step:manifest_step]
+        self.assertIn("apksigner", signer_step)
+        self.assertIn("verify --print-certs", signer_step)
+        self.assertIn("APK_SIGNER_SHA256", signer_step)
+        self.assertIn("edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c", signer_step)
+        self.assertIn('SIGNER_SHA256="$APK_SIGNER_SHA256"', WORKFLOW[manifest_step:])
+        self.assertIn('assert manifest["signerSha256"] == os.environ["APK_SIGNER_SHA256"]', WORKFLOW[manifest_step:])
+
     def test_release_write_permission_is_isolated_to_main_only_job(self):
         publish = job_block("publish-development-release")
         self.assertIn("needs: build-apk", publish)
