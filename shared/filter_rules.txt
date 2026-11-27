@@ -11,3 +11,26 @@ block=outbrain.com
 block=criteo.com
 block=scorecardresearch.com
 block=quantserve.com
+# Additional dedicated ad-serving and exchange domains curated for Guardian's
+# small offline fallback. This is intentionally conservative; optional feeds
+# provide broader coverage when their signed caches are available.
+block=advertising.com
+block=amazon-adsystem.com
+block=pubmatic.com
+block=openx.net
+block=rubiconproject.com
+block=smartadserver.com
+block=casalemedia.com
+block=2mdn.net
+block=adsrvr.org
+block=media.net
+block=yieldmo.com
+block=sharethrough.com
+block=360yield.com
+block=bidswitch.net
+block=lijit.com
+block=adroll.com
+block=serving-sys.com
+block=adcolony.com
+block=inmobi.com
+block=adsymptotic.com
