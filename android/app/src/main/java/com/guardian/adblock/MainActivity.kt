@@ -1,4 +1,5 @@
 package com.guardian.adblock
+import android.util.Log
 
 import android.app.Activity
 import android.app.AlertDialog
@@ -1494,6 +1495,10 @@ class MainActivity : Activity() {
                             }
                         }
                     } catch (error: Exception) {
+                        // Keep user-facing text free of URLs, paths, and server response bodies.
+                        // The exception type chain is safe to retain in CI logs and identifies
+                        // whether GitHub rejected the request, TLS failed, or parsing failed.
+                        Log.e("GuardianUpdate", "Update check failed: ${SafeFailureSummary.diagnosticTypeChain(error)}")
                         runOnUiThread {
                             downloaded = null
                             installButton.isEnabled = false
