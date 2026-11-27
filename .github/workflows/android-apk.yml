@@ -558,32 +558,49 @@ jobs:
           EMULATOR_PID=$!
           echo "Started emulator PID=$EMULATOR_PID, log=$AVD_LOG"
           ready=0
-          # 480 x 2 seconds = 16 minutes maximum boot wait; the step
-          # has a 20-minute hard limit to leave time for diagnostics/reporting.
-          for attempt in $(seq 1 480); do
+          # Bound ADB registration separately from Android framework boot.
+          # Every adb call has a short timeout so a wedged daemon cannot multiply
+          # the nominal poll interval into a multi-hour wait.
+          for attempt in $(seq 1 90); do
             if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
               echo "Emulator process exited before ADB registration."
               break
             fi
-            state="$(timeout 8s adb devices | awk '$1=="emulator-5554" {print $2}')"
+            state="$(timeout --signal=TERM --kill-after=2s 3s adb devices 2>/dev/null | awk '$1=="emulator-5554" {print $2}' || true)"
             if [ "$state" = "device" ]; then
-              boot="$(timeout 10s adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-              if [ "$boot" = "1" ]; then
-                ready=1
-                break
-              fi
+              break
             fi
             if (( attempt % 15 == 0 )); then
-              echo "Waiting for emulator boot ($attempt/480); ADB state=${state:-missing}"
-              adb devices -l || true
+              echo "Waiting for ADB registration ($attempt/90); state=${state:-missing}"
+              timeout 5s adb devices -l || true
+              tail -n 30 "$AVD_LOG" || true
+            fi
+            sleep 2
+          done
+          state="$(timeout --signal=TERM --kill-after=2s 5s adb devices 2>/dev/null | awk '$1=="emulator-5554" {print $2}' || true)"
+          if [ "$state" != "device" ]; then
+            echo "Emulator failed to register with ADB."
+            tail -n 500 "$AVD_LOG" || true
+            exit 1
+          fi
+          echo "ADB registered emulator-5554; waiting for Android framework boot."
+          for attempt in $(seq 1 180); do
+            boot="$(timeout --signal=TERM --kill-after=2s 5s adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+            if [ "$boot" = "1" ]; then
+              ready=1
+              break
+            fi
+            if (( attempt % 15 == 0 )); then
+              echo "Waiting for Android framework boot ($attempt/180); sys.boot_completed=${boot:-unset}"
+              timeout 5s adb -s emulator-5554 shell getprop init.svc.bootanim || true
               tail -n 30 "$AVD_LOG" || true
             fi
             sleep 2
           done
           if [ "$ready" -ne 1 ]; then
-            echo "Emulator failed to reach sys.boot_completed=1."
+            echo "Emulator failed to reach sys.boot_completed=1 within the bounded boot window."
             echo "=== ADB devices ==="
-            adb devices -l || true
+            timeout 5s adb devices -l || true
             echo "=== Emulator process ==="
             ps -ef | grep -E '[e]mulator|[q]emu' || true
             echo "=== Emulator log (last 500 lines) ==="
