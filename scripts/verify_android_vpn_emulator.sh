@@ -556,7 +556,7 @@ if [[ "$ready" -ne 1 ]]; then
   exit 1
 fi
 
-echo "Waiting for Android boot completion and Guardian BOOT_COMPLETED receiver before the selected-profile refresh scenario."
+echo "Waiting for Android boot completion and a real Guardian system-event restore callback before the selected-profile refresh scenario."
 boot_completed=0
 for attempt in $(seq 1 60); do
   boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
@@ -570,21 +570,25 @@ if [[ "$boot_completed" -ne 1 ]]; then
   echo "Android emulator did not finish booting before the selected-profile refresh scenario."
   exit 1
 fi
-boot_receiver_seen=0
+# The emulator is already booted before the app is installed. Android therefore
+# cannot deliver the earlier BOOT_COMPLETED event to this newly installed package.
+# During the tested in-place APK upgrade, PackageManager sends MY_PACKAGE_REPLACED.
+# Accept either genuine system callback; do not fabricate a protected broadcast.
+restore_receiver_seen=0
 for attempt in $(seq 1 60); do
-  boot_logs="$(adb_poll shell logcat -d -s GuardianProtection:I 2>/dev/null || true)"
-  if grep -q 'action=android.intent.action.BOOT_COMPLETED' <<<"$boot_logs"; then
-    boot_receiver_seen=1
+  restore_logs="$(adb_poll shell logcat -d -s GuardianProtection:I 2>/dev/null || true)"
+  if grep -Eq 'action=android.intent.action.(BOOT_COMPLETED|MY_PACKAGE_REPLACED)' <<<"$restore_logs"; then
+    restore_receiver_seen=1
     break
   fi
   sleep 2
 done
-if [[ "$boot_receiver_seen" -ne 1 ]]; then
-  echo "Guardian BOOT_COMPLETED receiver did not finish before the selected-profile refresh scenario."
+if [[ "$restore_receiver_seen" -ne 1 ]]; then
+  echo "Guardian system-event restore receiver did not run after the installed-app upgrade."
   adb_poll shell logcat -d -s GuardianProtection:I | tail -80 || true
   exit 1
 fi
-# The broadcast log is emitted before receiver teardown; allow the receiver to return
+# The receiver's diagnostic is emitted before teardown; allow it to return
 # before force-stopping Guardian and replacing its SharedPreferences fixture.
 sleep 3
 
