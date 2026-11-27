@@ -36,7 +36,7 @@ test('health endpoint returns no-store service status', async () => {
 });
 
 test('administrator channel verification fails closed without server configuration and is rate-limited', async () => {
-  const request = () => fetch(\`${baseUrl}/v1/admin/auth/verify\`);
+  const request = () => fetch(`${baseUrl}/v1/admin/auth/verify`);
   assert.equal((await request()).status, 503);
   assert.equal((await request()).status, 503);
   const limited = await request();
