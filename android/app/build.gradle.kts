@@ -12,13 +12,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 val guardianVersionName = providers.gradleProperty("guardianVersionName")
-    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse("0.7.58-dev")
+    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse("0.7.59-dev")
 val guardianVersionCode = providers.gradleProperty("guardianVersionCode")
     .orElse(providers.environmentVariable("GUARDIAN_VERSION_CODE"))
     .map { raw ->
         raw.toIntOrNull()?.takeIf { it > 0 }
             ?: error("GUARDIAN_VERSION_CODE must be a positive integer.")
-    }.getOrElse(71)
+    }.getOrElse(72)
 require(guardianVersionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.-]+)?"))) {
     "GUARDIAN_VERSION_NAME must be a semantic version such as 0.7.8 or 0.7.8-rc1."
 }
