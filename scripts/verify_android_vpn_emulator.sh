@@ -345,6 +345,65 @@ scroll_to_text() {
   return 1
 }
 
+# Find an exact visible text node rather than a substring. This matters for
+# "업데이트 확인", which is also contained in the accordion header label.
+ensure_exact_text_visible() {
+  local wanted="$1" attempt size width height center_x start_y end_y xml
+  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
+  width="${size%x*}"
+  height="${size#*x}"
+  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
+    echo "Could not determine a usable emulator display size: $size"
+    return 1
+  fi
+  center_x=$((width / 2))
+  start_y=$((height * 4 / 5))
+  end_y=$((height / 5))
+  for attempt in $(seq 1 10); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-exact-scroll-target.xml)"
+    if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+raise SystemExit(0 if any(n.attrib.get("text","").strip()==sys.argv[1]
+  and n.attrib.get("visible-to-user","true")=="true" for n in root.iter("node")) else 1)' "$wanted" <<<"$xml"; then
+      echo "Exact text visible without activation: $wanted"
+      return 0
+    fi
+    echo "Scrolling to exact text '$wanted' (attempt $attempt/10)."
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Could not bring exact text into the visible viewport: $wanted"
+  dump_ui_hierarchy /sdcard/guardian-exact-scroll-target.xml
+  return 1
+}
+
+tap_exact_text() {
+  local wanted="$1" xml bounds
+  xml="$(dump_ui_hierarchy /sdcard/guardian-exact-tap-target.xml)"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+parents={child: parent for parent in root.iter() for child in parent}
+for node in root.iter("node"):
+    if node.attrib.get("text","").strip()!=sys.argv[1] or node.attrib.get("visible-to-user","true")!="true":
+        continue
+    target=node
+    while target is not None:
+        if target.attrib.get("visible-to-user","true")=="true" and target.attrib.get("clickable")=="true" and target.attrib.get("enabled")=="true":
+            parts=target.attrib.get("bounds","").strip("[]").split("][")
+            if len(parts)==2:
+                x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+                print((x1+x2)//2,(y1+y2)//2)
+                raise SystemExit(0)
+        target=parents.get(target)
+raise SystemExit(1)' "$wanted" <<<"$xml")" || {
+    echo "Could not locate exact visible clickable control: $wanted"
+    echo "$xml"
+    return 1
+  }
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 # Android AlertDialog ListView row TextViews are intentionally non-clickable
 # in UIAutomator's accessibility tree; ListView itself dispatches row taps.
 # Resolve only an exact child of android:id/select_dialog_listview, leaving
@@ -1539,14 +1598,14 @@ fi
 # credentials unlock Beta/Dev choices and remain device-local. Exercise the
 # public Stable updater here, then verify the admin-auth entry is present.
 if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
-  ensure_text_visible "업데이트 확인"
+  ensure_exact_text_visible "업데이트 확인"
   updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-check.xml)"
   grep -Fq '업데이트 확인' <<<"$updates_xml" || {
     echo "The expanded Program Updates panel does not expose its common update-check action."
     echo "$updates_xml"
     exit 1
   }
-  tap_text "업데이트 확인"
+  tap_exact_text "업데이트 확인"
   update_check_ready=0
   for attempt in $(seq 1 20); do
     sleep 1
@@ -1576,7 +1635,7 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
   fi
 fi
 
-ensure_text_visible "관리자 채널 인증"
+ensure_exact_text_visible "관리자 채널 인증"
 updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-admin.xml)"
 if ! grep -Fq '관리자 채널 인증' <<<"$updates_xml"; then
   echo "The updater does not expose its device-local administrator channel authentication control."
@@ -1586,7 +1645,7 @@ fi
 
 # The install action is further down the same scrollable panel. Verify its
 # presence independently; it remains disabled until a verified APK is ready.
-ensure_text_visible "업데이트 설치"
+ensure_exact_text_visible "업데이트 설치"
 updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-install.xml)"
 if ! grep -Fq '업데이트 설치' <<<"$updates_xml"; then
   echo "The expanded Program Updates panel does not expose its install action after scrolling."
