@@ -985,6 +985,7 @@ class MainActivity : Activity() {
                             .putLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
                             .putLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
                             .putString(GuardianVpnService.KEY_DNS_RECENT, "")
+                            .remove(GuardianVpnService.KEY_DNS_DAILY_STATS)
                             .putString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "")
                             .apply()
                         refreshStatus()
