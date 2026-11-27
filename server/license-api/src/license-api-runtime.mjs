@@ -562,6 +562,7 @@ async function publishUpdate(body, req) {
 }
 async function getUpdateManifest(channel, req) {
   validateUpdateChannel(channel);
+  if (!pool) throw Object.assign(new Error('서버 데이터베이스가 구성되지 않았습니다.'), { status: 503 });
   if (channel !== 'stable') {
     requireEnv();
     requireAdmin(req);
