@@ -116,7 +116,17 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     const pinnedVersion = typeof source.upstreamVersion === 'string' &&
       /^[A-Za-z0-9._+-]{1,128}$/.test(source.upstreamVersion) &&
       !/^(rolling(?:-unpinned)?|unpinned|latest|main|master|head)$/i.test(source.upstreamVersion);
-    const pinnedSourceUrl = !/@(?:latest|main|master|head)(?:\/|$)/i.test(source.url);
+    const commitSha = typeof source.upstreamCommitSha === 'string' &&
+      /^[a-f0-9]{40,64}$/i.test(source.upstreamCommitSha);
+    const sourceUrlPinsCommit = commitSha && (() => {
+      const segments = upstream.pathname.split('/').filter(Boolean);
+      return segments.some(segment =>
+        segment.toLowerCase() === source.upstreamCommitSha.toLowerCase() ||
+        segment.toLowerCase().endsWith('@' + source.upstreamCommitSha.toLowerCase())
+      );
+    })();
+    const pinnedSourceUrl = sourceUrlPinsCommit &&
+      !/@(?:latest|main|master|head)(?:\/|$)/i.test(source.url);
     if (!cleanHttpsReference(source.upstreamRepository) ||
         !cleanHttpsReference(source.licenseUrl) ||
         !pinnedVersion ||
@@ -126,7 +136,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         !source.complianceEvidenceRef.trim() ||
         source.complianceEvidenceRef.length > 256) {
       throw new Error(
-        `Source ${source.id} is missing its upstream repository, license URL, pinned upstream version/URL, third-party provenance review or compliance evidence reference.`
+        `Source ${source.id} is missing its upstream repository, license URL, pinned upstream version/commit URL, third-party provenance review or compliance evidence reference.`
       );
     }
     if (typeof source.licenseId !== 'string' ||
