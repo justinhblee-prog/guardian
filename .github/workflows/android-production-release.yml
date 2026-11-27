@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DEVELOPMENT_VERSION_CODE=68
+          DEVELOPMENT_VERSION_CODE=69
           DEFAULT_PRODUCTION_VERSION_CODE="$(grep -oE '\$VersionCode=[0-9]+' server/license-api/windows/Prepare-GuardianProductionRelease.ps1 | grep -oE '[0-9]+')"
           test -n "$DEVELOPMENT_VERSION_CODE"
           test "$DEFAULT_PRODUCTION_VERSION_CODE" = "0"
@@ -76,7 +76,7 @@ jobs:
           grep -F 'GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE' .github/workflows/android-production-release.yml
           grep -F 'scripts/resolve_guardian_dev_version.py' .github/workflows/android-apk.yml
           grep -F 'if (( GUARDIAN_VERSION_CODE < 2000000 )); then' .github/workflows/android-production-release.yml
-          grep -F '.getOrElse(68)' android/app/build.gradle.kts
+          grep -F '.getOrElse(69)' android/app/build.gradle.kts
           grep -F '$minimumProductionVersionCode = 2000000' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
           grep -F '$VersionCode -lt $minimumProductionVersionCode' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
       - name: Guard production signing secrets from process arguments
@@ -186,7 +186,7 @@ jobs:
             -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 2 \
             -dname "CN=Guardian CI Distribution Validation, OU=Temporary, O=Guardian, C=US"
 
-          DEVELOPMENT_VERSION_CODE=68
+          DEVELOPMENT_VERSION_CODE=69
           test -n "$DEVELOPMENT_VERSION_CODE"
           RELEASE_VERSION_CODE=2000000
           echo "Validating the actual Guardian 1.0.0 release metadata: versionCode=$RELEASE_VERSION_CODE (development=$DEVELOPMENT_VERSION_CODE)."
@@ -347,7 +347,7 @@ jobs:
             echo "Production versionCode must be at least 2000000 to remain above all development builds."
             exit 1
           fi
-          DEVELOPMENT_VERSION_CODE=68
+          DEVELOPMENT_VERSION_CODE=69
           test -n "$DEVELOPMENT_VERSION_CODE"
           if (( GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE )); then
             echo "Production versionCode must exceed the current development versionCode ($DEVELOPMENT_VERSION_CODE)."
