@@ -152,6 +152,12 @@ jobs:
           const publicKey = createPublicKey({ key: Buffer.from(keyText, 'base64'), format: 'der', type: 'spki' });
           const names = await readdir(root);
           const manifests = names.filter(name => name.endsWith('.manifest'));
+          const sourceConfig = JSON.parse(await readFile('sources.json', 'utf8'));
+          const expectedIds = sourceConfig.sources.map(source => source.id).sort();
+          const actualIds = manifests.map(name => name.slice(0, -'.manifest'.length)).sort();
+          if (JSON.stringify(actualIds) !== JSON.stringify(expectedIds)) {
+            throw new Error(`Published manifest set does not match configured sources. Expected: ${expectedIds.join(', ')}; actual: ${actualIds.join(', ')}.`);
+          }
           if (!manifests.length) throw new Error('No manifests generated.');
           for (const name of manifests) {
             const bytes = await readFile(path.join(root, name));
