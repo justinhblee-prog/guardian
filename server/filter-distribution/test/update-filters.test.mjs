@@ -471,3 +471,24 @@ test('updater reports malformed or missing repository references as source compl
     assert.equal(fetchCalled, false);
   }
 });
+
+test('updater rejects case-colliding source IDs before any upstream request', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  let fetchCalled = false;
+  await assert.rejects(updateFilters({
+    config: {
+      baseUrl: 'https://filters.example.com',
+      sources: [
+        { id: 'AndroidAds', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/a.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git' },
+        { id: 'androidads', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/b.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git' }
+      ]
+    },
+    env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+    fetchImpl: async () => {
+      fetchCalled = true;
+      return new Response('||ads.example^\\n', { status: 200 });
+    }
+  }), /case-insensitive/);
+  assert.equal(fetchCalled, false);
+});
