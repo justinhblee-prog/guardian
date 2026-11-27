@@ -27,3 +27,21 @@
 ) {
   display: none !important;
 }
+
+/*
+ * Collapse the immediate ad-slot wrapper too. Hiding only the iframe or
+ * ins.adsbygoogle can leave a fixed-height parent as a blank rectangle.
+ * These selectors are deliberately limited to direct ad-frame/unfilled-slot
+ * children so ordinary article and layout containers are not removed.
+ */
+:where(div, section, aside):has(> iframe[src*="doubleclick.net"]),
+:where(div, section, aside):has(> iframe[src*="googlesyndication.com"]),
+:where(div, section, aside):has(> iframe[src*="adservice.google"]),
+:where(div, section, aside):has(> iframe[id^="google_ads_iframe"]),
+:where(div, section, aside):has(> ins.adsbygoogle[data-ad-status="unfilled"]),
+:where(div, section, aside):has(> [data-ad-status="unfilled"]),
+:where(div, section, aside):has(> [data-ad-slot]:empty),
+.google-auto-placed:empty,
+[data-ad-status="unfilled"] {
+  display: none !important;
+}
