@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash, createHmac } from 'node:crypto';
 import { createPresignedObjectUrl } from '../src/update-storage.mjs';
 
 const environment = {
@@ -29,6 +30,29 @@ test('private update object GET URL is signed, short-lived and scoped to one buc
   assert.equal(url.searchParams.get('X-Amz-Expires'), '300');
   assert.equal(url.searchParams.get('X-Amz-SignedHeaders'), 'host');
   assert.match(url.searchParams.get('X-Amz-Signature'), /^[a-f0-9]{64}$/);
+  // Independently reconstruct AWS SigV4; the canonical request uses SHA-256.
+  const encode = value => encodeURIComponent(value).replace(/[!'()*]/g, ch =>
+    '%' + ch.charCodeAt(0).toString(16).toUpperCase()
+  );
+  const query = [...url.searchParams.entries()]
+    .filter(([key]) => key !== 'X-Amz-Signature')
+    .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+    .map(([key, value]) => encode(key) + '=' + encode(value)).join('&');
+  const canonicalRequest = [
+    'GET', url.pathname, query, 'host:' + url.host + '\n',
+    'host', 'UNSIGNED-PAYLOAD'
+  ].join('\n');
+  const dateKey = createHmac('sha256', 'AWS4' + environment.AWS_SECRET_ACCESS_KEY).update('20261127').digest();
+  const regionKey = createHmac('sha256', dateKey).update(environment.AWS_REGION).digest();
+  const serviceKey = createHmac('sha256', regionKey).update('s3').digest();
+  const signingKey = createHmac('sha256', serviceKey).update('aws4_request').digest();
+  const scope = '20261127/' + environment.AWS_REGION + '/s3/aws4_request';
+  const stringToSign = [
+    'AWS4-HMAC-SHA256', '20261127T123456Z', scope,
+    createHash('sha256').update(canonicalRequest).digest('hex')
+  ].join('\n');
+  const expectedSignature = createHmac('sha256', signingKey).update(stringToSign).digest('hex');
+  assert.equal(url.searchParams.get('X-Amz-Signature'), expectedSignature);
   assert.equal(result.expiresAt, '2026-11-27T12:39:56.000Z');
 });
 
