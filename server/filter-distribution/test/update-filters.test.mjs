@@ -438,3 +438,36 @@ test('updater rejects missing source provenance and compliance evidence before n
   }), /third-party provenance review or compliance evidence reference/);
   assert.equal(fetchCalled, false);
 });
+
+test('updater reports malformed or missing repository references as source compliance failures', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  for (const upstreamRepository of [undefined, 'not a valid URL', 'http://github.com/example/filter']) {
+    let fetchCalled = false;
+    await assert.rejects(updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        sources: [{
+          id: 'invalid-repository',
+          url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt',
+          minimumRules: 1,
+          upstreamRepository,
+          licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE',
+          upstreamVersion: '1.0.0',
+          upstreamCommitSha: 'a'.repeat(40),
+          thirdPartyProvenanceReviewed: true,
+          complianceEvidenceRef: 'review-123',
+          licenseId: 'GPL-3.0',
+          redistributionApproved: true,
+          redistributionApprovalRef: 'approval-123'
+        }]
+      },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+      fetchImpl: async () => {
+        fetchCalled = true;
+        return new Response('||example.test^', { status: 200 });
+      }
+    }), /missing its upstream repository, license URL, pinned upstream version\/commit URL/);
+    assert.equal(fetchCalled, false);
+  }
+});
