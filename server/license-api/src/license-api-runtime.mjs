@@ -623,7 +623,7 @@ async function listAdminUpdates(req) {
   requireAdmin(req);
   const result = await pool.query(
     `SELECT channel,version_code,version_name,sha256,size_bytes,published,published_at
-     FROM guardian_update_manifests ORDER BY channel,version_code DESC LIMIT 100`
+     FROM guardian_update_manifests ORDER BY version_code DESC,channel LIMIT 100`
   );
   return { updates: result.rows };
 }
