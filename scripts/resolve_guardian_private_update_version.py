@@ -30,7 +30,7 @@ def resolve_next_version(
     if not CHANNEL_VERSION[channel].fullmatch(baseline_version) or baseline_code < 1:
         raise ValueError("Invalid Guardian channel baseline version.")
     latest_code = baseline_code
-    latest_channel_code = baseline_code
+    latest_channel_code = 0
     latest_channel_name = baseline_version
     for update in updates:
         if not isinstance(update, dict):
