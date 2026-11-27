@@ -829,5 +829,5 @@ jobs:
           update = json.loads(pathlib.Path(sys.argv[1]).read_text()).get("update") or {}
           if update.get("publishedAt") is None:
               raise SystemExit("Server did not confirm publication.")
-          print(f"Private Dev channel published: {update['versionName']} ({update['versionCode']}).")
+          print(f"Private update channel published: {update['versionName']} ({update['versionCode']}).")
           PY
