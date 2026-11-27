@@ -1520,7 +1520,7 @@ python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 visible={node.attrib.get("text","").strip() for node in root.iter("node")
          if node.attrib.get("visible-to-user","true")=="true"}
-required={"일반","프로그램 업데이트","개발 업데이트 확인"}
+required={"일반","프로그램 업데이트"}
 missing=required-visible
 if missing:
     raise SystemExit("Inline Program Updates panel did not expand; missing: "+repr(sorted(missing)))' <<<"$updates_xml" || {
@@ -1528,21 +1528,16 @@ if missing:
   echo "$updates_xml"
   exit 1
 }
-install_visible=0
-for attempt in $(seq 1 8); do
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-raise SystemExit(0 if any(node.attrib.get("text","").strip()=="업데이트 설치"
-  and node.attrib.get("visible-to-user","true")=="true" for node in root.iter("node")) else 1)' <<<"$updates_xml"; then
-    install_visible=1
-    break
-  fi
-  adb_cmd shell input swipe 800 1510 800 980 350
-  sleep 0.35
-  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
-done
-if [[ "$install_visible" -ne 1 ]]; then
-  echo "The expanded Program Updates panel does not expose its install action after scrolling."
+
+# The right-hand workspace is independently scrollable. The channel selector
+# is visible when the accordion first opens, but the development check action
+# is lower in the same panel on a phone-sized viewport. Scroll to the real
+# action before asserting or tapping it; do not mistake off-screen content for
+# a missing UI element.
+ensure_text_visible "개발 업데이트 확인"
+updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
+if ! grep -Fq '개발 업데이트 확인' <<<"$updates_xml"; then
+  echo "The expanded Program Updates panel did not expose its development check action after scrolling."
   echo "$updates_xml"
   exit 1
 fi
@@ -1588,10 +1583,47 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
     echo "Development update check reached the expected latest-version state."
   fi
 fi
+
+# The updater's install action is further down the same scrollable panel.
+# Verify it independently after the development check rather than requiring
+# both controls to fit in one viewport.
+install_visible=0
+for attempt in $(seq 1 8); do
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+raise SystemExit(0 if any(node.attrib.get("text","").strip()=="업데이트 설치"
+  and node.attrib.get("visible-to-user","true")=="true" for node in root.iter("node")) else 1)' <<<"$updates_xml"; then
+    install_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 800 1510 800 980 350
+  sleep 0.35
+  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
+done
+if [[ "$install_visible" -ne 1 ]]; then
+  echo "The expanded Program Updates panel does not expose its install action after scrolling."
+  echo "$updates_xml"
+  exit 1
+fi
+
+# Return the right-hand workspace to the top so the accordion header can be
+# tested independently from the scrolled action controls.
+updater_expanded_xml=""
+for attempt in $(seq 1 10); do
+  updater_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-expanded.xml)"
+  if grep -Fq '프로그램 업데이트 확인 접기' <<<"$updater_expanded_xml"; then
+    break
+  fi
+  adb_cmd shell input swipe 800 980 800 1510 350
+  sleep 0.35
+done
+if ! grep -Fq '프로그램 업데이트 확인 접기' <<<"$updater_expanded_xml"; then
+  echo "Could not return to the expanded Program Updates accordion header."
+  echo "$updater_expanded_xml"
+  exit 1
+fi
 # Verify the same inline updater control collapses and re-expands with the
 # correct directional arrow; do not navigate away or open a second screen.
-# Confirm the expanded accordion header is visible without tapping it.
-ensure_text_visible "프로그램 업데이트 확인 접기"
 updater_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-expanded.xml)"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -1612,6 +1644,10 @@ print("Program Updates inline collapse/expand arrow toggle passed.")' <<<"$updat
 tap_text "프로그램 업데이트 확인"
 sleep 1
 updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
+if ! grep -Fq '개발 업데이트 확인' <<<"$updater_reopened_xml"; then
+  ensure_text_visible "개발 업데이트 확인"
+  updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
+fi
 grep -Fq '개발 업데이트 확인' <<<"$updater_reopened_xml" || {
   echo "Program Updates panel did not reopen after its collapse test."
   echo "$updater_reopened_xml"
