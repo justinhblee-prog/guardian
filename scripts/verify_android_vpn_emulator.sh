@@ -1610,7 +1610,7 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
   for attempt in $(seq 1 20); do
     sleep 1
     updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-result.xml)"
-    if grep -Fq '현재 설치된 정식 버전이 최신입니다.' <<<"$updates_xml"; then
+    if grep -Fq '정식 업데이트가 아직 게시되지 않았습니다.' <<<"$updates_xml"; then
       update_check_ready=1
       break
     fi
@@ -1630,8 +1630,8 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
     echo "$updates_xml"
     exit 1
   fi
-  if grep -Fq '현재 설치된 정식 버전이 최신입니다.' <<<"$updates_xml"; then
-    echo "Stable update check reached the expected latest-version state."
+  if grep -Fq '정식 업데이트가 아직 게시되지 않았습니다.' <<<"$updates_xml"; then
+    echo "Stable update check correctly reported that no Stable release has been published yet."
   fi
 fi
 
