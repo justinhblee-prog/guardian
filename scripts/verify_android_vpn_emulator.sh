@@ -1308,6 +1308,7 @@ if not any(n.attrib.get("content-desc")==sys.argv[1]
 done
 tap_content_description "홈"
 echo "Current APK compatible five-destination navigation passed ($navigation_layout)."
+if [[ "$navigation_layout" == "redesigned" ]]; then
 echo "Verifying opt-in foreground-app VPN auto-pause and automatic resume."
 # Grant the special app-op as the emulator equivalent of the user's Usage Access
 # approval. The UI flow still selects the target app and explicitly enables the feature.
@@ -1549,6 +1550,125 @@ if len(fields)<2:
     raise SystemExit("Support ticket lookup must expose ticket reference and private access-code fields.")' <<<"$support_lookup_xml"
 tap_text "취소"
 echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
+else
+  echo "Verifying legacy Full Menu > Program Updates and Customer Support."
+  adb_cmd shell appops set "$PACKAGE" GET_USAGE_STATS allow
+  tap_content_description "전체 메뉴"
+  sleep 1
+  legacy_menu_xml="$(dump_ui_hierarchy /sdcard/guardian-legacy-menu.xml)"
+  expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
+  if [[ -z "$expected_current_version" ]]; then
+    echo "GUARDIAN_CURRENT_VERSION_NAME was not provided to the legacy Android emulator check."
+    exit 1
+  fi
+  if ! grep -Fq '프로그램 업데이트' <<<"$legacy_menu_xml" ||
+     ! grep -Fq '필터 관리' <<<"$legacy_menu_xml" ||
+     ! grep -Fq '앱 정보 및 고객 지원' <<<"$legacy_menu_xml" ||
+     ! grep -Fq "$expected_current_version" <<<"$legacy_menu_xml"; then
+    echo "Legacy Full Menu is missing its update, filter, support, or version entry."
+    echo "$legacy_menu_xml"
+    exit 1
+  fi
+  tap_text "프로그램 업데이트"
+  sleep 1
+  legacy_updates_xml="$(dump_ui_hierarchy /sdcard/guardian-legacy-program-updates.xml)"
+  if ! grep -Fq '프로그램 업데이트' <<<"$legacy_updates_xml" ||
+     ! grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$legacy_updates_xml" ||
+     ! grep -Fq '업데이트 설치' <<<"$legacy_updates_xml"; then
+    echo "Legacy Program Updates screen is missing its check/install controls."
+    echo "$legacy_updates_xml"
+    exit 1
+  fi
+  if [[ "$expected_current_version" == *-dev ]]; then
+    tap_text "개발 업데이트 확인"
+    legacy_update_ready=0
+    for attempt in $(seq 1 20); do
+      sleep 1
+      legacy_updates_xml="$(dump_ui_hierarchy /sdcard/guardian-legacy-program-updates-result.xml)"
+      if grep -Fq '현재 설치된 개발 버전이 최신입니다.' <<<"$legacy_updates_xml"; then
+        legacy_update_ready=1
+        break
+      fi
+      if grep -Eq '업데이트 확인에 실패|업데이트를 확인할 수 없습니다|오류' <<<"$legacy_updates_xml"; then
+        echo "Legacy development update check returned an error."
+        echo "$legacy_updates_xml"
+        exit 1
+      fi
+    done
+    if [[ "$legacy_update_ready" -ne 1 ]]; then
+      echo "Legacy development update check did not reach the expected latest-version state."
+      echo "$legacy_updates_xml"
+      exit 1
+    fi
+  fi
+  echo "Legacy Full Menu > Program Updates and version check passed."
+
+  tap_content_description "전체 메뉴"
+  sleep 1
+  legacy_support_visible=0
+  for attempt in $(seq 1 12); do
+    legacy_menu_xml="$(dump_ui_hierarchy /sdcard/guardian-legacy-support-menu.xml)"
+    if grep -Fq '고객지원 센터' <<<"$legacy_menu_xml"; then
+      legacy_support_visible=1
+      break
+    fi
+    adb_cmd shell input swipe 540 1500 540 600 450
+    sleep 0.4
+  done
+  if [[ "$legacy_support_visible" -ne 1 ]] ||
+     ! grep -Fq '자주 묻는 질문 (Q&A)' <<<"$legacy_menu_xml" ||
+     ! grep -Fq '문의 및 의견 보내기' <<<"$legacy_menu_xml" ||
+     ! grep -Fq '내 문의 답변 확인' <<<"$legacy_menu_xml"; then
+    echo "Legacy Customer Support card is missing its FAQ, submit, or lookup controls."
+    echo "$legacy_menu_xml"
+    exit 1
+  fi
+  tap_text "자주 묻는 질문 (Q&A)"
+  sleep 1
+  legacy_faq_xml="$(dump_ui_hierarchy /sdcard/guardian-legacy-faq.xml)"
+  if ! grep -Fq 'Guardian 자주 묻는 질문' <<<"$legacy_faq_xml" ||
+     ! grep -Fq '광고 차단이 되지 않아요' <<<"$legacy_faq_xml"; then
+    echo "Legacy FAQ dialog did not expose the expected ad-blocking question."
+    echo "$legacy_faq_xml"
+    exit 1
+  fi
+  tap_text "광고 차단이 되지 않아요"
+  sleep 1
+  legacy_faq_answer_xml="$(dump_ui_hierarchy /sdcard/guardian-legacy-faq-answer.xml)"
+  if ! grep -Fq '광고 차단이 되지 않아요' <<<"$legacy_faq_answer_xml" ||
+     ! grep -Fq 'DNS 기반 광고' <<<"$legacy_faq_answer_xml"; then
+    echo "Legacy FAQ answer did not explain DNS-based blocking limits."
+    echo "$legacy_faq_answer_xml"
+    exit 1
+  fi
+  tap_text "확인"
+  sleep 1
+  tap_text "닫기"
+  sleep 1
+
+  tap_text "문의 및 의견 보내기"
+  sleep 1
+  legacy_support_form_xml="$(dump_ui_hierarchy /sdcard/guardian-legacy-support-form.xml)"
+  python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+fields=[n for n in nodes if n.attrib.get("class")=="android.widget.EditText"]
+if len(fields)<3:
+    raise SystemExit("Legacy support form must expose subject, optional email, and message fields.")
+if not any("문의 및 의견 보내기" in n.attrib.get("text","") for n in nodes):
+    raise SystemExit("Legacy support submission dialog title is missing.")' <<<"$legacy_support_form_xml"
+  tap_text "취소"
+  tap_text "내 문의 답변 확인"
+  sleep 1
+  legacy_support_lookup_xml="$(dump_ui_hierarchy /sdcard/guardian-legacy-support-lookup.xml)"
+  python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+fields=[n for n in root.iter("node") if n.attrib.get("class")=="android.widget.EditText"]
+if len(fields)<2:
+    raise SystemExit("Legacy support lookup must expose ticket reference and private access-code fields.")' <<<"$legacy_support_lookup_xml"
+  tap_text "취소"
+  echo "Legacy Full Menu Program Updates, FAQ, support submission, and private lookup UI passed."
+fi
 
 
 auto_pause_picker_visible=0

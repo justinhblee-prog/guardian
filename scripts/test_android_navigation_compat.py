@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from scripts.android_navigation_compat import (
     resolve_premium_category,
@@ -110,6 +111,21 @@ class PrimaryNavigationCompatibilityTests(unittest.TestCase):
         xml = '<hierarchy><node class="android.widget.LinearLayout" content-desc="홈" clickable="true" enabled="true" /></hierarchy>'
         with self.assertRaises(ValueError):
             resolve_primary_navigation(xml)
+
+    def test_legacy_navigation_uses_full_menu_program_updates_and_support_flow(self):
+        script = Path(__file__).with_name("verify_android_vpn_emulator.sh").read_text(encoding="utf-8")
+        guard = script.index('if [[ "$navigation_layout" == "redesigned" ]]; then')
+        legacy = script.index('Verifying legacy Full Menu > Program Updates and Customer Support.')
+        close = script.index('fi\n\n\nauto_pause_picker_visible=0', legacy)
+        self.assertLess(guard, legacy)
+        self.assertLess(legacy, close)
+        legacy_block = script[legacy:close]
+        self.assertIn('tap_content_description "전체 메뉴"', legacy_block)
+        self.assertIn('tap_text "프로그램 업데이트"', legacy_block)
+        self.assertIn('tap_text "자주 묻는 질문 (Q&A)"', legacy_block)
+        self.assertIn('tap_text "광고 차단이 되지 않아요"', legacy_block)
+        self.assertIn('tap_text "문의 및 의견 보내기"', legacy_block)
+        self.assertIn('tap_text "내 문의 답변 확인"', legacy_block)
 
 
 
