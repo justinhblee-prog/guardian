@@ -1725,15 +1725,30 @@ class MainActivity : Activity() {
 
         if (proActive) {
             val reportPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            val reportBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportAds = reportPrefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportTrackers = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportAnalytics = reportPrefs.getLong(GuardianVpnService.KEY_DNS_ANALYTICS_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportTelemetry = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TELEMETRY_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportFingerprinting = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FINGERPRINTING_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportSocial = reportPrefs.getLong(GuardianVpnService.KEY_DNS_SOCIAL_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportUnclassified = (
+                reportBlocked - reportAds - reportTrackers - reportAnalytics -
+                    reportTelemetry - reportFingerprinting - reportSocial
+                ).coerceAtLeast(0L)
             val reportSnapshot = PremiumReportSnapshot(
                 totalQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
-                blockedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
+                blockedQueries = reportBlocked,
                 forwardedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
                 failedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
-                adBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
-                trackerBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
-                otherBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L),
-                protectionActive = GuardianVpnService.isTunnelActive()
+                adBlocked = reportAds,
+                trackerBlocked = reportTrackers,
+                otherBlocked = reportUnclassified,
+                protectionActive = GuardianVpnService.isTunnelActive(),
+                analyticsBlocked = reportAnalytics,
+                telemetryBlocked = reportTelemetry,
+                fingerprintingBlocked = reportFingerprinting,
+                socialBlocked = reportSocial
             )
             val reportText = PremiumReportBuilder.build(reportSnapshot, System.currentTimeMillis())
             body.addView(card(panel, 16).apply {
