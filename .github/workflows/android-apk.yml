@@ -778,7 +778,7 @@ jobs:
           assert isinstance(manifest["versionCode"], int) and manifest["versionCode"] > 0
           channel = __import__('os').environ['GUARDIAN_UPDATE_CHANNEL']
           assert channel in ('dev', 'beta')
-          assert re.fullmatch(rf"[0-9]+\\.[0-9]+\\.[0-9]+-{channel}", manifest["versionName"])
+          assert re.fullmatch(rf"[0-9]+\.[0-9]+\.[0-9]+-{channel}", manifest["versionName"])
           assert manifest["sha256"].lower() == digest
           assert re.fullmatch(r"[a-f0-9]{64}", manifest["signerSha256"].lower())
           payload = {
