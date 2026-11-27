@@ -1548,6 +1548,13 @@ class MainActivity : Activity() {
                             }
                         }
                     }
+                } catch (error: GuardianNoStableReleaseAvailableException) {
+                    runOnUiThread {
+                        downloaded = null
+                        setUpdateInstallButtonReady(installButton, false)
+                        feedback.text = error.message ?: "정식 업데이트가 아직 게시되지 않았습니다."
+                        checkButton.isEnabled = true
+                    }
                 } catch (error: Exception) {
                     android.util.Log.e(
                         "GuardianUpdater",
