@@ -556,103 +556,7 @@ if [[ "$ready" -ne 1 ]]; then
   exit 1
 fi
 
-echo "Waiting for Android boot completion and a real Guardian system-event restore callback before the selected-profile refresh scenario."
-boot_completed=0
-for attempt in $(seq 1 60); do
-  boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-  if [[ "$boot_state" == "1" ]]; then
-    boot_completed=1
-    break
-  fi
-  sleep 2
-done
-if [[ "$boot_completed" -ne 1 ]]; then
-  echo "Android emulator did not finish booting before the selected-profile refresh scenario."
-  exit 1
-fi
-# The emulator is already booted before the app is installed. Android therefore
-# cannot deliver the earlier BOOT_COMPLETED event to this newly installed package.
-# During the tested in-place APK upgrade, PackageManager sends MY_PACKAGE_REPLACED.
-# Accept either genuine system callback; do not fabricate a protected broadcast.
-restore_receiver_seen=0
-for attempt in $(seq 1 60); do
-  restore_logs="$(adb_poll shell logcat -d -s GuardianProtection:I 2>/dev/null || true)"
-  if grep -Eq 'action=android.intent.action.(BOOT_COMPLETED|MY_PACKAGE_REPLACED)' <<<"$restore_logs"; then
-    restore_receiver_seen=1
-    break
-  fi
-  sleep 2
-done
-if [[ "$restore_receiver_seen" -ne 1 ]]; then
-  echo "Guardian system-event restore receiver did not run after the installed-app upgrade."
-  adb_poll shell logcat -d -s GuardianProtection:I | tail -80 || true
-  exit 1
-fi
-# The receiver's diagnostic is emitted before teardown; allow it to return
-# before force-stopping Guardian and replacing its SharedPreferences fixture.
-sleep 3
 
-echo "Verifying a changed filter profile is refreshed even when automatic updates are disabled."
-adb_cmd shell am force-stop "$PACKAGE"
-app_stopped=0
-for attempt in $(seq 1 20); do
-  app_pid="$(adb_poll shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
-  if [[ -z "$app_pid" ]]; then
-    app_stopped=1
-    break
-  fi
-  sleep 1
-done
-if [[ "$app_stopped" -ne 1 ]]; then
-  echo "Guardian process did not stop before updating its SharedPreferences fixture."
-  adb_poll shell pidof "$PACKAGE" || true
-  exit 1
-fi
-profile_prefs="$(read_prefs)"
-if ! grep -q 'name="filter_cached_profile">adguard</string>' <<<"$profile_prefs"; then
-  echo "Profile-refresh test expected the initial AdGuard cache before changing the selected profile."
-  read_prefs
-  exit 1
-fi
-profile_fixture="$(sed -E \
-  -e 's#<string name="filter_profile">[^<]*</string>##g' \
-  -e 's#<boolean name="filter_auto_update" value="[^"]*" />##g' \
-  -e 's#</map>#<boolean name="filter_auto_update" value="false" /><string name="filter_profile">1hosts_lite</string></map>#' \
-  <<<"$profile_prefs")"
-printf '%s' "$profile_fixture" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
-adb_cmd logcat -c
-launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1 || true)"
-if ! grep -q 'Status: ok' <<<"$launch_result"; then
-  echo "Guardian did not launch after the selected-profile mismatch fixture."
-  echo "$launch_result"
-  exit 1
-fi
-profile_refresh=0
-for attempt in $(seq 1 120); do
-  prefs="$(read_prefs)"
-  guardian_logs="$(adb_poll shell logcat -d -s Guardian:I 2>/dev/null || true)"
-  if grep -q 'name="filter_cached_profile">1hosts_lite</string>' <<<"$prefs" &&
-     grep -q 'name="filter_auto_update"[^>]*value="false"' <<<"$prefs" &&
-     grep -q 'name="filter_list_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs" &&
-     grep -Fq 'profileChanged=true selectedProfile=1hosts_lite cachedProfile=adguard' <<<"$guardian_logs" &&
-     grep -Fq 'Starting filter update for 1hosts_lite' <<<"$guardian_logs"; then
-    profile_refresh=1
-    break
-  fi
-  if (( attempt % 15 == 0 )); then
-    echo "Waiting for the selected profile cache to refresh while recurring updates remain disabled ($attempt/120)."
-    read_prefs | grep -E 'filter_profile|filter_cached_profile|filter_auto_update|filter_list_' || true
-    printf '%s\n' "$guardian_logs" | tail -35 || true
-  fi
-  sleep 2
-done
-if [[ "$profile_refresh" -ne 1 ]]; then
-  echo "A selected-profile cache mismatch did not trigger the required first-party refresh with auto-update disabled."
-  read_prefs
-  adb_cmd logcat -d -t 6000 | grep -E 'Guardian|Filter|FATAL EXCEPTION' | tail -220 || true
-  exit 1
-fi
-echo "Selected filter profile refresh passed while automatic filter updates remained disabled."
 
 # Locate the visible home-screen control by its accessibility text rather than
 # relying on a fixed screen coordinate.
@@ -1874,6 +1778,112 @@ if len(fields)<2:
     raise SystemExit("Support ticket lookup must expose ticket reference and private access-code fields.")' <<<"$support_lookup_xml"
 tap_text "취소"
 echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
+
+current_version="$(adb_cmd shell dumpsys package "$PACKAGE" | sed -n 's/.*versionName=//p' | head -1 | tr -d '\r')"
+expected_version="${GUARDIAN_CURRENT_VERSION_NAME:-0.7.61-dev}"
+if [[ "$current_version" != "$expected_version" ]]; then
+  echo "Selected-profile refresh test requires the current APK $expected_version; found $current_version."
+  exit 1
+fi
+
+echo "Waiting for Android boot completion and a real Guardian system-event restore callback before the selected-profile refresh scenario after installing the current APK."
+boot_completed=0
+for attempt in $(seq 1 60); do
+  boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+  if [[ "$boot_state" == "1" ]]; then
+    boot_completed=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$boot_completed" -ne 1 ]]; then
+  echo "Android emulator did not finish booting before the selected-profile refresh scenario."
+  exit 1
+fi
+# The emulator is already booted before the app is installed. Android therefore
+# cannot deliver the earlier BOOT_COMPLETED event to this newly installed package.
+# During the tested in-place APK upgrade, PackageManager sends MY_PACKAGE_REPLACED.
+# Accept either genuine system callback; do not fabricate a protected broadcast.
+restore_receiver_seen=0
+for attempt in $(seq 1 60); do
+  restore_logs="$(adb_poll shell logcat -d -s GuardianProtection:I 2>/dev/null || true)"
+  if grep -Eq 'action=android.intent.action.(BOOT_COMPLETED|MY_PACKAGE_REPLACED)' <<<"$restore_logs"; then
+    restore_receiver_seen=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$restore_receiver_seen" -ne 1 ]]; then
+  echo "Guardian system-event restore receiver did not run after the installed-app upgrade."
+  adb_poll shell logcat -d -s GuardianProtection:I | tail -80 || true
+  exit 1
+fi
+# The receiver's diagnostic is emitted before teardown; allow it to return
+# before force-stopping Guardian and replacing its SharedPreferences fixture.
+sleep 3
+
+echo "Verifying a changed filter profile is refreshed even when automatic updates are disabled."
+adb_cmd shell am force-stop "$PACKAGE"
+app_stopped=0
+for attempt in $(seq 1 20); do
+  app_pid="$(adb_poll shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+  if [[ -z "$app_pid" ]]; then
+    app_stopped=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$app_stopped" -ne 1 ]]; then
+  echo "Guardian process did not stop before updating its SharedPreferences fixture."
+  adb_poll shell pidof "$PACKAGE" || true
+  exit 1
+fi
+profile_prefs="$(read_prefs)"
+if ! grep -q 'name="filter_cached_profile">adguard</string>' <<<"$profile_prefs"; then
+  echo "Profile-refresh test expected the initial AdGuard cache before changing the selected profile."
+  read_prefs
+  exit 1
+fi
+profile_fixture="$(sed -E \
+  -e 's#<string name="filter_profile">[^<]*</string>##g' \
+  -e 's#<boolean name="filter_auto_update" value="[^"]*" />##g' \
+  -e 's#</map>#<boolean name="filter_auto_update" value="false" /><string name="filter_profile">1hosts_lite</string></map>#' \
+  <<<"$profile_prefs")"
+printf '%s' "$profile_fixture" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
+adb_cmd logcat -c
+launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1 || true)"
+if ! grep -q 'Status: ok' <<<"$launch_result"; then
+  echo "Guardian did not launch after the selected-profile mismatch fixture."
+  echo "$launch_result"
+  exit 1
+fi
+profile_refresh=0
+for attempt in $(seq 1 120); do
+  prefs="$(read_prefs)"
+  guardian_logs="$(adb_poll shell logcat -d -s Guardian:I 2>/dev/null || true)"
+  if grep -q 'name="filter_cached_profile">1hosts_lite</string>' <<<"$prefs" &&
+     grep -q 'name="filter_auto_update"[^>]*value="false"' <<<"$prefs" &&
+     grep -q 'name="filter_list_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs" &&
+     grep -Fq 'profileChanged=true selectedProfile=1hosts_lite cachedProfile=adguard' <<<"$guardian_logs" &&
+     grep -Fq 'Starting filter update for 1hosts_lite' <<<"$guardian_logs"; then
+    profile_refresh=1
+    break
+  fi
+  if (( attempt % 15 == 0 )); then
+    echo "Waiting for the selected profile cache to refresh while recurring updates remain disabled ($attempt/120)."
+    read_prefs | grep -E 'filter_profile|filter_cached_profile|filter_auto_update|filter_list_' || true
+    printf '%s\n' "$guardian_logs" | tail -35 || true
+  fi
+  sleep 2
+done
+if [[ "$profile_refresh" -ne 1 ]]; then
+  echo "A selected-profile cache mismatch did not trigger the required first-party refresh with auto-update disabled."
+  read_prefs
+  adb_cmd logcat -d -t 6000 | grep -E 'Guardian|Filter|FATAL EXCEPTION' | tail -220 || true
+  exit 1
+fi
+echo "Selected filter profile refresh passed while automatic filter updates remained disabled."
+
 
 
 auto_pause_picker_visible=0
