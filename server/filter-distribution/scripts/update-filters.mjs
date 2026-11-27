@@ -113,16 +113,20 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         return false;
       }
     };
+    const pinnedVersion = typeof source.upstreamVersion === 'string' &&
+      /^[A-Za-z0-9._+-]{1,128}$/.test(source.upstreamVersion) &&
+      !/^(rolling(?:-unpinned)?|unpinned|latest|main|master|head)$/i.test(source.upstreamVersion);
+    const pinnedSourceUrl = !/@(?:latest|main|master|head)(?:\/|$)/i.test(source.url);
     if (!cleanHttpsReference(source.upstreamRepository) ||
         !cleanHttpsReference(source.licenseUrl) ||
-        typeof source.upstreamVersion !== 'string' ||
-        !/^[A-Za-z0-9._+-]{1,128}$/.test(source.upstreamVersion) ||
+        !pinnedVersion ||
+        !pinnedSourceUrl ||
         source.thirdPartyProvenanceReviewed !== true ||
         typeof source.complianceEvidenceRef !== 'string' ||
         !source.complianceEvidenceRef.trim() ||
         source.complianceEvidenceRef.length > 256) {
       throw new Error(
-        `Source ${source.id} is missing its upstream repository, license URL, version, third-party provenance review or compliance evidence reference.`
+        `Source ${source.id} is missing its upstream repository, license URL, pinned upstream version/URL, third-party provenance review or compliance evidence reference.`
       );
     }
     if (typeof source.licenseId !== 'string' ||
