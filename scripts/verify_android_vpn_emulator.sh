@@ -1351,6 +1351,33 @@ if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
   fi
   scroll_to_text "$legacy_general_target"
 else
+ensure_text_visible() {
+  local wanted="$1" attempt size width height center_x start_y end_y xml
+  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
+  width="${size%x*}"
+  height="${size#*x}"
+  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
+    echo "Could not determine a usable emulator display size: $size"
+    return 1
+  fi
+  center_x=$((width / 2))
+  start_y=$((height * 4 / 5))
+  end_y=$((height / 5))
+  for attempt in $(seq 1 10); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
+    if grep -Fq "$wanted" <<<"$xml"; then
+      echo "Visible without activation: $wanted"
+      return 0
+    fi
+    echo "Scrolling to reveal '$wanted' without opening it (attempt $attempt/10)."
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Could not reveal the category without activating it: $wanted"
+  dump_ui_hierarchy /sdcard/guardian-scroll-target.xml
+  return 1
+}
+
   ensure_text_visible "일반"
   tap_clickable_parent_of_text "일반"
 fi
@@ -1871,32 +1898,6 @@ if missing_settings or not selected_settings:
     raise SystemExit("Guardian Settings landing page is missing agreed categories: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
 # Settings is now a persistent compact left rail with a right-side content
 # workspace. All five categories remain visible without scrolling.
-ensure_text_visible() {
-  local wanted="$1" attempt size width height center_x start_y end_y xml
-  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
-  width="${size%x*}"
-  height="${size#*x}"
-  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
-    echo "Could not determine a usable emulator display size: $size"
-    return 1
-  fi
-  center_x=$((width / 2))
-  start_y=$((height * 4 / 5))
-  end_y=$((height / 5))
-  for attempt in $(seq 1 10); do
-    xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
-    if grep -Fq "$wanted" <<<"$xml"; then
-      echo "Visible without activation: $wanted"
-      return 0
-    fi
-    echo "Scrolling to reveal '$wanted' without opening it (attempt $attempt/10)."
-    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
-    sleep 0.4
-  done
-  echo "Could not reveal the category without activating it: $wanted"
-  dump_ui_hierarchy /sdcard/guardian-scroll-target.xml
-  return 1
-}
 ensure_text_visible "PRO"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-license-menu.xml >/dev/null 2>&1
