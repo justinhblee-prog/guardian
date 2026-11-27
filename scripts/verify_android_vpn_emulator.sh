@@ -1520,7 +1520,7 @@ python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 visible={node.attrib.get("text","").strip() for node in root.iter("node")
          if node.attrib.get("visible-to-user","true")=="true"}
-required={"일반","프로그램 업데이트"}
+required={"일반","프로그램 업데이트","업데이트 채널","안정 (Stable)"}
 missing=required-visible
 if missing:
     raise SystemExit("Inline Program Updates panel did not expand; missing: "+repr(sorted(missing)))' <<<"$updates_xml" || {
@@ -1528,79 +1528,67 @@ if missing:
   echo "$updates_xml"
   exit 1
 }
-
-# The right-hand workspace is independently scrollable. The channel selector
-# is visible when the accordion first opens, but the development check action
-# is lower in the same panel on a phone-sized viewport. Scroll to the real
-# action before asserting or tapping it; do not mistake off-screen content for
-# a missing UI element.
-ensure_text_visible "개발 업데이트 확인"
-updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
-if ! grep -Fq '개발 업데이트 확인' <<<"$updates_xml"; then
-  echo "The expanded Program Updates panel did not expose its development check action after scrolling."
+if grep -Eq '베타 \(Beta\)|개발 \(Dev\)' <<<"$updates_xml"; then
+  echo "Beta/Dev channels were exposed before administrator authentication."
   echo "$updates_xml"
   exit 1
 fi
 
-# Exercise the actual development update check, not only the presence of its
-# controls. PR builds are intentionally not published as releases, so the
-# currently published manifest must resolve to "already latest" for this
-# higher versionCode. This validates network/API parsing and the no-update UI
-# without downloading or installing an untrusted/unpublished build.
+# The current private-channel design deliberately labels the common action
+# "업데이트 확인"; it is not a separate "개발 업데이트 확인" button. Admin
+# credentials unlock Beta/Dev choices and remain device-local. Exercise the
+# public Stable updater here, then verify the admin-auth entry is present.
 if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
-  tap_text "개발 업데이트 확인"
+  ensure_text_visible "업데이트 확인"
+  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-check.xml)"
+  grep -Fq '업데이트 확인' <<<"$updates_xml" || {
+    echo "The expanded Program Updates panel does not expose its common update-check action."
+    echo "$updates_xml"
+    exit 1
+  }
+  tap_text "업데이트 확인"
   update_check_ready=0
   for attempt in $(seq 1 20); do
     sleep 1
     updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-result.xml)"
-    if grep -Fq '공개된 개발 릴리스 중 현재 설치 버전보다 새로운 버전이 없습니다.' <<<"$updates_xml"; then
+    if grep -Fq '현재 설치된 정식 버전이 최신입니다.' <<<"$updates_xml"; then
       update_check_ready=1
       break
     fi
     if grep -Eq '업데이트 실패|업데이트 확인에 실패|업데이트를 확인할 수 없습니다|오류' <<<"$updates_xml"; then
-      # The live VPN/DNS acceptance test must not turn a transient GitHub
-      # Releases API outage into a false product failure. The updater is
-      # expected to surface a clear, recoverable network-timeout state; all
-      # manifest parsing/version-policy behavior remains covered by unit tests.
       if grep -Eq '네트워크 연결 시간 초과|연결 시간 초과|NETWORK_TIMEOUT' <<<"$updates_xml"; then
-        echo "Development updater surfaced its explicit recoverable network-timeout state; live GitHub reachability is recorded as degraded, not as a VPN/DNS failure."
+        echo "Stable updater surfaced its explicit recoverable network-timeout state; continuing independent VPN, DNS, and navigation acceptance checks."
         update_check_ready=1
         break
       fi
-      echo "Development update check returned a non-network error instead of a valid latest-version response."
+      echo "Stable update check returned a non-network error."
       echo "$updates_xml"
       exit 1
     fi
   done
   if [[ "$update_check_ready" -ne 1 ]]; then
-    echo "Development update check did not reach a valid latest-version or recoverable network-timeout state."
+    echo "Stable update check did not reach a valid latest-version or recoverable network-timeout state."
     echo "$updates_xml"
     exit 1
   fi
-  if grep -Eq '네트워크 연결 시간 초과|연결 시간 초과|NETWORK_TIMEOUT' <<<"$updates_xml"; then
-    echo "Development update UI gracefully exposed the transient network timeout; continuing independent VPN, DNS, and navigation acceptance checks."
-  else
-    echo "Development update check reached the expected latest-version state."
+  if grep -Fq '현재 설치된 정식 버전이 최신입니다.' <<<"$updates_xml"; then
+    echo "Stable update check reached the expected latest-version state."
   fi
 fi
 
-# The updater's install action is further down the same scrollable panel.
-# Verify it independently after the development check rather than requiring
-# both controls to fit in one viewport.
-install_visible=0
-for attempt in $(seq 1 8); do
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-raise SystemExit(0 if any(node.attrib.get("text","").strip()=="업데이트 설치"
-  and node.attrib.get("visible-to-user","true")=="true" for node in root.iter("node")) else 1)' <<<"$updates_xml"; then
-    install_visible=1
-    break
-  fi
-  adb_cmd shell input swipe 800 1510 800 980 350
-  sleep 0.35
-  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
-done
-if [[ "$install_visible" -ne 1 ]]; then
+ensure_text_visible "관리자 채널 인증"
+updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-admin.xml)"
+if ! grep -Fq '관리자 채널 인증' <<<"$updates_xml"; then
+  echo "The updater does not expose its device-local administrator channel authentication control."
+  echo "$updates_xml"
+  exit 1
+fi
+
+# The install action is further down the same scrollable panel. Verify its
+# presence independently; it remains disabled until a verified APK is ready.
+ensure_text_visible "업데이트 설치"
+updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-install.xml)"
+if ! grep -Fq '업데이트 설치' <<<"$updates_xml"; then
   echo "The expanded Program Updates panel does not expose its install action after scrolling."
   echo "$updates_xml"
   exit 1
@@ -1622,9 +1610,6 @@ if ! grep -Fq '프로그램 업데이트 확인 접기' <<<"$updater_expanded_xm
   echo "$updater_expanded_xml"
   exit 1
 fi
-# Verify the same inline updater control collapses and re-expands with the
-# correct directional arrow; do not navigate away or open a second screen.
-updater_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-expanded.xml)"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 texts=[n.attrib.get("text","") for n in root.iter("node")]
@@ -1638,22 +1623,20 @@ root=ET.fromstring(sys.stdin.read())
 texts=[n.attrib.get("text","") for n in root.iter("node")]
 if not any(t.startswith("⌄") and "프로그램 업데이트 확인" in t and "접기" not in t for t in texts):
     raise SystemExit("Collapsed updater control must show the downward expand arrow.")
-if any("개발 업데이트 확인" in t for t in texts):
+if any(t in {"업데이트 확인","관리자 채널 인증","업데이트 설치"} for t in texts):
     raise SystemExit("Updater contents remained visible after collapse.")
 print("Program Updates inline collapse/expand arrow toggle passed.")' <<<"$updater_collapsed_xml"
 tap_text "프로그램 업데이트 확인"
 sleep 1
 updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
-if ! grep -Fq '개발 업데이트 확인' <<<"$updater_reopened_xml"; then
-  ensure_text_visible "개발 업데이트 확인"
-  updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
-fi
-grep -Fq '개발 업데이트 확인' <<<"$updater_reopened_xml" || {
+ensure_text_visible "업데이트 확인"
+updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
+grep -Fq '업데이트 확인' <<<"$updater_reopened_xml" || {
   echo "Program Updates panel did not reopen after its collapse test."
   echo "$updater_reopened_xml"
   exit 1
 }
-echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater panel, executes its version check, and passes the arrow collapse/expand test."
+echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater, validates Stable update checking and admin-gated channels, and passes the arrow collapse/expand test."
 tap_content_description "설정"
 sleep 1
 # The redesigned app removed the global header exit action. Exit is now
