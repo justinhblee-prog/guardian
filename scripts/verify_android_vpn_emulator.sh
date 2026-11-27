@@ -1200,6 +1200,29 @@ if grep -Eq 'PING guardian-ci-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-b
   exit 1
 fi
 
+echo "Triggering a DNS lookup for a newly added offline ad-network rule."
+before_expanded_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_expanded_ad="$(sed -n 's/.*name="dns_ad_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+if [[ -z "$before_expanded_blocked" ]]; then before_expanded_blocked=0; fi
+if [[ -z "$before_expanded_ad" ]]; then before_expanded_ad=0; fi
+run_id="$(printenv GITHUB_RUN_ID 2>/dev/null || echo test)"
+adb_cmd shell ping -c 1 -W 5 "guardian-ci-$run_id.pubmatic.com" >/tmp/guardian-expanded-ad-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_expanded_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+after_expanded_ad="$(sed -n 's/.*name="dns_ad_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+if [[ -z "$after_expanded_blocked" ]]; then after_expanded_blocked=0; fi
+if [[ -z "$after_expanded_ad" ]]; then after_expanded_ad=0; fi
+if (( after_expanded_blocked <= before_expanded_blocked )) ||
+   (( after_expanded_ad <= before_expanded_ad )) ||
+   grep -Eq 'PING guardian-ci-[^ ]*\.pubmatic\.com \([^)]*\)' /tmp/guardian-expanded-ad-dns.txt; then
+  echo "Expanded offline ad-network rule did not block the PubMatic test domain."
+  cat /tmp/guardian-expanded-ad-dns.txt || true
+  read_prefs
+  exit 1
+fi
+echo "Expanded offline ad-network DNS rule passed: PubMatic was blocked and counted as an ad."
+
 echo "VPN E2E passed: tunnel active, allowed DNS resolved, built-in and saved custom block rules returned no address."
 echo "Custom blocked lookup:"
 cat /tmp/guardian-custom-blocked-dns.txt || true
