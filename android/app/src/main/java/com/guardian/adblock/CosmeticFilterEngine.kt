@@ -43,6 +43,16 @@ object CosmeticFilterEngine {
         "##div:has(iframe[src*='doubleclick.net'])",
         "##div:has(iframe[src*='googlesyndication.com'])",
         "##div:has(ins.adsbygoogle)",
+        // Hide the immediate slot wrapper as well as its blocked child. This
+        // collapses fixed-height blank ad boxes without hiding broad page regions.
+        "##:where(div,section,aside):has(> iframe[src*='doubleclick.net'])",
+        "##:where(div,section,aside):has(> iframe[src*='googlesyndication.com'])",
+        "##:where(div,section,aside):has(> iframe[src*='adservice.google'])",
+        "##:where(div,section,aside):has(> iframe[id^='google_ads_iframe'])",
+        "##:where(div,section,aside):has(> ins.adsbygoogle[data-ad-status='unfilled'])",
+        "##:where(div,section,aside):has(> [data-ad-status='unfilled'])",
+        "##:where(div,section,aside):has(> [data-ad-slot]:empty)",
+        "##.google-auto-placed:empty",
         "##.adunit",
         "##.ad-unit",
         "##.ad-slot",
