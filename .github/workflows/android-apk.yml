@@ -2,6 +2,13 @@ name: Guardian AdBlock Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      channel:
+        description: Private update channel to build and publish
+        required: true
+        type: choice
+        options: [dev, beta]
+        default: dev
   push:
     # Verify development branches as well as main; their commit checks also
     # surface on the associated PR, even if a PR webhook is missed.
@@ -51,6 +58,8 @@ jobs:
     # Pin the stable Ubuntu 24.04 image: ubuntu-latest moved to 26.04,
     # whose Android Emulator runtime is missing libpulse.so.0.
     runs-on: ubuntu-24.04
+    env:
+      GUARDIAN_UPDATE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'dev' }}
     timeout-minutes: 45
     steps:
       - name: Checkout source
@@ -58,30 +67,44 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Resolve the next published development version
+      - name: Resolve the next private update channel version
         id: dev_version
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GUARDIAN_LICENSE_API_BASE_URL: ${{ vars.GUARDIAN_LICENSE_API_BASE_URL }}
+          GUARDIAN_ADMIN_TOKEN: ${{ secrets.GUARDIAN_ADMIN_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p release
-          # 0.7.60-dev (versionCode 73) is the latest verified development APK.
-          # CI artifacts are not GitHub Releases, so the public release list can lag
-          # behind the version already distributed to the user. Keep the delivered
-          # baseline explicit: the next distinct build must be versionCode 74+.
-          # Never derive the app version from public release tags alone.
-          # Main reruns reuse the release version for the same source commit.
-          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
-          python3 scripts/resolve_guardian_dev_version.py \
-            --releases-json release/guardian-releases.json \
-            --commit "$GITHUB_SHA" \
-            --baseline-version "0.7.60-dev" \
-            --baseline-code 73 \
-            --github-env "$GITHUB_ENV" \
-            --github-output "$GITHUB_OUTPUT"
-          echo "Version resolution completed."
-
+          if [[ "$GITHUB_REF" == "refs/heads/main" && "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
+            test -n "$GUARDIAN_ADMIN_TOKEN"
+            API="${GUARDIAN_LICENSE_API_BASE_URL:-https://br-shiny-mountain-bi4ia7g2-guardianapi.compute.c-5.ap-southeast-1.aws.neon.tech}"
+            API="${API%/}"
+            curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer $GUARDIAN_ADMIN_TOKEN" \
+              -H "Accept: application/json" \
+              "$API/v1/admin/updates" > release/guardian-private-updates.json
+            python3 scripts/resolve_guardian_private_update_version.py \
+              --updates-json release/guardian-private-updates.json \
+              --channel "$GUARDIAN_UPDATE_CHANNEL" \
+              --baseline-version "0.7.60-$GUARDIAN_UPDATE_CHANNEL" \
+              --baseline-code 73 \
+              --github-env "$GITHUB_ENV" \
+              --github-output "$GITHUB_OUTPUT"
+          else
+            # PR builds are never published; use the public release baseline only
+            # to create a throwaway validation APK without production secrets.
+            gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
+            python3 scripts/resolve_guardian_dev_version.py \
+              --releases-json release/guardian-releases.json \
+              --commit "$GITHUB_SHA" \
+              --baseline-version "0.7.60-dev" \
+              --baseline-code 73 \
+              --github-env "$GITHUB_ENV" \
+              --github-output "$GITHUB_OUTPUT"
+          fi
+          echo "Private update channel version resolution completed."
       - name: Verify shared DNS filter rules
         run: test -s shared/filter_rules.txt
 
@@ -728,10 +751,11 @@ jobs:
           name: guardian-android-debug
           path: .
 
-      - name: Upload and publish APK to the private Dev channel
+      - name: Upload and publish APK to the private update channel
         env:
           GUARDIAN_LICENSE_API_BASE_URL: ${{ vars.GUARDIAN_LICENSE_API_BASE_URL }}
           GUARDIAN_ADMIN_TOKEN: ${{ secrets.GUARDIAN_ADMIN_TOKEN }}
+          GUARDIAN_UPDATE_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'dev' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -749,11 +773,13 @@ jobs:
           digest = hashlib.sha256(apk.read_bytes()).hexdigest()
           assert manifest["packageName"] == "com.guardian.adblock"
           assert isinstance(manifest["versionCode"], int) and manifest["versionCode"] > 0
-          assert re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+-dev", manifest["versionName"])
+          channel = __import__('os').environ['GUARDIAN_UPDATE_CHANNEL']
+          assert channel in ('dev', 'beta')
+          assert re.fullmatch(rf"[0-9]+\\.[0-9]+\\.[0-9]+-{channel}", manifest["versionName"])
           assert manifest["sha256"].lower() == digest
           assert re.fullmatch(r"[a-f0-9]{64}", manifest["signerSha256"].lower())
           payload = {
-              "channel": "dev",
+              "channel": channel,
               "versionCode": manifest["versionCode"],
               "versionName": manifest["versionName"],
               "sha256": digest,
