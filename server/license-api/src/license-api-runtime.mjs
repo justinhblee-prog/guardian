@@ -7,6 +7,16 @@ import {
   validateDeviceBinding, verifyLicenseKey
 } from './license-core.mjs';
 
+export function readBoundedIntegerSetting(environment, key, fallback, minimum, maximum) {
+  const raw = environment[key];
+  if (raw === undefined || raw === null || raw === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`${key} must be an integer between ${minimum} and ${maximum}.`);
+  }
+  return value;
+}
+
 export function createLicenseApiRuntime(environment = process.env, options = {}) {
 const { Pool } = pg;
 const DATABASE_URL = environment.DATABASE_URL;
@@ -16,8 +26,8 @@ const LOOKUP_SECRET = environment.GUARDIAN_LICENSE_LOOKUP_SECRET;
 const TOKEN_TTL_SECONDS = 24 * 60 * 60;
 const BODY_LIMIT = 16 * 1024;
 const rateLimitOptions = {
-  windowMs: Number(environment.GUARDIAN_RATE_LIMIT_WINDOW_MS || 60_000),
-  maxRequests: Number(environment.GUARDIAN_RATE_LIMIT_MAX || 30)
+  windowMs: readBoundedIntegerSetting(environment, 'GUARDIAN_RATE_LIMIT_WINDOW_MS', 60_000, 1_000, 3_600_000),
+  maxRequests: readBoundedIntegerSetting(environment, 'GUARDIAN_RATE_LIMIT_MAX', 30, 1, 10_000)
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
@@ -26,7 +36,7 @@ const RATE_LIMITED_PATHS = new Set([
 ]);
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
-  max: Number(environment.PG_POOL_MAX || 10),
+  max: readBoundedIntegerSetting(environment, 'PG_POOL_MAX', 10, 1, 50),
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 30_000,
   statement_timeout: 10_000,
