@@ -94,11 +94,11 @@ internal object DevUpdateManager {
             // downloads dozens of old JSON files one by one before reporting "up to date".
             if (!shouldFetchReleaseManifest(BuildConfig.VERSION_CODE, candidate.tagVersion)) continue
 
-            require(isGuardianReleaseAssetUrl(candidate.manifestUrl)) {
-                "개발 업데이트 manifest 주소가 허용된 GitHub Release가 아닙니다."
+            require(isGuardianDevReleaseAssetUrl(candidate.manifestUrl, MANIFEST_ASSET, candidate.tagVersion)) {
+                "개발 업데이트 manifest 주소가 공식 Guardian Release asset이 아닙니다."
             }
-            require(isGuardianReleaseAssetUrl(candidate.apkUrl)) {
-                "개발 APK 주소가 허용된 GitHub Release가 아닙니다."
+            require(isGuardianDevReleaseAssetUrl(candidate.apkUrl, APK_ASSET, candidate.tagVersion)) {
+                "개발 APK 주소가 공식 Guardian Release asset이 아닙니다."
             }
             onProgress?.invoke("새 버전 ${candidate.tagVersion} 배포 정보 확인 중…")
             val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
@@ -148,6 +148,11 @@ internal object DevUpdateManager {
         return result
     }
     fun download(context: Context, update: GuardianDevUpdate): File {
+        // Validate the exact repository, release tag shape and APK asset before opening a connection.
+        // The post-redirect host check below remains a second independent boundary.
+        require(isGuardianDevReleaseAssetUrl(update.apkUrl, APK_ASSET)) {
+            "APK 다운로드 주소가 공식 Guardian 개발 Release asset이 아닙니다."
+        }
         require(update.signerSha256 == installedSignerSha256(context)) {
             "업데이트 서명 인증서가 현재 설치된 개발 버전과 다릅니다. 설치를 중단했습니다."
         }
@@ -216,12 +221,29 @@ internal object DevUpdateManager {
         return true
     }
 
-    internal fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
+    internal fun isGuardianDevReleaseAssetUrl(
+        address: String,
+        expectedAssetName: String,
+        expectedTagVersion: Int? = null
+    ): Boolean = runCatching {
         val uri = java.net.URI(address)
-        uri.scheme.equals("https", true) &&
+        val assetNameAllowed = expectedAssetName == APK_ASSET || expectedAssetName == MANIFEST_ASSET
+        val tagPattern = Regex(
+            "^/justinhblee-prog/guardian/releases/download/guardian-dev-v([1-9][0-9]*)/" +
+                java.util.regex.Pattern.quote(expectedAssetName) + "$"
+        )
+        val tagVersion = tagPattern.matchEntire(uri.rawPath.orEmpty())
+            ?.groupValues?.getOrNull(1)?.toIntOrNull()
+        assetNameAllowed &&
+            uri.scheme.equals("https", true) &&
             uri.host.equals("github.com", true) &&
-            uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
-            uri.userInfo == null && uri.query == null && uri.fragment == null
+            uri.port == -1 &&
+            uri.rawUserInfo == null &&
+            uri.rawQuery == null &&
+            uri.rawFragment == null &&
+            uri.path == uri.rawPath &&
+            tagVersion != null &&
+            (expectedTagVersion == null || tagVersion == expectedTagVersion)
     }.getOrDefault(false)
 
     private fun isAllowedHttpsHost(url: URL): Boolean =

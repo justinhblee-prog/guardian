@@ -32,21 +32,44 @@ class DevUpdateManagerTest {
             "https://github.com/justinhblee-prog/guardian/releases/tag/guardian-dev-v72"
         assertTrue(DevUpdateManager.atomTagsFromFeed(feed) == listOf("guardian-dev-v72", "guardian-dev-v71"))
     }
-    @Test fun acceptsOnlyOfficialHttpsReleaseAssetUrls() {
-        assertTrue(DevUpdateManager.isGuardianReleaseAssetUrl(
-            "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+    @Test fun acceptsOnlyCanonicalGuardianDevelopmentReleaseAssets() {
+        val releaseBase = "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/"
+        assertTrue(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            releaseBase + "guardian-android-dev.apk", "guardian-android-dev.apk", 48
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
-            "http://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        assertTrue(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            releaseBase + "guardian-android-dev.json", "guardian-android-dev.json", 48
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
-            "https://evil.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        assertFalse(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            releaseBase + "guardian-android-dev.apk", "guardian-android-dev.apk", 49
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
-            "https://github.com.attacker.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        assertFalse(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            releaseBase + "other.apk", "guardian-android-dev.apk", 48
         ))
-        assertFalse(DevUpdateManager.isGuardianReleaseAssetUrl(
-            "https://user@github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk"
+        assertFalse(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            releaseBase + "../guardian-android-dev.apk", "guardian-android-dev.apk", 48
+        ))
+        assertFalse(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            releaseBase + "guardian-android-dev.apk?redirect=https://evil.example",
+            "guardian-android-dev.apk", 48
+        ))
+        assertFalse(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            releaseBase + "guardian-android-dev.apk#fragment", "guardian-android-dev.apk", 48
+        ))
+        assertFalse(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            "http://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk",
+            "guardian-android-dev.apk", 48
+        ))
+        assertFalse(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            "https://github.com.attacker.example/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk",
+            "guardian-android-dev.apk", 48
+        ))
+        assertFalse(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            "https://user@github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v48/guardian-android-dev.apk",
+            "guardian-android-dev.apk", 48
+        ))
+        assertFalse(DevUpdateManager.isGuardianDevReleaseAssetUrl(
+            releaseBase + "guardian-android-dev.apk", "arbitrary.zip", 48
         ))
     }
 
