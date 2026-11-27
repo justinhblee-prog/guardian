@@ -165,7 +165,7 @@ function requireSigner() {
   if (!PRIVATE_KEY) throw Object.assign(new Error('라이선스 서명 키가 서버에 구성되지 않았습니다.'), { status: 503 });
   try {
     const key = createPrivateKey(PRIVATE_KEY.replace(/\\n/g, '\n'));
-    if (key.asymmetricKeyType !== 'rsa' || (key.asymmetricKeyDetails?.modulusLength || 0) < 2048) {
+    if (key.asymmetricKeyType !== 'rsa' || (key.asymmetricKeyDetails?.modulusLength || 0) < 2048 || (key.asymmetricKeyDetails?.modulusLength || 0) > 4096) {
       throw new Error('weak_or_non_rsa_key');
     }
     return key;
