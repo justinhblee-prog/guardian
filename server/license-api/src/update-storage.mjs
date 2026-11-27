@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 
 const AWS_ALGORITHM = 'AWS4-HMAC-SHA256';
 const MAX_EXPIRY_SECONDS = 7 * 24 * 60 * 60;
@@ -65,7 +65,7 @@ export function createPresignedObjectUrl({
   ].join('\n');
   const stringToSign = [
     AWS_ALGORITHM, amzDate, scope,
-    hmac(Buffer.from(signingKey(secretKey, date, region)), canonicalRequest, 'hex')
+    createHash('sha256').update(canonicalRequest, 'utf8').digest('hex')
   ].join('\n');
   const signature = hmac(signingKey(secretKey, date, region), stringToSign, 'hex');
   const url = new URL(base.origin + path);
