@@ -65,7 +65,7 @@ internal class GuardianAppUpdateCheckWorker(
                     "Guardian 앱 업데이트",
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
-                    description = "새로운 Guardian 앱 버전을 알려드립니다."
+                    this.description = "새로운 Guardian 앱 버전을 알려드립니다."
                 }
             )
         }
@@ -82,9 +82,9 @@ internal class GuardianAppUpdateCheckWorker(
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Guardian 새 업데이트")
-            .setContentText("$description을 받을 수 있습니다. 눌러서 다운로드하세요.")
+            .setContentText("${description}을 받을 수 있습니다. 눌러서 다운로드하세요.")
             .setStyle(NotificationCompat.BigTextStyle().bigText(
-                "$description이 배포되었습니다. 알림을 누르면 Guardian 업데이트 화면이 열리고, 다운로드 및 무결성 검증이 자동으로 시작됩니다."
+                "${description}이 배포되었습니다. 알림을 누르면 Guardian 업데이트 화면이 열리고, 다운로드 및 무결성 검증이 자동으로 시작됩니다."
             ))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
