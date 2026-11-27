@@ -1390,10 +1390,28 @@ sleep 1
 updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
 if ! grep -Fq '프로그램 업데이트' <<<"$updates_xml" ||
    ! grep -Fq '관리자 채널 인증' <<<"$updates_xml" ||
-   ! grep -Fq '관리자 인증 토큰' <<<"$updates_xml" ||
-   ! grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$updates_xml" ||
-   ! grep -Fq '업데이트 설치' <<<"$updates_xml"; then
-  echo "The expanded General update accordion is missing update or administrator-authentication controls."
+   ! grep -Fq '관리자 인증 토큰' <<<"$updates_xml"; then
+  echo "The expanded General update accordion is missing its update or administrator-authentication section."
+  echo "$updates_xml"
+  exit 1
+fi
+# The accordion is taller than the phone viewport. UIAutomator reports only
+# on-screen controls, so scroll within the expanded General page before
+# asserting the update actions; do not mistake below-the-fold controls for
+# missing implementation.
+update_actions_visible=0
+for attempt in $(seq 1 8); do
+  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-actions.xml)"
+  if grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$updates_xml" &&
+     grep -Fq '업데이트 설치' <<<"$updates_xml"; then
+    update_actions_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 540 1500 540 650 400
+  sleep 0.4
+done
+if [[ "$update_actions_visible" -ne 1 ]]; then
+  echo "The expanded General update accordion did not expose update action controls after scrolling."
   echo "$updates_xml"
   exit 1
 fi
