@@ -9,6 +9,14 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+$parsedUrl = $null
+if (-not [Uri]::TryCreate($NeonInvocationUrl, [UriKind]::Absolute, [ref]$parsedUrl) -or
+    $parsedUrl.Scheme -ne 'https' -or
+    $parsedUrl.Host -notlike '*.compute.c-5.ap-southeast-1.aws.neon.tech' -or
+    $parsedUrl.AbsolutePath -ne '/' -or $parsedUrl.Query -or $parsedUrl.Fragment) {
+  throw 'NeonInvocationUrl은 지정된 Neon Function의 HTTPS origin이어야 합니다. Tailscale/노트북 주소는 허용하지 않습니다.'
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 . (Join-Path $PSScriptRoot 'Guardian-Paths.ps1')
 $paths = Get-GuardianPaths -RepositoryRoot $repoRoot
