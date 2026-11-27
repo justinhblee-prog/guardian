@@ -345,6 +345,65 @@ scroll_to_text() {
   return 1
 }
 
+# Find an exact visible text node rather than a substring. This matters for
+# "업데이트 확인", which is also contained in the accordion header label.
+ensure_exact_text_visible() {
+  local wanted="$1" attempt size width height center_x start_y end_y xml
+  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
+  width="${size%x*}"
+  height="${size#*x}"
+  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
+    echo "Could not determine a usable emulator display size: $size"
+    return 1
+  fi
+  center_x=$((width / 2))
+  start_y=$((height * 4 / 5))
+  end_y=$((height / 5))
+  for attempt in $(seq 1 10); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-exact-scroll-target.xml)"
+    if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+raise SystemExit(0 if any(n.attrib.get("text","").strip()==sys.argv[1]
+  and n.attrib.get("visible-to-user","true")=="true" for n in root.iter("node")) else 1)' "$wanted" <<<"$xml"; then
+      echo "Exact text visible without activation: $wanted"
+      return 0
+    fi
+    echo "Scrolling to exact text '$wanted' (attempt $attempt/10)."
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Could not bring exact text into the visible viewport: $wanted"
+  dump_ui_hierarchy /sdcard/guardian-exact-scroll-target.xml
+  return 1
+}
+
+tap_exact_text() {
+  local wanted="$1" xml bounds
+  xml="$(dump_ui_hierarchy /sdcard/guardian-exact-tap-target.xml)"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+parents={child: parent for parent in root.iter() for child in parent}
+for node in root.iter("node"):
+    if node.attrib.get("text","").strip()!=sys.argv[1] or node.attrib.get("visible-to-user","true")!="true":
+        continue
+    target=node
+    while target is not None:
+        if target.attrib.get("visible-to-user","true")=="true" and target.attrib.get("clickable")=="true" and target.attrib.get("enabled")=="true":
+            parts=target.attrib.get("bounds","").strip("[]").split("][")
+            if len(parts)==2:
+                x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+                print((x1+x2)//2,(y1+y2)//2)
+                raise SystemExit(0)
+        target=parents.get(target)
+raise SystemExit(1)' "$wanted" <<<"$xml")" || {
+    echo "Could not locate exact visible clickable control: $wanted"
+    echo "$xml"
+    return 1
+  }
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 # Android AlertDialog ListView row TextViews are intentionally non-clickable
 # in UIAutomator's accessibility tree; ListView itself dispatches row taps.
 # Resolve only an exact child of android:id/select_dialog_listview, leaving
@@ -1520,7 +1579,7 @@ python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 visible={node.attrib.get("text","").strip() for node in root.iter("node")
          if node.attrib.get("visible-to-user","true")=="true"}
-required={"일반","프로그램 업데이트","개발 업데이트 확인"}
+required={"일반","프로그램 업데이트","업데이트 채널","안정 (Stable)"}
 missing=required-visible
 if missing:
     raise SystemExit("Inline Program Updates panel did not expand; missing: "+repr(sorted(missing)))' <<<"$updates_xml" || {
@@ -1528,71 +1587,88 @@ if missing:
   echo "$updates_xml"
   exit 1
 }
-install_visible=0
-for attempt in $(seq 1 8); do
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-raise SystemExit(0 if any(node.attrib.get("text","").strip()=="업데이트 설치"
-  and node.attrib.get("visible-to-user","true")=="true" for node in root.iter("node")) else 1)' <<<"$updates_xml"; then
-    install_visible=1
-    break
-  fi
-  adb_cmd shell input swipe 800 1510 800 980 350
-  sleep 0.35
-  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
-done
-if [[ "$install_visible" -ne 1 ]]; then
-  echo "The expanded Program Updates panel does not expose its install action after scrolling."
+if grep -Eq '베타 \(Beta\)|개발 \(Dev\)' <<<"$updates_xml"; then
+  echo "Beta/Dev channels were exposed before administrator authentication."
   echo "$updates_xml"
   exit 1
 fi
 
-# Exercise the actual development update check, not only the presence of its
-# controls. PR builds are intentionally not published as releases, so the
-# currently published manifest must resolve to "already latest" for this
-# higher versionCode. This validates network/API parsing and the no-update UI
-# without downloading or installing an untrusted/unpublished build.
+# The current private-channel design deliberately labels the common action
+# "업데이트 확인"; it is not a separate "개발 업데이트 확인" button. Admin
+# credentials unlock Beta/Dev choices and remain device-local. Exercise the
+# public Stable updater here, then verify the admin-auth entry is present.
 if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
-  tap_text "개발 업데이트 확인"
+  ensure_exact_text_visible "업데이트 확인"
+  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-check.xml)"
+  grep -Fq '업데이트 확인' <<<"$updates_xml" || {
+    echo "The expanded Program Updates panel does not expose its common update-check action."
+    echo "$updates_xml"
+    exit 1
+  }
+  tap_exact_text "업데이트 확인"
   update_check_ready=0
   for attempt in $(seq 1 20); do
     sleep 1
     updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-result.xml)"
-    if grep -Fq '공개된 개발 릴리스 중 현재 설치 버전보다 새로운 버전이 없습니다.' <<<"$updates_xml"; then
+    if grep -Fq '정식 업데이트가 아직 게시되지 않았습니다.' <<<"$updates_xml"; then
       update_check_ready=1
       break
     fi
     if grep -Eq '업데이트 실패|업데이트 확인에 실패|업데이트를 확인할 수 없습니다|오류' <<<"$updates_xml"; then
-      # The live VPN/DNS acceptance test must not turn a transient GitHub
-      # Releases API outage into a false product failure. The updater is
-      # expected to surface a clear, recoverable network-timeout state; all
-      # manifest parsing/version-policy behavior remains covered by unit tests.
       if grep -Eq '네트워크 연결 시간 초과|연결 시간 초과|NETWORK_TIMEOUT' <<<"$updates_xml"; then
-        echo "Development updater surfaced its explicit recoverable network-timeout state; live GitHub reachability is recorded as degraded, not as a VPN/DNS failure."
+        echo "Stable updater surfaced its explicit recoverable network-timeout state; continuing independent VPN, DNS, and navigation acceptance checks."
         update_check_ready=1
         break
       fi
-      echo "Development update check returned a non-network error instead of a valid latest-version response."
+      echo "Stable update check returned a non-network error."
       echo "$updates_xml"
       exit 1
     fi
   done
   if [[ "$update_check_ready" -ne 1 ]]; then
-    echo "Development update check did not reach a valid latest-version or recoverable network-timeout state."
+    echo "Stable update check did not reach a valid latest-version or recoverable network-timeout state."
     echo "$updates_xml"
     exit 1
   fi
-  if grep -Eq '네트워크 연결 시간 초과|연결 시간 초과|NETWORK_TIMEOUT' <<<"$updates_xml"; then
-    echo "Development update UI gracefully exposed the transient network timeout; continuing independent VPN, DNS, and navigation acceptance checks."
-  else
-    echo "Development update check reached the expected latest-version state."
+  if grep -Fq '정식 업데이트가 아직 게시되지 않았습니다.' <<<"$updates_xml"; then
+    echo "Stable update check correctly reported that no Stable release has been published yet."
   fi
 fi
-# Verify the same inline updater control collapses and re-expands with the
-# correct directional arrow; do not navigate away or open a second screen.
-# Confirm the expanded accordion header is visible without tapping it.
-ensure_text_visible "프로그램 업데이트 확인 접기"
-updater_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-expanded.xml)"
+
+ensure_exact_text_visible "관리자 채널 인증"
+updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-admin.xml)"
+if ! grep -Fq '관리자 채널 인증' <<<"$updates_xml"; then
+  echo "The updater does not expose its device-local administrator channel authentication control."
+  echo "$updates_xml"
+  exit 1
+fi
+
+# The install action is further down the same scrollable panel. Verify its
+# presence independently; it remains disabled until a verified APK is ready.
+ensure_exact_text_visible "업데이트 설치"
+updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-install.xml)"
+if ! grep -Fq '업데이트 설치' <<<"$updates_xml"; then
+  echo "The expanded Program Updates panel does not expose its install action after scrolling."
+  echo "$updates_xml"
+  exit 1
+fi
+
+# Return the right-hand workspace to the top so the accordion header can be
+# tested independently from the scrolled action controls.
+updater_expanded_xml=""
+for attempt in $(seq 1 10); do
+  updater_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-expanded.xml)"
+  if grep -Fq '프로그램 업데이트 확인 접기' <<<"$updater_expanded_xml"; then
+    break
+  fi
+  adb_cmd shell input swipe 800 980 800 1510 350
+  sleep 0.35
+done
+if ! grep -Fq '프로그램 업데이트 확인 접기' <<<"$updater_expanded_xml"; then
+  echo "Could not return to the expanded Program Updates accordion header."
+  echo "$updater_expanded_xml"
+  exit 1
+fi
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 texts=[n.attrib.get("text","") for n in root.iter("node")]
@@ -1606,18 +1682,20 @@ root=ET.fromstring(sys.stdin.read())
 texts=[n.attrib.get("text","") for n in root.iter("node")]
 if not any(t.startswith("⌄") and "프로그램 업데이트 확인" in t and "접기" not in t for t in texts):
     raise SystemExit("Collapsed updater control must show the downward expand arrow.")
-if any("개발 업데이트 확인" in t for t in texts):
+if any(t in {"업데이트 확인","관리자 채널 인증","업데이트 설치"} for t in texts):
     raise SystemExit("Updater contents remained visible after collapse.")
 print("Program Updates inline collapse/expand arrow toggle passed.")' <<<"$updater_collapsed_xml"
 tap_text "프로그램 업데이트 확인"
 sleep 1
 updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
-grep -Fq '개발 업데이트 확인' <<<"$updater_reopened_xml" || {
+ensure_text_visible "업데이트 확인"
+updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
+grep -Fq '업데이트 확인' <<<"$updater_reopened_xml" || {
   echo "Program Updates panel did not reopen after its collapse test."
   echo "$updater_reopened_xml"
   exit 1
 }
-echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater panel, executes its version check, and passes the arrow collapse/expand test."
+echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater, validates Stable update checking and admin-gated channels, and passes the arrow collapse/expand test."
 tap_content_description "설정"
 sleep 1
 # The redesigned app removed the global header exit action. Exit is now

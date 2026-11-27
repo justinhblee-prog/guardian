@@ -41,14 +41,19 @@ class AndroidWorkflowPermissionTests(unittest.TestCase):
         self.assertIn('SIGNER_SHA256="$APK_SIGNER_SHA256"', WORKFLOW[manifest_step:])
         self.assertIn('assert manifest["signerSha256"] == os.environ["APK_SIGNER_SHA256"]', WORKFLOW[manifest_step:])
 
-    def test_release_write_permission_is_isolated_to_main_only_job(self):
+    def test_private_update_publisher_has_no_github_release_write_permission(self):
         publish = job_block("publish-development-release")
         self.assertIn("needs: build-apk", publish)
         self.assertIn("if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')", publish)
-        self.assertRegex(publish, r"(?m)^    permissions:\n      contents: write$")
+        self.assertIn("contents: read", publish)
+        self.assertNotIn("contents: write", publish)
         self.assertIn("actions/download-artifact@v4", publish)
-        self.assertIn("gh release create", publish)
-        self.assertIn("gh release upload", publish)
+        self.assertIn("GUARDIAN_ADMIN_TOKEN", publish)
+        self.assertIn("/v1/admin/updates/upload-url", publish)
+        self.assertIn("/v1/admin/updates/publish", publish)
+        self.assertIn("application/vnd.android.package-archive", publish)
+        self.assertNotIn("gh release create", publish)
+        self.assertNotIn("gh release upload", publish)
 
 
 if __name__ == "__main__":

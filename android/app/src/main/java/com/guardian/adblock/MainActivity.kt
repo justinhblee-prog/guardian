@@ -1381,20 +1381,28 @@ class MainActivity : Activity() {
 
         val developmentBuild = BuildConfig.DEBUG
         val stableUpdaterEnabled = BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED
-        val channelDescription = when {
-            developmentBuild -> "개발 채널 · 내부 검증 전용입니다. 일반 사용자에게 개발판을 배포하지 않습니다."
-            stableUpdaterEnabled -> "안정 채널 · 공식 정식 Release만 확인합니다."
-            else -> "안정 채널 · Google Play 배포 유형입니다. 앱 업데이트는 Play 스토어가 관리합니다."
+        val adminUnlocked = GuardianUpdateAdminCredential.load(this) != null
+        body.addView(text(
+            if (adminUnlocked) "안정 채널은 모든 사용자에게 제공되며, 베타·개발 채널은 관리자 인증이 완료된 이 기기에서만 표시됩니다."
+            else "안정 채널만 표시됩니다. 베타·개발 업데이트는 관리자 인증을 완료한 기기에서만 선택할 수 있습니다.",
+            12f, accent, false
+        ).withTop(9))
+
+        val channelNames = mutableListOf("안정 (Stable)")
+        if (adminUnlocked) {
+            channelNames += listOf("베타 (Beta)", "개발 (Dev)")
         }
-        body.addView(text(channelDescription, 12f, accent, false).withTop(9))
-        val feedback = text(
-            when {
-                developmentBuild -> "개발 버전 업데이트 확인 전"
-                stableUpdaterEnabled -> "정식 업데이트 확인 전"
-                else -> "이 배포 유형에서는 인앱 업데이트가 비활성화되어 있습니다."
-            },
-            12f, muted, false
-        ).withTop(12) as TextView
+        val channelSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, channelNames).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            isEnabled = true
+            contentDescription = "Guardian 업데이트 채널 선택"
+        }
+        body.addView(text("업데이트 채널", 13f, white, true).withTop(14))
+        body.addView(channelSpinner, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(5) })
+
+        val feedback = text("업데이트 확인 전", 12f, muted, false).withTop(12) as TextView
         body.addView(feedback)
         var downloaded: File? = null
         val installButton = Button(this).apply {
@@ -1407,77 +1415,171 @@ class MainActivity : Activity() {
             contentDescription = "검증된 업데이트 파일이 준비되면 활성화되는 업데이트 설치"
         }
         setUpdateInstallButtonReady(installButton, false)
+
         val checkButton = Button(this).apply {
-            text = if (developmentBuild) "개발 업데이트 확인" else "정식 업데이트 확인"
+            text = "업데이트 확인"
             isAllCaps = false
-            isEnabled = developmentBuild || stableUpdaterEnabled
+            isEnabled = developmentBuild || stableUpdaterEnabled || adminUnlocked
             setTextColor(bg)
             background = shape(accent, 12)
+        }
+        val adminButton = Button(this).apply {
+            text = if (adminUnlocked) "관리자 채널 인증 해제" else "관리자 채널 인증"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 12)
             setOnClickListener {
-                isEnabled = false
-                setUpdateInstallButtonReady(installButton, false)
-                downloaded = null
-                feedback.text = if (developmentBuild) "공식 개발 릴리스 확인 중…" else "공식 정식 릴리스 확인 중…"
-                thread(name = "guardian-app-update-menu") {
-                    var updateStage = "업데이트 확인 준비"
-                    try {
-                        if (developmentBuild) {
-                            val update = DevUpdateManager.checkForUpdate { stage ->
-                                updateStage = stage
-                                runOnUiThread { feedback.text = stage }
-                            }
-                            if (update == null) {
-                                runOnUiThread {
-                                    feedback.text = "공개된 개발 릴리스 중 현재 설치 버전보다 새로운 버전이 없습니다."
-                                    isEnabled = true
-                                }
+                if (GuardianUpdateAdminCredential.load(this@MainActivity) != null) {
+                    GuardianUpdateAdminCredential.clear(this@MainActivity)
+                    channelSpinner.adapter = ArrayAdapter(
+                        this@MainActivity, android.R.layout.simple_spinner_item, listOf("안정 (Stable)")
+                    ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                    text = "관리자 채널 인증"
+                    checkButton.isEnabled = developmentBuild || stableUpdaterEnabled
+                    feedback.text = "관리자 인증이 이 기기에서 해제되었습니다. 안정 채널만 표시됩니다."
+                } else {
+                    val tokenInput = EditText(this@MainActivity).apply {
+                        hint = "관리자 인증 토큰"
+                        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        maxLines = 1
+                    }
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("관리자 채널 인증")
+                        .setMessage("관리자 인증 토큰은 Android Keystore로 암호화해 이 기기에 저장합니다. APK나 앱 소스에는 포함하지 않습니다.")
+                        .setView(tokenInput)
+                        .setNegativeButton("취소", null)
+                        .setPositiveButton("인증") { _, _ ->
+                            val token = tokenInput.text?.toString().orEmpty().trim()
+                            if (token.isBlank()) {
+                                feedback.text = "관리자 인증 토큰을 입력하세요."
                             } else {
-                                updateStage = "새 버전 APK 다운로드 및 검증"
-                                runOnUiThread {
-                                    feedback.text = "새 개발 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
+                                isEnabled = false
+                                feedback.text = "관리자 인증 확인 중…"
+                                thread(name = "guardian-update-admin-auth") {
+                                    try {
+                                        GuardianPrivateUpdateManager.authorize(this@MainActivity, token)
+                                        runOnUiThread {
+                                            channelSpinner.adapter = ArrayAdapter(
+                                                this@MainActivity,
+                                                android.R.layout.simple_spinner_item,
+                                                listOf("안정 (Stable)", "베타 (Beta)", "개발 (Dev)")
+                                            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                                            text = "관리자 채널 인증 해제"
+                                            checkButton.isEnabled = true
+                                            feedback.text = "관리자 인증 완료 · 이 기기에서 베타·개발 채널을 선택할 수 있습니다."
+                                            isEnabled = true
+                                        }
+                                    } catch (error: Exception) {
+                                        GuardianUpdateAdminCredential.clear(this@MainActivity)
+                                        runOnUiThread {
+                                            feedback.text = "관리자 인증 실패: " + SafeFailureSummary.describe(error)
+                                            isEnabled = true
+                                        }
+                                    }
                                 }
-                                val apk = DevUpdateManager.download(this@MainActivity, update)
-                                runOnUiThread {
-                                    downloaded = apk
-                                    feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 개발 서명 인증서 검증 통과."
-                                    setUpdateInstallButtonReady(installButton, true)
-                                    isEnabled = false
-                                }
+                            }
+                        }
+                        .show()
+                }
+            }
+        }
+        body.addView(adminButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+
+        checkButton.setOnClickListener {
+            val channel = when (channelSpinner.selectedItemPosition) {
+                1 -> "beta"
+                2 -> "dev"
+                else -> "stable"
+            }
+            if (channel != "stable" && GuardianUpdateAdminCredential.load(this@MainActivity) == null) {
+                feedback.text = "베타·개발 채널은 관리자 인증이 필요합니다."
+                return@setOnClickListener
+            }
+            checkButton.isEnabled = false
+            setUpdateInstallButtonReady(installButton, false)
+            downloaded = null
+            feedback.text = "$channel 업데이트 확인 중…"
+            thread(name = "guardian-app-update-menu") {
+                var updateStage = "업데이트 확인 준비"
+                try {
+                    if (channel == "stable") {
+                        updateStage = "정식 릴리스 확인"
+                        val update = GuardianStableUpdateManager.checkForUpdate()
+                        if (update == null) {
+                            runOnUiThread {
+                                feedback.text = "현재 설치된 정식 버전이 최신입니다."
+                                checkButton.isEnabled = true
                             }
                         } else {
-                            updateStage = "정식 릴리스 확인"
-                            val update = GuardianStableUpdateManager.checkForUpdate()
-                            if (update == null) {
-                                runOnUiThread {
-                                    feedback.text = "현재 설치된 정식 버전이 최신입니다."
-                                    isEnabled = true
-                                }
-                            } else {
-                                runOnUiThread {
-                                    feedback.text = "새 정식 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
-                                }
-                                val apk = GuardianStableUpdateManager.download(this@MainActivity, update)
-                                runOnUiThread {
-                                    downloaded = apk
-                                    feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
-                                    setUpdateInstallButtonReady(installButton, true)
-                                    isEnabled = false
-                                }
+                            runOnUiThread {
+                                feedback.text = "새 정식 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
+                            }
+                            val apk = GuardianStableUpdateManager.download(this@MainActivity, update)
+                            runOnUiThread {
+                                downloaded = apk
+                                feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
+                                setUpdateInstallButtonReady(installButton, true)
+                                checkButton.isEnabled = false
                             }
                         }
-                    } catch (error: Exception) {
-                        val failureTypes = SafeFailureSummary.diagnosticTypeChain(error)
-                        val failureCode = SafeFailureSummary.codeFor(error)
-                        android.util.Log.e(
-                            "GuardianUpdater",
-                            "Update flow failed at stage='$updateStage'; code=$failureCode; causes=$failureTypes"
-                        )
-                        runOnUiThread {
-                            downloaded = null
-                            setUpdateInstallButtonReady(installButton, false)
-                            feedback.text = "업데이트 실패 [$updateStage]: " + SafeFailureSummary.describe(error)
-                            isEnabled = true
+                    } else {
+                        val update = GuardianPrivateUpdateManager.checkForUpdate(this@MainActivity, channel) { stage ->
+                            updateStage = stage
+                            runOnUiThread { feedback.text = stage }
                         }
+                        if (update == null) {
+                            runOnUiThread {
+                                feedback.text = "${channel.uppercase()} 채널에 현재 설치 버전보다 새로운 업데이트가 없습니다."
+                                checkButton.isEnabled = true
+                            }
+                        } else {
+                            updateStage = "비공개 APK 다운로드 및 검증"
+                            runOnUiThread {
+                                feedback.text = "새 ${channel.uppercase()} 버전 ${update.versionName} 발견 · 비공개 APK 검증 중…"
+                            }
+                            val apk = GuardianPrivateUpdateManager.download(this@MainActivity, update) { stage ->
+                                runOnUiThread { feedback.text = stage }
+                            }
+                            runOnUiThread {
+                                downloaded = apk
+                                feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지, 버전 및 서명 인증서 검증 통과."
+                                setUpdateInstallButtonReady(installButton, true)
+                                checkButton.isEnabled = false
+                            }
+                        }
+                    }
+                } catch (error: GuardianNoStableReleaseAvailableException) {
+                    runOnUiThread {
+                        downloaded = null
+                        setUpdateInstallButtonReady(installButton, false)
+                        feedback.text = error.message ?: "정식 업데이트가 아직 게시되지 않았습니다."
+                        checkButton.isEnabled = true
+                    }
+                } catch (error: GuardianStableUpdateHttpException) {
+                    android.util.Log.w(
+                        "GuardianUpdater",
+                        "Stable update endpoint returned HTTP ${error.statusCode}."
+                    )
+                    runOnUiThread {
+                        downloaded = null
+                        setUpdateInstallButtonReady(installButton, false)
+                        feedback.text = "정식 업데이트 서버 응답 오류 (HTTP ${error.statusCode}). 잠시 후 다시 시도하세요."
+                        checkButton.isEnabled = true
+                    }
+                } catch (error: Exception) {
+                    android.util.Log.e(
+                        "GuardianUpdater",
+                        "Update flow failed at stage='$updateStage'; code=${SafeFailureSummary.codeFor(error)}; causes=${SafeFailureSummary.diagnosticTypeChain(error)}"
+                    )
+                    runOnUiThread {
+                        downloaded = null
+                        setUpdateInstallButtonReady(installButton, false)
+                        feedback.text = if (channel == "stable") {
+                            "정식 업데이트 확인에 실패했습니다. 네트워크 연결을 확인하고 다시 시도하세요."
+                        } else {
+                            "업데이트 실패 [$updateStage]: " + SafeFailureSummary.describe(error)
+                        }
+                        checkButton.isEnabled = true
                     }
                 }
             }
@@ -1486,11 +1588,7 @@ class MainActivity : Activity() {
         installButton.setOnClickListener {
             val apk = downloaded ?: return@setOnClickListener
             try {
-                val launched = if (developmentBuild) {
-                    DevUpdateManager.install(this@MainActivity, apk)
-                } else {
-                    GuardianStableUpdateManager.install(this@MainActivity, apk)
-                }
+                val launched = GuardianStableUpdateManager.install(this@MainActivity, apk)
                 feedback.text = if (launched) {
                     "Android 시스템 설치 확인 화면을 열었습니다."
                 } else {
@@ -1502,14 +1600,11 @@ class MainActivity : Activity() {
         }
         body.addView(installButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         body.addView(text(
-            if (developmentBuild) {
-                "개발판은 공식 개발 릴리스의 APK SHA-256, 패키지 ID, 버전 및 개발 서명 인증서를 검증합니다. 업데이트는 사용자가 직접 확인하고 설치합니다."
-            } else {
-                "정식판은 공식 HTTPS Release manifest, APK SHA-256, 패키지 ID, 버전 및 운영 서명 인증서를 검증한 뒤 Android 설치 화면을 엽니다."
-            },
+            "안정 채널은 공식 정식 Release를 확인합니다. 베타·개발 채널은 관리자 인증을 통과한 기기에서만 표시되며, 비공개 APK의 SHA-256·패키지 ID·버전·설치 서명 인증서를 모두 검증한 뒤 Android 설치 화면을 엽니다.",
             11f, muted, false
         ).withTop(14))
     }
+
     private fun buildPremium(body: LinearLayout) {
         val entitlement = LicenseEntitlementStore.current(this)
         val retainedLicense = LicenseEntitlementStore.currentForRefresh(this)
