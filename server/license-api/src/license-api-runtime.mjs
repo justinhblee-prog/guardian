@@ -170,7 +170,7 @@ function requireSigner() {
     }
     return key;
   } catch {
-    throw Object.assign(new Error('RSA 2048비트 이상의 라이선스 서명 키 구성이 올바르지 않습니다.'), { status: 503 });
+    throw Object.assign(new Error('RSA 2048~4096비트 범위의 라이선스 서명 키 구성이 올바르지 않습니다.'), { status: 503 });
   }
 }
 function tokenFor(row, deviceBinding) {
