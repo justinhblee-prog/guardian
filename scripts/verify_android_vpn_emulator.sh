@@ -1562,10 +1562,8 @@ else
     exit 1
   fi
   if ! grep -Fq '프로그램 업데이트' <<<"$legacy_menu_xml" ||
-     ! grep -Fq '필터 관리' <<<"$legacy_menu_xml" ||
-     ! grep -Fq '앱 정보 및 고객 지원' <<<"$legacy_menu_xml" ||
-     ! grep -Fq "$expected_current_version" <<<"$legacy_menu_xml"; then
-    echo "Legacy Full Menu is missing its update, filter, support, or version entry."
+     ! grep -Fq '필터 관리' <<<"$legacy_menu_xml"; then
+    echo "Legacy Full Menu is missing its Program Updates or Filter Management entry."
     echo "$legacy_menu_xml"
     exit 1
   fi
@@ -1574,8 +1572,9 @@ else
   legacy_updates_xml="$(dump_ui_hierarchy /sdcard/guardian-legacy-program-updates.xml)"
   if ! grep -Fq '프로그램 업데이트' <<<"$legacy_updates_xml" ||
      ! grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$legacy_updates_xml" ||
-     ! grep -Fq '업데이트 설치' <<<"$legacy_updates_xml"; then
-    echo "Legacy Program Updates screen is missing its check/install controls."
+     ! grep -Fq '업데이트 설치' <<<"$legacy_updates_xml" ||
+     ! grep -Fq "$expected_current_version" <<<"$legacy_updates_xml"; then
+    echo "Legacy Program Updates screen is missing its version/check/install controls."
     echo "$legacy_updates_xml"
     exit 1
   fi
@@ -1608,7 +1607,10 @@ else
   legacy_support_visible=0
   for attempt in $(seq 1 12); do
     legacy_menu_xml="$(dump_ui_hierarchy /sdcard/guardian-legacy-support-menu.xml)"
-    if grep -Fq '고객지원 센터' <<<"$legacy_menu_xml"; then
+    if grep -Fq '고객지원 센터' <<<"$legacy_menu_xml" &&
+       grep -Fq '자주 묻는 질문 (Q&A)' <<<"$legacy_menu_xml" &&
+       grep -Fq '문의 및 의견 보내기' <<<"$legacy_menu_xml" &&
+       grep -Fq '내 문의 답변 확인' <<<"$legacy_menu_xml"; then
       legacy_support_visible=1
       break
     fi
