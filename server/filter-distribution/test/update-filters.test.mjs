@@ -480,8 +480,8 @@ test('updater rejects case-colliding source IDs before any upstream request', as
     config: {
       baseUrl: 'https://filters.example.com',
       sources: [
-        { id: 'AndroidAds', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/a.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git' },
-        { id: 'androidads', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/b.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git' }
+        { id: 'AndroidAds', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/a.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' },
+        { id: 'androidads', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/b.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }
       ]
     },
     env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
