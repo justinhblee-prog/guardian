@@ -473,24 +473,26 @@ if (!databaseUrl) {
   });
 
 
-  test('existing license databases can apply migrations 002 through 005 repeatedly', async () => {
-    await pool.query('DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
+  test('existing license databases can apply migrations 002 through 006 repeatedly', async () => {
+    await pool.query('DROP TABLE IF EXISTS guardian_update_manifests; DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
     for (const migrationPath of [
       new URL('../migrations/002_shared_rate_limit_buckets.sql', import.meta.url),
       new URL('../migrations/003_support_tickets.sql', import.meta.url),
       new URL('../migrations/004_customers.sql', import.meta.url),
-      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url)
+      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url),
+      new URL('../migrations/006_private_update_channels.sql', import.meta.url)
     ]) {
       const sql = readFileSync(migrationPath, 'utf8');
       await pool.query(sql);
       await pool.query(sql);
     }
     const tables = await pool.query(
-      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets, to_regclass('public.customers') AS customers, (SELECT code FROM products WHERE code='guardian-pro' AND active=true LIMIT 1) AS shared_product"
+      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets, to_regclass('public.customers') AS customers, to_regclass('public.guardian_update_manifests') AS update_manifests, (SELECT code FROM products WHERE code='guardian-pro' AND active=true LIMIT 1) AS shared_product"
     );
     assert.equal(tables.rows[0].rate_limits, 'api_rate_limit_buckets');
     assert.equal(tables.rows[0].support_tickets, 'support_tickets');
     assert.equal(tables.rows[0].customers, 'customers');
+    assert.equal(tables.rows[0].update_manifests, 'guardian_update_manifests');
     assert.equal(tables.rows[0].shared_product, 'guardian-pro');
   });
 
