@@ -2208,7 +2208,7 @@ tap_text "취소"
 echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
 
 current_version="$(adb_cmd shell dumpsys package "$PACKAGE" | sed -n 's/.*versionName=//p' | head -1 | tr -d '\r')"
-expected_version="${GUARDIAN_CURRENT_VERSION_NAME:-0.7.61-dev}"
+expected_version="${GUARDIAN_VERSION_NAME:-0.7.62-dev}"
 if [[ "$current_version" != "$expected_version" ]]; then
   echo "Selected-profile refresh test requires the current APK $expected_version; found $current_version."
   exit 1
