@@ -133,13 +133,12 @@ class GuardianDevVersionTests(unittest.TestCase):
                          ("0.7.54-dev", 67, "guardian-dev-v67"))
 
 
-    def test_installed_054_floor_forces_next_build_above_latest_delivered_apk(self):
-        # 0.7.54-dev / versionCode 67 was delivered as a CI artifact, even though
-        # it was not published as a GitHub Release. The next distinct build must
-        # therefore use a strictly greater Android versionCode.
-        result = resolve_next_version([], "7" * 40, "0.7.54-dev", 67)
+    def test_installed_055_floor_forces_next_build_above_latest_verified_apk(self):
+        # 0.7.55-dev / versionCode 68 is the latest verified APK artifact.
+        # It is not a GitHub Release, so the explicit baseline prevents rollback.
+        result = resolve_next_version([], "7" * 40, "0.7.55-dev", 68)
         self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
-                         ("0.7.55-dev", 68, "guardian-dev-v68"))
+                         ("0.7.56-dev", 69, "guardian-dev-v69"))
 
     def test_android_build_workflows_share_the_latest_delivered_version_floor(self):
         root = Path(__file__).resolve().parents[1]
@@ -155,7 +154,13 @@ class GuardianDevVersionTests(unittest.TestCase):
             self.assertIsNotNone(version, f"Missing development version baseline in {workflow}")
             self.assertIsNotNone(code, f"Missing development versionCode baseline in {workflow}")
             resolved.append((version.group(1), int(code.group(1))))
-        self.assertEqual(resolved, [("0.7.54-dev", 67), ("0.7.54-dev", 67)])
+        self.assertEqual(resolved, [("0.7.55-dev", 68), ("0.7.55-dev", 68)])
+        resolver = (root / "scripts/resolve_guardian_dev_version.py").read_text(encoding="utf-8")
+        default_version = re.search(r'--baseline-version", default="([^"]+)"', resolver)
+        default_code = re.search(r'--baseline-code", type=int, default=([0-9]+)', resolver)
+        self.assertIsNotNone(default_version)
+        self.assertIsNotNone(default_code)
+        self.assertEqual((default_version.group(1), int(default_code.group(1))), ("0.7.55-dev", 68))
 
 
 if __name__ == "__main__":
