@@ -82,7 +82,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
   // Validate the entire source list before any network request or publication.
   // Duplicate IDs would otherwise publish the same mutable manifest twice in
   // one run, making the final source silently depend on array order.
-  const seenSourceIds = new Set();
+  const seenSourceIds = new Map();
   const normalizedSources = config.sources.map(source => {
     if (!source || typeof source.id !== 'string' ||
         !/^[a-zA-Z0-9_-]{1,64}$/.test(source.id) ||
@@ -94,10 +94,14 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     // Artifact paths and downstream URL routing must remain unambiguous on
     // case-insensitive filesystems and clients, not only on Linux.
     const canonicalSourceId = source.id.toLowerCase();
-    if (seenSourceIds.has(canonicalSourceId)) {
+    const previousSourceId = seenSourceIds.get(canonicalSourceId);
+    if (previousSourceId !== undefined) {
+      if (previousSourceId === source.id) {
+        throw new Error(`Duplicate source id in config: ${source.id}.`);
+      }
       throw new Error(`Duplicate source id in config (case-insensitive): ${source.id}.`);
     }
-    seenSourceIds.add(canonicalSourceId);
+    seenSourceIds.set(canonicalSourceId, source.id);
     const upstream = new URL(source.url);
     if (upstream.protocol !== 'https:' || upstream.username || upstream.password ||
         upstream.search || upstream.hash) {
