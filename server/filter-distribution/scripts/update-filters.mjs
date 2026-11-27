@@ -122,7 +122,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
       const repositoryUrl = new URL(source.upstreamRepository);
       const repositoryParts = repositoryUrl.pathname.split('/').filter(Boolean);
       const owner = repositoryParts[0]?.toLowerCase();
-      const repository = repositoryParts[1]?.replace(/\\.git$/i, '').toLowerCase();
+      const repository = repositoryParts[1]?.replace(/\.git$/i, '').toLowerCase();
       const sourceParts = upstream.pathname.split('/').filter(Boolean);
       const revision = source.upstreamCommitSha.toLowerCase();
       if (repositoryUrl.hostname.toLowerCase() !== 'github.com' ||
