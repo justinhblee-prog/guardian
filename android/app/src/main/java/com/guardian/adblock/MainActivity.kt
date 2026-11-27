@@ -86,6 +86,7 @@ class MainActivity : Activity() {
     private var queryCountValue: TextView? = null
     private var adBlockedValue: TextView? = null
     private var trackerBlockedValue: TextView? = null
+    private var otherBlockedValue: TextView? = null
     private var savedDataValue: TextView? = null
     private var activityChart: ActivityStatsChart? = null
     private var receiverRegistered = false
@@ -586,6 +587,7 @@ class MainActivity : Activity() {
         queryCountValue = null
         adBlockedValue = null
         trackerBlockedValue = null
+        otherBlockedValue = null
         savedDataValue = null
         activityChart = null
         root = LinearLayout(this).apply {
@@ -921,15 +923,19 @@ class MainActivity : Activity() {
         val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
         val chartCard = card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("차단 활동 그래프", 14f, white, true))
+            addView(text("전체 DNS 차단 활동", 14f, white, true))
+            addView(text("전체 차단 ${String.format(Locale.getDefault(), "%,d", prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L))}건 · 아래는 광고·추적·기타 유형별 구분", 11f, muted, false).withTop(5))
             activityChart = ActivityStatsChart()
             addView(activityChart, LinearLayout.LayoutParams(-1, dp(178)).apply { topMargin = dp(12) })
             val categories = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
             adBlockedValue = text(String.format(Locale.getDefault(), "%,d", adCount), 17f, Color.rgb(255, 166, 94), true)
-            trackerBlockedValue = text(String.format(Locale.getDefault(), "%,d", trackerCount), 17f, Color.rgb(116, 167, 255), true)
-            categories.addView(metricCard("광고 차단 건수", adBlockedValue!!, Color.rgb(255, 166, 94)), LinearLayout.LayoutParams(0, dp(76), 1f))
-            categories.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
-            categories.addView(metricCard("추적 차단 건수", trackerBlockedValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(76), 1f))
+            trackerBlockedValue = text(String.format(Locale.getDefault(), "%,d", trackerCount), 16f, Color.rgb(116, 167, 255), true)
+            otherBlockedValue = text(String.format(Locale.getDefault(), "%,d", otherCount), 16f, accent, true)
+            categories.addView(metricCard("광고", adBlockedValue!!, Color.rgb(255, 166, 94)), LinearLayout.LayoutParams(0, dp(72), 1f))
+            categories.addView(space(6), LinearLayout.LayoutParams(dp(6), 1))
+            categories.addView(metricCard("추적", trackerBlockedValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(72), 1f))
+            categories.addView(space(6), LinearLayout.LayoutParams(dp(6), 1))
+            categories.addView(metricCard("기타", otherBlockedValue!!, accent), LinearLayout.LayoutParams(0, dp(72), 1f))
             addView(categories.withTop(10))
             addView(text("예상 절약 데이터", 11f, muted, false).withTop(14))
             savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(4) as TextView
@@ -4195,6 +4201,7 @@ class MainActivity : Activity() {
         val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
         adBlockedValue?.text = String.format(Locale.getDefault(), "%,d", adCount)
         trackerBlockedValue?.text = String.format(Locale.getDefault(), "%,d", trackerCount)
+        otherBlockedValue?.text = String.format(Locale.getDefault(), "%,d", otherCount)
         savedDataValue?.text = estimatedSavedDataLabel(blockedQueries)
         activityChart?.update(adCount, trackerCount, otherCount, prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))
         val recentDns = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null)
