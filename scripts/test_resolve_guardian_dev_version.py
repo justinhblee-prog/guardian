@@ -132,6 +132,15 @@ class GuardianDevVersionTests(unittest.TestCase):
                          ("0.7.54-dev", 67, "guardian-dev-v67"))
 
 
+    def test_installed_054_floor_forces_next_build_above_latest_delivered_apk(self):
+        # 0.7.54-dev / versionCode 67 was delivered as a CI artifact, even though
+        # it was not published as a GitHub Release. The next distinct build must
+        # therefore use a strictly greater Android versionCode.
+        result = resolve_next_version([], "7" * 40, "0.7.54-dev", 67)
+        self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
+                         ("0.7.55-dev", 68, "guardian-dev-v68"))
+
+
 if __name__ == "__main__":
     unittest.main()
 
