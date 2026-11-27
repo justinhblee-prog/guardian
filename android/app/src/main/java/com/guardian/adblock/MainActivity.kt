@@ -1555,6 +1555,17 @@ class MainActivity : Activity() {
                         feedback.text = error.message ?: "정식 업데이트가 아직 게시되지 않았습니다."
                         checkButton.isEnabled = true
                     }
+                } catch (error: GuardianStableUpdateHttpException) {
+                    android.util.Log.w(
+                        "GuardianUpdater",
+                        "Stable update endpoint returned HTTP ${error.statusCode}."
+                    )
+                    runOnUiThread {
+                        downloaded = null
+                        setUpdateInstallButtonReady(installButton, false)
+                        feedback.text = "정식 업데이트 서버 응답 오류 (HTTP ${error.statusCode}). 잠시 후 다시 시도하세요."
+                        checkButton.isEnabled = true
+                    }
                 } catch (error: Exception) {
                     android.util.Log.e(
                         "GuardianUpdater",
@@ -1563,7 +1574,11 @@ class MainActivity : Activity() {
                     runOnUiThread {
                         downloaded = null
                         setUpdateInstallButtonReady(installButton, false)
-                        feedback.text = "업데이트 실패 [$updateStage]: " + SafeFailureSummary.describe(error)
+                        feedback.text = if (channel == "stable") {
+                            "정식 업데이트 확인에 실패했습니다. 네트워크 연결을 확인하고 다시 시도하세요."
+                        } else {
+                            "업데이트 실패 [$updateStage]: " + SafeFailureSummary.describe(error)
+                        }
                         checkButton.isEnabled = true
                     }
                 }
