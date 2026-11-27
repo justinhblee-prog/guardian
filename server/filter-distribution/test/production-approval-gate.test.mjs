@@ -53,7 +53,7 @@ test('production approval gate rejects floating upstream versions and mutable CD
       () => verifyProductionRedistributionApprovals({
         sources: [reviewedSource(overrides)]
       }),
-      /pinned|floating/
+      /pinned|floating|upstreamCommitSha/
     );
   }
 });
