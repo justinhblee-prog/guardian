@@ -556,7 +556,7 @@ if [[ "$ready" -ne 1 ]]; then
   exit 1
 fi
 
-echo "Waiting for Android boot completion before the selected-profile refresh scenario."
+echo "Waiting for Android boot completion and Guardian BOOT_COMPLETED receiver before the selected-profile refresh scenario."
 boot_completed=0
 for attempt in $(seq 1 60); do
   boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
@@ -570,6 +570,23 @@ if [[ "$boot_completed" -ne 1 ]]; then
   echo "Android emulator did not finish booting before the selected-profile refresh scenario."
   exit 1
 fi
+boot_receiver_seen=0
+for attempt in $(seq 1 60); do
+  boot_logs="$(adb_poll shell logcat -d -s GuardianProtection:I 2>/dev/null || true)"
+  if grep -q 'action=android.intent.action.BOOT_COMPLETED' <<<"$boot_logs"; then
+    boot_receiver_seen=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$boot_receiver_seen" -ne 1 ]]; then
+  echo "Guardian BOOT_COMPLETED receiver did not finish before the selected-profile refresh scenario."
+  adb_poll shell logcat -d -s GuardianProtection:I | tail -80 || true
+  exit 1
+fi
+# The broadcast log is emitted before receiver teardown; allow the receiver to return
+# before force-stopping Guardian and replacing its SharedPreferences fixture.
+sleep 3
 
 echo "Verifying a changed filter profile is refreshed even when automatic updates are disabled."
 adb_cmd shell am force-stop "$PACKAGE"
@@ -599,6 +616,7 @@ profile_fixture="$(sed -E \
   -e 's#</map>#<boolean name="filter_auto_update" value="false" /><string name="filter_profile">1hosts_lite</string></map>#' \
   <<<"$profile_prefs")"
 printf '%s' "$profile_fixture" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
+adb_cmd logcat -c
 launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1 || true)"
 if ! grep -q 'Status: ok' <<<"$launch_result"; then
   echo "Guardian did not launch after the selected-profile mismatch fixture."
@@ -608,15 +626,19 @@ fi
 profile_refresh=0
 for attempt in $(seq 1 120); do
   prefs="$(read_prefs)"
+  guardian_logs="$(adb_poll shell logcat -d -s Guardian:I 2>/dev/null || true)"
   if grep -q 'name="filter_cached_profile">1hosts_lite</string>' <<<"$prefs" &&
      grep -q 'name="filter_auto_update"[^>]*value="false"' <<<"$prefs" &&
-     grep -q 'name="filter_list_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs"; then
+     grep -q 'name="filter_list_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs" &&
+     grep -Fq 'profileChanged=true selectedProfile=1hosts_lite cachedProfile=adguard' <<<"$guardian_logs" &&
+     grep -Fq 'Starting filter update for 1hosts_lite' <<<"$guardian_logs"; then
     profile_refresh=1
     break
   fi
   if (( attempt % 15 == 0 )); then
     echo "Waiting for the selected profile cache to refresh while recurring updates remain disabled ($attempt/120)."
     read_prefs | grep -E 'filter_profile|filter_cached_profile|filter_auto_update|filter_list_' || true
+    printf '%s\n' "$guardian_logs" | tail -35 || true
   fi
   sleep 2
 done
