@@ -494,7 +494,7 @@ jobs:
         continue-on-error: true
         # Bound a wedged ADB/emulator boot so the job reaches its diagnostic
         # and final-report steps instead of sitting on a silent runner.
-        timeout-minutes: 20
+        timeout-minutes: 35
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -566,18 +566,18 @@ jobs:
               echo "Emulator process exited before ADB registration."
               break
             fi
-            state="$(timeout --signal=TERM --kill-after=2s 3s adb devices 2>/dev/null | awk '$1=="emulator-5554" {print $2}' || true)"
+            state="$(timeout --signal=TERM --kill-after=1s 2s adb devices 2>/dev/null | awk '$1=="emulator-5554" {print $2}' || true)"
             if [ "$state" = "device" ]; then
               break
             fi
             if (( attempt % 15 == 0 )); then
               echo "Waiting for ADB registration ($attempt/90); state=${state:-missing}"
-              timeout 5s adb devices -l || true
+              timeout 3s adb devices -l || true
               tail -n 30 "$AVD_LOG" || true
             fi
             sleep 2
           done
-          state="$(timeout --signal=TERM --kill-after=2s 5s adb devices 2>/dev/null | awk '$1=="emulator-5554" {print $2}' || true)"
+          state="$(timeout --signal=TERM --kill-after=1s 2s adb devices 2>/dev/null | awk '$1=="emulator-5554" {print $2}' || true)"
           if [ "$state" != "device" ]; then
             echo "Emulator failed to register with ADB."
             tail -n 500 "$AVD_LOG" || true
@@ -585,14 +585,14 @@ jobs:
           fi
           echo "ADB registered emulator-5554; waiting for Android framework boot."
           for attempt in $(seq 1 180); do
-            boot="$(timeout --signal=TERM --kill-after=2s 5s adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+            boot="$(timeout --signal=TERM --kill-after=1s 2s adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
             if [ "$boot" = "1" ]; then
               ready=1
               break
             fi
             if (( attempt % 15 == 0 )); then
               echo "Waiting for Android framework boot ($attempt/180); sys.boot_completed=${boot:-unset}"
-              timeout 5s adb -s emulator-5554 shell getprop init.svc.bootanim || true
+              timeout 3s adb -s emulator-5554 shell getprop init.svc.bootanim || true
               tail -n 30 "$AVD_LOG" || true
             fi
             sleep 2
