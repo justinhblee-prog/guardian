@@ -76,7 +76,7 @@ jobs:
           grep -F 'GUARDIAN_VERSION_CODE <= DEVELOPMENT_VERSION_CODE' .github/workflows/android-production-release.yml
           grep -F 'scripts/resolve_guardian_dev_version.py' .github/workflows/android-apk.yml
           grep -F 'if (( GUARDIAN_VERSION_CODE < 2000000 )); then' .github/workflows/android-production-release.yml
-          grep -F '.getOrElse(73)' android/app/build.gradle.kts
+          grep -F '.getOrElse(74)' android/app/build.gradle.kts
           grep -F '$minimumProductionVersionCode = 2000000' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
           grep -F '$VersionCode -lt $minimumProductionVersionCode' server/license-api/windows/Prepare-GuardianProductionRelease.ps1
       - name: Guard production signing secrets from process arguments
