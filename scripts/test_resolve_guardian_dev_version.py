@@ -148,7 +148,7 @@ class GuardianDevVersionTests(unittest.TestCase):
         self.assertIn('--baseline-version "0.7.60-$GUARDIAN_UPDATE_CHANNEL"', android_workflow)
         self.assertIn("--baseline-code 73", android_workflow)
         # PR-only throwaway builds and the engineering orchestrator retain the known delivered floor.
-        fallback = re.search(r'--baseline-version\\s+"(0\\.7\\.60-dev)"', android_workflow)
+        fallback = re.search(r'--baseline-version\s+"(0\.7\.60-dev)"', android_workflow)
         orchestrator_version = re.search(r'--baseline-version\\s+"([^"]+)"', orchestrator)
         orchestrator_code = re.search(r"--baseline-code\\s+([0-9]+)", orchestrator)
         self.assertIsNotNone(fallback)
