@@ -29,9 +29,9 @@ jobs:
         with:
           name: guardian-android-debug
           path: release-package
-          github-token: \${{ secrets.GITHUB_TOKEN }}
-          repository: \${{ github.repository }}
-          run-id: \${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
 
       - name: Set up Android build tools for independent package and signer verification
         uses: android-actions/setup-android@v3
@@ -43,19 +43,19 @@ jobs:
       - name: Verify artifact, manifest, APK identity and source commit
         id: verify
         env:
-          SOURCE_SHA: \${{ github.event.workflow_run.head_sha }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
         shell: bash
         run: |
           set -euo pipefail
           mapfile -t APKS < <(find release-package -type f -name app-debug.apk -print)
           mapfile -t MANIFESTS < <(find release-package -type f -name guardian-android-dev.json -print)
           mapfile -t SUMMARIES < <(find release-package -type f -name VERIFICATION_SUMMARY_KO.md -print)
-          test "\${#APKS[@]}" -eq 1
-          test "\${#MANIFESTS[@]}" -eq 1
-          test "\${#SUMMARIES[@]}" -eq 1
-          APK="\${APKS[0]}"
-          MANIFEST="\${MANIFESTS[0]}"
-          SUMMARY="\${SUMMARIES[0]}"
+          test "${#APKS[@]}" -eq 1
+          test "${#MANIFESTS[@]}" -eq 1
+          test "${#SUMMARIES[@]}" -eq 1
+          APK="${APKS[0]}"
+          MANIFEST="${MANIFESTS[0]}"
+          SUMMARY="${SUMMARIES[0]}"
 
           python3 - "$MANIFEST" "$APK" "$SUMMARY" "$SOURCE_SHA" <<'PY'
           import hashlib, json, pathlib, re, sys
@@ -94,21 +94,21 @@ jobs:
 
       - name: Publish or idempotently refresh the matching public development release
         env:
-          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-          SOURCE_SHA: \${{ github.event.workflow_run.head_sha }}
-          VERSION_NAME: \${{ steps.verify.outputs.version_name }}
-          VERSION_CODE: \${{ steps.verify.outputs.version_code }}
-          APK_PATH: \${{ steps.verify.outputs.apk_path }}
-          MANIFEST_PATH: \${{ steps.verify.outputs.manifest_path }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          VERSION_NAME: ${{ steps.verify.outputs.version_name }}
+          VERSION_CODE: ${{ steps.verify.outputs.version_code }}
+          APK_PATH: ${{ steps.verify.outputs.apk_path }}
+          MANIFEST_PATH: ${{ steps.verify.outputs.manifest_path }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG="guardian-dev-v\${VERSION_CODE}"
-          TITLE="Guardian AdBlock \${VERSION_NAME} (개발 업데이트)"
+          TAG="guardian-dev-v${VERSION_CODE}"
+          TITLE="Guardian AdBlock ${VERSION_NAME} (개발 업데이트)"
           cat > /tmp/guardian-release-notes.md <<EOF
           Automatically published from the fully successful Android main-branch verification workflow.
 
-          Guardian-Source-Commit: \${SOURCE_SHA}
+          Guardian-Source-Commit: ${SOURCE_SHA}
 
           APK and manifest were independently checked for package identity, version, SHA-256 and development signing certificate.
           EOF
