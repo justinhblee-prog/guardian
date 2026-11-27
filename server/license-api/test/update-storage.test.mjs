@@ -39,9 +39,9 @@ test('private update object GET URL is signed, short-lived and scoped to one buc
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
     .map(([key, value]) => encode(key) + '=' + encode(value)).join('&');
   const canonicalRequest = [
-    'GET', url.pathname, query, 'host:' + url.host + '\\n',
+    'GET', url.pathname, query, 'host:' + url.host + '\n',
     'host', 'UNSIGNED-PAYLOAD'
-  ].join('\\n');
+  ].join('\n');
   const dateKey = createHmac('sha256', 'AWS4' + environment.AWS_SECRET_ACCESS_KEY).update('20261127').digest();
   const regionKey = createHmac('sha256', dateKey).update(environment.AWS_REGION).digest();
   const serviceKey = createHmac('sha256', regionKey).update('s3').digest();
@@ -50,7 +50,7 @@ test('private update object GET URL is signed, short-lived and scoped to one buc
   const stringToSign = [
     'AWS4-HMAC-SHA256', '20261127T123456Z', scope,
     createHash('sha256').update(canonicalRequest).digest('hex')
-  ].join('\\n');
+  ].join('\n');
   const expectedSignature = createHmac('sha256', signingKey).update(stringToSign).digest('hex');
   assert.equal(url.searchParams.get('X-Amz-Signature'), expectedSignature);
   assert.equal(result.expiresAt, '2026-11-27T12:39:56.000Z');
