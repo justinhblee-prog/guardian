@@ -939,12 +939,12 @@ class MainActivity : Activity() {
             categories.addView(space(6), LinearLayout.LayoutParams(dp(6), 1))
             categories.addView(metricCard("추적", trackerBlockedValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(72), 1f))
             categories.addView(space(6), LinearLayout.LayoutParams(dp(6), 1))
-            categories.addView(metricCard("기타", otherBlockedValue!!, accent), LinearLayout.LayoutParams(0, dp(72), 1f))
+            categories.addView(metricCard("기타 잔여", otherBlockedValue!!, accent), LinearLayout.LayoutParams(0, dp(72), 1f))
             addView(categories.withTop(10))
             addView(text("예상 절약 데이터", 11f, muted, false).withTop(14))
             savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(4) as TextView
             addView(savedDataValue!!)
-            addView(text("광고·추적은 도메인 이름 기반 추정 분류입니다. 미분류는 필터 목록에 유형 정보가 없거나 도메인 이름만으로 유형을 판별할 수 없는 차단 요청이며, 별도 위협 유형을 뜻하지 않습니다. 최근 DNS 활동에서 실제 도메인을 확인할 수 있습니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치입니다.", 10f, muted, false).withTop(8))
+            addView(text("광고·추적은 도메인 이름 기반 추정 분류입니다. 기타 잔여는 전체 차단 건수에서 광고·추적 분류 건수를 뺀 값으로, 필터 목록의 실제 위협 유형을 뜻하지 않습니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치입니다.", 10f, muted, false).withTop(8))
         }
         body.addView(chartCard.withTop(12))
         body.addView(Button(this).apply {
