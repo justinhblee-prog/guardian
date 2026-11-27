@@ -55,14 +55,14 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > /tmp/guardian-releases.json
-          # Keep the orchestrator build aligned with android-apk.yml. The latest delivered
-          # predecessor is 0.7.53-dev (versionCode 66); keep orchestrator builds
-          # aligned with android-apk.yml and never regress the delivered version.
+          # Keep the orchestrator build aligned with android-apk.yml.
+          # 0.7.54-dev / versionCode 67 is the latest delivered baseline;
+          # both workflows must produce a strictly newer version for a new commit.
           python3 scripts/resolve_guardian_dev_version.py \
             --releases-json /tmp/guardian-releases.json \
             --commit "$GITHUB_SHA" \
-            --baseline-version "0.7.53-dev" \
-            --baseline-code 66 \
+            --baseline-version "0.7.54-dev" \
+            --baseline-code 67 \
             --github-env "$GITHUB_ENV" \
             --github-output "$GITHUB_OUTPUT"
       - name: Validate development version resolver contract
