@@ -134,11 +134,11 @@ class GuardianDevVersionTests(unittest.TestCase):
 
 
     def test_installed_060_floor_forces_next_build_above_latest_verified_apk(self):
-        # 0.7.60-dev / versionCode 73 is the latest APK already delivered to the user.
+        # 0.7.61-dev / versionCode 74 is the latest APK already delivered to the user.
         # It is not a GitHub Release, so the explicit baseline prevents rollback.
-        result = resolve_next_version([], "7" * 40, "0.7.60-dev", 73)
+        result = resolve_next_version([], "7" * 40, "0.7.61-dev", 74)
         self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
-                         ("0.7.61-dev", 74, "guardian-dev-v74"))
+                         ("0.7.62-dev", 75, "guardian-dev-v75"))
 
     def test_android_build_workflows_share_the_latest_delivered_version_floor(self):
         root = Path(__file__).resolve().parents[1]
@@ -154,20 +154,20 @@ class GuardianDevVersionTests(unittest.TestCase):
             self.assertIsNotNone(version, f"Missing development version baseline in {workflow}")
             self.assertIsNotNone(code, f"Missing development versionCode baseline in {workflow}")
             resolved.append((version.group(1), int(code.group(1))))
-        self.assertEqual(resolved, [("0.7.60-dev", 73), ("0.7.60-dev", 73)])
+        self.assertEqual(resolved, [("0.7.61-dev", 74), ("0.7.61-dev", 74)])
         resolver = (root / "scripts/resolve_guardian_dev_version.py").read_text(encoding="utf-8")
         default_version = re.search(r'--baseline-version", default="([^"]+)"', resolver)
         default_code = re.search(r'--baseline-code", type=int, default=([0-9]+)', resolver)
         self.assertIsNotNone(default_version)
         self.assertIsNotNone(default_code)
-        self.assertEqual((default_version.group(1), int(default_code.group(1))), ("0.7.60-dev", 73))
+        self.assertEqual((default_version.group(1), int(default_code.group(1))), ("0.7.61-dev", 74))
         gradle = (root / "android/app/build.gradle.kts").read_text(encoding="utf-8")
-        self.assertIn('.getOrElse("0.7.60-dev")', gradle)
-        self.assertIn("}.getOrElse(73)", gradle)
+        self.assertIn('.getOrElse("0.7.61-dev")', gradle)
+        self.assertIn("}.getOrElse(74)", gradle)
         production = (root / ".github/workflows/android-production-release.yml").read_text(encoding="utf-8")
         production_floors = re.findall(r"DEVELOPMENT_VERSION_CODE=([0-9]+)", production)
         self.assertGreaterEqual(len(production_floors), 2)
-        self.assertTrue(all(int(value) == 73 for value in production_floors))
+        self.assertTrue(all(int(value) == 74 for value in production_floors))
 
 
 if __name__ == "__main__":
