@@ -25,7 +25,12 @@ for (const selector of [
   '[id*="ad-placeholder" i]',
   '[class*="ad-placement" i]',
   'iframe[src*="doubleclick.net"]',
-  'iframe[src*="googlesyndication.com"]'
+  'iframe[src*="googlesyndication.com"]',
+  ':has(> iframe[src*="doubleclick.net"])',
+  ':has(> iframe[src*="googlesyndication.com"])',
+  ':has(> ins.adsbygoogle[data-ad-status="unfilled"])',
+  '[data-ad-status="unfilled"]',
+  '.google-auto-placed:empty'
 ]) {
   assert.ok(css.includes(selector), `Missing cosmetic selector: ${selector}`);
 }
