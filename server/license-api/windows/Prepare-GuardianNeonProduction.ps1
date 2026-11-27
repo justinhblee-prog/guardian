@@ -69,109 +69,22 @@ try {
 }
 if ([string]::IsNullOrWhiteSpace($neonApiKey)) { throw 'Neon API Key가 비어 있습니다. GitHub 설정은 변경하지 않았습니다.' }
 
-# Validate the credential and the exact project/branch/function before the
-# first GitHub write. A syntactically plausible but wrong API key must not
-# leave a half-provisioned set of Actions secrets behind.
-if ($NeonProjectId -notmatch '^[a-z0-9-]{1,60}
-  $psi = [Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = (Get-Command gh).Source
-  foreach ($arg in @('secret','set',$Name,'--repo',$Repository)) { [void]$psi.ArgumentList.Add($arg) }
-  $psi.UseShellExecute = $false
-  $psi.RedirectStandardInput = $true
-  $psi.RedirectStandardOutput = $true
-  $psi.RedirectStandardError = $true
-  $process = [Diagnostics.Process]::Start($psi)
-  try {
-    $process.StandardInput.Write($Value)
-    $process.StandardInput.Close()
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
-    if ($process.ExitCode -ne 0) { throw "GitHub Secret $Name 등록 실패: $stderr $stdout" }
-  } finally { $process.Dispose() }
-}
-function Set-GitHubVariable([string]$Name, [string]$Value) {
-  & gh variable set $Name --body $Value --repo $Repository
-  if ($LASTEXITCODE -ne 0) { throw "GitHub Variable $Name 등록 실패" }
-}
-
-# All local preflight checks complete. This changes only the named GitHub
-# Actions secrets/variables; it does not deploy or rotate any key.
-Set-GitHubSecret 'NEON_API_KEY' $neonApiKey
-Set-GitHubSecret 'GUARDIAN_ADMIN_TOKEN' $envValues.GUARDIAN_ADMIN_TOKEN
-Set-GitHubSecret 'GUARDIAN_LICENSE_LOOKUP_SECRET' $envValues.GUARDIAN_LICENSE_LOOKUP_SECRET
-Set-GitHubSecret 'GUARDIAN_LICENSE_PRIVATE_KEY' $privatePem
-
-Set-GitHubVariable 'NEON_PROJECT_ID' $NeonProjectId
-Set-GitHubVariable 'NEON_BRANCH_ID' $NeonBranchId
-Set-GitHubVariable 'GUARDIAN_LICENSE_PUBLIC_KEY' $publicB64
-Set-GitHubVariable 'GUARDIAN_LICENSE_API_BASE_URL' $NeonInvocationUrl.TrimEnd('/')
-
-$neonApiKey = $null
-$privatePem = $null
-$envValues.Clear()
-Write-Host 'Neon 배포용 GitHub Actions 설정 등록을 완료했습니다.'
-Write-Host "대상 저장소: $Repository"
-Write-Host "Neon 프로젝트/브랜치: $NeonProjectId / $NeonBranchId"
-Write-Host "API 주소: $($NeonInvocationUrl.TrimEnd('/'))"
-Write-Host '개인키·토큰 값은 출력하거나 저장하지 않았으며, Neon 배포는 실행하지 않았습니다.'
- -or $NeonBranchId -notmatch '^br-[a-z0-9-]{1,60}
-  $psi = [Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = (Get-Command gh).Source
-  foreach ($arg in @('secret','set',$Name,'--repo',$Repository)) { [void]$psi.ArgumentList.Add($arg) }
-  $psi.UseShellExecute = $false
-  $psi.RedirectStandardInput = $true
-  $psi.RedirectStandardOutput = $true
-  $psi.RedirectStandardError = $true
-  $process = [Diagnostics.Process]::Start($psi)
-  try {
-    $process.StandardInput.Write($Value)
-    $process.StandardInput.Close()
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
-    if ($process.ExitCode -ne 0) { throw "GitHub Secret $Name 등록 실패: $stderr $stdout" }
-  } finally { $process.Dispose() }
-}
-function Set-GitHubVariable([string]$Name, [string]$Value) {
-  & gh variable set $Name --body $Value --repo $Repository
-  if ($LASTEXITCODE -ne 0) { throw "GitHub Variable $Name 등록 실패" }
-}
-
-# All local preflight checks complete. This changes only the named GitHub
-# Actions secrets/variables; it does not deploy or rotate any key.
-Set-GitHubSecret 'NEON_API_KEY' $neonApiKey
-Set-GitHubSecret 'GUARDIAN_ADMIN_TOKEN' $envValues.GUARDIAN_ADMIN_TOKEN
-Set-GitHubSecret 'GUARDIAN_LICENSE_LOOKUP_SECRET' $envValues.GUARDIAN_LICENSE_LOOKUP_SECRET
-Set-GitHubSecret 'GUARDIAN_LICENSE_PRIVATE_KEY' $privatePem
-
-Set-GitHubVariable 'NEON_PROJECT_ID' $NeonProjectId
-Set-GitHubVariable 'NEON_BRANCH_ID' $NeonBranchId
-Set-GitHubVariable 'GUARDIAN_LICENSE_PUBLIC_KEY' $publicB64
-Set-GitHubVariable 'GUARDIAN_LICENSE_API_BASE_URL' $NeonInvocationUrl.TrimEnd('/')
-
-$neonApiKey = $null
-$privatePem = $null
-$envValues.Clear()
-Write-Host 'Neon 배포용 GitHub Actions 설정 등록을 완료했습니다.'
-Write-Host "대상 저장소: $Repository"
-Write-Host "Neon 프로젝트/브랜치: $NeonProjectId / $NeonBranchId"
-Write-Host "API 주소: $($NeonInvocationUrl.TrimEnd('/'))"
-Write-Host '개인키·토큰 값은 출력하거나 저장하지 않았으며, Neon 배포는 실행하지 않았습니다.'
-) {
+# Validate the credential and exact Neon target before the first GitHub write.
+# This prevents a wrong API key or project from partially provisioning Actions secrets.
+if ($NeonProjectId -notmatch '^[a-z0-9-]{1,60}$' -or $NeonBranchId -notmatch '^br-[a-z0-9-]{1,60}$') {
   throw 'Neon Project ID 또는 Branch ID 형식이 올바르지 않습니다. GitHub 설정은 변경하지 않았습니다.'
 }
 try {
-  $functionUri = "https://console.neon.tech/api/v2/projects/$([Uri]::EscapeDataString($NeonProjectId))/branches/$([Uri]::EscapeDataString($NeonBranchId))/functions/guardianapi"
-  $functionInfo = Invoke-RestMethod -Method Get -Uri $functionUri -Headers @{ Authorization = "Bearer $neonApiKey"; Accept = 'application/json' } -TimeoutSec 20
+  $projectPart = [Uri]::EscapeDataString($NeonProjectId)
+  $branchPart = [Uri]::EscapeDataString($NeonBranchId)
+  $functionUri = 'https://console.neon.tech/api/v2/projects/' + $projectPart + '/branches/' + $branchPart + '/functions/guardianapi'
+  $functionInfo = Invoke-RestMethod -Method Get -Uri $functionUri -Headers @{ Authorization = ('Bearer ' + $neonApiKey); Accept = 'application/json' } -TimeoutSec 20
   $functionData = $functionInfo
-  foreach ($propertyName in @('data','function')) {
-    $property = $functionInfo.PSObject.Properties[$propertyName]
-    if ($null -ne $property -and $null -ne $property.Value) { $functionData = $property.Value; break }
-  }
-  $actualInvocationUrl = [string]$functionData.invocation_url
-  if ([string]::IsNullOrWhiteSpace($actualInvocationUrl) -or
-      $actualInvocationUrl.TrimEnd('/') -cne $NeonInvocationUrl.TrimEnd('/')) {
+  $dataProperty = $functionInfo.PSObject.Properties['data']
+  if ($null -ne $dataProperty -and $null -ne $dataProperty.Value) { $functionData = $dataProperty.Value }
+  $invocationProperty = $functionData.PSObject.Properties['invocation_url']
+  $actualInvocationUrl = if ($null -ne $invocationProperty) { [string]$invocationProperty.Value } else { '' }
+  if ([string]::IsNullOrWhiteSpace($actualInvocationUrl) -or $actualInvocationUrl.TrimEnd('/') -cne $NeonInvocationUrl.TrimEnd('/')) {
     throw 'Neon Function invocation URL이 설정값과 일치하지 않습니다.'
   }
 } catch {
