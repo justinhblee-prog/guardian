@@ -8,11 +8,12 @@ const exampleConfig = JSON.parse(await readFile(policyPath, 'utf8'));
 
 const reviewedSource = overrides => ({
   id: 'reviewed_filter',
-  url: 'https://upstream.example/filter.txt',
+  url: 'https://upstream.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt',
   minimumRules: 1,
   upstreamRepository: 'https://github.com/example/filter',
   licenseUrl: 'https://github.com/example/filter/blob/main/LICENSE',
   upstreamVersion: '1.0.0',
+  upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   thirdPartyProvenanceReviewed: true,
   complianceEvidenceRef: 'PROVENANCE-REVIEW-2026-001',
   licenseId: 'GPL-3.0',
@@ -43,6 +44,8 @@ test('production approval gate rejects floating upstream versions and mutable CD
   for (const overrides of [
     { upstreamVersion: 'rolling-unpinned' },
     { upstreamVersion: 'latest' },
+    { upstreamCommitSha: 'b'.repeat(40) },
+    { upstreamCommitSha: undefined },
     { url: 'https://cdn.jsdelivr.net/gh/example/filter@latest/list.txt' },
     { url: 'https://cdn.jsdelivr.net/gh/example/filter@main/list.txt' }
   ]) {
