@@ -69,7 +69,7 @@ jobs:
           # 0.7.59-dev (versionCode 72) is the latest verified development APK.
           # CI artifacts are not GitHub Releases, so the public release list can lag
           # behind the version already distributed to the user. Keep the delivered
-          # baseline explicit: the next distinct build must be versionCode 72+.
+          # baseline explicit: the next distinct build must be versionCode 73+.
           # Never derive the app version from public release tags alone.
           # Main reruns reuse the release version for the same source commit.
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
