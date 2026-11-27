@@ -10,7 +10,7 @@ import {
 
 export function createLicenseApiRuntime(environment = process.env, options = {}) {
 const { Pool } = pg;
-const fetchObject = options.fetch ?? globalThis.fetch;
+const fetchObject = options.fetch ?? ((...args) => globalThis.fetch(...args));
 const DATABASE_URL = environment.DATABASE_URL;
 const ADMIN_TOKEN = environment.GUARDIAN_ADMIN_TOKEN;
 const PRIVATE_KEY = environment.GUARDIAN_LICENSE_PRIVATE_KEY;
