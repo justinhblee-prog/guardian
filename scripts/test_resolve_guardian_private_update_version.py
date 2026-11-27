@@ -34,8 +34,8 @@ class PrivateUpdateVersionTests(unittest.TestCase):
 
     def test_empty_private_feed_uses_channel_baseline(self):
         result = resolve_next_version([], "beta", "0.7.61-beta", 74)
-        self.assertEqual(result["version_name"], "0.7.61-beta")
-        self.assertEqual(result["version_code"], 74)
+        self.assertEqual(result["version_name"], "0.7.62-beta")
+        self.assertEqual(result["version_code"], 75)
 
     def test_rejects_invalid_channel_and_channel_version_mismatch(self):
         with self.assertRaises(ValueError):
@@ -44,8 +44,8 @@ class PrivateUpdateVersionTests(unittest.TestCase):
             resolve_next_version(
                 [{"channel": "beta", "version_code": 80, "version_name": "0.7.63-dev"}],
                 "beta",
-                "0.7.60-beta",
-                73,
+                "0.7.61-beta",
+                74,
             )
 
 
