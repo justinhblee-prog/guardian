@@ -119,11 +119,27 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     const commitSha = typeof source.upstreamCommitSha === 'string' &&
       /^[a-f0-9]{40,64}$/i.test(source.upstreamCommitSha);
     const sourceUrlPinsCommit = commitSha && (() => {
-      const segments = upstream.pathname.split('/').filter(Boolean);
-      return segments.some(segment =>
-        segment.toLowerCase() === source.upstreamCommitSha.toLowerCase() ||
-        segment.toLowerCase().endsWith('@' + source.upstreamCommitSha.toLowerCase())
-      );
+      const repositoryUrl = new URL(source.upstreamRepository);
+      const repositoryParts = repositoryUrl.pathname.split('/').filter(Boolean);
+      const owner = repositoryParts[0]?.toLowerCase();
+      const repository = repositoryParts[1]?.replace(/\\.git$/i, '').toLowerCase();
+      const sourceParts = upstream.pathname.split('/').filter(Boolean);
+      const revision = source.upstreamCommitSha.toLowerCase();
+      if (repositoryUrl.hostname.toLowerCase() !== 'github.com' ||
+          !owner || !repository || repositoryParts.length !== 2) return false;
+      if (upstream.hostname.toLowerCase() === 'raw.githubusercontent.com') {
+        return sourceParts.length >= 4 &&
+          sourceParts[0].toLowerCase() === owner &&
+          sourceParts[1].toLowerCase() === repository &&
+          sourceParts[2].toLowerCase() === revision;
+      }
+      if (upstream.hostname.toLowerCase() === 'cdn.jsdelivr.net') {
+        return sourceParts.length >= 4 &&
+          sourceParts[0] === 'gh' &&
+          sourceParts[1].toLowerCase() === owner &&
+          sourceParts[2].toLowerCase() === repository + '@' + revision;
+      }
+      return false;
     })();
     const pinnedSourceUrl = sourceUrlPinsCommit &&
       !/@(?:latest|main|master|head)(?:\/|$)/i.test(source.url);
