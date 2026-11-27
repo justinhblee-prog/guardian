@@ -715,12 +715,12 @@ jobs:
           exit 1
 
   publish-development-release:
-    name: Publish development APK update release
+    name: Publish private development APK update
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: build-apk
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Download verified Android APK artifact
         uses: actions/download-artifact@v4
@@ -728,41 +728,78 @@ jobs:
           name: guardian-android-debug
           path: .
 
-      - name: Publish development APK update release
+      - name: Upload and publish APK to the private Dev channel
         env:
-          GH_TOKEN: ${{ github.token }}
+          GUARDIAN_LICENSE_API_BASE_URL: ${{ vars.GUARDIAN_LICENSE_API_BASE_URL }}
+          GUARDIAN_ADMIN_TOKEN: ${{ secrets.GUARDIAN_ADMIN_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           MANIFEST="release/guardian-android-dev.json"
-          mkdir -p release
           test -s "$APK" && test -s "$MANIFEST"
-          cp "$APK" "release/guardian-android-dev.apk"
-          read -r VERSION_CODE VERSION_NAME < <(python3 - "$MANIFEST" "$APK" <<'PY'
+          test -n "$GUARDIAN_ADMIN_TOKEN"
+          API="${GUARDIAN_LICENSE_API_BASE_URL:-https://br-shiny-mountain-bi4ia7g2-guardianapi.compute.c-5.ap-southeast-1.aws.neon.tech}"
+          API="${API%/}"
+          python3 - "$MANIFEST" "$APK" "$RUNNER_TEMP/guardian-update-metadata.json" <<'PY'
           import hashlib, json, pathlib, re, sys
-          manifest_path, apk_path = sys.argv[1:]
+          manifest_path, apk_path, output_path = sys.argv[1:]
           manifest = json.loads(pathlib.Path(manifest_path).read_text())
-          digest = hashlib.sha256(pathlib.Path(apk_path).read_bytes()).hexdigest()
+          apk = pathlib.Path(apk_path)
+          digest = hashlib.sha256(apk.read_bytes()).hexdigest()
           assert manifest["packageName"] == "com.guardian.adblock"
           assert isinstance(manifest["versionCode"], int) and manifest["versionCode"] > 0
-          assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-dev", manifest["versionName"])
-          assert manifest["sha256"] == digest
-          assert manifest["signerSha256"] == "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
-          print(manifest["versionCode"], manifest["versionName"])
+          assert re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+-dev", manifest["versionName"])
+          assert manifest["sha256"].lower() == digest
+          assert re.fullmatch(r"[a-f0-9]{64}", manifest["signerSha256"].lower())
+          payload = {
+              "channel": "dev",
+              "versionCode": manifest["versionCode"],
+              "versionName": manifest["versionName"],
+              "sha256": digest,
+              "signerSha256": manifest["signerSha256"].lower(),
+              "sizeBytes": apk.stat().st_size,
+              "minSupportedVersionCode": 1,
+              "releaseNotes": "Guardian private development build"
+          }
+          pathlib.Path(output_path).write_text(json.dumps(payload))
+          print(f"Validated private Dev update {payload['versionName']} ({payload['versionCode']}).")
           PY
-          )
-          TAG="guardian-dev-v${VERSION_CODE}"
-          echo "Validated development release ${TAG} (${VERSION_NAME})."
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" "release/guardian-android-dev.apk" "$MANIFEST" --repo "$GITHUB_REPOSITORY" --clobber
-          else
-            gh release create "$TAG" \
-              "release/guardian-android-dev.apk" \
-              "$MANIFEST" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --prerelease \
-              --title "Guardian AdBlock ${VERSION_NAME} (개발 업데이트)" \
-              --notes "Guardian-Source-Commit: $GITHUB_SHA"
-          fi
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $GUARDIAN_ADMIN_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary @"$RUNNER_TEMP/guardian-update-metadata.json" \
+            "$API/v1/admin/updates/upload-url" > "$RUNNER_TEMP/guardian-upload-url.json"
+          python3 - "$RUNNER_TEMP/guardian-upload-url.json" "$RUNNER_TEMP/guardian-update-metadata.json" "$RUNNER_TEMP/guardian-upload-values.env" <<'PY'
+          import json, pathlib, shlex, sys
+          upload = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          metadata = json.loads(pathlib.Path(sys.argv[2]).read_text())
+          url = upload.get("uploadUrl")
+          key = upload.get("objectKey")
+          if not isinstance(url, str) or not url.startswith("https://") or not isinstance(key, str):
+              raise SystemExit("Private upload URL response is invalid.")
+          values = {"UPLOAD_URL": url, "OBJECT_KEY": key}
+          pathlib.Path(sys.argv[3]).write_text("\n".join(f"{k}={shlex.quote(v)}" for k, v in values.items()))
+          PY
+          source "$RUNNER_TEMP/guardian-upload-values.env"
+          curl --fail-with-body --silent --show-error -X PUT \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --upload-file "$APK" "$UPLOAD_URL" > /dev/null
+          python3 - "$RUNNER_TEMP/guardian-update-metadata.json" "$OBJECT_KEY" "$RUNNER_TEMP/guardian-publish-request.json" <<'PY'
+          import json, pathlib, sys
+          metadata = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          metadata["objectKey"] = sys.argv[2]
+          pathlib.Path(sys.argv[3]).write_text(json.dumps(metadata))
+          PY
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $GUARDIAN_ADMIN_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary @"$RUNNER_TEMP/guardian-publish-request.json" \
+            "$API/v1/admin/updates/publish" > "$RUNNER_TEMP/guardian-publish-response.json"
+          python3 - "$RUNNER_TEMP/guardian-publish-response.json" <<'PY'
+          import json, pathlib, sys
+          update = json.loads(pathlib.Path(sys.argv[1]).read_text()).get("update") or {}
+          if update.get("publishedAt") is None:
+              raise SystemExit("Server did not confirm publication.")
+          print(f"Private Dev channel published: {update['versionName']} ({update['versionCode']}).")
+          PY
