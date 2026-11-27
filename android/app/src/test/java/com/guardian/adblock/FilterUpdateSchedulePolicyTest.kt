@@ -45,6 +45,20 @@ class FilterUpdateSchedulePolicyTest {
         )
     }
 
+    @Test fun selectedProfileChangeRefreshesEvenWhenRecurringUpdatesAreDisabled() {
+        assertTrue(
+            FilterStartupPolicy.shouldRefresh(
+                mainCacheMissing = false,
+                securityCacheMissing = false,
+                securityEnabled = false,
+                androidAdsCacheMissing = false,
+                androidAdsEnabled = false,
+                scheduledRefreshDue = false,
+                mainProfileChanged = true
+            )
+        )
+    }
+
     @Test fun scheduledRefreshStillRequiresItsExplicitDueSignal() {
         assertTrue(
             FilterStartupPolicy.shouldRefresh(

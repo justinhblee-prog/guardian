@@ -84,8 +84,7 @@ class MainActivity : Activity() {
     private var blockRateValue: TextView? = null
     private var blockedCountValue: TextView? = null
     private var queryCountValue: TextView? = null
-    private var adBlockedValue: TextView? = null
-    private var trackerBlockedValue: TextView? = null
+    private val dnsCategoryValueViews = mutableListOf<TextView>()
     private var savedDataValue: TextView? = null
     private var activityChart: ActivityStatsChart? = null
     private var receiverRegistered = false
@@ -239,8 +238,10 @@ class MainActivity : Activity() {
                     24L * 60L * 60L * 1000L
                 )
                 val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                val profileChanged = FilterListManager.hasCachedFile(this) &&
-                    FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
+                val hasMainCache = FilterListManager.hasCachedFile(this)
+                val selectedProfileKey = FilterListManager.selectedProfile(this).key
+                val cachedProfileKey = FilterListManager.cachedProfile(this).key
+                val profileChanged = hasMainCache && selectedProfileKey != cachedProfileKey
                 val securityStale = securityEnabled && (
                     !FilterListManager.hasCachedSecurityList(this) ||
                         System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval
@@ -263,12 +264,14 @@ class MainActivity : Activity() {
                     securityEnabled = securityEnabled,
                     androidAdsCacheMissing = initialAndroidAdsMissing,
                     androidAdsEnabled = androidAdsEnabled,
-                    scheduledRefreshDue = scheduledRefreshDue
+                    scheduledRefreshDue = scheduledRefreshDue,
+                    mainProfileChanged = profileChanged
                 )
                 android.util.Log.i(
                     "Guardian",
                     "Startup filter readiness: mainMissing=$initialMainMissing securityMissing=$initialSecurityMissing " +
-                        "androidAdsMissing=$initialAndroidAdsMissing autoUpdate=$autoUpdate scheduledDue=$scheduledRefreshDue"
+                        "androidAdsMissing=$initialAndroidAdsMissing autoUpdate=$autoUpdate profileChanged=$profileChanged " +
+                        "selectedProfile=$selectedProfileKey cachedProfile=$cachedProfileKey scheduledDue=$scheduledRefreshDue"
                 )
                 if (needsUpdate) runOnUiThread {
                     if (!isFinishing && !isDestroyed) {
@@ -580,8 +583,7 @@ class MainActivity : Activity() {
         blockRateValue = null
         blockedCountValue = null
         queryCountValue = null
-        adBlockedValue = null
-        trackerBlockedValue = null
+        dnsCategoryValueViews.clear()
         savedDataValue = null
         activityChart = null
         root = LinearLayout(this).apply {
@@ -912,25 +914,55 @@ class MainActivity : Activity() {
         }
         body.addView(summary.withTop(18))
 
-        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
-        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
-        val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
+        val totalBlocked = prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L).coerceAtLeast(0L)
+        val categoryCounts = longArrayOf(
+            prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_ANALYTICS_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_TELEMETRY_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_FINGERPRINTING_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_SOCIAL_BLOCKED, 0L)
+        ).map { it.coerceAtLeast(0L) }.toLongArray()
+        // Previous versions kept only aggregate totals for unclassified domains.
+        // Preserve those historical counts here; do not fabricate retroactive labels.
+        val unclassifiedCount = (totalBlocked - categoryCounts.sum()).coerceAtLeast(0L)
+        val displayCounts = categoryCounts + unclassifiedCount
+        val categoryLabels = listOf("광고", "추적", "분석", "텔레메트리", "핑거프린팅", "소셜", "미분류·기존 기록")
+        val categoryColors = intArrayOf(
+            Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), Color.rgb(113, 205, 170),
+            Color.rgb(184, 150, 255), Color.rgb(238, 146, 190), Color.rgb(106, 190, 210), muted
+        )
         val chartCard = card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("차단 활동 그래프", 14f, white, true))
+            addView(text("전체 DNS 차단 활동", 14f, white, true))
+            addView(text("전체 차단 ${String.format(Locale.getDefault(), "%,d", totalBlocked)}건 · 광고·추적 외 유형도 세분화", 11f, muted, false).withTop(5))
             activityChart = ActivityStatsChart()
-            addView(activityChart, LinearLayout.LayoutParams(-1, dp(178)).apply { topMargin = dp(12) })
-            val categories = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
-            adBlockedValue = text(String.format(Locale.getDefault(), "%,d", adCount), 17f, Color.rgb(255, 166, 94), true)
-            trackerBlockedValue = text(String.format(Locale.getDefault(), "%,d", trackerCount), 17f, Color.rgb(116, 167, 255), true)
-            categories.addView(metricCard("광고 차단 건수", adBlockedValue!!, Color.rgb(255, 166, 94)), LinearLayout.LayoutParams(0, dp(76), 1f))
-            categories.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
-            categories.addView(metricCard("추적 차단 건수", trackerBlockedValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(76), 1f))
-            addView(categories.withTop(10))
+            addView(activityChart, LinearLayout.LayoutParams(-1, dp(320)).apply { topMargin = dp(12) })
+            activityChart?.update(displayCounts + prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L).coerceAtLeast(0L))
+            val categoryGrid = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+            categoryLabels.indices.toList().chunked(3).forEachIndexed { rowIndex, indexes ->
+                val categoryRow = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
+                indexes.forEachIndexed { columnIndex, categoryIndex ->
+                    if (columnIndex > 0) categoryRow.addView(space(6), LinearLayout.LayoutParams(dp(6), 1))
+                    val value = text(String.format(Locale.getDefault(), "%,d", displayCounts[categoryIndex]), 15f, categoryColors[categoryIndex], true)
+                    dnsCategoryValueViews.add(value)
+                    categoryRow.addView(
+                        metricCard(categoryLabels[categoryIndex], value, categoryColors[categoryIndex]),
+                        LinearLayout.LayoutParams(0, dp(72), 1f)
+                    )
+                }
+                while (categoryRow.childCount < 5) {
+                    categoryRow.addView(space(6), LinearLayout.LayoutParams(0, 1, 1f))
+                }
+                categoryGrid.addView(categoryRow, LinearLayout.LayoutParams(-1, dp(72)).apply {
+                    if (rowIndex > 0) topMargin = dp(6)
+                })
+            }
+            addView(categoryGrid.withTop(10))
             addView(text("예상 절약 데이터", 11f, muted, false).withTop(14))
-            savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(4) as TextView
+            savedDataValue = text(estimatedSavedDataLabel(totalBlocked), 18f, accent, true).withTop(4) as TextView
             addView(savedDataValue!!)
-            addView(text("광고·추적은 도메인 이름 기반 추정 분류입니다. 미분류는 필터 목록에 유형 정보가 없거나 도메인 이름만으로 유형을 판별할 수 없는 차단 요청이며, 별도 위협 유형을 뜻하지 않습니다. 최근 DNS 활동에서 실제 도메인을 확인할 수 있습니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치입니다.", 10f, muted, false).withTop(8))
+            addView(text("유형은 도메인 이름 기반의 추정 분류이며 차단 여부 자체에는 영향을 주지 않습니다. 미분류·기존 기록에는 과거 앱 버전에서 유형을 저장하지 않은 누적 건수와 판단 근거가 부족한 도메인이 포함됩니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치입니다.", 10f, muted, false).withTop(8))
         }
         body.addView(chartCard.withTop(12))
         body.addView(Button(this).apply {
@@ -983,6 +1015,10 @@ class MainActivity : Activity() {
                             .putLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)
                             .putLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
                             .putLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_ANALYTICS_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_TELEMETRY_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_FINGERPRINTING_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_SOCIAL_BLOCKED, 0L)
                             .putLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
                             .putString(GuardianVpnService.KEY_DNS_RECENT, "")
                             .putString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "")
@@ -1381,20 +1417,28 @@ class MainActivity : Activity() {
 
         val developmentBuild = BuildConfig.DEBUG
         val stableUpdaterEnabled = BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED
-        val channelDescription = when {
-            developmentBuild -> "개발 채널 · 내부 검증 전용입니다. 일반 사용자에게 개발판을 배포하지 않습니다."
-            stableUpdaterEnabled -> "안정 채널 · 공식 정식 Release만 확인합니다."
-            else -> "안정 채널 · Google Play 배포 유형입니다. 앱 업데이트는 Play 스토어가 관리합니다."
+        val adminUnlocked = GuardianUpdateAdminCredential.load(this) != null
+        body.addView(text(
+            if (adminUnlocked) "안정 채널은 모든 사용자에게 제공되며, 베타·개발 채널은 관리자 인증이 완료된 이 기기에서만 표시됩니다."
+            else "안정 채널만 표시됩니다. 베타·개발 업데이트는 관리자 인증을 완료한 기기에서만 선택할 수 있습니다.",
+            12f, accent, false
+        ).withTop(9))
+
+        val channelNames = mutableListOf("안정 (Stable)")
+        if (adminUnlocked) {
+            channelNames += listOf("베타 (Beta)", "개발 (Dev)")
         }
-        body.addView(text(channelDescription, 12f, accent, false).withTop(9))
-        val feedback = text(
-            when {
-                developmentBuild -> "개발 버전 업데이트 확인 전"
-                stableUpdaterEnabled -> "정식 업데이트 확인 전"
-                else -> "이 배포 유형에서는 인앱 업데이트가 비활성화되어 있습니다."
-            },
-            12f, muted, false
-        ).withTop(12) as TextView
+        val channelSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_item, channelNames).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            isEnabled = true
+            contentDescription = "Guardian 업데이트 채널 선택"
+        }
+        body.addView(text("업데이트 채널", 13f, white, true).withTop(14))
+        body.addView(channelSpinner, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(5) })
+
+        val feedback = text("업데이트 확인 전", 12f, muted, false).withTop(12) as TextView
         body.addView(feedback)
         var downloaded: File? = null
         val installButton = Button(this).apply {
@@ -1407,77 +1451,171 @@ class MainActivity : Activity() {
             contentDescription = "검증된 업데이트 파일이 준비되면 활성화되는 업데이트 설치"
         }
         setUpdateInstallButtonReady(installButton, false)
+
         val checkButton = Button(this).apply {
-            text = if (developmentBuild) "개발 업데이트 확인" else "정식 업데이트 확인"
+            text = "업데이트 확인"
             isAllCaps = false
-            isEnabled = developmentBuild || stableUpdaterEnabled
+            isEnabled = developmentBuild || stableUpdaterEnabled || adminUnlocked
             setTextColor(bg)
             background = shape(accent, 12)
+        }
+        val adminButton = Button(this).apply {
+            text = if (adminUnlocked) "관리자 채널 인증 해제" else "관리자 채널 인증"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 12)
             setOnClickListener {
-                isEnabled = false
-                setUpdateInstallButtonReady(installButton, false)
-                downloaded = null
-                feedback.text = if (developmentBuild) "공식 개발 릴리스 확인 중…" else "공식 정식 릴리스 확인 중…"
-                thread(name = "guardian-app-update-menu") {
-                    var updateStage = "업데이트 확인 준비"
-                    try {
-                        if (developmentBuild) {
-                            val update = DevUpdateManager.checkForUpdate { stage ->
-                                updateStage = stage
-                                runOnUiThread { feedback.text = stage }
-                            }
-                            if (update == null) {
-                                runOnUiThread {
-                                    feedback.text = "공개된 개발 릴리스 중 현재 설치 버전보다 새로운 버전이 없습니다."
-                                    isEnabled = true
-                                }
+                if (GuardianUpdateAdminCredential.load(this@MainActivity) != null) {
+                    GuardianUpdateAdminCredential.clear(this@MainActivity)
+                    channelSpinner.adapter = ArrayAdapter(
+                        this@MainActivity, android.R.layout.simple_spinner_item, listOf("안정 (Stable)")
+                    ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                    text = "관리자 채널 인증"
+                    checkButton.isEnabled = developmentBuild || stableUpdaterEnabled
+                    feedback.text = "관리자 인증이 이 기기에서 해제되었습니다. 안정 채널만 표시됩니다."
+                } else {
+                    val tokenInput = EditText(this@MainActivity).apply {
+                        hint = "관리자 인증 토큰"
+                        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        maxLines = 1
+                    }
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("관리자 채널 인증")
+                        .setMessage("관리자 인증 토큰은 Android Keystore로 암호화해 이 기기에 저장합니다. APK나 앱 소스에는 포함하지 않습니다.")
+                        .setView(tokenInput)
+                        .setNegativeButton("취소", null)
+                        .setPositiveButton("인증") { _, _ ->
+                            val token = tokenInput.text?.toString().orEmpty().trim()
+                            if (token.isBlank()) {
+                                feedback.text = "관리자 인증 토큰을 입력하세요."
                             } else {
-                                updateStage = "새 버전 APK 다운로드 및 검증"
-                                runOnUiThread {
-                                    feedback.text = "새 개발 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
+                                isEnabled = false
+                                feedback.text = "관리자 인증 확인 중…"
+                                thread(name = "guardian-update-admin-auth") {
+                                    try {
+                                        GuardianPrivateUpdateManager.authorize(this@MainActivity, token)
+                                        runOnUiThread {
+                                            channelSpinner.adapter = ArrayAdapter(
+                                                this@MainActivity,
+                                                android.R.layout.simple_spinner_item,
+                                                listOf("안정 (Stable)", "베타 (Beta)", "개발 (Dev)")
+                                            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                                            text = "관리자 채널 인증 해제"
+                                            checkButton.isEnabled = true
+                                            feedback.text = "관리자 인증 완료 · 이 기기에서 베타·개발 채널을 선택할 수 있습니다."
+                                            isEnabled = true
+                                        }
+                                    } catch (error: Exception) {
+                                        GuardianUpdateAdminCredential.clear(this@MainActivity)
+                                        runOnUiThread {
+                                            feedback.text = "관리자 인증 실패: " + SafeFailureSummary.describe(error)
+                                            isEnabled = true
+                                        }
+                                    }
                                 }
-                                val apk = DevUpdateManager.download(this@MainActivity, update)
-                                runOnUiThread {
-                                    downloaded = apk
-                                    feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 개발 서명 인증서 검증 통과."
-                                    setUpdateInstallButtonReady(installButton, true)
-                                    isEnabled = false
-                                }
+                            }
+                        }
+                        .show()
+                }
+            }
+        }
+        body.addView(adminButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+
+        checkButton.setOnClickListener {
+            val channel = when (channelSpinner.selectedItemPosition) {
+                1 -> "beta"
+                2 -> "dev"
+                else -> "stable"
+            }
+            if (channel != "stable" && GuardianUpdateAdminCredential.load(this@MainActivity) == null) {
+                feedback.text = "베타·개발 채널은 관리자 인증이 필요합니다."
+                return@setOnClickListener
+            }
+            checkButton.isEnabled = false
+            setUpdateInstallButtonReady(installButton, false)
+            downloaded = null
+            feedback.text = "$channel 업데이트 확인 중…"
+            thread(name = "guardian-app-update-menu") {
+                var updateStage = "업데이트 확인 준비"
+                try {
+                    if (channel == "stable") {
+                        updateStage = "정식 릴리스 확인"
+                        val update = GuardianStableUpdateManager.checkForUpdate()
+                        if (update == null) {
+                            runOnUiThread {
+                                feedback.text = "현재 설치된 정식 버전이 최신입니다."
+                                checkButton.isEnabled = true
                             }
                         } else {
-                            updateStage = "정식 릴리스 확인"
-                            val update = GuardianStableUpdateManager.checkForUpdate()
-                            if (update == null) {
-                                runOnUiThread {
-                                    feedback.text = "현재 설치된 정식 버전이 최신입니다."
-                                    isEnabled = true
-                                }
-                            } else {
-                                runOnUiThread {
-                                    feedback.text = "새 정식 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
-                                }
-                                val apk = GuardianStableUpdateManager.download(this@MainActivity, update)
-                                runOnUiThread {
-                                    downloaded = apk
-                                    feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
-                                    setUpdateInstallButtonReady(installButton, true)
-                                    isEnabled = false
-                                }
+                            runOnUiThread {
+                                feedback.text = "새 정식 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
+                            }
+                            val apk = GuardianStableUpdateManager.download(this@MainActivity, update)
+                            runOnUiThread {
+                                downloaded = apk
+                                feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
+                                setUpdateInstallButtonReady(installButton, true)
+                                checkButton.isEnabled = false
                             }
                         }
-                    } catch (error: Exception) {
-                        val failureTypes = SafeFailureSummary.diagnosticTypeChain(error)
-                        val failureCode = SafeFailureSummary.codeFor(error)
-                        android.util.Log.e(
-                            "GuardianUpdater",
-                            "Update flow failed at stage='$updateStage'; code=$failureCode; causes=$failureTypes"
-                        )
-                        runOnUiThread {
-                            downloaded = null
-                            setUpdateInstallButtonReady(installButton, false)
-                            feedback.text = "업데이트 실패 [$updateStage]: " + SafeFailureSummary.describe(error)
-                            isEnabled = true
+                    } else {
+                        val update = GuardianPrivateUpdateManager.checkForUpdate(this@MainActivity, channel) { stage ->
+                            updateStage = stage
+                            runOnUiThread { feedback.text = stage }
                         }
+                        if (update == null) {
+                            runOnUiThread {
+                                feedback.text = "${channel.uppercase()} 채널에 현재 설치 버전보다 새로운 업데이트가 없습니다."
+                                checkButton.isEnabled = true
+                            }
+                        } else {
+                            updateStage = "비공개 APK 다운로드 및 검증"
+                            runOnUiThread {
+                                feedback.text = "새 ${channel.uppercase()} 버전 ${update.versionName} 발견 · 비공개 APK 검증 중…"
+                            }
+                            val apk = GuardianPrivateUpdateManager.download(this@MainActivity, update) { stage ->
+                                runOnUiThread { feedback.text = stage }
+                            }
+                            runOnUiThread {
+                                downloaded = apk
+                                feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지, 버전 및 서명 인증서 검증 통과."
+                                setUpdateInstallButtonReady(installButton, true)
+                                checkButton.isEnabled = false
+                            }
+                        }
+                    }
+                } catch (error: GuardianNoStableReleaseAvailableException) {
+                    runOnUiThread {
+                        downloaded = null
+                        setUpdateInstallButtonReady(installButton, false)
+                        feedback.text = error.message ?: "정식 업데이트가 아직 게시되지 않았습니다."
+                        checkButton.isEnabled = true
+                    }
+                } catch (error: GuardianStableUpdateHttpException) {
+                    android.util.Log.w(
+                        "GuardianUpdater",
+                        "Stable update endpoint returned HTTP ${error.statusCode}."
+                    )
+                    runOnUiThread {
+                        downloaded = null
+                        setUpdateInstallButtonReady(installButton, false)
+                        feedback.text = "정식 업데이트 서버 응답 오류 (HTTP ${error.statusCode}). 잠시 후 다시 시도하세요."
+                        checkButton.isEnabled = true
+                    }
+                } catch (error: Exception) {
+                    android.util.Log.e(
+                        "GuardianUpdater",
+                        "Update flow failed at stage='$updateStage'; code=${SafeFailureSummary.codeFor(error)}; causes=${SafeFailureSummary.diagnosticTypeChain(error)}"
+                    )
+                    runOnUiThread {
+                        downloaded = null
+                        setUpdateInstallButtonReady(installButton, false)
+                        feedback.text = if (channel == "stable") {
+                            "정식 업데이트 확인에 실패했습니다. 네트워크 연결을 확인하고 다시 시도하세요."
+                        } else {
+                            "업데이트 실패 [$updateStage]: " + SafeFailureSummary.describe(error)
+                        }
+                        checkButton.isEnabled = true
                     }
                 }
             }
@@ -1486,11 +1624,7 @@ class MainActivity : Activity() {
         installButton.setOnClickListener {
             val apk = downloaded ?: return@setOnClickListener
             try {
-                val launched = if (developmentBuild) {
-                    DevUpdateManager.install(this@MainActivity, apk)
-                } else {
-                    GuardianStableUpdateManager.install(this@MainActivity, apk)
-                }
+                val launched = GuardianStableUpdateManager.install(this@MainActivity, apk)
                 feedback.text = if (launched) {
                     "Android 시스템 설치 확인 화면을 열었습니다."
                 } else {
@@ -1502,14 +1636,11 @@ class MainActivity : Activity() {
         }
         body.addView(installButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         body.addView(text(
-            if (developmentBuild) {
-                "개발판은 공식 개발 릴리스의 APK SHA-256, 패키지 ID, 버전 및 개발 서명 인증서를 검증합니다. 업데이트는 사용자가 직접 확인하고 설치합니다."
-            } else {
-                "정식판은 공식 HTTPS Release manifest, APK SHA-256, 패키지 ID, 버전 및 운영 서명 인증서를 검증한 뒤 Android 설치 화면을 엽니다."
-            },
+            "안정 채널은 공식 정식 Release를 확인합니다. 베타·개발 채널은 관리자 인증을 통과한 기기에서만 표시되며, 비공개 APK의 SHA-256·패키지 ID·버전·설치 서명 인증서를 모두 검증한 뒤 Android 설치 화면을 엽니다.",
             11f, muted, false
         ).withTop(14))
     }
+
     private fun buildPremium(body: LinearLayout) {
         val entitlement = LicenseEntitlementStore.current(this)
         val retainedLicense = LicenseEntitlementStore.currentForRefresh(this)
@@ -1689,15 +1820,30 @@ class MainActivity : Activity() {
 
         if (proActive) {
             val reportPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            val reportBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportAds = reportPrefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportTrackers = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportAnalytics = reportPrefs.getLong(GuardianVpnService.KEY_DNS_ANALYTICS_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportTelemetry = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TELEMETRY_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportFingerprinting = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FINGERPRINTING_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportSocial = reportPrefs.getLong(GuardianVpnService.KEY_DNS_SOCIAL_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportUnclassified = (
+                reportBlocked - reportAds - reportTrackers - reportAnalytics -
+                    reportTelemetry - reportFingerprinting - reportSocial
+                ).coerceAtLeast(0L)
             val reportSnapshot = PremiumReportSnapshot(
                 totalQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
-                blockedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
+                blockedQueries = reportBlocked,
                 forwardedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
                 failedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
-                adBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
-                trackerBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
-                otherBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L),
-                protectionActive = GuardianVpnService.isTunnelActive()
+                adBlocked = reportAds,
+                trackerBlocked = reportTrackers,
+                otherBlocked = reportUnclassified,
+                protectionActive = GuardianVpnService.isTunnelActive(),
+                analyticsBlocked = reportAnalytics,
+                telemetryBlocked = reportTelemetry,
+                fingerprintingBlocked = reportFingerprinting,
+                socialBlocked = reportSocial
             )
             val reportText = PremiumReportBuilder.build(reportSnapshot, System.currentTimeMillis())
             body.addView(card(panel, 16).apply {
@@ -4186,13 +4332,21 @@ class MainActivity : Activity() {
         blockRateValue?.text = String.format(Locale.getDefault(), "%.1f%%", blockRate)
         blockedCountValue?.text = String.format(Locale.getDefault(), "%,d", blockedQueries)
         queryCountValue?.text = String.format(Locale.getDefault(), "%,d", totalQueries)
-        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
-        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
-        val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
-        adBlockedValue?.text = String.format(Locale.getDefault(), "%,d", adCount)
-        trackerBlockedValue?.text = String.format(Locale.getDefault(), "%,d", trackerCount)
+        val categoryCounts = longArrayOf(
+            prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_ANALYTICS_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_TELEMETRY_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_FINGERPRINTING_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_SOCIAL_BLOCKED, 0L)
+        ).map { it.coerceAtLeast(0L) }.toLongArray()
+        val unclassifiedCount = (blockedQueries - categoryCounts.sum()).coerceAtLeast(0L)
+        val displayCounts = categoryCounts + unclassifiedCount
+        dnsCategoryValueViews.forEachIndexed { index, view ->
+            view.text = String.format(Locale.getDefault(), "%,d", displayCounts.getOrElse(index) { 0L })
+        }
         savedDataValue?.text = estimatedSavedDataLabel(blockedQueries)
-        activityChart?.update(adCount, trackerCount, otherCount, prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))
+        activityChart?.update(displayCounts + prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L).coerceAtLeast(0L))
         val recentDns = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null)
         recentText?.text = recentDns ?: "아직 기록된 DNS 활동이 없습니다."
         blockedDomainSummaryText?.text = DnsActivitySummary.recentBlockedDomains(recentDns)
@@ -4350,25 +4504,26 @@ class MainActivity : Activity() {
             textSize = dp(11).toFloat()
             typeface = Typeface.DEFAULT
         }
-        private val values = LongArray(4)
-        private val labels = arrayOf("광고 차단", "추적 차단", "미분류 차단", "정상 전달")
-        private val colors = intArrayOf(Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), accent, muted)
+        private val labels = arrayOf("광고", "추적", "분석", "텔레메트리", "핑거프린팅", "소셜", "미분류·기존", "정상 전달")
+        private val colors = intArrayOf(
+            Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), Color.rgb(113, 205, 170),
+            Color.rgb(184, 150, 255), Color.rgb(238, 146, 190), Color.rgb(106, 190, 210),
+            muted, muted
+        )
+        private var values = LongArray(labels.size)
 
-        fun update(ads: Long, trackers: Long, other: Long, forwarded: Long) {
-            values[0] = ads.coerceAtLeast(0L)
-            values[1] = trackers.coerceAtLeast(0L)
-            values[2] = other.coerceAtLeast(0L)
-            values[3] = forwarded.coerceAtLeast(0L)
+        fun update(nextValues: LongArray) {
+            values = LongArray(labels.size) { index -> nextValues.getOrElse(index) { 0L }.coerceAtLeast(0L) }
             invalidate()
         }
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val maxValue = values.maxOrNull()?.coerceAtLeast(1L) ?: 1L
-            val labelWidth = dp(76).toFloat()
+            val labelWidth = dp(92).toFloat()
             val rightPadding = dp(38).toFloat()
             val barWidth = (width - labelWidth - rightPadding).coerceAtLeast(dp(20).toFloat())
-            val rowHeight = height / 4f
+            val rowHeight = height / values.size.toFloat()
             for (i in values.indices) {
                 val top = i * rowHeight + dp(7)
                 textPaint.color = muted

@@ -345,6 +345,65 @@ scroll_to_text() {
   return 1
 }
 
+# Find an exact visible text node rather than a substring. This matters for
+# "업데이트 확인", which is also contained in the accordion header label.
+ensure_exact_text_visible() {
+  local wanted="$1" attempt size width height center_x start_y end_y xml
+  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
+  width="${size%x*}"
+  height="${size#*x}"
+  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
+    echo "Could not determine a usable emulator display size: $size"
+    return 1
+  fi
+  center_x=$((width / 2))
+  start_y=$((height * 4 / 5))
+  end_y=$((height / 5))
+  for attempt in $(seq 1 10); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-exact-scroll-target.xml)"
+    if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+raise SystemExit(0 if any(n.attrib.get("text","").strip()==sys.argv[1]
+  and n.attrib.get("visible-to-user","true")=="true" for n in root.iter("node")) else 1)' "$wanted" <<<"$xml"; then
+      echo "Exact text visible without activation: $wanted"
+      return 0
+    fi
+    echo "Scrolling to exact text '$wanted' (attempt $attempt/10)."
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Could not bring exact text into the visible viewport: $wanted"
+  dump_ui_hierarchy /sdcard/guardian-exact-scroll-target.xml
+  return 1
+}
+
+tap_exact_text() {
+  local wanted="$1" xml bounds
+  xml="$(dump_ui_hierarchy /sdcard/guardian-exact-tap-target.xml)"
+  bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+parents={child: parent for parent in root.iter() for child in parent}
+for node in root.iter("node"):
+    if node.attrib.get("text","").strip()!=sys.argv[1] or node.attrib.get("visible-to-user","true")!="true":
+        continue
+    target=node
+    while target is not None:
+        if target.attrib.get("visible-to-user","true")=="true" and target.attrib.get("clickable")=="true" and target.attrib.get("enabled")=="true":
+            parts=target.attrib.get("bounds","").strip("[]").split("][")
+            if len(parts)==2:
+                x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+                print((x1+x2)//2,(y1+y2)//2)
+                raise SystemExit(0)
+        target=parents.get(target)
+raise SystemExit(1)' "$wanted" <<<"$xml")" || {
+    echo "Could not locate exact visible clickable control: $wanted"
+    echo "$xml"
+    return 1
+  }
+  read -r x y <<<"$bounds"
+  adb_cmd shell input tap "$x" "$y"
+}
+
 # Android AlertDialog ListView row TextViews are intentionally non-clickable
 # in UIAutomator's accessibility tree; ListView itself dispatches row taps.
 # Resolve only an exact child of android:id/select_dialog_listview, leaving
@@ -1256,6 +1315,31 @@ fi
 
 echo "Automatic package-update recovery passed: receiver relaunched VPN, DNS queries resumed, and the test ad domain was blocked."
 
+# The expanded offline rule is shipped by the candidate APK, not the older predecessor.
+echo "Triggering a DNS lookup for a newly added offline ad-network rule."
+before_expanded_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_expanded_ad="$(sed -n 's/.*name="dns_ad_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+if [[ -z "$before_expanded_blocked" ]]; then before_expanded_blocked=0; fi
+if [[ -z "$before_expanded_ad" ]]; then before_expanded_ad=0; fi
+run_id="$(printenv GITHUB_RUN_ID 2>/dev/null || echo test)"
+adb_cmd shell ping -c 1 -W 5 "guardian-ci-$run_id.pubmatic.com" >/tmp/guardian-expanded-ad-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_expanded_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+after_expanded_ad="$(sed -n 's/.*name="dns_ad_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+if [[ -z "$after_expanded_blocked" ]]; then after_expanded_blocked=0; fi
+if [[ -z "$after_expanded_ad" ]]; then after_expanded_ad=0; fi
+if (( after_expanded_blocked <= before_expanded_blocked )) ||
+   (( after_expanded_ad <= before_expanded_ad )) ||
+   grep -Eq 'PING guardian-ci-[^ ]*\.pubmatic\.com \([^)]*\)' /tmp/guardian-expanded-ad-dns.txt; then
+  echo "Expanded offline ad-network rule did not block the PubMatic test domain."
+  cat /tmp/guardian-expanded-ad-dns.txt || true
+  read_prefs
+  exit 1
+fi
+echo "Expanded offline ad-network DNS rule passed: PubMatic was blocked and counted as an ad."
+
+
 # The pre-update fixture is intentionally 0.7.25-dev and cannot contain this feature.
 # Run the compatibility UI/behavior check only after installing and verifying
 # the current 0.7.26-dev APK above.
@@ -1520,7 +1604,7 @@ python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 visible={node.attrib.get("text","").strip() for node in root.iter("node")
          if node.attrib.get("visible-to-user","true")=="true"}
-required={"일반","프로그램 업데이트","개발 업데이트 확인"}
+required={"일반","프로그램 업데이트","업데이트 채널","안정 (Stable)"}
 missing=required-visible
 if missing:
     raise SystemExit("Inline Program Updates panel did not expand; missing: "+repr(sorted(missing)))' <<<"$updates_xml" || {
@@ -1528,71 +1612,88 @@ if missing:
   echo "$updates_xml"
   exit 1
 }
-install_visible=0
-for attempt in $(seq 1 8); do
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-raise SystemExit(0 if any(node.attrib.get("text","").strip()=="업데이트 설치"
-  and node.attrib.get("visible-to-user","true")=="true" for node in root.iter("node")) else 1)' <<<"$updates_xml"; then
-    install_visible=1
-    break
-  fi
-  adb_cmd shell input swipe 800 1510 800 980 350
-  sleep 0.35
-  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
-done
-if [[ "$install_visible" -ne 1 ]]; then
-  echo "The expanded Program Updates panel does not expose its install action after scrolling."
+if grep -Eq '베타 \(Beta\)|개발 \(Dev\)' <<<"$updates_xml"; then
+  echo "Beta/Dev channels were exposed before administrator authentication."
   echo "$updates_xml"
   exit 1
 fi
 
-# Exercise the actual development update check, not only the presence of its
-# controls. PR builds are intentionally not published as releases, so the
-# currently published manifest must resolve to "already latest" for this
-# higher versionCode. This validates network/API parsing and the no-update UI
-# without downloading or installing an untrusted/unpublished build.
+# The current private-channel design deliberately labels the common action
+# "업데이트 확인"; it is not a separate "개발 업데이트 확인" button. Admin
+# credentials unlock Beta/Dev choices and remain device-local. Exercise the
+# public Stable updater here, then verify the admin-auth entry is present.
 if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
-  tap_text "개발 업데이트 확인"
+  ensure_exact_text_visible "업데이트 확인"
+  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-check.xml)"
+  grep -Fq '업데이트 확인' <<<"$updates_xml" || {
+    echo "The expanded Program Updates panel does not expose its common update-check action."
+    echo "$updates_xml"
+    exit 1
+  }
+  tap_exact_text "업데이트 확인"
   update_check_ready=0
   for attempt in $(seq 1 20); do
     sleep 1
     updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-result.xml)"
-    if grep -Fq '공개된 개발 릴리스 중 현재 설치 버전보다 새로운 버전이 없습니다.' <<<"$updates_xml"; then
+    if grep -Fq '정식 업데이트가 아직 게시되지 않았습니다.' <<<"$updates_xml"; then
       update_check_ready=1
       break
     fi
     if grep -Eq '업데이트 실패|업데이트 확인에 실패|업데이트를 확인할 수 없습니다|오류' <<<"$updates_xml"; then
-      # The live VPN/DNS acceptance test must not turn a transient GitHub
-      # Releases API outage into a false product failure. The updater is
-      # expected to surface a clear, recoverable network-timeout state; all
-      # manifest parsing/version-policy behavior remains covered by unit tests.
       if grep -Eq '네트워크 연결 시간 초과|연결 시간 초과|NETWORK_TIMEOUT' <<<"$updates_xml"; then
-        echo "Development updater surfaced its explicit recoverable network-timeout state; live GitHub reachability is recorded as degraded, not as a VPN/DNS failure."
+        echo "Stable updater surfaced its explicit recoverable network-timeout state; continuing independent VPN, DNS, and navigation acceptance checks."
         update_check_ready=1
         break
       fi
-      echo "Development update check returned a non-network error instead of a valid latest-version response."
+      echo "Stable update check returned a non-network error."
       echo "$updates_xml"
       exit 1
     fi
   done
   if [[ "$update_check_ready" -ne 1 ]]; then
-    echo "Development update check did not reach a valid latest-version or recoverable network-timeout state."
+    echo "Stable update check did not reach a valid latest-version or recoverable network-timeout state."
     echo "$updates_xml"
     exit 1
   fi
-  if grep -Eq '네트워크 연결 시간 초과|연결 시간 초과|NETWORK_TIMEOUT' <<<"$updates_xml"; then
-    echo "Development update UI gracefully exposed the transient network timeout; continuing independent VPN, DNS, and navigation acceptance checks."
-  else
-    echo "Development update check reached the expected latest-version state."
+  if grep -Fq '정식 업데이트가 아직 게시되지 않았습니다.' <<<"$updates_xml"; then
+    echo "Stable update check correctly reported that no Stable release has been published yet."
   fi
 fi
-# Verify the same inline updater control collapses and re-expands with the
-# correct directional arrow; do not navigate away or open a second screen.
-# Confirm the expanded accordion header is visible without tapping it.
-ensure_text_visible "프로그램 업데이트 확인 접기"
-updater_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-expanded.xml)"
+
+ensure_exact_text_visible "관리자 채널 인증"
+updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-admin.xml)"
+if ! grep -Fq '관리자 채널 인증' <<<"$updates_xml"; then
+  echo "The updater does not expose its device-local administrator channel authentication control."
+  echo "$updates_xml"
+  exit 1
+fi
+
+# The install action is further down the same scrollable panel. Verify its
+# presence independently; it remains disabled until a verified APK is ready.
+ensure_exact_text_visible "업데이트 설치"
+updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-install.xml)"
+if ! grep -Fq '업데이트 설치' <<<"$updates_xml"; then
+  echo "The expanded Program Updates panel does not expose its install action after scrolling."
+  echo "$updates_xml"
+  exit 1
+fi
+
+# Return the right-hand workspace to the top so the accordion header can be
+# tested independently from the scrolled action controls.
+updater_expanded_xml=""
+for attempt in $(seq 1 10); do
+  updater_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-expanded.xml)"
+  if grep -Fq '프로그램 업데이트 확인 접기' <<<"$updater_expanded_xml"; then
+    break
+  fi
+  adb_cmd shell input swipe 800 980 800 1510 350
+  sleep 0.35
+done
+if ! grep -Fq '프로그램 업데이트 확인 접기' <<<"$updater_expanded_xml"; then
+  echo "Could not return to the expanded Program Updates accordion header."
+  echo "$updater_expanded_xml"
+  exit 1
+fi
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 texts=[n.attrib.get("text","") for n in root.iter("node")]
@@ -1606,18 +1707,20 @@ root=ET.fromstring(sys.stdin.read())
 texts=[n.attrib.get("text","") for n in root.iter("node")]
 if not any(t.startswith("⌄") and "프로그램 업데이트 확인" in t and "접기" not in t for t in texts):
     raise SystemExit("Collapsed updater control must show the downward expand arrow.")
-if any("개발 업데이트 확인" in t for t in texts):
+if any(t in {"업데이트 확인","관리자 채널 인증","업데이트 설치"} for t in texts):
     raise SystemExit("Updater contents remained visible after collapse.")
 print("Program Updates inline collapse/expand arrow toggle passed.")' <<<"$updater_collapsed_xml"
 tap_text "프로그램 업데이트 확인"
 sleep 1
 updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
-grep -Fq '개발 업데이트 확인' <<<"$updater_reopened_xml" || {
+ensure_text_visible "업데이트 확인"
+updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
+grep -Fq '업데이트 확인' <<<"$updater_reopened_xml" || {
   echo "Program Updates panel did not reopen after its collapse test."
   echo "$updater_reopened_xml"
   exit 1
 }
-echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater panel, executes its version check, and passes the arrow collapse/expand test."
+echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater, validates Stable update checking and admin-gated channels, and passes the arrow collapse/expand test."
 tap_content_description "설정"
 sleep 1
 # The redesigned app removed the global header exit action. Exit is now
@@ -2173,3 +2276,601 @@ if (( after_reboot_blocked <= before_reboot_blocked )) ||
   exit 1
 fi
 echo "Device reboot recovery passed: boot receiver restored VPN protection, allowed DNS resumed, and the ad test domain was blocked."
+
+# Verify that changing the selected filter profile refreshes its cache even when auto-update is OFF.
+current_version="$(adb_cmd shell dumpsys package "$PACKAGE" | sed -n 's/.*versionName=//p' | head -1 | tr -d '\r')"
+expected_version="${GUARDIAN_CURRENT_VERSION_NAME:-0.7.26-dev}"
+if [[ "$current_version" != "$expected_version" ]]; then
+  echo "Foreground-app compatibility test requires $expected_version but installed Guardian is $current_version."
+  adb_cmd shell dumpsys package "$PACKAGE" | grep -E 'versionCode|versionName' || true
+  exit 1
+fi
+
+# The predecessor APK cannot exercise candidate-only Settings and rule-editor UI.
+# Run Activity recreation and unsaved custom-rule persistence only after the
+# in-place upgrade has confirmed the candidate version is installed.
+# Exercise a real Activity recreation in landscape while unsaved user-rule text
+# is present. The tab and draft must survive rotation without saving to prefs.
+echo "Verifying filter-screen and unsaved rule state survive device rotation."
+open_settings_menu_item "필터링"
+tap_text "전체 필터 규칙 편집"
+sleep 1
+tap_first_edit_text
+adb_cmd shell input text 'rotation-preserved.example'
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+before_rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any("rotation-preserved.example" in node.attrib.get("text","") for node in root.iter("node")):
+    raise SystemExit("Synthetic rule text was not entered before rotation.")' <<<"$before_rotation_xml"
+adb_cmd shell settings put system accelerometer_rotation 0
+adb_cmd shell settings put system user_rotation 1
+sleep 3
+adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+selected=any(node.attrib.get("content-desc")=="설정"
+             and node.attrib.get("selected")=="true" for node in nodes)
+filter_editor=any(node.attrib.get("text","")=="허용 도메인" for node in nodes)
+draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
+if not (selected and filter_editor and draft):
+    raise SystemExit("Activity rotation lost the selected filter destination, filter editor, or unsaved rule draft.")' <<<"$rotation_xml"
+if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Activity restored after configuration change; tab=rules scrollY=[1-9][0-9]* hasRuleDraft=true"; then
+  echo "Activity did not retain the unsaved rule editor draft across rotation."
+  adb_cmd logcat -d -s GuardianUI:I | tail -80
+  exit 1
+fi
+if ! adb_cmd logcat -d -s GuardianUI:I | grep -E "Saving Activity state; tab=rules scrollY=[1-9][0-9]*"; then
+  echo "Activity did not save the scrolled filter-editor position before rotation."
+  exit 1
+fi
+adb_cmd shell settings put system user_rotation 0
+sleep 2
+# Commit the rule entered before rotation. This verifies that the retained draft
+# can be saved after Activity recreation and reaches the VPN rule engine.
+adb_cmd shell input swipe 540 1500 540 600 450
+sleep 1
+scroll_to_text "규칙 저장 및 적용"
+sleep 1
+tap_text "규칙 저장 및 적용"
+sleep 2
+adb_cmd shell input keyevent KEYCODE_BACK || true
+tap_content_description "홈"
+echo "Activity rotation state restoration and custom-rule save passed."
+
+# Check a user-defined domain only after the candidate editor has actually
+# saved and applied the rule; the predecessor APK cannot satisfy this test.
+prefs="$(read_prefs)"
+before_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_custom_blocked="${before_custom_blocked:-0}"
+echo "Triggering DNS lookup for the saved custom block rule."
+adb_cmd shell ping -c 1 -W 5 "rotation-preserved.example" >/tmp/guardian-custom-blocked-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_custom_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+after_custom_blocked="${after_custom_blocked:-0}"
+if (( after_custom_blocked <= before_custom_blocked )); then
+  echo "Saved custom block rule did not increment Guardian's blocked DNS counter after save."
+  cat /tmp/guardian-custom-blocked-dns.txt || true
+  read_prefs
+  exit 1
+fi
+if grep -Eq 'PING rotation-preserved\\.example \\([^)]*\\)' /tmp/guardian-custom-blocked-dns.txt; then
+  echo "Custom-blocked domain unexpectedly resolved to an address."
+  cat /tmp/guardian-custom-blocked-dns.txt || true
+  read_prefs
+  exit 1
+fi
+
+
+# The installed APK may use either the legacy or redesigned five-destination navigation.
+echo "Verifying the current APK's supported five-destination bottom navigation."
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+sleep 2
+tap_content_description "홈"
+current_home_xml="$(dump_ui_hierarchy /sdcard/guardian-current-home-navigation.xml)"
+navigation_layout="$(python3 scripts/android_navigation_compat.py navigation <<<"$current_home_xml")"
+case "$navigation_layout" in
+  redesigned) navigation_labels=("보호" "앱 제외" "활동" "설정") ;;
+  legacy:Premium) navigation_labels=("보호" "활동" "Premium" "전체 메뉴") ;;
+  legacy:프리미엄) navigation_labels=("보호" "활동" "프리미엄" "전체 메뉴") ;;
+  *)
+    echo "Unsupported current APK navigation layout: $navigation_layout"
+    exit 1
+    ;;
+esac
+navigation_labels_csv="$(IFS=,; echo "${navigation_labels[*]}")"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+expected=set(sys.argv[1].split(","))
+nodes=list(root.iter("node"))
+actual={n.attrib.get("content-desc") for n in nodes
+        if n.attrib.get("class")=="android.widget.LinearLayout"
+        and n.attrib.get("clickable")=="true"}
+if not expected.issubset(actual):
+    raise SystemExit("Current APK navigation is missing destinations: "+repr(sorted(expected-actual)))
+if not any(n.attrib.get("content-desc")=="홈" and n.attrib.get("selected")=="true" for n in nodes):
+    raise SystemExit("Current APK Home destination is not selected.")' "$navigation_labels_csv" <<<"$current_home_xml"
+for navigation_label in "${navigation_labels[@]}"; do
+  tap_content_description "$navigation_label"
+  sleep 1
+  current_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-current-navigation.xml)"
+  python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(n.attrib.get("content-desc")==sys.argv[1]
+       and n.attrib.get("class")=="android.widget.LinearLayout"
+       and n.attrib.get("selected")=="true" for n in root.iter("node")):
+    raise SystemExit("Current APK did not select navigation destination: "+sys.argv[1])' "$navigation_label" <<<"$current_navigation_xml"
+done
+tap_content_description "홈"
+echo "Current APK compatible five-destination navigation passed ($navigation_layout)."
+echo "Verifying opt-in foreground-app VPN auto-pause and automatic resume."
+# Grant the special app-op as the emulator equivalent of the user's Usage Access
+# approval. The UI flow still selects the target app and explicitly enables the feature.
+adb_cmd shell appops set "$PACKAGE" GET_USAGE_STATS allow
+adb_cmd shell am start -a android.settings.SETTINGS >/dev/null
+sleep 2
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+sleep 2
+# The bottom-navigation label is a non-clickable child of the tab item.
+# Target the clickable parent via its accessibility content description, then
+# assert that the Settings page actually opened before scrolling its content.
+tap_content_description "설정"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-settings-tab.xml >/dev/null 2>&1
+settings_tab_xml="$(adb_cmd shell cat /sdcard/guardian-settings-tab.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+texts={node.attrib.get("text","") for node in nodes}
+selected_settings=any(node.attrib.get("content-desc")=="설정"
+                      and node.attrib.get("selected")=="true"
+                      for node in nodes)
+required_settings = {"설정", "일반", "필터링", "PRO", "지원", "정보"}
+missing_settings = required_settings - texts
+if missing_settings or not selected_settings:
+    raise SystemExit("Guardian Settings landing page is missing agreed categories: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
+# Settings is now a persistent compact left rail with a right-side content
+# workspace. All five categories remain visible without scrolling.
+ensure_text_visible() {
+  local wanted="$1" attempt size width height center_x start_y end_y xml
+  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
+  width="${size%x*}"
+  height="${size#*x}"
+  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
+    echo "Could not determine a usable emulator display size: $size"
+    return 1
+  fi
+  center_x=$((width / 2))
+  start_y=$((height * 4 / 5))
+  end_y=$((height / 5))
+  for attempt in $(seq 1 10); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
+    if grep -Fq "$wanted" <<<"$xml"; then
+      echo "Visible without activation: $wanted"
+      return 0
+    fi
+    echo "Scrolling to reveal '$wanted' without opening it (attempt $attempt/10)."
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Could not reveal the category without activating it: $wanted"
+  dump_ui_hierarchy /sdcard/guardian-scroll-target.xml
+  return 1
+}
+ensure_text_visible "PRO"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-license-menu.xml >/dev/null 2>&1
+license_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-license-menu.xml | tr -d '\r')"
+if ! grep -Fq 'PRO' <<<"$license_menu_xml"; then
+  echo "The compact PRO Settings rail entry is not visible."
+  echo "$license_menu_xml"
+  exit 1
+fi
+
+# Verify the About submenu's version row, then navigate back through the
+# actual Settings category index before opening General. A detail-page swipe
+# cannot select a sibling category and previously left the test on About.
+scroll_to_text "정보"
+sleep 1
+# The About page is taller than a phone viewport. Verify the version row
+# and company disclosure in separate snapshots: scrolling to the company block
+# necessarily moves the version row above the visible viewport. UIAutomator
+# reports visible nodes only, so requiring both in one dump is a false failure.
+expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
+if [[ -z "$expected_current_version" ]]; then
+  echo "The current APK version name was not passed to the About verification."
+  exit 1
+fi
+ensure_text_visible "버전 코드"
+adb_cmd shell uiautomator dump /sdcard/guardian-about-version.xml >/dev/null 2>&1
+about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | tr -d '\r')"
+if ! grep -Fq '버전 코드' <<<"$about_version_xml" ||
+   ! grep -Fq "$expected_current_version" <<<"$about_version_xml"; then
+  echo "The About screen did not expose the expected installed app version code: $expected_current_version"
+  echo "$about_version_xml"
+  exit 1
+fi
+ensure_text_visible "회사 및 개발자 정보"
+adb_cmd shell uiautomator dump /sdcard/guardian-about-company.xml >/dev/null 2>&1
+about_company_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-company.xml | tr -d '\r')"
+if ! grep -Fq '회사 및 개발자 정보' <<<"$about_company_xml" ||
+   ! grep -Fq '(주)유진컨설팅' <<<"$about_company_xml"; then
+  echo "The About screen did not expose the expected company information."
+  echo "$about_company_xml"
+  exit 1
+fi
+open_settings_menu_item "필터링"
+sleep 1
+filtering_settings_xml="$(dump_ui_hierarchy /sdcard/guardian-filtering-settings.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+visible={node.attrib.get("text","").strip() for node in root.iter("node")
+         if node.attrib.get("visible-to-user","true")=="true"}
+required={"사용자 차단 규칙","사용자 허용 규칙","전체 필터 규칙 편집"}
+missing=required-visible
+obsolete={"보호 및 필터 소스","앱별 제외"} & visible
+if missing or obsolete:
+    raise SystemExit("Filtering Settings contents mismatch; missing="+repr(sorted(missing))+" obsolete="+repr(sorted(obsolete)))' <<<"$filtering_settings_xml"
+echo "Settings > 필터링 shows all user block/allow rules and omits duplicate protection-source and app-exclusion entries."
+
+open_settings_menu_item "일반"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-general-settings.xml >/dev/null 2>&1
+general_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-general-settings.xml | tr -d '\r')"
+if ! grep -Fq '일반' <<<"$general_settings_xml" || ! grep -Fq '프로그램 업데이트 확인' <<<"$general_settings_xml"; then
+  echo "The General Settings screen does not expose the dedicated Program Updates entry."
+  echo "$general_settings_xml"
+  exit 1
+fi
+tap_text "프로그램 업데이트 확인"
+sleep 1
+updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
+# The updater is embedded in the right-hand Settings workspace. On a phone,
+# its install control can be below the initial viewport even though the panel
+# expanded correctly. Verify the panel header/check action first, then scroll
+# the workspace until the install action is actually visible.
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+visible={node.attrib.get("text","").strip() for node in root.iter("node")
+         if node.attrib.get("visible-to-user","true")=="true"}
+required={"일반","프로그램 업데이트","개발 업데이트 확인"}
+missing=required-visible
+if missing:
+    raise SystemExit("Inline Program Updates panel did not expand; missing: "+repr(sorted(missing)))' <<<"$updates_xml" || {
+  echo "The inline Program Updates panel did not expand inside Settings > General."
+  echo "$updates_xml"
+  exit 1
+}
+install_visible=0
+for attempt in $(seq 1 8); do
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+raise SystemExit(0 if any(node.attrib.get("text","").strip()=="업데이트 설치"
+  and node.attrib.get("visible-to-user","true")=="true" for node in root.iter("node")) else 1)' <<<"$updates_xml"; then
+    install_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 800 1510 800 980 350
+  sleep 0.35
+  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
+done
+if [[ "$install_visible" -ne 1 ]]; then
+  echo "The expanded Program Updates panel does not expose its install action after scrolling."
+  echo "$updates_xml"
+  exit 1
+fi
+
+# Exercise the actual development update check, not only the presence of its
+# controls. PR builds are intentionally not published as releases, so the
+# currently published manifest must resolve to "already latest" for this
+# higher versionCode. This validates network/API parsing and the no-update UI
+# without downloading or installing an untrusted/unpublished build.
+if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
+  tap_text "개발 업데이트 확인"
+  update_check_ready=0
+  for attempt in $(seq 1 20); do
+    sleep 1
+    updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-result.xml)"
+    if grep -Fq '공개된 개발 릴리스 중 현재 설치 버전보다 새로운 버전이 없습니다.' <<<"$updates_xml"; then
+      update_check_ready=1
+      break
+    fi
+    if grep -Eq '업데이트 실패|업데이트 확인에 실패|업데이트를 확인할 수 없습니다|오류' <<<"$updates_xml"; then
+      # The live VPN/DNS acceptance test must not turn a transient GitHub
+      # Releases API outage into a false product failure. The updater is
+      # expected to surface a clear, recoverable network-timeout state; all
+      # manifest parsing/version-policy behavior remains covered by unit tests.
+      if grep -Eq '네트워크 연결 시간 초과|연결 시간 초과|NETWORK_TIMEOUT' <<<"$updates_xml"; then
+        echo "Development updater surfaced its explicit recoverable network-timeout state; live GitHub reachability is recorded as degraded, not as a VPN/DNS failure."
+        update_check_ready=1
+        break
+      fi
+      echo "Development update check returned a non-network error instead of a valid latest-version response."
+      echo "$updates_xml"
+      exit 1
+    fi
+  done
+  if [[ "$update_check_ready" -ne 1 ]]; then
+    echo "Development update check did not reach a valid latest-version or recoverable network-timeout state."
+    echo "$updates_xml"
+    exit 1
+  fi
+  if grep -Eq '네트워크 연결 시간 초과|연결 시간 초과|NETWORK_TIMEOUT' <<<"$updates_xml"; then
+    echo "Development update UI gracefully exposed the transient network timeout; continuing independent VPN, DNS, and navigation acceptance checks."
+  else
+    echo "Development update check reached the expected latest-version state."
+  fi
+fi
+# Verify the same inline updater control collapses and re-expands with the
+# correct directional arrow; do not navigate away or open a second screen.
+# Confirm the expanded accordion header is visible without tapping it.
+ensure_text_visible "프로그램 업데이트 확인 접기"
+updater_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-expanded.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+texts=[n.attrib.get("text","") for n in root.iter("node")]
+if not any(t.startswith("⌃") and "프로그램 업데이트 확인 접기" in t for t in texts):
+    raise SystemExit("Expanded updater control must show the upward collapse arrow.")' <<<"$updater_expanded_xml"
+tap_text "프로그램 업데이트 확인 접기"
+sleep 1
+updater_collapsed_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-collapsed.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+texts=[n.attrib.get("text","") for n in root.iter("node")]
+if not any(t.startswith("⌄") and "프로그램 업데이트 확인" in t and "접기" not in t for t in texts):
+    raise SystemExit("Collapsed updater control must show the downward expand arrow.")
+if any("개발 업데이트 확인" in t for t in texts):
+    raise SystemExit("Updater contents remained visible after collapse.")
+print("Program Updates inline collapse/expand arrow toggle passed.")' <<<"$updater_collapsed_xml"
+tap_text "프로그램 업데이트 확인"
+sleep 1
+updater_reopened_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-reopened.xml)"
+grep -Fq '개발 업데이트 확인' <<<"$updater_reopened_xml" || {
+  echo "Program Updates panel did not reopen after its collapse test."
+  echo "$updater_reopened_xml"
+  exit 1
+}
+echo "Settings > 일반 > 프로그램 업데이트 확인 expands the inline updater panel, executes its version check, and passes the arrow collapse/expand test."
+tap_content_description "설정"
+sleep 1
+# The redesigned app removed the global header exit action. Exit is now
+# a dedicated Settings rail category; tap its clickable parent description.
+tap_content_description "종료 설정"
+sleep 1
+exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
+if ! grep -Fq 'Guardian 종료' <<<"$exit_confirmation_xml" ||
+   ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
+   ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
+  echo "The Settings app-exit control did not open its expected confirmation dialog."
+  echo "$exit_confirmation_xml"
+  exit 1
+fi
+# Resolve the actual Android dialog Cancel button by its stable resource ID;
+# the generic text helper can race a modal transition and inspect stale text.
+cancel_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("resource-id")=="android:id/button2"
+        and node.attrib.get("text","").strip()=="취소"
+        and node.attrib.get("visible-to-user","true")=="true"
+        and node.attrib.get("clickable")=="true"
+        and node.attrib.get("enabled")=="true"):
+        p=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(p)==2:
+            x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2); raise SystemExit(0)
+raise SystemExit("Guardian exit dialog Cancel button was not actionable.")' <<<"$exit_confirmation_xml")"
+read -r cancel_x cancel_y <<<"$cancel_bounds"
+adb_cmd shell input tap "$cancel_x" "$cancel_y"
+sleep 1
+tap_content_description "설정"
+sleep 1
+# Return to the top so the persistent left category rail remains in view.
+for attempt in $(seq 1 5); do
+  adb_cmd shell input swipe 540 420 540 1510 350
+  sleep 0.25
+done
+sleep 1
+
+# Verify the customer-facing support center in the redesigned Settings rail.
+# The support card is rendered in the right workspace after selecting the
+# persistent left-rail destination; it is no longer a card in a vertical index.
+# The redesigned Settings rail exposes both a clickable parent description
+# ("지원 설정") and a visible child label ("지원"). Some API 35 UIAutomator
+# snapshots omit the parent content description while retaining the child.
+# Prefer the stable parent, then fall back to the visible label and its clickable
+# ancestor so this check follows the actual UI rather than failing on a11y tree shape.
+if ! tap_content_description "지원 설정"; then
+  tap_text "지원"
+fi
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-settings.xml >/dev/null 2>&1
+support_settings_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-settings.xml | tr -d '\r')"
+if ! python3 -c 'import sys, xml.etree.ElementTree as ET
+root = ET.fromstring(sys.stdin.read())
+texts = [node.attrib.get("text", "") for node in root.iter("node")]
+required = (
+    "고객지원 센터",
+    "자주 묻는 질문 (Q&A)",
+    "문의 접수 시 입력한 내용과 선택 이메일은 답변 처리를 위해 서버로 전송됩니다",
+)
+missing = [item for item in required if not any(item in text for text in texts)]
+if missing:
+    raise SystemExit("Customer support Settings text missing: " + ", ".join(missing))' <<<"$support_settings_xml"; then
+  echo "Customer support center card is missing from the dedicated support submenu."
+  echo "$support_settings_xml"
+  exit 1
+fi
+echo "Customer support center found in the dedicated Support submenu."
+
+tap_text "자주 묻는 질문 (Q&A)"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-faq.xml >/dev/null 2>&1
+support_faq_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq.xml | tr -d '\r')"
+grep -Fq '광고 차단이 되지 않아요' <<<"$support_faq_xml" || {
+  echo "Customer support FAQ list did not open."
+  echo "$support_faq_xml"
+  exit 1
+}
+tap_text "광고 차단이 되지 않아요"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
+support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+texts=[n.attrib.get("text","") for n in root.iter("node")]
+if not any(t.startswith("⌃") and "광고 차단이 되지 않아요" in t for t in texts):
+    raise SystemExit("Expanded FAQ question must show the upward collapse arrow.")
+if not any("앱 내부에 포함된 광고" in t for t in texts):
+    raise SystemExit("Customer support FAQ answer did not render inline.")' <<<"$support_faq_answer_xml"
+tap_text "광고 차단이 되지 않아요"
+sleep 1
+support_faq_collapsed_xml="$(dump_ui_hierarchy /sdcard/guardian-support-faq-collapsed.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+texts=[n.attrib.get("text","") for n in root.iter("node")]
+if not any(t.startswith("⌄") and "광고 차단이 되지 않아요" in t for t in texts):
+    raise SystemExit("Collapsed FAQ question must show the downward expand arrow.")
+if any("앱 내부에 포함된 광고" in t for t in texts):
+    raise SystemExit("FAQ answer remained visible after collapsing the question.")
+print("FAQ inline answer and up/down arrow toggle passed.")' <<<"$support_faq_collapsed_xml"
+tap_text "광고 차단이 되지 않아요"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
+support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
+faq_dismiss_label="$(python3 scripts/android_navigation_compat.py dismiss <<<"$support_faq_answer_xml")"
+tap_text "$faq_dismiss_label"
+# The Settings support card is taller than the phone viewport; scroll its
+# remaining actions into view before tapping the inquiry form entry.
+scroll_to_text "문의 및 의견 보내기"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-form.xml >/dev/null 2>&1
+support_form_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-form.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+fields=[n for n in nodes if n.attrib.get("class")=="android.widget.EditText"]
+if len(fields)<3:
+    raise SystemExit("Support submission form must expose subject, optional email, and message fields.")
+if not any("문의 및 의견 보내기" in n.attrib.get("text","") for n in nodes):
+    raise SystemExit("Support submission dialog title is missing.")' <<<"$support_form_xml"
+tap_text "취소"
+tap_text "내 문의 답변 확인"
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-support-lookup.xml >/dev/null 2>&1
+support_lookup_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-lookup.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+fields=[n for n in root.iter("node") if n.attrib.get("class")=="android.widget.EditText"]
+if len(fields)<2:
+    raise SystemExit("Support ticket lookup must expose ticket reference and private access-code fields.")' <<<"$support_lookup_xml"
+tap_text "취소"
+echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
+
+current_version="$(adb_cmd shell dumpsys package "$PACKAGE" | sed -n 's/.*versionName=//p' | head -1 | tr -d '\r')"
+expected_version="${GUARDIAN_VERSION_NAME:-0.7.62-dev}"
+if [[ "$current_version" != "$expected_version" ]]; then
+  echo "Selected-profile refresh test requires the current APK $expected_version; found $current_version."
+  exit 1
+fi
+
+echo "Waiting for Android boot completion and a real Guardian system-event restore callback before the selected-profile refresh scenario after installing the current APK."
+boot_completed=0
+for attempt in $(seq 1 60); do
+  boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+  if [[ "$boot_state" == "1" ]]; then
+    boot_completed=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$boot_completed" -ne 1 ]]; then
+  echo "Android emulator did not finish booting before the selected-profile refresh scenario."
+  exit 1
+fi
+# The candidate APK is installed before this point, and the full-device reboot
+# scenario above must deliver a genuine BOOT_COMPLETED restore callback. Accept
+# the package-replacement callback as well for runners that reboot during upgrade;
+# never fabricate either protected system broadcast in the test.
+restore_receiver_seen=0
+for attempt in $(seq 1 60); do
+  restore_logs="$(adb_poll shell logcat -d -s GuardianProtection:I 2>/dev/null || true)"
+  if grep -Eq 'action=android.intent.action.(BOOT_COMPLETED|MY_PACKAGE_REPLACED)' <<<"$restore_logs"; then
+    restore_receiver_seen=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$restore_receiver_seen" -ne 1 ]]; then
+  echo "Guardian system-event restore receiver did not run after the installed-app upgrade."
+  adb_poll shell logcat -d -s GuardianProtection:I | tail -80 || true
+  exit 1
+fi
+# The receiver's diagnostic is emitted before teardown; allow it to return
+# before force-stopping Guardian and replacing its SharedPreferences fixture.
+sleep 3
+
+echo "Verifying a changed filter profile is refreshed even when automatic updates are disabled."
+adb_cmd shell am force-stop "$PACKAGE"
+app_stopped=0
+for attempt in $(seq 1 20); do
+  app_pid="$(adb_poll shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+  if [[ -z "$app_pid" ]]; then
+    app_stopped=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$app_stopped" -ne 1 ]]; then
+  echo "Guardian process did not stop before updating its SharedPreferences fixture."
+  adb_poll shell pidof "$PACKAGE" || true
+  exit 1
+fi
+profile_prefs="$(read_prefs)"
+if ! grep -q 'name="filter_cached_profile">adguard</string>' <<<"$profile_prefs"; then
+  echo "Profile-refresh test expected the initial AdGuard cache before changing the selected profile."
+  read_prefs
+  exit 1
+fi
+profile_fixture="$(sed -E \
+  -e 's#<string name="filter_profile">[^<]*</string>##g' \
+  -e 's#<boolean name="filter_auto_update" value="[^"]*" />##g' \
+  -e 's#</map>#<boolean name="filter_auto_update" value="false" /><string name="filter_profile">1hosts_lite</string></map>#' \
+  <<<"$profile_prefs")"
+printf '%s' "$profile_fixture" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
+adb_cmd logcat -c
+launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1 || true)"
+if ! grep -q 'Status: ok' <<<"$launch_result"; then
+  echo "Guardian did not launch after the selected-profile mismatch fixture."
+  echo "$launch_result"
+  exit 1
+fi
+profile_refresh=0
+for attempt in $(seq 1 120); do
+  prefs="$(read_prefs)"
+  guardian_logs="$(adb_poll shell logcat -d -s Guardian:I 2>/dev/null || true)"
+  if grep -q 'name="filter_cached_profile">1hosts_lite</string>' <<<"$prefs" &&
+     grep -q 'name="filter_auto_update"[^>]*value="false"' <<<"$prefs" &&
+     grep -q 'name="filter_list_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs" &&
+     grep -Fq 'profileChanged=true selectedProfile=1hosts_lite cachedProfile=adguard' <<<"$guardian_logs" &&
+     grep -Fq 'Starting filter update for 1hosts_lite' <<<"$guardian_logs"; then
+    profile_refresh=1
+    break
+  fi
+  if (( attempt % 15 == 0 )); then
+    echo "Waiting for the selected profile cache to refresh while recurring updates remain disabled ($attempt/120)."
+    read_prefs | grep -E 'filter_profile|filter_cached_profile|filter_auto_update|filter_list_' || true
+    printf '%s\n' "$guardian_logs" | tail -35 || true
+  fi
+  sleep 2
+done
+if [[ "$profile_refresh" -ne 1 ]]; then
+  echo "A selected-profile cache mismatch did not trigger the required first-party refresh with auto-update disabled."
+  read_prefs
+  adb_cmd logcat -d -t 6000 | grep -E 'Guardian|Filter|FATAL EXCEPTION' | tail -220 || true
+  exit 1
+fi
+echo "Selected filter profile refresh passed while automatic filter updates remained disabled."
