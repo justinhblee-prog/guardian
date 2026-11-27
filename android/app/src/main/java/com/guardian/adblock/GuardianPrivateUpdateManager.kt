@@ -227,6 +227,8 @@ internal object GuardianPrivateUpdateManager {
             requestMethod = "GET"
             connectTimeout = 12000
             readTimeout = 15000
+            // Never forward the administrator bearer token through an HTTP redirect.
+            instanceFollowRedirects = false
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Cache-Control", "no-store")
             if (token.isNotBlank()) setRequestProperty("Authorization", "Bearer $token")
