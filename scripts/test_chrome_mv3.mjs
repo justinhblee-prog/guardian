@@ -18,7 +18,7 @@ const shared=await readFile(resolve(root,"shared/filter_rules.txt"),"utf8");
 const bundled=await readFile(resolve(root,"chrome-extension/rules.txt"),"utf8");
 const parsed=worker.parseSharedRules(shared);
 assert.deepEqual(worker.parseSharedRules(bundled),parsed);
-assert.equal(parsed.length,10);
+const declaredRuleCount=shared.split(/\\r?\\n/).filter(line=>/^\\s*(?:block|allow)=/.test(line)).length;\nassert.equal(parsed.length,declaredRuleCount);
 const rules=worker.toDynamicRules(parsed);
 assert.equal(rules.length,parsed.length);
 assert.equal(rules[0].action.type,"block");
