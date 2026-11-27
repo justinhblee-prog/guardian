@@ -263,7 +263,8 @@ class MainActivity : Activity() {
                     securityEnabled = securityEnabled,
                     androidAdsCacheMissing = initialAndroidAdsMissing,
                     androidAdsEnabled = androidAdsEnabled,
-                    scheduledRefreshDue = scheduledRefreshDue
+                    scheduledRefreshDue = scheduledRefreshDue,
+                    mainProfileChanged = profileChanged
                 )
                 android.util.Log.i(
                     "Guardian",
