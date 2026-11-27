@@ -19,6 +19,8 @@ internal data class GuardianStableUpdate(
     val signerSha256: String, val apkUrl: String, val notes: String
 )
 
+internal class GuardianNoStableReleaseAvailableException : Exception("정식 업데이트가 아직 게시되지 않았습니다.")
+
 internal object GuardianStableUpdateManager {
     private const val RELEASES_URL = "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=30"
     private const val APK_ASSET = "guardian-android.apk"
@@ -28,12 +30,14 @@ internal object GuardianStableUpdateManager {
 
     fun checkForUpdate(): GuardianStableUpdate? {
         val releases = JSONArray(readHttps(RELEASES_URL, 2 * 1024 * 1024))
+        var stableReleaseFound = false
         for (index in 0 until releases.length()) {
             val release = releases.getJSONObject(index)
             val tag = release.optString("tag_name")
             if (!GuardianStableUpdatePolicy.isStableRelease(
                     release.optBoolean("draft", true), release.optBoolean("prerelease", false), tag
                 )) continue
+            stableReleaseFound = true
             val assets = release.optJSONArray("assets")
                 ?: error("최신 정식 Release에 업데이트 자산 목록이 없습니다.")
             var manifestUrl: String? = null
@@ -67,6 +71,7 @@ internal object GuardianStableUpdateManager {
             require(GuardianStableUpdatePolicy.isSha256(signer)) { "정식 업데이트 서명 지문 형식이 올바르지 않습니다." }
             return GuardianStableUpdate(versionName, versionCode, digest, signer, apkUrl, release.optString("body").take(3000))
         }
+        if (!stableReleaseFound) throw GuardianNoStableReleaseAvailableException()
         return null
     }
 
