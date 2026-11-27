@@ -556,6 +556,49 @@ if [[ "$ready" -ne 1 ]]; then
   exit 1
 fi
 
+echo "Verifying a changed filter profile is refreshed even when automatic updates are disabled."
+profile_prefs="$(read_prefs)"
+if ! grep -q 'name="filter_cached_profile">adguard</string>' <<<"$profile_prefs"; then
+  echo "Profile-refresh test expected the initial AdGuard cache before changing the selected profile."
+  read_prefs
+  exit 1
+fi
+adb_cmd shell am force-stop "$PACKAGE"
+profile_fixture="$(sed -E \
+  -e 's#<string name="filter_profile">[^<]*</string>##g' \
+  -e 's#<boolean name="filter_auto_update" value="[^"]*" />##g' \
+  -e 's#</map>#<boolean name="filter_auto_update" value="false" /><string name="filter_profile">1hosts_lite</string></map>#' \
+  <<<"$profile_prefs")"
+printf '%s' "$profile_fixture" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
+launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1 || true)"
+if ! grep -q 'Status: ok' <<<"$launch_result"; then
+  echo "Guardian did not launch after the selected-profile mismatch fixture."
+  echo "$launch_result"
+  exit 1
+fi
+profile_refresh=0
+for attempt in $(seq 1 120); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="filter_cached_profile">1hosts_lite</string>' <<<"$prefs" &&
+     grep -q 'name="filter_auto_update"[^>]*value="false"' <<<"$prefs" &&
+     grep -q 'name="filter_list_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs"; then
+    profile_refresh=1
+    break
+  fi
+  if (( attempt % 15 == 0 )); then
+    echo "Waiting for the selected profile cache to refresh while recurring updates remain disabled ($attempt/120)."
+    read_prefs | grep -E 'filter_profile|filter_cached_profile|filter_auto_update|filter_list_' || true
+  fi
+  sleep 2
+done
+if [[ "$profile_refresh" -ne 1 ]]; then
+  echo "A selected-profile cache mismatch did not trigger the required first-party refresh with auto-update disabled."
+  read_prefs
+  adb_cmd logcat -d -t 6000 | grep -E 'Guardian|Filter|FATAL EXCEPTION' | tail -220 || true
+  exit 1
+fi
+echo "Selected filter profile refresh passed while automatic filter updates remained disabled."
+
 # Locate the visible home-screen control by its accessibility text rather than
 # relying on a fixed screen coordinate.
 tap_first_edit_text() {
