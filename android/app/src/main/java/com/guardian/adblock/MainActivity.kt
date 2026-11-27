@@ -239,8 +239,10 @@ class MainActivity : Activity() {
                     24L * 60L * 60L * 1000L
                 )
                 val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                val profileChanged = FilterListManager.hasCachedFile(this) &&
-                    FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
+                val hasMainCache = FilterListManager.hasCachedFile(this)
+                val selectedProfileKey = FilterListManager.selectedProfile(this).key
+                val cachedProfileKey = FilterListManager.cachedProfile(this).key
+                val profileChanged = hasMainCache && selectedProfileKey != cachedProfileKey
                 val securityStale = securityEnabled && (
                     !FilterListManager.hasCachedSecurityList(this) ||
                         System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval
@@ -269,7 +271,8 @@ class MainActivity : Activity() {
                 android.util.Log.i(
                     "Guardian",
                     "Startup filter readiness: mainMissing=$initialMainMissing securityMissing=$initialSecurityMissing " +
-                        "androidAdsMissing=$initialAndroidAdsMissing autoUpdate=$autoUpdate scheduledDue=$scheduledRefreshDue"
+                        "androidAdsMissing=$initialAndroidAdsMissing autoUpdate=$autoUpdate profileChanged=$profileChanged " +
+                        "selectedProfile=$selectedProfileKey cachedProfile=$cachedProfileKey scheduledDue=$scheduledRefreshDue"
                 )
                 if (needsUpdate) runOnUiThread {
                     if (!isFinishing && !isDestroyed) {
