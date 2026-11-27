@@ -99,7 +99,7 @@ test('updater rejects floating source versions and mutable CDN references before
         fetchCalled = true;
         return new Response('||example.test^', { status: 200 });
       }
-    }), /pinned upstream version\/URL/);
+    }), /pinned upstream version\/commit URL/);
     assert.equal(fetchCalled, false);
   }
 });
