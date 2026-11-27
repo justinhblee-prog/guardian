@@ -13,6 +13,16 @@ class GuardianStableUpdatePolicyTest {
         assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "v1.0.0-rc1"))
         assertFalse(GuardianStableUpdatePolicy.isStableRelease(false, false, "v1.0"))
     }
+    @Test fun developmentOnlyReleaseListDoesNotContainAStableRelease() {
+        val tags = listOf("guardian-dev-v58", "guardian-dev-v57", "guardian-dev-v56")
+        assertFalse(tags.any { GuardianStableUpdatePolicy.isStableRelease(false, true, it) })
+    }
+    @Test fun missingLatestReleaseManifestMeansNoStableReleaseIsPublished() {
+        assertTrue(GuardianStableUpdatePolicy.isMissingStableReleaseStatus(404))
+        assertFalse(GuardianStableUpdatePolicy.isMissingStableReleaseStatus(403))
+        assertFalse(GuardianStableUpdatePolicy.isMissingStableReleaseStatus(429))
+        assertFalse(GuardianStableUpdatePolicy.isMissingStableReleaseStatus(500))
+    }
     @Test fun updateMustHaveStrictlyHigherVersionCode() {
         assertTrue(GuardianStableUpdatePolicy.isNewerVersion(30, 31))
         assertFalse(GuardianStableUpdatePolicy.isNewerVersion(30, 30))

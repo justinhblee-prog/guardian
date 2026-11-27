@@ -142,19 +142,20 @@ class GuardianDevVersionTests(unittest.TestCase):
 
     def test_android_build_workflows_share_the_latest_delivered_version_floor(self):
         root = Path(__file__).resolve().parents[1]
-        workflows = [
-            root / ".github/workflows/android-apk.yml",
-            root / ".github/workflows/guardian-engineering-orchestrator.yml",
-        ]
-        resolved = []
-        for workflow in workflows:
-            source = workflow.read_text(encoding="utf-8")
-            version = re.search(r'--baseline-version\s+"([^"]+)"', source)
-            code = re.search(r"--baseline-code\s+([0-9]+)", source)
-            self.assertIsNotNone(version, f"Missing development version baseline in {workflow}")
-            self.assertIsNotNone(code, f"Missing development versionCode baseline in {workflow}")
-            resolved.append((version.group(1), int(code.group(1))))
-        self.assertEqual(resolved, [("0.7.61-dev", 74), ("0.7.61-dev", 74)])
+        android_workflow = (root / ".github/workflows/android-apk.yml").read_text(encoding="utf-8")
+        orchestrator = (root / ".github/workflows/guardian-engineering-orchestrator.yml").read_text(encoding="utf-8")
+        # Main-branch private Beta/Dev builds resolve from the authenticated server feed.
+        self.assertIn('--baseline-version "0.7.61-$GUARDIAN_UPDATE_CHANNEL"', android_workflow)
+        self.assertIn("--baseline-code 74", android_workflow)
+        # PR-only throwaway builds and the engineering orchestrator retain the known delivered floor.
+        fallback = re.search(r'--baseline-version\s+"(0\.7\.61-dev)"', android_workflow)
+        orchestrator_version = re.search(r'--baseline-version\s+"([^"]+)"', orchestrator)
+        orchestrator_code = re.search(r"--baseline-code\s+([0-9]+)", orchestrator)
+        self.assertIsNotNone(fallback)
+        self.assertIsNotNone(orchestrator_version)
+        self.assertIsNotNone(orchestrator_code)
+        self.assertEqual(fallback.group(1), "0.7.61-dev")
+        self.assertEqual((orchestrator_version.group(1), int(orchestrator_code.group(1))), ("0.7.61-dev", 74))
         resolver = (root / "scripts/resolve_guardian_dev_version.py").read_text(encoding="utf-8")
         default_version = re.search(r'--baseline-version", default="([^"]+)"', resolver)
         default_code = re.search(r'--baseline-code", type=int, default=([0-9]+)', resolver)
