@@ -150,8 +150,8 @@ class GuardianDevVersionTests(unittest.TestCase):
         resolved = []
         for workflow in workflows:
             source = workflow.read_text(encoding="utf-8")
-            version = re.search(r'--baseline-version\\s+"([^"]+)"', source)
-            code = re.search(r"--baseline-code\\s+([0-9]+)", source)
+            version = re.search(r'--baseline-version\s+"([^"]+)"', source)
+            code = re.search(r"--baseline-code\s+([0-9]+)", source)
             self.assertIsNotNone(version, f"Missing development version baseline in {workflow}")
             self.assertIsNotNone(code, f"Missing development versionCode baseline in {workflow}")
             resolved.append((version.group(1), int(code.group(1))))
