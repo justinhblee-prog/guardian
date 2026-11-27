@@ -19,14 +19,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify-public-filter-origin:
+  test-verifier:
+    name: Test filter cloud-origin verifier
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
     steps:
       - name: Checkout verifier source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || 'main' }}
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Test signed filter cloud-origin verifier
         run: node --test scripts/test_verify_filter_cloud_origin.mjs
+
+  verify-public-filter-origin:
+    name: Verify signed public filter assets
+    if: github.event_name != 'pull_request'
+    needs: test-verifier
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout verifier source from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Checkout static filter origin
         uses: actions/checkout@v4
         with:

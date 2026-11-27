@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
-import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, symlink, rm, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -100,4 +100,16 @@ test('rejects unexpected files and symlinks in the public cloud tree', async () 
   await withFixture({ symlink: true }, async ({ root }) => {
     await assert.rejects(() => verifyFilterCloudOrigin(root), /Symlink is not allowed/);
   });
+});
+
+test('keeps pull-request validation independent from the not-yet-created public branch', async () => {
+  const workflow = await readFile(new URL('../.github/workflows/filter-cloud-origin.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /test-verifier:[\s\S]*?node --test scripts\/test_verify_filter_cloud_origin\.mjs/);
+  assert.match(workflow, /verify-public-filter-origin:\s*\n\s+name: Verify signed public filter assets\s*\n\s+if: github\.event_name != 'pull_request'/);
+});
+
+test('checks verifier code from the PR merge commit or main, never from the static-data branch', async () => {
+  const workflow = await readFile(new URL('../.github/workflows/filter-cloud-origin.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /ref: \$\{\{ github\.event_name == 'pull_request' && github\.sha \|\| 'main' \}\}/);
+  assert.match(workflow, /ref: main[\s\S]*?ref: guardian-filter-data/);
 });
