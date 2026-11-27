@@ -38,7 +38,8 @@ class PremiumReportBuilderTest {
         assertTrue(report.contains("보호 상태: 활성"))
         assertTrue(report.contains("중대한 응답 실패 신호가 없습니다"))
         assertTrue(report.contains("방문 도메인, 앱 사용 기록, 사용자 규칙은 포함하지 않습니다"))
-        assertTrue(report.contains("미분류 차단은 유형을 확인할 수 없는 요청으로 보안 위협 판정이 아닙니다"))
+        assertTrue(report.contains("미분류·기존 기록은 과거 유형별 기록이 없거나 판단 근거가 부족한 요청입니다"))
+        assertTrue(report.contains("미분류는 보안 위협 판정이 아닙니다"))
         assertFalse(report.contains("example.com"))
     }
 
