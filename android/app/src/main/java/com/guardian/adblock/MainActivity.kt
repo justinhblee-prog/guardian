@@ -1495,7 +1495,7 @@ class MainActivity : Activity() {
                 feedback.text = "베타·개발 채널은 관리자 인증이 필요합니다."
                 return@setOnClickListener
             }
-            isEnabled = false
+            checkButton.isEnabled = false
             setUpdateInstallButtonReady(installButton, false)
             downloaded = null
             feedback.text = "$channel 업데이트 확인 중…"
@@ -1508,7 +1508,7 @@ class MainActivity : Activity() {
                         if (update == null) {
                             runOnUiThread {
                                 feedback.text = "현재 설치된 정식 버전이 최신입니다."
-                                isEnabled = true
+                                checkButton.isEnabled = true
                             }
                         } else {
                             runOnUiThread {
@@ -1519,7 +1519,7 @@ class MainActivity : Activity() {
                                 downloaded = apk
                                 feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
                                 setUpdateInstallButtonReady(installButton, true)
-                                isEnabled = false
+                                checkButton.isEnabled = false
                             }
                         }
                     } else {
@@ -1530,7 +1530,7 @@ class MainActivity : Activity() {
                         if (update == null) {
                             runOnUiThread {
                                 feedback.text = "${channel.uppercase()} 채널에 현재 설치 버전보다 새로운 업데이트가 없습니다."
-                                isEnabled = true
+                                checkButton.isEnabled = true
                             }
                         } else {
                             updateStage = "비공개 APK 다운로드 및 검증"
@@ -1544,7 +1544,7 @@ class MainActivity : Activity() {
                                 downloaded = apk
                                 feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지, 버전 및 서명 인증서 검증 통과."
                                 setUpdateInstallButtonReady(installButton, true)
-                                isEnabled = false
+                                checkButton.isEnabled = false
                             }
                         }
                     }
@@ -1557,7 +1557,7 @@ class MainActivity : Activity() {
                         downloaded = null
                         setUpdateInstallButtonReady(installButton, false)
                         feedback.text = "업데이트 실패 [$updateStage]: " + SafeFailureSummary.describe(error)
-                        isEnabled = true
+                        checkButton.isEnabled = true
                     }
                 }
             }
