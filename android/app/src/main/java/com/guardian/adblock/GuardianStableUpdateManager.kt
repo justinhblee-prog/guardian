@@ -38,7 +38,7 @@ internal object GuardianStableUpdateManager {
         val manifest = try {
             JSONObject(readHttps(LATEST_MANIFEST_URL, 64 * 1024))
         } catch (error: GuardianStableUpdateHttpException) {
-            if (error.statusCode == 404) throw GuardianNoStableReleaseAvailableException()
+            if (GuardianStableUpdatePolicy.isMissingStableReleaseStatus(error.statusCode)) throw GuardianNoStableReleaseAvailableException()
             throw error
         }
         require(manifest.optInt("manifestVersion", 0) == 1) {
