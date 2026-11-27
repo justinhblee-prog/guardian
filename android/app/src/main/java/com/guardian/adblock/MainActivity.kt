@@ -1657,13 +1657,45 @@ class MainActivity : Activity() {
     private fun buildSettingsGeneral(body: LinearLayout) {
         body.addView(text("일반", 25f, white, true))
         body.addView(text("Guardian 앱 업데이트와 운영 서버 연결을 관리합니다.", 13f, muted, false).withTop(5))
-        body.addView(Button(this).apply {
-            text = "프로그램 업데이트 확인"
-            isAllCaps = false
-            setTextColor(bg)
-            background = shape(accent, 12)
-            setOnClickListener { showTab("updates") }
-        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(14) })
+        val updateSection = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = shape(panel, 14)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+        }
+        val updateHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            isFocusable = true
+            contentDescription = "프로그램 업데이트 확인 펼치기"
+        }
+        updateHeader.addView(text("프로그램 업데이트 확인", 15f, white, true), LinearLayout.LayoutParams(0, dp(44), 1f))
+        val updateArrow = text("⌄", 25f, accent, true).apply {
+            gravity = Gravity.CENTER
+            contentDescription = "아래로 펼치기"
+        }
+        updateHeader.addView(updateArrow, LinearLayout.LayoutParams(dp(42), dp(44)))
+        updateSection.addView(updateHeader)
+        val updateDetails = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            alpha = 0f
+            setPadding(0, dp(8), 0, dp(2))
+        }
+        updateSection.addView(updateDetails)
+        updateHeader.setOnClickListener {
+            val expand = updateDetails.visibility != View.VISIBLE
+            android.transition.TransitionManager.beginDelayedTransition(updateSection, android.transition.AutoTransition())
+            updateDetails.visibility = if (expand) View.VISIBLE else View.GONE
+            updateDetails.animate().alpha(if (expand) 1f else 0f).setDuration(180).start()
+            updateArrow.text = if (expand) "⌃" else "⌄"
+            updateArrow.contentDescription = if (expand) "위로 접기" else "아래로 펼치기"
+            updateHeader.contentDescription = if (expand) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인 펼치기"
+            if (expand && updateDetails.childCount == 0) {
+                buildUpdates(updateDetails)
+            }
+        }
+        body.addView(updateSection, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("운영 서버 주소 (노트북)", 15f, white, true))
@@ -2147,24 +2179,61 @@ class MainActivity : Activity() {
             "기기 변경 또는 라이선스 만료"
         )
         val answers = arrayOf(
-            "Guardian은 DNS 기반 광고·추적 도메인을 차단합니다. 앱 내부 광고, 자체 DNS 암호화(DoH/DoT), 이미 내려받은 콘텐츠 광고는 차단되지 않을 수 있습니다. 보호 상태와 필터 업데이트 시각을 확인하세요.",
-            "Android VPN 권한을 허용하고 다른 VPN 앱과 충돌하는지 확인하세요. 계속 실패하면 오류 신고에 보호 진단 정보를 직접 첨부해 주세요.",
-            "설정의 앱 제외에서 앱 이름 또는 패키지명을 검색하고 선택한 뒤 변경사항 저장을 누르세요. 저장 후 VPN에 적용된 앱 수와 실패 수를 확인하세요.",
-            "앱별 트래픽 제외와 기기 전체 VPN 연결 해제는 다릅니다. 금융 앱이 VPN 연결 자체를 감지하면 자동 일시중지 호환성 설정을 사용해야 할 수 있으며, 일시중지 중에는 다른 앱도 VPN DNS 보호를 받지 못합니다.",
-            "필터 규칙 또는 보호 설정에서 필터 업데이트를 실행하세요. 자동 업데이트는 설정한 주기에 따라 동작합니다.",
-            "프리미엄 화면에서 발급받은 라이선스 키를 입력하고 활성화하세요. 활성화에는 운영 라이선스 서버 연결이 필요합니다.",
-            "라이선스 관리자는 등록 기기를 해제할 수 있습니다. 만료·정지된 키는 관리자에게 갱신 또는 상태 확인을 요청하세요."
+            "Guardian은 DNS 기반 광고·추적 도메인을 차단합니다. 앱 내부 광고, 자체 DNS 암호화(DoH/DoT), 이미 내려받은 콘텐츠 광고는 차단되지 않을 수 있습니다. 먼저 홈에서 보호 상태가 '보호 중'인지 확인하고, 필터링에서 선택한 목록의 다운로드 완료 여부와 마지막 업데이트 시각을 확인하세요. 특정 도메인이 계속 표시되면 사용자 차단 규칙에 도메인을 추가한 뒤 보호 규칙을 다시 적용하세요.",
+            "Android VPN 권한을 허용하고 다른 VPN 앱이 동시에 실행 중인지 확인하세요. 설정의 필터링에서 필터 다운로드가 진행 중인지 확인하고, 문제가 계속되면 보호 화면의 최근 오류 내용을 복사해 문의에 첨부하세요.",
+            "하단 앱 제외 메뉴에서 앱 이름 또는 패키지명을 검색하고 제외할 앱을 선택한 뒤 저장하세요. 저장 후 적용된 앱 수와 실패 수를 확인하세요.",
+            "앱별 트래픽 제외와 기기 전체 VPN 연결 해제는 다릅니다. 금융 앱이 VPN 연결 자체를 감지하면 호환성 설정의 자동 일시중지를 사용할 수 있습니다. 이 기능이 동작하는 동안에는 다른 앱도 DNS 보호를 받지 못합니다.",
+            "설정의 필터링에서 필터 업데이트를 실행할 수 있습니다. 자동 업데이트를 켜면 선택한 주기에 따라 네트워크 연결 시 갱신합니다. 업데이트 실패 시에는 마지막으로 정상 적용된 캐시가 유지됩니다.",
+            "설정의 '라이선스 및 프리미엄'에서 발급받은 라이선스 키를 입력하고 활성화하세요. 활성화와 기기 등록에는 운영 라이선스 서버 연결이 필요합니다.",
+            "라이선스 관리자에게 기존 기기 등록 해제 또는 키 상태 확인을 요청하세요. 만료·정지된 키는 서버 정책에 따라 갱신 또는 재발급이 필요할 수 있습니다."
         )
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            setPadding(dp(18), dp(8), dp(18), dp(8))
+        }
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scroll.addView(list, ScrollView.LayoutParams(-1, -2))
+        questions.forEachIndexed { index, question ->
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = shape(panel, 12)
+                setPadding(dp(13), dp(10), dp(13), dp(10))
+            }
+            val header = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                isClickable = true
+                isFocusable = true
+                contentDescription = "$question 답변 펼치기"
+            }
+            header.addView(text(question, 13f, white, true), LinearLayout.LayoutParams(0, -2, 1f).apply {
+                topMargin = dp(5)
+                bottomMargin = dp(5)
+            })
+            val arrow = text("⌄", 22f, accent, true).apply { gravity = Gravity.CENTER }
+            header.addView(arrow, LinearLayout.LayoutParams(dp(34), dp(38)))
+            item.addView(header)
+            val answer = text(answers[index], 12f, muted, false).apply {
+                visibility = View.GONE
+                alpha = 0f
+                setPadding(dp(2), dp(10), dp(2), dp(8))
+            }
+            item.addView(answer)
+            header.setOnClickListener {
+                val expand = answer.visibility != View.VISIBLE
+                android.transition.TransitionManager.beginDelayedTransition(list, android.transition.AutoTransition())
+                answer.visibility = if (expand) View.VISIBLE else View.GONE
+                answer.animate().alpha(if (expand) 1f else 0f).setDuration(180).start()
+                arrow.text = if (expand) "⌃" else "⌄"
+                header.contentDescription = "$question " + if (expand) "답변 접기" else "답변 펼치기"
+            }
+            list.addView(item, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+        }
         AlertDialog.Builder(this)
             .setTitle("Guardian 자주 묻는 질문")
-            .setItems(questions) { _, which ->
-                AlertDialog.Builder(this)
-                    .setTitle(questions[which])
-                    .setMessage(answers[which])
-                    .setPositiveButton("확인", null)
-                    .show()
-            }
-            .setNegativeButton("닫기", null)
+            .setView(scroll)
+            .setPositiveButton("닫기", null)
             .show()
     }
 
