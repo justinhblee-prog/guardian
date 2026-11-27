@@ -11,8 +11,8 @@ class PrivateUpdateVersionTests(unittest.TestCase):
                 {"channel": "beta", "version_code": 79, "version_name": "0.7.62-beta"},
             ],
             "dev",
-            "0.7.60-dev",
-            73,
+            "0.7.61-dev",
+            74,
         )
         self.assertEqual(result["version_name"], "0.7.62-dev")
         self.assertEqual(result["version_code"], 80)
@@ -25,15 +25,15 @@ class PrivateUpdateVersionTests(unittest.TestCase):
                 {"channel": "beta", "version_code": 80, "version_name": "0.7.63-beta"},
             ],
             "beta",
-            "0.7.60-beta",
-            73,
+            "0.7.61-beta",
+            74,
         )
         self.assertEqual(result["version_name"], "0.7.64-beta")
         self.assertEqual(result["version_code"], 84)
         self.assertEqual(result["tag"], "guardian-beta-v84")
 
     def test_empty_private_feed_uses_channel_baseline(self):
-        result = resolve_next_version([], "beta", "0.7.60-beta", 73)
+        result = resolve_next_version([], "beta", "0.7.61-beta", 74)
         self.assertEqual(result["version_name"], "0.7.61-beta")
         self.assertEqual(result["version_code"], 74)
 
