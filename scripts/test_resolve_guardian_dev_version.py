@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -139,6 +140,22 @@ class GuardianDevVersionTests(unittest.TestCase):
         result = resolve_next_version([], "7" * 40, "0.7.54-dev", 67)
         self.assertEqual((result["version_name"], result["version_code"], result["tag"]),
                          ("0.7.55-dev", 68, "guardian-dev-v68"))
+
+    def test_android_build_workflows_share_the_latest_delivered_version_floor(self):
+        root = Path(__file__).resolve().parents[1]
+        workflows = [
+            root / ".github/workflows/android-apk.yml",
+            root / ".github/workflows/guardian-engineering-orchestrator.yml",
+        ]
+        resolved = []
+        for workflow in workflows:
+            source = workflow.read_text(encoding="utf-8")
+            version = re.search(r'--baseline-version\\s+"([^"]+)"', source)
+            code = re.search(r"--baseline-code\\s+([0-9]+)", source)
+            self.assertIsNotNone(version, f"Missing development version baseline in {workflow}")
+            self.assertIsNotNone(code, f"Missing development versionCode baseline in {workflow}")
+            resolved.append((version.group(1), int(code.group(1))))
+        self.assertEqual(resolved, [("0.7.54-dev", 67), ("0.7.54-dev", 67)])
 
 
 if __name__ == "__main__":
