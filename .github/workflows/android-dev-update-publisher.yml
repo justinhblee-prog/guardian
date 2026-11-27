@@ -1,0 +1,122 @@
+name: Guardian Android development update publisher
+
+on:
+  workflow_run:
+    workflows: ["Guardian AdBlock Android APK"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: guardian-android-development-release
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-development-release:
+    name: Publish verified APK for in-app update checks
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download the exact verified APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: guardian-android-debug
+          path: release-package
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Set up Android build tools for independent package and signer verification
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install APK verification tools
+        run: sdkmanager 'build-tools;35.0.0'
+
+      - name: Verify artifact, manifest, APK identity and source commit
+        id: verify
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t APKS < <(find release-package -type f -name app-debug.apk -print)
+          mapfile -t MANIFESTS < <(find release-package -type f -name guardian-android-dev.json -print)
+          mapfile -t SUMMARIES < <(find release-package -type f -name VERIFICATION_SUMMARY_KO.md -print)
+          test "${#APKS[@]}" -eq 1
+          test "${#MANIFESTS[@]}" -eq 1
+          test "${#SUMMARIES[@]}" -eq 1
+          APK="${APKS[0]}"
+          MANIFEST="${MANIFESTS[0]}"
+          SUMMARY="${SUMMARIES[0]}"
+
+          python3 - "$MANIFEST" "$APK" "$SUMMARY" "$SOURCE_SHA" "$GITHUB_OUTPUT" <<'PY'
+          import hashlib, json, pathlib, re, sys
+          manifest_path, apk_path, summary_path, source_sha, output_path = sys.argv[1:]
+          manifest = json.loads(pathlib.Path(manifest_path).read_text(encoding="utf-8"))
+          assert manifest.get("packageName") == "com.guardian.adblock", "Unexpected APK package."
+          version_name = manifest.get("versionName", "")
+          assert re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+-dev", version_name), "Invalid development version name."
+          version_code = manifest.get("versionCode")
+          assert isinstance(version_code, int) and version_code > 0, "Invalid versionCode."
+          assert manifest.get("channel") == "development", "Unexpected update channel."
+          for field in ("sha256", "signerSha256"):
+              assert re.fullmatch(r"[a-fA-F0-9]{64}", str(manifest.get(field, ""))), f"Invalid {field}."
+          apk = pathlib.Path(apk_path).read_bytes()
+          actual_sha = hashlib.sha256(apk).hexdigest()
+          assert actual_sha == manifest["sha256"].lower(), "APK SHA-256 does not match its manifest."
+          summary = pathlib.Path(summary_path).read_text(encoding="utf-8")
+          assert source_sha in summary, "Build summary does not identify the completed workflow's source commit."
+          with open(output_path, "a", encoding="utf-8") as output:
+              output.write(f"version_name={version_name}\\n")
+              output.write(f"version_code={version_code}\\n")
+              output.write(f"apk_path={apk_path}\\n")
+              output.write(f"manifest_path={manifest_path}\\n")
+          print(f"Artifact manifest matches APK bytes: {version_name} / {version_code} / {actual_sha}")
+          PY
+
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
+          echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["versionCode"])' "$MANIFEST")'"
+          ACTUAL_SIGNER="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          EXPECTED_SIGNER="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["signerSha256"].lower())' "$MANIFEST")"
+          test -n "$ACTUAL_SIGNER"
+          test "$ACTUAL_SIGNER" = "$EXPECTED_SIGNER"
+          echo "APK package, version, signature and source commit independently verified."
+
+      - name: Publish or idempotently refresh the matching public development release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          VERSION_NAME: ${{ steps.verify.outputs.version_name }}
+          VERSION_CODE: ${{ steps.verify.outputs.version_code }}
+          APK_PATH: ${{ steps.verify.outputs.apk_path }}
+          MANIFEST_PATH: ${{ steps.verify.outputs.manifest_path }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="guardian-dev-v${VERSION_CODE}"
+          TITLE="Guardian AdBlock ${VERSION_NAME} (개발 업데이트)"
+          NOTES="Automatically published from the fully successful Android main-branch verification workflow.\n\nGuardian-Source-Commit: ${SOURCE_SHA}\n\nAPK and manifest were independently checked for package identity, version, SHA-256 and development signing certificate."
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json targetCommitish >/tmp/guardian-existing-release.json 2>/dev/null; then
+            EXISTING_TARGET="$(python3 -c 'import json;print(json.load(open("/tmp/guardian-existing-release.json"))["targetCommitish"])')"
+            if [ "$EXISTING_TARGET" != "$SOURCE_SHA" ]; then
+              echo "Refusing to replace development tag $TAG: it already points to $EXISTING_TARGET, not $SOURCE_SHA."
+              exit 1
+            fi
+            gh release upload "$TAG" "$APK_PATH#guardian-android-dev.apk" "$MANIFEST_PATH#guardian-android-dev.json" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "$APK_PATH#guardian-android-dev.apk" "$MANIFEST_PATH#guardian-android-dev.json" \
+              --target "$SOURCE_SHA" --title "$TITLE" --notes "$NOTES" --prerelease --repo "$GITHUB_REPOSITORY"
+          fi
+
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fx guardian-android-dev.apk
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fx guardian-android-dev.json
+          echo "Published public update: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
