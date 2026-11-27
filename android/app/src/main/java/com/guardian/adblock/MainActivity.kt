@@ -2193,7 +2193,7 @@ class MainActivity : Activity() {
             setPadding(dp(18), dp(8), dp(18), dp(8))
         }
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scroll.addView(list, ScrollView.LayoutParams(-1, -2))
+        scroll.addView(list, ViewGroup.LayoutParams(-1, -2))
         questions.forEachIndexed { index, question ->
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
