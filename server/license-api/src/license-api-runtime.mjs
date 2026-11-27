@@ -580,7 +580,13 @@ async function publishUpdate(body, req) {
     [metadata.channel, metadata.versionCode, metadata.versionName, expectedKey, metadata.sha256,
       metadata.signerSha256, metadata.sizeBytes, metadata.minSupportedVersionCode, metadata.releaseNotes]
   );
-  return { update: result.rows[0] };
+  const row = result.rows[0];
+  return { update: {
+    channel: row.channel, versionCode: row.version_code, versionName: row.version_name,
+    sha256: row.sha256, signerSha256: row.signer_sha256, sizeBytes: Number(row.size_bytes),
+    minSupportedVersionCode: row.min_supported_version_code,
+    releaseNotes: row.release_notes, publishedAt: row.published_at
+  } };
 }
 async function getUpdateManifest(channel, req) {
   validateUpdateChannel(channel);
