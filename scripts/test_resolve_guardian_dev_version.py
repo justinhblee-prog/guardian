@@ -164,6 +164,10 @@ class GuardianDevVersionTests(unittest.TestCase):
         gradle = (root / "android/app/build.gradle.kts").read_text(encoding="utf-8")
         self.assertIn('.getOrElse("0.7.55-dev")', gradle)
         self.assertIn("}.getOrElse(68)", gradle)
+        production = (root / ".github/workflows/android-production-release.yml").read_text(encoding="utf-8")
+        production_floors = re.findall(r"DEVELOPMENT_VERSION_CODE=([0-9]+)", production)
+        self.assertGreaterEqual(len(production_floors), 2)
+        self.assertTrue(all(int(value) == 68 for value in production_floors))
 
 
 if __name__ == "__main__":
