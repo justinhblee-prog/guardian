@@ -10,6 +10,7 @@ import {
 
 export function createLicenseApiRuntime(environment = process.env, options = {}) {
 const { Pool } = pg;
+const fetchObject = options.fetch ?? globalThis.fetch;
 const DATABASE_URL = environment.DATABASE_URL;
 const ADMIN_TOKEN = environment.GUARDIAN_ADMIN_TOKEN;
 const PRIVATE_KEY = environment.GUARDIAN_LICENSE_PRIVATE_KEY;
@@ -537,7 +538,7 @@ async function publishUpdate(body, req) {
     method: 'GET', bucket: 'guardian-private-updates', objectKey: expectedKey,
     expiresInSeconds: 120
   });
-  const check = await fetch(download.url, { signal: AbortSignal.timeout(120000) });
+  const check = await fetchObject(download.url, { signal: AbortSignal.timeout(120000) });
   if (!check.ok || !check.body) {
     throw Object.assign(new Error('업로드된 APK 객체를 확인할 수 없습니다.'), { status: 409 });
   }
