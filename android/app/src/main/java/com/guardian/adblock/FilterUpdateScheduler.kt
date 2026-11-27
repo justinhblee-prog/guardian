@@ -19,9 +19,10 @@ internal object FilterStartupPolicy {
         securityEnabled: Boolean,
         androidAdsCacheMissing: Boolean,
         androidAdsEnabled: Boolean,
-        scheduledRefreshDue: Boolean
+        scheduledRefreshDue: Boolean,
+        mainProfileChanged: Boolean = false
     ): Boolean =
-        mainCacheMissing ||
+        mainCacheMissing || mainProfileChanged ||
             (securityEnabled && securityCacheMissing) ||
             (androidAdsEnabled && androidAdsCacheMissing) ||
             scheduledRefreshDue
