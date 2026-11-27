@@ -136,10 +136,21 @@ class MainActivity : Activity() {
         window.decorView.systemUiVisibility = 0
         val persistedTab = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
             .getString(PREF_LAST_SELECTED_TAB, null)
-        val restoredTab = ActivityScreenState.restoreTab(
-            savedInstanceState?.getString(STATE_CURRENT_TAB),
-            persistedTab
-        )
+        val openUpdatesFromNotification =
+            intent?.getBooleanExtra(GuardianAppUpdateCheckWorker.EXTRA_OPEN_UPDATES, false) == true
+        if (openUpdatesFromNotification) {
+            getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
+                .putBoolean("settings_general_updates_expanded_v1", true)
+                .apply()
+        }
+        val restoredTab = if (openUpdatesFromNotification) {
+            "settings-general"
+        } else {
+            ActivityScreenState.restoreTab(
+                savedInstanceState?.getString(STATE_CURRENT_TAB),
+                persistedTab
+            )
+        }
         val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
         val retainedRuleDraft = lastNonConfigurationInstance as? RuleEditorDraft
         if (savedInstanceState != null) {
@@ -219,6 +230,8 @@ class MainActivity : Activity() {
                 .onFailure { android.util.Log.e("Guardian", "License refresh scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
             runCatching { FilterUpdateScheduler.sync(applicationContext) }
                 .onFailure { android.util.Log.e("Guardian", "Filter refresh scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
+            runCatching { GuardianAppUpdateCheckWorker.sync(applicationContext) }
+                .onFailure { android.util.Log.e("Guardian", "App update scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
         }
     }
 
@@ -1484,6 +1497,11 @@ class MainActivity : Activity() {
             }
         }
         body.addView(checkButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(14) })
+        // Opening this panel (including from an update notification) immediately
+        // checks the active channel and downloads a verified APK when available.
+        checkButton.post {
+            if (checkButton.isEnabled) checkButton.performClick()
+        }
         installButton.setOnClickListener {
             val apk = downloaded ?: return@setOnClickListener
             try {
