@@ -10,7 +10,7 @@ const reviewedSource = overrides => ({
   id: 'reviewed_filter',
   url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt',
   minimumRules: 1,
-  upstreamRepository: 'https://github.com/example/filter',
+  upstreamRepository: 'https://github.com/example/filter.git',
   licenseUrl: 'https://github.com/example/filter/blob/main/LICENSE',
   upstreamVersion: '1.0.0',
   upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
