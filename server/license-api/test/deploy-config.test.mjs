@@ -22,5 +22,6 @@ test('Neon deployment guard reads the Android-pinned license key and API URL', a
 
 test('license runtime enforces the same RSA signer size ceiling as deployment', async () => {
   const runtime = await readFile(new URL('../src/license-api-runtime.mjs', import.meta.url), 'utf8');
-  assert.match(runtime, /modulusLength[^\\n]*< 2048[^\\n]*> 4096/);
+  assert.ok(runtime.includes('(key.asymmetricKeyDetails?.modulusLength || 0) < 2048'));
+  assert.ok(runtime.includes('(key.asymmetricKeyDetails?.modulusLength || 0) > 4096'));
 });
