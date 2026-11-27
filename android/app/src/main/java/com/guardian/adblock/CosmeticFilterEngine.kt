@@ -241,7 +241,7 @@ object CosmeticFilterEngine {
 
     private fun isSafeCssSelector(value: String): Boolean {
         if (value.isBlank() || value.length > 512) return false
-        if (value.any { it == '{' || it == '}' || it == '<' || it == '>' || it == '\u0000' }) return false
+        if (value.any { it == '{' || it == '}' || it == '<' || it == '\u0000' }) return false
         val normalized = value.lowercase()
         if (normalized.startsWith("+js(") || unsupportedCosmeticSyntax.any(normalized::contains)) return false
         if (normalized.contains("url(") || normalized.contains("@import")) return false

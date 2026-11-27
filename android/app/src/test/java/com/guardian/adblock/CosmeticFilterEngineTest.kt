@@ -102,6 +102,13 @@ class CosmeticFilterEngineTest {
         assertEquals(5, rules.ignored)
     }
 
+    @Test fun acceptsSafeChildCombinatorsUsedByBuiltInAdSlotRules() {
+        val rules = CosmeticFilterEngine.parse(listOf("example.com##div > iframe"))
+
+        assertEquals(0, rules.ignored)
+        assertTrue(CosmeticFilterEngine.selectorsForHost(rules, "example.com").contains("div > iframe"))
+    }
+
     @Test fun producesCssOnlyHideDeclarations() {
         val rules = CosmeticFilterEngine.parse(listOf("example.com##.ad-container"))
         val css = CosmeticFilterEngine.cssForHost(rules, "www.example.com")
