@@ -2225,10 +2225,10 @@ if [[ "$boot_completed" -ne 1 ]]; then
   echo "Android emulator did not finish booting before the selected-profile refresh scenario."
   exit 1
 fi
-# The emulator is already booted before the app is installed. Android therefore
-# cannot deliver the earlier BOOT_COMPLETED event to this newly installed package.
-# During the tested in-place APK upgrade, PackageManager sends MY_PACKAGE_REPLACED.
-# Accept either genuine system callback; do not fabricate a protected broadcast.
+# The candidate APK is installed before this point, and the full-device reboot
+# scenario above must deliver a genuine BOOT_COMPLETED restore callback. Accept
+# the package-replacement callback as well for runners that reboot during upgrade;
+# never fabricate either protected system broadcast in the test.
 restore_receiver_seen=0
 for attempt in $(seq 1 60); do
   restore_logs="$(adb_poll shell logcat -d -s GuardianProtection:I 2>/dev/null || true)"
