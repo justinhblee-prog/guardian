@@ -1522,9 +1522,9 @@ class MainActivity : Activity() {
         body.addView(installButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         body.addView(text(
             if (developmentBuild) {
-                "개발판은 공식 개발 릴리스의 APK SHA-256, 패키지 ID, 버전 및 개발 서명 인증서를 검증합니다. 업데이트는 사용자가 직접 확인하고 설치합니다."
+                "개발판은 새 버전을 백그라운드에서 자동 확인하고 알림을 보냅니다. 알림을 열면 APK 다운로드와 SHA-256·패키지·개발 서명 검증이 자동으로 진행되며, 설치는 Android 확인 후 진행됩니다."
             } else {
-                "정식판은 공식 HTTPS Release manifest, APK SHA-256, 패키지 ID, 버전 및 운영 서명 인증서를 검증한 뒤 Android 설치 화면을 엽니다."
+                "정식판은 새 버전을 백그라운드에서 자동 확인하고 알림을 보냅니다. 알림을 열면 공식 HTTPS Release manifest, APK SHA-256·패키지·운영 서명을 검증하고 Android 설치 확인 화면으로 연결합니다."
             },
             11f, muted, false
         ).withTop(14))
