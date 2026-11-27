@@ -937,7 +937,7 @@ class MainActivity : Activity() {
             addView(text("전체 DNS 차단 활동", 14f, white, true))
             addView(text("전체 차단 ${String.format(Locale.getDefault(), "%,d", totalBlocked)}건 · 광고·추적 외 유형도 세분화", 11f, muted, false).withTop(5))
             activityChart = ActivityStatsChart()
-            addView(activityChart, LinearLayout.LayoutParams(-1, dp(292)).apply { topMargin = dp(12) })
+            addView(activityChart, LinearLayout.LayoutParams(-1, dp(320)).apply { topMargin = dp(12) })
             activityChart?.update(displayCounts + prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L).coerceAtLeast(0L))
             val categoryGrid = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
             categoryLabels.indices.toList().chunked(3).forEachIndexed { rowIndex, indexes ->
@@ -4425,7 +4425,7 @@ class MainActivity : Activity() {
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val maxValue = values.maxOrNull()?.coerceAtLeast(1L) ?: 1L
-            val labelWidth = dp(76).toFloat()
+            val labelWidth = dp(92).toFloat()
             val rightPadding = dp(38).toFloat()
             val barWidth = (width - labelWidth - rightPadding).coerceAtLeast(dp(20).toFloat())
             val rowHeight = height / values.size.toFloat()
