@@ -556,14 +556,43 @@ if [[ "$ready" -ne 1 ]]; then
   exit 1
 fi
 
+echo "Waiting for Android boot completion before the selected-profile refresh scenario."
+boot_completed=0
+for attempt in $(seq 1 60); do
+  boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+  if [[ "$boot_state" == "1" ]]; then
+    boot_completed=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$boot_completed" -ne 1 ]]; then
+  echo "Android emulator did not finish booting before the selected-profile refresh scenario."
+  exit 1
+fi
+
 echo "Verifying a changed filter profile is refreshed even when automatic updates are disabled."
+adb_cmd shell am force-stop "$PACKAGE"
+app_stopped=0
+for attempt in $(seq 1 20); do
+  app_pid="$(adb_poll shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+  if [[ -z "$app_pid" ]]; then
+    app_stopped=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$app_stopped" -ne 1 ]]; then
+  echo "Guardian process did not stop before updating its SharedPreferences fixture."
+  adb_poll shell pidof "$PACKAGE" || true
+  exit 1
+fi
 profile_prefs="$(read_prefs)"
 if ! grep -q 'name="filter_cached_profile">adguard</string>' <<<"$profile_prefs"; then
   echo "Profile-refresh test expected the initial AdGuard cache before changing the selected profile."
   read_prefs
   exit 1
 fi
-adb_cmd shell am force-stop "$PACKAGE"
 profile_fixture="$(sed -E \
   -e 's#<string name="filter_profile">[^<]*</string>##g' \
   -e 's#<boolean name="filter_auto_update" value="[^"]*" />##g' \
