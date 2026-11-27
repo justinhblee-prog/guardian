@@ -33,15 +33,17 @@ internal class GuardianAppUpdateCheckWorker(
     override fun doWork(): Result {
         return try {
             val updateDescription = if (BuildConfig.DEBUG) {
-                val update = DevUpdateManager.checkForUpdate() ?: return Result.success()
-                "개발 버전 ${update.versionName}"
+                val update = DevUpdateManager.checkForUpdate()
+                update?.let { "개발 버전 ${it.versionName}" }
             } else if (BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED) {
-                val update = GuardianStableUpdateManager.checkForUpdate() ?: return Result.success()
-                "정식 버전 ${update.versionName}"
+                val update = GuardianStableUpdateManager.checkForUpdate()
+                update?.let { "정식 버전 ${it.versionName}" }
             } else {
                 return Result.success()
             }
-            postUpdateNotification(updateDescription)
+            applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putLong(LAST_CHECK_KEY, System.currentTimeMillis()).apply()
+            if (updateDescription != null) postUpdateNotification(updateDescription)
             Result.success()
         } catch (error: IOException) {
             Log.w(TAG, "Update check temporarily unavailable; WorkManager will retry.", error)
@@ -101,8 +103,9 @@ internal class GuardianAppUpdateCheckWorker(
     companion object {
         private const val TAG = "GuardianAppUpdater"
         private const val CHANNEL_ID = "guardian_app_updates_v1"
+        private const val PREFS_NAME = "guardian_app_update_scheduler_v1"
+        private const val LAST_CHECK_KEY = "last_successful_channel_check_at"
         const val EXTRA_OPEN_UPDATES = "com.guardian.adblock.OPEN_APP_UPDATES"
-        private const val INITIAL_CHECK_KEY = "guardian_app_update_initial_check_enqueued_v1"
 
         fun sync(context: Context) {
             val enabled = BuildConfig.DEBUG || BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED
@@ -122,17 +125,20 @@ internal class GuardianAppUpdateCheckWorker(
                 periodic
             )
 
-            val prefs = context.getSharedPreferences("guardian_app_update_scheduler_v1", Context.MODE_PRIVATE)
-            if (!prefs.getBoolean(INITIAL_CHECK_KEY, false)) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val lastCheckAt = prefs.getLong(LAST_CHECK_KEY, 0L)
+            val now = System.currentTimeMillis()
+            val intervalMillis = TimeUnit.HOURS.toMillis(interval)
+            if (lastCheckAt <= 0L || now < lastCheckAt || now - lastCheckAt >= intervalMillis) {
                 val initial = OneTimeWorkRequestBuilder<GuardianAppUpdateCheckWorker>()
                     .setConstraints(constraints)
+                    .setInitialDelay(1, TimeUnit.MINUTES)
                     .build()
                 WorkManager.getInstance(context).enqueueUniqueWork(
                     "guardian-app-update-initial-check-$channel",
                     ExistingWorkPolicy.KEEP,
                     initial
                 )
-                prefs.edit().putBoolean(INITIAL_CHECK_KEY, true).apply()
             }
         }
     }
