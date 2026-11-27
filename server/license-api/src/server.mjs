@@ -308,9 +308,9 @@ async function verifyGooglePlayPurchase(body) {
           [licenseId]
         );
         await client.query(
-          "UPDATE google_play_purchases SET subscription_state=$2,expires_at=COALESCE($3,expires_at), " +
-          "acknowledgement_state=$4,last_verified_at=now(),updated_at=now() WHERE purchase_token_hash=$1",
-          [purchaseHash, verified.subscriptionState, verified.expiryTime, verified.acknowledgementState]
+          "UPDATE google_play_purchases SET product_sku=$2,subscription_state=$3,expires_at=COALESCE($4,expires_at), " +
+          "acknowledgement_state=$5,last_verified_at=now(),updated_at=now() WHERE purchase_token_hash=$1",
+          [purchaseHash, productId, verified.subscriptionState, verified.expiryTime, verified.acknowledgementState]
         );
         await recordEvent(client, licenseId, 'google_play_subscription_inactive', 'google_play', {
           productId, subscriptionState: verified.subscriptionState
@@ -365,9 +365,9 @@ async function verifyGooglePlayPurchase(body) {
       );
       license = updated.rows[0];
       await client.query(
-        "UPDATE google_play_purchases SET subscription_state=$2,expires_at=$3,latest_order_id=$4," +
-        "acknowledgement_state=$5,last_verified_at=now(),updated_at=now() WHERE purchase_token_hash=$1",
-        [purchaseHash, verified.subscriptionState, verified.expiryTime, verified.orderId,
+        "UPDATE google_play_purchases SET product_sku=$2,subscription_state=$3,expires_at=$4,latest_order_id=$5," +
+        "acknowledgement_state=$6,last_verified_at=now(),updated_at=now() WHERE purchase_token_hash=$1",
+        [purchaseHash, productId, verified.subscriptionState, verified.expiryTime, verified.orderId,
           verified.acknowledgementState]
       );
       await recordEvent(client, license.id, 'google_play_subscription_refreshed', 'google_play', {
