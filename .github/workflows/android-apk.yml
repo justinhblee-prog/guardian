@@ -401,7 +401,7 @@ jobs:
             "versionCode": ${GUARDIAN_VERSION_CODE},
             "sha256": "$SHA256",
             "signerSha256": "$SIGNER_SHA256",
-            "channel": "development"
+            "channel": "${GUARDIAN_UPDATE_CHANNEL}"
           }
           EOF
           python3 -m json.tool release/guardian-android-dev.json >/dev/null
@@ -420,7 +420,7 @@ jobs:
           assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-dev", manifest["versionName"])
           assert manifest["sha256"] == hashlib.sha256(apk.read_bytes()).hexdigest()
           assert manifest["signerSha256"] == os.environ["APK_SIGNER_SHA256"]
-          print("Development update manifest exactly matches the built APK and independently verified signer.")
+          print("Private update manifest exactly matches the built APK and independently verified signer.")
           PY
 
       - name: Upload verified Android debug and source package
