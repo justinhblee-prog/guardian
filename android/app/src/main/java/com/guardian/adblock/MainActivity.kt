@@ -217,9 +217,9 @@ class MainActivity : Activity() {
             }
             filterPrefs.edit().putBoolean("filter_auto_update_default_on_v2", true).apply()
         }
-        // Update discovery is user-initiated from Settings. Do not run a
-        // background development/stable update check or show an install prompt
-        // automatically on every app launch.
+        // Filter readiness is checked on launch. App update discovery is also
+        // scheduled in the background below, but APK installation always remains
+        // an explicit Android system-confirmed action.
         checkStartupFilterReadiness()
         // WorkManager initialization/cancellation is not part of first-run filter
         // readiness. Run scheduler reconciliation away from the UI thread so a
@@ -232,6 +232,22 @@ class MainActivity : Activity() {
                 .onFailure { android.util.Log.e("Guardian", "Filter refresh scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
             runCatching { GuardianAppUpdateCheckWorker.sync(applicationContext) }
                 .onFailure { android.util.Log.e("Guardian", "App update scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        if (intent == null) return
+        setIntent(intent)
+        val openUpdates = intent.getBooleanExtra(
+            GuardianAppUpdateCheckWorker.EXTRA_OPEN_UPDATES, false
+        )
+        if (openUpdates) {
+            getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
+                .putBoolean("settings_general_updates_expanded_v1", true)
+                .apply()
+            tabBackStack.clear()
+            showTab("settings-general")
         }
     }
 
