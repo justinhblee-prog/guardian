@@ -918,13 +918,17 @@ class MainActivity : Activity() {
         }
         body.addView(summary.withTop(18))
 
-        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
-        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
-        val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
+        val totalBlocked = prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L).coerceAtLeast(0L)
+        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L).coerceAtLeast(0L)
+        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L).coerceAtLeast(0L)
+        // Older installs may have category counters from different app versions.
+        // Derive the residual category from the authoritative total so the visible
+        // breakdown always reconciles when the known categories fit within total.
+        val otherCount = (totalBlocked - adCount - trackerCount).coerceAtLeast(0L)
         val chartCard = card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("전체 DNS 차단 활동", 14f, white, true))
-            addView(text("전체 차단 ${String.format(Locale.getDefault(), "%,d", prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L))}건 · 아래는 광고·추적·기타 유형별 구분", 11f, muted, false).withTop(5))
+            addView(text("전체 차단 ${String.format(Locale.getDefault(), "%,d", totalBlocked)}건 · 아래는 광고·추적·기타 유형별 구분", 11f, muted, false).withTop(5))
             activityChart = ActivityStatsChart()
             addView(activityChart, LinearLayout.LayoutParams(-1, dp(178)).apply { topMargin = dp(12) })
             val categories = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
@@ -4196,9 +4200,9 @@ class MainActivity : Activity() {
         blockRateValue?.text = String.format(Locale.getDefault(), "%.1f%%", blockRate)
         blockedCountValue?.text = String.format(Locale.getDefault(), "%,d", blockedQueries)
         queryCountValue?.text = String.format(Locale.getDefault(), "%,d", totalQueries)
-        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
-        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
-        val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
+        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L).coerceAtLeast(0L)
+        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L).coerceAtLeast(0L)
+        val otherCount = (blockedQueries - adCount - trackerCount).coerceAtLeast(0L)
         adBlockedValue?.text = String.format(Locale.getDefault(), "%,d", adCount)
         trackerBlockedValue?.text = String.format(Locale.getDefault(), "%,d", trackerCount)
         otherBlockedValue?.text = String.format(Locale.getDefault(), "%,d", otherCount)
