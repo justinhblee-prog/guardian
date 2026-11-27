@@ -31,12 +31,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
-# Each PR has its own concurrency group, so a new commit only supersedes
-# an older run for that same PR; unrelated PRs never cancel one another.
-# New commits supersede stale runs for both PRs and main.
+# Each PR has its own concurrency group. Preserve the active run so its
+# emulator evidence is not discarded; GitHub retains only the newest pending run.
+# Main keeps a separate stable-release group.
 concurrency:
   group: ${{ github.ref == 'refs/heads/main' && 'guardian-android-dev-release' || format('guardian-android-{0}', github.event.pull_request.number || github.ref) }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
