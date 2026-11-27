@@ -62,14 +62,17 @@ object DomainFilter {
         loadRuleSources(listOf({ lines }), listOf(1))
     }
 
-    enum class BlockCategory { AD, TRACKER, OTHER }
+    enum class BlockCategory {
+        AD, TRACKER, ANALYTICS, TELEMETRY, FINGERPRINTING, SOCIAL, OTHER
+    }
 
     /**
-     * Best-effort reporting category only. The imported DNS lists do not carry
-     * consistent per-rule taxonomy, so this must never be used to decide blocking.
+     * Best-effort reporting taxonomy only. Most imported DNS feeds do not carry
+     * consistent per-domain labels. These heuristics never influence blocking,
+     * and ambiguous domains deliberately remain OTHER rather than being guessed.
      */
     fun classifyBlockedDomain(domain: String): BlockCategory {
-        val value = domain.lowercase(java.util.Locale.ROOT)
+        val value = domain.trim().trimEnd('.').lowercase(java.util.Locale.ROOT)
         val adMarkers = listOf(
             "doubleclick", "googlesyndication", "googleadservices", "adservice",
             "adsystem", "adserver", "adnxs", "adform", "taboola", "outbrain",
@@ -77,13 +80,32 @@ object DomainFilter {
             "casalemedia", "2mdn", "adsrvr", "media.net", "yieldmo", "sharethrough",
             "360yield", "bidswitch", "lijit", "serving-sys", "adcolony", "inmobi", "adsymptotic"
         )
+        val fingerprintMarkers = listOf(
+            "fingerprintjs", "fpjscdn", "fingerprinting", "browserleaks", "device-fingerprint"
+        )
+        val analyticsMarkers = listOf(
+            "google-analytics", "analytics", "mixpanel", "segment.io", "amplitude",
+            "heap.io", "rudderstack", "posthog", "snowplow", "matomo", "plausible",
+            "fathom", "umami", "countly"
+        )
+        val telemetryMarkers = listOf(
+            "telemetry", "metrics", "sentry", "bugsnag", "crashlytics", "newrelic",
+            "datadog", "appcenter", "instabug", "logrocket", "honeycomb"
+        )
+        val socialMarkers = listOf(
+            "connect.facebook", "platform.twitter", "platform.linkedin", "sharethis",
+            "addthis", "pinterest", "disqus", "redditstatic", "social-widget"
+        )
         val trackerMarkers = listOf(
-            "analytics", "tracking", "track.", "telemetry", "metrics", "pixel.",
-            "scorecardresearch", "quantserve", "mixpanel", "segment.", "amplitude",
-            "hotjar", "matomo", "clarity.ms"
+            "tracking", "track.", "pixel.", "scorecardresearch", "quantserve",
+            "hotjar", "clarity.ms", "doubleverify", "branch.io", "adjust.com", "appsflyer"
         )
         return when {
             adMarkers.any(value::contains) -> BlockCategory.AD
+            fingerprintMarkers.any(value::contains) -> BlockCategory.FINGERPRINTING
+            analyticsMarkers.any(value::contains) -> BlockCategory.ANALYTICS
+            telemetryMarkers.any(value::contains) -> BlockCategory.TELEMETRY
+            socialMarkers.any(value::contains) -> BlockCategory.SOCIAL
             trackerMarkers.any(value::contains) -> BlockCategory.TRACKER
             else -> BlockCategory.OTHER
         }
