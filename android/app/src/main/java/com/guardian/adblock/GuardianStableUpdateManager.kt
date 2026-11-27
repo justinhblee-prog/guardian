@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -19,55 +18,58 @@ internal data class GuardianStableUpdate(
     val signerSha256: String, val apkUrl: String, val notes: String
 )
 
+internal class GuardianNoStableReleaseAvailableException : Exception("정식 업데이트가 아직 게시되지 않았습니다.")
+internal class GuardianStableUpdateHttpException(val statusCode: Int) : Exception("HTTP $statusCode")
+
 internal object GuardianStableUpdateManager {
-    private const val RELEASES_URL = "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=30"
+    // GitHub's /releases/latest route resolves only to a published non-prerelease
+    // release. Fetch its manifest directly to avoid the unauthenticated Releases
+    // API rate limit and to avoid scanning a list dominated by Dev prereleases.
+    private const val LATEST_MANIFEST_URL =
+        "https://github.com/justinhblee-prog/guardian/releases/latest/download/guardian-android.json"
+    private const val RELEASE_DOWNLOAD_BASE =
+        "https://github.com/justinhblee-prog/guardian/releases/download/"
     private const val APK_ASSET = "guardian-android.apk"
-    private const val MANIFEST_ASSET = "guardian-android.json"
     private const val PACKAGE_NAME = "com.guardian.adblock"
     private const val MAX_APK_BYTES = 150L * 1024L * 1024L
 
     fun checkForUpdate(): GuardianStableUpdate? {
-        val releases = JSONArray(readHttps(RELEASES_URL, 2 * 1024 * 1024))
-        for (index in 0 until releases.length()) {
-            val release = releases.getJSONObject(index)
-            val tag = release.optString("tag_name")
-            if (!GuardianStableUpdatePolicy.isStableRelease(
-                    release.optBoolean("draft", true), release.optBoolean("prerelease", false), tag
-                )) continue
-            val assets = release.optJSONArray("assets")
-                ?: error("최신 정식 Release에 업데이트 자산 목록이 없습니다.")
-            var manifestUrl: String? = null
-            var apkUrl: String? = null
-            for (assetIndex in 0 until assets.length()) {
-                val asset = assets.getJSONObject(assetIndex)
-                when (asset.optString("name")) {
-                    MANIFEST_ASSET -> manifestUrl = asset.optString("browser_download_url")
-                    APK_ASSET -> apkUrl = asset.optString("browser_download_url")
-                }
-            }
-            require(!manifestUrl.isNullOrBlank() && !apkUrl.isNullOrBlank()) {
-                "최신 정식 Release에 guardian-android.json 또는 guardian-android.apk가 없습니다."
-            }
-            require(isGuardianReleaseAssetUrl(manifestUrl)) { "정식 업데이트 manifest 주소가 Guardian 공식 GitHub Release가 아닙니다." }
-            require(isGuardianReleaseAssetUrl(apkUrl)) { "정식 APK 주소가 Guardian 공식 GitHub Release가 아닙니다." }
-
-            val manifest = JSONObject(readHttps(manifestUrl, 64 * 1024))
-            require(manifest.optInt("manifestVersion", 0) == 1) { "지원하지 않는 정식 업데이트 manifest 버전입니다." }
-            require(manifest.optString("packageName") == PACKAGE_NAME) { "정식 업데이트 manifest의 패키지 ID가 Guardian과 다릅니다." }
-            val versionName = manifest.optString("versionName")
-            val versionCode = manifest.optInt("versionCode", 0)
-            require(versionName.matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+$")) && versionCode > 0) {
-                "정식 업데이트 버전 정보가 올바르지 않습니다."
-            }
-            if (!GuardianStableUpdatePolicy.isNewerVersion(BuildConfig.VERSION_CODE, versionCode)) return null
-            require(tag == "v$versionName") { "정식 Release 태그와 manifest 버전이 일치하지 않습니다." }
-            val digest = manifest.optString("sha256").lowercase()
-            val signer = manifest.optString("signerSha256").lowercase()
-            require(GuardianStableUpdatePolicy.isSha256(digest)) { "정식 업데이트 SHA-256 형식이 올바르지 않습니다." }
-            require(GuardianStableUpdatePolicy.isSha256(signer)) { "정식 업데이트 서명 지문 형식이 올바르지 않습니다." }
-            return GuardianStableUpdate(versionName, versionCode, digest, signer, apkUrl, release.optString("body").take(3000))
+        val manifest = try {
+            JSONObject(readHttps(LATEST_MANIFEST_URL, 64 * 1024))
+        } catch (error: GuardianStableUpdateHttpException) {
+            if (GuardianStableUpdatePolicy.isMissingStableReleaseStatus(error.statusCode)) throw GuardianNoStableReleaseAvailableException()
+            throw error
         }
-        return null
+        require(manifest.optInt("manifestVersion", 0) == 1) {
+            "지원하지 않는 정식 업데이트 manifest 버전입니다."
+        }
+        require(manifest.optString("packageName") == PACKAGE_NAME) {
+            "정식 업데이트 manifest의 패키지 ID가 Guardian과 다릅니다."
+        }
+        val versionName = manifest.optString("versionName")
+        val versionCode = manifest.optInt("versionCode", 0)
+        require(versionName.matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+$")) && versionCode > 0) {
+            "정식 업데이트 버전 정보가 올바르지 않습니다."
+        }
+        if (!GuardianStableUpdatePolicy.isNewerVersion(BuildConfig.VERSION_CODE, versionCode)) return null
+
+        val tag = "v$versionName"
+        val apkUrl = "$RELEASE_DOWNLOAD_BASE$tag/$APK_ASSET"
+        require(isGuardianReleaseAssetUrl(apkUrl)) {
+            "정식 APK 주소가 Guardian 공식 GitHub Release가 아닙니다."
+        }
+        val digest = manifest.optString("sha256").lowercase()
+        val signer = manifest.optString("signerSha256").lowercase()
+        require(GuardianStableUpdatePolicy.isSha256(digest)) {
+            "정식 업데이트 SHA-256 형식이 올바르지 않습니다."
+        }
+        require(GuardianStableUpdatePolicy.isSha256(signer)) {
+            "정식 업데이트 서명 지문 형식이 올바르지 않습니다."
+        }
+        return GuardianStableUpdate(
+            versionName, versionCode, digest, signer, apkUrl,
+            manifest.optString("releaseNotes").take(3000)
+        )
     }
 
     fun download(context: Context, update: GuardianStableUpdate): File {
@@ -189,7 +191,8 @@ internal object GuardianStableUpdateManager {
         }
         try {
             connection.connect()
-            check(connection.responseCode in 200..299) { "정식 업데이트 확인 실패: HTTP ${connection.responseCode}" }
+            val status = connection.responseCode
+            if (status !in 200..299) throw GuardianStableUpdateHttpException(status)
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream(); val buffer = ByteArray(8192)
                 while (true) {
