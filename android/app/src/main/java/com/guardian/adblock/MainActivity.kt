@@ -84,8 +84,7 @@ class MainActivity : Activity() {
     private var blockRateValue: TextView? = null
     private var blockedCountValue: TextView? = null
     private var queryCountValue: TextView? = null
-    private var adBlockedValue: TextView? = null
-    private var trackerBlockedValue: TextView? = null
+    private val dnsCategoryValueViews = mutableListOf<TextView>()
     private var savedDataValue: TextView? = null
     private var activityChart: ActivityStatsChart? = null
     private var receiverRegistered = false
@@ -239,8 +238,10 @@ class MainActivity : Activity() {
                     24L * 60L * 60L * 1000L
                 )
                 val securityEnabled = filterPrefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
-                val profileChanged = FilterListManager.hasCachedFile(this) &&
-                    FilterListManager.selectedProfile(this).key != FilterListManager.cachedProfile(this).key
+                val hasMainCache = FilterListManager.hasCachedFile(this)
+                val selectedProfileKey = FilterListManager.selectedProfile(this).key
+                val cachedProfileKey = FilterListManager.cachedProfile(this).key
+                val profileChanged = hasMainCache && selectedProfileKey != cachedProfileKey
                 val securityStale = securityEnabled && (
                     !FilterListManager.hasCachedSecurityList(this) ||
                         System.currentTimeMillis() - FilterListManager.lastSecurityUpdatedAt(this) >= updateInterval
@@ -263,12 +264,14 @@ class MainActivity : Activity() {
                     securityEnabled = securityEnabled,
                     androidAdsCacheMissing = initialAndroidAdsMissing,
                     androidAdsEnabled = androidAdsEnabled,
-                    scheduledRefreshDue = scheduledRefreshDue
+                    scheduledRefreshDue = scheduledRefreshDue,
+                    mainProfileChanged = profileChanged
                 )
                 android.util.Log.i(
                     "Guardian",
                     "Startup filter readiness: mainMissing=$initialMainMissing securityMissing=$initialSecurityMissing " +
-                        "androidAdsMissing=$initialAndroidAdsMissing autoUpdate=$autoUpdate scheduledDue=$scheduledRefreshDue"
+                        "androidAdsMissing=$initialAndroidAdsMissing autoUpdate=$autoUpdate profileChanged=$profileChanged " +
+                        "selectedProfile=$selectedProfileKey cachedProfile=$cachedProfileKey scheduledDue=$scheduledRefreshDue"
                 )
                 if (needsUpdate) runOnUiThread {
                     if (!isFinishing && !isDestroyed) {
@@ -580,8 +583,7 @@ class MainActivity : Activity() {
         blockRateValue = null
         blockedCountValue = null
         queryCountValue = null
-        adBlockedValue = null
-        trackerBlockedValue = null
+        dnsCategoryValueViews.clear()
         savedDataValue = null
         activityChart = null
         root = LinearLayout(this).apply {
@@ -912,25 +914,55 @@ class MainActivity : Activity() {
         }
         body.addView(summary.withTop(18))
 
-        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
-        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
-        val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
+        val totalBlocked = prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L).coerceAtLeast(0L)
+        val categoryCounts = longArrayOf(
+            prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_ANALYTICS_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_TELEMETRY_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_FINGERPRINTING_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_SOCIAL_BLOCKED, 0L)
+        ).map { it.coerceAtLeast(0L) }.toLongArray()
+        // Previous versions kept only aggregate totals for unclassified domains.
+        // Preserve those historical counts here; do not fabricate retroactive labels.
+        val unclassifiedCount = (totalBlocked - categoryCounts.sum()).coerceAtLeast(0L)
+        val displayCounts = categoryCounts + unclassifiedCount
+        val categoryLabels = listOf("광고", "추적", "분석", "텔레메트리", "핑거프린팅", "소셜", "미분류·기존 기록")
+        val categoryColors = intArrayOf(
+            Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), Color.rgb(113, 205, 170),
+            Color.rgb(184, 150, 255), Color.rgb(238, 146, 190), Color.rgb(106, 190, 210), muted
+        )
         val chartCard = card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("차단 활동 그래프", 14f, white, true))
+            addView(text("전체 DNS 차단 활동", 14f, white, true))
+            addView(text("전체 차단 ${String.format(Locale.getDefault(), "%,d", totalBlocked)}건 · 광고·추적 외 유형도 세분화", 11f, muted, false).withTop(5))
             activityChart = ActivityStatsChart()
-            addView(activityChart, LinearLayout.LayoutParams(-1, dp(178)).apply { topMargin = dp(12) })
-            val categories = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
-            adBlockedValue = text(String.format(Locale.getDefault(), "%,d", adCount), 17f, Color.rgb(255, 166, 94), true)
-            trackerBlockedValue = text(String.format(Locale.getDefault(), "%,d", trackerCount), 17f, Color.rgb(116, 167, 255), true)
-            categories.addView(metricCard("광고 차단 건수", adBlockedValue!!, Color.rgb(255, 166, 94)), LinearLayout.LayoutParams(0, dp(76), 1f))
-            categories.addView(space(8), LinearLayout.LayoutParams(dp(8), 1))
-            categories.addView(metricCard("추적 차단 건수", trackerBlockedValue!!, Color.rgb(116, 167, 255)), LinearLayout.LayoutParams(0, dp(76), 1f))
-            addView(categories.withTop(10))
+            addView(activityChart, LinearLayout.LayoutParams(-1, dp(320)).apply { topMargin = dp(12) })
+            activityChart?.update(displayCounts + prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L).coerceAtLeast(0L))
+            val categoryGrid = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+            categoryLabels.indices.toList().chunked(3).forEachIndexed { rowIndex, indexes ->
+                val categoryRow = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
+                indexes.forEachIndexed { columnIndex, categoryIndex ->
+                    if (columnIndex > 0) categoryRow.addView(space(6), LinearLayout.LayoutParams(dp(6), 1))
+                    val value = text(String.format(Locale.getDefault(), "%,d", displayCounts[categoryIndex]), 15f, categoryColors[categoryIndex], true)
+                    dnsCategoryValueViews.add(value)
+                    categoryRow.addView(
+                        metricCard(categoryLabels[categoryIndex], value, categoryColors[categoryIndex]),
+                        LinearLayout.LayoutParams(0, dp(72), 1f)
+                    )
+                }
+                while (categoryRow.childCount < 5) {
+                    categoryRow.addView(space(6), LinearLayout.LayoutParams(0, 1, 1f))
+                }
+                categoryGrid.addView(categoryRow, LinearLayout.LayoutParams(-1, dp(72)).apply {
+                    if (rowIndex > 0) topMargin = dp(6)
+                })
+            }
+            addView(categoryGrid.withTop(10))
             addView(text("예상 절약 데이터", 11f, muted, false).withTop(14))
-            savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(4) as TextView
+            savedDataValue = text(estimatedSavedDataLabel(totalBlocked), 18f, accent, true).withTop(4) as TextView
             addView(savedDataValue!!)
-            addView(text("광고·추적은 도메인 이름 기반 추정 분류입니다. 미분류는 필터 목록에 유형 정보가 없거나 도메인 이름만으로 유형을 판별할 수 없는 차단 요청이며, 별도 위협 유형을 뜻하지 않습니다. 최근 DNS 활동에서 실제 도메인을 확인할 수 있습니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치입니다.", 10f, muted, false).withTop(8))
+            addView(text("유형은 도메인 이름 기반의 추정 분류이며 차단 여부 자체에는 영향을 주지 않습니다. 미분류·기존 기록에는 과거 앱 버전에서 유형을 저장하지 않은 누적 건수와 판단 근거가 부족한 도메인이 포함됩니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치입니다.", 10f, muted, false).withTop(8))
         }
         body.addView(chartCard.withTop(12))
         body.addView(Button(this).apply {
@@ -983,6 +1015,10 @@ class MainActivity : Activity() {
                             .putLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)
                             .putLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
                             .putLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_ANALYTICS_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_TELEMETRY_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_FINGERPRINTING_BLOCKED, 0L)
+                            .putLong(GuardianVpnService.KEY_DNS_SOCIAL_BLOCKED, 0L)
                             .putLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
                             .putString(GuardianVpnService.KEY_DNS_RECENT, "")
                             .putString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "")
@@ -1784,15 +1820,30 @@ class MainActivity : Activity() {
 
         if (proActive) {
             val reportPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            val reportBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportAds = reportPrefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportTrackers = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportAnalytics = reportPrefs.getLong(GuardianVpnService.KEY_DNS_ANALYTICS_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportTelemetry = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TELEMETRY_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportFingerprinting = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FINGERPRINTING_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportSocial = reportPrefs.getLong(GuardianVpnService.KEY_DNS_SOCIAL_BLOCKED, 0L).coerceAtLeast(0L)
+            val reportUnclassified = (
+                reportBlocked - reportAds - reportTrackers - reportAnalytics -
+                    reportTelemetry - reportFingerprinting - reportSocial
+                ).coerceAtLeast(0L)
             val reportSnapshot = PremiumReportSnapshot(
                 totalQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
-                blockedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
+                blockedQueries = reportBlocked,
                 forwardedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
                 failedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
-                adBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
-                trackerBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
-                otherBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L),
-                protectionActive = GuardianVpnService.isTunnelActive()
+                adBlocked = reportAds,
+                trackerBlocked = reportTrackers,
+                otherBlocked = reportUnclassified,
+                protectionActive = GuardianVpnService.isTunnelActive(),
+                analyticsBlocked = reportAnalytics,
+                telemetryBlocked = reportTelemetry,
+                fingerprintingBlocked = reportFingerprinting,
+                socialBlocked = reportSocial
             )
             val reportText = PremiumReportBuilder.build(reportSnapshot, System.currentTimeMillis())
             body.addView(card(panel, 16).apply {
@@ -4281,13 +4332,21 @@ class MainActivity : Activity() {
         blockRateValue?.text = String.format(Locale.getDefault(), "%.1f%%", blockRate)
         blockedCountValue?.text = String.format(Locale.getDefault(), "%,d", blockedQueries)
         queryCountValue?.text = String.format(Locale.getDefault(), "%,d", totalQueries)
-        val adCount = prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L)
-        val trackerCount = prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
-        val otherCount = prefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
-        adBlockedValue?.text = String.format(Locale.getDefault(), "%,d", adCount)
-        trackerBlockedValue?.text = String.format(Locale.getDefault(), "%,d", trackerCount)
+        val categoryCounts = longArrayOf(
+            prefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_ANALYTICS_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_TELEMETRY_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_FINGERPRINTING_BLOCKED, 0L),
+            prefs.getLong(GuardianVpnService.KEY_DNS_SOCIAL_BLOCKED, 0L)
+        ).map { it.coerceAtLeast(0L) }.toLongArray()
+        val unclassifiedCount = (blockedQueries - categoryCounts.sum()).coerceAtLeast(0L)
+        val displayCounts = categoryCounts + unclassifiedCount
+        dnsCategoryValueViews.forEachIndexed { index, view ->
+            view.text = String.format(Locale.getDefault(), "%,d", displayCounts.getOrElse(index) { 0L })
+        }
         savedDataValue?.text = estimatedSavedDataLabel(blockedQueries)
-        activityChart?.update(adCount, trackerCount, otherCount, prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))
+        activityChart?.update(displayCounts + prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L).coerceAtLeast(0L))
         val recentDns = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null)
         recentText?.text = recentDns ?: "아직 기록된 DNS 활동이 없습니다."
         blockedDomainSummaryText?.text = DnsActivitySummary.recentBlockedDomains(recentDns)
@@ -4445,25 +4504,26 @@ class MainActivity : Activity() {
             textSize = dp(11).toFloat()
             typeface = Typeface.DEFAULT
         }
-        private val values = LongArray(4)
-        private val labels = arrayOf("광고 차단", "추적 차단", "미분류 차단", "정상 전달")
-        private val colors = intArrayOf(Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), accent, muted)
+        private val labels = arrayOf("광고", "추적", "분석", "텔레메트리", "핑거프린팅", "소셜", "미분류·기존", "정상 전달")
+        private val colors = intArrayOf(
+            Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), Color.rgb(113, 205, 170),
+            Color.rgb(184, 150, 255), Color.rgb(238, 146, 190), Color.rgb(106, 190, 210),
+            muted, muted
+        )
+        private var values = LongArray(labels.size)
 
-        fun update(ads: Long, trackers: Long, other: Long, forwarded: Long) {
-            values[0] = ads.coerceAtLeast(0L)
-            values[1] = trackers.coerceAtLeast(0L)
-            values[2] = other.coerceAtLeast(0L)
-            values[3] = forwarded.coerceAtLeast(0L)
+        fun update(nextValues: LongArray) {
+            values = LongArray(labels.size) { index -> nextValues.getOrElse(index) { 0L }.coerceAtLeast(0L) }
             invalidate()
         }
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val maxValue = values.maxOrNull()?.coerceAtLeast(1L) ?: 1L
-            val labelWidth = dp(76).toFloat()
+            val labelWidth = dp(92).toFloat()
             val rightPadding = dp(38).toFloat()
             val barWidth = (width - labelWidth - rightPadding).coerceAtLeast(dp(20).toFloat())
-            val rowHeight = height / 4f
+            val rowHeight = height / values.size.toFloat()
             for (i in values.indices) {
                 val top = i * rowHeight + dp(7)
                 textPaint.color = muted
