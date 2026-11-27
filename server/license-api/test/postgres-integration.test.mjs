@@ -185,6 +185,13 @@ if (!databaseUrl) {
       const privateUpdate = (await privateWithToken.json()).update;
       assert.equal(privateUpdate.versionCode, 876);
       assert.equal(new URL(privateUpdate.apkUrl).searchParams.get('X-Amz-Expires'), '300');
+      const adminListUnauthorized = await fetch(`${baseUrl}/v1/admin/updates`);
+      assert.equal(adminListUnauthorized.status, 401);
+      const adminList = await fetch(`${baseUrl}/v1/admin/updates`, { headers: adminHeaders });
+      assert.equal(adminList.status, 200);
+      const listed = (await adminList.json()).updates;
+      assert.equal(listed[0].version_code, 876);
+      assert.equal(listed[0].channel, 'dev');
     } finally {
       globalThis.fetch = originalFetch;
     }
