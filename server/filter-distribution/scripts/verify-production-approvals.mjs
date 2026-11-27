@@ -61,13 +61,29 @@ export function verifyProductionRedistributionApprovals(config) {
     const commitSha = typeof source.upstreamCommitSha === 'string' &&
       /^[a-f0-9]{40,64}$/i.test(source.upstreamCommitSha);
     let sourceUrlPinsCommit = false;
-    if (commitSha && typeof source.url === 'string') {
+    if (commitSha && typeof source.url === 'string' && cleanHttpsUrl(source.upstreamRepository)) {
       try {
-        const segments = new URL(source.url).pathname.split('/').filter(Boolean);
-        sourceUrlPinsCommit = segments.some(segment =>
-          segment.toLowerCase() === source.upstreamCommitSha.toLowerCase() ||
-          segment.toLowerCase().endsWith('@' + source.upstreamCommitSha.toLowerCase())
-        );
+        const sourceUrl = new URL(source.url);
+        const repositoryUrl = new URL(source.upstreamRepository);
+        const repositoryParts = repositoryUrl.pathname.split('/').filter(Boolean);
+        const owner = repositoryParts[0]?.toLowerCase();
+        const repository = repositoryParts[1]?.replace(/\\.git$/i, '').toLowerCase();
+        const sourceParts = sourceUrl.pathname.split('/').filter(Boolean);
+        const revision = source.upstreamCommitSha.toLowerCase();
+        if (repositoryUrl.hostname.toLowerCase() === 'github.com' &&
+            owner && repository && repositoryParts.length === 2) {
+          if (sourceUrl.hostname.toLowerCase() === 'raw.githubusercontent.com') {
+            sourceUrlPinsCommit = sourceParts.length >= 4 &&
+              sourceParts[0].toLowerCase() === owner &&
+              sourceParts[1].toLowerCase() === repository &&
+              sourceParts[2].toLowerCase() === revision;
+          } else if (sourceUrl.hostname.toLowerCase() === 'cdn.jsdelivr.net') {
+            sourceUrlPinsCommit = sourceParts.length >= 4 &&
+              sourceParts[0] === 'gh' &&
+              sourceParts[1].toLowerCase() === owner &&
+              sourceParts[2].toLowerCase() === repository + '@' + revision;
+          }
+        }
       } catch {
         sourceUrlPinsCommit = false;
       }
