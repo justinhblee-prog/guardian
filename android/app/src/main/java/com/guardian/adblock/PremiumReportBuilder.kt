@@ -14,7 +14,11 @@ internal data class PremiumReportSnapshot(
     val adBlocked: Long,
     val trackerBlocked: Long,
     val otherBlocked: Long,
-    val protectionActive: Boolean
+    val protectionActive: Boolean,
+    val analyticsBlocked: Long = 0L,
+    val telemetryBlocked: Long = 0L,
+    val fingerprintingBlocked: Long = 0L,
+    val socialBlocked: Long = 0L
 )
 
 internal object PremiumReportBuilder {
@@ -52,7 +56,11 @@ internal object PremiumReportBuilder {
             appendLine("응답 실패 비율: ${String.format(Locale.ROOT, "%.1f%%", failedRate)}")
             appendLine("광고 차단: ${count(snapshot.adBlocked)}")
             appendLine("추적 차단: ${count(snapshot.trackerBlocked)}")
-            appendLine("미분류 차단: ${count(snapshot.otherBlocked)}")
+            appendLine("분석 차단: ${count(snapshot.analyticsBlocked)}")
+            appendLine("텔레메트리 차단: ${count(snapshot.telemetryBlocked)}")
+            appendLine("핑거프린팅 차단: ${count(snapshot.fingerprintingBlocked)}")
+            appendLine("소셜 위젯 차단: ${count(snapshot.socialBlocked)}")
+            appendLine("미분류·기존 기록: ${count(snapshot.otherBlocked)}")
             appendLine()
             appendLine("상태 점검: $health")
             appendLine()
