@@ -66,18 +66,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          # 0.7.56-dev (versionCode 69) is the latest verified development APK.
+          # 0.7.58-dev (versionCode 71) is the latest verified development APK.
           # CI artifacts are not GitHub Releases, so the public release list can lag
           # behind the version already distributed to the user. Keep the delivered
-          # baseline explicit: the next distinct build must be versionCode 70+.
+          # baseline explicit: the next distinct build must be versionCode 72+.
           # Never derive the app version from public release tags alone.
           # Main reruns reuse the release version for the same source commit.
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
           python3 scripts/resolve_guardian_dev_version.py \
             --releases-json release/guardian-releases.json \
             --commit "$GITHUB_SHA" \
-            --baseline-version "0.7.56-dev" \
-            --baseline-code 69 \
+            --baseline-version "0.7.58-dev" \
+            --baseline-code 71 \
             --github-env "$GITHUB_ENV" \
             --github-output "$GITHUB_OUTPUT"
           echo "Version resolution completed."
