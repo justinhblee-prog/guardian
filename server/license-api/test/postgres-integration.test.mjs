@@ -166,7 +166,7 @@ if (!databaseUrl) {
       const uploadInfo = await upload.json();
       assert.equal(uploadInfo.method, 'PUT');
       assert.equal(new URL(uploadInfo.uploadUrl).searchParams.get('X-Amz-Expires'), '600');
-      assert.match(uploadInfo.objectKey, /^android\/dev\/876-[a-f0-9]{64}\\.apk$/);
+      assert.match(uploadInfo.objectKey, /^android\/dev\/876-[a-f0-9]{64}\.apk$/);
 
       const published = await post('/v1/admin/updates/publish', {
         ...metadata, objectKey: uploadInfo.objectKey
