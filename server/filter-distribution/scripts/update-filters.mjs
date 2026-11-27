@@ -181,7 +181,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         `Source ${source.id} is not approved for redistribution; set licenseId, redistributionApproved=true and redistributionApprovalRef only after license-compliance review.`
       );
     }
-    return { ...source, upstream };
+    return { ...source, id: canonicalSourceId, upstream };
   });
 
   // Serialize whole update batches. Per-source publisher locks alone cannot
