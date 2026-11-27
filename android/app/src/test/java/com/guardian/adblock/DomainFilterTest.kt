@@ -13,6 +13,18 @@ class DomainFilterTest {
         assertEquals(DomainFilter.BlockCategory.OTHER, DomainFilter.classifyBlockedDomain("malware.example"))
     }
 
+    @Test fun classifiesExpandedBundledAdNetworksAsAds() {
+        val hosts = listOf(
+            "pubmatic.com", "openx.net", "rubiconproject.com", "casalemedia.com",
+            "2mdn.net", "adsrvr.org", "media.net", "yieldmo.com", "sharethrough.com",
+            "360yield.com", "bidswitch.net", "lijit.com", "serving-sys.com",
+            "adcolony.com", "inmobi.com", "adsymptotic.com"
+        )
+        hosts.forEach { host ->
+            assertEquals(DomainFilter.BlockCategory.AD, DomainFilter.classifyBlockedDomain(host))
+        }
+    }
+
     @Test fun loadsSharedRuleFormatAndAllowTakesPrecedence() {
         DomainFilter.loadRules(listOf(
             "# comment",
