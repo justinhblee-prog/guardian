@@ -1,6 +1,10 @@
 import { defineConfig } from '@neon/config/v1';
 
 export default defineConfig({
+  buckets: {
+    // Beta/Dev APKs and manifests must never be anonymously readable.
+    'guardian-private-updates': { access: 'private' }
+  },
   functions: {
     guardianapi: {
       name: 'Guardian License API',
