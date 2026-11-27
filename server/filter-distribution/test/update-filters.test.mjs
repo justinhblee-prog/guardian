@@ -64,6 +64,44 @@ test('updater rejects non-HTTPS sources and underfilled upstream responses', asy
   }
 });
 
+test('updater rejects floating source versions and mutable CDN references before network access', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  for (const overrides of [
+    { upstreamVersion: 'rolling-unpinned' },
+    { upstreamVersion: 'latest' },
+    { url: 'https://cdn.jsdelivr.net/gh/example/filter@latest/list.txt' },
+    { url: 'https://cdn.jsdelivr.net/gh/example/filter@main/list.txt' }
+  ]) {
+    let fetchCalled = false;
+    await assert.rejects(updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        sources: [{
+          id: 'floating',
+          url: 'https://upstream.example/filter.txt',
+          minimumRules: 1,
+          upstreamRepository: 'https://upstream.example/project',
+          licenseUrl: 'https://upstream.example/LICENSE',
+          upstreamVersion: '1.0.0',
+          thirdPartyProvenanceReviewed: true,
+          complianceEvidenceRef: 'test-fixture',
+          licenseId: 'LicenseRef-Test',
+          redistributionApproved: true,
+          redistributionApprovalRef: 'test-fixture',
+          ...overrides
+        }]
+      },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+      fetchImpl: async () => {
+        fetchCalled = true;
+        return new Response('||example.test^', { status: 200 });
+      }
+    }), /pinned upstream version\/URL/);
+    assert.equal(fetchCalled, false);
+  }
+});
+
 test('updater stages every source before publishing any manifest', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-stage-all-'));
   const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
