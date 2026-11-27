@@ -55,6 +55,12 @@ export function verifyProductionRedistributionApprovals(config) {
     if (typeof source.upstreamVersion !== 'string' ||
         !/^[A-Za-z0-9._+-]{1,128}$/.test(source.upstreamVersion)) {
       errors.push(id + ': upstreamVersion is missing or malformed.');
+    } else if (/^(rolling(?:-unpinned)?|unpinned|latest|main|master|head)$/i.test(source.upstreamVersion)) {
+      errors.push(id + ': upstreamVersion must identify a pinned, reviewable source revision; floating labels are not allowed.');
+    }
+    if (typeof source.url === 'string' &&
+        /@(?:latest|main|master|head)(?:\/|$)/i.test(source.url)) {
+      errors.push(id + ': source url must pin an immutable upstream revision; floating @latest/@main/@master/@head references are not allowed.');
     }
     if (source.thirdPartyProvenanceReviewed !== true) {
       errors.push(id + ': thirdPartyProvenanceReviewed must be explicitly true after upstream data-source review.');
