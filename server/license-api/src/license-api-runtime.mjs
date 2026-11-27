@@ -533,17 +533,38 @@ async function publishUpdate(body, req) {
   if (body.objectKey !== expectedKey) {
     throw Object.assign(new Error('업데이트 저장소 객체 키가 메타데이터와 일치하지 않습니다.'), { status: 400 });
   }
-  const head = createPresignedObjectUrl({
-    method: 'HEAD', bucket: 'guardian-private-updates', objectKey: expectedKey,
-    expiresInSeconds: 60
+  const download = createPresignedObjectUrl({
+    method: 'GET', bucket: 'guardian-private-updates', objectKey: expectedKey,
+    expiresInSeconds: 120
   });
-  const check = await fetch(head.url, { method: 'HEAD', signal: AbortSignal.timeout(10000) });
-  if (!check.ok) {
+  const check = await fetch(download.url, { signal: AbortSignal.timeout(120000) });
+  if (!check.ok || !check.body) {
     throw Object.assign(new Error('업로드된 APK 객체를 확인할 수 없습니다.'), { status: 409 });
   }
   const uploadedLength = Number(check.headers.get('content-length') || 0);
   if (uploadedLength !== metadata.sizeBytes) {
+    await check.body.cancel();
     throw Object.assign(new Error('업로드된 APK 크기가 선언된 크기와 다릅니다.'), { status: 409 });
+  }
+  const digest = createHash('sha256');
+  const reader = check.body.getReader();
+  let verifiedBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      verifiedBytes += value.byteLength;
+      if (verifiedBytes > metadata.sizeBytes) {
+        await reader.cancel();
+        throw Object.assign(new Error('업로드된 APK 크기가 선언된 크기를 초과했습니다.'), { status: 409 });
+      }
+      digest.update(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (verifiedBytes !== metadata.sizeBytes || digest.digest('hex') !== metadata.sha256) {
+    throw Object.assign(new Error('업로드된 APK의 SHA-256 또는 파일 크기 검증에 실패했습니다.'), { status: 409 });
   }
   const result = await pool.query(
     `INSERT INTO guardian_update_manifests
