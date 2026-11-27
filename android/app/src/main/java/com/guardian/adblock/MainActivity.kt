@@ -136,10 +136,21 @@ class MainActivity : Activity() {
         window.decorView.systemUiVisibility = 0
         val persistedTab = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
             .getString(PREF_LAST_SELECTED_TAB, null)
-        val restoredTab = ActivityScreenState.restoreTab(
-            savedInstanceState?.getString(STATE_CURRENT_TAB),
-            persistedTab
-        )
+        val openUpdatesFromNotification =
+            intent?.getBooleanExtra(GuardianAppUpdateCheckWorker.EXTRA_OPEN_UPDATES, false) == true
+        if (openUpdatesFromNotification) {
+            getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
+                .putBoolean("settings_general_updates_expanded_v1", true)
+                .apply()
+        }
+        val restoredTab = if (openUpdatesFromNotification) {
+            "settings-general"
+        } else {
+            ActivityScreenState.restoreTab(
+                savedInstanceState?.getString(STATE_CURRENT_TAB),
+                persistedTab
+            )
+        }
         val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
         val retainedRuleDraft = lastNonConfigurationInstance as? RuleEditorDraft
         if (savedInstanceState != null) {
@@ -206,9 +217,9 @@ class MainActivity : Activity() {
             }
             filterPrefs.edit().putBoolean("filter_auto_update_default_on_v2", true).apply()
         }
-        // Update discovery is user-initiated from Settings. Do not run a
-        // background development/stable update check or show an install prompt
-        // automatically on every app launch.
+        // Filter readiness is checked on launch. App update discovery is also
+        // scheduled in the background below, but APK installation always remains
+        // an explicit Android system-confirmed action.
         checkStartupFilterReadiness()
         // WorkManager initialization/cancellation is not part of first-run filter
         // readiness. Run scheduler reconciliation away from the UI thread so a
@@ -219,6 +230,24 @@ class MainActivity : Activity() {
                 .onFailure { android.util.Log.e("Guardian", "License refresh scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
             runCatching { FilterUpdateScheduler.sync(applicationContext) }
                 .onFailure { android.util.Log.e("Guardian", "Filter refresh scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
+            runCatching { GuardianAppUpdateCheckWorker.sync(applicationContext) }
+                .onFailure { android.util.Log.e("Guardian", "App update scheduling failed: ${SafeFailureSummary.codeFor(it)}") }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        if (intent == null) return
+        setIntent(intent)
+        val openUpdates = intent.getBooleanExtra(
+            GuardianAppUpdateCheckWorker.EXTRA_OPEN_UPDATES, false
+        )
+        if (openUpdates) {
+            getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
+                .putBoolean("settings_general_updates_expanded_v1", true)
+                .apply()
+            tabBackStack.clear()
+            showTab("settings-general")
         }
     }
 
@@ -263,7 +292,8 @@ class MainActivity : Activity() {
                     securityEnabled = securityEnabled,
                     androidAdsCacheMissing = initialAndroidAdsMissing,
                     androidAdsEnabled = androidAdsEnabled,
-                    scheduledRefreshDue = scheduledRefreshDue
+                    scheduledRefreshDue = scheduledRefreshDue,
+                    mainProfileChanged = profileChanged
                 )
                 android.util.Log.i(
                     "Guardian",
@@ -1483,6 +1513,11 @@ class MainActivity : Activity() {
             }
         }
         body.addView(checkButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(14) })
+        // Opening this panel (including from an update notification) immediately
+        // checks the active channel and downloads a verified APK when available.
+        checkButton.post {
+            if (checkButton.isEnabled) checkButton.performClick()
+        }
         installButton.setOnClickListener {
             val apk = downloaded ?: return@setOnClickListener
             try {
@@ -1503,9 +1538,9 @@ class MainActivity : Activity() {
         body.addView(installButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         body.addView(text(
             if (developmentBuild) {
-                "개발판은 공식 개발 릴리스의 APK SHA-256, 패키지 ID, 버전 및 개발 서명 인증서를 검증합니다. 업데이트는 사용자가 직접 확인하고 설치합니다."
+                "개발판은 새 버전을 백그라운드에서 자동 확인하고 알림을 보냅니다. 알림을 열면 APK 다운로드와 SHA-256·패키지·개발 서명 검증이 자동으로 진행되며, 설치는 Android 확인 후 진행됩니다."
             } else {
-                "정식판은 공식 HTTPS Release manifest, APK SHA-256, 패키지 ID, 버전 및 운영 서명 인증서를 검증한 뒤 Android 설치 화면을 엽니다."
+                "정식판은 새 버전을 백그라운드에서 자동 확인하고 알림을 보냅니다. 알림을 열면 공식 HTTPS Release manifest, APK SHA-256·패키지·운영 서명을 검증하고 Android 설치 확인 화면으로 연결합니다."
             },
             11f, muted, false
         ).withTop(14))
@@ -3993,16 +4028,29 @@ class MainActivity : Activity() {
                 val mainReady = runCatching { FilterListManager.hasCachedList(this) }.getOrDefault(false)
                 val selected = FilterListManager.selectedProfile(this)
                 val cached = FilterListManager.cachedProfile(this)
-                when {
-                    !mainReady -> unavailable.add("광고·추적")
-                    selected.key != cached.key -> unavailable.add("선택한 ${selected.label}")
+                val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                val securityReady = !securityEnabled ||
+                    runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrDefault(false)
+                val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                val androidAdsReady = !androidAdsEnabled ||
+                    runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrDefault(false)
+                val configurationReady = FilterListManager.isProfileCacheCurrent(
+                    hasCache = mainReady,
+                    selectedKey = selected.key,
+                    cachedKey = cached.key,
+                    securityEnabled = securityEnabled,
+                    hasSecurityCache = securityReady,
+                    androidAdsEnabled = androidAdsEnabled,
+                    hasAndroidAdsCache = androidAdsReady
+                )
+                if (!mainReady || selected.key != cached.key) {
+                    unavailable.add(if (!mainReady) "광고·추적" else "선택한 ${selected.label}")
                 }
-                if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false) &&
-                    !runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrDefault(false)
-                ) unavailable.add("악성코드·피싱")
-                if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true) &&
-                    !runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrDefault(false)
-                ) unavailable.add("Android 앱 광고")
+                if (!securityReady) unavailable.add("악성코드·피싱")
+                if (!androidAdsReady) unavailable.add("Android 앱 광고")
+                check(configurationReady == unavailable.isEmpty()) {
+                    "필터 준비 상태 계산이 일치하지 않습니다."
+                }
                 val notice = if (unavailable.isEmpty()) null else
                     "기본 DNS 규칙으로 먼저 연결합니다. 추가 필터는 아직 준비되지 않았습니다: ${unavailable.joinToString()}."
                 android.util.Log.i(
