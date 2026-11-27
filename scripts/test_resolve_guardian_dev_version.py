@@ -161,6 +161,9 @@ class GuardianDevVersionTests(unittest.TestCase):
         self.assertIsNotNone(default_version)
         self.assertIsNotNone(default_code)
         self.assertEqual((default_version.group(1), int(default_code.group(1))), ("0.7.55-dev", 68))
+        gradle = (root / "android/app/build.gradle.kts").read_text(encoding="utf-8")
+        self.assertIn('.getOrElse("0.7.55-dev")', gradle)
+        self.assertIn("}.getOrElse(68)", gradle)
 
 
 if __name__ == "__main__":
