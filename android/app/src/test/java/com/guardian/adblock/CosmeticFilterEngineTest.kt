@@ -137,6 +137,11 @@ class CosmeticFilterEngineTest {
         assertTrue(selectors.contains("[aria-label*='advertisement' i]"))
         assertTrue(selectors.contains("div:has(iframe[src*='doubleclick.net'])"))
         assertTrue(selectors.contains("div:has(ins.adsbygoogle)"))
+        assertTrue(selectors.contains(":where(div,section,aside):has(> iframe[src*='doubleclick.net'])"))
+        assertTrue(selectors.contains(":where(div,section,aside):has(> iframe[id^='google_ads_iframe'])"))
+        assertTrue(selectors.contains(":where(div,section,aside):has(> [data-ad-status='unfilled'])"))
+        assertTrue(selectors.contains(":where(div,section,aside):has(> [data-ad-slot]:empty)"))
+        assertTrue(selectors.contains(".google-auto-placed:empty"))
         assertTrue(selectors.contains(".site-sponsored"))
     }
 
