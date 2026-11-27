@@ -1460,17 +1460,40 @@ if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml"; then
   echo "$exit_menu_xml"
   exit 1
 fi
-tap_text "Guardian 종료"
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-exit-confirmation.xml >/dev/null 2>&1
-exit_confirmation_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-confirmation.xml | tr -d '\r')"
+# UIAutomator can race the dialog transition: a hierarchy captured just after
+# tapping the menu item may already contain the confirmation dialog, in which
+# case the menu label exists only as a non-clickable dialog title. Accept that
+# state, otherwise tap the actual menu action and verify the resulting dialog.
+if grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_menu_xml"; then
+  exit_confirmation_xml="$exit_menu_xml"
+else
+  tap_text "Guardian 종료"
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-exit-confirmation.xml >/dev/null 2>&1
+  exit_confirmation_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-confirmation.xml | tr -d '\r')"
+fi
 if ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
    ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
   echo "The explicit Guardian 종료 action did not open its confirmation dialog."
   echo "$exit_confirmation_xml"
   exit 1
 fi
-tap_text "취소"
+# Dialog buttons are not always exposed through a clickable parent in older
+# emulator images; use the Android standard cancel-button resource when present.
+cancel_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if node.attrib.get("resource-id")=="android:id/button2" and node.attrib.get("text")=="취소":
+        p=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(p)==2:
+            x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2); break' <<<"$exit_confirmation_xml")"
+if [[ -n "$cancel_bounds" ]]; then
+  read -r cancel_x cancel_y <<<"$cancel_bounds"
+  adb_cmd shell input tap "$cancel_x" "$cancel_y"
+else
+  tap_text "취소"
+fi
 sleep 1
 tap_content_description "설정"
 sleep 1
