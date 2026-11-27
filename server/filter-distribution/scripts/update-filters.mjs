@@ -91,10 +91,13 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         !Number.isSafeInteger(source.minimumRules) || source.minimumRules < 1) {
       throw new Error('Each source requires id, HTTPS url and positive minimumRules.');
     }
-    if (seenSourceIds.has(source.id)) {
-      throw new Error(`Duplicate source id in config: ${source.id}.`);
+    // Artifact paths and downstream URL routing must remain unambiguous on
+    // case-insensitive filesystems and clients, not only on Linux.
+    const canonicalSourceId = source.id.toLowerCase();
+    if (seenSourceIds.has(canonicalSourceId)) {
+      throw new Error(`Duplicate source id in config (case-insensitive): ${source.id}.`);
     }
-    seenSourceIds.add(source.id);
+    seenSourceIds.add(canonicalSourceId);
     const upstream = new URL(source.url);
     if (upstream.protocol !== 'https:' || upstream.username || upstream.password ||
         upstream.search || upstream.hash) {
