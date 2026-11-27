@@ -8,7 +8,7 @@ const exampleConfig = JSON.parse(await readFile(policyPath, 'utf8'));
 
 const reviewedSource = overrides => ({
   id: 'reviewed_filter',
-  url: 'https://upstream.example/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt',
+  url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt',
   minimumRules: 1,
   upstreamRepository: 'https://github.com/example/filter',
   licenseUrl: 'https://github.com/example/filter/blob/main/LICENSE',
