@@ -119,7 +119,16 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
     const commitSha = typeof source.upstreamCommitSha === 'string' &&
       /^[a-f0-9]{40,64}$/i.test(source.upstreamCommitSha);
     const sourceUrlPinsCommit = commitSha && (() => {
-      const repositoryUrl = new URL(source.upstreamRepository);
+      let repositoryUrl;
+      try {
+        repositoryUrl = new URL(source.upstreamRepository);
+      } catch {
+        // Invalid or missing repository references are handled by the
+        // source-specific compliance validation below. Keep malformed
+        // configuration fail-closed without leaking a generic URL parser
+        // exception that obscures which approval field needs correction.
+        return false;
+      }
       const repositoryParts = repositoryUrl.pathname.split('/').filter(Boolean);
       const owner = repositoryParts[0]?.toLowerCase();
       const repository = repositoryParts[1]?.replace(/\.git$/i, '').toLowerCase();
