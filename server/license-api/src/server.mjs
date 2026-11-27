@@ -513,7 +513,11 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (req.method === 'GET' && url.pathname === '/v1/admin/auth/verify') {
-      requireEnv();
+      // Channel authentication only needs the administrator credential; do not
+      // couple it to database, lookup-secret, or license-signing availability.
+      if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 32) {
+        throw Object.assign(new Error('관리자 인증 토큰이 서버에 구성되지 않았습니다.'), { status: 503 });
+      }
       requireAdmin(req);
       return json(res, 200, { authenticated: true, channels: ['admin'] });
     }
