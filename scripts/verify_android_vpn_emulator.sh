@@ -1982,8 +1982,26 @@ if ! grep -q 'name="app_foreground_auto_pause_enabled"[^>]*value="true"' <<<"$pr
   exit 1
 fi
 
-echo "Launching the selected app. Guardian must close the VPN tunnel."
-adb_cmd shell am start -a android.settings.SETTINGS >/dev/null
+echo "Launching the explicitly selected Settings package. Guardian must close the VPN tunnel."
+# Launch the same package whose Usage Access selection was saved above. The
+# generic ACTION_SETTINGS intent can resolve differently across emulator images
+# and does not prove that the selected package actually became foreground.
+adb_cmd shell monkey -p com.android.settings 1 >/dev/null
+settings_foreground_observed=0
+for attempt in $(seq 1 15); do
+  foreground_activity="$(adb_cmd shell dumpsys activity activities 2>/dev/null | grep -E 'mResumedActivity|topResumedActivity' | tail -1 || true)"
+  if grep -q 'com.android.settings' <<<"$foreground_activity"; then
+    settings_foreground_observed=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$settings_foreground_observed" -ne 1 ]]; then
+  echo "The selected Settings package did not become the resumed foreground activity."
+  echo "Observed activity: $foreground_activity"
+  adb_cmd shell dumpsys activity activities | tail -120 || true
+  exit 1
+fi
 auto_pause_observed=0
 for attempt in $(seq 1 40); do
   prefs="$(read_prefs)"
