@@ -29,7 +29,7 @@ export function createPresignedObjectUrl({
   if (![accessKey, secretKey, endpoint, region, bucket, objectKey].every(value =>
     typeof value === 'string' && value.length > 0
   )) throw Object.assign(new Error('비공개 업데이트 저장소가 구성되지 않았습니다.'), { status: 503 });
-  if (!['GET', 'PUT'].includes(method)) throw new Error('Unsupported object storage method.');
+  if (!['GET', 'PUT', 'HEAD'].includes(method)) throw new Error('Unsupported object storage method.');
   if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 1 || expiresInSeconds > MAX_EXPIRY_SECONDS) {
     throw new Error('Presigned URL expiry is out of range.');
   }
@@ -38,7 +38,7 @@ export function createPresignedObjectUrl({
     throw new Error('Object storage key is invalid.');
   }
   const base = new URL(endpoint);
-  if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash) {
+  if (base.protocol !== 'https:' || base.pathname !== '/' || base.username || base.password || base.search || base.hash) {
     throw new Error('Object storage endpoint is invalid.');
   }
   const path = '/' + [bucket, ...objectKey.split('/')].map(encode).join('/');
