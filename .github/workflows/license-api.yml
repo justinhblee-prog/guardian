@@ -58,6 +58,7 @@ jobs:
           node --experimental-strip-types --check neon.ts
           node --check src/license-core.mjs
           node --check src/rate-limit.mjs
+          node --check src/update-storage.mjs
           node --check admin/admin.js
           node --check test/postgres-integration.test.mjs
       - name: Validate guarded Neon production deployment workflow
@@ -88,6 +89,11 @@ jobs:
           pg_isready -h localhost -p 5432
       - name: Initialize PostgreSQL integration schema
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
+      - name: Apply additive API migrations
+        run: |
+          for migration in migrations/002_shared_rate_limit_buckets.sql migrations/003_support_tickets.sql migrations/004_customers.sql migrations/005_shared_guardian_product.sql migrations/006_private_update_channels.sql; do
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
       - name: Run cryptographic, HTTP, PostgreSQL and Neon Function tests
         run: npm test
       - name: Package bundled Neon Function with root entrypoint
