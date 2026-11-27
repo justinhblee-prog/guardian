@@ -83,6 +83,8 @@ class PremiumDailyStatsStoreTest {
         assertTrue(report.contains("최근 7일 일별 DNS 요약"))
         assertTrue(report.contains("2026-11-27"))
         assertTrue(report.contains("질의 1"))
+        assertTrue(report.contains("추적 1"))
+        assertTrue(report.contains("최근 7개 기록일"))
         assertFalse(report.contains("tracker.example"))
     }
 }
