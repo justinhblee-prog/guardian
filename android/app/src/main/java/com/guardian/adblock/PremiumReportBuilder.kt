@@ -55,13 +55,14 @@ internal object PremiumReportBuilder {
             appendLine("추적 차단: ${count(snapshot.trackerBlocked)}")
             appendLine("미분류 차단: ${count(snapshot.otherBlocked)}")
             appendLine()
-            appendLine("최근 7일 일별 DNS 요약")
+            appendLine("최근 7개 기록일 일별 DNS 요약")
+            appendLine("기록이 있는 날짜만 표시합니다. 날짜 기준은 기기 현지 날짜입니다.")
             val recentDays = snapshot.dailyStats.sortedBy { it.date }.takeLast(7)
             if (recentDays.isEmpty()) {
                 appendLine("일별 데이터가 아직 없습니다.")
             } else {
                 recentDays.forEach { day ->
-                    appendLine("${day.date}: 질의 ${count(day.totalQueries)} · 차단 ${count(day.blockedQueries)} · 전달 ${count(day.forwardedQueries)} · 실패 ${count(day.failedQueries)}")
+                    appendLine("${day.date}: 질의 ${count(day.totalQueries)} · 차단 ${count(day.blockedQueries)} · 전달 ${count(day.forwardedQueries)} · 실패 ${count(day.failedQueries)} · 광고 ${count(day.adBlocked)} · 추적 ${count(day.trackerBlocked)} · 미분류 ${count(day.otherBlocked)}")
                 }
             }
             appendLine()
