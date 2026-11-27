@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from scripts.resolve_guardian_private_update_version import resolve_next_version
 
@@ -47,6 +48,13 @@ class PrivateUpdateVersionTests(unittest.TestCase):
                 "0.7.61-beta",
                 74,
             )
+
+
+    def test_build_and_publish_jobs_use_literal_dot_channel_version_pattern(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / ".github/workflows/android-apk.yml").read_text(encoding="utf-8")
+        expected = r'assert re.fullmatch(rf"[0-9]+\.[0-9]+\.[0-9]+-{channel}", manifest["versionName"])'
+        self.assertEqual(workflow.count(expected), 2)
 
 
 if __name__ == "__main__":
