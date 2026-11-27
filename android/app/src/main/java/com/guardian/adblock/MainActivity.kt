@@ -3993,16 +3993,29 @@ class MainActivity : Activity() {
                 val mainReady = runCatching { FilterListManager.hasCachedList(this) }.getOrDefault(false)
                 val selected = FilterListManager.selectedProfile(this)
                 val cached = FilterListManager.cachedProfile(this)
-                when {
-                    !mainReady -> unavailable.add("광고·추적")
-                    selected.key != cached.key -> unavailable.add("선택한 ${selected.label}")
+                val securityEnabled = prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false)
+                val securityReady = !securityEnabled ||
+                    runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrDefault(false)
+                val androidAdsEnabled = prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true)
+                val androidAdsReady = !androidAdsEnabled ||
+                    runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrDefault(false)
+                val configurationReady = FilterListManager.isProfileCacheCurrent(
+                    hasCache = mainReady,
+                    selectedKey = selected.key,
+                    cachedKey = cached.key,
+                    securityEnabled = securityEnabled,
+                    hasSecurityCache = securityReady,
+                    androidAdsEnabled = androidAdsEnabled,
+                    hasAndroidAdsCache = androidAdsReady
+                )
+                if (!mainReady || selected.key != cached.key) {
+                    unavailable.add(if (!mainReady) "광고·추적" else "선택한 ${selected.label}")
                 }
-                if (prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false) &&
-                    !runCatching { FilterListManager.hasCachedSecurityList(this) }.getOrDefault(false)
-                ) unavailable.add("악성코드·피싱")
-                if (prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true) &&
-                    !runCatching { FilterListManager.hasCachedAndroidAdsList(this) }.getOrDefault(false)
-                ) unavailable.add("Android 앱 광고")
+                if (!securityReady) unavailable.add("악성코드·피싱")
+                if (!androidAdsReady) unavailable.add("Android 앱 광고")
+                check(configurationReady == unavailable.isEmpty()) {
+                    "필터 준비 상태 계산이 일치하지 않습니다."
+                }
                 val notice = if (unavailable.isEmpty()) null else
                     "기본 DNS 규칙으로 먼저 연결합니다. 추가 필터는 아직 준비되지 않았습니다: ${unavailable.joinToString()}."
                 android.util.Log.i(
