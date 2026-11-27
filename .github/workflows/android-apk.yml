@@ -90,8 +90,8 @@ jobs:
             python3 scripts/resolve_guardian_private_update_version.py \
               --updates-json release/guardian-private-updates.json \
               --channel "$GUARDIAN_UPDATE_CHANNEL" \
-              --baseline-version "0.7.60-$GUARDIAN_UPDATE_CHANNEL" \
-              --baseline-code 73 \
+              --baseline-version "0.7.61-$GUARDIAN_UPDATE_CHANNEL" \
+              --baseline-code 74 \
               --github-env "$GITHUB_ENV" \
               --github-output "$GITHUB_OUTPUT"
           else
@@ -101,8 +101,8 @@ jobs:
             python3 scripts/resolve_guardian_dev_version.py \
               --releases-json release/guardian-releases.json \
               --commit "$GITHUB_SHA" \
-              --baseline-version "0.7.60-dev" \
-              --baseline-code 73 \
+              --baseline-version "0.7.61-dev" \
+              --baseline-code 74 \
               --github-env "$GITHUB_ENV" \
               --github-output "$GITHUB_OUTPUT"
           fi
