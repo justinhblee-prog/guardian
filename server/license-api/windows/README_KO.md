@@ -173,4 +173,4 @@ pwsh -File .\server\license-api\windows\Prepare-GuardianNeonProduction.ps1
 
 키를 새로 생성·교체하거나 기존 값을 콘솔에 출력하지 않습니다. 로컬 키 파일이 없거나 키 쌍이 일치하지 않으면 중단합니다. GitHub 설정 등록과 Neon 배포는 별개이며, 이 스크립트는 **배포를 실행하지 않습니다**. 등록 후에도 Neon 배포 워크플로를 별도로 실행하고 `/health`와 `/ready` 실서비스 검증이 통과해야 운영 전환이 완료됩니다.
 
-Android 정식 릴리스는 동일한 `GUARDIAN_LICENSE_PUBLIC_KEY` 변수를 빌드에 주입해야 하므로, Neon 서버 개인키와 앱 공개키의 일치 검증 없이 키를 교체하지 마세요. GitHub Actions Secret 값은 조회할 수 없도록 설계되어 있으므로 등록 여부는 비밀값을 출력하는 대신 배포 사전검사 및 실제 readiness 결과로 확인합니다.
+Android 정식 릴리스는 동일한 `GUARDIAN_LICENSE_PUBLIC_KEY` 변수를 빌드에 주입해야 하므로, Neon 서버 개인키와 앱 공개키의 일치 검증 없이 키를 교체하지 마세요. `Prepare-GuardianProductionRelease.ps1`도 이제 기본 `-LicenseBackend Neon`으로 동작해 Tailscale을 요구하지 않고 Neon URL을 GitHub Variable에 설정합니다. 기존 노트북/Tailscale 구성을 의도적으로 사용할 때만 `-LicenseBackend Tailscale`을 명시하세요. GitHub Actions Secret 값은 조회할 수 없도록 설계되어 있으므로 등록 여부는 비밀값을 출력하는 대신 배포 사전검사 및 실제 readiness 결과로 확인합니다.
