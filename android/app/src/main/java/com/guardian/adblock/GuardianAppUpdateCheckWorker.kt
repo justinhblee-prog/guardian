@@ -71,7 +71,7 @@ internal class GuardianAppUpdateCheckWorker(
         }
         val openUpdates = Intent(applicationContext, MainActivity::class.java).apply {
             putExtra(EXTRA_OPEN_UPDATES, true)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
