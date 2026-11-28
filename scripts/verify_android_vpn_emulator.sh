@@ -1311,7 +1311,16 @@ echo "Current APK compatible five-destination navigation passed ($navigation_lay
 echo "Verifying opt-in foreground-app VPN auto-pause and automatic resume."
 # Grant the special app-op as the emulator equivalent of the user's Usage Access
 # approval. The UI flow still selects the target app and explicitly enables the feature.
+# The emulator's package-scoped mode can remain overridden by its UID mode.
+# Set both explicitly, then verify the effective app-op before opening Guardian.
 adb_cmd shell appops set "$PACKAGE" GET_USAGE_STATS allow
+adb_cmd shell appops set --uid "$PACKAGE" GET_USAGE_STATS allow
+usage_access_appops="$(adb_cmd shell appops get "$PACKAGE" GET_USAGE_STATS | tr -d '\\r')"
+if ! grep -Eiq 'GET_USAGE_STATS:?[[:space:]]*allow|allow' <<<"$usage_access_appops"; then
+  echo "The emulator did not grant GET_USAGE_STATS to Guardian."
+  echo "$usage_access_appops"
+  exit 1
+fi
 adb_cmd shell am start -a android.settings.SETTINGS >/dev/null
 sleep 2
 adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
