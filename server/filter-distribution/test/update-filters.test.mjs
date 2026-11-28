@@ -471,3 +471,47 @@ test('updater reports malformed or missing repository references as source compl
     assert.equal(fetchCalled, false);
   }
 });
+
+test('updater canonicalizes a single mixed-case source ID before publishing', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'guardian-filter-canonical-id-'));
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  try {
+    const result = await updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        outputDir: path.join(root, 'dist'),
+        tempDir: path.join(root, 'tmp'),
+        sources: [{ id: 'AndroidAds', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
+      },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+      fetchImpl: async () => new Response('||ads.example^\\n', { status: 200 })
+    });
+    assert.equal(result[0].sourceId, 'androidads');
+    await readFile(path.join(root, 'dist', 'androidads.manifest'));
+    await assert.rejects(readFile(path.join(root, 'dist', 'AndroidAds.manifest')), { code: 'ENOENT' });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('updater rejects case-colliding source IDs before any upstream request', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  let fetchCalled = false;
+  await assert.rejects(updateFilters({
+    config: {
+      baseUrl: 'https://filters.example.com',
+      sources: [
+        { id: 'AndroidAds', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/a.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' },
+        { id: 'androidads', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/b.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }
+      ]
+    },
+    env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+    fetchImpl: async () => {
+      fetchCalled = true;
+      return new Response('||ads.example^\\n', { status: 200 });
+    }
+  }), /case-insensitive/);
+  assert.equal(fetchCalled, false);
+});
