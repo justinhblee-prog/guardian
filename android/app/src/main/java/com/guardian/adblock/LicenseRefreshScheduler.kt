@@ -18,8 +18,9 @@ internal object LicenseRefreshScheduler {
     const val REFRESH_INTERVAL_HOURS = 12L
     const val RENEWAL_WINDOW_SECONDS = 12L * 60L * 60L
 
+    /** Require the same strict HTTPS-origin and RSA-key validation as the API client. */
     internal fun isConfigured(apiBaseUrl: String, publicKey: String): Boolean =
-        apiBaseUrl.isNotBlank() && publicKey.isNotBlank()
+        isLicenseServiceConfigurationValid(apiBaseUrl, publicKey)
 
     internal fun shouldRenew(expiresAt: Long, nowEpochSeconds: Long): Boolean =
         expiresAt - nowEpochSeconds <= RENEWAL_WINDOW_SECONDS

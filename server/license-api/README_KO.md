@@ -23,6 +23,35 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - `PORT`: 기본 8787
 - `PGSSLMODE=require`: PostgreSQL TLS 사용 시 설정
 
+## 관리자 토큰 분실·비상 복구
+
+관리자 토큰은 고객 라이선스 키와 별개인 서버 전용 Bearer 비밀값입니다. 앱이나 브라우저 저장소에 넣지 말고, 비밀번호 관리자에 보관합니다.
+
+### 분실했을 때
+
+1. Neon 계정 소유자가 Neon Console에 로그인합니다. 계정 이메일/비밀번호와 계정의 MFA를 사용하며, 이 절차는 Guardian 관리자 토큰에 의존하지 않습니다.
+2. 프로젝트 `guardian-license-api`의 `production` 브랜치에서 Function `guardianapi`를 엽니다.
+3. Function 배포 환경변수 `GUARDIAN_ADMIN_TOKEN`을 새 48바이트 이상 무작위 값으로 교체합니다. 기존 값은 확인하거나 복구하려 하지 않습니다.
+4. 새 환경변수만 변경하는 Function 배포를 수행합니다. Neon API의 기존 Function 배포는 환경변수만 갱신할 수 있으며, 미지정 환경변수는 유지됩니다. CLI를 쓸 경우 저장소의 `server/license-api` 디렉터리에서 다음처럼 Function 소스와 새 값을 지정합니다.
+   ```sh
+   npx neon@latest functions deploy guardianapi --src functions/guardianapi/index.mjs --runtime nodejs24 --env GUARDIAN_ADMIN_TOKEN=<새_무작위_토큰>
+   ```
+5. 배포 상태가 `completed`인지 확인한 뒤 `/admin`에 새 토큰으로 로그인합니다. 이전 토큰은 더 이상 인증되지 않습니다.
+6. 새 토큰을 비밀번호 관리자에 저장하고, 임시 파일·터미널 기록·클립보드 공유본은 정리합니다.
+
+새 토큰은 운영체제의 암호학적 난수 생성기로 생성합니다. Node.js 예:
+```sh
+node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
+```
+
+### 복구 시 영향
+
+- 기존 라이선스 키, 고객 정보, 만료일, 기기 활성화, 감사 기록은 PostgreSQL에 보관되므로 삭제되거나 재발급되지 않습니다.
+- Android/Windows 앱의 공개키·라이선스 API 주소와 고객의 PRO 활성화 상태는 변경되지 않습니다.
+- 관리자 대시보드 로그인 토큰만 교체됩니다. 새 토큰 배포 중에는 관리자 요청이 잠시 실패할 수 있습니다.
+- Neon 계정 자체를 분실한 경우에는 Neon 계정 복구 절차가 먼저 필요합니다. 별도 이메일 비밀번호 재설정이나 공개 복구 URL은 제공하지 않습니다.
+- 관리자 토큰을 분실한 상황에서 인증 없이 토큰을 재설정하는 공개 API는 만들지 않습니다. 복구 권한은 Neon 프로젝트 소유자 계정에만 둡니다.
+
 ## 초기 구동
 ```sh
 cd server/license-api
@@ -32,7 +61,7 @@ npm test
 npm start
 ```
 
-운영에서는 반드시 HTTPS reverse proxy 또는 HTTPS를 제공하는 호스팅 플랫폼 뒤에 배치하고, 관리자 페이지도 HTTPS로만 접근시켜야 합니다. API의 rate limit 카운터는 PostgreSQL에 저장되어 동일 DB를 사용하는 여러 API 인스턴스 사이에서 공유됩니다. 프록시 뒤에서는 소켓 peer 기준이 프록시 주소가 될 수 있으므로, 공개 운영 환경에서는 프록시/WAF에서 신뢰 가능한 실제 클라이언트 IP 기준 추가 분산 rate limit을 반드시 적용해야 합니다. `GUARDIAN_RATE_LIMIT_WINDOW_MS`(기본 60000)와 `GUARDIAN_RATE_LIMIT_MAX`(기본 30)로 앱 내부 창과 요청 수를 조정할 수 있습니다. 데이터베이스 백업, Secret Manager, 로그 접근통제, 분산 rate limit/WAF, 모니터링, 복구 계획을 추가로 구성한 후 공개해야 합니다. 이 저장소의 서버는 운영 호스팅에 배포된 상태가 아닙니다.
+운영에서는 반드시 HTTPS reverse proxy 또는 HTTPS를 제공하는 호스팅 플랫폼 뒤에 배치하고, 관리자 페이지도 HTTPS로만 접근시켜야 합니다. API의 rate limit 카운터는 PostgreSQL에 저장되어 동일 DB를 사용하는 여러 API 인스턴스 사이에서 공유됩니다. 프록시 뒤에서는 소켓 peer 기준이 프록시 주소가 될 수 있으므로, 공개 운영 환경에서는 프록시/WAF에서 신뢰 가능한 실제 클라이언트 IP 기준 추가 분산 rate limit을 반드시 적용해야 합니다. `GUARDIAN_RATE_LIMIT_WINDOW_MS`(기본 60000)와 `GUARDIAN_RATE_LIMIT_MAX`(기본 30)로 앱 내부 창과 요청 수를 조정할 수 있습니다. 데이터베이스 백업, Secret Manager, 로그 접근통제, 분산 rate limit/WAF, 모니터링, 복구 계획을 추가로 구성한 후 공개해야 합니다. 2026-11-26 운영 확인 결과 Neon 프로젝트 `guardian-license-api`와 `production` 브랜치, 라이선스 관련 7개 테이블 및 기본 상품 레코드는 존재합니다. 그러나 Function `guardianapi`의 현재 배포 버전 2는 ZIP 루트에 `index.mjs` 진입점이 없어 로드에 실패했으며, 현재 정상 동작하는 활성 배포로 확인되지 않았습니다. GitHub Actions `Guardian License API` run 723은 테스트와 루트 `index.mjs`를 포함한 배포용 ZIP 패키징을 통과했고 `guardian-neon-function-bundle` 아티팩트를 생성했습니다. 이 아티팩트의 Neon 배포, 필수 비밀값(`GUARDIAN_ADMIN_TOKEN`, `GUARDIAN_LICENSE_LOOKUP_SECRET`, `GUARDIAN_LICENSE_PRIVATE_KEY`) 등록 여부, `/health`·`/ready` 실제 HTTP 응답 및 Android 실기기 발급·활성화 E2E가 모두 확인되기 전까지 운영 API가 준비되었다고 간주하지 않습니다. API 주소는 `https://br-shiny-mountain-bi4ia7g2-guardianapi.compute.c-5.ap-southeast-1.aws.neon.tech`입니다.
 
 ## Docker Compose 배포 준비
 
@@ -68,6 +97,56 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 이 스크립트는 PostgreSQL 준비 상태 확인 → 외부 보호 경로에 DB 백업 생성 → `002_shared_rate_limit_buckets.sql`, `003_support_tickets.sql`, `004_customers.sql` 순차 적용 → 필수 테이블 존재 확인 → 최신 API 이미지 재빌드 → `/ready` 확인까지 수행합니다. SQL migration은 재실행해도 안전하도록 `IF NOT EXISTS`를 사용합니다. 자동 스크립트를 사용할 수 없는 환경에서는 `docker compose exec -T db psql -v ON_ERROR_STOP=1 -U guardian -d guardian`에 migration SQL을 순서대로 전달할 수 있지만, 반드시 먼저 백업하십시오. migration 실패 시 백업을 보존하고 원인을 확인한 뒤 재시도하며, 운영 DB를 임의로 삭제하거나 초기화하지 마십시오.
 
 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
+
+## 무료 운영 구성(Neon Functions + Neon PostgreSQL)
+
+라이선스 API의 기본 무료 운영 대상은 Neon Functions(Node.js 24)와 같은 Neon 프로젝트의 PostgreSQL입니다. 노트북이나 별도 상시 서버가 필요하지 않으며, 기존 Node.js API 로직·DB 스키마·RSA 서명 형식을 그대로 공유합니다. 함수는 `functions/guardianapi/index.mjs`에서 Fetch 요청을 받아 기존 API 런타임으로 전달합니다. 관리자 화면과 ES module 파일도 함수에 번들되어 `/admin`, `/admin.js`, `/admin-model.mjs`로 제공합니다.
+
+### 무료 사용량과 한계
+
+- Neon Free PostgreSQL: 프로젝트당 1GB 저장 공간, 월 100 CU-hours, 5GB 네트워크 전송량. 5분 비활성 후 DB 컴퓨트가 절전되므로 첫 요청은 지연될 수 있습니다.
+- Neon Functions Free: 월 1,000,000회 호출, 활성 컴퓨트 10시간, 대기 컴퓨트 400시간. 함수는 Node.js 24 런타임으로 실행됩니다.
+- Functions 사용 가능 리전은 제한되어 있습니다. 한국 사용자를 위해 지원 리전 중 가까운 AWS Asia Pacific (Singapore, `aws-ap-southeast-1`)을 선택합니다.
+- 무료 한도 초과 시 과금으로 자동 전환하지 않고, 해당 리소스가 한도에 도달해 일시 중단될 수 있습니다. 무료 플랜은 상시 DB 컴퓨트, SLA, 완전한 운영 백업 체계를 보장하지 않습니다.
+- 공개 유료 서비스로 확대하기 전에는 별도 백업/복구 리허설, 사용량 감시, 장애 대응, 관리자 MFA/RBAC, 보안 테스트를 완료해야 합니다. 무료 구성은 초기 소규모 운영 기준입니다.
+
+### 최초 구성 및 배포
+
+1. Neon 계정에서 Singapore 리전에 Free 프로젝트를 생성하고 PostgreSQL을 활성화합니다. 유료 플랜이나 결제 수단을 전제로 하지 않습니다.
+2. 로컬에서 이 디렉터리로 이동해 Neon CLI에 로그인하고 프로젝트를 연결합니다.
+   ```sh
+   npx neon@latest link
+   npx neon@latest env pull --file .env
+   ```
+   로그인/프로젝트 선택은 Neon 계정 소유자 승인이 필요합니다. `.env`는 로컬 비밀정보 파일이므로 Git에 커밋하지 않습니다.
+3. Neon SQL Editor 또는 `psql`의 `DATABASE_URL_UNPOOLED` 연결로 신규 프로젝트의 `schema.sql`을 실행하고 migration `002_shared_rate_limit_buckets.sql`부터 `005_shared_guardian_product.sql`까지 순서대로 적용합니다. 기존 DB에 적용할 때는 먼저 백업/스냅샷을 확보하고 이미 적용된 migration을 재실행하지 않습니다.
+4. RSA 3072비트 개인키와 공개키를 생성합니다.
+   ```sh
+   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out guardian-license-private.pem
+   openssl pkey -in guardian-license-private.pem -pubout -out guardian-license-public.pem
+   ```
+   개인키는 안전한 로컬 비밀정보 파일에만 두고 GitHub, 앱, 저장소에 커밋하지 않습니다.
+5. 독립적인 관리자 토큰과 HMAC 비밀값을 생성해 `.env`의 `GUARDIAN_ADMIN_TOKEN`, `GUARDIAN_LICENSE_LOOKUP_SECRET`에 넣고, 개인키 PEM 전체를 `GUARDIAN_LICENSE_PRIVATE_KEY`에 넣습니다. `neon.ts`는 세 필수 값이 없으면 배포를 거부하도록 설정되어 있습니다.
+   ```sh
+   node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
+   ```
+6. 테스트 후 Neon Functions를 배포합니다.
+   ```sh
+   npm install
+   npm test
+   npm run neon:deploy
+   npx neon@latest functions get guardianapi
+   ```
+   배포 결과의 `invocation_url`이 실제 API HTTPS 주소입니다. 배포 후 `/health`와 `/ready`가 모두 HTTP 200인지 확인합니다. `/ready`는 DB 스키마와 RSA 서명키까지 검사합니다.
+7. Android 빌드에 `GUARDIAN_LICENSE_API_BASE_URL`을 발급된 함수 URL로, `GUARDIAN_LICENSE_PUBLIC_KEY`를 RSA 공개키로 설정합니다. 앱에는 공개키만 포함하며 개인키는 절대 포함하지 않습니다.
+8. 관리자 화면은 같은 주소의 `/admin`에서 사용합니다. 관리자 토큰은 안전하게 보관하고 브라우저 저장소에 영구 저장하지 않습니다.
+
+### 보안·배포 원칙
+
+- 함수 런타임의 DB 주소는 Neon이 주입하는 `DATABASE_URL_UNPOOLED`(트랜잭션 사용) 또는 `DATABASE_URL`을 사용합니다. DB 주소와 RSA 개인키, 관리자 토큰, HMAC 비밀값을 소스에 저장하지 않습니다.
+- 기존 `Guardian License API` 워크플로는 단위/통합 테스트와 배포 ZIP 검증만 수행합니다. 운영 배포는 별도 수동 실행 워크플로 `.github/workflows/guardian-neon-production-deploy.yml`에서만 수행하며, 필수 Secret/Variable이 준비되지 않으면 배포 전에 중단합니다. 이 워크플로는 Neon 배포 완료와 실제 `/ready` 응답의 `ok=true`까지 확인합니다. 설정 항목과 키 보존 원칙은 [`docs/GUARDIAN_CLOUD_OPERATIONS_KO.md`](../../docs/GUARDIAN_CLOUD_OPERATIONS_KO.md)를 참조하세요.
+- DB 연결, 서명키, 관리자 인증 설정이 없거나 무료 사용량이 소진되면 발급/갱신은 실패 처리합니다. 검증 우회나 임의 PRO 권한 부여는 하지 않습니다.
+- Neon 계정 연결, 프로젝트 생성 및 최초 배포는 소유자 계정의 인증이 필요합니다. 저장소만으로 외부 계정을 만들거나 비밀값을 추정해 배포하지 않습니다.
 
 ## API
 - `POST /v1/licenses/activate`: `{ "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`

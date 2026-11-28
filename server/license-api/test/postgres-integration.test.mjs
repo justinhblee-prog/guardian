@@ -80,6 +80,30 @@ if (!databaseUrl) {
     }
   });
 
+  test('license issuance stores only salted hashes and an HMAC lookup index, never the plaintext key', async () => {
+    const issued = await issue(1);
+    const stored = await pool.query(
+      `SELECT key_salt, key_hash, key_lookup, to_jsonb(l)::text AS serialized
+       FROM licenses l
+       WHERE id=$1`,
+      [issued.license.id]
+    );
+    assert.equal(stored.rowCount, 1);
+    const row = stored.rows[0];
+    assert.match(row.key_salt, /^[a-f0-9]{32}$/i);
+    assert.match(row.key_hash, /^[a-f0-9]{128}$/i);
+    assert.match(row.key_lookup, /^[a-f0-9]{64}$/i);
+    assert.equal(row.serialized.includes(issued.licenseKey), false);
+    assert.notEqual(row.key_lookup, issued.licenseKey);
+    assert.equal(await (async () => {
+      const lookup = await pool.query(
+        'SELECT id FROM licenses WHERE key_lookup=$1',
+        [row.key_lookup]
+      );
+      return lookup.rowCount;
+    })(), 1);
+  });
+
   test('database pool applies bounded connection, statement and transaction timeouts', () => {
     assert.equal(apiPool.options.max, 10);
     assert.equal(apiPool.options.connectionTimeoutMillis, 5_000);

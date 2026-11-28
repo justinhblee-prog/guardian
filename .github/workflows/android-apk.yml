@@ -36,10 +36,10 @@ on:
 # New commits supersede stale runs for both PRs and main.
 concurrency:
   group: ${{ github.ref == 'refs/heads/main' && 'guardian-android-dev-release' || format('guardian-android-{0}', github.event.pull_request.number || github.ref) }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-apk:
@@ -66,15 +66,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          # Every build, including PR validation, must be newer than the latest
-          # published APK so the emulator can perform a real in-place upgrade.
+          # 0.7.61-dev (versionCode 74) is the latest verified development APK.
+          # CI artifacts are not GitHub Releases, so the public release list can lag
+          # behind the version already distributed to the user. Keep the delivered
+          # baseline explicit: the next distinct build must be versionCode 75+.
+          # Never derive the app version from public release tags alone.
           # Main reruns reuse the release version for the same source commit.
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" > release/guardian-releases.json
           python3 scripts/resolve_guardian_dev_version.py \
             --releases-json release/guardian-releases.json \
             --commit "$GITHUB_SHA" \
-            --baseline-version "0.7.42-dev" \
-            --baseline-code 55 \
+            --baseline-version "0.7.61-dev" \
+            --baseline-code 74 \
             --github-env "$GITHUB_ENV" \
             --github-output "$GITHUB_OUTPUT"
           echo "Version resolution completed."
@@ -89,7 +92,7 @@ jobs:
           bash -n scripts/verify_android_vpn_emulator.sh
           bash -n scripts/verify_android_responsive_emulator.sh
           python3 -m py_compile scripts/verify_guardian_crash_log.py scripts/resolve_android_dialog_row.py scripts/android_navigation_compat.py
-          python3 -m unittest scripts/test_verify_guardian_crash_log.py scripts/test_resolve_android_dialog_row.py scripts/test_resolve_guardian_dev_version.py scripts/test_android_navigation_compat.py
+          python3 -m unittest scripts/test_verify_guardian_crash_log.py scripts/test_resolve_android_dialog_row.py scripts/test_resolve_guardian_dev_version.py scripts/test_android_navigation_compat.py scripts/test_android_workflow_security.py
 
       - name: Verify VPN manifest and branded launcher assets
         run: |
@@ -279,6 +282,17 @@ jobs:
           BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
           echo "$BADGING" | grep -F "package: name='com.guardian.adblock' versionCode='${GUARDIAN_VERSION_CODE}' versionName='${GUARDIAN_VERSION_NAME}'"
 
+      - name: Verify current APK signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='android/app/build/outputs/apk/debug/app-debug.apk'
+          EXPECTED_SIGNER='edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c'
+          ACTUAL_SIGNER="$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          test "$ACTUAL_SIGNER" = "$EXPECTED_SIGNER"
+          echo "APK_SIGNER_SHA256=$ACTUAL_SIGNER" >> "$GITHUB_ENV"
+          echo "Current APK signing certificate independently verified: $ACTUAL_SIGNER"
+
       - name: Verify APK exists and calculate checksum
         shell: bash
         run: |
@@ -336,6 +350,7 @@ jobs:
           - Android lintDebug: 통과
           - assembleDebug: 통과
           - APK SHA-256: ${APK_SHA256}
+          - APK 서명 인증서 SHA-256: ${APK_SIGNER_SHA256}
           - 전체 소스 ZIP: Guardian-AdBlock-Source-${GUARDIAN_VERSION_NAME}.zip
           - 전체 소스 ZIP 크기: ${SOURCE_BYTES} bytes
           - 전체 소스 ZIP SHA-256: ${SOURCE_SHA256}
@@ -352,7 +367,8 @@ jobs:
           set -euo pipefail
           APK='android/app/build/outputs/apk/debug/app-debug.apk'
           SHA256="$(sha256sum "$APK" | awk '{print $1}')"
-          SIGNER_SHA256='edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c'
+          test "${#APK_SIGNER_SHA256}" -eq 64
+          SIGNER_SHA256="$APK_SIGNER_SHA256"
           cat > release/guardian-android-dev.json <<EOF
           {
             "packageName": "com.guardian.adblock",
@@ -370,7 +386,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import hashlib, json, pathlib, re
+          import hashlib, json, os, pathlib, re
           apk = pathlib.Path("android/app/build/outputs/apk/debug/app-debug.apk")
           manifest = json.loads(pathlib.Path("release/guardian-android-dev.json").read_text())
           assert manifest["packageName"] == "com.guardian.adblock"
@@ -378,8 +394,8 @@ jobs:
           assert manifest["versionName"] == "${{ env.GUARDIAN_VERSION_NAME }}"
           assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-dev", manifest["versionName"])
           assert manifest["sha256"] == hashlib.sha256(apk.read_bytes()).hexdigest()
-          assert manifest["signerSha256"] == "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
-          print("Development update manifest exactly matches the built APK.")
+          assert manifest["signerSha256"] == os.environ["APK_SIGNER_SHA256"]
+          print("Development update manifest exactly matches the built APK and independently verified signer.")
           PY
 
       - name: Upload verified Android debug and source package
@@ -478,7 +494,7 @@ jobs:
         continue-on-error: true
         # Bound a wedged ADB/emulator boot so the job reaches its diagnostic
         # and final-report steps instead of sitting on a silent runner.
-        timeout-minutes: 20
+        timeout-minutes: 35
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -500,6 +516,19 @@ jobs:
           fi
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           "$AVDMANAGER" create avd --force --name "$AVD_NAME" --package 'system-images;android-35;google_apis;x86_64' --device 'pixel_2' <<< 'no'
+          # Preserve the 1080x1920 physical display expected by coordinate-based
+          # regression gestures; improve memory/CPU headroom without shrinking it.
+          AVD_CONFIG="$ANDROID_AVD_HOME/$AVD_NAME.avd/config.ini"
+          for setting in "hw.lcd.width=1080" "hw.lcd.height=1920" "hw.lcd.density=420" "hw.ramSize=3072" "hw.cpu.ncore=4"; do
+            key="${setting%%=*}"
+            if grep -Fq "$key=" "$AVD_CONFIG"; then
+              sed -i "s|^$key=.*|$setting|" "$AVD_CONFIG"
+            else
+              echo "$setting" >> "$AVD_CONFIG"
+            fi
+          done
+          echo "=== AVD resource profile ==="
+          grep -E '^(hw.lcd.width|hw.lcd.height|hw.lcd.density|hw.ramSize|hw.cpu.ncore)=' "$AVD_CONFIG"
           echo "=== AVD manager inventory ==="
           "$AVDMANAGER" list avd
           echo "=== AVD files ==="
@@ -525,36 +554,53 @@ jobs:
           echo "Android emulator upstream DNS servers: $HOST_DNS_SERVERS"
           getent ahostsv4 adguardteam.github.io | head -n 3
           adb start-server
-          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -dns-server "$HOST_DNS_SERVERS" -netfast > "$AVD_LOG" 2>&1 &
+          nohup "$EMULATOR_BIN" -avd "$AVD_NAME" -port 5554 -accel auto -memory 3072 -cores 4 -no-window -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -no-audio -no-boot-anim -camera-back none -camera-front none -dns-server "$HOST_DNS_SERVERS" -netfast > "$AVD_LOG" 2>&1 &
           EMULATOR_PID=$!
           echo "Started emulator PID=$EMULATOR_PID, log=$AVD_LOG"
           ready=0
-          # 480 x 2 seconds = 16 minutes maximum boot wait; the step
-          # has a 20-minute hard limit to leave time for diagnostics/reporting.
-          for attempt in $(seq 1 480); do
+          # Bound ADB registration separately from Android framework boot.
+          # Every adb call has a short timeout so a wedged daemon cannot multiply
+          # the nominal poll interval into a multi-hour wait.
+          for attempt in $(seq 1 90); do
             if ! kill -0 "$EMULATOR_PID" 2>/dev/null; then
               echo "Emulator process exited before ADB registration."
               break
             fi
-            state="$(timeout 8s adb devices | awk '$1=="emulator-5554" {print $2}')"
+            state="$(timeout --signal=TERM --kill-after=1s 2s adb devices 2>/dev/null | awk '$1=="emulator-5554" {print $2}' || true)"
             if [ "$state" = "device" ]; then
-              boot="$(timeout 10s adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-              if [ "$boot" = "1" ]; then
-                ready=1
-                break
-              fi
+              break
             fi
             if (( attempt % 15 == 0 )); then
-              echo "Waiting for emulator boot ($attempt/480); ADB state=${state:-missing}"
-              adb devices -l || true
+              echo "Waiting for ADB registration ($attempt/90); state=${state:-missing}"
+              timeout 3s adb devices -l || true
+              tail -n 30 "$AVD_LOG" || true
+            fi
+            sleep 2
+          done
+          state="$(timeout --signal=TERM --kill-after=1s 2s adb devices 2>/dev/null | awk '$1=="emulator-5554" {print $2}' || true)"
+          if [ "$state" != "device" ]; then
+            echo "Emulator failed to register with ADB."
+            tail -n 500 "$AVD_LOG" || true
+            exit 1
+          fi
+          echo "ADB registered emulator-5554; waiting for Android framework boot."
+          for attempt in $(seq 1 180); do
+            boot="$(timeout --signal=TERM --kill-after=1s 2s adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r' || true)"
+            if [ "$boot" = "1" ]; then
+              ready=1
+              break
+            fi
+            if (( attempt % 15 == 0 )); then
+              echo "Waiting for Android framework boot ($attempt/180); sys.boot_completed=${boot:-unset}"
+              timeout 3s adb -s emulator-5554 shell getprop init.svc.bootanim || true
               tail -n 30 "$AVD_LOG" || true
             fi
             sleep 2
           done
           if [ "$ready" -ne 1 ]; then
-            echo "Emulator failed to reach sys.boot_completed=1."
+            echo "Emulator failed to reach sys.boot_completed=1 within the bounded boot window."
             echo "=== ADB devices ==="
-            adb devices -l || true
+            timeout 5s adb devices -l || true
             echo "=== Emulator process ==="
             ps -ef | grep -E '[e]mulator|[q]emu' || true
             echo "=== Emulator log (last 500 lines) ==="
@@ -562,6 +608,11 @@ jobs:
             exit 1
           fi
           echo "Android emulator boot completed on emulator-5554."
+          # Disable non-functional system animations to reduce SwiftShader CPU
+          # pressure and avoid System UI ANRs during long accessibility flows.
+          adb -s emulator-5554 shell settings put global window_animation_scale 0
+          adb -s emulator-5554 shell settings put global transition_animation_scale 0
+          adb -s emulator-5554 shell settings put global animator_duration_scale 0
           bash scripts/verify_android_emulator.sh
           bash scripts/verify_android_vpn_emulator.sh
           bash scripts/verify_android_responsive_emulator.sh
@@ -591,6 +642,14 @@ jobs:
           capture getprop adb shell getprop
           capture logcat adb logcat -d -t 12000
           capture activities adb shell dumpsys activity activities
+          capture last-anr adb shell dumpsys activity lastanr
+          capture connectivity adb shell dumpsys connectivity
+          capture display-size adb shell wm size
+          capture display-density adb shell wm density
+          capture systemui-memory adb shell dumpsys meminfo com.android.systemui
+          capture guardian-memory adb shell dumpsys meminfo com.guardian.adblock
+          capture guardian-services adb shell dumpsys activity services com.guardian.adblock
+          capture guardian-prefs adb shell run-as com.guardian.adblock cat shared_prefs/guardian_settings.xml
           capture ui-dump adb shell uiautomator dump /sdcard/guardian-window.xml
           if timeout --signal=TERM --kill-after=3s 15s adb exec-out cat /sdcard/guardian-window.xml > emulator-diagnostics/ui-hierarchy.xml 2>&1; then :; fi
           if timeout --signal=TERM --kill-after=3s 15s adb exec-out screencap -p > emulator-diagnostics/screen.png 2>/dev/null; then :; fi
@@ -655,31 +714,46 @@ jobs:
           echo "Android emulator VPN/DNS runtime verification failed. APK build artifacts and the failure report were preserved."
           exit 1
 
+  publish-development-release:
+    name: Publish development APK update release
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: build-apk
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified Android APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: guardian-android-debug
+          path: .
+
       - name: Publish development APK update release
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG="$GUARDIAN_RELEASE_TAG"
-          test -n "$TAG"
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           MANIFEST="release/guardian-android-dev.json"
-          cp "$APK" "release/guardian-android-dev.apk"
+          mkdir -p release
           test -s "$APK" && test -s "$MANIFEST"
-          python3 - "$MANIFEST" "$APK" "$GUARDIAN_VERSION_CODE" "$GUARDIAN_VERSION_NAME" <<'PY'
-          import hashlib, json, pathlib, sys
-          manifest_path, apk_path, expected_code, expected_name = sys.argv[1:]
+          cp "$APK" "release/guardian-android-dev.apk"
+          read -r VERSION_CODE VERSION_NAME < <(python3 - "$MANIFEST" "$APK" <<'PY'
+          import hashlib, json, pathlib, re, sys
+          manifest_path, apk_path = sys.argv[1:]
           manifest = json.loads(pathlib.Path(manifest_path).read_text())
           digest = hashlib.sha256(pathlib.Path(apk_path).read_bytes()).hexdigest()
           assert manifest["packageName"] == "com.guardian.adblock"
-          assert manifest["versionCode"] == int(expected_code)
-          assert manifest["versionName"] == expected_name
+          assert isinstance(manifest["versionCode"], int) and manifest["versionCode"] > 0
+          assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+-dev", manifest["versionName"])
           assert manifest["sha256"] == digest
           assert manifest["signerSha256"] == "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c"
-          print(f"Validated release tag {expected_code}, {expected_name}, SHA-256 {digest}")
+          print(manifest["versionCode"], manifest["versionName"])
           PY
+          )
+          TAG="guardian-dev-v${VERSION_CODE}"
+          echo "Validated development release ${TAG} (${VERSION_NAME})."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "release/guardian-android-dev.apk" "$MANIFEST" --repo "$GITHUB_REPOSITORY" --clobber
           else
@@ -689,6 +763,6 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --prerelease \
-              --title "Guardian AdBlock ${GUARDIAN_VERSION_NAME} (개발 업데이트)" \
+              --title "Guardian AdBlock ${VERSION_NAME} (개발 업데이트)" \
               --notes "Guardian-Source-Commit: $GITHUB_SHA"
           fi

@@ -1,6 +1,6 @@
 # Guardian 필터 원본 라이선스 감사
 
-검토일: 2026-11-18
+검토일: 2026-11-26
 
 이 문서는 `server/filter-distribution/sources.example.json`에 등록된 7개 필터 원본의 공개 라이선스 표시를 정리한 것입니다. 법률 자문이나 최종 배포 승인 문서가 아닙니다. 원본 저장소의 LICENSE/FAQ와 실제 다운로드한 산출물의 헤더·출처를 배포 시점마다 다시 확인해야 합니다.
 
@@ -15,6 +15,16 @@
 | `hagezi_pro` | HaGeZi Pro (`filter_48.txt`) | GPL-3.0 — [HaGeZi DNS Blocklists](https://github.com/hagezi/dns-blocklists) | Normal과 Pro는 별도 버전·해시·고지로 관리합니다. |
 | `security` | HaGeZi TIF Medium | GPL-3.0 — [HaGeZi DNS Blocklists](https://github.com/hagezi/dns-blocklists) | 직접 jsDelivr URL을 쓰므로 원본 프로젝트의 최신 라이선스·면책 고지를 확인합니다. |
 | `android_ads` | AWAvenue Ads Rule (`filter_53.txt`) | GPL-3.0 — [AWAvenue-Ads-Rule](https://github.com/TG-Twilight/AWAvenue-Ads-Rule) | 원본 LICENSE와 파일 내 출처·버전·라이선스 주석을 보존합니다. |
+
+## 라이선스와 재배포 게이트의 의미
+
+GPL-3.0 또는 MPL-2.0이라는 표시만으로 상용 앱에 포함한 재배포가 금지되는 것은 아닙니다. 반대로 공개 저장소에 목록이 있다는 사실만으로 모든 포함 데이터의 권리와 의무가 자동 해결되는 것도 아닙니다. GPL-3.0은 조건을 지키는 경우 유료·무료 복제와 배포를 허용하지만, 적용되는 저작물의 라이선스 사본·고지·대응 소스 등 조건을 준수해야 합니다. MPL-2.0은 적용되는 파일과 수정 파일을 식별하고 해당 라이선스의 파일 단위 의무를 확인해야 합니다.
+
+Guardian의 `redistributionApproved`는 원저작권자의 별도 허가를 받았다는 의미가 아닙니다. 각 소스의 라이선스와 데이터 출처를 검토하고, 제품 배포 방식에 적용되는 의무를 충족할 수 있다고 내부적으로 확인한 경우에만 켜는 배포 게이트입니다. `redistributionApprovalRef`는 그 내부 검토 기록을 가리켜야 하며, 임의 문자열이나 단순한 라이선스 URL을 승인 증거로 쓰면 안 됩니다.
+
+업데이트 프로그램은 이제 다운로드 전에 각 소스에 대해 `upstreamRepository`, `licenseUrl`, `upstreamVersion`, `thirdPartyProvenanceReviewed=true`, `complianceEvidenceRef`를 요구합니다. 그 다음에도 별도의 `redistributionApproved=true`와 `redistributionApprovalRef`가 있어야 합니다. 현재 예제 설정은 일곱 소스 모두 provenance 검토와 배포 승인을 false/빈 값으로 유지하므로 실제 다운로드·서명·게시가 차단됩니다.
+
+현재 HostlistsRegistry 메타데이터에서 확인되는 버전은 AdGuard DNS 1.0.86.55, 1Hosts Lite 1.0.26.81, OISD Big 1.1.50.60, HaGeZi Normal 1.0.33.47, HaGeZi Pro 1.0.33.52, AWAvenue 1.0.15.85입니다. 이는 해당 registry가 표시한 목록 버전이지, 모든 upstream 구성 요소의 고정 commit이나 라이선스 승인 증거는 아닙니다. HaGeZi TIF Medium은 현재 설정 URL이 `@latest`를 사용하므로 `rolling-unpinned`로 표시하며, 재현 가능한 고정 버전으로 바꾸기 전까지 특히 주의가 필요합니다.
 
 ## 배포 전 필수 확인
 

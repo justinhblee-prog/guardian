@@ -25,10 +25,15 @@ class ActivityScreenStateTest {
     @Test fun savedActivityStateTakesPrecedenceOverPersistedTab() {
         assertEquals("protection", ActivityScreenState.restoreTab("protection", "activity"))
     }
+
     @Test fun restoresSettingsSubpagesAfterConfigurationChange() {
         assertEquals("settings-general", ActivityScreenState.restoreTab("settings-general"))
         assertEquals("settings-support", ActivityScreenState.restoreTab("settings-support"))
         assertEquals("settings-info", ActivityScreenState.restoreTab("settings-info"))
     }
 
+    @Test fun restoresLicenseActivationAfterConfigurationChange() {
+        assertEquals("license-activation", ActivityScreenState.restoreTab("license-activation"))
+        assertEquals("license-activation", ActivityScreenState.restoreTab(null, "license-activation"))
+    }
 }

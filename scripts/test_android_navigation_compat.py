@@ -5,6 +5,7 @@ from scripts.android_navigation_compat import (
     resolve_premium_entry,
     resolve_primary_navigation,
     resolve_settings_item,
+    resolve_dialog_dismiss_label,
 )
 
 
@@ -50,6 +51,10 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_premium_entry(xml)
 
+    def test_current_pro_category_label_is_supported(self):
+        xml = '<hierarchy><node text="PRO" /></hierarchy>'
+        self.assertEqual(resolve_premium_category(xml), "PRO")
+
     def test_english_premium_category_label_is_supported(self):
         xml = '<hierarchy><node text="라이선스 및 Premium" /></hierarchy>'
         self.assertEqual(resolve_premium_category(xml), "라이선스 및 Premium")
@@ -57,6 +62,18 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
     def test_korean_premium_category_label_is_supported(self):
         xml = '<hierarchy><node text="라이선스 및 프리미엄" /></hierarchy>'
         self.assertEqual(resolve_premium_category(xml), "라이선스 및 프리미엄")
+
+    def test_filtering_settings_category_is_supported(self):
+        xml = '<hierarchy><node text="필터링" visible-to-user="true" /></hierarchy>'
+        self.assertEqual(resolve_settings_item(xml, "필터링"), "필터링")
+
+    def test_legacy_filter_management_label_is_supported_for_filtering_category(self):
+        xml = '<hierarchy><node text="필터 관리" visible-to-user="true" /></hierarchy>'
+        self.assertEqual(resolve_settings_item(xml, "필터링"), "필터 관리")
+
+    def test_legacy_filter_rules_label_is_supported_for_filtering_category(self):
+        xml = '<hierarchy><node content-desc="필터 규칙" visible-to-user="true" /></hierarchy>'
+        self.assertEqual(resolve_settings_item(xml, "필터링"), "필터 규칙")
 
     def test_current_app_exclusion_settings_label_is_supported(self):
         xml = '<hierarchy><node text="앱 제외 관리" visible-to-user="true" /></hierarchy>'
@@ -69,6 +86,10 @@ class PremiumNavigationCompatibilityTests(unittest.TestCase):
     def test_legacy_filter_settings_label_is_supported(self):
         xml = '<hierarchy><node content-desc="필터 규칙" visible-to-user="true" /></hierarchy>'
         self.assertEqual(resolve_settings_item(xml, "필터 관리"), "필터 규칙")
+
+    def test_missing_filtering_settings_item_fails_closed(self):
+        with self.assertRaises(ValueError):
+            resolve_settings_item('<hierarchy><node text="일반" /></hierarchy>', "필터링")
 
     def test_missing_settings_item_fails_closed(self):
         with self.assertRaises(ValueError):
@@ -111,6 +132,27 @@ class PrimaryNavigationCompatibilityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_primary_navigation(xml)
 
+
+class DialogDismissCompatibilityTests(unittest.TestCase):
+    def test_confirmation_button_is_supported(self):
+        xml = '<hierarchy><node class="android.widget.Button" text="확인" clickable="true" enabled="true" visible-to-user="true" /></hierarchy>'
+        self.assertEqual(resolve_dialog_dismiss_label(xml), "확인")
+
+    def test_close_button_is_supported_when_dialog_uses_close_label(self):
+        xml = '<hierarchy><node class="android.widget.Button" text="닫기" clickable="true" enabled="true" visible-to-user="true" /></hierarchy>'
+        self.assertEqual(resolve_dialog_dismiss_label(xml), "닫기")
+
+    def test_hidden_or_disabled_dismiss_button_is_rejected(self):
+        for xml in (
+            '<hierarchy><node class="android.widget.Button" text="닫기" clickable="true" enabled="false" visible-to-user="true" /></hierarchy>',
+            '<hierarchy><node class="android.widget.Button" text="닫기" clickable="true" enabled="true" visible-to-user="false" /></hierarchy>',
+        ):
+            with self.subTest(xml=xml), self.assertRaises(ValueError):
+                resolve_dialog_dismiss_label(xml)
+
+    def test_missing_dismiss_button_fails_closed(self):
+        with self.assertRaises(ValueError):
+            resolve_dialog_dismiss_label('<hierarchy><node text="닫기" clickable="false" /></hierarchy>')
 
 
 if __name__ == "__main__":

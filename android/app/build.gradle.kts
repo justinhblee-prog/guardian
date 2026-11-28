@@ -12,13 +12,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 val guardianVersionName = providers.gradleProperty("guardianVersionName")
-    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse("0.7.42-dev")
+    .orElse(providers.environmentVariable("GUARDIAN_VERSION_NAME")).getOrElse("0.7.61-dev")
 val guardianVersionCode = providers.gradleProperty("guardianVersionCode")
     .orElse(providers.environmentVariable("GUARDIAN_VERSION_CODE"))
     .map { raw ->
         raw.toIntOrNull()?.takeIf { it > 0 }
             ?: error("GUARDIAN_VERSION_CODE must be a positive integer.")
-    }.getOrElse(55)
+    }.getOrElse(74)
 require(guardianVersionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.-]+)?"))) {
     "GUARDIAN_VERSION_NAME must be a semantic version such as 0.7.8 or 0.7.8-rc1."
 }
@@ -28,9 +28,9 @@ val guardianManifestBaseUrl = providers.gradleProperty("guardianManifestBaseUrl"
 val guardianManifestPublicKey = providers.gradleProperty("guardianManifestPublicKey")
     .orElse(providers.environmentVariable("GUARDIAN_MANIFEST_PUBLIC_KEY")).getOrElse("")
 val guardianLicensePublicKey = providers.gradleProperty("guardianLicensePublicKey")
-    .orElse(providers.environmentVariable("GUARDIAN_LICENSE_PUBLIC_KEY")).getOrElse("")
+    .orElse(providers.environmentVariable("GUARDIAN_LICENSE_PUBLIC_KEY")).getOrElse("MIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA8uPjO5uXL+ZR2LraZ9pg43qUQObwFoQd6wzqIgla5hUJ90YT1sbDsZKB+qu2/D9TDwrZj5TrOMISAM3RK8oPWqC2dsIOnmcowLQ3X/ZrmafrCMY98GA/0GGUqyGEwsIDbdVq2z39MvCekrFrC9kcT4UWgjmBqHK8WQ6uIe6Z03eR9TuF+ITMaia+aghoVdvUv2rwbqHkFF9YXcrZENMk1dzZkoS3PJLc7FaNYo1rTiERf6bjOO54RiYEg9U0TzFyMenZZF1sznLW9n9btSjZwMoWIOiy4csxM+Ks/FdPKBM5jF303/2iiS3406AI6c/gA5mx7d5MuZZSKL6dKNr3183D0nCvd2edE9YVu84Iy9eBL/NpCuvXZElcNf7ztQXN0A8YHFAJx71XtHHh8i4Dmq/ZQ/RcVPyELMOBgXla4BtdL3QyqGy9M9Rjp0l0PaxEodpWjw74emxSret4Uqlh9uChI9w+GlKyvqKuJDcrAai9Ra9RJn8gZYcSXGDhvii5AgMBAAE=")
 val guardianLicenseApiBaseUrl = providers.gradleProperty("guardianLicenseApiBaseUrl")
-    .orElse(providers.environmentVariable("GUARDIAN_LICENSE_API_BASE_URL")).getOrElse("")
+    .orElse(providers.environmentVariable("GUARDIAN_LICENSE_API_BASE_URL")).getOrElse("https://br-shiny-mountain-bi4ia7g2-guardianapi.compute.c-5.ap-southeast-1.aws.neon.tech")
 val guardianReleaseStoreFile = providers.gradleProperty("guardianReleaseStoreFile")
     .orElse(providers.environmentVariable("GUARDIAN_RELEASE_STORE_FILE")).orNull
 val guardianReleaseStorePassword = providers.gradleProperty("guardianReleaseStorePassword")

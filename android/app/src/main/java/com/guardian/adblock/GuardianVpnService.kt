@@ -516,6 +516,27 @@ class GuardianVpnService : VpnService() {
             return
         }
 
+        // VPN consent can be revoked by Android when another VPN is selected.
+        // A boot receiver cannot display the system consent dialog, so detect this
+        // before DNS preflight and leave a precise recovery state for the UI.
+        val consentRequiredBeforeStart = VpnService.prepare(this) != null
+        android.util.Log.i(
+            "GuardianProtection",
+            "VPN authorization preflight; consentRequired=$consentRequiredBeforeStart alwaysOn=not-queried"
+        )
+        if (consentRequiredBeforeStart) {
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putString(KEY_STARTUP_TRACE, "VpnService.prepare returned a consent Intent before tunnel establishment.")
+                .commit()
+            try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+            publishState(
+                false,
+                "Android VPN 권한이 해제되었습니다. Guardian을 열어 VPN 연결 권한을 다시 승인해 주세요."
+            )
+            stopSelf(startId)
+            return
+        }
+
         // Never install a DNS-only VPN route until its upstream resolver has
         // answered a real DNS query. If every configured/fallback resolver is
         // unreachable, leaving the device's normal network untouched is safer
@@ -617,11 +638,27 @@ class GuardianVpnService : VpnService() {
         }
         if (descriptor == null) {
             try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-            val detail = establishError?.let { " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${SafeFailureSummary.describe(it)})" }.orEmpty()
-            establishError?.let { error ->
-                getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
+            val consentRequiredAfterFailure = VpnService.prepare(this) != null
+            val detail = establishError?.let {
+                " (${ProtectionDiagnostics.exceptionTypeChain(it)}: ${SafeFailureSummary.describe(it)})"
+            } ?: if (consentRequiredAfterFailure) {
+                " (Android VPN 권한 재승인 필요)"
+            } else {
+                " (Android가 VPN 인터페이스를 생성하지 않았습니다. 다른 VPN 또는 시스템 VPN 상태를 확인해야 합니다.)"
             }
-            publishState(false, "VPN 연결 생성 실패$detail. VPN 권한과 다른 VPN 앱의 실행 여부를 확인하세요.")
+            val diagnostic = establishError?.let {
+                ProtectionDiagnostics.exceptionTraceSummary(it)
+            } ?: "Builder.establish returned null; consentRequired=$consentRequiredAfterFailure; alwaysOn=not-queried"
+            getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                .putString(KEY_STARTUP_TRACE, diagnostic)
+                .commit()
+            android.util.Log.e("GuardianProtection", "VPN interface establishment returned null; consentRequired=$consentRequiredAfterFailure alwaysOn=not-queried")
+            val message = if (consentRequiredAfterFailure) {
+                "Android VPN 권한이 해제되어 다시 승인이 필요합니다."
+            } else {
+                "VPN 연결 생성 실패. 다른 VPN 앱 또는 Android 시스템 VPN 상태를 확인하세요."
+            }
+            publishState(false, "$message$detail")
             stopSelf(startId)
             return
         }
@@ -811,7 +848,7 @@ class GuardianVpnService : VpnService() {
         val minimumRuleCounts = mutableListOf<Int>()
         val unavailable = mutableListOf<String>()
         sources.add {
-            assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
+            assets.open(BundledFilterRules.ASSET_NAME).bufferedReader().use(BundledFilterRules::parse)
         }
         minimumRuleCounts.add(1)
 
@@ -1001,7 +1038,7 @@ class GuardianVpnService : VpnService() {
         var socket: DatagramSocket? = null
         return try {
             socket = DatagramSocket()
-            if (!protect(socket)) {
+            if (isTunnelActive() && !protect(socket)) {
                 lastUpstreamFailure = "UDP: VPN 소켓 우회 설정 실패"
                 return null
             }
@@ -1034,7 +1071,7 @@ class GuardianVpnService : VpnService() {
         var socket: Socket? = null
         return try {
             socket = Socket()
-            if (!protect(socket)) {
+            if (isTunnelActive() && !protect(socket)) {
                 lastUpstreamFailure = "TCP: VPN 소켓 우회 설정 실패"
                 return null
             }
@@ -1104,7 +1141,7 @@ class GuardianVpnService : VpnService() {
             val address = InetAddress.getByName(upstreamAddress)
             val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
             socket = factory.createSocket() as SSLSocket
-            if (!protect(socket)) {
+            if (isTunnelActive() && !protect(socket)) {
                 lastUpstreamFailure = "DoT: VPN 소켓 우회 설정 실패"
                 return null
             }
@@ -1144,7 +1181,7 @@ class GuardianVpnService : VpnService() {
             val address = InetAddress.getByName(upstreamAddress)
             val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
             socket = factory.createSocket() as SSLSocket
-            if (!protect(socket)) {
+            if (isTunnelActive() && !protect(socket)) {
                 lastUpstreamFailure = "DoH: VPN 소켓 우회 설정 실패"
                 return null
             }

@@ -23,9 +23,14 @@ internal data class GuardianDevUpdate(
     val notes: String
 )
 
+internal class GuardianHttpStatusException(val statusCode: Int) : java.io.IOException("HTTP_STATUS_$statusCode")
+
 internal object DevUpdateManager {
+    // Public read-only fallback for exhausted unauthenticated API limits.
     private const val RELEASES_URL =
         "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=100"
+    private const val RELEASES_ATOM_URL =
+        "https://github.com/justinhblee-prog/guardian/releases.atom"
     private const val APK_ASSET = "guardian-android-dev.apk"
     private const val MANIFEST_ASSET = "guardian-android-dev.json"
     private const val PACKAGE_NAME = "com.guardian.adblock"
@@ -38,11 +43,22 @@ internal object DevUpdateManager {
         val notes: String
     )
 
-    internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
-        tagVersion > installedVersionCode && manifestVersionCode == tagVersion
+    internal fun shouldFetchReleaseManifest(installedVersionCode: Int, tagVersion: Int): Boolean =
+        tagVersion > installedVersionCode
 
-    fun checkForUpdate(): GuardianDevUpdate? {
-        val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
+    internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
+        shouldFetchReleaseManifest(installedVersionCode, tagVersion) && manifestVersionCode == tagVersion
+
+    fun checkForUpdate(onProgress: ((String) -> Unit)? = null): GuardianDevUpdate? {
+        onProgress?.invoke("GitHub 업데이트 목록 연결 중…")
+        val releases = try {
+            JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
+        } catch (error: GuardianHttpStatusException) {
+            if (error.statusCode != 403 && error.statusCode != 429) throw error
+            onProgress?.invoke("GitHub API 제한 감지 · 공개 릴리스 피드로 재시도 중…")
+            releasesFromAtom(readHttps(RELEASES_ATOM_URL, 1024 * 1024))
+        }
+        onProgress?.invoke("공개된 개발 버전 비교 중…")
         val candidates = ArrayList<ReleaseCandidate>()
         val tagPattern = Regex("^guardian-dev-v(\\d+)$")
 
@@ -73,12 +89,18 @@ internal object DevUpdateManager {
         }
 
         for (candidate in candidates.sortedByDescending { it.tagVersion }) {
-            require(isGuardianReleaseAssetUrl(candidate.manifestUrl)) {
-                "개발 업데이트 manifest 주소가 허용된 GitHub Release가 아닙니다."
+            // Releases older than or equal to the installed build can never be offered.
+            // Skip their manifests: otherwise a device on a newer, not-yet-published build
+            // downloads dozens of old JSON files one by one before reporting "up to date".
+            if (!shouldFetchReleaseManifest(BuildConfig.VERSION_CODE, candidate.tagVersion)) continue
+
+            require(isGuardianDevReleaseAssetUrl(candidate.manifestUrl, MANIFEST_ASSET, candidate.tagVersion)) {
+                "개발 업데이트 manifest 주소가 공식 Guardian Release asset이 아닙니다."
             }
-            require(isGuardianReleaseAssetUrl(candidate.apkUrl)) {
-                "개발 APK 주소가 허용된 GitHub Release가 아닙니다."
+            require(isGuardianDevReleaseAssetUrl(candidate.apkUrl, APK_ASSET, candidate.tagVersion)) {
+                "개발 APK 주소가 공식 Guardian Release asset이 아닙니다."
             }
+            onProgress?.invoke("새 버전 ${candidate.tagVersion} 배포 정보 확인 중…")
             val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
             if (manifest.optString("packageName") != PACKAGE_NAME) continue
             val versionCode = manifest.optInt("versionCode", 0)
@@ -104,7 +126,33 @@ internal object DevUpdateManager {
         return null
     }
 
+    internal fun atomTagsFromFeed(payload: String): List<String> {
+        // Keep feed parsing platform-independent so it can be tested on the JVM.
+        val pattern = Regex("https://github\\.com/justinhblee-prog/guardian/releases/tag/(guardian-dev-v([0-9]+))")
+        val seen = LinkedHashSet<String>()
+        for (match in pattern.findAll(payload)) {
+            seen += match.groupValues[1]
+        }
+        return seen.toList()
+    }
+
+    internal fun releasesFromAtom(payload: String): JSONArray {
+        // Extract only canonical tags from this repository; construct asset URLs locally.
+        val result = JSONArray()
+        for (tag in atomTagsFromFeed(payload)) {
+            val assets = JSONArray()
+                .put(JSONObject().put("name", MANIFEST_ASSET).put("browser_download_url", "https://github.com/justinhblee-prog/guardian/releases/download/$tag/$MANIFEST_ASSET"))
+                .put(JSONObject().put("name", APK_ASSET).put("browser_download_url", "https://github.com/justinhblee-prog/guardian/releases/download/$tag/$APK_ASSET"))
+            result.put(JSONObject().put("draft", false).put("prerelease", true).put("tag_name", tag).put("body", "").put("assets", assets))
+        }
+        return result
+    }
     fun download(context: Context, update: GuardianDevUpdate): File {
+        // Validate the exact repository, release tag shape and APK asset before opening a connection.
+        // The post-redirect host check below remains a second independent boundary.
+        require(isGuardianDevReleaseAssetUrl(update.apkUrl, APK_ASSET)) {
+            "APK 다운로드 주소가 공식 Guardian 개발 Release asset이 아닙니다."
+        }
         require(update.signerSha256 == installedSignerSha256(context)) {
             "업데이트 서명 인증서가 현재 설치된 개발 버전과 다릅니다. 설치를 중단했습니다."
         }
@@ -173,12 +221,29 @@ internal object DevUpdateManager {
         return true
     }
 
-    internal fun isGuardianReleaseAssetUrl(address: String): Boolean = runCatching {
+    internal fun isGuardianDevReleaseAssetUrl(
+        address: String,
+        expectedAssetName: String,
+        expectedTagVersion: Int? = null
+    ): Boolean = runCatching {
         val uri = java.net.URI(address)
-        uri.scheme.equals("https", true) &&
+        val assetNameAllowed = expectedAssetName == APK_ASSET || expectedAssetName == MANIFEST_ASSET
+        val tagPattern = Regex(
+            "^/justinhblee-prog/guardian/releases/download/guardian-dev-v([1-9][0-9]*)/" +
+                java.util.regex.Pattern.quote(expectedAssetName) + "$"
+        )
+        val tagVersion = tagPattern.matchEntire(uri.rawPath.orEmpty())
+            ?.groupValues?.getOrNull(1)?.toIntOrNull()
+        assetNameAllowed &&
+            uri.scheme.equals("https", true) &&
             uri.host.equals("github.com", true) &&
-            uri.path.startsWith("/justinhblee-prog/guardian/releases/download/") &&
-            uri.userInfo == null && uri.query == null && uri.fragment == null
+            uri.port == -1 &&
+            uri.rawUserInfo == null &&
+            uri.rawQuery == null &&
+            uri.rawFragment == null &&
+            uri.path == uri.rawPath &&
+            tagVersion != null &&
+            (expectedTagVersion == null || tagVersion == expectedTagVersion)
     }.getOrDefault(false)
 
     private fun isAllowedHttpsHost(url: URL): Boolean =
@@ -259,8 +324,8 @@ internal object DevUpdateManager {
     private fun readHttps(address: String, maxBytes: Int): String {
         require(address.startsWith("https://", ignoreCase = true)) { "업데이트 서버는 HTTPS만 허용합니다." }
         val connection = (URL(address).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 12000
-            readTimeout = 15000
+            connectTimeout = 8000
+            readTimeout = 10000
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "Guardian-AdBlock-Android")
             setRequestProperty("Accept", "application/vnd.github+json")
@@ -268,7 +333,8 @@ internal object DevUpdateManager {
         try {
             connection.connect()
             check(isAllowedHttpsHost(connection.url)) { "업데이트 확인 요청이 허용되지 않은 서버로 리디렉션되었습니다." }
-            check(connection.responseCode in 200..299) { "업데이트 확인 실패: HTTP ${connection.responseCode}" }
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) throw GuardianHttpStatusException(responseCode)
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(8192)

@@ -9,7 +9,13 @@
       "minimumRules": 1000,
       "licenseId": "GPL-3.0",
       "redistributionApproved": false,
-      "redistributionApprovalRef": ""
+      "redistributionApprovalRef": "",
+      "upstreamRepository": "https://github.com/AdguardTeam/AdGuardSDNSFilter",
+      "licenseUrl": "https://github.com/AdguardTeam/AdGuardSDNSFilter/blob/master/LICENSE",
+      "upstreamCommitSha": "",
+      "upstreamVersion": "1.0.86.55",
+      "thirdPartyProvenanceReviewed": false,
+      "complianceEvidenceRef": ""
     },
     {
       "id": "1hosts_lite",
@@ -17,7 +23,13 @@
       "minimumRules": 100,
       "licenseId": "MPL-2.0",
       "redistributionApproved": false,
-      "redistributionApprovalRef": ""
+      "redistributionApprovalRef": "",
+      "upstreamRepository": "https://github.com/badmojr/1Hosts",
+      "licenseUrl": "https://github.com/badmojr/1Hosts/blob/master/LICENSE",
+      "upstreamCommitSha": "",
+      "upstreamVersion": "1.0.26.81",
+      "thirdPartyProvenanceReviewed": false,
+      "complianceEvidenceRef": ""
     },
     {
       "id": "oisd_big",
@@ -25,7 +37,13 @@
       "minimumRules": 100,
       "licenseId": "GPL-3.0",
       "redistributionApproved": false,
-      "redistributionApprovalRef": ""
+      "redistributionApprovalRef": "",
+      "upstreamRepository": "https://oisd.nl",
+      "licenseUrl": "https://oisd.nl/faq",
+      "upstreamCommitSha": "",
+      "upstreamVersion": "1.1.50.60",
+      "thirdPartyProvenanceReviewed": false,
+      "complianceEvidenceRef": ""
     },
     {
       "id": "hagezi_normal",
@@ -33,7 +51,13 @@
       "minimumRules": 100,
       "licenseId": "GPL-3.0",
       "redistributionApproved": false,
-      "redistributionApprovalRef": ""
+      "redistributionApprovalRef": "",
+      "upstreamRepository": "https://github.com/hagezi/dns-blocklists",
+      "licenseUrl": "https://github.com/hagezi/dns-blocklists/blob/main/LICENSE",
+      "upstreamCommitSha": "",
+      "upstreamVersion": "1.0.33.47",
+      "thirdPartyProvenanceReviewed": false,
+      "complianceEvidenceRef": ""
     },
     {
       "id": "hagezi_pro",
@@ -41,7 +65,13 @@
       "minimumRules": 100,
       "licenseId": "GPL-3.0",
       "redistributionApproved": false,
-      "redistributionApprovalRef": ""
+      "redistributionApprovalRef": "",
+      "upstreamRepository": "https://github.com/hagezi/dns-blocklists",
+      "licenseUrl": "https://github.com/hagezi/dns-blocklists/blob/main/LICENSE",
+      "upstreamCommitSha": "",
+      "upstreamVersion": "1.0.33.52",
+      "thirdPartyProvenanceReviewed": false,
+      "complianceEvidenceRef": ""
     },
     {
       "id": "security",
@@ -49,7 +79,13 @@
       "minimumRules": 100,
       "licenseId": "GPL-3.0",
       "redistributionApproved": false,
-      "redistributionApprovalRef": ""
+      "redistributionApprovalRef": "",
+      "upstreamRepository": "https://github.com/hagezi/dns-blocklists",
+      "licenseUrl": "https://github.com/hagezi/dns-blocklists/blob/main/LICENSE",
+      "upstreamCommitSha": "",
+      "upstreamVersion": "rolling-unpinned",
+      "thirdPartyProvenanceReviewed": false,
+      "complianceEvidenceRef": ""
     },
     {
       "id": "android_ads",
@@ -57,7 +93,13 @@
       "minimumRules": 100,
       "licenseId": "GPL-3.0",
       "redistributionApproved": false,
-      "redistributionApprovalRef": ""
+      "redistributionApprovalRef": "",
+      "upstreamRepository": "https://github.com/TG-Twilight/AWAvenue-Ads-Rule",
+      "licenseUrl": "https://github.com/TG-Twilight/AWAvenue-Ads-Rule/blob/main/LICENSE",
+      "upstreamCommitSha": "",
+      "upstreamVersion": "1.0.15.85",
+      "thirdPartyProvenanceReviewed": false,
+      "complianceEvidenceRef": ""
     }
   ]
 }

@@ -26,8 +26,11 @@ def resolve_next_version(
 ) -> dict[str, Any]:
     if not VERSION_PATTERN.fullmatch(baseline_version) or baseline_code < 1:
         raise ValueError("Invalid Guardian baseline version.")
-    latest_code, latest_name = baseline_code, baseline_version
+    latest_code = baseline_code
+    latest_version = tuple(map(int, VERSION_PATTERN.fullmatch(baseline_version).groups()))
+    latest_name = baseline_version
     same_commit: list[tuple[int, str, str]] = []
+    names_by_code: dict[int, str] = {}
 
     for release in releases:
         if release.get("draft") or not release.get("prerelease"):
@@ -41,16 +44,19 @@ def resolve_next_version(
         if not version_match:
             continue
         version_name = version_match.group(0)
+        version_tuple = tuple(map(int, version_match.groups()))
+        previous_name = names_by_code.setdefault(code, version_name)
+        if previous_name != version_name:
+            raise ValueError(f"Conflicting version names for release versionCode {code}.")
         if code < baseline_code:
             continue
         body = str(release.get("body") or "")
         source_match = re.search(r"(?m)^Guardian-Source-Commit:\s*([0-9a-f]{40})\s*$", body)
         if source_match and source_match.group(1).lower() == commit.lower():
             same_commit.append((code, version_name, str(release.get("tag_name"))))
-        if code > latest_code:
-            latest_code, latest_name = code, version_name
-        elif code == latest_code and version_name != latest_name:
-            raise ValueError(f"Conflicting version names for release versionCode {code}.")
+        latest_code = max(latest_code, code)
+        if version_tuple > latest_version:
+            latest_version, latest_name = version_tuple, version_name
 
     if same_commit:
         code, name, tag = max(same_commit)
@@ -73,8 +79,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--releases-json", required=True)
     parser.add_argument("--commit", required=True)
-    parser.add_argument("--baseline-version", default="0.7.42-dev")
-    parser.add_argument("--baseline-code", type=int, default=55)
+    parser.add_argument("--baseline-version", default="0.7.61-dev")
+    parser.add_argument("--baseline-code", type=int, default=74)
     parser.add_argument("--github-env", required=True)
     parser.add_argument("--github-output", required=True)
     args = parser.parse_args()

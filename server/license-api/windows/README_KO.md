@@ -148,3 +148,29 @@ GitHub CLI의 표준 입력으로 keystore Base64와 비밀번호를 Actions Sec
 
 ## 완료 전 검증
 HTTPS/TLS, 접근제어, Android 앱의 공개키 일치, 실제 필터 갱신, 라이선스 발급/활성화/갱신/해제, 노트북 재부팅·절전·네트워크 장애 복구, 실제 Android 기기 E2E 테스트가 필요합니다. 이 문서는 배포 도구 설명이며 실제 노트북 설치, GitHub 클라우드 브랜치 최초 게시, Android 모바일 E2E 검증이 끝났다는 의미는 아닙니다.
+
+## 클라우드 운영 방식: Neon (노트북 상시 가동 불필요)
+
+현재 목표 운영 방식은 **Neon 라이선스 API + GitHub Actions 배포**입니다. 이 방식을 선택하면 Windows 노트북은 최초 비밀값 등록을 위한 관리 단말일 뿐이며, 라이선스 API를 제공하거나 계속 켜 둘 필요가 없습니다. 기존 Tailscale/노트북 운영 절차는 로컬 개발·대체 구성으로만 취급합니다. Android 운영 API 주소는 Neon Function URL이어야 하며 Tailscale 주소를 함께 사용하면 안 됩니다.
+
+Neon 프로젝트/브랜치의 기본값과 API 주소는 다음과 같습니다.
+
+- Project: `wispy-surf-33052072`
+- Branch: `br-shiny-mountain-bi4ia7g2`
+- Function: `guardianapi`
+- API URL: `https://br-shiny-mountain-bi4ia7g2-guardianapi.compute.c-5.ap-southeast-1.aws.neon.tech`
+
+기존 운영 키가 로컬에 이미 구성된 경우 저장소 루트에서 다음 스크립트를 실행해 GitHub Actions 설정을 등록합니다.
+
+```powershell
+pwsh -File .\server\license-api\windows\Prepare-GuardianNeonProduction.ps1
+```
+
+이 스크립트는 기존 `%LOCALAPPDATA%\Guardian\license-api\.env`의 관리자 토큰·조회용 비밀키·라이선스 개인키와 기존 공개키 파일을 읽습니다. 개인키와 공개키가 실제로 일치하는지 확인한 후에만 진행하며, Neon API Key는 숨김 입력으로 받습니다. 다음 GitHub Actions **Secrets** 4개와 **Variables** 4개를 설정합니다.
+
+- Secrets: `NEON_API_KEY`, `GUARDIAN_ADMIN_TOKEN`, `GUARDIAN_LICENSE_LOOKUP_SECRET`, `GUARDIAN_LICENSE_PRIVATE_KEY`
+- Variables: `NEON_PROJECT_ID`, `NEON_BRANCH_ID`, `GUARDIAN_LICENSE_PUBLIC_KEY`, `GUARDIAN_LICENSE_API_BASE_URL`
+
+키를 새로 생성·교체하거나 기존 값을 콘솔에 출력하지 않습니다. 로컬 키 파일이 없거나 키 쌍이 일치하지 않으면 중단합니다. GitHub 설정 등록과 Neon 배포는 별개이며, 이 스크립트는 **배포를 실행하지 않습니다**. 등록 후에도 Neon 배포 워크플로를 별도로 실행하고 `/health`와 `/ready` 실서비스 검증이 통과해야 운영 전환이 완료됩니다.
+
+Android 정식 릴리스는 동일한 `GUARDIAN_LICENSE_PUBLIC_KEY` 변수를 빌드에 주입해야 하므로, Neon 서버 개인키와 앱 공개키의 일치 검증 없이 키를 교체하지 마세요. `Prepare-GuardianProductionRelease.ps1`도 이제 기본 `-LicenseBackend Neon`으로 동작해 Tailscale을 요구하지 않고 Neon URL을 GitHub Variable에 설정합니다. 기존 노트북/Tailscale 구성을 의도적으로 사용할 때만 `-LicenseBackend Tailscale`을 명시하세요. GitHub Actions Secret 값은 조회할 수 없도록 설계되어 있으므로 등록 여부는 비밀값을 출력하는 대신 배포 사전검사 및 실제 readiness 결과로 확인합니다.

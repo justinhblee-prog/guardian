@@ -1,0 +1,112 @@
+name: Guardian Neon Production License API Deploy
+
+"on":
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guardian-neon-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Test, package and deploy Neon Function
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: guardian
+          POSTGRES_PASSWORD: guardian_test_password
+          POSTGRES_DB: guardian_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U guardian -d guardian_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgres://guardian:guardian_test_password@localhost:5432/guardian_test
+    defaults:
+      run:
+        working-directory: server/license-api
+    steps:
+      - name: Require the protected main branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Production deployment is allowed only from main."
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install API dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Build and verify admin assets
+        run: |
+          npm run build:admin-assets
+          git diff --exit-code -- src/admin-assets.mjs
+
+      - name: Initialize isolated test database
+        run: |
+          for attempt in $(seq 1 20); do
+            if pg_isready -h localhost -p 5432 -U guardian -d guardian_test; then break; fi
+            sleep 2
+          done
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
+          for migration in migrations/002_shared_rate_limit_buckets.sql migrations/003_support_tickets.sql migrations/004_customers.sql migrations/005_shared_guardian_product.sql; do
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
+
+      - name: Run API, cryptographic and Neon adapter tests
+        run: npm test
+
+      - name: Package bundled Neon Function with root entrypoint
+        env:
+          BUNDLE_ENTRY: ${{ runner.temp }}/guardianapi-bundle/dist/index.mjs
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/guardianapi-bundle"
+          mkdir -p "$bundle/dist"
+          npx --yes esbuild@0.25.12 functions/guardianapi/index.mjs \
+            --bundle --platform=node --target=node24 --format=esm \
+            --banner:js='import{createRequire as ___cr}from"module";import{fileURLToPath as ___f}from"url";import{dirname as ___d}from"path";const require=___cr(import.meta.url);const __filename=___f(import.meta.url);const __dirname=___d(___f(import.meta.url));' \
+            --outfile="$bundle/dist/index.mjs"
+          node --check "$bundle/dist/index.mjs"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { pathToFileURL } from 'node:url';
+          const moduleUrl = pathToFileURL(process.env.BUNDLE_ENTRY);
+          const { default: app } = await import(moduleUrl.href);
+          const health = await app.fetch(new Request('https://guardian.example/health'));
+          assert.equal(health.status, 200);
+          const ready = await app.fetch(new Request('https://guardian.example/ready'));
+          assert.equal(ready.status, 503, 'readiness must fail closed without production secrets');
+          console.log('Bundled Neon entrypoint health/readiness smoke test passed.');
+          NODE
+          (cd "$bundle/dist" && zip -q "$RUNNER_TEMP/guardianapi.zip" index.mjs)
+          unzip -t "$RUNNER_TEMP/guardianapi.zip"
+          test "$(unzip -Z1 "$RUNNER_TEMP/guardianapi.zip" | tr -d '\\r')" = 'index.mjs'
+          echo "Neon ZIP contains exactly one bundled root entrypoint: index.mjs"
+
+      - name: Deploy to Neon and verify live readiness
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_BRANCH_ID: ${{ vars.NEON_BRANCH_ID }}
+          GUARDIAN_ADMIN_TOKEN: ${{ secrets.GUARDIAN_ADMIN_TOKEN }}
+          GUARDIAN_LICENSE_LOOKUP_SECRET: ${{ secrets.GUARDIAN_LICENSE_LOOKUP_SECRET }}
+          GUARDIAN_LICENSE_PRIVATE_KEY: ${{ secrets.GUARDIAN_LICENSE_PRIVATE_KEY }}
+          GUARDIAN_LICENSE_PUBLIC_KEY: ${{ vars.GUARDIAN_LICENSE_PUBLIC_KEY }}
+          GUARDIAN_LICENSE_API_BASE_URL: ${{ vars.GUARDIAN_LICENSE_API_BASE_URL }}
+        run: node scripts/deploy-neon-function.mjs "$RUNNER_TEMP/guardianapi.zip"

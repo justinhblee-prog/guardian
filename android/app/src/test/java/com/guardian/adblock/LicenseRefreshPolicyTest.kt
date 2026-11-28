@@ -1,15 +1,27 @@
 package com.guardian.adblock
 
+import java.security.KeyPairGenerator
+import java.util.Base64
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LicenseRefreshPolicyTest {
-    @Test fun runtimeConfiguredServerEnablesRefreshWithoutBuildTimeDefault() {
-        assertTrue(LicenseRefreshScheduler.isConfigured("https://laptop.example.ts.net", "pinned-public-key"))
-        assertFalse(LicenseRefreshScheduler.isConfigured("", "pinned-public-key"))
+    private fun validPublicKey(): String {
+        val generator = KeyPairGenerator.getInstance("RSA")
+        generator.initialize(2048)
+        return Base64.getEncoder().encodeToString(generator.generateKeyPair().public.encoded)
+    }
+
+    @Test fun runtimeConfiguredServerRequiresValidHttpsOriginAndRsaKey() {
+        val key = validPublicKey()
+        assertTrue(LicenseRefreshScheduler.isConfigured("https://laptop.example.ts.net", key))
+        assertFalse(LicenseRefreshScheduler.isConfigured("", key))
         assertFalse(LicenseRefreshScheduler.isConfigured("https://laptop.example.ts.net", ""))
-        assertFalse(LicenseRefreshScheduler.isConfigured("", ""))
+        assertFalse(LicenseRefreshScheduler.isConfigured("http://laptop.example.ts.net", key))
+        assertFalse(LicenseRefreshScheduler.isConfigured("https://user@laptop.example.ts.net", key))
+        assertFalse(LicenseRefreshScheduler.isConfigured("https://laptop.example.ts.net/path", key))
+        assertFalse(LicenseRefreshScheduler.isConfigured("https://laptop.example.ts.net", "not-a-public-key"))
     }
 
     @Test fun doesNotRenewWhenMoreThanTwelveHoursRemain() {

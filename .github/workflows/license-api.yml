@@ -36,6 +36,10 @@ jobs:
           node-version: 22
       - name: Install API dependencies
         run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Verify bundled admin assets match source files
+        run: |
+          npm run build:admin-assets
+          git diff --exit-code -- src/admin-assets.mjs
       - name: Verify Chrome extension generated rules match shared source
         run: |
           node ../../scripts/build_chrome_extension.mjs
@@ -45,10 +49,28 @@ jobs:
       - name: Check server and admin JavaScript syntax
         run: |
           node --check src/server.mjs
+          node --check src/license-api-runtime.mjs
+          node --check src/fetch-adapter.mjs
+          node --check src/admin-assets.mjs
+          node --check scripts/build-admin-assets.mjs
+          node --check functions/guardianapi/index.mjs
+          node --check scripts/deploy-neon-function.mjs
+          node --experimental-strip-types --check neon.ts
           node --check src/license-core.mjs
           node --check src/rate-limit.mjs
           node --check admin/admin.js
           node --check test/postgres-integration.test.mjs
+      - name: Validate guarded Neon production deployment workflow
+        run: |
+          ruby - <<'RUBY'
+          require 'yaml'
+          workflow = YAML.load_file('../../.github/workflows/guardian-neon-production-deploy.yml', aliases: true)
+          abort 'Neon deployment must be workflow_dispatch only.' unless workflow.fetch('on').keys == ['workflow_dispatch']
+          abort 'Neon deployment must be restricted to main.' unless workflow.dig('jobs', 'deploy', 'steps').any? { |item| item['name'] == 'Require the protected main branch' }
+          abort 'Neon deployment must use serialized production concurrency.' unless workflow.dig('concurrency', 'cancel-in-progress') == false
+          abort 'Neon deployment must not run on a PR or push trigger.' if workflow.fetch('on').key?('pull_request') || workflow.fetch('on').key?('push')
+          puts 'Guarded Neon production deployment workflow YAML and trigger policy passed.'
+          RUBY
       - name: Validate Docker Compose deployment configuration
         run: |
           cp .env.example .env
@@ -66,5 +88,38 @@ jobs:
           pg_isready -h localhost -p 5432
       - name: Initialize PostgreSQL integration schema
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
-      - name: Run cryptographic, HTTP and PostgreSQL integration tests
+      - name: Run cryptographic, HTTP, PostgreSQL and Neon Function tests
         run: npm test
+      - name: Package bundled Neon Function with root entrypoint
+        env:
+          BUNDLE_ENTRY: ${{ runner.temp }}/guardianapi-bundle/dist/index.mjs
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/guardianapi-bundle"
+          mkdir -p "$bundle/dist"
+          npx --yes esbuild@0.25.12 functions/guardianapi/index.mjs \
+            --bundle --platform=node --target=node24 --format=esm \
+            --banner:js='import{createRequire as ___cr}from"module";import{fileURLToPath as ___f}from"url";import{dirname as ___d}from"path";const require=___cr(import.meta.url);const __filename=___f(import.meta.url);const __dirname=___d(___f(import.meta.url));' \
+            --outfile="$bundle/dist/index.mjs"
+          node --check "$bundle/dist/index.mjs"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { pathToFileURL } from 'node:url';
+          const moduleUrl = pathToFileURL(process.env.BUNDLE_ENTRY);
+          const { default: app } = await import(moduleUrl.href);
+          const health = await app.fetch(new Request('https://guardian.example/health'));
+          assert.equal(health.status, 200);
+          const ready = await app.fetch(new Request('https://guardian.example/ready'));
+          assert.equal(ready.status, 503, 'readiness must fail closed without production secrets');
+          console.log('Bundled Neon entrypoint health/readiness smoke test passed.');
+          NODE
+          (cd "$bundle/dist" && zip -q "$RUNNER_TEMP/guardianapi.zip" index.mjs)
+          unzip -t "$RUNNER_TEMP/guardianapi.zip"
+          test "$(unzip -Z1 "$RUNNER_TEMP/guardianapi.zip" | tr -d '\\r')" = 'index.mjs'
+          unzip -l "$RUNNER_TEMP/guardianapi.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guardian-neon-function-bundle
+          path: ${{ runner.temp }}/guardianapi.zip
+          if-no-files-found: error
+          retention-days: 3

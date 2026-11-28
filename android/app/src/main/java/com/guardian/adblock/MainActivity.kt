@@ -63,6 +63,7 @@ class MainActivity : Activity() {
     private var rulesFeedback: TextView? = null
     private var statsText: TextView? = null
     private var recentText: TextView? = null
+    private var blockedDomainSummaryText: TextView? = null
     private var diagnosticText: TextView? = null
     private var selfTestText: TextView? = null
     private var upstreamTestText: TextView? = null
@@ -89,6 +90,7 @@ class MainActivity : Activity() {
     private var activityChart: ActivityStatsChart? = null
     private var receiverRegistered = false
     private var currentTab = "home"
+    private val tabBackStack = mutableListOf<String>()
     // Reused across tab rebuilds to keep navigation taps responsive.
     private var companyLogoBitmap: android.graphics.Bitmap? = null
     private var contentScrollView: ScrollView? = null
@@ -146,6 +148,7 @@ class MainActivity : Activity() {
                 "Activity restored after configuration change; tab=$restoredTab scrollY=$restoredScrollY hasRuleDraft=${retainedRuleDraft != null}"
             )
         }
+        savedInstanceState?.getStringArrayList(STATE_TAB_BACK_STACK)?.let { tabBackStack.addAll(it) }
         val restoreLicenseFocus = savedInstanceState?.getBoolean(STATE_FOCUS_LICENSE_ACTIVATION, false) == true
         showTab(restoredTab, focusLicenseActivation = restoreLicenseFocus)
         if (restoredTab == "rules") {
@@ -285,6 +288,7 @@ class MainActivity : Activity() {
         val savedScrollY = contentScrollView?.scrollY ?: 0
         android.util.Log.i("GuardianUI", "Saving Activity state; tab=$currentTab scrollY=$savedScrollY")
         outState.putString(STATE_CURRENT_TAB, currentTab)
+        outState.putStringArrayList(STATE_TAB_BACK_STACK, ArrayList(tabBackStack))
         outState.putBoolean(STATE_FOCUS_LICENSE_ACTIVATION, focusLicenseActivationOnBuild)
         outState.putInt(STATE_SCROLL_Y, savedScrollY)
         super.onSaveInstanceState(outState)
@@ -299,12 +303,32 @@ class MainActivity : Activity() {
         return draft
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (currentTab != "home") {
-            showTab("home")
-            return
+    private fun animateSettingsPanel(panel: View, expanded: Boolean) {
+        panel.animate().cancel()
+        if (expanded) {
+            panel.visibility = View.VISIBLE
+            panel.alpha = 0f
+            panel.translationY = -dp(14).toFloat()
+            panel.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(230L)
+                .start()
+        } else {
+            panel.animate()
+                .alpha(0f)
+                .translationY(-dp(10).toFloat())
+                .setDuration(180L)
+                .withEndAction {
+                    panel.visibility = View.GONE
+                    panel.alpha = 1f
+                    panel.translationY = 0f
+                }
+                .start()
         }
+    }
+
+    private fun showExitConfirmation() {
         AlertDialog.Builder(this)
             .setTitle("Guardian 종료")
             .setMessage("앱을 종료하시겠습니까?\n\n종료해도 이미 실행 중인 DNS 보호 VPN은 별도로 중지하지 않는 한 계속 실행됩니다.")
@@ -315,6 +339,33 @@ class MainActivity : Activity() {
                 getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(red)
                 getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(accent)
             }
+    }
+
+    private fun showPremiumAfterLicenseAction(embedded: Boolean) {
+        tabBackStack.clear()
+        if (embedded) {
+            getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
+                .putString("settings_selected_section_v1", "premium")
+                .putBoolean("settings_pro_activation_expanded_v1", false)
+                .apply()
+            showTab("settings")
+        } else {
+            showTab("premium")
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (tabBackStack.isNotEmpty()) {
+            val previous = tabBackStack.removeAt(tabBackStack.lastIndex)
+            showTab(previous)
+            return
+        }
+        if (currentTab != "home") {
+            showTab("home")
+            return
+        }
+        showExitConfirmation()
     }
 
     override fun onStart() {
@@ -371,6 +422,26 @@ class MainActivity : Activity() {
 
         val lastAttempt = prefs.getLong("protection_ui_restore_retry_at", 0L)
         if (now - lastAttempt < 15_000L) return
+
+        // A boot receiver cannot display Android's VPN consent UI. If Android
+        // revoked Guardian's prepared-VPN grant, request consent when the user
+        // next opens the app instead of repeatedly starting a service that
+        // cannot establish a TUN interface.
+        val vpnConsent = VpnService.prepare(this)
+        if (vpnConsent != null) {
+            prefs.edit()
+                .putLong("protection_ui_restore_retry_at", now)
+                .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false)
+                .putString(
+                    GuardianVpnService.KEY_STATUS,
+                    "Android VPN 권한이 해제되었습니다. 다시 승인하면 보호가 재개됩니다."
+                )
+                .commit()
+            android.util.Log.i("GuardianProtection", "UI recovery requires renewed Android VPN consent")
+            startActivityForResult(vpnConsent, REQUEST_VPN)
+            return
+        }
+
         prefs.edit()
             .putLong("protection_ui_restore_retry_at", now)
             .putBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, true)
@@ -428,9 +499,16 @@ class MainActivity : Activity() {
      * The previous synchronous render built the entire long settings form on the tap
      * callback, so slower devices could appear to ignore the button.
      */
-    private fun navigateToTab(tab: String) {
+    private fun navigateToTab(
+        tab: String,
+        focusLicenseActivation: Boolean = false,
+        focusAppExclusions: Boolean = false
+    ) {
+        if (tab == currentTab) return
+        val primaryDestinations = GuardianNavigation.primaryItems.map { it.id }.toSet()
+        if (tab in primaryDestinations) tabBackStack.clear() else tabBackStack.add(currentTab)
         if (tab != "settings") {
-            showTab(tab)
+            showTab(tab, focusLicenseActivation = focusLicenseActivation, focusAppExclusions = focusAppExclusions)
             return
         }
         currentTab = tab
@@ -456,7 +534,7 @@ class MainActivity : Activity() {
         // the same traversal and make the tap appear to have been ignored.
         loadingRoot.postDelayed({
             if (!isFinishing && currentTab == "settings" && loadingRoot.isAttachedToWindow) {
-                showTab("settings")
+                showTab("settings", focusLicenseActivation = focusLicenseActivation, focusAppExclusions = focusAppExclusions)
             }
         }, 96L)
     }
@@ -470,7 +548,7 @@ class MainActivity : Activity() {
         getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE).edit()
             .putString(PREF_LAST_SELECTED_TAB, tab)
             .apply()
-        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "settings-general"
+        focusLicenseActivationOnBuild = focusLicenseActivation && tab == "license-activation"
         focusAppExclusionsOnBuild = focusAppExclusions && tab == "settings"
         licenseKeyInput = null
         startButton = null
@@ -483,6 +561,7 @@ class MainActivity : Activity() {
         androidAdsFilterCheckBox = null
         statsText = null
         recentText = null
+        blockedDomainSummaryText = null
         diagnosticText = null
         selfTestText = null
         upstreamTestText = null
@@ -536,6 +615,7 @@ class MainActivity : Activity() {
             "premium" -> buildPremium(body)
             "updates" -> buildUpdates(body)
             "settings-general" -> buildSettingsGeneral(body)
+            "license-activation" -> buildLicenseActivation(body)
             "settings-support" -> buildSettingsSupport(body)
             "settings-info" -> buildSettingsInfo(body)
             "app-exclusions" -> {
@@ -558,7 +638,7 @@ class MainActivity : Activity() {
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL
             )
         )
-        if (focusLicenseActivationOnBuild && tab == "settings-general") {
+        if (focusLicenseActivationOnBuild && tab == "license-activation") {
             scroll.post {
                 licenseKeyInput?.let { input ->
                     val bounds = android.graphics.Rect()
@@ -671,6 +751,7 @@ class MainActivity : Activity() {
         val headerSpacer = View(this)
         wrap.addView(headerSpacer, LinearLayout.LayoutParams(0, 1, 1f))
         wrap.addView(companyMark, LinearLayout.LayoutParams(dp(124), dp(42)))
+        // Exit is provided in Settings; keep the brand header uncluttered.
         return wrap
     }
 
@@ -824,7 +905,7 @@ class MainActivity : Activity() {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("실시간 DNS 통계", 14f, white, true))
             statsText = text(
-                "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0L)}",
+                "질의 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L))} · 차단 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L))} · 전달 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))} · 실패 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L))} · 무시 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0L))}",
                 12f, accent, true
             ).withTop(10) as TextView
             addView(statsText!!)
@@ -849,7 +930,7 @@ class MainActivity : Activity() {
             addView(text("예상 절약 데이터", 11f, muted, false).withTop(14))
             savedDataValue = text(estimatedSavedDataLabel(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)), 18f, accent, true).withTop(4) as TextView
             addView(savedDataValue!!)
-            addView(text("광고/추적 구분은 도메인 이름 기반 추정 분류입니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치이며 실제 전송량 측정값이 아닙니다.", 10f, muted, false).withTop(8))
+            addView(text("광고·추적은 도메인 이름 기반 추정 분류입니다. 미분류는 필터 목록에 유형 정보가 없거나 도메인 이름만으로 유형을 판별할 수 없는 차단 요청이며, 별도 위협 유형을 뜻하지 않습니다. 최근 DNS 활동에서 실제 도메인을 확인할 수 있습니다. 절약 데이터는 차단 1건당 24KB를 가정한 추정치입니다.", 10f, muted, false).withTop(8))
         }
         body.addView(chartCard.withTop(12))
         body.addView(Button(this).apply {
@@ -922,6 +1003,15 @@ class MainActivity : Activity() {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(recentText!!)
         }.withTop(10))
+        body.addView(text("최근 차단 도메인 빈도 · 최근 DNS 기록 기준", 13f, white, true).withTop(16))
+        blockedDomainSummaryText = text(
+            DnsActivitySummary.recentBlockedDomains(prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null)),
+            11f, muted, false
+        ).withTop(7) as TextView
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            addView(blockedDomainSummaryText!!)
+        }.withTop(8))
         diagnosticText = text(
             "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}",
             11f, muted, false
@@ -1015,8 +1105,7 @@ class MainActivity : Activity() {
                     FilterDistributionSettings.configuredBaseUrl(this),
                     BuildConfig.FILTER_MANIFEST_PUBLIC_KEY
                 ),
-                licenseApiConfigured = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
-                    BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank(),
+                licenseApiConfigured = LicenseApiClient.isConfigured(this),
                 filterUpdateErrorPresent = listOf(
                     FilterListManager.KEY_LAST_ERROR,
                     FilterListManager.KEY_SECURITY_LAST_ERROR,
@@ -1099,7 +1188,7 @@ class MainActivity : Activity() {
             GuardianVpnService.isTunnelActive()
         )
         body.addView(text("보호 설정", 25f, white, true))
-        body.addView(text("실시간 DNS 보호와 주요 차단 기능을 한곳에서 관리합니다.", 13f, muted, false).withTop(5))
+        body.addView(text("VPN 연결 상태와 실제 DNS 보호 범위, 진단 정보를 확인합니다.", 13f, muted, false).withTop(5))
 
         val control = card(panel, 20).apply {
             orientation = LinearLayout.VERTICAL
@@ -1156,87 +1245,18 @@ class MainActivity : Activity() {
         }
         body.addView(control.withTop(18))
 
-        body.addView(text("보호 기능", 18f, white, true).withTop(24))
-        body.addView(text("필터 기능을 켜거나 끄고 업데이트 정책을 조정합니다.", 12f, muted, false).withTop(4))
-
-        val feedback = text("변경한 필터 옵션은 현재 보호 상태에 맞춰 적용됩니다.", 11f, muted, false).withTop(8) as TextView
-        protectionFeedback = feedback
-
-        body.addView(protectionSwitchCard(
-            "자동 필터 업데이트",
-            "네트워크 연결 시 설정한 주기에 따라 광고·추적 필터를 갱신합니다.",
-            prefs.getBoolean(FilterListManager.KEY_AUTO_UPDATE, true)
-        ) { checked ->
-            prefs.edit().putBoolean(FilterListManager.KEY_AUTO_UPDATE, checked).putBoolean("filter_auto_update_user_choice_v1", true).apply()
-            FilterUpdateScheduler.sync(this)
-            feedback.text = if (checked) "자동 업데이트를 켰습니다." else "자동 업데이트를 껐습니다."
-        }.withTop(10))
-
-        val securitySwitch = protectionSwitchCard(
-            "악성코드 · 피싱 보호",
-            "HaGeZi Threat Intelligence 도메인 목록을 추가 적용합니다. 현재 모든 사용자가 사용할 수 있습니다.",
-            prefs.getBoolean(FilterListManager.KEY_SECURITY_ENABLED, false),
-            onToggleCreated = {
-                securityFilterSwitch = it
-                it.isEnabled = !filterUpdateRunning.get()
-            }
-        ) { checked ->
-            prefs.edit().putBoolean(FilterListManager.KEY_SECURITY_ENABLED, checked).apply()
-            if (checked && !FilterListManager.hasCachedSecurityList(this)) {
-                feedback.text = "보안 필터 목록을 다운로드합니다."
-                startFilterUpdate()
-            } else {
-                reloadProtectionRulesIfActive(prefs)
-                feedback.text = if (checked) "악성코드 · 피싱 필터를 활성화했습니다." else "보안 필터를 비활성화했습니다."
-            }
-        }
-        body.addView(securitySwitch.withTop(8))
-
-        body.addView(protectionSwitchCard(
-            "Android 앱 광고 SDK 필터",
-            "AWAvenue 목록으로 알려진 앱 광고 SDK 도메인을 추가 차단합니다. 모든 앱 내부 광고를 제거하는 기능은 아닙니다.",
-            prefs.getBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, true),
-            onToggleCreated = {
-                androidAdsFilterSwitch = it
-                it.isEnabled = !filterUpdateRunning.get()
-            }
-        ) { checked ->
-            prefs.edit().putBoolean(FilterListManager.KEY_ANDROID_ADS_ENABLED, checked).apply()
-            if (checked && !FilterListManager.hasCachedAndroidAdsList(this)) {
-                feedback.text = "Android 광고 SDK 목록을 다운로드합니다."
-                startFilterUpdate()
-            } else {
-                reloadProtectionRulesIfActive(prefs)
-                feedback.text = if (checked) "앱 광고 SDK 필터를 활성화했습니다." else "앱 광고 SDK 필터를 비활성화했습니다."
-            }
-        }.withTop(8))
-
-        body.addView(protectionSwitchCard(
-            "공용 DNS 직접 포착 · 고급",
-            "Cloudflare·Google·Quad9·AdGuard 등 알려진 DNS 서버 IP를 포착합니다. 같은 IP로 가는 비DNS 연결에도 영향을 줄 수 있어 기본값은 꺼져 있습니다.",
-            prefs.getBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, GuardianVpnService.DEFAULT_DIRECT_DNS_CAPTURE)
-        ) { checked ->
-            prefs.edit().putBoolean(GuardianVpnService.KEY_DIRECT_DNS_CAPTURE, checked).apply()
-            feedback.text = if (checked) {
-                "고급 DNS 포착 설정을 저장했습니다. 보호를 중지한 뒤 다시 시작해야 적용됩니다."
-            } else {
-                "시스템 가상 DNS만 포착하도록 설정했습니다. 보호를 중지한 뒤 다시 시작해야 적용됩니다."
-            }
-        }.withTop(8))
-        body.addView(feedback)
-
-        val profile = FilterListManager.selectedProfile(this)
-        body.addView(card(panel, 16).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("현재 필터 프로필", 11f, muted, true))
-            addView(text(profile.label, 15f, white, true).withTop(6))
-            addView(text(filterStatusDescription(), 11f, muted, false).withTop(6))
-            addView(text(
-                "필터 규칙과 앱별 보호 제외는 하단 메뉴에서 각각 관리합니다.",
-                11f, muted, false
-            ).withTop(12))
-        }.withTop(18))
+        body.addView(text("필터 정책 관리", 18f, white, true).withTop(24))
+        body.addView(text(
+            "필터 프로필과 차단 규칙은 설정 → 필터링에서 관리합니다.",
+            12f, muted, false
+        ).withTop(5))
+        body.addView(Button(this).apply {
+            text = "필터링 설정 열기"
+            isAllCaps = false
+            setTextColor(white)
+            background = shape(panel2, 12)
+            setOnClickListener { navigateToTab("rules") }
+        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
 
         body.addView(text("현재 보호 범위", 18f, white, true).withTop(24))
         body.addView(infoRow("DNS 프로토콜", "시스템 가상 DNS의 IPv4 / IPv6 요청", "UDP/53 · TCP/53", accent))
@@ -1361,6 +1381,12 @@ class MainActivity : Activity() {
 
         val developmentBuild = BuildConfig.DEBUG
         val stableUpdaterEnabled = BuildConfig.GUARDIAN_STABLE_UPDATER_ENABLED
+        val channelDescription = when {
+            developmentBuild -> "개발 채널 · 내부 검증 전용입니다. 일반 사용자에게 개발판을 배포하지 않습니다."
+            stableUpdaterEnabled -> "안정 채널 · 공식 정식 Release만 확인합니다."
+            else -> "안정 채널 · Google Play 배포 유형입니다. 앱 업데이트는 Play 스토어가 관리합니다."
+        }
+        body.addView(text(channelDescription, 12f, accent, false).withTop(9))
         val feedback = text(
             when {
                 developmentBuild -> "개발 버전 업데이트 확인 전"
@@ -1375,9 +1401,12 @@ class MainActivity : Activity() {
             text = "업데이트 설치"
             isAllCaps = false
             isEnabled = false
-            setTextColor(bg)
-            background = shape(accent, 12)
+            setTextColor(muted)
+            background = shape(panel2, 12)
+            alpha = 0.78f
+            contentDescription = "검증된 업데이트 파일이 준비되면 활성화되는 업데이트 설치"
         }
+        setUpdateInstallButtonReady(installButton, false)
         val checkButton = Button(this).apply {
             text = if (developmentBuild) "개발 업데이트 확인" else "정식 업데이트 확인"
             isAllCaps = false
@@ -1386,19 +1415,24 @@ class MainActivity : Activity() {
             background = shape(accent, 12)
             setOnClickListener {
                 isEnabled = false
-                installButton.isEnabled = false
+                setUpdateInstallButtonReady(installButton, false)
                 downloaded = null
                 feedback.text = if (developmentBuild) "공식 개발 릴리스 확인 중…" else "공식 정식 릴리스 확인 중…"
                 thread(name = "guardian-app-update-menu") {
+                    var updateStage = "업데이트 확인 준비"
                     try {
                         if (developmentBuild) {
-                            val update = DevUpdateManager.checkForUpdate()
+                            val update = DevUpdateManager.checkForUpdate { stage ->
+                                updateStage = stage
+                                runOnUiThread { feedback.text = stage }
+                            }
                             if (update == null) {
                                 runOnUiThread {
-                                    feedback.text = "현재 설치된 개발 버전이 최신입니다."
+                                    feedback.text = "공개된 개발 릴리스 중 현재 설치 버전보다 새로운 버전이 없습니다."
                                     isEnabled = true
                                 }
                             } else {
+                                updateStage = "새 버전 APK 다운로드 및 검증"
                                 runOnUiThread {
                                     feedback.text = "새 개발 버전 ${update.versionName} 발견 · APK 다운로드 및 검증 중…"
                                 }
@@ -1406,11 +1440,12 @@ class MainActivity : Activity() {
                                 runOnUiThread {
                                     downloaded = apk
                                     feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 개발 서명 인증서 검증 통과."
-                                    installButton.isEnabled = true
-                                    isEnabled = true
+                                    setUpdateInstallButtonReady(installButton, true)
+                                    isEnabled = false
                                 }
                             }
                         } else {
+                            updateStage = "정식 릴리스 확인"
                             val update = GuardianStableUpdateManager.checkForUpdate()
                             if (update == null) {
                                 runOnUiThread {
@@ -1425,16 +1460,22 @@ class MainActivity : Activity() {
                                 runOnUiThread {
                                     downloaded = apk
                                     feedback.text = "${update.versionName} 다운로드 완료 · SHA-256, 패키지 및 운영 서명 인증서 검증 통과."
-                                    installButton.isEnabled = true
-                                    isEnabled = true
+                                    setUpdateInstallButtonReady(installButton, true)
+                                    isEnabled = false
                                 }
                             }
                         }
                     } catch (error: Exception) {
+                        val failureTypes = SafeFailureSummary.diagnosticTypeChain(error)
+                        val failureCode = SafeFailureSummary.codeFor(error)
+                        android.util.Log.e(
+                            "GuardianUpdater",
+                            "Update flow failed at stage='$updateStage'; code=$failureCode; causes=$failureTypes"
+                        )
                         runOnUiThread {
                             downloaded = null
-                            installButton.isEnabled = false
-                            feedback.text = "업데이트 확인 또는 다운로드 실패: " + SafeFailureSummary.describe(error)
+                            setUpdateInstallButtonReady(installButton, false)
+                            feedback.text = "업데이트 실패 [$updateStage]: " + SafeFailureSummary.describe(error)
                             isEnabled = true
                         }
                     }
@@ -1477,8 +1518,49 @@ class MainActivity : Activity() {
         // from real signed-license entitlement. Never use this flag to authorize
         // production features or alter LicenseEntitlementStore.
         val developmentPreview = BuildConfig.DEBUG
-        val apiReady = BuildConfig.LICENSE_API_BASE_URL.isNotBlank() &&
-            BuildConfig.LICENSE_PUBLIC_KEY.isNotBlank()
+        val apiReady = LicenseApiClient.isConfigured(this)
+        val settingsPrefs = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
+        val activationExpandedKey = "settings_pro_activation_expanded_v1"
+        val activationExpanded = settingsPrefs.getBoolean(activationExpandedKey, false)
+        val activationActionLabel = if (proActive || retainedLicense != null) "PRO 라이선스 관리" else "PRO 라이선스 활성화"
+        val activationPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = shape(panel, 14)
+            visibility = if (activationExpanded) View.VISIBLE else View.GONE
+        }
+        val activationButton = Button(this).apply {
+            text = (if (activationExpanded) "⌃  " else "⌄  ") + if (activationExpanded) "$activationActionLabel 접기" else activationActionLabel
+            isAllCaps = false
+            gravity = Gravity.CENTER_VERTICAL
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(bg)
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(accent, Color.rgb(48, 174, 154))).apply {
+                cornerRadius = dp(13).toFloat()
+                setStroke(dp(1), Color.rgb(111, 239, 201))
+            }
+            contentDescription = if (activationExpanded) "$activationActionLabel 내용 접기" else "$activationActionLabel 내용 펼치기"
+            setOnClickListener {
+                val expanding = activationPanel.visibility != View.VISIBLE
+                settingsPrefs.edit().putBoolean(activationExpandedKey, expanding).apply()
+                if (expanding && activationPanel.childCount == 0) {
+                    buildLicenseActivation(activationPanel, embedded = true)
+                }
+                animateSettingsPanel(activationPanel, expanding)
+                if (expanding) {
+                    window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                    activationPanel.post {
+                        licenseKeyInput?.let { input ->
+                            input.requestFocus()
+                            val keyboard = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                            keyboard.showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                        }
+                    }
+                }
+                text = (if (expanding) "⌃  " else "⌄  ") + if (expanding) "$activationActionLabel 접기" else activationActionLabel
+                contentDescription = if (expanding) "$activationActionLabel 내용 접기" else "$activationActionLabel 내용 펼치기"
+            }
+        }
 
         body.addView(text("Guardian Premium", 26f, white, true))
         body.addView(text(
@@ -1520,17 +1602,13 @@ class MainActivity : Activity() {
                     .format(Date(entitlement.expiresAt * 1000L))
                 addView(text("라이선스 유효 기간 · $expiry 까지", 11f, muted, false).withTop(6))
             }
-            addView(Button(this@MainActivity).apply {
-                text = if (proActive || retainedLicense != null) "PRO 라이선스 관리" else "PRO 라이선스 활성화"
-                isAllCaps = false
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor(bg)
-                background = shape(accent, 12)
-                setOnClickListener {
-                    showTab("settings-general", focusLicenseActivation = true)
-                }
-            }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
+            addView(activationButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
         }.withTop(16))
+
+        if (activationExpanded && activationPanel.childCount == 0) {
+            buildLicenseActivation(activationPanel, embedded = true)
+        }
+        body.addView(activationPanel, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
 
         body.addView(text("멤버십 상태", 18f, white, true).withTop(22))
         body.addView(infoRow(
@@ -1567,6 +1645,13 @@ class MainActivity : Activity() {
             ).withTop(6))
             addView(text("검사 엔진 연동 필요", 10f, Color.rgb(238, 176, 82), true).withTop(9))
         }.withTop(10))
+        body.addView(Button(this).apply {
+            text = "URL 위험 신호 검사"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 12)
+            setOnClickListener { showPremiumUrlRiskScan() }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
         body.addView(card(panel, 16).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
             addView(text("서명 기반 PRO 라이선스", 15f, white, true))
@@ -1585,8 +1670,8 @@ class MainActivity : Activity() {
             Triple("앱별 세밀한 보호 제어", "앱 단위 보호 제외와 예외 정책을 관리하는 기능", "현재 개발 중 · 기기별 VPN 검증 필요"),
             Triple("실시간 위협·DNS 활동 분석", "차단 이벤트와 DNS 요청을 분류해 활동 내역으로 제공", "기본 DNS 처리 존재 · 고급 분석 개발 필요"),
             Triple("보안 프로필 및 자동화", "상황별 보호 정책과 자동 전환을 관리하는 기능", "화면 미리보기 · 자동화 엔진 미구현"),
-            Triple("피싱 링크·앱 코드 검사", "의심 URL과 앱 코드의 위험도를 검사하는 기능", "검사 엔진 미연결 · 실제 탐지 안 함"),
-            Triple("프리미엄 리포트 및 통계", "기간별 차단량과 보호 상태를 요약하는 기능", "리포트 엔진 개발 필요")
+            Triple("피싱 링크·앱 코드 검사", "의심 URL과 앱 코드의 위험도를 검사하는 기능", "기기 내 URL 휴리스틱 검사 연결 · 앱 코드 분석 미지원"),
+            Triple("프리미엄 리포트 및 통계", "누적 차단량과 보호 상태를 요약하고 개인정보 없이 내보내는 기능", "누적 DNS 통계 리포트 구현 · 기간별 집계는 확장 예정")
         )
         previewFeatures.forEach { (name, description, status) ->
             body.addView(card(panel, 14).apply {
@@ -1594,7 +1679,60 @@ class MainActivity : Activity() {
                 addView(text(name, 14f, white, true))
                 addView(text(description, 11f, muted, false).withTop(5))
                 addView(text(status, 10f, Color.rgb(238, 176, 82), true).withTop(8))
+                if (name == "피싱 링크·앱 코드 검사") {
+                    isClickable = true
+                    setOnClickListener { showPremiumUrlRiskScan() }
+                    contentDescription = "URL 위험 신호 검사 열기"
+                }
             }.withTop(8))
+        }
+
+        if (proActive) {
+            val reportPrefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+            val reportSnapshot = PremiumReportSnapshot(
+                totalQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L),
+                blockedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L),
+                forwardedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L),
+                failedQueries = reportPrefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L),
+                adBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
+                trackerBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
+                otherBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L),
+                protectionActive = GuardianVpnService.isTunnelActive()
+            )
+            val reportText = PremiumReportBuilder.build(reportSnapshot, System.currentTimeMillis())
+            body.addView(card(panel, 16).apply {
+                setPadding(dp(15), dp(15), dp(15), dp(15))
+                addView(text("프리미엄 DNS 리포트", 15f, white, true))
+                addView(text(
+                    "이 기기에서 수집한 누적 DNS 통계를 기반으로 생성합니다. 방문 도메인과 사용자 규칙은 포함하지 않습니다.",
+                    11f, muted, false
+                ).withTop(5))
+                addView(Button(this@MainActivity).apply {
+                    text = "리포트 복사"
+                    isAllCaps = false
+                    setTextColor(bg)
+                    background = shape(accent, 12)
+                    setOnClickListener {
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian Premium DNS Report", reportText))
+                        Toast.makeText(this@MainActivity, "개인정보를 제외한 DNS 리포트를 복사했습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(12) })
+                addView(Button(this@MainActivity).apply {
+                    text = "리포트 공유"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(panel2, 12)
+                    setOnClickListener {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "Guardian Premium DNS 보호 리포트")
+                            putExtra(Intent.EXTRA_TEXT, reportText)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "DNS 리포트 공유"))
+                    }
+                }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            }.withTop(14))
         }
 
         body.addView(text(
@@ -1603,41 +1741,285 @@ class MainActivity : Activity() {
         ).withTop(14))
     }
 
-    private fun buildSettings(body: LinearLayout) {
-        body.addView(text("설정", 25f, white, true))
-        body.addView(text("기능별 설정을 선택해 관리합니다.", 13f, muted, false).withTop(5))
-        val items = listOf(
-            Triple("settings-general", "일반", "프로그램 업데이트와 운영 환경"),
-            Triple("rules", "필터링", "필터 프로필과 사용자 차단·허용 규칙"),
-            Triple("premium", GuardianNavigation.LICENSE_PREMIUM_LABEL, "이용 기간, 라이선스 활성화와 허용 기기"),
-            Triple("settings-support", "고객 지원", "자주 묻는 질문과 오류·문의 접수"),
-            Triple("settings-info", "정보", "앱 버전과 개인정보·제품 정보")
-        )
-        items.forEach { (target, title, description) ->
-            body.addView(card(panel, 14).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(15), dp(14), dp(15), dp(14))
-                addView(text(title, 15f, white, true))
-                addView(text(description, 11f, muted, false).withTop(4))
-                setOnClickListener { showTab(target) }
-                isClickable = true
-                isFocusable = true
-            }.withTop(9))
+
+    private fun showPremiumUrlRiskScan() {
+        // PRO URL analysis must never be available in a production FREE build.
+        // DEBUG preview is intentionally retained for development and does not grant entitlement.
+        if (LicenseEntitlementStore.current(this) == null && !BuildConfig.DEBUG) {
+            Toast.makeText(this, "URL 위험 신호 검사는 PRO 라이선스 활성화 후 이용할 수 있습니다.", Toast.LENGTH_LONG).show()
+            showTab("license-activation")
+            return
         }
-        body.addView(Button(this).apply {
-            text = "종료"
-            isAllCaps = false
-            setTextColor(white)
-            background = shape(panel2, 12)
-            setOnClickListener {
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Guardian 종료")
-                    .setMessage("앱을 종료하시겠습니까?\n\n이미 실행 중인 DNS 보호는 별도로 중지하지 않으면 계속 유지됩니다.")
-                    .setNegativeButton("취소", null)
-                    .setPositiveButton("종료") { _, _ -> finish() }
+        val input = EditText(this).apply {
+            hint = "https://example.com"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine(true)
+        }
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(4))
+            addView(input, LinearLayout.LayoutParams(-1, dp(52)))
+            addView(text(
+                "기기 내 규칙 기반 1차 점검입니다. 입력한 주소는 외부 서버로 전송하지 않습니다. 실시간 평판 조회, 악성코드 판정 또는 자동 차단 기능은 아닙니다.",
+                11f, muted, false
+            ).withTop(8))
+        }
+        AlertDialog.Builder(this)
+            .setTitle("URL 위험 신호 검사")
+            .setView(container)
+            .setNegativeButton("취소", null)
+            .setPositiveButton("검사") { _, _ ->
+                val result = PremiumUrlRiskScanner.scan(input.text?.toString().orEmpty())
+                val level = when (result.level) {
+                    UrlRiskLevel.LOW -> "낮음"
+                    UrlRiskLevel.REVIEW -> "주의"
+                    UrlRiskLevel.HIGH -> "높음"
+                }
+                val details = buildString {
+                    appendLine("위험 신호 수준: $level")
+                    result.host?.let { appendLine("호스트: $it") }
+                    if (result.indicators.isEmpty()) appendLine("탐지된 휴리스틱 위험 신호가 없습니다.")
+                    else result.indicators.forEach { appendLine("• $it") }
+                    appendLine()
+                    append("이 결과는 휴리스틱 참고 정보이며 안전을 보증하지 않습니다.")
+                }
+                AlertDialog.Builder(this)
+                    .setTitle("URL 검사 결과")
+                    .setMessage(details)
+                    .setNeutralButton("결과 복사") { _, _ ->
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Guardian URL Scan", details))
+                        Toast.makeText(this, "검사 결과를 복사했습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton("공유") { _, _ ->
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "Guardian URL 위험 신호 검사")
+                            putExtra(Intent.EXTRA_TEXT, details)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "검사 결과 공유"))
+                    }
+                    .setPositiveButton("확인", null)
                     .show()
             }
-        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(18) })
+            .show()
+    }
+
+    private fun buildSettings(body: LinearLayout) {
+        val sections = listOf(
+            Triple("general", "⚙", "일반"),
+            Triple("filtering", "⛨", "필터링"),
+            Triple("sources", "⌫", "소스 삭제"),
+            Triple("premium", "◇", "PRO"),
+            Triple("support", "?", "지원"),
+            Triple("info", "ⓘ", "정보"),
+            Triple("exit", "⏻", "종료")
+        )
+        val prefs = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
+        val selected = prefs.getString("settings_selected_section_v1", "general")
+            ?.takeIf { value -> sections.any { it.first == value && it.first != "exit" } } ?: "general"
+
+        body.addView(text("설정", 25f, white, true))
+        body.addView(text("왼쪽에서 항목을 선택하면 오른쪽에 세부 설정이 표시됩니다.", 12f, muted, false).withTop(4))
+
+        val workspace = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.TOP
+        }
+        val rail = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(3), dp(8), dp(3), dp(8))
+            background = shape(panel, 14)
+        }
+        sections.forEach { (key, glyph, label) ->
+            val active = key == selected
+            rail.addView(card(
+                if (active) Color.rgb(39, 83, 82)
+                else if (key == "exit") Color.rgb(76, 39, 49)
+                else panel, 11
+            ).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(2), dp(8), dp(2), dp(8))
+                minimumHeight = dp(56)
+                addView(text(glyph, 21f, if (active) accent else if (key == "exit") red else white, true).apply {
+                    gravity = Gravity.CENTER
+                    contentDescription = label
+                })
+                addView(text(label, 9f, if (active) accent else if (key == "exit") red else muted, active || key == "exit").apply {
+                    gravity = Gravity.CENTER
+                }.withTop(2))
+                isClickable = true
+                isFocusable = true
+                contentDescription = "$label 설정"
+                setOnClickListener {
+                    if (key == "exit") {
+                        showExitConfirmation()
+                    } else {
+                        prefs.edit().putString("settings_selected_section_v1", key).apply()
+                        showTab("settings")
+                    }
+                }
+            }.withTop(5), LinearLayout.LayoutParams(-1, dp(58)))
+        }
+        workspace.addView(rail, LinearLayout.LayoutParams(dp(62), -2))
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = shape(panel, 14)
+        }
+        when (selected) {
+            "filtering" -> buildSettingsFiltering(content)
+            "sources" -> buildSettingsSources(content)
+            "premium" -> buildPremium(content)
+            "support" -> buildSettingsSupport(content)
+            "info" -> buildSettingsInfo(content)
+            else -> buildSettingsGeneral(content)
+        }
+        workspace.addView(content, LinearLayout.LayoutParams(0, -2, 1f).apply {
+            leftMargin = dp(8)
+        })
+        body.addView(workspace, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+
+    }
+
+    private fun buildSettingsFiltering(body: LinearLayout) {
+        body.addView(text("필터링", 20f, white, true))
+        body.addView(text(
+            "이 화면에는 사용자가 직접 등록한 차단·허용 규칙 전체를 표시합니다. 보호 상태와 공식 필터 소스, 앱별 제외는 각각 전용 메뉴에서 관리합니다.",
+            11f, muted, false
+        ).withTop(4))
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        fun savedRules(key: String): List<String> =
+            (prefs.getString(key, "") ?: "")
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .distinct()
+                .toList()
+
+        fun addRuleGroup(title: String, rules: List<String>, emptyMessage: String) {
+            body.addView(card(panel, 14).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(13), dp(13), dp(13), dp(13))
+                val heading = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(text(title, 14f, white, true), LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(text("${formatCount(rules.size.toLong())}개", 11f, accent, true))
+                }
+                addView(heading)
+                if (rules.isEmpty()) {
+                    addView(text(emptyMessage, 11f, muted, false).withTop(9))
+                } else {
+                    val rows = LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                    }
+                    rules.forEachIndexed { index, rule ->
+                        val ruleRow = LinearLayout(this@MainActivity).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            gravity = Gravity.CENTER_VERTICAL
+                            setPadding(0, dp(7), 0, dp(7))
+                            addView(text("${index + 1}.", 10f, muted, false),
+                                LinearLayout.LayoutParams(dp(28), -2))
+                            addView(text(rule, 12f, white, false),
+                                LinearLayout.LayoutParams(0, -2, 1f))
+                        }
+                        rows.addView(ruleRow)
+                        if (index < rules.lastIndex) {
+                            rows.addView(View(this@MainActivity).apply {
+                                setBackgroundColor(Color.rgb(66, 70, 77))
+                            }, LinearLayout.LayoutParams(-1, dp(1)))
+                        }
+                    }
+                    addView(rows.withTop(6))
+                }
+            }.withTop(10))
+        }
+
+        addRuleGroup(
+            "사용자 차단 규칙",
+            savedRules(GuardianVpnService.KEY_USER_BLOCK),
+            "등록된 사용자 차단 규칙이 없습니다."
+        )
+        addRuleGroup(
+            "사용자 허용 규칙",
+            savedRules(GuardianVpnService.KEY_USER_ALLOW),
+            "등록된 사용자 허용 규칙이 없습니다."
+        )
+        body.addView(Button(this).apply {
+            text = "전체 필터 규칙 편집"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 12)
+            contentDescription = "전체 차단 및 허용 규칙 편집"
+            setOnClickListener { navigateToTab("rules") }
+        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(12) })
+    }
+
+    private fun buildSettingsSources(body: LinearLayout) {
+        val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
+        body.addView(text("보호 및 필터 소스 삭제", 20f, white, true))
+        body.addView(text(
+            "다운로드한 광고·추적, 보안, Android 앱 광고 필터 캐시를 삭제합니다. 앱에 내장된 기본 DNS 차단 규칙과 사용자 차단·허용 규칙은 삭제하지 않습니다.",
+            11f, muted, false
+        ).withTop(5))
+
+        val sources = listOf(
+            Triple("광고·추적 필터", FilterListManager.hasCachedList(this), FilterListManager.cachedBlockCount(this)),
+            Triple("악성코드·피싱 필터", FilterListManager.hasCachedSecurityList(this), FilterListManager.cachedSecurityBlockCount(this)),
+            Triple("Android 앱 광고 필터", FilterListManager.hasCachedAndroidAdsList(this), FilterListManager.cachedAndroidAdsBlockCount(this))
+        )
+        sources.forEach { (label, available, count) ->
+            body.addView(infoRow(
+                label,
+                if (available) "다운로드 캐시 사용 가능" else "다운로드 캐시 없음",
+                if (available) "${formatCount(count.toLong())}개 규칙" else "미설치",
+                if (available) accent else muted
+            ).withTop(8))
+        }
+        body.addView(card(panel2, 12).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            addView(text("삭제 후 보호 동작", 13f, white, true))
+            addView(text(
+                "기본 내장 DNS 규칙은 계속 적용됩니다. 선택형 보안·앱 광고 소스는 자동으로 꺼지며, 광고·추적 필터는 다음 업데이트 때 다시 내려받을 수 있습니다.",
+                10f, muted, false
+            ).withTop(5))
+        }.withTop(14))
+        body.addView(Button(this).apply {
+            text = "다운로드 필터 소스 모두 삭제"
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            background = shape(Color.rgb(145, 54, 61), 12)
+            contentDescription = "다운로드된 필터 소스 캐시 삭제"
+            setOnClickListener {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("다운로드 필터 소스를 삭제할까요?")
+                    .setMessage("다운로드한 필터 캐시만 삭제합니다. 내장 기본 DNS 규칙과 사용자 규칙은 유지됩니다. 보호가 실행 중이면 기본 규칙으로 다시 적용합니다.")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("삭제") { _, _ ->
+                        try {
+                            val removedBytes = FilterListManager.clearDownloadedSources(this@MainActivity)
+                            reloadProtectionRulesIfActive(prefs)
+                            Toast.makeText(
+                                this@MainActivity,
+                                "다운로드 필터 소스를 삭제했습니다. (${removedBytes / 1024}KB)",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            showTab("settings")
+                        } catch (error: Exception) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "삭제 실패: ${error.message ?: error.javaClass.simpleName}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                    .show()
+            }
+        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(16) })
     }
 
     private fun buildSettingsSupport(body: LinearLayout) {
@@ -1652,23 +2034,207 @@ class MainActivity : Activity() {
         body.addView(infoRow("버전 코드", "Android 업데이트 식별 번호", BuildConfig.VERSION_CODE.toString(), accent))
         body.addView(infoRow("데이터 저장", "사용자 규칙은 기기 내부에 저장", "로컬", accent))
         body.addView(infoRow("개인정보", "외부 계정 및 분석 SDK 미사용", "로컬 우선", accent))
+        body.addView(infoRow("앱 업데이트·배포 URL", "Guardian 공식 APK 및 소스 배포", "GitHub Releases", accent).apply {
+            isClickable = true
+            setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/justinhblee-prog/guardian/releases"))) }
+        })
+        body.addView(infoRow("필터 목록 배포 URL", "자동 갱신되는 필터 데이터 저장소", "GitHub", accent).apply {
+            isClickable = true
+            setOnClickListener { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/justinhblee-prog/guardian/tree/guardian-filter-data"))) }
+        })
+        body.addView(card(panel, 14).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(14), dp(15), dp(14))
+            addView(text("회사 및 개발자 정보", 14f, white, true))
+            addView(text("(주)유진컨설팅", 14f, accent, true).withTop(9))
+            addView(text("제품: Guardian AdBlock", 12f, white, false).withTop(5))
+            addView(text("제작자: 이학범", 12f, white, false).withTop(4))
+            addView(text("연락처: 010-5201-3121", 12f, muted, false).withTop(4))
+            addView(text("문의 및 지원은 지원 메뉴의 고객 지원 센터를 이용해 주세요.", 11f, muted, false).withTop(8))
+        }.withTop(18))
+    }
+
+    private fun buildLicenseActivation(body: LinearLayout, embedded: Boolean = false) {
+        if (!embedded) {
+            body.addView(Button(this).apply {
+                text = "←  Premium으로 돌아가기"
+                isAllCaps = false
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                setTextColor(white)
+                background = shape(panel2, 12)
+                setOnClickListener {
+                    if (tabBackStack.isNotEmpty()) {
+                        val previous = tabBackStack.removeAt(tabBackStack.lastIndex)
+                        showTab(previous)
+                    } else {
+                        showTab("premium")
+                    }
+                }
+            }, LinearLayout.LayoutParams(-1, dp(44)).apply { bottomMargin = dp(16) })
+        }
+        body.addView(text("PRO 라이선스 활성화", 25f, white, true))
+        body.addView(text("발급받은 라이선스 키를 이 기기에 등록하고 서버 서명 토큰을 확인합니다.", 13f, muted, false).withTop(5))
+        val verifiedLicense = LicenseEntitlementStore.current(this)
+        // Keep an expired-but-valid signed token available for device-slot release.
+        // It must never be presented as an active Pro entitlement.
+        val releasableLicense = LicenseEntitlementStore.currentForRefresh(this)
+        body.addView(infoRow(
+            "라이선스",
+            when {
+                verifiedLicense != null -> "서버 서명 및 이 기기 등록을 확인했습니다"
+                releasableLicense != null -> "라이선스가 만료되었습니다 · 이 기기 등록 해제 가능"
+                else -> "서명 라이선스 미등록 · 무료 보호 기능 사용 중"
+            },
+            if (verifiedLicense != null) "PRO" else "FREE",
+            if (verifiedLicense != null) accent else muted
+        ))
+        
+        body.addView(card(panel, 14).apply {
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            addView(text("라이선스 키 입력", 15f, white, true))
+            addView(text(
+                "발급받은 라이선스 키를 입력하면 서버에서 기기 등록 후 서명 토큰을 발급합니다.",
+                11f, muted, false
+            ).withTop(5))
+            val licenseKeyInput = EditText(this@MainActivity).apply {
+                hint = "GDN-XXXX-XXXX-..."
+                contentDescription = "PRO 라이선스 활성화 코드 입력"
+                setHintTextColor(muted)
+                setTextColor(white)
+                textSize = 13f
+                setSingleLine(true)
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                background = shape(panel2, 11)
+            }
+            this@MainActivity.licenseKeyInput = licenseKeyInput
+            addView(licenseKeyInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
+            val licenseFeedback = text(
+                if (!LicenseApiClient.isConfigured(this@MainActivity)) "운영 라이선스 HTTPS 주소 또는 앱 내 RSA 검증 공개키가 올바르게 설정되지 않았습니다."
+                else "라이선스 키는 서버에서 확인하며 앱에는 원문을 저장하지 않습니다.",
+                10f, muted, false
+            ).withTop(8) as TextView
+            addView(licenseFeedback)
+            val activateButton = Button(this@MainActivity).apply {
+                text = "라이선스 활성화"
+                isAllCaps = false
+                setTextColor(bg)
+                background = shape(accent, 12)
+                setOnClickListener {
+                    val key = licenseKeyInput.text.toString().trim()
+                    if (key.isBlank()) {
+                        licenseFeedback.text = "라이선스 키를 입력하세요."
+                        return@setOnClickListener
+                    }
+                    isEnabled = false
+                    licenseFeedback.text = "서버에 라이선스 활성화를 요청하고 있습니다."
+                    thread {
+                        try {
+                            LicenseApiClient.activate(this@MainActivity, key, BuildConfig.VERSION_NAME)
+                            runOnUiThread { showPremiumAfterLicenseAction(embedded) }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                licenseFeedback.text = "라이선스 활성화 실패: ${SafeFailureSummary.describe(error)}"
+                                isEnabled = true
+                            }
+                        }
+                    }
+                }
+            }
+            addView(activateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
+            if (releasableLicense != null) {
+                val refreshButton = Button(this@MainActivity).apply {
+                    text = "라이선스 상태 갱신"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(panel2, 12)
+                    setOnClickListener {
+                        isEnabled = false
+                        licenseFeedback.text = "서버에서 라이선스 상태를 확인하고 있습니다."
+                        thread {
+                            try {
+                                LicenseApiClient.refresh(this@MainActivity)
+                                runOnUiThread { showPremiumAfterLicenseAction(embedded) }
+                            } catch (error: Exception) {
+                                runOnUiThread {
+                                    if (error is LicenseApiException && error.invalidatesEntitlement) {
+                                        // Rebuild settings after the local signed token was cleared.
+                                        showPremiumAfterLicenseAction(embedded)
+                                    } else {
+                                        licenseFeedback.text = "라이선스 갱신 실패: ${SafeFailureSummary.describe(error)}"
+                                        isEnabled = true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                addView(refreshButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+                val deactivateButton = Button(this@MainActivity).apply {
+                    text = "이 기기 라이선스 해제"
+                    isAllCaps = false
+                    setTextColor(white)
+                    background = shape(panel2, 12)
+                    setOnClickListener {
+                        isEnabled = false
+                        thread {
+                            try {
+                                LicenseApiClient.deactivate(this@MainActivity)
+                                runOnUiThread { showPremiumAfterLicenseAction(embedded) }
+                            } catch (error: Exception) {
+                                runOnUiThread {
+                                    licenseFeedback.text = "기기 등록 해제 실패: ${SafeFailureSummary.describe(error)}"
+                                    isEnabled = true
+                                }
+                            }
+                        }
+                    }
+                }
+                addView(deactivateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
+            }
+        }.withTop(12))
+        
     }
 
     private fun buildSettingsGeneral(body: LinearLayout) {
         body.addView(text("일반", 25f, white, true))
         body.addView(text("Guardian 앱 업데이트와 운영 서버 연결을 관리합니다.", 13f, muted, false).withTop(5))
-        body.addView(Button(this).apply {
-            text = "프로그램 업데이트 확인"
+        val settingsPrefs = getSharedPreferences(UI_STATE_PREFS, MODE_PRIVATE)
+        val updateExpandedKey = "settings_general_updates_expanded_v1"
+        val updateExpanded = settingsPrefs.getBoolean(updateExpandedKey, false)
+        val updatePanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = shape(panel, 14)
+            visibility = if (updateExpanded) View.VISIBLE else View.GONE
+        }
+        if (updateExpanded) buildUpdates(updatePanel)
+        val updateButton = Button(this).apply {
+            text = (if (updateExpanded) "⌃  " else "⌄  ") + if (updateExpanded) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
             isAllCaps = false
+            gravity = Gravity.CENTER_VERTICAL
             setTextColor(bg)
-            background = shape(accent, 12)
-            setOnClickListener { showTab("updates") }
-        }, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(14) })
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(accent, Color.rgb(48, 174, 154))).apply {
+                cornerRadius = dp(13).toFloat()
+                setStroke(dp(1), Color.rgb(111, 239, 201))
+            }
+            contentDescription = if (updateExpanded) "프로그램 업데이트 확인 내용 접기" else "프로그램 업데이트 확인 내용 펼치기"
+            setOnClickListener {
+                val expanding = updatePanel.visibility != View.VISIBLE
+                settingsPrefs.edit().putBoolean(updateExpandedKey, expanding).apply()
+                if (expanding && updatePanel.childCount == 0) buildUpdates(updatePanel)
+                animateSettingsPanel(updatePanel, expanding)
+                text = (if (expanding) "⌃  " else "⌄  ") + if (expanding) "프로그램 업데이트 확인 접기" else "프로그램 업데이트 확인"
+                contentDescription = if (expanding) "프로그램 업데이트 확인 내용 접기" else "프로그램 업데이트 확인 내용 펼치기"
+            }
+        }
+        body.addView(updateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(14) })
+        body.addView(updatePanel, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         body.addView(card(panel, 14).apply {
             setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("운영 서버 주소 (노트북)", 15f, white, true))
+            addView(text("라이선스 서버 주소 (고급 설정)", 15f, white, true))
             addView(text(
-                "노트북에서 Guardian 운영서버를 실행한 뒤 HTTPS 주소를 입력하세요. 주소가 바뀌면 여기서 변경할 수 있습니다.",
+                "기본 클라우드 라이선스 서버를 사용합니다. 별도 자체 호스팅 서버를 운영하는 경우에만 HTTPS 주소를 변경하세요. 개인 노트북을 계속 켜둘 필요는 없습니다.",
                 11f, muted, false
             ).withTop(5))
             val serverUrlInput = EditText(this@MainActivity).apply {
@@ -1766,132 +2332,6 @@ class MainActivity : Activity() {
                     filterServerFeedback.text = "빌드 기본 주소로 되돌렸습니다."
                 }
             }, LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(6) })
-        }.withTop(12))
-        body.addView(card(panel, 14).apply {
-            setPadding(dp(15), dp(13), dp(15), dp(13))
-            addView(text("제작자 및 개발사", 13f, white, true))
-            addView(text("(주)유진컨설팅", 13f, accent, true).withTop(8))
-            addView(text("제작자: 이학범", 12f, white, false).withTop(4))
-            addView(text("연락처: 010-5201-3121", 12f, muted, false).withTop(3))
-        }.withTop(12))
-        val verifiedLicense = LicenseEntitlementStore.current(this)
-        // Keep an expired-but-valid signed token available for device-slot release.
-        // It must never be presented as an active Pro entitlement.
-        val releasableLicense = LicenseEntitlementStore.currentForRefresh(this)
-        body.addView(infoRow(
-            "라이선스",
-            when {
-                verifiedLicense != null -> "서버 서명 및 이 기기 등록을 확인했습니다"
-                releasableLicense != null -> "라이선스가 만료되었습니다 · 이 기기 등록 해제 가능"
-                else -> "서명 라이선스 미등록 · 무료 보호 기능 사용 중"
-            },
-            if (verifiedLicense != null) "PRO" else "FREE",
-            if (verifiedLicense != null) accent else muted
-        ))
-
-        body.addView(card(panel, 14).apply {
-            setPadding(dp(15), dp(15), dp(15), dp(15))
-            addView(text("PRO 라이선스 활성화", 15f, white, true))
-            addView(text(
-                "발급받은 라이선스 키를 입력하면 서버에서 기기 등록 후 서명 토큰을 발급합니다.",
-                11f, muted, false
-            ).withTop(5))
-            val licenseKeyInput = EditText(this@MainActivity).apply {
-                hint = "GDN-XXXX-XXXX-..."
-                contentDescription = "PRO 라이선스 활성화 코드 입력"
-                setHintTextColor(muted)
-                setTextColor(white)
-                textSize = 13f
-                setSingleLine(true)
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                setPadding(dp(12), dp(12), dp(12), dp(12))
-                background = shape(panel2, 11)
-            }
-            this@MainActivity.licenseKeyInput = licenseKeyInput
-            addView(licenseKeyInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(12) })
-            val licenseFeedback = text(
-                if (LicenseApiClient.configuredBaseUrl(this@MainActivity).isBlank()) "운영 라이선스 서버 주소가 아직 설정되지 않았습니다."
-                else "라이선스 키는 서버에서 확인하며 앱에는 원문을 저장하지 않습니다.",
-                10f, muted, false
-            ).withTop(8) as TextView
-            addView(licenseFeedback)
-            val activateButton = Button(this@MainActivity).apply {
-                text = "라이선스 활성화"
-                isAllCaps = false
-                setTextColor(bg)
-                background = shape(accent, 12)
-                setOnClickListener {
-                    val key = licenseKeyInput.text.toString().trim()
-                    if (key.isBlank()) {
-                        licenseFeedback.text = "라이선스 키를 입력하세요."
-                        return@setOnClickListener
-                    }
-                    isEnabled = false
-                    licenseFeedback.text = "서버에 라이선스 활성화를 요청하고 있습니다."
-                    thread {
-                        try {
-                            LicenseApiClient.activate(this@MainActivity, key, BuildConfig.VERSION_NAME)
-                            runOnUiThread { showTab("premium") }
-                        } catch (error: Exception) {
-                            runOnUiThread {
-                                licenseFeedback.text = "라이선스 활성화 실패: ${SafeFailureSummary.describe(error)}"
-                                isEnabled = true
-                            }
-                        }
-                    }
-                }
-            }
-            addView(activateButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
-            if (releasableLicense != null) {
-                val refreshButton = Button(this@MainActivity).apply {
-                    text = "라이선스 상태 갱신"
-                    isAllCaps = false
-                    setTextColor(white)
-                    background = shape(panel2, 12)
-                    setOnClickListener {
-                        isEnabled = false
-                        licenseFeedback.text = "서버에서 라이선스 상태를 확인하고 있습니다."
-                        thread {
-                            try {
-                                LicenseApiClient.refresh(this@MainActivity)
-                                runOnUiThread { showTab("premium") }
-                            } catch (error: Exception) {
-                                runOnUiThread {
-                                    if (error is LicenseApiException && error.invalidatesEntitlement) {
-                                        // Rebuild settings after the local signed token was cleared.
-                                        showTab("premium")
-                                    } else {
-                                        licenseFeedback.text = "라이선스 갱신 실패: ${SafeFailureSummary.describe(error)}"
-                                        isEnabled = true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                addView(refreshButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-                val deactivateButton = Button(this@MainActivity).apply {
-                    text = "이 기기 라이선스 해제"
-                    isAllCaps = false
-                    setTextColor(white)
-                    background = shape(panel2, 12)
-                    setOnClickListener {
-                        isEnabled = false
-                        thread {
-                            try {
-                                LicenseApiClient.deactivate(this@MainActivity)
-                                runOnUiThread { showTab("premium") }
-                            } catch (error: Exception) {
-                                runOnUiThread {
-                                    licenseFeedback.text = "기기 등록 해제 실패: ${SafeFailureSummary.describe(error)}"
-                                    isEnabled = true
-                                }
-                            }
-                        }
-                    }
-                }
-                addView(deactivateButton, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(8) })
-            }
         }.withTop(12))
         body.addView(text("DNS 업스트림 서버 · 암호화 연결", 18f, white, true).withTop(24))
         body.addView(text("차단되지 않은 DNS 질의를 전달할 서버를 선택합니다.", 12f, muted, false).withTop(5))
@@ -2137,35 +2577,51 @@ class MainActivity : Activity() {
     }
 
     private fun showSupportFaq() {
-        val questions = arrayOf(
-            "광고 차단이 되지 않아요",
-            "VPN 보호가 연결되지 않아요",
-            "특정 앱을 보호에서 제외하고 싶어요",
-            "Samsung Wallet에서 VPN 경고가 나와요",
-            "필터 업데이트는 어떻게 하나요?",
-            "Pro 라이선스는 어떻게 활성화하나요?",
-            "기기 변경 또는 라이선스 만료"
-        )
+        val questions = arrayOf("광고 차단이 되지 않아요", "VPN 보호가 연결되지 않아요", "특정 앱을 보호에서 제외하고 싶어요", "Samsung Wallet에서 VPN 경고가 나와요", "필터 업데이트는 어떻게 하나요?", "Pro 라이선스는 어떻게 활성화하나요?", "기기 변경 또는 라이선스 만료")
         val answers = arrayOf(
-            "Guardian은 DNS 기반 광고·추적 도메인을 차단합니다. 앱 내부 광고, 자체 DNS 암호화(DoH/DoT), 이미 내려받은 콘텐츠 광고는 차단되지 않을 수 있습니다. 보호 상태와 필터 업데이트 시각을 확인하세요.",
-            "Android VPN 권한을 허용하고 다른 VPN 앱과 충돌하는지 확인하세요. 계속 실패하면 오류 신고에 보호 진단 정보를 직접 첨부해 주세요.",
-            "설정의 앱 제외에서 앱 이름 또는 패키지명을 검색하고 선택한 뒤 변경사항 저장을 누르세요. 저장 후 VPN에 적용된 앱 수와 실패 수를 확인하세요.",
-            "앱별 트래픽 제외와 기기 전체 VPN 연결 해제는 다릅니다. 금융 앱이 VPN 연결 자체를 감지하면 자동 일시중지 호환성 설정을 사용해야 할 수 있으며, 일시중지 중에는 다른 앱도 VPN DNS 보호를 받지 못합니다.",
-            "필터 규칙 또는 보호 설정에서 필터 업데이트를 실행하세요. 자동 업데이트는 설정한 주기에 따라 동작합니다.",
-            "프리미엄 화면에서 발급받은 라이선스 키를 입력하고 활성화하세요. 활성화에는 운영 라이선스 서버 연결이 필요합니다.",
-            "라이선스 관리자는 등록 기기를 해제할 수 있습니다. 만료·정지된 키는 관리자에게 갱신 또는 상태 확인을 요청하세요."
+            "먼저 홈 화면에서 VPN 보호가 실행 중인지 확인하고, 설정 > 필터링에서 광고 필터와 필요한 필터 소스가 켜져 있는지 확인한 뒤 필터를 업데이트하세요. Guardian은 DNS 도메인 기반으로 차단하므로 앱 내부에 포함된 광고, 자체 암호화 DNS(DoH/DoT)로 우회하는 요청, 이미 내려받은 광고 콘텐츠는 차단되지 않을 수 있습니다. 특정 앱에서만 발생하면 해당 앱의 네트워크/DNS 우회 여부도 확인하세요.",
+            "Android VPN 권한을 허용하고 다른 VPN 앱과 충돌하는지 확인하세요. 계속 실패하면 오류 신고를 접수해 주세요.",
+            "보호 화면의 앱별 보호 제외에서 앱 목록을 검색하고 제외할 앱을 선택한 뒤 저장하세요. VPN 보호가 실행 중이면 제외 설정이 VPN에 다시 적용되었는지 적용 상태도 확인하세요.",
+            "앱별 트래픽 제외와 기기 전체 VPN 연결 해제는 다릅니다. 금융 앱이 VPN 연결 자체를 감지하면 자동 일시중지 호환성 설정을 사용할 수 있습니다.",
+            "설정의 일반 또는 필터링에서 업데이트를 실행하세요. 자동 업데이트는 설정한 주기에 따라 동작합니다.",
+            "PRO 라이선스 화면에서 발급받은 라이선스 키를 입력하고 활성화하세요. 운영 라이선스 서버 연결이 필요합니다.",
+            "라이선스 관리자에게 등록 기기 해제 또는 갱신을 요청하세요."
         )
-        AlertDialog.Builder(this)
-            .setTitle("Guardian 자주 묻는 질문")
-            .setItems(questions) { _, which ->
-                AlertDialog.Builder(this)
-                    .setTitle(questions[which])
-                    .setMessage(answers[which])
-                    .setPositiveButton("확인", null)
-                    .show()
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
+        questions.indices.forEach { index ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = shape(panel2, 11)
+                setPadding(dp(12), dp(11), dp(12), dp(11))
             }
-            .setNegativeButton("닫기", null)
-            .show()
+            val question = TextView(this).apply {
+                text = "⌄  " + questions[index]
+                textSize = 13f
+                setTextColor(white)
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER_VERTICAL
+                minHeight = dp(34)
+                isClickable = true
+                isFocusable = true
+            }
+            val answer = TextView(this).apply {
+                text = answers[index]
+                textSize = 12f
+                setTextColor(muted)
+                setPadding(dp(4), dp(10), dp(4), dp(3))
+                visibility = View.GONE
+            }
+            question.setOnClickListener {
+                val expanded = answer.visibility != View.VISIBLE
+                answer.visibility = if (expanded) View.VISIBLE else View.GONE
+                question.text = (if (expanded) "⌃  " else "⌄  ") + questions[index]
+            }
+            row.addView(question)
+            row.addView(answer)
+            content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+        }
+        val scroll = ScrollView(this).apply { isFillViewport = true; addView(content) }
+        AlertDialog.Builder(this).setTitle("Guardian 자주 묻는 질문").setView(scroll).setNegativeButton("닫기", null).show()
     }
 
     private fun showSupportSubmitDialog() {
@@ -2236,7 +2692,10 @@ class MainActivity : Activity() {
                     }
                     runOnUiThread {
                         result.onSuccess { response ->
-                            val receipt = "접수 번호: ${response.optString("ticketRef")}\n조회 코드: ${response.optString("accessToken")}\n\n이 정보는 다시 표시되지 않으므로 안전한 곳에 보관하세요."
+                            val ticketRefValue = response.optString("ticketRef")
+                            val accessTokenValue = response.optString("accessToken")
+                            storeSupportLookupCredentials(ticketRefValue, accessTokenValue)
+                            val receipt = "접수 번호: $ticketRefValue\n조회 코드: $accessTokenValue\n\n앱에 안전하게 저장되어 다음부터 자동으로 입력됩니다."
                             dialog.dismiss()
                             AlertDialog.Builder(this@MainActivity)
                                 .setTitle("문의 접수 완료")
@@ -2260,6 +2719,45 @@ class MainActivity : Activity() {
         dialog.show()
     }
 
+    // Keep the ticket lookup secret encrypted at rest with a non-exportable Android Keystore AES key.
+    private fun storeSupportLookupCredentials(ticketRef: String, accessToken: String) {
+        if (ticketRef.isBlank() || accessToken.isBlank()) return
+        runCatching {
+            val alias = "guardian.support.lookup.v1"
+            val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            val secretKey = (keyStore.getKey(alias, null) as? javax.crypto.SecretKey) ?: run {
+                val generator = javax.crypto.KeyGenerator.getInstance("AES", "AndroidKeyStore")
+                generator.init(android.security.keystore.KeyGenParameterSpec.Builder(
+                    alias,
+                    android.security.keystore.KeyProperties.PURPOSE_ENCRYPT or android.security.keystore.KeyProperties.PURPOSE_DECRYPT
+                ).setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setRandomizedEncryptionRequired(true).build())
+                generator.generateKey()
+            }
+            val payload = org.json.JSONObject().put("ticketRef", ticketRef).put("accessToken", accessToken).toString().toByteArray(Charsets.UTF_8)
+            val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, secretKey)
+            val encrypted = cipher.doFinal(payload)
+            getSharedPreferences("guardian_support_private", MODE_PRIVATE).edit()
+                .putString("lookup_credentials_v1", Base64.encodeToString(cipher.iv + encrypted, Base64.NO_WRAP)).apply()
+        }.onFailure { android.util.Log.e("GuardianSupport", "Secure support credential storage failed") }
+    }
+
+    private fun loadSupportLookupCredentials(): Pair<String, String>? = runCatching {
+        val storedText = getSharedPreferences("guardian_support_private", MODE_PRIVATE).getString("lookup_credentials_v1", null) ?: return null
+        val stored = Base64.decode(storedText, Base64.NO_WRAP)
+        require(stored.size > 12)
+        val keyStore = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val secretKey = keyStore.getKey("guardian.support.lookup.v1", null) as javax.crypto.SecretKey
+        val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(javax.crypto.Cipher.DECRYPT_MODE, secretKey, javax.crypto.spec.GCMParameterSpec(128, stored.copyOfRange(0, 12)))
+        val json = org.json.JSONObject(String(cipher.doFinal(stored.copyOfRange(12, stored.size)), Charsets.UTF_8))
+        val ticket = json.optString("ticketRef")
+        val token = json.optString("accessToken")
+        if (ticket.isBlank() || token.isBlank()) null else ticket to token
+    }.getOrNull()
+
     private fun showSupportLookupDialog() {
         val form = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -2274,9 +2772,15 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(10), dp(12), dp(10))
             background = shape(panel2, 10)
         }
-        val ticketRef = input("접수 번호 (GDN-...)")
-        val accessToken = input("접수 시 발급된 조회 코드")
-        form.addView(ticketRef)
+        val savedCredentials = loadSupportLookupCredentials()
+        val ticketRef = input("접수 번호")
+        val accessToken = input("조회 코드")
+        savedCredentials?.let { ticketRef.setText(it.first); accessToken.setText(it.second) }
+        form.addView(text(
+            if (savedCredentials != null) "이 기기에서 접수한 문의 정보를 자동으로 불러왔습니다." else "저장된 문의가 없습니다. 먼저 문의를 접수해 주세요.",
+            11f, if (savedCredentials != null) accent else muted, false
+        ))
+        form.addView(ticketRef, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         form.addView(accessToken, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         val dialog = AlertDialog.Builder(this)
             .setTitle("내 문의 답변 확인")
@@ -2334,7 +2838,9 @@ class MainActivity : Activity() {
             orientation = if (asRail) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setBackgroundColor(Color.rgb(15, 23, 39))
-            setPadding(if (asRail) dp(7) else dp(5), dp(8), if (asRail) dp(7) else dp(5), dp(8))
+            setPadding(if (asRail) dp(7) else dp(5), dp(5), if (asRail) dp(7) else dp(5), dp(12))
+            clipChildren = false
+            clipToPadding = false
         }
         val items = GuardianNavigation.primaryItems.map { Triple(it.id, it.icon, it.label) }
         items.forEach { (id, icon, label) ->
@@ -2353,7 +2859,7 @@ class MainActivity : Activity() {
             if (asRail) {
                 nav.addView(item, LinearLayout.LayoutParams(-1, dp(68)))
             } else {
-                nav.addView(item, LinearLayout.LayoutParams(0, dp(48), 1f))
+                nav.addView(item, LinearLayout.LayoutParams(0, dp(54), 1f))
             }
         }
         return nav
@@ -2409,7 +2915,6 @@ class MainActivity : Activity() {
         val prefs = getSharedPreferences(GuardianVpnService.PREFS, MODE_PRIVATE)
         val autoUpdateCheck = CheckBox(this).apply {
             applyToggleTint(this)
-            applyToggleTint(this)
             text = "백그라운드에서 필터 자동 업데이트"
             textSize = 12f
             setTextColor(white)
@@ -2457,7 +2962,6 @@ class MainActivity : Activity() {
         ).withTop(3))
         val securityCheck = CheckBox(this).apply {
             applyToggleTint(this)
-            applyToggleTint(this)
             text = "악성코드·피싱 보호 (HaGeZi Threat Intelligence · 전체 사용자)"
             textSize = 12f
             setTextColor(white)
@@ -2479,7 +2983,6 @@ class MainActivity : Activity() {
         securityFilterCheckBox = securityCheck
         options.addView(securityCheck)
         val androidAdsCheck = CheckBox(this).apply {
-            applyToggleTint(this)
             applyToggleTint(this)
             text = "Android 앱 광고 SDK 차단 (AWAvenue Ads Rule)"
             textSize = 12f
@@ -2510,7 +3013,6 @@ class MainActivity : Activity() {
             10f, muted, false
         ).withTop(2))
         val directDnsCheck = CheckBox(this).apply {
-            applyToggleTint(this)
             applyToggleTint(this)
             text = "공용 DNS 직접 질의 포착 (고급 · 일부 비DNS 연결 영향 가능)"
             textSize = 12f
@@ -2611,7 +3113,7 @@ class MainActivity : Activity() {
         })
 
         val appsButton = Button(this).apply {
-            text = "일시중지 앱 선택 (${selected.size}개)"
+            text = "일시중지 앱 선택 (${formatCount(selected.size.toLong())}개)"
             setTextColor(white)
             background = shape(panel2, 10)
             contentDescription = "VPN 자동 일시중지 앱 선택"
@@ -2991,9 +3493,9 @@ class MainActivity : Activity() {
             !usageAccess -> "사용 정보 접근 권한을 허용해야 선택 앱의 실행 상태를 감지할 수 있습니다."
             selected.isEmpty() -> "일시중지할 앱을 선택하면 Wallet 등 호환성 문제가 있는 앱에서 자동 전환할 수 있습니다."
             enabled -> "자동 일시중지 활성화 · 선택 앱 종료 후 VPN 자동 재연결"
-            else -> "선택 앱 ${selected.size}개 저장됨 · 자동 일시중지 꺼짐"
+            else -> "선택 앱 ${formatCount(selected.size.toLong())}개 저장됨 · 자동 일시중지 꺼짐"
         }
-        compatibilityAppsButton?.text = "일시중지 앱 선택 (${selected.size}개)"
+        compatibilityAppsButton?.text = "일시중지 앱 선택 (${formatCount(selected.size.toLong())}개)"
     }
 
     private fun refreshAppExclusionsAppliedStatus() {
@@ -3007,9 +3509,9 @@ class MainActivity : Activity() {
             GuardianVpnService.isTunnelActive()
         )
         target.text = when {
-            !active -> "VPN 미연결 · 저장된 제외 ${requested.size}개 · 다음 보호 연결 때 적용"
-            rejected.isNotEmpty() -> "VPN 연결됨 · 제외 적용 ${applied.size}/${requested.size}개 · 적용 실패 ${rejected.size}개"
-            else -> "VPN 연결됨 · 앱별 보호 제외 ${applied.size}/${requested.size}개 적용"
+            !active -> "VPN 미연결 · 저장된 제외 ${formatCount(requested.size.toLong())}개 · 다음 보호 연결 때 적용"
+            rejected.isNotEmpty() -> "VPN 연결됨 · 제외 적용 ${formatCount(applied.size.toLong())}/${formatCount(requested.size.toLong())}개 · 적용 실패 ${formatCount(rejected.size.toLong())}개"
+            else -> "VPN 연결됨 · 앱별 보호 제외 ${formatCount(applied.size.toLong())}/${formatCount(requested.size.toLong())}개 적용"
         }
         target.setTextColor(if (active && rejected.isNotEmpty()) red else muted)
     }
@@ -3121,7 +3623,7 @@ class MainActivity : Activity() {
         body.addView(card.withTop(10))
         body.addView(appListCard.withTop(8))
         appFilterFeedback = text(
-            "설치 앱 ${apps.size}개 · 보호 제외 앱 ${excluded.size}개",
+            "설치 앱 ${formatCount(apps.size.toLong())}개 · 보호 제외 앱 ${formatCount(excluded.size.toLong())}개",
             11f, muted, false
         ).withTop(8) as TextView
         body.addView(appFilterFeedback!!)
@@ -3172,9 +3674,9 @@ class MainActivity : Activity() {
         fun updateSaveState() {
             val dirty = excluded != savedExclusions
             saveButton.isEnabled = dirty
-            saveButton.text = if (dirty) "변경사항 저장 (${excluded.size}개 제외 선택)" else "변경사항 저장"
+            saveButton.text = if (dirty) "변경사항 저장 (${formatCount(excluded.size.toLong())}개 제외 선택)" else "변경사항 저장"
             if (dirty) {
-                appFilterFeedback?.text = "저장되지 않은 변경사항 · 제외 앱 ${excluded.size}개"
+                appFilterFeedback?.text = "저장되지 않은 변경사항 · 제외 앱 ${formatCount(excluded.size.toLong())}개"
             }
         }
         fun renderApps(rawQuery: String) {
@@ -3230,7 +3732,7 @@ class MainActivity : Activity() {
             }
             updateSaveState()
             if (excluded == savedExclusions) {
-                appFilterFeedback?.text = "검색 결과 ${visible.size}개 / 전체 ${apps.size}개 · 저장된 제외 앱 ${excluded.size}개"
+                appFilterFeedback?.text = "검색 결과 ${formatCount(visible.size.toLong())}개 / 전체 ${formatCount(apps.size.toLong())}개 · 저장된 제외 앱 ${formatCount(excluded.size.toLong())}개"
             }
         }
         search.addTextChangedListener(object : android.text.TextWatcher {
@@ -3296,7 +3798,7 @@ class MainActivity : Activity() {
         val profileLabel = if (FilterListManager.hasCachedList(this) && selectedProfile.key != cachedProfile.key) {
             "선택: ${selectedProfile.label} · 적용 중: ${cachedProfile.label}"
         } else selectedProfile.label
-        val summary = "$profileLabel · 광고·추적 ${count}개 · 보안 ${if (securityOn) securityCount else 0}개 · 앱 광고 ${if (androidAdsOn) androidAdsCount else 0}개 · 미지원 규칙 ${ignored + securityIgnored + androidAdsIgnored}개 제외 · 업데이트: $time"
+        val summary = "$profileLabel · 광고·추적 ${formatCount(count.toLong())}개 · 보안 ${formatCount((if (securityOn) securityCount else 0).toLong())}개 · 앱 광고 ${formatCount((if (androidAdsOn) androidAdsCount else 0).toLong())}개 · 미지원 규칙 ${formatCount((ignored + securityIgnored + androidAdsIgnored).toLong())}개 제외 · 업데이트: $time"
         val signedManifestStatus = FilterListManager.signedManifestStatus(this)
         return listOfNotNull(
             summary,
@@ -3403,13 +3905,13 @@ class MainActivity : Activity() {
                         androidAdsFilterCheckBox?.isChecked = false
                     }
                     val securityMessage = if (securityWasEnabled) {
-                        if (securityResult != null) " · 보안 ${securityResult.blocked}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(캐시 없음 · 자동 비활성화)"
+                        if (securityResult != null) " · 보안 ${formatCount(securityResult.blocked.toLong())}개" else if (securityWasCached) " · 보안 업데이트 실패(이전 목록 유지)" else " · 보안 목록 다운로드 실패(캐시 없음 · 자동 비활성화)"
                     } else ""
                     val androidAdsMessage = if (androidAdsWasEnabled) {
-                        if (androidAdsResult != null) " · Android 앱 광고 ${androidAdsResult.blocked}개" else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)" else " · 앱 광고 필터 다운로드 실패(캐시 없음 · 자동 비활성화)"
+                        if (androidAdsResult != null) " · Android 앱 광고 ${formatCount(androidAdsResult.blocked.toLong())}개" else if (androidAdsWasCached) " · 앱 광고 필터 업데이트 실패(이전 목록 유지)" else " · 앱 광고 필터 다운로드 실패(캐시 없음 · 자동 비활성화)"
                     } else ""
                     val signedStatus = FilterListManager.signedManifestStatus(this)?.let { " · $it" } ?: ""
-                    setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} · 광고·추적 ${result.blocked}개 · 미지원 ${result.ignored}개 제외${securityMessage}${androidAdsMessage} · ${result.bytes / 1024}KB$signedStatus")
+                    setFilterUpdateStatus("${FilterListManager.selectedProfile(this).label} · 광고·추적 ${formatCount(result.blocked.toLong())}개 · 미지원 ${formatCount(result.ignored.toLong())}개 제외${securityMessage}${androidAdsMessage} · ${formatCount((result.bytes / 1024).toLong())}KB$signedStatus")
                     filterUpdateButton?.text = "필터 목록 업데이트"
                     filterUpdateButton?.isEnabled = true
                     homeFilterUpdateButton?.text = "필터 목록 업데이트"
@@ -3482,7 +3984,7 @@ class MainActivity : Activity() {
                 // The bundled rules are sufficient to bring up the DNS VPN safely.
                 // Downloaded lists are optional enhancements and must never be a hard
                 // prerequisite for creating the tunnel on a first install/offline device.
-                val bundled = assets.open("filter_rules.txt").bufferedReader().use(FilterRuleParser::parse)
+                val bundled = assets.open(BundledFilterRules.ASSET_NAME).bufferedReader().use(BundledFilterRules::parse)
                 val baselineReady = FilterStartupGate.hasUsableBundledBaseline(
                     bundled.blocked.size,
                     bundled.importantBlocked.size
@@ -3511,7 +4013,7 @@ class MainActivity : Activity() {
             } catch (error: Exception) {
                 android.util.Log.e("GuardianProtection", "Bundled filter asset could not be loaded: ${SafeFailureSummary.codeFor(error)}")
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
-                false to "앱 내 기본 필터 라이브러리를 읽지 못했습니다. 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
+                false to "앱에 포함된 기본 DNS 규칙 파일을 읽지 못했습니다. 앱 업데이트 후에도 계속되면 진단 정보를 확인해 주세요. (${ProtectionDiagnostics.exceptionTypeChain(error)})"
             } catch (error: LinkageError) {
                 android.util.Log.e("GuardianProtection", "Bundled filter component could not be loaded: ${SafeFailureSummary.codeFor(error)}")
                 prefs.edit().putString(GuardianVpnService.KEY_STARTUP_TRACE, ProtectionDiagnostics.exceptionTraceSummary(error)).apply()
@@ -3594,10 +4096,10 @@ class MainActivity : Activity() {
             val applied = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_APPLIED, emptySet()).orEmpty()
             val stale = prefs.getStringSet(GuardianVpnService.KEY_EXCLUDED_APPS_ERROR, emptySet()).orEmpty()
             feedback.text = when {
-                stale.isNotEmpty() -> "제외 적용 실패 또는 미설치 앱 ${stale.size}개 · 적용 ${applied.size}/${requested.size}"
+                stale.isNotEmpty() -> "제외 적용 실패 또는 미설치 앱 ${formatCount(stale.size.toLong())}개 · 적용 ${formatCount(applied.size.toLong())}/${formatCount(requested.size.toLong())}"
                 active && requested != applied -> "제외 적용 확인 필요 · 적용 ${applied.size}/${requested.size}"
-                active -> "앱별 보호 제외 적용 완료 · ${applied.size}개"
-                else -> "제외 앱 ${requested.size}개 저장됨 · 보호 연결 시 적용"
+                active -> "앱별 보호 제외 적용 완료 · ${formatCount(applied.size.toLong())}개"
+                else -> "제외 앱 ${formatCount(requested.size.toLong())}개 저장됨 · 보호 연결 시 적용"
             }
         }
         val recoveryPending = prefs.getBoolean(GuardianVpnService.KEY_RECOVERY_PENDING, false) && !active
@@ -3677,7 +4179,7 @@ class MainActivity : Activity() {
                 message
             )
         }
-        statsText?.text = "질의 ${prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0)} · 차단 ${prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0)} · 전달 ${prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0)} · 실패 ${prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0)} · 무시 ${prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0)}"
+        statsText?.text = "질의 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L))} · 차단 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L))} · 전달 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))} · 실패 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_FAILED, 0L))} · 무시 ${formatCount(prefs.getLong(GuardianVpnService.KEY_DNS_IGNORED, 0L))}"
         val totalQueries = prefs.getLong(GuardianVpnService.KEY_DNS_QUERIES, 0L)
         val blockedQueries = prefs.getLong(GuardianVpnService.KEY_DNS_BLOCKED, 0L)
         val blockRate = if (totalQueries > 0L) blockedQueries * 100.0 / totalQueries else 0.0
@@ -3691,7 +4193,9 @@ class MainActivity : Activity() {
         trackerBlockedValue?.text = String.format(Locale.getDefault(), "%,d", trackerCount)
         savedDataValue?.text = estimatedSavedDataLabel(blockedQueries)
         activityChart?.update(adCount, trackerCount, otherCount, prefs.getLong(GuardianVpnService.KEY_DNS_FORWARDED, 0L))
-        recentText?.text = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null) ?: "아직 기록된 DNS 활동이 없습니다."
+        val recentDns = prefs.getString(GuardianVpnService.KEY_DNS_RECENT, null)
+        recentText?.text = recentDns ?: "아직 기록된 DNS 활동이 없습니다."
+        blockedDomainSummaryText?.text = DnsActivitySummary.recentBlockedDomains(recentDns)
         diagnosticText?.text = "마지막 패킷 진단: ${prefs.getString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "아직 기록 없음")}"
         updateCompatibilityPauseStatus()
     }
@@ -3730,7 +4234,7 @@ class MainActivity : Activity() {
             }
             domains.add(domain)
             if (domains.size > MAX_USER_RULES) {
-                rulesFeedback?.text = "${label}은 최대 ${MAX_USER_RULES}개까지 등록할 수 있습니다."
+                rulesFeedback?.text = "${label}은 최대 ${formatCount(MAX_USER_RULES.toLong())}개까지 등록할 수 있습니다."
                 return null
             }
         }
@@ -3827,6 +4331,9 @@ class MainActivity : Activity() {
             }
         }
 
+    private fun formatCount(value: Long): String =
+        String.format(Locale.getDefault(), "%,d", value.coerceAtLeast(0L))
+
     private fun estimatedSavedDataLabel(blockedQueries: Long): String {
         val bytes = blockedQueries.coerceAtLeast(0L).toDouble() * 24.0 * 1024.0
         return if (bytes >= 1024.0 * 1024.0) {
@@ -3844,7 +4351,7 @@ class MainActivity : Activity() {
             typeface = Typeface.DEFAULT
         }
         private val values = LongArray(4)
-        private val labels = arrayOf("광고 차단", "추적 차단", "기타 차단", "정상 전달")
+        private val labels = arrayOf("광고 차단", "추적 차단", "미분류 차단", "정상 전달")
         private val colors = intArrayOf(Color.rgb(255, 166, 94), Color.rgb(116, 167, 255), accent, muted)
 
         fun update(ads: Long, trackers: Long, other: Long, forwarded: Long) {
@@ -3952,6 +4459,7 @@ class MainActivity : Activity() {
         private const val MAX_USER_RULES = 1000
         private const val KEY_APP_INVENTORY_DISCLOSURE_ACCEPTED = "app_inventory_disclosure_accepted_v1"
         private const val STATE_CURRENT_TAB = "guardian.ui.current_tab"
+        private const val STATE_TAB_BACK_STACK = "guardian.ui.tab_back_stack"
         private const val UI_STATE_PREFS = "guardian_ui_state"
         private const val PREF_LAST_SELECTED_TAB = "last_selected_tab"
         private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
