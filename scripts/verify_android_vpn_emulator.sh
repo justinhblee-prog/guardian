@@ -271,7 +271,7 @@ open_premium_menu() {
     return 0
   fi
   if grep -Fq 'content-desc="프리미엄"' <<<"$nav_xml"; then
-    open_premium_menu
+    tap_content_description "프리미엄"
     sleep 1
     return 0
   fi
