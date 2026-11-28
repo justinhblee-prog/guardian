@@ -862,7 +862,14 @@ open_settings_menu_item "필터 관리"
 rules_screen_xml=""
 for attempt in $(seq 1 10); do
   rules_screen_xml="$(dump_ui_hierarchy /sdcard/guardian-rules-collapsed.xml)"
-  if grep -Fq 'text="편집"' <<<"$rules_screen_xml"; then break; fi
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("text","").strip()=="편집"
+       and node.attrib.get("clickable")=="true"
+       and node.attrib.get("visible-to-user","true")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$rules_screen_xml"; then break; fi
   adb_cmd shell input swipe 540 1500 540 600 450
   sleep 0.4
 done
