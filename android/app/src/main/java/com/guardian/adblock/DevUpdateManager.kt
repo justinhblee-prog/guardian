@@ -23,6 +23,8 @@ internal data class GuardianDevUpdate(
     val notes: String
 )
 
+internal class GuardianUpdateCheckException(val diagnosticCode: String, message: String) : java.io.IOException(message)
+
 internal object DevUpdateManager {
     private const val RELEASES_URL =
         "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=100"
@@ -267,15 +269,16 @@ internal object DevUpdateManager {
         }
         try {
             connection.connect()
-            check(isAllowedHttpsHost(connection.url)) { "업데이트 확인 요청이 허용되지 않은 서버로 리디렉션되었습니다." }
-            check(connection.responseCode in 200..299) { "업데이트 확인 실패: HTTP ${connection.responseCode}" }
+            if (!isAllowedHttpsHost(connection.url)) throw GuardianUpdateCheckException("REDIRECT_HOST_REJECTED", "업데이트 확인 요청이 허용되지 않은 서버로 리디렉션되었습니다.")
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) throw GuardianUpdateCheckException("HTTP_STATUS_" + responseCode, "업데이트 확인 실패: HTTP " + responseCode)
             val bytes = connection.inputStream.use { input ->
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
                 while (true) {
                     val count = input.read(buffer)
                     if (count < 0) break
-                    check(output.size() + count <= maxBytes) { "업데이트 응답이 너무 큽니다." }
+                    if (output.size() + count > maxBytes) throw GuardianUpdateCheckException("RESPONSE_TOO_LARGE", "업데이트 응답이 너무 큽니다.")
                     output.write(buffer, 0, count)
                 }
                 output.toByteArray()
