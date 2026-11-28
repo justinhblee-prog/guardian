@@ -1312,6 +1312,15 @@ echo "Verifying opt-in foreground-app VPN auto-pause and automatic resume."
 # Grant the special app-op as the emulator equivalent of the user's Usage Access
 # approval. The UI flow still selects the target app and explicitly enables the feature.
 adb_cmd shell appops set "$PACKAGE" GET_USAGE_STATS allow
+# Android can retain a UID-level denial even after the package-scoped app-op is allowed.
+# Set and verify both scopes so the emulator's effective permission matches the UI flow.
+adb_cmd shell appops set --uid "$PACKAGE" GET_USAGE_STATS allow
+usage_access_appops="$(adb_cmd shell appops get "$PACKAGE" GET_USAGE_STATS | tr -d '\r')"
+if ! grep -Eiq 'GET_USAGE_STATS:?[[:space:]]*allow|allow' <<<"$usage_access_appops"; then
+  echo "The emulator did not grant GET_USAGE_STATS to Guardian."
+  echo "$usage_access_appops"
+  exit 1
+fi
 adb_cmd shell am start -a android.settings.SETTINGS >/dev/null
 sleep 2
 adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
