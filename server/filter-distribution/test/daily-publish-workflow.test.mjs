@@ -11,6 +11,9 @@ test('daily filter publication is restricted to the protected main branch', () =
   const publishJob = workflow.slice(jobStart);
   assert.match(
     publishJob,
-    /^    if: github\.ref == 'refs\/heads\/main' && github\.event_name != 'pull_request'$/m
+    /^    if: github\.ref == 'refs\/heads\/main' && \(github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'\)$/m
   );
+  assert.doesNotMatch(publishJob, /github\.event_name != 'pull_request'/);
+  assert.match(workflow, /push:\s*\n\s+branches: \[main\]/,
+    'main pushes may validate publisher changes but must not publish automatically');
 });
