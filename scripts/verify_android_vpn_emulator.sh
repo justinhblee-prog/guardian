@@ -1607,17 +1607,24 @@ echo "Customer support center FAQ, inquiry submission form, and private lookup U
 
 
 auto_pause_picker_visible=0
-# Support dialogs can return to the previously active destination on some
-# Android builds. Reset through Home before entering Settings so this assertion
-# validates the actual Settings route rather than relying on a stale tab state.
+# The compatibility pause controls are part of the Protection destination's
+# DNS configuration screen, not the Settings > Filtering rules screen.
+# Support dialogs can restore an earlier destination, so explicitly select
+# Protection and assert the selected navigation state before inspecting it.
 tap_content_description "홈"
 sleep 1
-# The compatibility controls are rendered inside the Protection screen's
-# DNS upstream section (buildProtection), not the PRO membership preview.
-# Use the real primary navigation destination and scroll its content.
 tap_content_description "보호"
 sleep 1
-sleep 1
+protection_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-protection-navigation.xml)"
+if ! python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(n.attrib.get("content-desc")=="보호" and n.attrib.get("selected")=="true"
+           for n in root.iter("node")):
+    raise SystemExit("Protection destination is not selected")' <<<"$protection_navigation_xml"; then
+  echo "Could not select the Protection destination before checking VPN auto-pause."
+  echo "$protection_navigation_xml"
+  exit 1
+fi
 for attempt in $(seq 1 24); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
   auto_pause_settings_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
