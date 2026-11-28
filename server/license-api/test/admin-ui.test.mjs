@@ -78,6 +78,18 @@ test("customer directory is wired to the authenticated API and renders customer 
   assert.doesNotMatch(js, /\.innerHTML\s*=/);
 });
 
+test("admin license cards expose guarded manual extension and renewal API wiring", async () => {
+  const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
+  assert.match(js, /createButton\("기간 연장"/);
+  assert.match(js, /extended: \["기간 연장", "↻"\]/);
+  assert.match(js, /validDays: days/);
+  assert.match(js, /\/extend/);
+  assert.match(js, /confirm\(/);
+  assert.match(js, /status !== "revoked"/);
+  assert.match(js, /1~36500일/);
+  assert.doesNotMatch(js, /\.innerHTML\s*=/);
+});
+
 test("customer migration is additive and protects email uniqueness", async () => {
   const migration = await readFile(new URL("../migrations/004_customers.sql", import.meta.url), "utf8");
   assert.match(migration, /CREATE TABLE IF NOT EXISTS customers/);
@@ -96,5 +108,19 @@ test("support inbox and license plan controls are wired without replacing the cu
   assert.match(js, /supportItems = support\.tickets \|\| \[\]/);
   assert.match(js, /renderSupportTickets\(\)/);
   assert.match(js, /validateIssueInput\(\$\("days"\)\.value, \$\("devices"\)\.value, \$\("planPreset"\)\.value\)/);
+  assert.doesNotMatch(js, /\.innerHTML\s*=/);
+});
+
+test("customer cards can load an authenticated, bounded per-customer license history", async () => {
+  const server = await readFile(new URL("../src/server.mjs", import.meta.url), "utf8");
+  const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
+  assert.match(server, /function listCustomerLicenses\(customerId, req\)/);
+  assert.ok(server.includes("customerLicensesMatch"));
+  assert.ok(server.includes("/licenses$/.exec(url.pathname)"));
+  assert.ok(server.includes("listCustomerLicenses(customerLicensesMatch[1], req)"));
+  assert.match(server, /LIMIT 100/);
+  assert.match(js, /고객 라이선스 내역/);
+  assert.match(js, /\/v1\/admin\/customers\/\$\{encodeURIComponent\(item\.id\)\}\/licenses/);
+  assert.match(js, /title\.textContent = license\.license_ref/);
   assert.doesNotMatch(js, /\.innerHTML\s*=/);
 });

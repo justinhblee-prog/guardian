@@ -171,6 +171,27 @@ function renderLicenses() {
       if (!devicePanel.hidden) await loadActivations(item, devicePanel);
     });
     actions.append(deviceButton);
+    if (status !== "revoked") {
+      const extendButton = createButton("기간 연장", "secondary", async () => {
+        const raw = prompt("연장할 기간을 일 단위로 입력하세요. (1~36500일)", "30");
+        if (raw === null) return;
+        const days = Number(raw.trim());
+        if (!Number.isInteger(days) || days < 1 || days > 36500) {
+          statusText("연장 기간은 1~36500일의 정수여야 합니다.", "error");
+          return;
+        }
+        if (!confirm(`${days}일 연장할까요? 만료된 라이선스는 오늘부터 연장됩니다.`)) return;
+        extendButton.disabled = true;
+        const succeeded = await mutateAndReload(
+          () => api(`/v1/admin/licenses/${encodeURIComponent(item.id)}/extend`, {
+            method: "POST", body: JSON.stringify({ validDays: days })
+          }),
+          `라이선스를 ${days}일 연장했습니다.`
+        );
+        if (!succeeded) extendButton.disabled = false;
+      });
+      actions.append(extendButton);
+    }
     if (status === "active") {
       const revokeButton = createButton("라이선스 정지", "danger", async () => {
         if (!confirm("이 라이선스를 정지하고 활성 기기를 모두 해제할까요?")) return;
@@ -220,7 +241,53 @@ function renderCustomers() {
     const last = document.createElement("span");
     last.textContent = `최근 발급: ${item.last_license_issued ? dateLabel(item.last_license_issued) : "-"}`;
     meta.append(email, active, last);
-    card.append(top, meta);
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const history = document.createElement("div");
+    history.className = "device-list";
+    history.hidden = true;
+    const historyButton = createButton("고객 라이선스 내역", "secondary", async () => {
+      history.hidden = !history.hidden;
+      if (history.hidden) return;
+      history.replaceChildren();
+      const loading = document.createElement("p");
+      loading.className = "muted";
+      loading.textContent = "고객의 라이선스 내역을 불러오는 중...";
+      history.append(loading);
+      try {
+        const data = await api(`/v1/admin/customers/${encodeURIComponent(item.id)}/licenses`);
+        history.replaceChildren();
+        if (!data.licenses?.length) {
+          const empty = document.createElement("p");
+          empty.className = "muted";
+          empty.textContent = "발급된 라이선스가 없습니다.";
+          history.append(empty);
+        } else {
+          for (const license of data.licenses) {
+            const row = document.createElement("div");
+            row.className = "device-row";
+            const info = document.createElement("div");
+            info.className = "device-info";
+            const title = document.createElement("strong");
+            title.textContent = license.license_ref || license.id;
+            const detail = document.createElement("div");
+            detail.className = "muted";
+            detail.textContent = `${statusLabel(effectiveLicenseStatus(license))} · 만료: ${dateLabel(license.expires_at)} · 기기: ${Number(license.active_devices) || 0}/${Number(license.max_devices) || 1}`;
+            info.append(title, detail);
+            row.append(info);
+            history.append(row);
+          }
+        }
+      } catch (error) {
+        history.replaceChildren();
+        const message = document.createElement("p");
+        message.className = "muted";
+        message.textContent = error.message;
+        history.append(message);
+      }
+    });
+    actions.append(historyButton);
+    card.append(top, meta, actions, history);
     root.append(card);
   }
 }
@@ -240,7 +307,8 @@ function renderEvents() {
     activated: ["기기 활성화", "A"],
     deactivated: ["기기 비활성화", "−"],
     admin_device_deactivated: ["관리자 기기 해제", "−"],
-    revoked: ["라이선스 정지", "!"]
+    revoked: ["라이선스 정지", "!"],
+    extended: ["기간 연장", "↻"]
   };
   for (const item of eventItems) {
     const row = document.createElement("div");

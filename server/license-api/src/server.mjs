@@ -449,6 +449,25 @@ async function listCustomers(req, search = '') {
   );
   return { customers: result.rows };
 }
+async function listCustomerLicenses(customerId, req) {
+  requireEnv();
+  requireAdmin(req);
+  const id = validateUuid(customerId, '고객 ID');
+  const result = await pool.query(
+    `SELECT l.id,l.license_ref,l.status,l.expires_at,l.max_devices,l.created_at,
+       count(a.id) FILTER (WHERE a.deactivated_at IS NULL)::int AS active_devices
+     FROM licenses l
+     JOIN customers c ON c.id=l.customer_id
+     LEFT JOIN activations a ON a.license_id=l.id
+     WHERE c.id=$1
+     GROUP BY l.id
+     ORDER BY l.created_at DESC
+     LIMIT 100`,
+    [id]
+  );
+  return { licenses: result.rows };
+}
+
 async function listAuditEvents(req) {
   requireEnv();
   requireAdmin(req);
@@ -459,6 +478,42 @@ async function listAuditEvents(req) {
   );
   return { events: result.rows };
 }
+async function extendLicense(id, body, req) {
+  requireEnv();
+  requireAdmin(req);
+  const licenseId = validateUuid(id, '라이선스 ID');
+  const days = body.validDays;
+  if (!Number.isInteger(days) || days < 1 || days > 36500) {
+    throw Object.assign(new Error('연장 기간은 1~36500일의 정수여야 합니다.'), { status: 400 });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const found = await client.query(
+      'SELECT status,expires_at FROM licenses WHERE id=$1 FOR UPDATE',
+      [licenseId]
+    );
+    if (!found.rowCount) throw Object.assign(new Error('라이선스를 찾을 수 없습니다.'), { status: 404 });
+    if (found.rows[0].status !== 'active') {
+      throw Object.assign(new Error('정지된 라이선스는 연장할 수 없습니다.'), { status: 409 });
+    }
+    const updated = await client.query(
+      "UPDATE licenses SET expires_at=GREATEST(expires_at,now())+($2::int * interval '1 day') WHERE id=$1 RETURNING expires_at",
+      [licenseId, days]
+    );
+    const previousExpiresAt = new Date(found.rows[0].expires_at).toISOString();
+    const expiresAt = new Date(updated.rows[0].expires_at).toISOString();
+    await recordEvent(client, licenseId, 'extended', 'admin', { days, previousExpiresAt, expiresAt });
+    await client.query('COMMIT');
+    return { extended: true, validDays: days, expiresAt };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function revokeLicense(id, req) {
   requireEnv();
   requireAdmin(req);
@@ -551,6 +606,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/v1/admin/support/tickets') return json(res, 200, await listSupportTickets(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/customers') return json(res, 200, await listCustomers(req, url.searchParams.get('q') || ''));
+    const customerLicensesMatch = /^\/v1\/admin\/customers\/([^/]+)\/licenses$/.exec(url.pathname);
+    if (req.method === 'GET' && customerLicensesMatch) {
+      return json(res, 200, await listCustomerLicenses(customerLicensesMatch[1], req));
+    }
     const activationListMatch = /^\/v1\/admin\/licenses\/([^/]+)\/activations$/.exec(url.pathname);
     if (req.method === 'GET' && activationListMatch) {
       return json(res, 200, await listActivations(activationListMatch[1], req));
@@ -580,7 +639,10 @@ const server = http.createServer(async (req, res) => {
          LIMIT 1`, [device, licenseRef]);
       result = r.rowCount ? { status: r.rows[0].status, expiresAt: r.rows[0].expires_at, licenseRef: r.rows[0].license_ref } : { status: 'free' };
     } else if (url.pathname === '/v1/admin/licenses' ) result = await createLicense({ ...body, req });
-    else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
+    else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/extend')) {
+      const id = url.pathname.split('/')[4];
+      result = await extendLicense(id, body, req);
+    } else if (url.pathname.startsWith('/v1/admin/licenses/') && url.pathname.endsWith('/revoke')) {
       const id = url.pathname.split('/')[4];
       result = await revokeLicense(id, req);
     } else {
