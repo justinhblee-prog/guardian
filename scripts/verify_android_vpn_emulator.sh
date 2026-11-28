@@ -1316,7 +1316,7 @@ adb_cmd shell appops set "$PACKAGE" GET_USAGE_STATS allow
 # Set and verify both scopes so the emulator's effective permission matches the UI flow.
 adb_cmd shell appops set --uid "$PACKAGE" GET_USAGE_STATS allow
 usage_access_appops="$(adb_cmd shell appops get "$PACKAGE" GET_USAGE_STATS | tr -d '\r')"
-if ! grep -Eiq 'GET_USAGE_STATS:?[[::space:]]*allow|allow' <<<"$usage_access_appops"; then
+if ! grep -Eiq 'GET_USAGE_STATS:?[[:space:]]*allow|allow' <<<"$usage_access_appops"; then
   echo "The emulator did not grant GET_USAGE_STATS to Guardian."
   echo "$usage_access_appops"
   exit 1
