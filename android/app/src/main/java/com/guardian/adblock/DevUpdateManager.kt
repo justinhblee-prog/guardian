@@ -24,7 +24,7 @@ internal data class GuardianDevUpdate(
 
 internal object DevUpdateManager {
     private const val LATEST_MANIFEST_URL =
-        "https://raw.githubusercontent.com/justinhblee-prog/guardian/main/android/guardian-android-dev.json"
+        "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-latest/guardian-android-dev.json"
     private const val APK_ASSET = "guardian-android-dev.apk"
     private const val PACKAGE_NAME = "com.guardian.adblock"
     private const val MAX_APK_BYTES = 100L * 1024L * 1024L
