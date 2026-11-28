@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 process.env.NODE_ENV = 'test';
 process.env.GUARDIAN_RATE_LIMIT_MAX = '2';
+process.env.GUARDIAN_ADMIN_TOKEN = 'guardian-test-admin-token-'.padEnd(64, 'x');
 // Keep this isolated HTTP suite on its in-memory limiter so it cannot race
 // the PostgreSQL integration suite's shared client/path buckets.
 delete process.env.DATABASE_URL;
@@ -26,6 +27,26 @@ test('JSON API responses disable MIME sniffing', async () => {
   });
   assert.equal(response.status, 404);
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+});
+
+test('admin channel verification accepts only the configured bearer token and is rate-limited', async () => {
+  const invalid = await fetch(`${baseUrl}/v1/admin/auth/verify`, {
+    headers: { authorization: 'Bearer wrong-token' }
+  });
+  assert.equal(invalid.status, 401);
+  assert.deepEqual(await invalid.json(), { error: '관리자 인증에 실패했습니다.' });
+
+  const valid = await fetch(`${baseUrl}/v1/admin/auth/verify`, {
+    headers: { authorization: `Bearer ${process.env.GUARDIAN_ADMIN_TOKEN}` }
+  });
+  assert.equal(valid.status, 200);
+  assert.equal(valid.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(await valid.json(), { authenticated: true, channels: ['admin'] });
+
+  const limited = await fetch(`${baseUrl}/v1/admin/auth/verify`, {
+    headers: { authorization: `Bearer ${process.env.GUARDIAN_ADMIN_TOKEN}` }
+  });
+  assert.equal(limited.status, 429);
 });
 
 test('health endpoint returns no-store service status', async () => {
