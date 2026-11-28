@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -24,84 +23,45 @@ internal data class GuardianDevUpdate(
 )
 
 internal object DevUpdateManager {
-    private const val RELEASES_URL =
-        "https://api.github.com/repos/justinhblee-prog/guardian/releases?per_page=100"
+    private const val LATEST_MANIFEST_URL =
+        "https://raw.githubusercontent.com/justinhblee-prog/guardian/main/android/guardian-android-dev.json"
     private const val APK_ASSET = "guardian-android-dev.apk"
-    private const val MANIFEST_ASSET = "guardian-android-dev.json"
     private const val PACKAGE_NAME = "com.guardian.adblock"
     private const val MAX_APK_BYTES = 100L * 1024L * 1024L
-
-    private data class ReleaseCandidate(
-        val tagVersion: Int,
-        val manifestUrl: String,
-        val apkUrl: String,
-        val notes: String
-    )
 
     internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
         tagVersion > installedVersionCode && manifestVersionCode == tagVersion
 
     fun checkForUpdate(): GuardianDevUpdate? {
-        val releases = JSONArray(readHttps(RELEASES_URL, 4 * 1024 * 1024))
-        val candidates = ArrayList<ReleaseCandidate>()
-        val tagPattern = Regex("^guardian-dev-v(\\d+)$")
+        // Read a small public manifest to avoid the unauthenticated GitHub REST
+        // API's shared-IP rate limit. The release workflow publishes this only
+        // after the matching APK asset has been created.
+        val manifest = JSONObject(readHttps(LATEST_MANIFEST_URL, 64 * 1024))
+        if (manifest.optString("packageName") != PACKAGE_NAME) return null
+        val versionCode = manifest.optInt("versionCode", 0)
+        if (!isNewerMatchingRelease(BuildConfig.VERSION_CODE, versionCode, versionCode)) return null
 
-        // GitHub sorts releases by commit-created time, not semantic/version order.
-        // Collect all valid development releases and select by the numeric tag version.
-        for (index in 0 until releases.length()) {
-            val release = releases.optJSONObject(index) ?: continue
-            if (release.optBoolean("draft", true) || !release.optBoolean("prerelease", false)) continue
-            val tagVersion = tagPattern.matchEntire(release.optString("tag_name"))
-                ?.groupValues?.getOrNull(1)?.toIntOrNull() ?: continue
-            val assets = release.optJSONArray("assets") ?: continue
-            var manifestUrl: String? = null
-            var apkUrl: String? = null
-            for (assetIndex in 0 until assets.length()) {
-                val asset = assets.optJSONObject(assetIndex) ?: continue
-                when (asset.optString("name")) {
-                    MANIFEST_ASSET -> manifestUrl = asset.optString("browser_download_url")
-                    APK_ASSET -> apkUrl = asset.optString("browser_download_url")
-                }
-            }
-            if (manifestUrl.isNullOrBlank() || apkUrl.isNullOrBlank()) continue
-            candidates += ReleaseCandidate(
-                tagVersion = tagVersion,
-                manifestUrl = manifestUrl,
-                apkUrl = apkUrl,
-                notes = release.optString("body").take(2000)
-            )
+        val versionName = manifest.optString("versionName")
+        require(versionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+-dev"))) {
+            "개발 업데이트 버전 형식이 올바르지 않습니다."
         }
+        val digest = manifest.optString("sha256").lowercase()
+        val signer = manifest.optString("signerSha256").lowercase()
+        require(digest.matches(Regex("[a-f0-9]{64}"))) { "업데이트 SHA-256 형식이 올바르지 않습니다." }
+        require(signer.matches(Regex("[a-f0-9]{64}"))) { "업데이트 서명 지문 형식이 올바르지 않습니다." }
 
-        for (candidate in candidates.sortedByDescending { it.tagVersion }) {
-            require(isGuardianReleaseAssetUrl(candidate.manifestUrl)) {
-                "개발 업데이트 manifest 주소가 허용된 GitHub Release가 아닙니다."
-            }
-            require(isGuardianReleaseAssetUrl(candidate.apkUrl)) {
-                "개발 APK 주소가 허용된 GitHub Release가 아닙니다."
-            }
-            val manifest = JSONObject(readHttps(candidate.manifestUrl, 64 * 1024))
-            if (manifest.optString("packageName") != PACKAGE_NAME) continue
-            val versionCode = manifest.optInt("versionCode", 0)
-            // The release tag and signed-off manifest must identify the same build,
-            // and that build must be newer than the installed application.
-            if (!isNewerMatchingRelease(BuildConfig.VERSION_CODE, candidate.tagVersion, versionCode)) continue
-            val versionName = manifest.optString("versionName")
-            if (!versionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+-dev"))) continue
-
-            val digest = manifest.optString("sha256").lowercase()
-            val signer = manifest.optString("signerSha256").lowercase()
-            require(digest.matches(Regex("[a-f0-9]{64}"))) { "업데이트 SHA-256 형식이 올바르지 않습니다." }
-            require(signer.matches(Regex("[a-f0-9]{64}"))) { "업데이트 서명 지문 형식이 올바르지 않습니다." }
-            return GuardianDevUpdate(
-                versionName,
-                versionCode,
-                digest,
-                signer,
-                candidate.apkUrl,
-                candidate.notes
-            )
+        val apkUrl = "https://github.com/justinhblee-prog/guardian/releases/download/guardian-dev-v$versionCode/$APK_ASSET"
+        require(isGuardianReleaseAssetUrl(apkUrl)) {
+            "개발 업데이트 APK 주소가 허용된 GitHub Release가 아닙니다."
         }
-        return null
+        return GuardianDevUpdate(
+            versionName = versionName,
+            versionCode = versionCode,
+            sha256 = digest,
+            signerSha256 = signer,
+            apkUrl = apkUrl,
+            notes = manifest.optString("notes").take(2000)
+        )
     }
 
     fun download(context: Context, update: GuardianDevUpdate): File {
@@ -184,6 +144,7 @@ internal object DevUpdateManager {
     private fun isAllowedHttpsHost(url: URL): Boolean =
         url.protocol.equals("https", true) &&
             (url.host.equals("api.github.com", true) ||
+                url.host.equals("raw.githubusercontent.com", true) ||
                 url.host.equals("github.com", true) ||
                 url.host.equals("release-assets.githubusercontent.com", true) ||
                 url.host.equals("objects.githubusercontent.com", true))

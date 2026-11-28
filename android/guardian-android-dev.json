@@ -1,0 +1,8 @@
+{
+  "packageName": "com.guardian.adblock",
+  "versionName": "0.0.0-dev",
+  "versionCode": 0,
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "signerSha256": "edaeecc9e4a27e64f07d92643fb85140725083abed553f912a0dee0387fbd82c",
+  "channel": "development"
+}
