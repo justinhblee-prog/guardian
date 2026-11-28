@@ -168,7 +168,7 @@ for node in root.iter("node"):
     echo "Could not locate visible clickable UI control or clickable text parent: $wanted"
     echo "$xml"
     return 1
-  }
+  fi
   read -r x y <<<"$bounds"
   adb_cmd shell input tap "$x" "$y"
 }
