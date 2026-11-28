@@ -195,6 +195,15 @@ open_settings_menu_item() {
   local title="$1"
   local xml target
   xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+  # App exclusions is a primary bottom-navigation destination in the current
+  # five-tab UI, not a Settings category. Open it directly instead of entering
+  # Settings and waiting for a category card that does not exist there.
+  if [[ "$title" == "앱 제외 관리" ]] &&
+     grep -Fq 'content-desc="앱 제외"' <<<"$xml"; then
+    tap_content_description "앱 제외"
+    sleep 1
+    return 0
+  fi
   # The predecessor APK used a dedicated "전체 메뉴" destination alongside
   # a separate Premium tab. Prefer that exact legacy route when it is present;
   # the detail page can also contain a nested control named "설정", which must
@@ -224,12 +233,19 @@ open_settings_menu_item() {
       xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
       if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-expected={"일반 설정 열기","필터링 설정 열기","라이선스 및 프리미엄 설정 열기","고객 지원 설정 열기","정보 설정 열기","종료 설정 열기"}
-visible={n.attrib.get("content-desc","") for n in root.iter("node")
-         if n.attrib.get("visible-to-user","true")=="true"
-         and n.attrib.get("clickable")=="true"
-         and n.attrib.get("enabled")=="true"}
-raise SystemExit(0 if expected.intersection(visible) else 1)' <<<"$xml"; then
+parents={child: parent for parent in root.iter() for child in parent}
+expected={"일반","필터링","라이선스 및 프리미엄","고객 지원","정보"}
+for node in root.iter("node"):
+    if node.attrib.get("text","").strip() not in expected or node.attrib.get("visible-to-user","true")!="true":
+        continue
+    target=node
+    while target is not None:
+        if (target.attrib.get("visible-to-user","true")=="true"
+            and target.attrib.get("clickable")=="true"
+            and target.attrib.get("enabled")=="true"):
+            raise SystemExit(0)
+        target=parents.get(target)
+raise SystemExit(1)' <<<"$xml"; then
         index_ready=1
         break
       fi
@@ -266,21 +282,46 @@ raise SystemExit(0 if expected.intersection(visible) else 1)' <<<"$xml"; then
   sleep 1
 }
 
-# Scroll the currently visible Android ScrollView until a named control is
-# actually on-screen. Use the emulator's live dimensions so this also works
-# after landscape/portrait Activity recreation.
+# Calculate swipe coordinates from the live Android ScrollView bounds.
+# wm size can remain portrait after the display rotates to landscape; using
+# those physical dimensions sends gestures outside the actual viewport.
+resolve_scroll_view_swipe() {
+  local xml="$1"
+  local direction="$2"
+  python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+candidates=[]
+for node in root.iter("node"):
+    if (node.attrib.get("class")!="android.widget.ScrollView"
+        or node.attrib.get("scrollable")!="true"
+        or node.attrib.get("visible-to-user","true")!="true"):
+        continue
+    parts=node.attrib.get("bounds","").strip("[]").split("][")
+    if len(parts)!=2:
+        continue
+    x1,y1=map(int,parts[0].split(","))
+    x2,y2=map(int,parts[1].split(","))
+    if x2-x1>=180 and y2-y1>=220:
+        candidates.append(((x2-x1)*(y2-y1),x1,y1,x2,y2))
+if not candidates:
+    raise SystemExit("No visible Android ScrollView bounds were available for a safe swipe.")
+_,x1,y1,x2,y2=max(candidates)
+margin=max(16,(y2-y1)//8)
+top=y1+margin
+bottom=y2-margin
+if bottom-top<80:
+    raise SystemExit("The visible Android ScrollView is too short to swipe safely.")
+if sys.argv[1]=="down":
+    start_y,end_y=top,bottom
+else:
+    start_y,end_y=bottom,top
+print((x1+x2)//2,start_y,end_y)' "$direction" <<<"$xml"
+}
+
+# Scroll the currently visible Android content until a named control is
+# actually on-screen. All swipes stay inside the live ScrollView bounds.
 scroll_to_text() {
-  local wanted="$1" attempt size width height center_x start_y end_y xml
-  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
-  width="${size%x*}"
-  height="${size#*x}"
-  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
-    echo "Could not determine a usable emulator display size: $size"
-    return 1
-  fi
-  center_x=$((width / 2))
-  start_y=$((height * 4 / 5))
-  end_y=$((height / 5))
+  local wanted="$1" attempt center_x start_y end_y xml coordinates
   for attempt in $(seq 1 10); do
     xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
     if grep -Fq "text=\"$wanted\"" <<<"$xml"; then
@@ -291,7 +332,13 @@ scroll_to_text() {
       # directly; swiping the content pane cannot scroll the sidebar item.
       if tap_content_description "$wanted"; then return 0; fi
     fi
-    echo "Scrolling to visible control '$wanted' (attempt $attempt/10; display ${width}x${height})."
+    if ! coordinates="$(resolve_scroll_view_swipe "$xml" up)"; then
+      echo "Could not calculate a visible ScrollView swipe for '$wanted'."
+      echo "$xml"
+      return 1
+    fi
+    read -r center_x start_y end_y <<<"$coordinates"
+    echo "Scrolling to '$wanted' inside live ScrollView (attempt $attempt/10; x=$center_x y=$start_y->$end_y)."
     adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
     sleep 0.4
   done
@@ -823,18 +870,24 @@ controls=[node.attrib.get("text","").strip() for node in nodes
     and node.attrib.get("clickable")=="true"]
 if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))
-# This phase runs against the published predecessor APK 0.7.45-dev.
-# That build already contains the five-destination navigation redesign.
-expected={"홈","보호","활동","Premium","전체 메뉴"}
-actual={node.attrib.get("content-desc") for node in nodes
-        if node.attrib.get("class")=="android.widget.LinearLayout"
-        and node.attrib.get("clickable")=="true"}
-if not expected.issubset(actual):
-    raise SystemExit("Previous-version bottom navigation is missing destinations: "+repr(sorted(expected-actual)))
-if not any(node.attrib.get("content-desc")=="홈" and node.attrib.get("selected")=="true"
-           for node in nodes):
-    raise SystemExit("Home is not the selected bottom-navigation destination.")' <<<"$home_navigation_xml"
-for navigation_label in "보호" "활동" "Premium" "전체 메뉴"; do
+if not any(n.attrib.get("content-desc")=="홈" and n.attrib.get("selected")=="true"
+           and n.attrib.get("clickable")=="true" for n in nodes):
+    raise SystemExit("Home is not selected in the primary navigation.")' <<<"$home_navigation_xml"
+
+# The published predecessor can already use either the five-tab redesigned
+# navigation or the older Premium / All Menu layout. Detect its live model.
+navigation_model="$(python3 scripts/android_navigation_compat.py navigation <<<"$home_navigation_xml")"
+case "$navigation_model" in
+  redesigned) navigation_labels=("보호" "앱 제외" "활동" "설정") ;;
+  legacy:Premium) navigation_labels=("보호" "활동" "Premium" "전체 메뉴") ;;
+  legacy:프리미엄) navigation_labels=("보호" "활동" "프리미엄" "전체 메뉴") ;;
+  *)
+    echo "Unsupported published-predecessor navigation model: $navigation_model"
+    echo "$home_navigation_xml"
+    exit 1
+    ;;
+esac
+for navigation_label in "${navigation_labels[@]}"; do
   tap_content_description "$navigation_label"
   sleep 1
   navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-navigation.xml)"
@@ -857,6 +910,62 @@ echo "Single home protection control and all five bottom-navigation destinations
 # is present. The tab and draft must survive rotation without saving to prefs.
 echo "Verifying filter-screen and unsaved rule state survive device rotation."
 open_settings_menu_item "필터 관리"
+# The profile/source card can be taller than the viewport; scroll until the
+# inline editor's collapsed Edit control is actually visible before asserting.
+rules_screen_xml=""
+for attempt in $(seq 1 10); do
+  rules_screen_xml="$(dump_ui_hierarchy /sdcard/guardian-rules-collapsed.xml)"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("text","").strip()=="편집"
+       and node.attrib.get("clickable")=="true"
+       and node.attrib.get("visible-to-user","true")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$rules_screen_xml"; then break; fi
+  adb_cmd shell input swipe 540 1500 540 600 450
+  sleep 0.4
+done
+if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("text","").strip()=="편집"
+           and node.attrib.get("clickable")=="true"
+           and node.attrib.get("visible-to-user","true")=="true"
+           for node in root.iter("node")):
+    raise SystemExit(1)
+if any(node.attrib.get("text","").strip() in {"차단 도메인","허용 도메인"}
+       and node.attrib.get("visible-to-user","true")=="true"
+       for node in root.iter("node")):
+    raise SystemExit("Full filter editor must start collapsed.")' <<<"$rules_screen_xml"; then
+  echo "Verifying full filter-rule editor expands inline and collapses."
+  tap_text "편집"
+  sleep 1
+  rules_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-rules-expanded.xml)"
+  python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+all_text={node.attrib.get("text","").strip() for node in root.iter("node")}
+if not {"차단 도메인","허용 도메인","규칙 저장 및 적용"}.issubset(all_text):
+    raise SystemExit("Expanded full filter editor is missing block/allow rules or save action.")
+if not any(node.attrib.get("text","").strip()=="접기" and node.attrib.get("clickable")=="true"
+           for node in root.iter("node")):
+    raise SystemExit("Expanded editor did not expose the collapse action.")' <<<"$rules_expanded_xml"
+  tap_text "접기"
+  sleep 1
+  rules_recollapsed_xml="$(dump_ui_hierarchy /sdcard/guardian-rules-recollapsed.xml)"
+  python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("text","").strip() in {"차단 도메인","허용 도메인"}
+       and node.attrib.get("visible-to-user","true")=="true"
+       for node in root.iter("node")):
+    raise SystemExit("Full filter editor did not collapse.")
+if not any(node.attrib.get("text","").strip()=="편집" and node.attrib.get("clickable")=="true"
+           for node in root.iter("node")):
+    raise SystemExit("Collapsed editor did not restore the Edit action.")' <<<"$rules_recollapsed_xml"
+  tap_text "편집"
+  sleep 1
+else
+  echo "Predecessor build has no inline editor control; retaining legacy editor coverage."
+fi
 tap_first_edit_text
 adb_cmd shell input text 'rotation-preserved.example'
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
@@ -873,7 +982,7 @@ rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
-selected=any(node.attrib.get("content-desc") in {"전체 메뉴","필터 규칙"}
+selected=any(node.attrib.get("content-desc") in {"전체 메뉴","필터 규칙","설정"}
              and node.attrib.get("selected")=="true" for node in nodes)
 filter_editor=any(node.attrib.get("text","")=="허용 도메인" for node in nodes)
 draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
@@ -1252,6 +1361,124 @@ if grep -Eq 'PING guardian-after-update-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/
 fi
 
 echo "Automatic package-update recovery passed: receiver relaunched VPN, DNS queries resumed, and the test ad domain was blocked."
+
+echo "Verifying the newly installed APK's inline full filter-rule editor."
+# The package replacement broadcast can leave the launcher on top after the
+# previous-version upgrade test. Bring the current app back before UI checks.
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+sleep 2
+tap_content_description "홈"
+sleep 1
+open_settings_menu_item "필터 관리"
+
+# Expanded editor contents extend below a phone-sized viewport. Verify each
+# required section/action after scrolling it into view rather than expecting
+# all labels to be visible at the same time.
+ensure_editor_element_visible() {
+  local wanted="$1"
+  local kind="text"
+  local direction="up"
+  local center_x start_y end_y xml coordinates
+  if [[ -n "$2" ]]; then kind="$2"; fi
+  if [[ -n "$3" ]]; then direction="$3"; fi
+  for attempt in $(seq 1 12); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-inline-editor-visibility.xml)"
+    if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+wanted,kind=sys.argv[1:3]
+for node in root.iter("node"):
+    if (node.attrib.get("text","").strip()==wanted
+        and node.attrib.get("visible-to-user","true")=="true"
+        and (kind!="button" or (node.attrib.get("clickable")=="true" and node.attrib.get("enabled")=="true"))):
+        raise SystemExit(0)
+raise SystemExit(1)' "$wanted" "$kind" <<<"$xml"; then
+      return 0
+    fi
+    if ! coordinates="$(resolve_scroll_view_swipe "$xml" "$direction")"; then
+      echo "Could not calculate a safe ScrollView swipe while locating editor element: $wanted ($kind)."
+      echo "$xml"
+      return 1
+    fi
+    read -r center_x start_y end_y <<<"$coordinates"
+    echo "Scrolling to editor element '$wanted' inside live ScrollView (attempt $attempt/12; x=$center_x y=$start_y->$end_y)."
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Current filter editor element did not enter the visible viewport: $wanted ($kind)"
+  echo "$xml"
+  return 1
+}
+
+# The filter screen opens at its top profile controls. The full-rule card is
+# farther down the same scroll container, so reveal its Edit action before
+# asserting the collapsed default state.
+ensure_editor_element_visible "편집" button up
+rules_current_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-collapsed.xml)"
+if ! python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(n.attrib.get("text","").strip()=="편집"
+       and n.attrib.get("clickable")=="true"
+       and n.attrib.get("visible-to-user","true")=="true" for n in root.iter("node")):
+    raise SystemExit("Current upgraded APK did not expose the full filter editor Edit action.")
+visible={n.attrib.get("text","").strip() for n in root.iter("node")
+         if n.attrib.get("visible-to-user","true")=="true"}
+if visible.intersection({"차단 도메인","허용 도메인"}):
+    raise SystemExit("Full filter editor was not collapsed by default.")' <<<"$rules_current_xml"; then
+  echo "$rules_current_xml"
+  exit 1
+fi
+
+tap_text "편집"
+sleep 1
+ensure_editor_element_visible "차단 도메인" text up
+ensure_editor_element_visible "허용 도메인" text up
+ensure_editor_element_visible "규칙 저장 및 적용" button up
+ensure_editor_element_visible "접기" button down
+
+# Recreate the Activity while expanded. Confirm that the collapse action,
+# both domain sections, and the save action still exist after orientation change.
+adb_cmd shell settings put system accelerometer_rotation 0
+adb_cmd shell settings put system user_rotation 1
+sleep 3
+rotated_editor_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-rotated.xml)"
+# After rotation Android may restore the ScrollView offset with the editor's
+# header above the viewport. The editor remains expanded when its allow section
+# and editable fields are still present; scroll separately to test the toggle.
+if ! python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+visible={n.attrib.get("text","").strip() for n in root.iter("node")
+         if n.attrib.get("visible-to-user","true")=="true"}
+if "허용 도메인" not in visible or not any(
+    n.attrib.get("class")=="android.widget.EditText"
+    and n.attrib.get("visible-to-user","true")=="true" for n in root.iter("node")):
+    raise SystemExit("Expanded editor fields were not restored after Activity recreation.")' <<<"$rotated_editor_xml"; then
+  echo "$rotated_editor_xml"
+  exit 1
+fi
+ensure_editor_element_visible "차단 도메인" text down
+ensure_editor_element_visible "허용 도메인" text up
+ensure_editor_element_visible "규칙 저장 및 적용" button up
+ensure_editor_element_visible "접기" button down
+
+adb_cmd shell settings put system user_rotation 0
+sleep 2
+ensure_editor_element_visible "접기" button down
+tap_text "접기"
+sleep 1
+ensure_editor_element_visible "편집" button down
+rules_current_collapsed_again_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-collapsed-again.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+visible={n.attrib.get("text","").strip() for n in root.iter("node")
+         if n.attrib.get("visible-to-user","true")=="true"}
+if visible.intersection({"차단 도메인","허용 도메인"}):
+    raise SystemExit("The filter editor failed to collapse after restored expansion.")
+if not any(n.attrib.get("text","").strip()=="편집" and n.attrib.get("clickable")=="true"
+           and n.attrib.get("visible-to-user","true")=="true" for n in root.iter("node")):
+    raise SystemExit("The collapsed current editor did not restore the Edit action.")
+' <<<"$rules_current_collapsed_again_xml"
+tap_content_description "홈"
+echo "Current upgraded APK inline filter editor expand/collapse and rotation restoration passed."
 
 # The pre-update fixture is intentionally 0.7.25-dev and cannot contain this feature.
 # Run the compatibility UI/behavior check only after installing and verifying

@@ -54,7 +54,7 @@ def resolve_settings_item(hierarchy: str, requested: str) -> str:
     root = _root(hierarchy)
     aliases = {
         "앱 제외 관리": ("앱 제외 관리", "앱 제외"),
-        "필터 관리": ("필터 관리", "필터 규칙"),
+        "필터 관리": ("필터 관리", "필터 규칙", "필터링"),
     }
     candidates = aliases.get(requested, (requested,))
     visible = {

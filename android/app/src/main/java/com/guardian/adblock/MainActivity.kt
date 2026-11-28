@@ -60,6 +60,7 @@ class MainActivity : Activity() {
     private var androidAdsFilterCheckBox: CheckBox? = null
     private lateinit var blockRulesInput: EditText
     private lateinit var allowRulesInput: EditText
+    private var ruleEditorExpandedOnBuild = false
     private var rulesFeedback: TextView? = null
     private var statsText: TextView? = null
     private var recentText: TextView? = null
@@ -140,6 +141,9 @@ class MainActivity : Activity() {
         )
         val restoredScrollY = savedInstanceState?.getInt(STATE_SCROLL_Y, 0) ?: 0
         val retainedRuleDraft = lastNonConfigurationInstance as? RuleEditorDraft
+        ruleEditorExpandedOnBuild = savedInstanceState?.getBoolean(STATE_RULE_EDITOR_EXPANDED)
+            ?: retainedRuleDraft?.editorExpanded
+            ?: false
         if (savedInstanceState != null) {
             android.util.Log.i(
                 "GuardianUI",
@@ -286,15 +290,24 @@ class MainActivity : Activity() {
         android.util.Log.i("GuardianUI", "Saving Activity state; tab=$currentTab scrollY=$savedScrollY")
         outState.putString(STATE_CURRENT_TAB, currentTab)
         outState.putBoolean(STATE_FOCUS_LICENSE_ACTIVATION, focusLicenseActivationOnBuild)
+        outState.putBoolean(STATE_RULE_EDITOR_EXPANDED, ruleEditorExpandedOnBuild)
         outState.putInt(STATE_SCROLL_Y, savedScrollY)
         super.onSaveInstanceState(outState)
     }
 
-    private data class RuleEditorDraft(val blockRules: String, val allowRules: String)
+    private data class RuleEditorDraft(
+        val blockRules: String,
+        val allowRules: String,
+        val editorExpanded: Boolean
+    )
 
     override fun onRetainNonConfigurationInstance(): Any? {
         if (currentTab != "rules" || !::blockRulesInput.isInitialized || !::allowRulesInput.isInitialized) return null
-        val draft = RuleEditorDraft(blockRulesInput.text.toString(), allowRulesInput.text.toString())
+        val draft = RuleEditorDraft(
+            blockRulesInput.text.toString(),
+            allowRulesInput.text.toString(),
+            ruleEditorExpandedOnBuild
+        )
         android.util.Log.i("GuardianUI", "Retaining rule editor draft; blockChars=${draft.blockRules.length} allowChars=${draft.allowRules.length}")
         return draft
     }
@@ -1329,25 +1342,62 @@ class MainActivity : Activity() {
             addView(filterUpdateButton!!, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(10) })
         }
         body.addView(officialFilterCard.withTop(18))
-        body.addView(text("사용자 규칙", 16f, white, true).withTop(22))
-        body.addView(text("차단 도메인", 14f, white, true).withTop(12))
-        body.addView(text("도메인 하나를 한 줄에 입력하세요. 하위 도메인도 함께 차단됩니다.", 12f, muted, false).withTop(5))
+        val editorCard = card(panel, 16).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(14), dp(15), dp(14))
+            layoutTransition = android.animation.LayoutTransition().apply { setDuration(220) }
+        }
+        val editorHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val editorHeading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        editorHeading.addView(text("전체 필터 규칙", 15f, white, true))
+        editorHeading.addView(text("차단·허용 도메인을 한곳에서 관리합니다.", 11f, muted, false).withTop(4))
+        editorHeader.addView(editorHeading, LinearLayout.LayoutParams(0, -2, 1f))
+        val editorPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = if (ruleEditorExpandedOnBuild) View.VISIBLE else View.GONE
+        }
+        val editorToggle = Button(this).apply {
+            text = if (ruleEditorExpandedOnBuild) "접기" else "편집"
+            isAllCaps = false
+            textSize = 12f
+            setTextColor(bg)
+            background = shape(accent, 11)
+            contentDescription = if (ruleEditorExpandedOnBuild) "전체 필터 규칙 편집 접기" else "전체 필터 규칙 편집 펼치기"
+            setPadding(dp(12), 0, dp(12), 0)
+            setOnClickListener {
+                ruleEditorExpandedOnBuild = editorPanel.visibility != View.VISIBLE
+                editorPanel.visibility = if (ruleEditorExpandedOnBuild) View.VISIBLE else View.GONE
+                text = if (ruleEditorExpandedOnBuild) "접기" else "편집"
+                contentDescription = if (ruleEditorExpandedOnBuild) "전체 필터 규칙 편집 접기" else "전체 필터 규칙 편집 펼치기"
+            }
+        }
+        editorHeader.addView(editorToggle, LinearLayout.LayoutParams(dp(76), dp(38)).apply {
+            marginStart = dp(10)
+        })
+        editorCard.addView(editorHeader)
+        editorPanel.addView(text("차단 도메인", 14f, white, true).withTop(16))
+        editorPanel.addView(text("도메인 하나를 한 줄에 입력하세요. 하위 도메인도 함께 차단됩니다.", 12f, muted, false).withTop(5))
         blockRulesInput = domainEditor("ads.example.com\ntracker.example.net")
-        body.addView(blockRulesInput, editorHeight().apply { topMargin = dp(10) })
-        body.addView(text("허용 도메인", 16f, white, true).withTop(20))
-        body.addView(text("차단 목록보다 허용 규칙이 우선 적용됩니다.", 12f, muted, false).withTop(5))
+        editorPanel.addView(blockRulesInput, editorHeight().apply { topMargin = dp(10) })
+        editorPanel.addView(text("허용 도메인", 14f, white, true).withTop(18))
+        editorPanel.addView(text("차단 목록보다 허용 규칙이 우선 적용됩니다.", 12f, muted, false).withTop(5))
         allowRulesInput = domainEditor("trusted.example.com")
-        body.addView(allowRulesInput, editorHeight().apply { topMargin = dp(10) })
-        body.addView(Button(this).apply {
+        editorPanel.addView(allowRulesInput, editorHeight().apply { topMargin = dp(10) })
+        editorPanel.addView(Button(this).apply {
             text = "규칙 저장 및 적용"
             isAllCaps = false
             setTextColor(bg)
             background = shape(accent, 14)
             setOnClickListener { saveUserRules() }
-        }, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(16) })
+        }, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(14) })
         val feedback = text("규칙은 기기 내부에 안전하게 저장됩니다.", 12f, muted, false).withTop(10) as TextView
         rulesFeedback = feedback
-        body.addView(feedback)
+        editorPanel.addView(feedback)
+        editorCard.addView(editorPanel)
+        body.addView(editorCard.withTop(18))
         loadUserRulesIntoEditors()
     }
 
@@ -4024,6 +4074,7 @@ class MainActivity : Activity() {
         private const val UI_STATE_PREFS = "guardian_ui_state"
         private const val PREF_LAST_SELECTED_TAB = "last_selected_tab"
         private const val STATE_FOCUS_LICENSE_ACTIVATION = "guardian.ui.focus_license_activation"
+        private const val STATE_RULE_EDITOR_EXPANDED = "guardian.ui.rule_editor_expanded"
         private const val STATE_SCROLL_Y = "guardian.ui.scroll_y"
     }
 }
