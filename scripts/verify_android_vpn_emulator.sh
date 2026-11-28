@@ -277,7 +277,7 @@ raise SystemExit(0 if found else 1)' <<<"$xml"; then
   else
     case "$title" in
       "앱 제외 관리") tap_content_description "앱 제외"; sleep 1 ;;
-      "필터 관리") tap_content_description "필터 규칙"; sleep 1 ;;
+      "필터 관리"|"필터링") tap_content_description "필터 규칙"; sleep 1 ;;
       *)
         echo "Legacy navigation fallback is not defined for menu item: $title"
         echo "$xml"
