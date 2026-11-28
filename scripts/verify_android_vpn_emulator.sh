@@ -1534,7 +1534,7 @@ if grep -Fq 'content-desc="광고 차단이 되지 않아요 답변 펼치기"' 
 else
   # Main still exposes the legacy AlertDialog FAQ list. Exercise its answer
   # and dismiss the actual visible Android button instead of assuming "닫기".
-  tap_text "광고 차단이 되지 않아요"
+  tap_text_row "광고 차단이 되지 않아요"
   sleep 1
   support_faq_answer_xml="$(dump_ui_hierarchy /sdcard/guardian-support-faq-answer.xml)"
   grep -Fq 'DNS 기반 광고·추적 도메인' <<<"$support_faq_answer_xml" || {
