@@ -1373,15 +1373,30 @@ if visible.intersection({"차단 도메인","허용 도메인"}):
 ' <<<"$rules_current_xml"
 tap_text "편집"
 sleep 1
-rules_current_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-expanded.xml)"
-python3 -c 'import sys,xml.etree.ElementTree as ET
+# The editor expands below the full filter card. On a phone viewport its lower
+# fields are initially below the fold, so scroll the Settings content until all
+# editor controls are simultaneously visible before asserting the accordion UI.
+rules_current_expanded_xml=""
+current_editor_controls_ready=0
+for attempt in $(seq 1 6); do
+  rules_current_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-expanded.xml)"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 visible={n.attrib.get("text","").strip() for n in root.iter("node")
          if n.attrib.get("visible-to-user","true")=="true"}
 required={"차단 도메인","허용 도메인","규칙 저장 및 적용","접기"}
-missing=required-visible
-if missing: raise SystemExit("Expanded current editor is missing: "+", ".join(sorted(missing)))
-' <<<"$rules_current_expanded_xml"
+raise SystemExit(0 if required.issubset(visible) else 1)' <<<"$rules_current_expanded_xml"; then
+    current_editor_controls_ready=1
+    break
+  fi
+  adb_cmd shell input swipe 540 1500 540 850 450
+  sleep 0.5
+done
+if [[ "$current_editor_controls_ready" -ne 1 ]]; then
+  echo "Expanded current editor did not expose all controls after scrolling."
+  echo "$rules_current_expanded_xml"
+  exit 1
+fi
 # Recreate the Activity while expanded. The expansion flag must be restored
 # with the filter destination; no rule is saved during this UI-state check.
 adb_cmd shell settings put system accelerometer_rotation 0
