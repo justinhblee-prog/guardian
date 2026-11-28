@@ -144,7 +144,27 @@ for node in root.iter("node"):
                 print((x1+x2)//2,(y1+y2)//2)
                 raise SystemExit(0)
         target=parents.get(target)
-raise SystemExit(1)' "$wanted" <<<"$xml")" || {
+raise SystemExit(1)' "$wanted" <<<"$xml")" || true
+  # Android's Guardian exit dialog title is informational and non-clickable;
+  # the actionable confirmation is the button labeled "종료". Older UI
+  # automation attempted to tap the title and failed even though the dialog
+  # itself was correctly displayed. Resolve the actual button by resource ID.
+  if [[ -z "$bounds" && "$wanted" == "Guardian 종료" ]]; then
+    bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("resource-id")=="android:id/button1"
+        and node.attrib.get("text","").strip()=="종료"
+        and node.attrib.get("visible-to-user","true")=="true"
+        and node.attrib.get("clickable")=="true"
+        and node.attrib.get("enabled")=="true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2)
+            break' <<<"$xml")"
+  fi
+  if [[ -z "$bounds" ]]; then
     echo "Could not locate visible clickable UI control or clickable text parent: $wanted"
     echo "$xml"
     return 1
