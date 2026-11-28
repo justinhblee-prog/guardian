@@ -692,3 +692,17 @@ jobs:
               --title "Guardian AdBlock ${GUARDIAN_VERSION_NAME} (개발 업데이트)" \
               --notes "Guardian-Source-Commit: $GITHUB_SHA"
           fi
+
+          # Publish the verified manifest at a stable, unauthenticated URL.
+          MANIFEST_PATH="android/guardian-android-dev.json"
+          MANIFEST_BASE64="$(base64 -w0 "$MANIFEST")"
+          EXISTING_MANIFEST_SHA="$(gh api "repos/$GITHUB_REPOSITORY/contents/$MANIFEST_PATH?ref=main" --jq .sha 2>/dev/null || true)"
+          if [ -n "$EXISTING_MANIFEST_SHA" ]; then
+            gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/$MANIFEST_PATH" \
+              -f message="chore(android): publish verified development update manifest ${GUARDIAN_VERSION_NAME}" \
+              -f content="$MANIFEST_BASE64" -f branch=main -f sha="$EXISTING_MANIFEST_SHA"
+          else
+            gh api --method PUT "repos/$GITHUB_REPOSITORY/contents/$MANIFEST_PATH" \
+              -f message="chore(android): publish verified development update manifest ${GUARDIAN_VERSION_NAME}" \
+              -f content="$MANIFEST_BASE64" -f branch=main
+          fi
