@@ -1,5 +1,5 @@
 """HTTPS/RSA-SHA256 filter updater compatible with Guardian signed manifests."""
-import base64,hashlib,json,os,re,tempfile,urllib.error,urllib.request
+import base64,hashlib,json,os,re,tempfile,time,urllib.error,urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -77,9 +77,11 @@ class FilterUpdater:
         if values["manifestVersion"]!="1" or values["sourceId"]!=self.source_id: raise FilterUpdateError("Unsupported manifest version or source ID mismatch")
         if not re.fullmatch(r"[A-Za-z0-9._+-]{1,64}",values["sourceVersion"]): raise FilterUpdateError("Invalid filter source version")
         if not re.fullmatch(r"[0-9a-f]{64}",values["sha256"]): raise FilterUpdateError("Invalid SHA-256 field")
-        try: generated=int(values["generatedAt"]); minimum=int(values["minimumRules"])
-        except ValueError as exc: raise FilterUpdateError("Invalid manifest numeric field") from exc
-        if generated<=0 or minimum<1 or minimum>2147483647: raise FilterUpdateError("Invalid manifest timestamp or minimum rule count")
+        if not re.fullmatch(r"[1-9][0-9]{0,15}",values["generatedAt"]) or not re.fullmatch(r"[1-9][0-9]{0,8}",values["minimumRules"]):
+            raise FilterUpdateError("Invalid manifest timestamp or minimum rule count")
+        generated=int(values["generatedAt"]); minimum=int(values["minimumRules"])
+        if generated>int(time.time())+600: raise FilterUpdateError("Manifest timestamp is too far in the future")
+        if minimum>2147483647: raise FilterUpdateError("Invalid manifest timestamp or minimum rule count")
         values["generatedAt"]=generated; values["minimumRules"]=minimum
         return values
     def update(self):
