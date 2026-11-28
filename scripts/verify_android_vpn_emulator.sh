@@ -1651,22 +1651,23 @@ if [[ "$settings_tab_selected" -ne 1 ]]; then
   echo "$settings_navigation_xml"
   exit 1
 fi
-# The predecessor exposes Filtering as a direct Full Menu item; current builds
-# expose it as a Settings category card. Select the route supported by the
-# actual screen rather than substring-matching descriptions in DNS details.
+# The foreground-app compatibility controls are part of the PRO/DNS
+# settings screen, not the Filtering screen. Select the actual destination
+# that owns buildCompatibilityPauseSection() in the current app.
 if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
-  legacy_filter_target="$(python3 scripts/android_navigation_compat.py settings-item "필터 관리" <<<"$settings_navigation_xml" 2>/dev/null || true)"
-  if [[ -z "$legacy_filter_target" ]]; then
-    echo "Legacy Full Menu does not expose a compatible Filtering destination."
+  legacy_pro_target="$(python3 scripts/android_navigation_compat.py settings-item "Premium" <<<"$settings_navigation_xml" 2>/dev/null || true)"
+  if [[ -z "$legacy_pro_target" ]]; then
+    legacy_pro_target="$(python3 scripts/android_navigation_compat.py settings-item "프리미엄" <<<"$settings_navigation_xml" 2>/dev/null || true)"
+  fi
+  if [[ -z "$legacy_pro_target" ]]; then
+    echo "Legacy Full Menu does not expose a compatible PRO destination."
     echo "$settings_navigation_xml"
     exit 1
   fi
-  scroll_to_text "$legacy_filter_target"
+  scroll_to_text "$legacy_pro_target"
 else
-  ensure_text_visible "필터링"
-  # The category card exposes its clickable accessibility label with the
-  # action suffix; the visible title itself is a non-clickable TextView.
-  tap_text "필터링"
+  ensure_text_visible "라이선스 및 프리미엄"
+  tap_text "라이선스 및 프리미엄"
 fi
 sleep 1
 for attempt in $(seq 1 24); do
