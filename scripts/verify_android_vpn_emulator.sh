@@ -1613,21 +1613,16 @@ auto_pause_picker_visible=0
 # Protection and assert the selected navigation state before inspecting it.
 tap_content_description "홈"
 sleep 1
-tap_content_description "보호"
+# The foreground-app compatibility controls are built into Settings > General.
+# The test must enter that category; the Protection dashboard intentionally
+# contains only protection status and DNS scope.
+tap_content_description "설정"
 sleep 1
-protection_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-protection-navigation.xml)"
-if ! python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if not any(n.attrib.get("content-desc")=="보호" and n.attrib.get("selected")=="true"
-           for n in root.iter("node")):
-    raise SystemExit("Protection destination is not selected")' <<<"$protection_navigation_xml"; then
-  echo "Could not select the Protection destination before checking VPN auto-pause."
-  echo "$protection_navigation_xml"
-  exit 1
-fi
+scroll_to_text "일반"
+sleep 1
+auto_pause_picker_visible=0
 for attempt in $(seq 1 24); do
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  auto_pause_settings_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+  auto_pause_settings_xml="$(dump_ui_hierarchy /sdcard/guardian-compatibility-settings.xml)"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
@@ -1639,15 +1634,15 @@ if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
     raise SystemExit(0)
 raise SystemExit(1)' <<<"$auto_pause_settings_xml"; then
     auto_pause_picker_visible=1
-    echo "Foreground-app compatibility controls found after $attempt Settings scroll checks."
+    echo "Foreground-app compatibility controls found in Settings > General after $attempt scroll checks."
     break
   fi
-  # Swipe up to reveal settings content below the current viewport.
+  # The compatibility section follows the DNS and server settings in General.
   adb_cmd shell input swipe 540 1500 540 600 450
   sleep 0.5
 done
 if [[ "$auto_pause_picker_visible" -ne 1 ]]; then
-  echo "Foreground-app auto-pause controls were not visible in Settings."
+  echo "Foreground-app auto-pause controls were not visible in Settings > General."
   echo "$auto_pause_settings_xml"
   exit 1
 fi
