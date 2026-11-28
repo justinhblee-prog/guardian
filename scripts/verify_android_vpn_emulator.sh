@@ -1418,11 +1418,17 @@ adb_cmd shell settings put system accelerometer_rotation 0
 adb_cmd shell settings put system user_rotation 1
 sleep 3
 rotated_editor_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-rotated.xml)"
+# After rotation Android may restore the ScrollView offset with the editor's
+# header above the viewport. The editor remains expanded when its allow section
+# and editable fields are still present; scroll separately to test the toggle.
 if ! python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if not any(n.attrib.get("text","").strip()=="접기" and n.attrib.get("clickable")=="true"
-       for n in root.iter("node")):
-    raise SystemExit("The full filter editor collapsed during Activity recreation.")' <<<"$rotated_editor_xml"; then
+visible={n.attrib.get("text","").strip() for n in root.iter("node")
+         if n.attrib.get("visible-to-user","true")=="true"}
+if "허용 도메인" not in visible or not any(
+    n.attrib.get("class")=="android.widget.EditText"
+    and n.attrib.get("visible-to-user","true")=="true" for n in root.iter("node")):
+    raise SystemExit("Expanded editor fields were not restored after Activity recreation.")' <<<"$rotated_editor_xml"; then
   echo "$rotated_editor_xml"
   exit 1
 fi
