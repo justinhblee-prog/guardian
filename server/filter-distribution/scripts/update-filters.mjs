@@ -100,9 +100,70 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         upstream.search || upstream.hash) {
       throw new Error(`Source ${source.id} must use a clean HTTPS URL.`);
     }
-    // Fetching and signing a third-party list is separate from permission to
-    // redistribute it with a commercial app. Require a traceable approval
-    // before any upstream request or manifest publication.
+    // A license label alone does not establish the provenance of every
+    // upstream component in an aggregated list. Require a traceable, source-
+    // specific compliance review before any upstream request or publication.
+    const cleanHttpsReference = value => {
+      if (typeof value !== 'string' || !value.trim()) return false;
+      try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'https:' && !parsed.username && !parsed.password &&
+          !parsed.search && !parsed.hash;
+      } catch {
+        return false;
+      }
+    };
+    const pinnedVersion = typeof source.upstreamVersion === 'string' &&
+      /^[A-Za-z0-9._+-]{1,128}$/.test(source.upstreamVersion) &&
+      !/^(rolling(?:-unpinned)?|unpinned|latest|main|master|head)$/i.test(source.upstreamVersion);
+    const commitSha = typeof source.upstreamCommitSha === 'string' &&
+      /^[a-f0-9]{40,64}$/i.test(source.upstreamCommitSha);
+    const sourceUrlPinsCommit = commitSha && (() => {
+      let repositoryUrl;
+      try {
+        repositoryUrl = new URL(source.upstreamRepository);
+      } catch {
+        // Invalid or missing repository references are handled by the
+        // source-specific compliance validation below. Keep malformed
+        // configuration fail-closed without leaking a generic URL parser
+        // exception that obscures which approval field needs correction.
+        return false;
+      }
+      const repositoryParts = repositoryUrl.pathname.split('/').filter(Boolean);
+      const owner = repositoryParts[0]?.toLowerCase();
+      const repository = repositoryParts[1]?.replace(/\.git$/i, '').toLowerCase();
+      const sourceParts = upstream.pathname.split('/').filter(Boolean);
+      const revision = source.upstreamCommitSha.toLowerCase();
+      if (repositoryUrl.hostname.toLowerCase() !== 'github.com' ||
+          !owner || !repository || repositoryParts.length !== 2) return false;
+      if (upstream.hostname.toLowerCase() === 'raw.githubusercontent.com') {
+        return sourceParts.length >= 4 &&
+          sourceParts[0].toLowerCase() === owner &&
+          sourceParts[1].toLowerCase() === repository &&
+          sourceParts[2].toLowerCase() === revision;
+      }
+      if (upstream.hostname.toLowerCase() === 'cdn.jsdelivr.net') {
+        return sourceParts.length >= 4 &&
+          sourceParts[0] === 'gh' &&
+          sourceParts[1].toLowerCase() === owner &&
+          sourceParts[2].toLowerCase() === repository + '@' + revision;
+      }
+      return false;
+    })();
+    const pinnedSourceUrl = sourceUrlPinsCommit &&
+      !/@(?:latest|main|master|head)(?:\/|$)/i.test(source.url);
+    if (!cleanHttpsReference(source.upstreamRepository) ||
+        !cleanHttpsReference(source.licenseUrl) ||
+        !pinnedVersion ||
+        !pinnedSourceUrl ||
+        source.thirdPartyProvenanceReviewed !== true ||
+        typeof source.complianceEvidenceRef !== 'string' ||
+        !source.complianceEvidenceRef.trim() ||
+        source.complianceEvidenceRef.length > 256) {
+      throw new Error(
+        `Source ${source.id} is missing its upstream repository, license URL, pinned upstream version/commit URL, third-party provenance review or compliance evidence reference.`
+      );
+    }
     if (typeof source.licenseId !== 'string' ||
         !/^[A-Za-z0-9.+-]{1,64}$/.test(source.licenseId) ||
         source.redistributionApproved !== true ||
@@ -110,7 +171,7 @@ export async function updateFilters({ config, env = process.env, fetchImpl = fet
         !source.redistributionApprovalRef.trim() ||
         source.redistributionApprovalRef.length > 128) {
       throw new Error(
-        `Source ${source.id} is not approved for redistribution; set licenseId, redistributionApproved=true and redistributionApprovalRef only after license review.`
+        `Source ${source.id} is not approved for redistribution; set licenseId, redistributionApproved=true and redistributionApprovalRef only after license-compliance review.`
       );
     }
     return { ...source, upstream };
