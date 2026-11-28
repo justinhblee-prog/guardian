@@ -1332,6 +1332,11 @@ fi
 echo "Automatic package-update recovery passed: receiver relaunched VPN, DNS queries resumed, and the test ad domain was blocked."
 
 echo "Verifying the newly installed APK's inline full filter-rule editor."
+# The package replacement broadcast can leave the launcher on top after the
+# previous-version upgrade test. Explicitly bring the freshly upgraded app
+# back to the foreground before interacting with its current UI hierarchy.
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+sleep 2
 # This must run after the predecessor APK has been upgraded; the earlier
 # compatibility pass intentionally allows older published builds to lack this UI.
 tap_content_description "홈"
