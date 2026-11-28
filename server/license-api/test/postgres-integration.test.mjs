@@ -1,6 +1,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { generateKeyPairSync, randomUUID, verify } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createPostgresRateLimiter } from '../src/rate-limit.mjs';
 
@@ -13,6 +13,10 @@ if (!databaseUrl) {
   process.env.GUARDIAN_LICENSE_LOOKUP_SECRET = 'integration-lookup-secret-at-least-32-characters';
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   process.env.GUARDIAN_LICENSE_PRIVATE_KEY = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  process.env.AWS_ACCESS_KEY_ID = 'integration-storage-access-key';
+  process.env.AWS_SECRET_ACCESS_KEY = 'integration-storage-secret-key-long-enough';
+  process.env.AWS_ENDPOINT_URL_S3 = 'https://storage.integration.example/';
+  process.env.AWS_REGION = 'ap-southeast-1';
 
   const { default: pg } = await import('pg');
   const pool = new pg.Pool({ connectionString: databaseUrl });
@@ -48,7 +52,7 @@ if (!databaseUrl) {
   };
 
   before(async () => {
-    await pool.query('TRUNCATE api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
+    await pool.query('TRUNCATE guardian_update_manifests, api_rate_limit_buckets, support_tickets, license_events, activations, licenses RESTART IDENTITY CASCADE');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     baseUrl = `http://127.0.0.1:${server.address().port}`;
   });
@@ -128,6 +132,61 @@ if (!databaseUrl) {
       assert.ok(decisions.every(item => item.limit === 3));
     } finally {
       await pool.query('DELETE FROM api_rate_limit_buckets WHERE bucket_key=$1', [key]);
+    }
+  });
+
+  test('stable is public while beta/dev updates require admin and APK publication verifies bytes', async () => {
+    const apkBytes = Buffer.from('guardian-private-update-apk-test-fixture');
+    const sha256 = createHash('sha256').update(apkBytes).digest('hex');
+    const metadata = {
+      channel: 'dev',
+      versionCode: 876,
+      versionName: '0.8.76-dev',
+      sha256,
+      signerSha256: 'b'.repeat(64),
+      sizeBytes: apkBytes.length,
+      minSupportedVersionCode: 1,
+      releaseNotes: 'private development test'
+    };
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input, init = {}) => {
+      const target = new URL(typeof input === 'string' ? input : input.url);
+      if (target.host === 'storage.integration.example') {
+        assert.equal(init.method, undefined);
+        return new Response(apkBytes, {
+          status: 200,
+          headers: { 'content-length': String(apkBytes.length) }
+        });
+      }
+      return originalFetch(input, init);
+    };
+    try {
+      const upload = await post('/v1/admin/updates/upload-url', metadata, adminHeaders);
+      assert.equal(upload.status, 200);
+      const uploadInfo = await upload.json();
+      assert.equal(uploadInfo.method, 'PUT');
+      assert.equal(new URL(uploadInfo.uploadUrl).searchParams.get('X-Amz-Expires'), '600');
+      assert.match(uploadInfo.objectKey, /^android\/dev\/876-[a-f0-9]{64}\.apk$/);
+
+      const published = await post('/v1/admin/updates/publish', {
+        ...metadata, objectKey: uploadInfo.objectKey
+      }, adminHeaders);
+      assert.equal(published.status, 200);
+      assert.equal((await published.json()).update.versionCode, 876);
+
+      const publicStable = await fetch(`${baseUrl}/v1/updates/stable`);
+      assert.equal(publicStable.status, 200);
+      assert.deepEqual(await publicStable.json(), { update: null });
+
+      const privateWithoutToken = await fetch(`${baseUrl}/v1/updates/dev`);
+      assert.equal(privateWithoutToken.status, 401);
+      const privateWithToken = await fetch(`${baseUrl}/v1/updates/dev`, { headers: adminHeaders });
+      assert.equal(privateWithToken.status, 200);
+      const privateUpdate = (await privateWithToken.json()).update;
+      assert.equal(privateUpdate.versionCode, 876);
+      assert.equal(new URL(privateUpdate.apkUrl).searchParams.get('X-Amz-Expires'), '300');
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 
@@ -473,24 +532,26 @@ if (!databaseUrl) {
   });
 
 
-  test('existing license databases can apply migrations 002 through 005 repeatedly', async () => {
-    await pool.query('DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
+  test('existing license databases can apply migrations 002 through 006 repeatedly', async () => {
+    await pool.query('DROP TABLE IF EXISTS guardian_update_manifests; DROP TABLE IF EXISTS support_tickets; DROP TABLE IF EXISTS api_rate_limit_buckets;');
     for (const migrationPath of [
       new URL('../migrations/002_shared_rate_limit_buckets.sql', import.meta.url),
       new URL('../migrations/003_support_tickets.sql', import.meta.url),
       new URL('../migrations/004_customers.sql', import.meta.url),
-      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url)
+      new URL('../migrations/005_shared_guardian_product.sql', import.meta.url),
+      new URL('../migrations/006_private_update_channels.sql', import.meta.url)
     ]) {
       const sql = readFileSync(migrationPath, 'utf8');
       await pool.query(sql);
       await pool.query(sql);
     }
     const tables = await pool.query(
-      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets, to_regclass('public.customers') AS customers, (SELECT code FROM products WHERE code='guardian-pro' AND active=true LIMIT 1) AS shared_product"
+      "SELECT to_regclass('public.api_rate_limit_buckets') AS rate_limits, to_regclass('public.support_tickets') AS support_tickets, to_regclass('public.customers') AS customers, to_regclass('public.guardian_update_manifests') AS update_manifests, (SELECT code FROM products WHERE code='guardian-pro' AND active=true LIMIT 1) AS shared_product"
     );
     assert.equal(tables.rows[0].rate_limits, 'api_rate_limit_buckets');
     assert.equal(tables.rows[0].support_tickets, 'support_tickets');
     assert.equal(tables.rows[0].customers, 'customers');
+    assert.equal(tables.rows[0].update_manifests, 'guardian_update_manifests');
     assert.equal(tables.rows[0].shared_product, 'guardian-pro');
   });
 

@@ -64,7 +64,7 @@ jobs:
             sleep 2
           done
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
-          for migration in migrations/002_shared_rate_limit_buckets.sql migrations/003_support_tickets.sql migrations/004_customers.sql migrations/005_shared_guardian_product.sql; do
+          for migration in migrations/002_shared_rate_limit_buckets.sql migrations/003_support_tickets.sql migrations/004_customers.sql migrations/005_shared_guardian_product.sql migrations/006_private_update_channels.sql; do
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
           done
 

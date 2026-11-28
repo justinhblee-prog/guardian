@@ -1,4 +1,5 @@
 import { createHash, createPrivateKey, randomBytes, randomUUID } from 'node:crypto';
+import { createPresignedObjectUrl } from './update-storage.mjs';
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { createPostgresRateLimiter, createRateLimiter } from './rate-limit.mjs';
@@ -9,6 +10,7 @@ import {
 
 export function createLicenseApiRuntime(environment = process.env, options = {}) {
 const { Pool } = pg;
+const fetchObject = options.fetch ?? ((...args) => globalThis.fetch(...args));
 const DATABASE_URL = environment.DATABASE_URL;
 const ADMIN_TOKEN = environment.GUARDIAN_ADMIN_TOKEN;
 const PRIVATE_KEY = environment.GUARDIAN_LICENSE_PRIVATE_KEY;
@@ -22,7 +24,9 @@ const rateLimitOptions = {
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
   '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers',
-  '/v1/support/tickets', '/v1/admin/support/tickets', '/v1/support/tickets/lookup'
+  '/v1/support/tickets', '/v1/admin/support/tickets', '/v1/support/tickets/lookup',
+  '/v1/updates/stable', '/v1/updates/beta', '/v1/updates/dev',
+  '/v1/admin/updates', '/v1/admin/updates/upload-url', '/v1/admin/updates/publish'
 ]);
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
@@ -479,6 +483,151 @@ async function revokeLicense(id, req) {
 
 
 
+  function validateUpdateChannel(channel) {
+  if (!['stable', 'beta', 'dev'].includes(channel)) {
+    throw Object.assign(new Error('업데이트 채널이 올바르지 않습니다.'), { status: 400 });
+  }
+  return channel;
+}
+function validateUpdateMetadata(body) {
+  const channel = validateUpdateChannel(body.channel);
+  const versionCode = Number(body.versionCode);
+  const versionName = String(body.versionName || '');
+  const sha256 = String(body.sha256 || '').toLowerCase();
+  const signerSha256 = String(body.signerSha256 || '').toLowerCase();
+  const sizeBytes = Number(body.sizeBytes);
+  const minSupportedVersionCode = Number(body.minSupportedVersionCode || 1);
+  if (!Number.isSafeInteger(versionCode) || versionCode < 1 ||
+      !Number.isSafeInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > 100 * 1024 * 1024 ||
+      !Number.isSafeInteger(minSupportedVersionCode) || minSupportedVersionCode < 1 ||
+      !/^[a-f0-9]{64}$/.test(sha256) || !/^[a-f0-9]{64}$/.test(signerSha256)) {
+    throw Object.assign(new Error('업데이트 버전 또는 무결성 정보가 올바르지 않습니다.'), { status: 400 });
+  }
+  const versionPattern = channel === 'stable'
+    ? /^\d+\.\d+\.\d+$/
+    : channel === 'beta' ? /^\d+\.\d+\.\d+-beta(?:\.\d+)?$/ : /^\d+\.\d+\.\d+-dev$/;
+  if (!versionPattern.test(versionName)) {
+    throw Object.assign(new Error('채널과 버전 이름이 일치하지 않습니다.'), { status: 400 });
+  }
+  return {
+    channel, versionCode, versionName, sha256, signerSha256, sizeBytes,
+    minSupportedVersionCode,
+    releaseNotes: typeof body.releaseNotes === 'string' ? body.releaseNotes.slice(0, 4000) : ''
+  };
+}
+async function createUpdateUploadUrl(body, req) {
+  requireEnv();
+  requireAdmin(req);
+  const metadata = validateUpdateMetadata(body);
+  const objectKey = 'android/' + metadata.channel + '/' + metadata.versionCode + '-' + metadata.sha256 + '.apk';
+  const signed = createPresignedObjectUrl({
+    method: 'PUT', bucket: 'guardian-private-updates', objectKey,
+    expiresInSeconds: 600, contentType: 'application/vnd.android.package-archive'
+  });
+  return { objectKey, uploadUrl: signed.url, method: signed.method, headers: signed.headers, expiresAt: signed.expiresAt };
+}
+async function publishUpdate(body, req) {
+  requireEnv();
+  requireAdmin(req);
+  const metadata = validateUpdateMetadata(body);
+  const expectedKey = 'android/' + metadata.channel + '/' + metadata.versionCode + '-' + metadata.sha256 + '.apk';
+  if (body.objectKey !== expectedKey) {
+    throw Object.assign(new Error('업데이트 저장소 객체 키가 메타데이터와 일치하지 않습니다.'), { status: 400 });
+  }
+  const download = createPresignedObjectUrl({
+    method: 'GET', bucket: 'guardian-private-updates', objectKey: expectedKey,
+    expiresInSeconds: 120
+  });
+  const check = await fetchObject(download.url, { signal: AbortSignal.timeout(120000) });
+  if (!check.ok || !check.body) {
+    throw Object.assign(new Error('업로드된 APK 객체를 확인할 수 없습니다.'), { status: 409 });
+  }
+  const uploadedLength = Number(check.headers.get('content-length') || 0);
+  if (uploadedLength !== metadata.sizeBytes) {
+    await check.body.cancel();
+    throw Object.assign(new Error('업로드된 APK 크기가 선언된 크기와 다릅니다.'), { status: 409 });
+  }
+  const digest = createHash('sha256');
+  const reader = check.body.getReader();
+  let verifiedBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      verifiedBytes += value.byteLength;
+      if (verifiedBytes > metadata.sizeBytes) {
+        await reader.cancel();
+        throw Object.assign(new Error('업로드된 APK 크기가 선언된 크기를 초과했습니다.'), { status: 409 });
+      }
+      digest.update(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (verifiedBytes !== metadata.sizeBytes || digest.digest('hex') !== metadata.sha256) {
+    throw Object.assign(new Error('업로드된 APK의 SHA-256 또는 파일 크기 검증에 실패했습니다.'), { status: 409 });
+  }
+  const result = await pool.query(
+    `INSERT INTO guardian_update_manifests
+      (channel,version_code,version_name,object_key,sha256,signer_sha256,size_bytes,min_supported_version_code,release_notes,published,published_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,true,now())
+     ON CONFLICT(channel,version_code) DO UPDATE SET
+       version_name=EXCLUDED.version_name,object_key=EXCLUDED.object_key,sha256=EXCLUDED.sha256,
+       signer_sha256=EXCLUDED.signer_sha256,size_bytes=EXCLUDED.size_bytes,
+       min_supported_version_code=EXCLUDED.min_supported_version_code,
+       release_notes=EXCLUDED.release_notes,published=true,published_at=now()
+     RETURNING channel,version_code,version_name,sha256,signer_sha256,size_bytes,min_supported_version_code,release_notes,published_at`,
+    [metadata.channel, metadata.versionCode, metadata.versionName, expectedKey, metadata.sha256,
+      metadata.signerSha256, metadata.sizeBytes, metadata.minSupportedVersionCode, metadata.releaseNotes]
+  );
+  const row = result.rows[0];
+  return { update: {
+    channel: row.channel, versionCode: row.version_code, versionName: row.version_name,
+    sha256: row.sha256, signerSha256: row.signer_sha256, sizeBytes: Number(row.size_bytes),
+    minSupportedVersionCode: row.min_supported_version_code,
+    releaseNotes: row.release_notes, publishedAt: row.published_at
+  } };
+}
+async function getUpdateManifest(channel, req) {
+  validateUpdateChannel(channel);
+  if (!pool) throw Object.assign(new Error('서버 데이터베이스가 구성되지 않았습니다.'), { status: 503 });
+  if (channel !== 'stable') {
+    requireEnv();
+    requireAdmin(req);
+  }
+  const result = await pool.query(
+    `SELECT channel,version_code,version_name,object_key,sha256,signer_sha256,size_bytes,
+       min_supported_version_code,release_notes,published_at
+     FROM guardian_update_manifests
+     WHERE channel=$1 AND published=true
+     ORDER BY version_code DESC LIMIT 1`,
+    [channel]
+  );
+  if (!result.rowCount) return { update: null };
+  const row = result.rows[0];
+  const signed = createPresignedObjectUrl({
+    method: 'GET', bucket: 'guardian-private-updates', objectKey: row.object_key,
+    expiresInSeconds: 300
+  });
+  return {
+    update: {
+      channel: row.channel, versionCode: row.version_code, versionName: row.version_name,
+      sha256: row.sha256, signerSha256: row.signer_sha256, sizeBytes: Number(row.size_bytes),
+      minSupportedVersionCode: row.min_supported_version_code,
+      releaseNotes: row.release_notes, apkUrl: signed.url, urlExpiresAt: signed.expiresAt
+    }
+  };
+}
+async function listAdminUpdates(req) {
+  requireEnv();
+  requireAdmin(req);
+  const result = await pool.query(
+    `SELECT channel,version_code,version_name,sha256,size_bytes,published,published_at
+     FROM guardian_update_manifests ORDER BY channel,version_code DESC LIMIT 100`
+  );
+  return { updates: result.rows };
+}
+
   async function handleNodeRequest(req, res) {
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -523,9 +672,10 @@ async function revokeLicense(id, req) {
              to_regclass('public.license_events') AS license_events,
              to_regclass('public.api_rate_limit_buckets') AS api_rate_limit_buckets,
              to_regclass('public.support_tickets') AS support_tickets,
-             to_regclass('public.customers') AS customers`
+             to_regclass('public.customers') AS customers,
+             to_regclass('public.guardian_update_manifests') AS guardian_update_manifests`
         );
-        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers'];
+        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers', 'guardian_update_manifests'];
         if (requiredTables.some(table => !schema.rows[0]?.[table])) {
           throw new Error('license_database_schema_not_initialized');
         }
@@ -550,6 +700,13 @@ async function revokeLicense(id, req) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" });
       return res.end(html);
     }
+    const updateChannelMatch = /^\/v1\/updates\/(stable|beta|dev)$/.exec(url.pathname);
+    if (req.method === 'GET' && updateChannelMatch) {
+      return json(res, 200, await getUpdateManifest(updateChannelMatch[1], req));
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/admin/updates') {
+      return json(res, 200, await listAdminUpdates(req));
+    }
     if (req.method === 'GET' && url.pathname === '/v1/admin/licenses') return json(res, 200, await listLicenses(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/support/tickets') return json(res, 200, await listSupportTickets(req));
     if (req.method === 'GET' && url.pathname === '/v1/admin/events') return json(res, 200, await listAuditEvents(req));
@@ -561,7 +718,9 @@ async function revokeLicense(id, req) {
     if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
     const body = await readBody(req);
     let result;
-    if (url.pathname === '/v1/support/tickets') result = await createSupportTicket(body);
+    if (url.pathname === '/v1/admin/updates/upload-url') result = await createUpdateUploadUrl(body, req);
+    else if (url.pathname === '/v1/admin/updates/publish') result = await publishUpdate(body, req);
+    else if (url.pathname === '/v1/support/tickets') result = await createSupportTicket(body);
     else if (url.pathname === '/v1/support/tickets/lookup') result = await getSupportTicket(body.ticketRef, body.accessToken);
     else if (/^\/v1\/admin\/support\/tickets\/[^/]+\/reply$/.test(url.pathname)) {
       const id = url.pathname.split('/')[5];
