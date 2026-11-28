@@ -1544,7 +1544,10 @@ grep -Fq '광고 차단이 되지 않아요' <<<"$support_faq_xml" || {
   echo "$support_faq_xml"
   exit 1
 }
-tap_text_row "광고 차단이 되지 않아요"
+# The current FAQ is a custom inline accordion inside the support dialog,
+# not the legacy AlertDialog ListView. Tap its accessible expand/collapse row
+# and assert the answer text appears beneath the selected question.
+tap_content_description "광고 차단이 되지 않아요 답변 펼치기"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
 support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
