@@ -1498,11 +1498,23 @@ class MainActivity : Activity() {
                         // Keep user-facing text free of URLs, paths, and server response bodies.
                         // The exception type chain is safe to retain in CI logs and identifies
                         // whether GitHub rejected the request, TLS failed, or parsing failed.
-                        Log.e("GuardianUpdate", "Update check failed: ${SafeFailureSummary.diagnosticTypeChain(error)}")
+                        val updateFailure = (error as? GuardianUpdateCheckException)?.let { failure ->
+                            Log.e("GuardianUpdate", "Update check failed [${failure.diagnosticCode}]: ${SafeFailureSummary.diagnosticTypeChain(error)}")
+                            when {
+                                failure.diagnosticCode.startsWith("HTTP_STATUS_") ->
+                                    "업데이트 서버 응답 오류 (${failure.diagnosticCode.substringAfter("HTTP_STATUS_")})"
+                                failure.diagnosticCode == "REDIRECT_HOST_REJECTED" -> "업데이트 서버 주소 검증 실패"
+                                failure.diagnosticCode == "RESPONSE_TOO_LARGE" -> "업데이트 서버 응답 크기 초과"
+                                else -> "업데이트 서버 확인 실패"
+                            }
+                        } ?: run {
+                            Log.e("GuardianUpdate", "Update check failed: ${SafeFailureSummary.diagnosticTypeChain(error)}")
+                            "업데이트 확인 또는 다운로드 실패: " + SafeFailureSummary.describe(error)
+                        }
                         runOnUiThread {
                             downloaded = null
                             installButton.isEnabled = false
-                            feedback.text = "업데이트 확인 또는 다운로드 실패: " + SafeFailureSummary.describe(error)
+                            feedback.text = updateFailure
                             isEnabled = true
                         }
                     }
