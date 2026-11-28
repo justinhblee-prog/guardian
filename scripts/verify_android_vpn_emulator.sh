@@ -285,17 +285,11 @@ open_premium_menu() {
     return 1
   fi
   sleep 1
-  settings_xml="$(dump_ui_hierarchy /sdcard/guardian-premium-settings.xml)"
-  for category in "라이선스 및 프리미엄" "라이선스 및 Premium" "PRO"; do
-    if grep -Fq "$category" <<<"$settings_xml"; then
-      scroll_to_text "$category"
-      sleep 1
-      return 0
-    fi
-  done
-  echo "Settings does not expose a supported License/Premium category."
-  echo "$settings_xml"
-  return 1
+  # The License/Premium category is below the initial Settings viewport.
+  # scroll_to_text scrolls until the real card is visible and activates it.
+  scroll_to_text "라이선스 및 프리미엄"
+  sleep 1
+  return 0
 }
 
 echo "Verifying the dedicated Guardian Premium menu and license activation focus."
