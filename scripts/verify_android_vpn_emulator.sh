@@ -1288,6 +1288,16 @@ echo "Expanded offline ad-network DNS rule passed: PubMatic was blocked and coun
 # The pre-update fixture is intentionally an older development APK and cannot
 # contain the new offline rule. Candidate-only checks run after package upgrade.
 echo "Reopening the upgraded Guardian app for the foreground compatibility test."
+# Grant the emulator-only Usage Access app-op before General Settings is built.
+# The UI must then report permission as granted; cancelling its disclosure
+# would leave the following auto-pause switch unable to activate.
+adb_cmd shell appops set "$PACKAGE" GET_USAGE_STATS allow
+usage_access_appop="$(adb_cmd shell appops get "$PACKAGE" GET_USAGE_STATS)"
+if ! grep -qi 'allow' <<<"$usage_access_appop"; then
+  echo "Android emulator did not grant GET_USAGE_STATS to Guardian."
+  echo "$usage_access_appop"
+  exit 1
+fi
 adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
 sleep 2
 
@@ -1408,32 +1418,15 @@ if [[ "$auto_pause_picker_visible" -ne 1 ]]; then
   echo "$auto_pause_settings_xml"
   exit 1
 fi
-# Verify the Usage Access control is a real enabled action when access is
-# missing; cancel its confirmation dialog so the test does not leave Guardian.
-adb_cmd shell uiautomator dump /sdcard/guardian-usage-access.xml >/dev/null 2>&1
-usage_access_xml="$(adb_cmd shell cat /sdcard/guardian-usage-access.xml | tr -d '\r')"
-usage_access_enabled="$(python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-for node in root.iter("node"):
-    if node.attrib.get("content-desc")=="사용 정보 접근 권한 설정":
-        print(node.attrib.get("enabled","false")); break' <<<"$usage_access_xml")"
-if [[ "$usage_access_enabled" == "true" ]]; then
-  tap_content_description "사용 정보 접근 권한 설정"
-  sleep 1
-  adb_cmd shell uiautomator dump /sdcard/guardian-usage-dialog.xml >/dev/null 2>&1
-  usage_dialog_xml="$(adb_cmd shell cat /sdcard/guardian-usage-dialog.xml | tr -d '\r')"
-  if ! grep -q '설정 열기' <<<"$usage_dialog_xml"; then
-    echo "Usage Access button did not open its confirmation dialog."
-    echo "$usage_dialog_xml"
-    exit 1
-  fi
-  tap_text "취소"
-else
-  if ! grep -q '사용 정보 접근 권한 허용됨' <<<"$usage_access_xml"; then
-    echo "Usage Access control is disabled without showing that permission is already granted."
-    echo "$usage_access_xml"
-    exit 1
-  fi
+# Confirm the General screen reflects the emulator-granted Usage Access.
+# Do not open and cancel the disclosure dialog: that would leave the permission
+# absent and make the subsequent auto-pause activation fail.
+usage_access_xml="$(dump_ui_hierarchy /sdcard/guardian-usage-access.xml)"
+if ! grep -Fq '사용 정보 접근 권한 허용됨' <<<"$usage_access_xml"; then
+  echo "Guardian did not recognize the emulator's granted Usage Access app-op."
+  echo "$usage_access_xml"
+  adb_cmd shell appops get "$PACKAGE" GET_USAGE_STATS || true
+  exit 1
 fi
 
 tap_content_description "VPN 자동 일시중지 앱 선택"
