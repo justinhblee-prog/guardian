@@ -1339,9 +1339,6 @@ sleep 2
 tap_content_description "홈"
 sleep 1
 open_settings_menu_item "필터 관리"
-# The full rules card follows the long filter-source/options card. Scroll to
-# its collapsed Edit control before asserting or expanding it.
-ensure_editor_element_visible "편집" button up
 
 # Expanded editor contents extend below a phone-sized viewport. Verify each
 # required section/action after scrolling it into view rather than expecting
