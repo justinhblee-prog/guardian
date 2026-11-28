@@ -1733,6 +1733,30 @@ if (( after_reboot_blocked <= before_reboot_blocked )) ||
 fi
 echo "Device reboot recovery passed: boot receiver restored VPN protection, allowed DNS resumed, and the ad test domain was blocked."
 
+# The boot receiver restores the VPN service, not the foreground Activity.
+# Relaunch Guardian before continuing the post-reboot Settings/UI assertions.
+echo "Reopening Guardian after reboot before post-reboot UI verification."
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+foreground=""
+for attempt in $(seq 1 20); do
+  foreground="$(adb_cmd shell dumpsys activity activities 2>/dev/null | grep -E 'mResumedActivity|topResumedActivity' | tail -1 || true)"
+  if grep -q "$PACKAGE" <<<"$foreground"; then break; fi
+  sleep 1
+done
+if ! grep -q "$PACKAGE" <<<"$foreground"; then
+  echo "Guardian did not return to the foreground after the reboot recovery test."
+  echo "${foreground:-No resumed Activity reported}"
+  adb_cmd shell dumpsys activity activities | tail -100 || true
+  exit 1
+fi
+post_reboot_ui="$(dump_ui_hierarchy /sdcard/guardian-post-reboot-ui.xml)"
+if ! grep -Fq "package=\"$PACKAGE\"" <<<"$post_reboot_ui"; then
+  echo "Post-reboot UI hierarchy does not belong to Guardian."
+  echo "$post_reboot_ui"
+  exit 1
+fi
+echo "Guardian UI relaunched after reboot; continuing post-reboot settings and rotation checks."
+
 # Run this regression only after the current candidate APK has been installed
 # and the other VPN acceptance scenarios have finished.
 current_version="$(adb_cmd shell dumpsys package "$PACKAGE" | sed -n 's/.*versionName=//p' | head -1 | tr -d '\r')"
