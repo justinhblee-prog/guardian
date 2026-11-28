@@ -25,7 +25,7 @@ const rateLimitOptions = {
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers',
+  '/v1/licenses/status', '/v1/admin/auth/verify', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers',
   '/v1/support/tickets', '/v1/admin/support/tickets', '/v1/support/tickets/lookup'
 ]);
 const pool = DATABASE_URL ? new Pool({
@@ -511,6 +511,14 @@ const server = http.createServer(async (req, res) => {
         res.setHeader('Retry-After', String(decision.retryAfterSeconds));
         return json(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.' });
       }
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/admin/auth/verify') {
+      // Verify the administrator credential without requiring the database or license signing secrets.
+      if (!ADMIN_TOKEN || ADMIN_TOKEN.length < 32) {
+        throw Object.assign(new Error('관리자 인증 토큰이 서버에 구성되지 않았습니다.'), { status: 503 });
+      }
+      requireAdmin(req);
+      return json(res, 200, { authenticated: true, channels: ['admin'] });
     }
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true, service: 'guardian-license-api' });
     if (req.method === 'GET' && url.pathname === '/ready') {
