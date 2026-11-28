@@ -262,19 +262,45 @@ cache_ready() {
   return 0
 }
 
+open_premium_menu() {
+  local nav_xml settings_xml category
+  nav_xml="$(dump_ui_hierarchy /sdcard/guardian-premium-navigation.xml)"
+  if grep -Fq 'content-desc="Premium"' <<<"$nav_xml"; then
+    tap_content_description "Premium"
+    sleep 1
+    return 0
+  fi
+  if grep -Fq 'content-desc="프리미엄"' <<<"$nav_xml"; then
+    open_premium_menu
+    sleep 1
+    return 0
+  fi
+  if grep -Fq 'content-desc="설정"' <<<"$nav_xml"; then
+    tap_content_description "설정"
+  elif grep -Fq 'content-desc="전체 메뉴"' <<<"$nav_xml"; then
+    tap_content_description "전체 메뉴"
+  else
+    echo "Could not resolve a supported Guardian Settings/Premium navigation route."
+    echo "$nav_xml"
+    return 1
+  fi
+  sleep 1
+  settings_xml="$(dump_ui_hierarchy /sdcard/guardian-premium-settings.xml)"
+  for category in "라이선스 및 프리미엄" "라이선스 및 Premium" "PRO"; do
+    if grep -Fq "$category" <<<"$settings_xml"; then
+      scroll_to_text "$category"
+      sleep 1
+      return 0
+    fi
+  done
+  echo "Settings does not expose a supported License/Premium category."
+  echo "$settings_xml"
+  return 1
+}
+
 echo "Verifying the dedicated Guardian Premium menu and license activation focus."
 dismiss_dev_update_prompt
-premium_nav_xml="$(dump_ui_hierarchy /sdcard/guardian-premium-navigation.xml)"
-if grep -Fq 'content-desc="Premium"' <<<"$premium_nav_xml"; then
-  tap_content_description "Premium"
-elif grep -Fq 'content-desc="프리미엄"' <<<"$premium_nav_xml"; then
-  tap_content_description "프리미엄"
-else
-  echo "Could not locate the Guardian Premium navigation item."
-  echo "$premium_nav_xml"
-  exit 1
-fi
-sleep 1
+open_premium_menu
 adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
 premium_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
@@ -314,7 +340,7 @@ adb_cmd shell input keyevent KEYCODE_BACK || true
 # The PRO feature cards are below the membership details on a phone-sized
 # viewport. Return to Premium, scroll the actual page, and verify the feature
 # card only after it enters the visible UI hierarchy.
-tap_content_description "프리미엄"
+open_premium_menu
 sleep 1
 premium_features_visible=0
 for attempt in $(seq 1 8); do
