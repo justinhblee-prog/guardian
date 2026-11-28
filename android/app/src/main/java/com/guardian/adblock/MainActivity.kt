@@ -985,6 +985,7 @@ class MainActivity : Activity() {
                             .putLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L)
                             .putLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L)
                             .putString(GuardianVpnService.KEY_DNS_RECENT, "")
+                            .remove(GuardianVpnService.KEY_DNS_DAILY_STATS)
                             .putString(GuardianVpnService.KEY_DNS_DIAGNOSTIC, "")
                             .apply()
                         refreshStatus()
@@ -1697,7 +1698,10 @@ class MainActivity : Activity() {
                 adBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_AD_BLOCKED, 0L),
                 trackerBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_TRACKER_BLOCKED, 0L),
                 otherBlocked = reportPrefs.getLong(GuardianVpnService.KEY_DNS_OTHER_BLOCKED, 0L),
-                protectionActive = GuardianVpnService.isTunnelActive()
+                protectionActive = GuardianVpnService.isTunnelActive(),
+                dailyStats = PremiumDailyStatsStore.parse(
+                    reportPrefs.getString(GuardianVpnService.KEY_DNS_DAILY_STATS, null)
+                )
             )
             val reportText = PremiumReportBuilder.build(reportSnapshot, System.currentTimeMillis())
             body.addView(card(panel, 16).apply {

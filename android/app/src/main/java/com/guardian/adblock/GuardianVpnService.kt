@@ -54,6 +54,7 @@ class GuardianVpnService : VpnService() {
         const val KEY_DNS_DIAGNOSTIC = "dns_diagnostic"
         const val KEY_FILTER_READINESS = "filter_readiness_diagnostic"
         const val KEY_DNS_RECENT = "dns_recent"
+        const val KEY_DNS_DAILY_STATS = "dns_daily_stats_v1"
         private const val CHANNEL = "guardian_protection"
         private const val VIRTUAL_DNS = "10.13.37.2"
         private const val VIRTUAL_DNS_V6 = "fd13:37::2"
@@ -803,6 +804,13 @@ class GuardianVpnService : VpnService() {
                 if (category == DomainFilter.BlockCategory.TRACKER) 1L else 0L
             val otherBlocked = prefs.getLong(KEY_DNS_OTHER_BLOCKED, 0L) +
                 if (category == DomainFilter.BlockCategory.OTHER) 1L else 0L
+            val dailyStats = PremiumDailyStatsStore.record(
+                prefs.getString(KEY_DNS_DAILY_STATS, null),
+                java.time.LocalDate.now(),
+                blocked,
+                forwarded,
+                category
+            )
             val outcome = when {
                 blocked -> "차단"
                 forwarded -> "전달"
@@ -818,6 +826,7 @@ class GuardianVpnService : VpnService() {
                 .putLong(KEY_DNS_AD_BLOCKED, adBlocked)
                 .putLong(KEY_DNS_TRACKER_BLOCKED, trackerBlocked)
                 .putLong(KEY_DNS_OTHER_BLOCKED, otherBlocked)
+                .putString(KEY_DNS_DAILY_STATS, dailyStats)
                 .putString(KEY_DNS_RECENT, lines.joinToString("\n"))
                 .apply()
             if (!blocked && !forwarded) {
