@@ -33,21 +33,76 @@ export function verifyProductionRedistributionApprovals(config) {
         !/^[A-Za-z0-9.+-]{1,64}$/.test(source.licenseId)) {
       errors.push(id + ': licenseId is missing or malformed.');
     }
-    let sourceUrl;
-    try {
-      sourceUrl = new URL(source.url);
-    } catch {
-      errors.push(id + ': source url must be a valid HTTPS URL.');
-    }
-    if (sourceUrl && (
-      sourceUrl.protocol !== 'https:' ||
-      !sourceUrl.hostname ||
-      sourceUrl.username ||
-      sourceUrl.password ||
-      sourceUrl.search ||
-      sourceUrl.hash
-    )) {
+    const cleanHttpsUrl = value => {
+      if (typeof value !== 'string' || !value.trim()) return false;
+      try {
+        const parsed = new URL(value);
+        return parsed.protocol === 'https:' && Boolean(parsed.hostname) &&
+          !parsed.username && !parsed.password && !parsed.search && !parsed.hash;
+      } catch {
+        return false;
+      }
+    };
+    if (!cleanHttpsUrl(source.url)) {
       errors.push(id + ': source url must use HTTPS and must not contain credentials, a query or a fragment.');
+    }
+    if (!cleanHttpsUrl(source.upstreamRepository)) {
+      errors.push(id + ': upstreamRepository must be a clean HTTPS URL.');
+    }
+    if (!cleanHttpsUrl(source.licenseUrl)) {
+      errors.push(id + ': licenseUrl must be a clean HTTPS URL.');
+    }
+    if (typeof source.upstreamVersion !== 'string' ||
+        !/^[A-Za-z0-9._+-]{1,128}$/.test(source.upstreamVersion)) {
+      errors.push(id + ': upstreamVersion is missing or malformed.');
+    } else if (/^(rolling(?:-unpinned)?|unpinned|latest|main|master|head)$/i.test(source.upstreamVersion)) {
+      errors.push(id + ': upstreamVersion must identify a pinned, reviewable source revision; floating labels are not allowed.');
+    }
+    const commitSha = typeof source.upstreamCommitSha === 'string' &&
+      /^[a-f0-9]{40,64}$/i.test(source.upstreamCommitSha);
+    let sourceUrlPinsCommit = false;
+    if (commitSha && typeof source.url === 'string' && cleanHttpsUrl(source.upstreamRepository)) {
+      try {
+        const sourceUrl = new URL(source.url);
+        const repositoryUrl = new URL(source.upstreamRepository);
+        const repositoryParts = repositoryUrl.pathname.split('/').filter(Boolean);
+        const owner = repositoryParts[0]?.toLowerCase();
+        const repository = repositoryParts[1]?.replace(/\.git$/i, '').toLowerCase();
+        const sourceParts = sourceUrl.pathname.split('/').filter(Boolean);
+        const revision = source.upstreamCommitSha.toLowerCase();
+        if (repositoryUrl.hostname.toLowerCase() === 'github.com' &&
+            owner && repository && repositoryParts.length === 2) {
+          if (sourceUrl.hostname.toLowerCase() === 'raw.githubusercontent.com') {
+            sourceUrlPinsCommit = sourceParts.length >= 4 &&
+              sourceParts[0].toLowerCase() === owner &&
+              sourceParts[1].toLowerCase() === repository &&
+              sourceParts[2].toLowerCase() === revision;
+          } else if (sourceUrl.hostname.toLowerCase() === 'cdn.jsdelivr.net') {
+            sourceUrlPinsCommit = sourceParts.length >= 4 &&
+              sourceParts[0] === 'gh' &&
+              sourceParts[1].toLowerCase() === owner &&
+              sourceParts[2].toLowerCase() === repository + '@' + revision;
+          }
+        }
+      } catch {
+        sourceUrlPinsCommit = false;
+      }
+    }
+    if (!commitSha) {
+      errors.push(id + ': upstreamCommitSha must be a full 40-64 character immutable Git commit hash.');
+    } else if (!sourceUrlPinsCommit) {
+      errors.push(id + ': source url must contain the exact upstreamCommitSha as a path segment or @revision.');
+    }
+    if (typeof source.url === 'string' &&
+        /@(?:latest|main|master|head)(?:\/|$)/i.test(source.url)) {
+      errors.push(id + ': floating @latest/@main/@master/@head source references are not allowed.');
+    }
+    if (source.thirdPartyProvenanceReviewed !== true) {
+      errors.push(id + ': thirdPartyProvenanceReviewed must be explicitly true after upstream data-source review.');
+    }
+    if (typeof source.complianceEvidenceRef !== 'string' ||
+        !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/.test(source.complianceEvidenceRef)) {
+      errors.push(id + ': complianceEvidenceRef must identify a traceable source-specific compliance record.');
     }
     if (!Number.isSafeInteger(source.minimumRules) || source.minimumRules < 1) {
       errors.push(id + ': minimumRules must be a positive safe integer.');
