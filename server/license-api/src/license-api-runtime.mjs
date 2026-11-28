@@ -8,6 +8,16 @@ import {
   validateDeviceBinding, verifyLicenseKey
 } from './license-core.mjs';
 
+export function readBoundedIntegerSetting(environment, key, fallback, minimum, maximum) {
+  const raw = environment[key];
+  if (raw === undefined || raw === null || raw === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    throw new Error(key + ' must be an integer between ' + minimum + ' and ' + maximum + '.');
+  }
+  return value;
+}
+
 export function createLicenseApiRuntime(environment = process.env, options = {}) {
 const { Pool } = pg;
 const fetchObject = options.fetch ?? ((...args) => globalThis.fetch(...args));
@@ -18,8 +28,8 @@ const LOOKUP_SECRET = environment.GUARDIAN_LICENSE_LOOKUP_SECRET;
 const TOKEN_TTL_SECONDS = 24 * 60 * 60;
 const BODY_LIMIT = 16 * 1024;
 const rateLimitOptions = {
-  windowMs: Number(environment.GUARDIAN_RATE_LIMIT_WINDOW_MS || 60_000),
-  maxRequests: Number(environment.GUARDIAN_RATE_LIMIT_MAX || 30)
+  windowMs: readBoundedIntegerSetting(environment, 'GUARDIAN_RATE_LIMIT_WINDOW_MS', 60_000, 1_000, 3_600_000),
+  maxRequests: readBoundedIntegerSetting(environment, 'GUARDIAN_RATE_LIMIT_MAX', 30, 1, 10_000)
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
@@ -30,7 +40,7 @@ const RATE_LIMITED_PATHS = new Set([
 ]);
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
-  max: Number(environment.PG_POOL_MAX || 10),
+  max: readBoundedIntegerSetting(environment, 'PG_POOL_MAX', 10, 1, 50),
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 30_000,
   statement_timeout: 10_000,
@@ -169,12 +179,12 @@ function requireSigner() {
   if (!PRIVATE_KEY) throw Object.assign(new Error('라이선스 서명 키가 서버에 구성되지 않았습니다.'), { status: 503 });
   try {
     const key = createPrivateKey(PRIVATE_KEY.replace(/\\n/g, '\n'));
-    if (key.asymmetricKeyType !== 'rsa' || (key.asymmetricKeyDetails?.modulusLength || 0) < 2048) {
+    if (key.asymmetricKeyType !== 'rsa' || (key.asymmetricKeyDetails?.modulusLength || 0) < 2048 || (key.asymmetricKeyDetails?.modulusLength || 0) > 4096) {
       throw new Error('weak_or_non_rsa_key');
     }
     return key;
   } catch {
-    throw Object.assign(new Error('RSA 2048비트 이상의 라이선스 서명 키 구성이 올바르지 않습니다.'), { status: 503 });
+    throw Object.assign(new Error('RSA 2048~4096비트 범위의 라이선스 서명 키 구성이 올바르지 않습니다.'), { status: 503 });
   }
 }
 function tokenFor(row, deviceBinding) {
@@ -623,7 +633,7 @@ async function listAdminUpdates(req) {
   requireAdmin(req);
   const result = await pool.query(
     `SELECT channel,version_code,version_name,sha256,size_bytes,published,published_at
-     FROM guardian_update_manifests ORDER BY channel,version_code DESC LIMIT 100`
+     FROM guardian_update_manifests ORDER BY version_code DESC,channel LIMIT 100`
   );
   return { updates: result.rows };
 }

@@ -8,9 +8,29 @@ class DomainFilterTest {
     @Test fun classifiesCommonAdAndTrackerDomainsForReporting() {
         assertEquals(DomainFilter.BlockCategory.AD, DomainFilter.classifyBlockedDomain("page.doubleclick.net"))
         assertEquals(DomainFilter.BlockCategory.AD, DomainFilter.classifyBlockedDomain("ads.adnxs.com"))
-        assertEquals(DomainFilter.BlockCategory.TRACKER, DomainFilter.classifyBlockedDomain("www.google-analytics.com"))
-        assertEquals(DomainFilter.BlockCategory.TRACKER, DomainFilter.classifyBlockedDomain("api.mixpanel.com"))
+        assertEquals(DomainFilter.BlockCategory.ANALYTICS, DomainFilter.classifyBlockedDomain("www.google-analytics.com"))
+        assertEquals(DomainFilter.BlockCategory.ANALYTICS, DomainFilter.classifyBlockedDomain("api.mixpanel.com"))
         assertEquals(DomainFilter.BlockCategory.OTHER, DomainFilter.classifyBlockedDomain("malware.example"))
+    }
+
+    @Test fun classifiesAdditionalDnsBlockCategoriesWithoutChangingBlockDecision() {
+        assertEquals(DomainFilter.BlockCategory.TELEMETRY, DomainFilter.classifyBlockedDomain("telemetry.example"))
+        assertEquals(DomainFilter.BlockCategory.FINGERPRINTING, DomainFilter.classifyBlockedDomain("cdn.fingerprintjs.com"))
+        assertEquals(DomainFilter.BlockCategory.SOCIAL, DomainFilter.classifyBlockedDomain("platform.twitter.com"))
+        assertEquals(DomainFilter.BlockCategory.TRACKER, DomainFilter.classifyBlockedDomain("pixel.example"))
+        assertEquals(DomainFilter.BlockCategory.OTHER, DomainFilter.classifyBlockedDomain("opaque-cdn.example"))
+    }
+
+    @Test fun classifiesExpandedBundledAdNetworksAsAds() {
+        val hosts = listOf(
+            "pubmatic.com", "openx.net", "rubiconproject.com", "casalemedia.com",
+            "2mdn.net", "adsrvr.org", "media.net", "yieldmo.com", "sharethrough.com",
+            "360yield.com", "bidswitch.net", "lijit.com", "serving-sys.com",
+            "adcolony.com", "inmobi.com", "adsymptotic.com"
+        )
+        hosts.forEach { host ->
+            assertEquals(DomainFilter.BlockCategory.AD, DomainFilter.classifyBlockedDomain(host))
+        }
     }
 
     @Test fun loadsSharedRuleFormatAndAllowTakesPrecedence() {
