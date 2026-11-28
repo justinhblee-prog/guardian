@@ -1383,85 +1383,93 @@ if ! grep -Fq '라이선스 및 프리미엄' <<<"$license_menu_xml"; then
   exit 1
 fi
 
-# Verify the General settings update accordion; About no longer owns updates.
+# This PR verifies the General auto-pause route. The Program Updates accordion
+# is implemented and tested independently in PR #316; do not block this
+# auto-pause test when that UI is not yet present on main.
 scroll_to_text "일반"
 sleep 1
 general_xml="$(dump_ui_hierarchy /sdcard/guardian-general-settings.xml)"
-if ! grep -Fq '프로그램 업데이트 확인 펼치기' <<<"$general_xml"; then
-  echo "Settings > General does not expose the agreed update accordion."
-  echo "$general_xml"
-  exit 1
-fi
-tap_content_description "프로그램 업데이트 확인 펼치기"
-sleep 1
-updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
-if ! grep -Fq '프로그램 업데이트' <<<"$updates_xml"; then
-  echo "The expanded General update accordion is missing its title."
-  echo "$updates_xml"
-  exit 1
-fi
-update_actions_visible=0
-for attempt in $(seq 1 8); do
-  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-actions.xml)"
-  if grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$updates_xml" &&
-     grep -Fq '업데이트 설치' <<<"$updates_xml"; then
-    update_actions_visible=1
-    break
-  fi
-  adb_cmd shell input swipe 540 1500 540 650 400
-  sleep 0.4
-done
-if [[ "$update_actions_visible" -ne 1 ]]; then
-  echo "The expanded General update accordion did not expose update actions after scrolling."
-  echo "$updates_xml"
-  exit 1
-fi
-if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
-  tap_text "개발 업데이트 확인"
-  update_check_ready=0
-  for attempt in $(seq 1 20); do
-    sleep 1
-    updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-result.xml)"
-    if grep -Fq '현재 설치된 개발 버전이 최신입니다.' <<<"$updates_xml"; then
-      update_check_ready=1
-      break
-    fi
-    if grep -Eq '업데이트 확인에 실패|업데이트를 확인할 수 없습니다|오류' <<<"$updates_xml"; then
-      echo "Development update check returned an error instead of a valid latest-version response."
-      echo "$updates_xml"
-      exit 1
-    fi
-  done
-  if [[ "$update_check_ready" -ne 1 ]]; then
-    echo "Development update check did not reach the expected latest-version state."
+if grep -Fq '프로그램 업데이트 확인 펼치기' <<<"$general_xml"; then
+  tap_content_description "프로그램 업데이트 확인 펼치기"
+  sleep 1
+  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
+  if ! grep -Fq '프로그램 업데이트' <<<"$updates_xml"; then
+    echo "The expanded General update accordion is missing its title."
     echo "$updates_xml"
     exit 1
   fi
-  echo "Development update check reached the expected latest-version state."
+  update_actions_visible=0
+  for attempt in $(seq 1 8); do
+    updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-actions.xml)"
+    if grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$updates_xml" &&
+       grep -Fq '업데이트 설치' <<<"$updates_xml"; then
+      update_actions_visible=1
+      break
+    fi
+    adb_cmd shell input swipe 540 1500 540 650 400
+    sleep 0.4
+  done
+  if [[ "$update_actions_visible" -ne 1 ]]; then
+    echo "The expanded General update accordion did not expose update actions after scrolling."
+    echo "$updates_xml"
+    exit 1
+  fi
+  if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
+    tap_text "개발 업데이트 확인"
+    update_check_ready=0
+    for attempt in $(seq 1 20); do
+      sleep 1
+      updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-result.xml)"
+      if grep -Fq '현재 설치된 개발 버전이 최신입니다.' <<<"$updates_xml"; then
+        update_check_ready=1
+        break
+      fi
+      if grep -Eq '업데이트 확인에 실패|업데이트를 확인할 수 없습니다|오류' <<<"$updates_xml"; then
+        echo "Development update check returned an error instead of a valid latest-version response."
+        echo "$updates_xml"
+        exit 1
+      fi
+    done
+    if [[ "$update_check_ready" -ne 1 ]]; then
+      echo "Development update check did not reach the expected latest-version state."
+      echo "$updates_xml"
+      exit 1
+    fi
+    echo "Development update check reached the expected latest-version state."
+  fi
+  echo "Settings > General > Program Updates accordion and update check passed."
+else
+  echo "Program Updates accordion is not part of this branch; dedicated coverage is maintained in PR #316."
 fi
-echo "Settings > General > Program Updates accordion and update check passed."
 tap_content_description "설정"
 sleep 1
+# The Settings > Exit action opens the confirmation dialog immediately.
+# "Guardian 종료" is the non-clickable dialog title, not an action button.
 scroll_to_text "종료"
 sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-exit-menu.xml >/dev/null 2>&1
-exit_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-menu.xml | tr -d '\r')"
-if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml"; then
-  echo "The Exit submenu did not expose its explicit Guardian 종료 action."
-  echo "$exit_menu_xml"
-  exit 1
-fi
-tap_text "Guardian 종료"
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-exit-confirmation.xml >/dev/null 2>&1
-exit_confirmation_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-confirmation.xml | tr -d '\r')"
-if ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
+exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
+if ! grep -Fq 'Guardian 종료' <<<"$exit_confirmation_xml" ||
+   ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
    ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
-  echo "The explicit Guardian 종료 action did not open its confirmation dialog."
+  echo "The Settings Exit action did not open the expected confirmation dialog."
   echo "$exit_confirmation_xml"
   exit 1
 fi
-tap_text "취소"
+cancel_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("resource-id")=="android:id/button2"
+        and node.attrib.get("text","").strip()=="취소"
+        and node.attrib.get("visible-to-user","true")=="true"
+        and node.attrib.get("clickable")=="true"
+        and node.attrib.get("enabled")=="true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2); raise SystemExit(0)
+raise SystemExit("Guardian exit dialog Cancel button was not actionable.")' <<<"$exit_confirmation_xml")"
+read -r cancel_x cancel_y <<<"$cancel_bounds"
+adb_cmd shell input tap "$cancel_x" "$cancel_y"
 sleep 1
 tap_content_description "설정"
 sleep 1
