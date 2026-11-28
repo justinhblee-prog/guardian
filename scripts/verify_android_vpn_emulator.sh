@@ -1432,26 +1432,33 @@ fi
 echo "Settings > General > Program Updates opens the updater and executes its version check."
 tap_content_description "설정"
 sleep 1
+# The Settings > Exit action opens the confirmation dialog immediately.
+# "Guardian 종료" is the non-clickable dialog title, not an action button.
 scroll_to_text "종료"
 sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-exit-menu.xml >/dev/null 2>&1
-exit_menu_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-menu.xml | tr -d '\r')"
-if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml"; then
-  echo "The Exit submenu did not expose its explicit Guardian 종료 action."
-  echo "$exit_menu_xml"
-  exit 1
-fi
-tap_text "Guardian 종료"
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-exit-confirmation.xml >/dev/null 2>&1
-exit_confirmation_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-confirmation.xml | tr -d '\r')"
-if ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
+exit_confirmation_xml="$(dump_ui_hierarchy /sdcard/guardian-exit-confirmation.xml)"
+if ! grep -Fq 'Guardian 종료' <<<"$exit_confirmation_xml" ||
+   ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
    ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
-  echo "The explicit Guardian 종료 action did not open its confirmation dialog."
+  echo "The Settings Exit action did not open the expected confirmation dialog."
   echo "$exit_confirmation_xml"
   exit 1
 fi
-tap_text "취소"
+cancel_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if (node.attrib.get("resource-id")=="android:id/button2"
+        and node.attrib.get("text","").strip()=="취소"
+        and node.attrib.get("visible-to-user","true")=="true"
+        and node.attrib.get("clickable")=="true"
+        and node.attrib.get("enabled")=="true"):
+        parts=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(parts)==2:
+            x1,y1=map(int,parts[0].split(",")); x2,y2=map(int,parts[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2); raise SystemExit(0)
+raise SystemExit("Guardian exit dialog Cancel button was not actionable.")' <<<"$exit_confirmation_xml")"
+read -r cancel_x cancel_y <<<"$cancel_bounds"
+adb_cmd shell input tap "$cancel_x" "$cancel_y"
 sleep 1
 tap_content_description "설정"
 sleep 1
