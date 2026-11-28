@@ -1596,22 +1596,21 @@ if [[ "$settings_tab_selected" -ne 1 ]]; then
   echo "$settings_navigation_xml"
   exit 1
 fi
-# The predecessor exposes Filtering as a direct Full Menu item; current builds
-# expose it as a Settings category card. Select the route supported by the
-# actual screen rather than substring-matching descriptions in DNS details.
+# Foreground-app auto-pause controls are part of Settings > General
+# (the same screen that owns DNS upstream configuration), not Filtering.
+# Select General from the settings category list on redesigned navigation;
+# legacy Full Menu builds expose General as a direct destination.
 if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
-  legacy_filter_target="$(python3 scripts/android_navigation_compat.py settings-item "필터 관리" <<<"$settings_navigation_xml" 2>/dev/null || true)"
-  if [[ -z "$legacy_filter_target" ]]; then
-    echo "Legacy Full Menu does not expose a compatible Filtering destination."
+  legacy_general_target="$(python3 scripts/android_navigation_compat.py settings-item "일반" <<<"$settings_navigation_xml" 2>/dev/null || true)"
+  if [[ -z "$legacy_general_target" ]]; then
+    echo "Legacy Full Menu does not expose a compatible General destination."
     echo "$settings_navigation_xml"
     exit 1
   fi
-  scroll_to_text "$legacy_filter_target"
+  scroll_to_text "$legacy_general_target"
 else
-  ensure_text_visible "필터링"
-  # The category card exposes its clickable accessibility label with the
-  # action suffix; the visible title itself is a non-clickable TextView.
-  tap_content_description "필터링 설정 열기"
+  ensure_text_visible "일반"
+  tap_text "일반"
 fi
 sleep 1
 for attempt in $(seq 1 24); do
