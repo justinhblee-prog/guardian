@@ -282,21 +282,46 @@ raise SystemExit(1)' <<<"$xml"; then
   sleep 1
 }
 
-# Scroll the currently visible Android ScrollView until a named control is
-# actually on-screen. Use the emulator's live dimensions so this also works
-# after landscape/portrait Activity recreation.
+# Calculate swipe coordinates from the live Android ScrollView bounds.
+# wm size can remain portrait after the display rotates to landscape; using
+# those physical dimensions sends gestures outside the actual viewport.
+resolve_scroll_view_swipe() {
+  local xml="$1"
+  local direction="$2"
+  python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+candidates=[]
+for node in root.iter("node"):
+    if (node.attrib.get("class")!="android.widget.ScrollView"
+        or node.attrib.get("scrollable")!="true"
+        or node.attrib.get("visible-to-user","true")!="true"):
+        continue
+    parts=node.attrib.get("bounds","").strip("[]").split("][")
+    if len(parts)!=2:
+        continue
+    x1,y1=map(int,parts[0].split(","))
+    x2,y2=map(int,parts[1].split(","))
+    if x2-x1>=180 and y2-y1>=220:
+        candidates.append(((x2-x1)*(y2-y1),x1,y1,x2,y2))
+if not candidates:
+    raise SystemExit("No visible Android ScrollView bounds were available for a safe swipe.")
+_,x1,y1,x2,y2=max(candidates)
+margin=max(16,(y2-y1)//8)
+top=y1+margin
+bottom=y2-margin
+if bottom-top<80:
+    raise SystemExit("The visible Android ScrollView is too short to swipe safely.")
+if sys.argv[1]=="down":
+    start_y,end_y=top,bottom
+else:
+    start_y,end_y=bottom,top
+print((x1+x2)//2,start_y,end_y)' "$direction" <<<"$xml"
+}
+
+# Scroll the currently visible Android content until a named control is
+# actually on-screen. All swipes stay inside the live ScrollView bounds.
 scroll_to_text() {
-  local wanted="$1" attempt size width height center_x start_y end_y xml
-  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
-  width="${size%x*}"
-  height="${size#*x}"
-  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
-    echo "Could not determine a usable emulator display size: $size"
-    return 1
-  fi
-  center_x=$((width / 2))
-  start_y=$((height * 4 / 5))
-  end_y=$((height / 5))
+  local wanted="$1" attempt center_x start_y end_y xml coordinates
   for attempt in $(seq 1 10); do
     xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
     if grep -Fq "text=\"$wanted\"" <<<"$xml"; then
@@ -307,7 +332,13 @@ scroll_to_text() {
       # directly; swiping the content pane cannot scroll the sidebar item.
       if tap_content_description "$wanted"; then return 0; fi
     fi
-    echo "Scrolling to visible control '$wanted' (attempt $attempt/10; display ${width}x${height})."
+    if ! coordinates="$(resolve_scroll_view_swipe "$xml" up)"; then
+      echo "Could not calculate a visible ScrollView swipe for '$wanted'."
+      echo "$xml"
+      return 1
+    fi
+    read -r center_x start_y end_y <<<"$coordinates"
+    echo "Scrolling to '$wanted' inside live ScrollView (attempt $attempt/10; x=$center_x y=$start_y->$end_y)."
     adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
     sleep 0.4
   done
@@ -1347,24 +1378,9 @@ ensure_editor_element_visible() {
   local wanted="$1"
   local kind="text"
   local direction="up"
-  local size width height center_x start_y end_y xml
+  local center_x start_y end_y xml coordinates
   if [[ -n "$2" ]]; then kind="$2"; fi
   if [[ -n "$3" ]]; then direction="$3"; fi
-  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
-  width="$(awk -F'x' '{print $1}' <<<"$size")"
-  height="$(awk -F'x' '{print $2}' <<<"$size")"
-  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
-    echo "Could not determine emulator size while locating editor element: $size"
-    return 1
-  fi
-  center_x=$((width / 2))
-  if [[ "$direction" == "down" ]]; then
-    start_y=$((height / 5))
-    end_y=$((height * 4 / 5))
-  else
-    start_y=$((height * 4 / 5))
-    end_y=$((height / 5))
-  fi
   for attempt in $(seq 1 12); do
     xml="$(dump_ui_hierarchy /sdcard/guardian-inline-editor-visibility.xml)"
     if python3 -c 'import sys,xml.etree.ElementTree as ET
@@ -1378,6 +1394,13 @@ for node in root.iter("node"):
 raise SystemExit(1)' "$wanted" "$kind" <<<"$xml"; then
       return 0
     fi
+    if ! coordinates="$(resolve_scroll_view_swipe "$xml" "$direction")"; then
+      echo "Could not calculate a safe ScrollView swipe while locating editor element: $wanted ($kind)."
+      echo "$xml"
+      return 1
+    fi
+    read -r center_x start_y end_y <<<"$coordinates"
+    echo "Scrolling to editor element '$wanted' inside live ScrollView (attempt $attempt/12; x=$center_x y=$start_y->$end_y)."
     adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
     sleep 0.4
   done
