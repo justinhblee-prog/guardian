@@ -3,7 +3,7 @@
 Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 반응형 관리자 웹 화면입니다. Windows와 Android는 동일한 `guardian-pro` 제품, 라이선스 DB, RSA 서명 공개키 체계를 공유합니다.
 
 ## 포함 기능
-- 관리자 인증이 필요한 Pro 라이선스 발급, 최근 200건 조회, 고객명·이메일 기반 고객 디렉터리(최대 200명), 최근 100건 감사 기록 조회, 정지/활성 기기 해제
+- 관리자 인증이 필요한 Pro 라이선스 발급 및 수동 기간 연장(1~36,500일), 최근 200건 조회, 고객명·이메일 기반 고객 디렉터리(최대 200명), 최근 100건 감사 기록 조회, 정지/활성 기기 해제
 - 라이선스 키는 화면에 발급 순간 한 번만 노출합니다. DB에는 임의 salt 기반 scrypt 해시와 서버 HMAC 조회 인덱스만 저장합니다.
 - 기기별 활성화 수 제한, 동일 기기 재활성화, 만료/정지 라이선스 거부
 - 앱 검증기와 호환되는 정확한 UTF-8 key=value payload 및 RSA-SHA256 PKCS#1 v1.5 서명 토큰
@@ -13,7 +13,7 @@ Node.js 22 + PostgreSQL 기반의 라이선스 발급/기기 활성화 API와 �
 - PostgreSQL 연결 5초, idle 연결 30초, statement 10초, query 12초, idle-in-transaction 15초 timeout
 - API JSON 본문은 최상위 객체만 허용하며, `null`·배열·문자열·숫자 등 잘못된 본문 형태는 HTTP 400으로 거부
 - 라이선스 발급/활성화/갱신/상태 및 관리자 기기 관리 API에 PostgreSQL 공유 요청 제한과 `429 Retry-After` 응답. 동일 DB를 사용하는 다중 API 인스턴스에서도 요청 카운터를 공유
-- 반응형 라이선스 관리자 대시보드: `/admin`. 전체/사용 가능/만료/정지 요약, 라이선스 검색·상태 필터·정렬, 발급·정지, 기기별 조회·해제, 최근 감사 기록을 제공합니다. 관리자 토큰은 페이지 메모리에서만 유지하고 브라우저 저장소에 저장하지 않습니다.
+- 반응형 라이선스 관리자 대시보드: `/admin`. 전체/사용 가능/만료/정지 요약, 라이선스 검색·상태 필터·정렬, 발급·수동 기간 연장·정지, 기기별 조회·해제, 최근 감사 기록을 제공합니다. 만료 라이선스는 현재 시각부터, 유효 라이선스는 기존 만료일 뒤에 연장 기간을 더하며, 정지 라이선스는 연장할 수 없습니다. 관리자 토큰은 페이지 메모리에서만 유지하고 브라우저 저장소에 저장하지 않습니다.
 
 ## 환경 변수
 - `DATABASE_URL`: PostgreSQL 접속 URL
@@ -78,6 +78,7 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 - `GET /v1/admin/events`: 최근 발급/활성화/비활성화/정지 감사 기록 100건
 - `POST /v1/admin/licenses`: 관리자 인증 + `{ "validDays": 365, "maxDevices": 1 }`
 - `POST /v1/admin/licenses/{uuid}/revoke`: `Authorization: Bearer <GUARDIAN_ADMIN_TOKEN>` 및 UUID 형식의 라이선스 ID 필요
+- `POST /v1/admin/licenses/{uuid}/extend` (`validDays`: 1~36,500): 관리자 수동 연장. 활성·만료 라이선스만 연장하며, 기존 만료일 또는 현재 시각 중 늦은 시점부터 기간을 더하고 감사 기록을 남깁니다.
 - `GET /v1/admin/licenses/{uuid}/activations`: 라이선스의 최근 활성화 기록 최대 50건 조회. 기기 식별자는 해시 마지막 8자리만 반환
 - `POST /v1/admin/licenses/{uuid}/activations/{activationUuid}/deactivate`: 지정한 기기 등록만 해제하고 감사 이벤트 기록. 다른 기기와 라이선스 상태는 유지
 - `/admin`: 라이선스 발급·정지, 기기별 최근 확인 정보 조회 및 개별 기기 해제. 고객명·이메일·선택 주문번호를 발급 시 연결하고 고객별 라이선스 수 및 사용 가능 건수를 조회합니다. 고객 목록은 관리자 인증이 필요합니다.

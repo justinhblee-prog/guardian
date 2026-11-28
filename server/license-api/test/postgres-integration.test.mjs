@@ -493,6 +493,67 @@ if (!databaseUrl) {
   });
 
 
+  test('admin can extend active and expired licenses while preserving revoked state', async () => {
+    const created = await issue(2);
+    const path = `/v1/admin/licenses/${encodeURIComponent(created.license.id)}/extend`;
+
+    const unauthorized = await post(path, { validDays: 30 });
+    assert.equal(unauthorized.status, 401);
+    const invalidDays = await post(path, { validDays: 0 }, adminHeaders);
+    assert.equal(invalidDays.status, 400);
+    const invalidId = await post('/v1/admin/licenses/not-a-uuid/extend', { validDays: 30 }, adminHeaders);
+    assert.equal(invalidId.status, 400);
+
+    const before = await pool.query('SELECT expires_at FROM licenses WHERE id=$1', [created.license.id]);
+    const extended = await post(path, { validDays: 30 }, adminHeaders);
+    assert.equal(extended.status, 200);
+    const extendedBody = await extended.json();
+    assert.equal(extendedBody.extended, true);
+    assert.equal(extendedBody.validDays, 30);
+    const expected = new Date(new Date(before.rows[0].expires_at).getTime() + 30 * 24 * 60 * 60 * 1000);
+    assert.ok(Math.abs(new Date(extendedBody.expiresAt).getTime() - expected.getTime()) < 2000);
+
+    const deviceBinding = 'e'.repeat(64);
+    const activated = await post('/v1/licenses/activate', {
+      licenseKey: created.licenseKey, deviceBinding, appVersion: 'renewal-lifecycle-test'
+    });
+    assert.equal(activated.status, 200);
+    assertSignedToken(await activated.json());
+
+    await pool.query("UPDATE licenses SET expires_at=now()-interval '2 days' WHERE id=$1", [created.license.id]);
+    const expiredRefresh = await post('/v1/licenses/refresh', {
+      deviceBinding, licenseRef: created.license.license_ref
+    });
+    assert.equal(expiredRefresh.status, 403);
+
+    const revived = await post(path, { validDays: 14 }, adminHeaders);
+    assert.equal(revived.status, 200);
+    const revivedBody = await revived.json();
+    assert.ok(new Date(revivedBody.expiresAt).getTime() > Date.now() + 13 * 24 * 60 * 60 * 1000);
+    const restoredRefresh = await post('/v1/licenses/refresh', {
+      deviceBinding, licenseRef: created.license.license_ref
+    });
+    assert.equal(restoredRefresh.status, 200);
+    assertSignedToken(await restoredRefresh.json());
+    const restoredStatus = await post('/v1/licenses/status', {
+      deviceBinding, licenseRef: created.license.license_ref
+    });
+    assert.equal(restoredStatus.status, 200);
+    assert.equal((await restoredStatus.json()).status, 'active');
+
+    const audit = await pool.query(
+      "SELECT metadata FROM license_events WHERE license_id=$1 AND event_type='extended' ORDER BY created_at",
+      [created.license.id]
+    );
+    assert.equal(audit.rowCount, 2);
+    assert.equal(audit.rows[0].metadata.days, 30);
+    assert.equal(audit.rows[1].metadata.days, 14);
+
+    await post(`/v1/admin/licenses/${encodeURIComponent(created.license.id)}/revoke`, {}, adminHeaders);
+    const revokedExtension = await post(path, { validDays: 30 }, adminHeaders);
+    assert.equal(revokedExtension.status, 409);
+  });
+
   test('customers can submit and privately track support tickets while admins reply securely', async () => {
     const submitted = await post('/v1/support/tickets', {
       category: 'suggestion',

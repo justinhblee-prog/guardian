@@ -78,6 +78,18 @@ test("customer directory is wired to the authenticated API and renders customer 
   assert.doesNotMatch(js, /\.innerHTML\s*=/);
 });
 
+test("admin license cards expose guarded manual extension and renewal API wiring", async () => {
+  const js = await readFile(new URL("../admin/admin.js", import.meta.url), "utf8");
+  assert.match(js, /createButton\("기간 연장"/);
+  assert.match(js, /extended: \["기간 연장", "↻"\]/);
+  assert.match(js, /validDays: days/);
+  assert.match(js, /\/extend/);
+  assert.match(js, /confirm\(/);
+  assert.match(js, /status !== "revoked"/);
+  assert.match(js, /1~36500일/);
+  assert.doesNotMatch(js, /\.innerHTML\s*=/);
+});
+
 test("customer migration is additive and protects email uniqueness", async () => {
   const migration = await readFile(new URL("../migrations/004_customers.sql", import.meta.url), "utf8");
   assert.match(migration, /CREATE TABLE IF NOT EXISTS customers/);
