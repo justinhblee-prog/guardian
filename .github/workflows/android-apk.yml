@@ -478,6 +478,8 @@ jobs:
           GUARDIAN_PREVIOUS_VERSION_NAME: ${{ env.GUARDIAN_PREVIOUS_VERSION_NAME }}
           GUARDIAN_CURRENT_VERSION_CODE: ${{ env.GUARDIAN_VERSION_CODE }}
           GUARDIAN_CURRENT_VERSION_NAME: ${{ env.GUARDIAN_VERSION_NAME }}
+          GUARDIAN_RELEASE_TAG: ${{ env.GUARDIAN_RELEASE_TAG }}
+          GH_TOKEN: ${{ github.token }}
         # Keep the APK artifact even if emulator infrastructure or VPN E2E fails.
         continue-on-error: true
         # Bound a wedged ADB/emulator boot so the job reaches its diagnostic
@@ -566,6 +568,16 @@ jobs:
             exit 1
           fi
           echo "Android emulator boot completed on emulator-5554."
+          # A just-built development version is intentionally unpublished until
+          # emulator acceptance passes. Only assert "already latest" on reruns
+          # where this exact release has already been published.
+          if gh release view "$GUARDIAN_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            export GUARDIAN_VERIFY_PUBLISHED_DEV_UPDATE=true
+            echo "Current development release is already published; live update check is enabled."
+          else
+            export GUARDIAN_VERIFY_PUBLISHED_DEV_UPDATE=false
+            echo "Current development release is not published yet; live update check is deferred until a successful acceptance run."
+          fi
           bash scripts/verify_android_emulator.sh
           bash scripts/verify_android_vpn_emulator.sh
           bash scripts/verify_android_responsive_emulator.sh
