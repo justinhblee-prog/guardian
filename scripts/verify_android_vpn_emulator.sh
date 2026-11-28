@@ -1005,6 +1005,11 @@ adb_cmd shell input swipe 540 1500 540 600 450
 sleep 1
 scroll_to_text "규칙 저장 및 적용"
 sleep 1
+# The rotation/draft test above deliberately re-opened the editor. Collapse it
+# before leaving the tab so the next independent editor test starts from its
+# documented collapsed state rather than inheriting the previous test state.
+scroll_to_text "접기"
+echo "Collapsed the full filter editor after saving the rotation draft."
 adb_cmd shell input keyevent KEYCODE_BACK || true
 tap_content_description "홈"
 echo "Activity rotation state restoration and custom-rule save passed."
