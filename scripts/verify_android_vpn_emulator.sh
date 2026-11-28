@@ -144,7 +144,27 @@ for node in root.iter("node"):
                 print((x1+x2)//2,(y1+y2)//2)
                 raise SystemExit(0)
         target=parents.get(target)
-raise SystemExit(1)' "$wanted" <<<"$xml")" || {
+# Some Android 15 builds expose the FAQ dialog's single dismiss button
+  # as "닫기" even when the legacy automation path asks for a generic
+  # confirmation action. Only map that request when the exact FAQ dialog is
+  # open and its standard positive button is visibly present.
+  if [[ -z "$bounds" && "$wanted" == "확인" ]]; then
+    bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+faq=any(n.attrib.get("text")=="Guardian 자주 묻는 질문" for n in nodes)
+for n in nodes:
+    if (faq and n.attrib.get("resource-id")=="android:id/button1"
+        and n.attrib.get("text")=="닫기"
+        and n.attrib.get("visible-to-user","true")=="true"
+        and n.attrib.get("clickable")=="true"
+        and n.attrib.get("enabled")=="true"):
+        p=n.attrib.get("bounds","").strip("[]").split("][")
+        if len(p)==2:
+            x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2); break' <<<"$xml")"
+  fi
+  [[ -n "$bounds" ]] || {
     echo "Could not locate visible clickable UI control or clickable text parent: $wanted"
     echo "$xml"
     return 1
