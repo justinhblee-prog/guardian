@@ -1520,17 +1520,40 @@ grep -Fq '광고 차단이 되지 않아요' <<<"$support_faq_xml" || {
   echo "$support_faq_xml"
   exit 1
 }
-# The FAQ is an inline accordion; it is no longer a legacy ListView dialog.
-tap_content_description "광고 차단이 되지 않아요 답변 펼치기"
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
-support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
-grep -Fq 'DNS 기반 광고·추적 도메인' <<<"$support_faq_answer_xml" || {
-  echo "Customer support FAQ answer did not render beneath the selected question."
-  echo "$support_faq_answer_xml"
-  exit 1
-}
-tap_text "닫기"
+# FAQ presentation differs until the independent FAQ-accordion PR is integrated.
+if grep -Fq 'content-desc="광고 차단이 되지 않아요 답변 펼치기"' <<<"$support_faq_xml"; then
+  tap_content_description "광고 차단이 되지 않아요 답변 펼치기"
+  sleep 1
+  support_faq_answer_xml="$(dump_ui_hierarchy /sdcard/guardian-support-faq-answer.xml)"
+  grep -Fq 'DNS 기반 광고·추적 도메인' <<<"$support_faq_answer_xml" || {
+    echo "Customer support inline FAQ answer did not render."
+    echo "$support_faq_answer_xml"
+    exit 1
+  }
+  tap_content_description "광고 차단이 되지 않아요 답변 접기"
+else
+  # Main still exposes the legacy AlertDialog FAQ list. Exercise its answer
+  # and dismiss the actual visible Android button instead of assuming "닫기".
+  tap_text "광고 차단이 되지 않아요"
+  sleep 1
+  support_faq_answer_xml="$(dump_ui_hierarchy /sdcard/guardian-support-faq-answer.xml)"
+  grep -Fq 'DNS 기반 광고·추적 도메인' <<<"$support_faq_answer_xml" || {
+    echo "Customer support legacy FAQ answer did not render."
+    echo "$support_faq_answer_xml"
+    exit 1
+  }
+  faq_dismiss_label="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for label in ("확인","닫기"):
+    if any(n.attrib.get("class")=="android.widget.Button"
+           and n.attrib.get("text","").strip()==label
+           and n.attrib.get("visible-to-user","true")=="true"
+           and n.attrib.get("clickable")=="true"
+           and n.attrib.get("enabled")=="true" for n in root.iter("node")):
+        print(label); raise SystemExit(0)
+raise SystemExit("Legacy FAQ dialog has no visible dismiss button.")' <<<"$support_faq_answer_xml")"
+  tap_text "$faq_dismiss_label"
+fi
 # The Settings support card is taller than the phone viewport; scroll its
 # remaining actions into view before tapping the inquiry form entry.
 scroll_to_text "문의 및 의견 보내기"
