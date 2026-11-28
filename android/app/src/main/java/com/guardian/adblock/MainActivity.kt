@@ -1417,7 +1417,7 @@ class MainActivity : Activity() {
                 stableUpdaterEnabled -> "정식 업데이트 확인 전"
                 else -> "이 배포 유형에서는 인앱 업데이트가 비활성화되어 있습니다."
             },
-            12f, muted, false
+            12f, Color.WHITE, false
         ).withTop(12) as TextView
         body.addView(feedback)
         var downloaded: File? = null
