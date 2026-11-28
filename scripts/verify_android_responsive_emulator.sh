@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Exercise Guardian's adaptive navigation on compact, tablet, and landscape
-# emulator windows. This runs after VPN E2E and never toggles VPN state.
+# Exercise Guardian's five primary destinations on compact, tablet, and landscape
+# emulator windows. Premium is a Settings submenu, not a primary navigation tab.
+# This runs after VPN E2E and never toggles VPN state.
 set -euo pipefail
 PACKAGE="com.guardian.adblock"
 adb_cmd() { timeout --signal=TERM --kill-after=2s 30s adb "$@"; }
@@ -36,7 +37,7 @@ verify_layout() {
   python3 -c '
 import sys,xml.etree.ElementTree as ET
 mode=sys.argv[1]; root=ET.fromstring(sys.stdin.read()); nodes=list(root.iter("node"))
-labels=("홈","보호","활동","Premium","전체 메뉴"); found={}
+labels=("홈","보호","앱 제외","활동","설정"); found={}
 for label in labels:
     matches=[n for n in nodes if n.attrib.get("content-desc")==label and n.attrib.get("visible-to-user","true")=="true" and n.attrib.get("clickable")=="true"]
     if not matches: raise SystemExit("Missing visible navigation destination: "+label)
