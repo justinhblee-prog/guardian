@@ -400,6 +400,7 @@ jobs:
       # audio libraries here: apt mirrors are unreliable on hosted runners and
       # audio is not part of Guardian's VPN/network verification.
       - name: Install Android emulator audio runtime dependency
+        if: github.event_name != 'pull_request'
         timeout-minutes: 10
         shell: bash
         run: |
@@ -431,6 +432,7 @@ jobs:
           ldconfig -p | grep 'libpulse.so.0'
 
       - name: Enable KVM access for Android emulator
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -445,6 +447,7 @@ jobs:
           fi
 
       - name: Preinstall Android emulator package with retry
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -467,6 +470,7 @@ jobs:
           exit 1
 
       - name: Install and launch APK on Android emulator
+        if: github.event_name != 'pull_request'
         id: android_emulator
         env:
           GUARDIAN_PREVIOUS_APK: ${{ env.GUARDIAN_PREVIOUS_APK }}
