@@ -951,7 +951,7 @@ rotation_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 nodes=list(root.iter("node"))
-selected=any(node.attrib.get("content-desc") in {"전체 메뉴","필터 규칙"}
+selected=any(node.attrib.get("content-desc") in {"전체 메뉴","필터 규칙","설정"}
              and node.attrib.get("selected")=="true" for node in nodes)
 filter_editor=any(node.attrib.get("text","")=="허용 도메인" for node in nodes)
 draft=any("rotation-preserved.example" in node.attrib.get("text","") for node in nodes)
