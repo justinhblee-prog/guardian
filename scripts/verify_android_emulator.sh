@@ -48,17 +48,26 @@ recover_emulator_framework() {
 wait_for_boot
 wait_for_package_service
 
+# Android 14/15 emulator images may inherit opportunistic Private DNS before
+# the first app launch. The emulator NAT DNS forwarder (10.0.2.3) does not
+# provide DNS-over-TLS, so disable Private DNS before probing or downloading
+# the first filter list. The VPN E2E script repeats this setting after launch.
+adb_cmd shell settings put global private_dns_mode off
+adb_cmd shell settings delete global private_dns_specifier >/dev/null 2>&1 || true
+
 wait_for_network() {
+  local last_result=""
   for attempt in $(seq 1 30); do
     local result
     result="$(adb_cmd shell ping -c 1 -W 3 adguardteam.github.io 2>&1 || true)"
+    last_result="$result"
     if grep -Eq 'PING adguardteam\.github\.io \([^)]*\)' <<<"$result"; then
       echo "Emulator DNS/network ready: $result"
       return 0
     fi
     sleep 2
   done
-  echo "Emulator has no working DNS/network connection to the filter host."
+  echo "Emulator has no working DNS/network connection to the filter host. Last DNS probe: $last_result"
   adb_cmd shell dumpsys connectivity || true
   adb_cmd shell ip addr show || true
   adb_cmd shell getprop | grep -E 'net\.dns|dhcp' || true

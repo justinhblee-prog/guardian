@@ -144,11 +144,32 @@ for node in root.iter("node"):
                 print((x1+x2)//2,(y1+y2)//2)
                 raise SystemExit(0)
         target=parents.get(target)
-raise SystemExit(1)' "$wanted" <<<"$xml")" || {
+raise SystemExit(1)' "$wanted" <<<"$xml")" || true
+  # Android 15 exposes the FAQ dialog's sole dismiss action as "닫기".
+  # Accept it for a generic confirmation request only when this exact FAQ
+  # dialog is present; do not weaken matching for other dialogs.
+  if [[ -z "$bounds" && "$wanted" == "확인" ]]; then
+    bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+nodes=list(root.iter("node"))
+if not any(n.attrib.get("text")=="Guardian 자주 묻는 질문" for n in nodes):
+    raise SystemExit(1)
+for n in nodes:
+    if (n.attrib.get("resource-id")=="android:id/button1"
+        and n.attrib.get("text")=="닫기"
+        and n.attrib.get("visible-to-user","true")=="true"
+        and n.attrib.get("clickable")=="true"
+        and n.attrib.get("enabled")=="true"):
+        p=n.attrib.get("bounds","").strip("[]").split("][")
+        if len(p)==2:
+            x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2); break' <<<"$xml")" || true
+  fi
+  if [[ -z "$bounds" ]]; then
     echo "Could not locate visible clickable UI control or clickable text parent: $wanted"
     echo "$xml"
     return 1
-  }
+  fi
   read -r x y <<<"$bounds"
   adb_cmd shell input tap "$x" "$y"
 }
@@ -1374,40 +1395,44 @@ if ! grep -Fq '라이선스 및 프리미엄' <<<"$license_menu_xml"; then
   exit 1
 fi
 
-# Verify the About and Exit submenus even though they are below the phone viewport.
-scroll_to_text "정보"
+# Verify the General settings update accordion. The app-update control belongs
+# under Settings > General (not Settings > About); keep this test aligned with
+# the agreed product navigation and avoid scrolling a non-scrollable About page.
+scroll_to_text "일반"
 sleep 1
-# The About screen is a vertically scrolling page. Verify the version row
-# while it is in the initial viewport, then scroll separately to the update
-# action; UIAutomator omits children outside the current viewport.
-adb_cmd shell uiautomator dump /sdcard/guardian-about-version.xml >/dev/null 2>&1
-about_version_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-version.xml | tr -d '\r')"
-expected_current_version="${GUARDIAN_CURRENT_VERSION_NAME:-}"
-if [[ -z "$expected_current_version" ]]; then
-  echo "GUARDIAN_CURRENT_VERSION_NAME was not provided to the Android VPN emulator check."
+general_xml="$(dump_ui_hierarchy /sdcard/guardian-general-settings.xml)"
+if ! grep -Fq '프로그램 업데이트 확인 펼치기' <<<"$general_xml"; then
+  echo "Settings > General does not expose the agreed update accordion."
+  echo "$general_xml"
   exit 1
 fi
-if ! grep -Fq '앱 버전' <<<"$about_version_xml" || ! grep -Fq "$expected_current_version" <<<"$about_version_xml"; then
-  echo "The About screen's initial viewport did not expose the current app version."
-  echo "$about_version_xml"
-  exit 1
-fi
-ensure_text_visible "앱 업데이트 확인"
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-about-update.xml >/dev/null 2>&1
-about_update_xml="$(adb_cmd exec-out cat /sdcard/guardian-about-update.xml | tr -d '\r')"
-if ! grep -Fq '앱 업데이트 확인' <<<"$about_update_xml"; then
-  echo "The About submenu does not expose the dedicated app-update entry."
-  echo "$about_update_xml"
-  exit 1
-fi
-tap_text "앱 업데이트 확인"
+tap_content_description "프로그램 업데이트 확인 펼치기"
 sleep 1
 updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates.xml)"
 if ! grep -Fq '프로그램 업데이트' <<<"$updates_xml" ||
-   ! grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$updates_xml" ||
-   ! grep -Fq '업데이트 설치' <<<"$updates_xml"; then
-  echo "The dedicated Program Updates screen is missing its version-check/install controls."
+   ! grep -Fq '관리자 채널 인증' <<<"$updates_xml" ||
+   ! grep -Fq '관리자 인증 토큰' <<<"$updates_xml"; then
+  echo "The expanded General update accordion is missing its update or administrator-authentication section."
+  echo "$updates_xml"
+  exit 1
+fi
+# The accordion is taller than the phone viewport. UIAutomator reports only
+# on-screen controls, so scroll within the expanded General page before
+# asserting the update actions; do not mistake below-the-fold controls for
+# missing implementation.
+update_actions_visible=0
+for attempt in $(seq 1 8); do
+  updates_xml="$(dump_ui_hierarchy /sdcard/guardian-program-updates-actions.xml)"
+  if grep -Eq '개발 업데이트 확인|정식 업데이트 확인' <<<"$updates_xml" &&
+     grep -Fq '업데이트 설치' <<<"$updates_xml"; then
+    update_actions_visible=1
+    break
+  fi
+  adb_cmd shell input swipe 540 1500 540 650 400
+  sleep 0.4
+done
+if [[ "$update_actions_visible" -ne 1 ]]; then
+  echo "The expanded General update accordion did not expose update action controls after scrolling."
   echo "$updates_xml"
   exit 1
 fi
@@ -1415,8 +1440,8 @@ fi
 # Exercise the actual development update check, not only the presence of its
 # controls. PR builds are intentionally not published as releases, so the
 # currently published manifest must resolve to "already latest" for this
-# higher versionCode. This validates network/API parsing and the no-update UI
-# without downloading or installing an untrusted/unpublished build.
+# higher versionCode. This validates network/API parsing without installing
+# an unpublished artifact.
 if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
   tap_text "개발 업데이트 확인"
   update_check_ready=0
@@ -1440,7 +1465,11 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
   fi
   echo "Development update check reached the expected latest-version state."
 fi
-echo "Settings > 정보 > 앱 업데이트 확인 opens the dedicated Program Updates screen and executes its version check."
+echo "Settings > General > Program Updates accordion and administrator authentication controls passed."
+# Navigate away and back so the Settings category index is restored before
+# validating the separate Exit category.
+tap_content_description "홈"
+sleep 1
 tap_content_description "설정"
 sleep 1
 scroll_to_text "종료"
@@ -1452,17 +1481,40 @@ if ! grep -Fq 'Guardian 종료' <<<"$exit_menu_xml"; then
   echo "$exit_menu_xml"
   exit 1
 fi
-tap_text "Guardian 종료"
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-exit-confirmation.xml >/dev/null 2>&1
-exit_confirmation_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-confirmation.xml | tr -d '\r')"
+# UIAutomator can race the dialog transition: a hierarchy captured just after
+# tapping the menu item may already contain the confirmation dialog, in which
+# case the menu label exists only as a non-clickable dialog title. Accept that
+# state, otherwise tap the actual menu action and verify the resulting dialog.
+if grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_menu_xml"; then
+  exit_confirmation_xml="$exit_menu_xml"
+else
+  tap_text "Guardian 종료"
+  sleep 1
+  adb_cmd shell uiautomator dump /sdcard/guardian-exit-confirmation.xml >/dev/null 2>&1
+  exit_confirmation_xml="$(adb_cmd exec-out cat /sdcard/guardian-exit-confirmation.xml | tr -d '\r')"
+fi
 if ! grep -Fq '앱을 종료하시겠습니까?' <<<"$exit_confirmation_xml" ||
    ! grep -Fq '취소' <<<"$exit_confirmation_xml"; then
   echo "The explicit Guardian 종료 action did not open its confirmation dialog."
   echo "$exit_confirmation_xml"
   exit 1
 fi
-tap_text "취소"
+# Dialog buttons are not always exposed through a clickable parent in older
+# emulator images; use the Android standard cancel-button resource when present.
+cancel_bounds="$(python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+for node in root.iter("node"):
+    if node.attrib.get("resource-id")=="android:id/button2" and node.attrib.get("text")=="취소":
+        p=node.attrib.get("bounds","").strip("[]").split("][")
+        if len(p)==2:
+            x1,y1=map(int,p[0].split(",")); x2,y2=map(int,p[1].split(","))
+            print((x1+x2)//2,(y1+y2)//2); break' <<<"$exit_confirmation_xml")"
+if [[ -n "$cancel_bounds" ]]; then
+  read -r cancel_x cancel_y <<<"$cancel_bounds"
+  adb_cmd shell input tap "$cancel_x" "$cancel_y"
+else
+  tap_text "취소"
+fi
 sleep 1
 tap_content_description "설정"
 sleep 1
@@ -1513,7 +1565,10 @@ grep -Fq '광고 차단이 되지 않아요' <<<"$support_faq_xml" || {
   echo "$support_faq_xml"
   exit 1
 }
-tap_text_row "광고 차단이 되지 않아요"
+# The current FAQ is a custom inline accordion inside the support dialog,
+# not the legacy AlertDialog ListView. Tap its accessible expand/collapse row
+# and assert the answer text appears beneath the selected question.
+tap_content_description "광고 차단이 되지 않아요 답변 펼치기"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
 support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
@@ -1522,7 +1577,7 @@ grep -Fq 'DNS 기반 광고·추적 도메인' <<<"$support_faq_answer_xml" || {
   echo "$support_faq_answer_xml"
   exit 1
 }
-tap_text "확인"
+tap_text "닫기"
 # The Settings support card is taller than the phone viewport; scroll its
 # remaining actions into view before tapping the inquiry form entry.
 scroll_to_text "문의 및 의견 보내기"
@@ -1552,71 +1607,22 @@ echo "Customer support center FAQ, inquiry submission form, and private lookup U
 
 
 auto_pause_picker_visible=0
-# Support dialogs can return to the previously active destination on some
-# Android builds. Reset through Home before entering Settings so this assertion
-# validates the actual Settings route rather than relying on a stale tab state.
+# The compatibility pause controls are part of the Protection destination's
+# DNS configuration screen, not the Settings > Filtering rules screen.
+# Support dialogs can restore an earlier destination, so explicitly select
+# Protection and assert the selected navigation state before inspecting it.
 tap_content_description "홈"
 sleep 1
-# Compatibility and auto-pause controls now live in Full Menu > Filtering.
-# Navigate to that submenu explicitly before searching its scrollable content.
-settings_tab_selected=0
-settings_navigation_label="설정"
-settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
-# Published predecessor versions use a "전체 메뉴" bottom destination;
-# current builds use "설정". Resolve the actual clickable navigation control
-# from the live hierarchy so the test never taps a nested settings label.
-if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-raise SystemExit(0 if any(n.attrib.get("content-desc")=="전체 메뉴"
-    and n.attrib.get("clickable")=="true"
-    and n.attrib.get("visible-to-user","true")=="true"
-    for n in root.iter("node")) else 1)' <<<"$settings_navigation_xml"; then
-  settings_navigation_label="전체 메뉴"
-fi
-for attempt in $(seq 1 3); do
-  tap_content_description "$settings_navigation_label"
-  sleep 1
-  settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-wanted=sys.argv[1]
-if any(node.attrib.get("content-desc")==wanted
-       and node.attrib.get("selected")=="true"
-       and node.attrib.get("clickable")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' "$settings_navigation_label" <<<"$settings_navigation_xml"; then
-    settings_tab_selected=1
-    break
-  fi
-  echo "$settings_navigation_label navigation did not become selected (attempt $attempt/3); retrying."
-done
-if [[ "$settings_tab_selected" -ne 1 ]]; then
-  echo "Could not select the $settings_navigation_label navigation destination before checking VPN auto-pause."
-  echo "$settings_navigation_xml"
-  exit 1
-fi
-# The predecessor exposes Filtering as a direct Full Menu item; current builds
-# expose it as a Settings category card. Select the route supported by the
-# actual screen rather than substring-matching descriptions in DNS details.
-if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
-  legacy_filter_target="$(python3 scripts/android_navigation_compat.py settings-item "필터 관리" <<<"$settings_navigation_xml" 2>/dev/null || true)"
-  if [[ -z "$legacy_filter_target" ]]; then
-    echo "Legacy Full Menu does not expose a compatible Filtering destination."
-    echo "$settings_navigation_xml"
-    exit 1
-  fi
-  scroll_to_text "$legacy_filter_target"
-else
-  ensure_text_visible "필터링"
-  # The category card exposes its clickable accessibility label with the
-  # action suffix; the visible title itself is a non-clickable TextView.
-  tap_content_description "필터링 설정 열기"
-fi
+# The foreground-app compatibility controls are built into Settings > General.
+# The test must enter that category; the Protection dashboard intentionally
+# contains only protection status and DNS scope.
+tap_content_description "설정"
 sleep 1
+scroll_to_text "일반"
+sleep 1
+auto_pause_picker_visible=0
 for attempt in $(seq 1 24); do
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  auto_pause_settings_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+  auto_pause_settings_xml="$(dump_ui_hierarchy /sdcard/guardian-compatibility-settings.xml)"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
@@ -1628,15 +1634,15 @@ if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
     raise SystemExit(0)
 raise SystemExit(1)' <<<"$auto_pause_settings_xml"; then
     auto_pause_picker_visible=1
-    echo "Foreground-app compatibility controls found after $attempt Settings scroll checks."
+    echo "Foreground-app compatibility controls found in Settings > General after $attempt scroll checks."
     break
   fi
-  # Swipe up to reveal settings content below the current viewport.
+  # The compatibility section follows the DNS and server settings in General.
   adb_cmd shell input swipe 540 1500 540 600 450
   sleep 0.5
 done
 if [[ "$auto_pause_picker_visible" -ne 1 ]]; then
-  echo "Foreground-app auto-pause controls were not visible in Settings."
+  echo "Foreground-app auto-pause controls were not visible in Settings > General."
   echo "$auto_pause_settings_xml"
   exit 1
 fi

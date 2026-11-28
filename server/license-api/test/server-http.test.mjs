@@ -35,6 +35,15 @@ test('health endpoint returns no-store service status', async () => {
   assert.deepEqual(await response.json(), { ok: true, service: 'guardian-license-api' });
 });
 
+test('administrator channel verification fails closed without server configuration and is rate-limited', async () => {
+  const request = () => fetch(`${baseUrl}/v1/admin/auth/verify`);
+  assert.equal((await request()).status, 503);
+  assert.equal((await request()).status, 503);
+  const limited = await request();
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get('retry-after')) >= 1);
+});
+
 test('readiness endpoint fails closed when database and signing configuration are absent', async () => {
   const response = await fetch(`${baseUrl}/ready`);
   assert.equal(response.status, 503);

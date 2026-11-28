@@ -70,6 +70,9 @@ PowerShell 7.2에서 저장소의 `server/license-api/windows` 폴더에서 다�
 실제 결제 연동, 운영 도메인, TLS 인증서, Secret Manager, 백업 복구 리허설 및 다중 운영자 권한은 배포 환경에서 별도 구성해야 합니다.
 
 ## API
+
+- `GET /v1/admin/auth/verify`: 관리자 Bearer 토큰을 검증하고 `{ authenticated: true, channels: ["admin"] }`를 반환합니다. Android 앱의 관리자 업데이트 채널 인증에서 사용하며 토큰 원문은 응답·로그에 포함하지 않습니다.
+
 - `POST /v1/licenses/activate`: `{ "licenseKey": "...", "deviceBinding": "<64 hex>", "appVersion": "..." }`
 - `POST /v1/licenses/refresh`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
 - `POST /v1/licenses/deactivate`: `{ "deviceBinding": "<64 hex>", "licenseRef": "..." }`
