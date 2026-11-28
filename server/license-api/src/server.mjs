@@ -3,6 +3,8 @@ import { createHash, createPrivateKey, randomBytes, randomUUID } from 'node:cryp
 import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { createPostgresRateLimiter, createRateLimiter } from './rate-limit.mjs';
+import { createGooglePlayBillingVerifier } from './google-play-billing.mjs';
+import { createGooglePlayRtdnVerifier } from './google-play-rtdn.mjs';
 import {
   adminTokenMatches, hashLicenseKey, issueEntitlementToken, newLicenseKey,
   validateDeviceBinding, verifyLicenseKey
@@ -25,7 +27,7 @@ const rateLimitOptions = {
 };
 const RATE_LIMITED_PATHS = new Set([
   '/v1/licenses/activate', '/v1/licenses/refresh', '/v1/licenses/deactivate',
-  '/v1/licenses/status', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers',
+  '/v1/licenses/status', '/v1/billing/google-play/verify', '/v1/billing/google-play/rtdn', '/v1/admin/licenses', '/v1/admin/events', '/v1/admin/customers',
   '/v1/support/tickets', '/v1/admin/support/tickets', '/v1/support/tickets/lookup'
 ]);
 const pool = DATABASE_URL ? new Pool({
@@ -242,6 +244,371 @@ async function activate(body) {
     throw error;
   } finally { client.release(); }
 }
+async function verifyGooglePlayPurchase(body) {
+  requireEnv();
+  const device = validateDeviceBinding(body.deviceBinding);
+  const appVersion = typeof body.appVersion === 'string' ? body.appVersion.slice(0, 40) : '';
+  const purchaseToken = body.purchaseToken;
+  const productId = body.productId;
+  const allowedProducts = String(process.env.GOOGLE_PLAY_PRODUCT_IDS || '')
+    .split(',').map(value => value.trim()).filter(Boolean);
+  if (allowedProducts.length === 0) {
+    throw Object.assign(new Error('Google Play 구독 상품 허용 목록이 서버에 구성되지 않았습니다.'), { status: 503 });
+  }
+  if (typeof productId !== 'string' || !allowedProducts.includes(productId)) {
+    throw Object.assign(new Error('Guardian에서 지원하지 않는 Google Play 구독 상품입니다.'), { status: 400 });
+  }
+  if (typeof purchaseToken !== 'string' || purchaseToken.length < 1 || purchaseToken.length > 4096) {
+    throw Object.assign(new Error('Google Play 구매 확인 정보가 올바르지 않습니다.'), { status: 400 });
+  }
+
+  // Publisher API is authoritative; client-supplied purchase state is ignored.
+  const verifier = getGooglePlayBillingVerifier();
+  const verified = await verifier.verifySubscription({ purchaseToken, productId });
+  const expiryMs = Date.parse(verified.expiryTime || '');
+  if (verified.entitled && (!Number.isFinite(expiryMs) || expiryMs <= Date.now())) {
+    throw Object.assign(new Error('Google Play 구독 만료 정보가 올바르지 않습니다.'), { status: 502 });
+  }
+  const purchaseHash = createHash('sha256').update(purchaseToken, 'utf8').digest('hex');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [purchaseHash]);
+    const priorRevocation = await client.query(
+      "SELECT 1 FROM google_play_rtdn_events WHERE purchase_token_hash=$1 AND event_type='SUBSCRIPTION_12' AND processed_at IS NOT NULL LIMIT 1",
+      [purchaseHash]
+    );
+    const existing = await client.query(
+      "SELECT gp.purchase_token_hash,gp.license_id,gp.revoked_by_rtdn,l.license_ref,l.status,l.expires_at,l.product_id " +
+      "FROM google_play_purchases gp JOIN licenses l ON l.id=gp.license_id " +
+      "WHERE gp.purchase_token_hash=$1 FOR UPDATE OF gp,l",
+      [purchaseHash]
+    );
+    if (existing.rowCount && (existing.rows[0].revoked_by_rtdn || existing.rows[0].status === 'revoked')) {
+      await client.query('COMMIT');
+      return {
+        verified: true, entitled: false, subscriptionState: verified.subscriptionState,
+        licenseRef: existing.rows[0].license_ref
+      };
+    }
+    if (priorRevocation.rowCount) {
+      throw Object.assign(new Error('Google Play에서 철회된 구독 구매입니다.'), { status: 403 });
+    }
+
+    if (!verified.entitled) {
+      if (existing.rowCount) {
+        const licenseId = existing.rows[0].license_id;
+        await client.query(
+          "UPDATE licenses SET status='expired',expires_at=LEAST(expires_at,now()) WHERE id=$1 AND status='active'",
+          [licenseId]
+        );
+        await client.query(
+          "UPDATE activations SET deactivated_at=now() WHERE license_id=$1 AND deactivated_at IS NULL " +
+          "AND EXISTS (SELECT 1 FROM licenses WHERE id=$1 AND status='expired')",
+          [licenseId]
+        );
+        await client.query(
+          "UPDATE google_play_purchases SET product_sku=$2,subscription_state=$3,expires_at=COALESCE($4,expires_at), " +
+          "acknowledgement_state=$5,last_verified_at=now(),updated_at=now() WHERE purchase_token_hash=$1",
+          [purchaseHash, productId, verified.subscriptionState, verified.expiryTime, verified.acknowledgementState]
+        );
+        await recordEvent(client, licenseId, 'google_play_subscription_inactive', 'google_play', {
+          productId, subscriptionState: verified.subscriptionState
+        });
+      }
+      await client.query('COMMIT');
+      return { verified: true, entitled: false, subscriptionState: verified.subscriptionState, licenseRef: existing.rows[0]?.license_ref };
+    }
+
+    let license;
+    if (!existing.rowCount) {
+      const product = await client.query(
+        "SELECT id FROM products WHERE code='guardian-pro' AND active=true FOR SHARE"
+      );
+      if (!product.rowCount) throw Object.assign(new Error('Guardian Pro 제품이 활성화되어 있지 않습니다.'), { status: 503 });
+      const key = newLicenseKey();
+      const hashed = await hashLicenseKey(key, LOOKUP_SECRET);
+      const licenseRef = randomUUID();
+      const inserted = await client.query(
+        "INSERT INTO licenses(license_ref,product_id,key_salt,key_hash,key_lookup,order_ref,expires_at,max_devices) " +
+        "VALUES($1,$2,$3,$4,$5,$6,$7,1) " +
+        "RETURNING id,license_ref,status,expires_at,max_devices,product_id",
+        [licenseRef, product.rows[0].id, hashed.saltHex, hashed.hashHex, hashed.keyLookup,
+          verified.orderId, verified.expiryTime]
+      );
+      license = inserted.rows[0];
+      await client.query(
+        "INSERT INTO google_play_purchases(purchase_token_hash,product_id,license_id,product_sku," +
+        "subscription_state,expires_at,latest_order_id,acknowledgement_state) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+        [purchaseHash, product.rows[0].id, license.id, productId, verified.subscriptionState,
+          verified.expiryTime, verified.orderId, verified.acknowledgementState]
+      );
+      await recordEvent(client, license.id, 'google_play_subscription_verified', 'google_play', {
+        productId, subscriptionState: verified.subscriptionState, expiryTime: verified.expiryTime
+      });
+    } else {
+      const row = existing.rows[0];
+      if (row.status === 'revoked' || row.revoked_by_rtdn) {
+        throw Object.assign(new Error('관리자에 의해 해지된 Guardian 라이선스입니다.'), { status: 403 });
+      }
+      const activeDevice = await client.query(
+        "SELECT device_binding FROM activations WHERE license_id=$1 AND deactivated_at IS NULL FOR UPDATE",
+        [row.license_id]
+      );
+      if (activeDevice.rowCount && activeDevice.rows.some(item => item.device_binding !== device)) {
+        throw Object.assign(new Error('이 Google Play 구독은 이미 다른 기기에 연결되어 있습니다.'), { status: 409 });
+      }
+      const updated = await client.query(
+        "UPDATE licenses SET status='active',revoked_at=NULL,expires_at=$2 WHERE id=$1 " +
+        "RETURNING id,license_ref,status,expires_at,max_devices,product_id",
+        [row.license_id, verified.expiryTime]
+      );
+      license = updated.rows[0];
+      await client.query(
+        "UPDATE google_play_purchases SET product_sku=$2,subscription_state=$3,expires_at=$4,latest_order_id=$5," +
+        "acknowledgement_state=$6,last_verified_at=now(),updated_at=now() WHERE purchase_token_hash=$1",
+        [purchaseHash, productId, verified.subscriptionState, verified.expiryTime, verified.orderId,
+          verified.acknowledgementState]
+      );
+      await recordEvent(client, license.id, 'google_play_subscription_refreshed', 'google_play', {
+        productId, subscriptionState: verified.subscriptionState, expiryTime: verified.expiryTime
+      });
+    }
+
+    const active = await client.query(
+      "SELECT id FROM activations WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL FOR UPDATE",
+      [license.id, device]
+    );
+    if (active.rowCount) {
+      await client.query(
+        "UPDATE activations SET app_version=$3,last_seen_at=now() " +
+        "WHERE license_id=$1 AND device_binding=$2 AND deactivated_at IS NULL",
+        [license.id, device, appVersion]
+      );
+    } else {
+      const count = await client.query(
+        "SELECT count(*)::int AS n FROM activations WHERE license_id=$1 AND deactivated_at IS NULL",
+        [license.id]
+      );
+      if (count.rows[0].n >= 1) {
+        throw Object.assign(new Error('Google Play 구독의 기기 등록 한도를 초과했습니다.'), { status: 409 });
+      }
+      await client.query(
+        "INSERT INTO activations(license_id,device_binding,app_version) VALUES($1,$2,$3) " +
+        "ON CONFLICT (license_id,device_binding) DO UPDATE SET app_version=EXCLUDED.app_version," +
+        "activated_at=now(),last_seen_at=now(),deactivated_at=NULL",
+        [license.id, device, appVersion]
+      );
+      await recordEvent(client, license.id, 'google_play_device_activated', 'google_play', { appVersion });
+    }
+    const token = tokenFor(license, device);
+    await client.query('COMMIT');
+    return {
+      ...token, verified: true, entitled: true, licenseStatus: 'pro',
+      licenseRef: license.license_ref, subscriptionState: verified.subscriptionState,
+      expiresAt: verified.expiryTime
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+
+let googlePlayBillingVerifier = null;
+function getGooglePlayBillingVerifier() {
+  if (!googlePlayBillingVerifier) {
+    googlePlayBillingVerifier = createGooglePlayBillingVerifier({
+      // Keep one in-process OAuth token cache while resolving the fetch
+      // implementation dynamically for tests and controlled runtimes.
+      fetchImpl: (...args) => globalThis.fetch(...args)
+    });
+  }
+  return googlePlayBillingVerifier;
+}
+
+const googlePlayRtdnVerifier = createGooglePlayRtdnVerifier({
+  // Resolve global fetch at request time so tests and controlled runtimes can
+  // inject transport while this verifier retains its certificate cache.
+  fetchImpl: (...args) => globalThis.fetch(...args)
+});
+
+async function receiveGooglePlayRtdn(body, req) {
+  requireEnv();
+  await googlePlayRtdnVerifier.verifyAuthorization(req.headers.authorization);
+  const message = body?.message;
+  const messageId = message?.messageId || message?.message_id;
+  const encodedData = message?.data;
+  if (typeof messageId !== 'string' || messageId.length < 1 || messageId.length > 200 ||
+      typeof encodedData !== 'string' || encodedData.length < 4 || encodedData.length > 24_000 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(encodedData)) {
+    throw Object.assign(new Error('Google Play 실시간 알림 메시지 형식이 올바르지 않습니다.'), { status: 400 });
+  }
+  const payloadBytes = Buffer.from(encodedData, 'base64');
+  if (payloadBytes.length > 16_000 ||
+      payloadBytes.toString('base64').replace(/=+$/, '') !== encodedData.replace(/=+$/, '')) {
+    throw Object.assign(new Error('Google Play 실시간 알림 데이터 인코딩이 올바르지 않습니다.'), { status: 400 });
+  }
+  let notification;
+  try {
+    const payloadText = new TextDecoder('utf-8', { fatal: true }).decode(payloadBytes);
+    notification = JSON.parse(payloadText);
+  } catch {
+    throw Object.assign(new Error('Google Play 실시간 알림 데이터가 올바른 JSON이 아닙니다.'), { status: 400 });
+  }
+  const packageName = process.env.GOOGLE_PLAY_PACKAGE_NAME || 'com.guardian.adblock';
+  if (notification.packageName !== packageName) {
+    throw Object.assign(new Error('Google Play 알림 앱 패키지가 일치하지 않습니다.'), { status: 400 });
+  }
+
+  const subscription = notification.subscriptionNotification;
+  const notificationType = subscription?.notificationType;
+  if (subscription && (!Number.isInteger(notificationType) || notificationType < 1 || notificationType > 22)) {
+    throw Object.assign(new Error('Google Play 구독 알림 유형이 올바르지 않습니다.'), { status: 400 });
+  }
+  const purchaseToken = subscription?.purchaseToken ||
+    notification.voidedPurchaseNotification?.purchaseToken ||
+    notification.pendingRefundReviewNotification?.purchaseToken;
+  const eventType = subscription
+    ? 'SUBSCRIPTION_' + String(notificationType)
+    : notification.testNotification
+      ? 'TEST_NOTIFICATION'
+      : notification.voidedPurchaseNotification
+        ? 'VOIDED_PURCHASE'
+        : notification.pendingRefundReviewNotification
+          ? 'PENDING_REFUND_REVIEW'
+          : 'UNKNOWN';
+  const purchaseHash = typeof purchaseToken === 'string' && purchaseToken.length > 0 && purchaseToken.length <= 4096
+    ? createHash('sha256').update(purchaseToken, 'utf8').digest('hex')
+    : null;
+  const payloadHash = createHash('sha256').update(payloadBytes).digest('hex');
+
+  const client = await pool.connect();
+  let isDuplicate = false;
+  let existingPurchase = null;
+  try {
+    await client.query('BEGIN');
+    const inserted = await client.query(
+      "INSERT INTO google_play_rtdn_events(message_id,event_type,purchase_token_hash,payload_hash) " +
+      "VALUES($1,$2,$3,$4) ON CONFLICT (message_id) DO NOTHING RETURNING message_id",
+      [messageId, eventType, purchaseHash, payloadHash]
+    );
+    if (!inserted.rowCount) {
+      const prior = await client.query(
+        "SELECT processed_at FROM google_play_rtdn_events WHERE message_id=$1 FOR UPDATE",
+        [messageId]
+      );
+      if (prior.rows[0]?.processed_at) {
+        isDuplicate = true;
+      }
+    }
+    if (!isDuplicate && purchaseHash) {
+      const found = await client.query(
+        "SELECT product_sku FROM google_play_purchases WHERE purchase_token_hash=$1",
+        [purchaseHash]
+      );
+      existingPurchase = found.rows[0] || null;
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  if (isDuplicate) return { received: true, duplicate: true };
+
+  if (!purchaseHash || (!subscription && !notification.voidedPurchaseNotification && !notification.pendingRefundReviewNotification)) {
+    await pool.query(
+      "UPDATE google_play_rtdn_events SET processed_at=now() WHERE message_id=$1",
+      [messageId]
+    );
+    return { received: true, processed: true, eventType };
+  }
+
+  const allowedProducts = String(process.env.GOOGLE_PLAY_PRODUCT_IDS || '')
+    .split(',').map(value => value.trim()).filter(Boolean);
+  const notifiedProductId = typeof subscription?.subscriptionId === 'string'
+    ? subscription.subscriptionId : '';
+  const productId = allowedProducts.includes(notifiedProductId)
+    ? notifiedProductId : existingPurchase?.product_sku || '';
+  if (!productId || !allowedProducts.includes(productId)) {
+    // A notification can arrive before the app's first verification. Record it
+    // idempotently; the client verification endpoint will create the entitlement.
+    await pool.query(
+      "UPDATE google_play_rtdn_events SET processed_at=now() WHERE message_id=$1",
+      [messageId]
+    );
+    return { received: true, processed: true, ignored: true, eventType };
+  }
+
+  // RTDN is only a signal. Re-query the Publisher API for the authoritative
+  // state, and never derive entitlement from notification fields alone.
+  const verified = await getGooglePlayBillingVerifier().verifySubscription({
+    purchaseToken,
+    productId
+  });
+  const immediateRevocationTypes = new Set([5, 10, 12, 13, 20]);
+  const entitled = verified.entitled && !immediateRevocationTypes.has(notificationType);
+  const db = await pool.connect();
+  try {
+    await db.query('BEGIN');
+    await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [purchaseHash]);
+    const found = await db.query(
+      "SELECT gp.license_id,gp.revoked_by_rtdn,l.status " +
+      "FROM google_play_purchases gp JOIN licenses l ON l.id=gp.license_id " +
+      "WHERE gp.purchase_token_hash=$1 FOR UPDATE OF gp,l",
+      [purchaseHash]
+    );
+    if (found.rowCount) {
+      const row = found.rows[0];
+      const permanentlyRevoked = row.revoked_by_rtdn || notificationType === 12;
+      if (!entitled) {
+        await db.query(
+          "UPDATE licenses SET status='expired',expires_at=LEAST(expires_at,now()) " +
+          "WHERE id=$1 AND status='active'",
+          [row.license_id]
+        );
+        await db.query(
+          "UPDATE activations SET deactivated_at=now() WHERE license_id=$1 AND deactivated_at IS NULL " +
+          "AND EXISTS (SELECT 1 FROM licenses WHERE id=$1 AND status='expired')",
+          [row.license_id]
+        );
+      } else if (row.status !== 'revoked' && !permanentlyRevoked) {
+        await db.query(
+          "UPDATE licenses SET status='active',revoked_at=NULL,expires_at=$2 WHERE id=$1 AND status<>'revoked'",
+          [row.license_id, verified.expiryTime]
+        );
+      }
+      await db.query(
+        "UPDATE google_play_purchases SET product_sku=$7,subscription_state=$2,expires_at=COALESCE($3,expires_at), " +
+        "latest_order_id=COALESCE($4,latest_order_id),acknowledgement_state=$5," +
+        "revoked_by_rtdn=$6,last_verified_at=now(),updated_at=now() WHERE purchase_token_hash=$1",
+        [purchaseHash, verified.subscriptionState, verified.expiryTime, verified.orderId,
+          verified.acknowledgementState, permanentlyRevoked, verified.productId]
+      );
+      await recordEvent(db, row.license_id,
+        entitled && !permanentlyRevoked ? 'google_play_rtdn_entitlement_refreshed' : 'google_play_rtdn_entitlement_revoked',
+        'google_play_rtdn',
+        { eventType, notificationType: Number.isInteger(notificationType) ? notificationType : null }
+      );
+    }
+    await db.query(
+      "UPDATE google_play_rtdn_events SET processed_at=now() WHERE message_id=$1",
+      [messageId]
+    );
+    await db.query('COMMIT');
+    return { received: true, processed: true, entitled: Boolean(entitled && !found.rows[0]?.revoked_by_rtdn), eventType };
+  } catch (error) {
+    await db.query('ROLLBACK');
+    throw error;
+  } finally {
+    db.release();
+  }
+}
+
 async function refresh(body) {
   requireEnv();
   const device = validateDeviceBinding(body.deviceBinding);
@@ -525,9 +892,11 @@ const server = http.createServer(async (req, res) => {
              to_regclass('public.license_events') AS license_events,
              to_regclass('public.api_rate_limit_buckets') AS api_rate_limit_buckets,
              to_regclass('public.support_tickets') AS support_tickets,
-             to_regclass('public.customers') AS customers`
+             to_regclass('public.customers') AS customers,
+             to_regclass('public.google_play_purchases') AS google_play_purchases,
+             to_regclass('public.google_play_rtdn_events') AS google_play_rtdn_events`
         );
-        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers'];
+        const requiredTables = ['products', 'licenses', 'activations', 'license_events', 'api_rate_limit_buckets', 'support_tickets', 'customers', 'google_play_purchases', 'google_play_rtdn_events'];
         if (requiredTables.some(table => !schema.rows[0]?.[table])) {
           throw new Error('license_database_schema_not_initialized');
         }
@@ -564,6 +933,8 @@ const server = http.createServer(async (req, res) => {
       const id = url.pathname.split('/')[5];
       result = await replySupportTicket(id, body, req);
     }
+    else if (url.pathname === '/v1/billing/google-play/verify') result = await verifyGooglePlayPurchase(body);
+    else if (url.pathname === '/v1/billing/google-play/rtdn') result = await receiveGooglePlayRtdn(body, req);
     else if (url.pathname === '/v1/licenses/activate') result = await activate(body);
     else if (url.pathname === '/v1/licenses/refresh') result = await refresh(body);
     else if (url.pathname === '/v1/licenses/deactivate') result = await deactivate(body);
