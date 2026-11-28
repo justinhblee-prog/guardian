@@ -19,7 +19,7 @@ test('updater fetches HTTPS filters, checks minimum rules and publishes signed c
         baseUrl: 'https://filters.example.com',
         outputDir: path.join(root, 'dist'),
         tempDir: path.join(root, 'tmp'),
-        sources: [{ id: 'adguard', url: 'https://upstream.example/filter.txt', minimumRules: 2, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
+        sources: [{ id: 'adguard', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt', minimumRules: 2, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
       },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
       now: new Date('2026-11-15T00:00:00Z'),
@@ -28,7 +28,7 @@ test('updater fetches HTTPS filters, checks minimum rules and publishes signed c
         return new Response(content, { status: 200, headers: { 'content-length': String(content.length) } });
       }
     });
-    assert.equal(requestedUrl, 'https://upstream.example/filter.txt');
+    assert.equal(requestedUrl, 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt');
     assert.equal(result.length, 1);
     assert.equal(result[0].ruleCount, 2);
     const manifest = await readFile(path.join(root, 'dist', 'adguard.manifest'));
@@ -48,19 +48,59 @@ test('updater rejects non-HTTPS sources and underfilled upstream responses', asy
   try {
     await assert.rejects(updateFilters({
       config: { baseUrl: 'https://filters.example.com', outputDir: root, sources: [
-        { id: 'bad', url: 'http://upstream.example/filter.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }
+        { id: 'bad', url: 'http://upstream.example/filter.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }
       ] },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem }
     }), /HTTPS/);
     await assert.rejects(updateFilters({
       config: { baseUrl: 'https://filters.example.com', outputDir: root, tempDir: root, sources: [
-        { id: 'short', url: 'https://upstream.example/filter.txt', minimumRules: 2, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }
+        { id: 'short', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt', minimumRules: 2, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }
       ] },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
       fetchImpl: async () => new Response('||one.example^\n', { status: 200 })
     }), /minimum is 2/);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('updater rejects floating source versions and mutable CDN references before network access', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  for (const overrides of [
+    { upstreamVersion: 'rolling-unpinned' },
+    { upstreamVersion: 'latest' },
+    { upstreamCommitSha: 'b'.repeat(40) },
+    { upstreamCommitSha: undefined },
+    { url: 'https://cdn.jsdelivr.net/gh/example/filter@latest/list.txt' },
+    { url: 'https://cdn.jsdelivr.net/gh/example/filter@main/list.txt' }
+  ]) {
+    let fetchCalled = false;
+    await assert.rejects(updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        sources: [{
+          id: 'floating',
+          url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt',
+          minimumRules: 1,
+          upstreamRepository: 'https://github.com/example/filter.git',
+          licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE',
+          upstreamVersion: '1.0.0', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          thirdPartyProvenanceReviewed: true,
+          complianceEvidenceRef: 'test-fixture',
+          licenseId: 'LicenseRef-Test',
+          redistributionApproved: true,
+          redistributionApprovalRef: 'test-fixture',
+          ...overrides
+        }]
+      },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+      fetchImpl: async () => {
+        fetchCalled = true;
+        return new Response('||example.test^', { status: 200 });
+      }
+    }), /pinned upstream version\/commit URL/);
+    assert.equal(fetchCalled, false);
   }
 });
 
@@ -77,8 +117,8 @@ test('updater stages every source before publishing any manifest', async () => {
         outputDir,
         tempDir: path.join(root, 'tmp'),
         sources: [
-          { id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' },
-          { id: 'second', url: 'https://upstream.example/second.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }
+          { id: 'first', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/first.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' },
+          { id: 'second', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/second.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }
         ]
       },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
@@ -99,7 +139,7 @@ test('updater stages every source before publishing any manifest', async () => {
         baseUrl: 'https://filters.example.com',
         outputDir,
         tempDir: path.join(root, 'tmp'),
-        sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
+        sources: [{ id: 'first', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/first.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
       },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
       fetchImpl: async () => new Response('||first.example^\n', { status: 200 })
@@ -124,7 +164,7 @@ test('updater refuses to interleave with an active batch lock before fetching', 
       config: {
         baseUrl: 'https://filters.example.com',
         outputDir,
-        sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
+        sources: [{ id: 'first', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/first.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
       },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
       fetchImpl: async () => {
@@ -144,7 +184,7 @@ test('updater validates signing credentials before making upstream requests', as
   await assert.rejects(updateFilters({
     config: {
       baseUrl: 'https://filters.example.com',
-      sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
+      sources: [{ id: 'first', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/first.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
     },
     env: {},
     fetchImpl: async () => {
@@ -168,7 +208,7 @@ test('updater does not remove a replacement lock it no longer owns', async () =>
         baseUrl: 'https://filters.example.com',
         outputDir,
         tempDir: path.join(root, 'tmp'),
-        sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
+        sources: [{ id: 'first', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/first.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
       },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
       fetchImpl: async () => {
@@ -194,7 +234,7 @@ test('updater rejects RSA signing keys larger than 4096 bits before network acce
   await assert.rejects(updateFilters({
     config: {
       baseUrl: 'https://filters.example.com',
-      sources: [{ id: 'first', url: 'https://upstream.example/first.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
+      sources: [{ id: 'first', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/first.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
     },
     env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
     fetchImpl: async () => {
@@ -216,8 +256,13 @@ test('updater refuses third-party filter redistribution without explicit legal a
       baseUrl: 'https://filters.example.com',
       sources: [{
         id: 'unreviewed',
-        url: 'https://upstream.example/filter.txt',
+        url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt',
         minimumRules: 1,
+        upstreamRepository: 'https://github.com/example/filter.git',
+        licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE',
+        upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        thirdPartyProvenanceReviewed: true,
+        complianceEvidenceRef: 'test-fixture',
         licenseId: 'GPL-3.0',
         redistributionApproved: false,
         redistributionApprovalRef: ''
@@ -241,8 +286,13 @@ test('updater requires a traceable approval reference even when approval flag is
       baseUrl: 'https://filters.example.com',
       sources: [{
         id: 'untraceable',
-        url: 'https://upstream.example/filter.txt',
+        url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt',
         minimumRules: 1,
+        upstreamRepository: 'https://github.com/example/filter.git',
+        licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE',
+        upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        thirdPartyProvenanceReviewed: true,
+        complianceEvidenceRef: 'test-fixture',
         licenseId: 'GPL-3.0',
         redistributionApproved: true,
         redistributionApprovalRef: '   '
@@ -263,8 +313,8 @@ test('updater rejects excessive source counts before making network requests', a
   let fetchCalled = false;
   const sources = Array.from({ length: 101 }, (_, index) => ({
     id: `source_${index}`,
-    url: `https://upstream.example/${index}.txt`,
-    minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture'
+    url: `https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/${index}.txt`,
+    minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture'
   }));
   await assert.rejects(updateFilters({
     config: { baseUrl: 'https://filters.example.com', sources },
@@ -286,8 +336,8 @@ test('updater rejects duplicate source IDs before any upstream request', async (
     config: {
       baseUrl: 'https://filters.example.com',
       sources: [
-        { id: 'duplicate', url: 'https://upstream.example/one.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' },
-        { id: 'duplicate', url: 'https://upstream.example/two.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }
+        { id: 'duplicate', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/one.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' },
+        { id: 'duplicate', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/two.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }
       ]
     },
     env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
@@ -309,7 +359,7 @@ test('updater rejects upstream bodies that disagree with Content-Length', async 
         baseUrl: 'https://filters.example.com',
         outputDir: path.join(root, 'dist'),
         tempDir: path.join(root, 'tmp'),
-        sources: [{ id: 'length', url: 'https://upstream.example/filter.txt', minimumRules: 1, licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
+        sources: [{ id: 'length', url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt', minimumRules: 1, upstreamRepository: 'https://github.com/example/filter.git', licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE', upstreamVersion: 'test-1', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', thirdPartyProvenanceReviewed: true, complianceEvidenceRef: 'test-fixture', licenseId: 'LicenseRef-Test', redistributionApproved: true, redistributionApprovalRef: 'test-fixture' }]
       },
       env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
       fetchImpl: async () => new Response('||example.test^\n', {
@@ -356,5 +406,68 @@ test('publisher cleanup preserves a replacement source lock', async () => {
   } finally {
     await handle.close();
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('updater rejects missing source provenance and compliance evidence before network access', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  let fetchCalled = false;
+  await assert.rejects(updateFilters({
+    config: {
+      baseUrl: 'https://filters.example.com',
+      sources: [{
+        id: 'missing-provenance',
+        url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt',
+        minimumRules: 1,
+        licenseId: 'GPL-3.0',
+        redistributionApproved: true,
+        redistributionApprovalRef: 'review-123',
+        upstreamRepository: 'https://github.com/example/filter.git',
+        licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE',
+        upstreamVersion: '1.0.0', upstreamCommitSha: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        thirdPartyProvenanceReviewed: false,
+        complianceEvidenceRef: ''
+      }]
+    },
+    env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+    fetchImpl: async () => {
+      fetchCalled = true;
+      return new Response('||example.test^', { status: 200 });
+    }
+  }), /third-party provenance review or compliance evidence reference/);
+  assert.equal(fetchCalled, false);
+});
+
+test('updater reports malformed or missing repository references as source compliance failures', async () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  for (const upstreamRepository of [undefined, 'not a valid URL', 'http://github.com/example/filter']) {
+    let fetchCalled = false;
+    await assert.rejects(updateFilters({
+      config: {
+        baseUrl: 'https://filters.example.com',
+        sources: [{
+          id: 'invalid-repository',
+          url: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/filter.txt',
+          minimumRules: 1,
+          upstreamRepository,
+          licenseUrl: 'https://raw.githubusercontent.com/example/filter/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE',
+          upstreamVersion: '1.0.0',
+          upstreamCommitSha: 'a'.repeat(40),
+          thirdPartyProvenanceReviewed: true,
+          complianceEvidenceRef: 'review-123',
+          licenseId: 'GPL-3.0',
+          redistributionApproved: true,
+          redistributionApprovalRef: 'approval-123'
+        }]
+      },
+      env: { GUARDIAN_FILTER_SIGNING_PRIVATE_KEY: pem },
+      fetchImpl: async () => {
+        fetchCalled = true;
+        return new Response('||example.test^', { status: 200 });
+      }
+    }), /missing its upstream repository, license URL, pinned upstream version\/commit URL/);
+    assert.equal(fetchCalled, false);
   }
 });
