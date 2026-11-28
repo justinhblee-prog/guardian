@@ -839,18 +839,31 @@ controls=[node.attrib.get("text","").strip() for node in nodes
     and node.attrib.get("clickable")=="true"]
 if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))
-# This phase runs against the published predecessor APK 0.7.45-dev.
-# That build already contains the five-destination navigation redesign.
-expected={"홈","보호","활동","Premium","전체 메뉴"}
-actual={node.attrib.get("content-desc") for node in nodes
-        if node.attrib.get("class")=="android.widget.LinearLayout"
-        and node.attrib.get("clickable")=="true"}
-if not expected.issubset(actual):
-    raise SystemExit("Previous-version bottom navigation is missing destinations: "+repr(sorted(expected-actual)))
-if not any(node.attrib.get("content-desc")=="홈" and node.attrib.get("selected")=="true"
-           for node in nodes):
-    raise SystemExit("Home is not the selected bottom-navigation destination.")' <<<"$home_navigation_xml"
-for navigation_label in "보호" "활동" "Premium" "전체 메뉴"; do
+navigation_model="$(python3 scripts/android_navigation_compat.py navigation <<<"$home_navigation_xml")"
+case "$navigation_model" in
+  redesigned)
+    navigation_labels=("보호" "앱 제외" "활동" "설정")
+    ;;
+  legacy:Premium)
+    navigation_labels=("보호" "활동" "Premium" "전체 메뉴")
+    ;;
+  legacy:프리미엄)
+    navigation_labels=("보호" "활동" "프리미엄" "전체 메뉴")
+    ;;
+  *)
+    echo "Unsupported published-predecessor navigation model: $navigation_model"
+    echo "$home_navigation_xml"
+    exit 1
+    ;;
+esac
+if ! grep -Fq 'content-desc="홈"' <<<"$home_navigation_xml" ||
+   ! grep -Fq 'selected="true"' <<<"$home_navigation_xml"; then
+  echo "Home is not selected in the primary navigation."
+  echo "$home_navigation_xml"
+  exit 1
+fi
+' <<<"$home_navigation_xml"
+for navigation_label in "${navigation_labels[@]}"; do
   tap_content_description "$navigation_label"
   sleep 1
   navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-navigation.xml)"
