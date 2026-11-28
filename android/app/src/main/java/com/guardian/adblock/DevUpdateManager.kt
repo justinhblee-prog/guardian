@@ -27,16 +27,8 @@ internal object DevUpdateManager {
     private const val LATEST_MANIFEST_URL =
         "https://raw.githubusercontent.com/justinhblee-prog/guardian/main/android/guardian-android-dev.json"
     private const val APK_ASSET = "guardian-android-dev.apk"
-    private const val MANIFEST_ASSET = "guardian-android-dev.json"
     private const val PACKAGE_NAME = "com.guardian.adblock"
     private const val MAX_APK_BYTES = 100L * 1024L * 1024L
-
-    private data class ReleaseCandidate(
-        val tagVersion: Int,
-        val manifestUrl: String,
-        val apkUrl: String,
-        val notes: String
-    )
 
     internal fun isNewerMatchingRelease(installedVersionCode: Int, tagVersion: Int, manifestVersionCode: Int): Boolean =
         tagVersion > installedVersionCode && manifestVersionCode == tagVersion
