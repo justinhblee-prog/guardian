@@ -1510,6 +1510,69 @@ class MainActivity : Activity() {
             }
         }
         body.addView(installButton, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
+
+        body.addView(text("관리자 채널 인증", 16f, white, true).withTop(24))
+        body.addView(text(
+            "운영자가 발급한 관리자 토큰을 서버에서 확인합니다. 인증 정보는 이 기기의 Android Keystore로 암호화해 보관합니다.",
+            12f, Color.WHITE, false
+        ).withTop(5))
+        val adminTokenInput = EditText(this).apply {
+            hint = "관리자 인증 토큰"
+            setHintTextColor(Color.LTGRAY)
+            setTextColor(Color.WHITE)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            isSingleLine = true
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            background = shape(panel, 10)
+        }
+        body.addView(adminTokenInput, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+        val adminAuthStatus = text(
+            if (AdminChannelAuthClient.hasStoredToken(this)) "저장된 관리자 인증 정보가 있습니다." else "관리자 인증 전 · 일반 업데이트만 사용 가능",
+            12f, Color.WHITE, false
+        ).withTop(8) as TextView
+        body.addView(adminAuthStatus)
+        val adminAuthButton = Button(this).apply {
+            text = "관리자 채널 인증"
+            isAllCaps = false
+            setTextColor(bg)
+            background = shape(accent, 12)
+            setOnClickListener {
+                val token = adminTokenInput.text?.toString()?.trim().orEmpty()
+                if (!AdminChannelAuthClient.isValidTokenFormat(token)) {
+                    adminAuthStatus.text = "관리자 토큰 형식을 확인하세요. (32~512자, 공백 없음)"
+                    return@setOnClickListener
+                }
+                isEnabled = false
+                adminAuthStatus.text = "관리자 인증 서버에 확인 중…"
+                thread(name = "guardian-admin-channel-auth") {
+                    try {
+                        AdminChannelAuthClient.verifyAndStore(this@MainActivity, token)
+                        runOnUiThread {
+                            adminTokenInput.text?.clear()
+                            adminAuthStatus.text = "관리자 인증 성공 · 이 기기에 암호화해 저장했습니다."
+                            isEnabled = true
+                        }
+                    } catch (error: Exception) {
+                        runOnUiThread {
+                            adminAuthStatus.text = "관리자 인증 실패: " + SafeFailureSummary.describe(error)
+                            isEnabled = true
+                        }
+                    }
+                }
+            }
+        }
+        body.addView(adminAuthButton, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(8) })
+        body.addView(Button(this).apply {
+            text = "관리자 인증 해제"
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            background = shape(panel, 12)
+            setOnClickListener {
+                AdminChannelAuthClient.clear(this@MainActivity)
+                adminAuthStatus.text = "관리자 인증이 해제되었습니다."
+            }
+        }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(6) })
+
         body.addView(text(
             if (developmentBuild) {
                 "개발판은 공식 개발 릴리스의 APK SHA-256, 패키지 ID, 버전 및 개발 서명 인증서를 검증합니다. 업데이트는 사용자가 직접 확인하고 설치합니다."
