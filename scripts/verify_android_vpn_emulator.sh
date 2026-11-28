@@ -1386,6 +1386,10 @@ raise SystemExit(1)' "$wanted" "$kind" <<<"$xml"; then
   return 1
 }
 
+# The filter screen opens at its top profile controls. The full-rule card is
+# farther down the same scroll container, so reveal its Edit action before
+# asserting the collapsed default state.
+ensure_editor_element_visible "편집" button up
 rules_current_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-collapsed.xml)"
 if ! python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
