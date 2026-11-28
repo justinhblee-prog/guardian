@@ -1637,7 +1637,7 @@ if [[ "$update_actions_visible" -ne 1 ]]; then
   echo "$updates_xml"
   exit 1
 fi
-if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
+if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev && "${GUARDIAN_VERIFY_PUBLISHED_DEV_UPDATE:-false}" == "true" ]]; then
   tap_text "개발 업데이트 확인"
   update_check_ready=0
   for attempt in $(seq 1 20); do
@@ -1659,6 +1659,9 @@ if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev ]]; then
     exit 1
   fi
   echo "Development update check reached the expected latest-version state."
+fi
+if [[ "${GUARDIAN_CURRENT_VERSION_NAME:-}" == *-dev && "${GUARDIAN_VERIFY_PUBLISHED_DEV_UPDATE:-false}" != "true" ]]; then
+  echo "Skipping live latest-version assertion: this commit's development release is intentionally published only after emulator acceptance passes."
 fi
 echo "Settings > General > Program Updates accordion and update check passed."
 tap_content_description "설정"
