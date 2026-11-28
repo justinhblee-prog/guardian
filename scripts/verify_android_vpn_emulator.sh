@@ -556,6 +556,8 @@ if [[ "$ready" -ne 1 ]]; then
   exit 1
 fi
 
+
+
 # Locate the visible home-screen control by its accessibility text rather than
 # relying on a fixed screen coordinate.
 tap_first_edit_text() {
@@ -1157,6 +1159,8 @@ if grep -Eq 'PING guardian-ci-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-b
   exit 1
 fi
 
+
+
 echo "VPN E2E passed: tunnel active, allowed DNS resolved, built-in and saved custom block rules returned no address."
 echo "Custom blocked lookup:"
 cat /tmp/guardian-custom-blocked-dns.txt || true
@@ -1256,12 +1260,505 @@ fi
 
 echo "Automatic package-update recovery passed: receiver relaunched VPN, DNS queries resumed, and the test ad domain was blocked."
 
-# The pre-update fixture is intentionally 0.7.25-dev and cannot contain this feature.
-# Run the compatibility UI/behavior check only after installing and verifying
-# the current 0.7.26-dev APK above.
+# The expanded offline rule is shipped by the candidate APK, not the older predecessor.
+echo "Triggering a DNS lookup for a newly added offline ad-network rule."
+before_expanded_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_expanded_ad="$(sed -n 's/.*name="dns_ad_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+if [[ -z "$before_expanded_blocked" ]]; then before_expanded_blocked=0; fi
+if [[ -z "$before_expanded_ad" ]]; then before_expanded_ad=0; fi
+run_id="$(printenv GITHUB_RUN_ID 2>/dev/null || echo test)"
+adb_cmd shell ping -c 1 -W 5 "guardian-ci-$run_id.pubmatic.com" >/tmp/guardian-expanded-ad-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_expanded_blocked="$(sed -n 's/.*name="dns_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+after_expanded_ad="$(sed -n 's/.*name="dns_ad_blocked"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+if [[ -z "$after_expanded_blocked" ]]; then after_expanded_blocked=0; fi
+if [[ -z "$after_expanded_ad" ]]; then after_expanded_ad=0; fi
+if (( after_expanded_blocked <= before_expanded_blocked )) ||
+   (( after_expanded_ad <= before_expanded_ad )) ||
+   grep -Eq 'PING guardian-ci-[^ ]*\.pubmatic\.com \([^)]*\)' /tmp/guardian-expanded-ad-dns.txt; then
+  echo "Expanded offline ad-network rule did not block the PubMatic test domain."
+  cat /tmp/guardian-expanded-ad-dns.txt || true
+  read_prefs
+  exit 1
+fi
+echo "Expanded offline ad-network DNS rule passed: PubMatic was blocked and counted as an ad."
+
+
+# The pre-update fixture is intentionally an older development APK and cannot
+# contain the new offline rule. Candidate-only checks run after package upgrade.
 echo "Reopening the upgraded Guardian app for the foreground compatibility test."
+# Grant the emulator-only Usage Access app-op before General Settings is built.
+# The UI must then report permission as granted; cancelling its disclosure
+# would leave the following auto-pause switch unable to activate.
+adb_cmd shell appops set "$PACKAGE" GET_USAGE_STATS allow
+usage_access_appop="$(adb_cmd shell appops get "$PACKAGE" GET_USAGE_STATS)"
+if ! grep -qi 'allow' <<<"$usage_access_appop"; then
+  echo "Android emulator did not grant GET_USAGE_STATS to Guardian."
+  echo "$usage_access_appop"
+  exit 1
+fi
 adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
 sleep 2
+
+
+
+
+auto_pause_picker_visible=0
+# Support dialogs can return to the previously active destination on some
+# Android builds. Reset through Home before entering Settings so this assertion
+# validates the actual Settings route rather than relying on a stale tab state.
+tap_content_description "홈"
+sleep 1
+# Compatibility and auto-pause controls now live in Full Menu > Filtering.
+# Navigate to that submenu explicitly before searching its scrollable content.
+settings_tab_selected=0
+settings_navigation_label="설정"
+settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
+# Published predecessor versions use a "전체 메뉴" bottom destination;
+# current builds use "설정". Resolve the actual clickable navigation control
+# from the live hierarchy so the test never taps a nested settings label.
+if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+raise SystemExit(0 if any(n.attrib.get("content-desc")=="전체 메뉴"
+    and n.attrib.get("clickable")=="true"
+    and n.attrib.get("visible-to-user","true")=="true"
+    for n in root.iter("node")) else 1)' <<<"$settings_navigation_xml"; then
+  settings_navigation_label="전체 메뉴"
+fi
+for attempt in $(seq 1 3); do
+  tap_content_description "$settings_navigation_label"
+  sleep 1
+  settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+wanted=sys.argv[1]
+if any(node.attrib.get("content-desc")==wanted
+       and node.attrib.get("selected")=="true"
+       and node.attrib.get("clickable")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' "$settings_navigation_label" <<<"$settings_navigation_xml"; then
+    settings_tab_selected=1
+    break
+  fi
+  echo "$settings_navigation_label navigation did not become selected (attempt $attempt/3); retrying."
+done
+if [[ "$settings_tab_selected" -ne 1 ]]; then
+  echo "Could not select the $settings_navigation_label navigation destination before checking VPN auto-pause."
+  echo "$settings_navigation_xml"
+  exit 1
+fi
+# Foreground-app VPN auto-pause belongs to General Settings, alongside
+# DNS transport and compatibility controls. It is not part of Filtering.
+# Select the General category from the legacy or redesigned Settings index.
+if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
+  legacy_general_target="$(python3 scripts/android_navigation_compat.py settings-item "일반" <<<"$settings_navigation_xml" 2>/dev/null || true)"
+  if [[ -z "$legacy_general_target" ]]; then
+    echo "Legacy Full Menu does not expose the General Settings destination."
+    echo "$settings_navigation_xml"
+    exit 1
+  fi
+  scroll_to_text "$legacy_general_target"
+else
+ensure_text_visible() {
+  local wanted="$1" attempt size width height center_x start_y end_y xml
+  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
+  width="${size%x*}"
+  height="${size#*x}"
+  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
+    echo "Could not determine a usable emulator display size: $size"
+    return 1
+  fi
+  center_x=$((width / 2))
+  start_y=$((height * 4 / 5))
+  end_y=$((height / 5))
+  for attempt in $(seq 1 10); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
+    if grep -Fq "$wanted" <<<"$xml"; then
+      echo "Visible without activation: $wanted"
+      return 0
+    fi
+    echo "Scrolling to reveal '$wanted' without opening it (attempt $attempt/10)."
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Could not reveal the category without activating it: $wanted"
+  dump_ui_hierarchy /sdcard/guardian-scroll-target.xml
+  return 1
+}
+
+  ensure_text_visible "일반"
+  tap_clickable_parent_of_text "일반"
+fi
+sleep 1
+for attempt in $(seq 1 24); do
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  auto_pause_settings_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
+       and node.attrib.get("class")=="android.widget.Button"
+       and node.attrib.get("visible-to-user","true")=="true"
+       and node.attrib.get("clickable")=="true"
+       and node.attrib.get("enabled")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$auto_pause_settings_xml"; then
+    auto_pause_picker_visible=1
+    echo "Foreground-app compatibility controls found after $attempt Settings scroll checks."
+    break
+  fi
+  # Swipe up to reveal settings content below the current viewport.
+  adb_cmd shell input swipe 540 1500 540 600 450
+  sleep 0.5
+done
+if [[ "$auto_pause_picker_visible" -ne 1 ]]; then
+  echo "Foreground-app auto-pause controls were not visible in Settings."
+  echo "$auto_pause_settings_xml"
+  exit 1
+fi
+# Confirm the General screen reflects the emulator-granted Usage Access.
+# Do not open and cancel the disclosure dialog: that would leave the permission
+# absent and make the subsequent auto-pause activation fail.
+usage_access_xml="$(dump_ui_hierarchy /sdcard/guardian-usage-access.xml)"
+if ! grep -Fq '사용 정보 접근 권한 허용됨' <<<"$usage_access_xml"; then
+  echo "Guardian did not recognize the emulator's granted Usage Access app-op."
+  echo "$usage_access_xml"
+  adb_cmd shell appops get "$PACKAGE" GET_USAGE_STATS || true
+  exit 1
+fi
+
+tap_content_description "VPN 자동 일시중지 앱 선택"
+sleep 1
+# The app inventory is shared with App Exclusions and is protected by an
+# explicit first-use disclosure. Accept that disclosure in the test flow when
+# it has not already been accepted; otherwise the next search tap silently
+# lands on the Settings page and the picker remains unopened.
+adb_cmd shell uiautomator dump /sdcard/guardian-compatibility-disclosure.xml >/dev/null 2>&1
+compatibility_disclosure_xml="$(adb_cmd exec-out cat /sdcard/guardian-compatibility-disclosure.xml | tr -d '\\r')"
+if grep -Fq '설치 앱 목록 접근 안내' <<<"$compatibility_disclosure_xml"; then
+  if ! grep -Fq '앱별 보호 제외 및 선택 앱 자동 VPN 일시중지 기능' <<<"$compatibility_disclosure_xml"; then
+    echo "Unexpected app-inventory disclosure content in compatibility picker."
+    echo "$compatibility_disclosure_xml"
+    exit 1
+  fi
+  tap_text "동의하고 계속"
+  sleep 2
+fi
+# Wait for the actual picker search control rather than assuming the dialog
+# opened synchronously after the disclosure transition.
+compatibility_search_ready=0
+for attempt in $(seq 1 20); do
+  adb_cmd shell rm -f /sdcard/guardian-compatibility-picker.xml
+  adb_cmd shell uiautomator dump /sdcard/guardian-compatibility-picker.xml >/dev/null 2>&1
+  compatibility_picker_xml="$(adb_cmd exec-out cat /sdcard/guardian-compatibility-picker.xml | tr -d '\\r')"
+  if grep -Fq 'VPN 자동 일시중지 앱 검색 입력' <<<"$compatibility_picker_xml"; then
+    compatibility_search_ready=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$compatibility_search_ready" -ne 1 ]]; then
+  echo "Compatibility app picker did not open after its first-use disclosure."
+  echo "$compatibility_picker_xml"
+  exit 1
+fi
+tap_content_description "VPN 자동 일시중지 앱 검색 입력"
+sleep 1
+adb_cmd shell input text 'com.android.settings'
+sleep 1
+adb_cmd shell uiautomator dump /sdcard/guardian-compatibility-keyboard.xml >/dev/null 2>&1
+compatibility_keyboard_xml="$(adb_cmd shell cat /sdcard/guardian-compatibility-keyboard.xml | tr -d '\r')"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("class")=="android.widget.EditText"
+       and node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 검색 입력"
+       and node.attrib.get("text","")=="com.android.settings"
+       for node in root.iter("node")):
+    raise SystemExit("Compatibility app search query was not entered completely.")' <<<"$compatibility_keyboard_xml"
+adb_cmd shell input keyevent KEYCODE_BACK || true
+compatibility_row_ready=0
+for attempt in $(seq 1 20); do
+  adb_cmd shell rm -f /sdcard/guardian-window.xml
+  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
+  auto_pause_picker_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+  if python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if any(node.attrib.get("class")=="android.widget.CheckBox"
+       and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
+       and node.attrib.get("visible-to-user","true")=="true"
+       and node.attrib.get("clickable")=="true"
+       for node in root.iter("node")):
+    raise SystemExit(0)
+raise SystemExit(1)' <<<"$auto_pause_picker_xml"; then
+    compatibility_row_ready=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$compatibility_row_ready" -ne 1 ]]; then
+  echo "Compatibility app picker did not finish loading the searched package."
+  echo "$auto_pause_picker_xml"
+  exit 1
+fi
+tap_checkbox "com.android.settings"
+sleep 0.5
+compatibility_selected_xml="$(dump_ui_hierarchy /sdcard/guardian-compatibility-selected.xml)"
+python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(node.attrib.get("class")=="android.widget.CheckBox"
+       and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
+       and node.attrib.get("checked")=="true"
+       for node in root.iter("node")):
+    raise SystemExit("Tapping the Settings package did not check its VPN auto-pause selection.")' <<<"$compatibility_selected_xml"
+tap_text "저장"
+compatibility_selection_saved=0
+for attempt in $(seq 1 20); do
+  prefs="$(read_prefs)"
+  if grep -A4 -B1 'name="app_foreground_auto_pause_packages"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+    compatibility_selection_saved=1
+    break
+  fi
+  sleep 0.5
+done
+if [[ "$compatibility_selection_saved" -ne 1 ]]; then
+  echo "Saving the VPN auto-pause app selection did not persist com.android.settings."
+  read_prefs
+  exit 1
+fi
+adb_cmd shell input swipe 540 1450 540 1000 350
+sleep 1
+tap_content_description "선택 앱 실행 중 VPN 자동 일시중지"
+sleep 1
+tap_text "활성화"
+sleep 1
+prefs="$(read_prefs)"
+if ! grep -q 'name="app_foreground_auto_pause_enabled"[^>]*value="true"' <<<"$prefs" ||
+   ! grep -A2 -B1 'name="app_foreground_auto_pause_packages"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
+  echo "Foreground-app auto-pause settings were not persisted."
+  read_prefs
+  exit 1
+fi
+
+echo "Launching the selected app. Guardian must close the VPN tunnel."
+adb_cmd shell am start -a android.settings.SETTINGS >/dev/null
+auto_pause_observed=0
+for attempt in $(seq 1 40); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="app_foreground_auto_pause_active"[^>]*value="true"' <<<"$prefs" &&
+     grep -q 'name="protection_active"[^>]*value="false"' <<<"$prefs"; then
+    auto_pause_observed=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$auto_pause_observed" -ne 1 ]]; then
+  echo "Selected foreground app did not pause the whole VPN tunnel."
+  read_prefs
+  adb_cmd logcat -d -t 5000 | grep -E 'GuardianProtection|foreground|UsageStats|FATAL EXCEPTION' | tail -220 || true
+  adb_cmd shell dumpsys vpn || true
+  exit 1
+fi
+echo "Foreground-app auto-pause engaged: Settings is active and Guardian protection is paused."
+
+echo "Returning to Guardian. VPN protection must automatically reconnect."
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+auto_resume_observed=0
+for attempt in $(seq 1 60); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
+     grep -q 'name="app_foreground_auto_pause_active"[^>]*value="false"' <<<"$prefs"; then
+    auto_resume_observed=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$auto_resume_observed" -ne 1 ]]; then
+  echo "Guardian did not automatically restore the VPN after the selected app closed."
+  read_prefs
+  adb_cmd logcat -d -t 7000 | grep -E 'GuardianProtection|foreground|UsageStats|FATAL EXCEPTION' | tail -260 || true
+  adb_cmd shell dumpsys vpn || true
+  adb_cmd shell dumpsys connectivity | tail -180 || true
+  exit 1
+fi
+before_auto_resume_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+before_auto_resume_dns="${before_auto_resume_dns:-0}"
+adb_cmd shell ping -c 1 -W 5 example.com >/tmp/guardian-after-compatibility-resume-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_auto_resume_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
+after_auto_resume_dns="${after_auto_resume_dns:-0}"
+if (( after_auto_resume_dns <= before_auto_resume_dns )); then
+  echo "DNS processing did not resume after foreground-app compatibility pause."
+  read_prefs
+  cat /tmp/guardian-after-compatibility-resume-dns.txt || true
+  exit 1
+fi
+echo "Foreground-app auto-pause/resume passed: VPN tunnel and DNS processing recovered automatically."
+
+echo "Verifying the home protection control can stop an active VPN tunnel."
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+sleep 1
+# The previous compatibility test opens Settings and may leave the custom DNS
+# field focused. Dismiss its IME before tapping the bottom navigation; otherwise
+# the keyboard can cover the Home tab and the stop-control assertion targets
+# the still-visible Settings page instead of the dashboard.
+adb_cmd shell input keyevent KEYCODE_BACK || true
+sleep 1
+tap_content_description "홈"
+sleep 1
+tap_text "보호 중지"
+protection_stopped=0
+for attempt in $(seq 1 30); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="false"' <<<"$prefs"; then
+    protection_stopped=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$protection_stopped" -ne 1 ]]; then
+  echo "The home protection toggle did not stop the active VPN service."
+  read_prefs
+  adb_cmd logcat -d -t 3000 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION' | tail -160 || true
+  exit 1
+fi
+echo "Home protection start/stop toggle passed."
+
+echo "Verifying automatic VPN protection recovery after a full Android device reboot."
+tap_text "보호 시작"
+protection_started=0
+for attempt in $(seq 1 30); do
+  prefs="$(read_prefs)"
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
+     ! grep -q 'name="protection_recovery_pending"[^>]*value="true"' <<<"$prefs"; then
+    protection_started=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$protection_started" -ne 1 ]]; then
+  echo "Could not establish VPN protection before the reboot recovery test."
+  read_prefs
+  exit 1
+fi
+extract_pref_number() {
+  local key="$1"
+  local xml="$2"
+  local pattern="name=\"${key}\"[^>]*value=\"([0-9]+)\""
+  if [[ "$xml" =~ $pattern ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  else
+    printf '0'
+  fi
+}
+before_reboot_dns="$(extract_pref_number dns_queries "$prefs")"
+before_reboot_restore_at="$(extract_pref_number protection_recovery_requested_at "$prefs")"
+
+# Require the durable intent to remain enabled. The receiver writes a fresh
+# timestamp on each qualifying boot; this avoids treating a stale active flag
+# as proof that BOOT_COMPLETED was handled.
+if ! grep -q 'name="protection_restore_requested"[^>]*value="true"' <<<"$prefs"; then
+  echo "Reboot recovery test requires the durable user restore intent to remain enabled."
+  read_prefs
+  exit 1
+fi
+
+echo "Rebooting Android emulator while Guardian VPN protection is active."
+adb_cmd reboot
+timeout --signal=TERM --kill-after=2s 30s adb wait-for-device
+boot_completed=0
+for attempt in $(seq 1 60); do
+  boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+  if [[ "$boot_state" == "1" ]]; then
+    boot_completed=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$boot_completed" -ne 1 ]]; then
+  echo "Android emulator did not finish rebooting within the bounded recovery window."
+  adb_cmd logcat -d -t 2500 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION' | tail -180 || true
+  exit 1
+fi
+echo "Android emulator reboot completed; waiting for the boot receiver to restore Guardian."
+reboot_recovery=0
+for attempt in $(seq 1 60); do
+  prefs="$(read_prefs)"
+  recovery_requested_at="$(extract_pref_number protection_recovery_requested_at "$prefs")"
+  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
+     ! grep -q 'name="protection_recovery_pending"[^>]*value="true"' <<<"$prefs" &&
+     (( recovery_requested_at > before_reboot_restore_at )); then
+    reboot_recovery=1
+    echo "Boot receiver recovery marker advanced: before=$before_reboot_restore_at after=$recovery_requested_at"
+    break
+  fi
+  sleep 2
+done
+if [[ "$reboot_recovery" -ne 1 ]]; then
+  echo "Guardian did not automatically restore VPN protection after Android reboot."
+  read_prefs
+  adb_cmd logcat -d -t 5000 | grep -E 'GuardianProtection|GuardianVpn|ProtectionRestoreReceiver|BOOT_COMPLETED|FATAL EXCEPTION|startForegroundService' | tail -300 || true
+  adb_cmd shell dumpsys vpn || true
+  adb_cmd shell dumpsys connectivity | tail -180 || true
+  exit 1
+fi
+before_reboot_dns="$(extract_pref_number dns_queries "$prefs")"
+# Use a per-run hostname so Android/netd or app resolver caches cannot satisfy this
+# post-reboot probe without sending a fresh DNS request through the restored VPN.
+REBOOT_DNS_PROBE="guardian-reboot-${GITHUB_RUN_ID:-test}.example.com"
+adb_cmd shell ping -c 1 -W 5 "$REBOOT_DNS_PROBE" >/tmp/guardian-after-reboot-allowed-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_reboot_dns="$(extract_pref_number dns_queries "$prefs")"
+if (( after_reboot_dns <= before_reboot_dns )); then
+  echo "Guardian VPN restored after reboot, but DNS query processing did not resume."
+  read_prefs
+  cat /tmp/guardian-after-reboot-allowed-dns.txt || true
+  exit 1
+fi
+before_reboot_blocked="$(extract_pref_number dns_blocked "$prefs")"
+adb_cmd shell ping -c 1 -W 5 "guardian-reboot-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-after-reboot-blocked-dns.txt 2>&1 || true
+sleep 2
+prefs="$(read_prefs)"
+after_reboot_blocked="$(extract_pref_number dns_blocked "$prefs")"
+if (( after_reboot_blocked <= before_reboot_blocked )) ||
+   grep -Eq 'PING guardian-reboot-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-after-reboot-blocked-dns.txt; then
+  echo "Guardian reboot recovery did not resume DNS ad blocking."
+  read_prefs
+  cat /tmp/guardian-after-reboot-blocked-dns.txt || true
+  adb_cmd logcat -d -t 4000 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION' | tail -220 || true
+  exit 1
+fi
+echo "Device reboot recovery passed: boot receiver restored VPN protection, allowed DNS resumed, and the ad test domain was blocked."
+
+# The boot receiver restores the VPN service, not the foreground Activity.
+# Relaunch Guardian before continuing the post-reboot Settings/UI assertions.
+echo "Reopening Guardian after reboot before post-reboot UI verification."
+adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
+foreground=""
+for attempt in $(seq 1 20); do
+  foreground="$(adb_cmd shell dumpsys activity activities 2>/dev/null | grep -E 'mResumedActivity|topResumedActivity' | tail -1 || true)"
+  if grep -q "$PACKAGE" <<<"$foreground"; then break; fi
+  sleep 1
+done
+if ! grep -q "$PACKAGE" <<<"$foreground"; then
+  echo "Guardian did not return to the foreground after the reboot recovery test."
+  echo "${foreground:-No resumed Activity reported}"
+  adb_cmd shell dumpsys activity activities | tail -100 || true
+  exit 1
+fi
+post_reboot_ui="$(dump_ui_hierarchy /sdcard/guardian-post-reboot-ui.xml)"
+if ! grep -Fq "package=\"$PACKAGE\"" <<<"$post_reboot_ui"; then
+  echo "Post-reboot UI hierarchy does not belong to Guardian."
+  echo "$post_reboot_ui"
+  exit 1
+fi
+echo "Guardian UI relaunched after reboot; continuing post-reboot settings and rotation checks."
+
+# Run this regression only after the current candidate APK has been installed
+# and the other VPN acceptance scenarios have finished.
 current_version="$(adb_cmd shell dumpsys package "$PACKAGE" | sed -n 's/.*versionName=//p' | head -1 | tr -d '\r')"
 expected_version="${GUARDIAN_CURRENT_VERSION_NAME:-0.7.26-dev}"
 if [[ "$current_version" != "$expected_version" ]]; then
@@ -1418,32 +1915,6 @@ if missing_settings or not selected_settings:
     raise SystemExit("Guardian Settings landing page is missing agreed categories: " + repr(sorted(missing_settings)))' <<<"$settings_tab_xml"
 # Settings is now a persistent compact left rail with a right-side content
 # workspace. All five categories remain visible without scrolling.
-ensure_text_visible() {
-  local wanted="$1" attempt size width height center_x start_y end_y xml
-  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
-  width="${size%x*}"
-  height="${size#*x}"
-  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
-    echo "Could not determine a usable emulator display size: $size"
-    return 1
-  fi
-  center_x=$((width / 2))
-  start_y=$((height * 4 / 5))
-  end_y=$((height / 5))
-  for attempt in $(seq 1 10); do
-    xml="$(dump_ui_hierarchy /sdcard/guardian-scroll-target.xml)"
-    if grep -Fq "$wanted" <<<"$xml"; then
-      echo "Visible without activation: $wanted"
-      return 0
-    fi
-    echo "Scrolling to reveal '$wanted' without opening it (attempt $attempt/10)."
-    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
-    sleep 0.4
-  done
-  echo "Could not reveal the category without activating it: $wanted"
-  dump_ui_hierarchy /sdcard/guardian-scroll-target.xml
-  return 1
-}
 ensure_text_visible "PRO"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-license-menu.xml >/dev/null 2>&1
@@ -1754,361 +2225,14 @@ if len(fields)<2:
 tap_text "취소"
 echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
 
-
-auto_pause_picker_visible=0
-# Support dialogs can return to the previously active destination on some
-# Android builds. Reset through Home before entering Settings so this assertion
-# validates the actual Settings route rather than relying on a stale tab state.
-tap_content_description "홈"
-sleep 1
-# Compatibility and auto-pause controls now live in Full Menu > Filtering.
-# Navigate to that submenu explicitly before searching its scrollable content.
-settings_tab_selected=0
-settings_navigation_label="설정"
-settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
-# Published predecessor versions use a "전체 메뉴" bottom destination;
-# current builds use "설정". Resolve the actual clickable navigation control
-# from the live hierarchy so the test never taps a nested settings label.
-if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-raise SystemExit(0 if any(n.attrib.get("content-desc")=="전체 메뉴"
-    and n.attrib.get("clickable")=="true"
-    and n.attrib.get("visible-to-user","true")=="true"
-    for n in root.iter("node")) else 1)' <<<"$settings_navigation_xml"; then
-  settings_navigation_label="전체 메뉴"
-fi
-for attempt in $(seq 1 3); do
-  tap_content_description "$settings_navigation_label"
-  sleep 1
-  settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-wanted=sys.argv[1]
-if any(node.attrib.get("content-desc")==wanted
-       and node.attrib.get("selected")=="true"
-       and node.attrib.get("clickable")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' "$settings_navigation_label" <<<"$settings_navigation_xml"; then
-    settings_tab_selected=1
-    break
-  fi
-  echo "$settings_navigation_label navigation did not become selected (attempt $attempt/3); retrying."
-done
-if [[ "$settings_tab_selected" -ne 1 ]]; then
-  echo "Could not select the $settings_navigation_label navigation destination before checking VPN auto-pause."
-  echo "$settings_navigation_xml"
-  exit 1
-fi
-# Foreground-app VPN auto-pause belongs to General Settings, alongside
-# DNS transport and compatibility controls. It is not part of Filtering.
-# Select the General category from the legacy or redesigned Settings index.
-if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
-  legacy_general_target="$(python3 scripts/android_navigation_compat.py settings-item "일반" <<<"$settings_navigation_xml" 2>/dev/null || true)"
-  if [[ -z "$legacy_general_target" ]]; then
-    echo "Legacy Full Menu does not expose the General Settings destination."
-    echo "$settings_navigation_xml"
-    exit 1
-  fi
-  scroll_to_text "$legacy_general_target"
-else
-  ensure_text_visible "일반"
-  tap_clickable_parent_of_text "일반"
-fi
-sleep 1
-for attempt in $(seq 1 24); do
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  auto_pause_settings_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
-       and node.attrib.get("class")=="android.widget.Button"
-       and node.attrib.get("visible-to-user","true")=="true"
-       and node.attrib.get("clickable")=="true"
-       and node.attrib.get("enabled")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' <<<"$auto_pause_settings_xml"; then
-    auto_pause_picker_visible=1
-    echo "Foreground-app compatibility controls found after $attempt Settings scroll checks."
-    break
-  fi
-  # Swipe up to reveal settings content below the current viewport.
-  adb_cmd shell input swipe 540 1500 540 600 450
-  sleep 0.5
-done
-if [[ "$auto_pause_picker_visible" -ne 1 ]]; then
-  echo "Foreground-app auto-pause controls were not visible in Settings."
-  echo "$auto_pause_settings_xml"
-  exit 1
-fi
-# Verify the Usage Access control is a real enabled action when access is
-# missing; cancel its confirmation dialog so the test does not leave Guardian.
-adb_cmd shell uiautomator dump /sdcard/guardian-usage-access.xml >/dev/null 2>&1
-usage_access_xml="$(adb_cmd shell cat /sdcard/guardian-usage-access.xml | tr -d '\r')"
-usage_access_enabled="$(python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-for node in root.iter("node"):
-    if node.attrib.get("content-desc")=="사용 정보 접근 권한 설정":
-        print(node.attrib.get("enabled","false")); break' <<<"$usage_access_xml")"
-if [[ "$usage_access_enabled" == "true" ]]; then
-  tap_content_description "사용 정보 접근 권한 설정"
-  sleep 1
-  adb_cmd shell uiautomator dump /sdcard/guardian-usage-dialog.xml >/dev/null 2>&1
-  usage_dialog_xml="$(adb_cmd shell cat /sdcard/guardian-usage-dialog.xml | tr -d '\r')"
-  if ! grep -q '설정 열기' <<<"$usage_dialog_xml"; then
-    echo "Usage Access button did not open its confirmation dialog."
-    echo "$usage_dialog_xml"
-    exit 1
-  fi
-  tap_text "취소"
-else
-  if ! grep -q '사용 정보 접근 권한 허용됨' <<<"$usage_access_xml"; then
-    echo "Usage Access control is disabled without showing that permission is already granted."
-    echo "$usage_access_xml"
-    exit 1
-  fi
-fi
-
-tap_content_description "VPN 자동 일시중지 앱 선택"
-sleep 1
-# The app inventory is shared with App Exclusions and is protected by an
-# explicit first-use disclosure. Accept that disclosure in the test flow when
-# it has not already been accepted; otherwise the next search tap silently
-# lands on the Settings page and the picker remains unopened.
-adb_cmd shell uiautomator dump /sdcard/guardian-compatibility-disclosure.xml >/dev/null 2>&1
-compatibility_disclosure_xml="$(adb_cmd exec-out cat /sdcard/guardian-compatibility-disclosure.xml | tr -d '\\r')"
-if grep -Fq '설치 앱 목록 접근 안내' <<<"$compatibility_disclosure_xml"; then
-  if ! grep -Fq '앱별 보호 제외 및 선택 앱 자동 VPN 일시중지 기능' <<<"$compatibility_disclosure_xml"; then
-    echo "Unexpected app-inventory disclosure content in compatibility picker."
-    echo "$compatibility_disclosure_xml"
-    exit 1
-  fi
-  tap_text "동의하고 계속"
-  sleep 2
-fi
-# Wait for the actual picker search control rather than assuming the dialog
-# opened synchronously after the disclosure transition.
-compatibility_search_ready=0
-for attempt in $(seq 1 20); do
-  adb_cmd shell rm -f /sdcard/guardian-compatibility-picker.xml
-  adb_cmd shell uiautomator dump /sdcard/guardian-compatibility-picker.xml >/dev/null 2>&1
-  compatibility_picker_xml="$(adb_cmd exec-out cat /sdcard/guardian-compatibility-picker.xml | tr -d '\\r')"
-  if grep -Fq 'VPN 자동 일시중지 앱 검색 입력' <<<"$compatibility_picker_xml"; then
-    compatibility_search_ready=1
-    break
-  fi
-  sleep 1
-done
-if [[ "$compatibility_search_ready" -ne 1 ]]; then
-  echo "Compatibility app picker did not open after its first-use disclosure."
-  echo "$compatibility_picker_xml"
-  exit 1
-fi
-tap_content_description "VPN 자동 일시중지 앱 검색 입력"
-sleep 1
-adb_cmd shell input text 'com.android.settings'
-sleep 1
-adb_cmd shell uiautomator dump /sdcard/guardian-compatibility-keyboard.xml >/dev/null 2>&1
-compatibility_keyboard_xml="$(adb_cmd shell cat /sdcard/guardian-compatibility-keyboard.xml | tr -d '\r')"
-python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if not any(node.attrib.get("class")=="android.widget.EditText"
-       and node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 검색 입력"
-       and node.attrib.get("text","")=="com.android.settings"
-       for node in root.iter("node")):
-    raise SystemExit("Compatibility app search query was not entered completely.")' <<<"$compatibility_keyboard_xml"
-adb_cmd shell input keyevent KEYCODE_BACK || true
-compatibility_row_ready=0
-for attempt in $(seq 1 20); do
-  adb_cmd shell rm -f /sdcard/guardian-window.xml
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  auto_pause_picker_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if any(node.attrib.get("class")=="android.widget.CheckBox"
-       and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
-       and node.attrib.get("visible-to-user","true")=="true"
-       and node.attrib.get("clickable")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' <<<"$auto_pause_picker_xml"; then
-    compatibility_row_ready=1
-    break
-  fi
-  sleep 1
-done
-if [[ "$compatibility_row_ready" -ne 1 ]]; then
-  echo "Compatibility app picker did not finish loading the searched package."
-  echo "$auto_pause_picker_xml"
-  exit 1
-fi
-tap_checkbox "com.android.settings"
-sleep 0.5
-compatibility_selected_xml="$(dump_ui_hierarchy /sdcard/guardian-compatibility-selected.xml)"
-python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-if not any(node.attrib.get("class")=="android.widget.CheckBox"
-       and node.attrib.get("text","").rstrip().rsplit("\n",1)[-1].strip()=="com.android.settings"
-       and node.attrib.get("checked")=="true"
-       for node in root.iter("node")):
-    raise SystemExit("Tapping the Settings package did not check its VPN auto-pause selection.")' <<<"$compatibility_selected_xml"
-tap_text "저장"
-compatibility_selection_saved=0
-for attempt in $(seq 1 20); do
-  prefs="$(read_prefs)"
-  if grep -A4 -B1 'name="app_foreground_auto_pause_packages"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
-    compatibility_selection_saved=1
-    break
-  fi
-  sleep 0.5
-done
-if [[ "$compatibility_selection_saved" -ne 1 ]]; then
-  echo "Saving the VPN auto-pause app selection did not persist com.android.settings."
-  read_prefs
-  exit 1
-fi
-adb_cmd shell input swipe 540 1450 540 1000 350
-sleep 1
-tap_content_description "선택 앱 실행 중 VPN 자동 일시중지"
-sleep 1
-tap_text "활성화"
-sleep 1
-prefs="$(read_prefs)"
-if ! grep -q 'name="app_foreground_auto_pause_enabled"[^>]*value="true"' <<<"$prefs" ||
-   ! grep -A2 -B1 'name="app_foreground_auto_pause_packages"' <<<"$prefs" | grep -Fq '<string>com.android.settings</string>'; then
-  echo "Foreground-app auto-pause settings were not persisted."
-  read_prefs
+current_version="$(adb_cmd shell dumpsys package "$PACKAGE" | sed -n 's/.*versionName=//p' | head -1 | tr -d '\r')"
+expected_version="${GUARDIAN_VERSION_NAME:-0.7.62-dev}"
+if [[ "$current_version" != "$expected_version" ]]; then
+  echo "Selected-profile refresh test requires the current APK $expected_version; found $current_version."
   exit 1
 fi
 
-echo "Launching the selected app. Guardian must close the VPN tunnel."
-adb_cmd shell am start -a android.settings.SETTINGS >/dev/null
-auto_pause_observed=0
-for attempt in $(seq 1 40); do
-  prefs="$(read_prefs)"
-  if grep -q 'name="app_foreground_auto_pause_active"[^>]*value="true"' <<<"$prefs" &&
-     grep -q 'name="protection_active"[^>]*value="false"' <<<"$prefs"; then
-    auto_pause_observed=1
-    break
-  fi
-  sleep 1
-done
-if [[ "$auto_pause_observed" -ne 1 ]]; then
-  echo "Selected foreground app did not pause the whole VPN tunnel."
-  read_prefs
-  adb_cmd logcat -d -t 5000 | grep -E 'GuardianProtection|foreground|UsageStats|FATAL EXCEPTION' | tail -220 || true
-  adb_cmd shell dumpsys vpn || true
-  exit 1
-fi
-echo "Foreground-app auto-pause engaged: Settings is active and Guardian protection is paused."
-
-echo "Returning to Guardian. VPN protection must automatically reconnect."
-adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
-auto_resume_observed=0
-for attempt in $(seq 1 60); do
-  prefs="$(read_prefs)"
-  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
-     grep -q 'name="app_foreground_auto_pause_active"[^>]*value="false"' <<<"$prefs"; then
-    auto_resume_observed=1
-    break
-  fi
-  sleep 1
-done
-if [[ "$auto_resume_observed" -ne 1 ]]; then
-  echo "Guardian did not automatically restore the VPN after the selected app closed."
-  read_prefs
-  adb_cmd logcat -d -t 7000 | grep -E 'GuardianProtection|foreground|UsageStats|FATAL EXCEPTION' | tail -260 || true
-  adb_cmd shell dumpsys vpn || true
-  adb_cmd shell dumpsys connectivity | tail -180 || true
-  exit 1
-fi
-before_auto_resume_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-before_auto_resume_dns="${before_auto_resume_dns:-0}"
-adb_cmd shell ping -c 1 -W 5 example.com >/tmp/guardian-after-compatibility-resume-dns.txt 2>&1 || true
-sleep 2
-prefs="$(read_prefs)"
-after_auto_resume_dns="$(sed -n 's/.*name="dns_queries"[^>]*value="\([0-9]*\)".*/\1/p' <<<"$prefs" | tail -1)"
-after_auto_resume_dns="${after_auto_resume_dns:-0}"
-if (( after_auto_resume_dns <= before_auto_resume_dns )); then
-  echo "DNS processing did not resume after foreground-app compatibility pause."
-  read_prefs
-  cat /tmp/guardian-after-compatibility-resume-dns.txt || true
-  exit 1
-fi
-echo "Foreground-app auto-pause/resume passed: VPN tunnel and DNS processing recovered automatically."
-
-echo "Verifying the home protection control can stop an active VPN tunnel."
-adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
-sleep 1
-# The previous compatibility test opens Settings and may leave the custom DNS
-# field focused. Dismiss its IME before tapping the bottom navigation; otherwise
-# the keyboard can cover the Home tab and the stop-control assertion targets
-# the still-visible Settings page instead of the dashboard.
-adb_cmd shell input keyevent KEYCODE_BACK || true
-sleep 1
-tap_content_description "홈"
-sleep 1
-tap_text "보호 중지"
-protection_stopped=0
-for attempt in $(seq 1 30); do
-  prefs="$(read_prefs)"
-  if grep -q 'name="protection_active"[^>]*value="false"' <<<"$prefs"; then
-    protection_stopped=1
-    break
-  fi
-  sleep 1
-done
-if [[ "$protection_stopped" -ne 1 ]]; then
-  echo "The home protection toggle did not stop the active VPN service."
-  read_prefs
-  adb_cmd logcat -d -t 3000 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION' | tail -160 || true
-  exit 1
-fi
-echo "Home protection start/stop toggle passed."
-
-echo "Verifying automatic VPN protection recovery after a full Android device reboot."
-tap_text "보호 시작"
-protection_started=0
-for attempt in $(seq 1 30); do
-  prefs="$(read_prefs)"
-  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
-     ! grep -q 'name="protection_recovery_pending"[^>]*value="true"' <<<"$prefs"; then
-    protection_started=1
-    break
-  fi
-  sleep 1
-done
-if [[ "$protection_started" -ne 1 ]]; then
-  echo "Could not establish VPN protection before the reboot recovery test."
-  read_prefs
-  exit 1
-fi
-extract_pref_number() {
-  local key="$1"
-  local xml="$2"
-  local pattern="name=\"${key}\"[^>]*value=\"([0-9]+)\""
-  if [[ "$xml" =~ $pattern ]]; then
-    printf '%s' "${BASH_REMATCH[1]}"
-  else
-    printf '0'
-  fi
-}
-before_reboot_dns="$(extract_pref_number dns_queries "$prefs")"
-before_reboot_restore_at="$(extract_pref_number protection_recovery_requested_at "$prefs")"
-
-# Require the durable intent to remain enabled. The receiver writes a fresh
-# timestamp on each qualifying boot; this avoids treating a stale active flag
-# as proof that BOOT_COMPLETED was handled.
-if ! grep -q 'name="protection_restore_requested"[^>]*value="true"' <<<"$prefs"; then
-  echo "Reboot recovery test requires the durable user restore intent to remain enabled."
-  read_prefs
-  exit 1
-fi
-
-echo "Rebooting Android emulator while Guardian VPN protection is active."
-adb_cmd reboot
-timeout --signal=TERM --kill-after=2s 30s adb wait-for-device
+echo "Waiting for Android boot completion and a real Guardian system-event restore callback before the selected-profile refresh scenario after installing the current APK."
 boot_completed=0
 for attempt in $(seq 1 60); do
   boot_state="$(adb_poll shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
@@ -2119,57 +2243,89 @@ for attempt in $(seq 1 60); do
   sleep 2
 done
 if [[ "$boot_completed" -ne 1 ]]; then
-  echo "Android emulator did not finish rebooting within the bounded recovery window."
-  adb_cmd logcat -d -t 2500 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION' | tail -180 || true
+  echo "Android emulator did not finish booting before the selected-profile refresh scenario."
   exit 1
 fi
-echo "Android emulator reboot completed; waiting for the boot receiver to restore Guardian."
-reboot_recovery=0
+# The candidate APK is installed before this point, and the full-device reboot
+# scenario above must deliver a genuine BOOT_COMPLETED restore callback. Accept
+# the package-replacement callback as well for runners that reboot during upgrade;
+# never fabricate either protected system broadcast in the test.
+restore_receiver_seen=0
 for attempt in $(seq 1 60); do
-  prefs="$(read_prefs)"
-  recovery_requested_at="$(extract_pref_number protection_recovery_requested_at "$prefs")"
-  if grep -q 'name="protection_active"[^>]*value="true"' <<<"$prefs" &&
-     ! grep -q 'name="protection_recovery_pending"[^>]*value="true"' <<<"$prefs" &&
-     (( recovery_requested_at > before_reboot_restore_at )); then
-    reboot_recovery=1
-    echo "Boot receiver recovery marker advanced: before=$before_reboot_restore_at after=$recovery_requested_at"
+  restore_logs="$(adb_poll shell logcat -d -s GuardianProtection:I 2>/dev/null || true)"
+  if grep -Eq 'action=android.intent.action.(BOOT_COMPLETED|MY_PACKAGE_REPLACED)' <<<"$restore_logs"; then
+    restore_receiver_seen=1
     break
   fi
   sleep 2
 done
-if [[ "$reboot_recovery" -ne 1 ]]; then
-  echo "Guardian did not automatically restore VPN protection after Android reboot."
-  read_prefs
-  adb_cmd logcat -d -t 5000 | grep -E 'GuardianProtection|GuardianVpn|ProtectionRestoreReceiver|BOOT_COMPLETED|FATAL EXCEPTION|startForegroundService' | tail -300 || true
-  adb_cmd shell dumpsys vpn || true
-  adb_cmd shell dumpsys connectivity | tail -180 || true
+if [[ "$restore_receiver_seen" -ne 1 ]]; then
+  echo "Guardian system-event restore receiver did not run after the installed-app upgrade."
+  adb_poll shell logcat -d -s GuardianProtection:I | tail -80 || true
   exit 1
 fi
-before_reboot_dns="$(extract_pref_number dns_queries "$prefs")"
-# Use a per-run hostname so Android/netd or app resolver caches cannot satisfy this
-# post-reboot probe without sending a fresh DNS request through the restored VPN.
-REBOOT_DNS_PROBE="guardian-reboot-${GITHUB_RUN_ID:-test}.example.com"
-adb_cmd shell ping -c 1 -W 5 "$REBOOT_DNS_PROBE" >/tmp/guardian-after-reboot-allowed-dns.txt 2>&1 || true
-sleep 2
-prefs="$(read_prefs)"
-after_reboot_dns="$(extract_pref_number dns_queries "$prefs")"
-if (( after_reboot_dns <= before_reboot_dns )); then
-  echo "Guardian VPN restored after reboot, but DNS query processing did not resume."
-  read_prefs
-  cat /tmp/guardian-after-reboot-allowed-dns.txt || true
+# The receiver's diagnostic is emitted before teardown; allow it to return
+# before force-stopping Guardian and replacing its SharedPreferences fixture.
+sleep 3
+
+echo "Verifying a changed filter profile is refreshed even when automatic updates are disabled."
+adb_cmd shell am force-stop "$PACKAGE"
+app_stopped=0
+for attempt in $(seq 1 20); do
+  app_pid="$(adb_poll shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+  if [[ -z "$app_pid" ]]; then
+    app_stopped=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$app_stopped" -ne 1 ]]; then
+  echo "Guardian process did not stop before updating its SharedPreferences fixture."
+  adb_poll shell pidof "$PACKAGE" || true
   exit 1
 fi
-before_reboot_blocked="$(extract_pref_number dns_blocked "$prefs")"
-adb_cmd shell ping -c 1 -W 5 "guardian-reboot-${GITHUB_RUN_ID:-test}.doubleclick.net" >/tmp/guardian-after-reboot-blocked-dns.txt 2>&1 || true
-sleep 2
-prefs="$(read_prefs)"
-after_reboot_blocked="$(extract_pref_number dns_blocked "$prefs")"
-if (( after_reboot_blocked <= before_reboot_blocked )) ||
-   grep -Eq 'PING guardian-reboot-[^ ]*\.doubleclick\.net \([^)]*\)' /tmp/guardian-after-reboot-blocked-dns.txt; then
-  echo "Guardian reboot recovery did not resume DNS ad blocking."
+profile_prefs="$(read_prefs)"
+if ! grep -q 'name="filter_cached_profile">adguard</string>' <<<"$profile_prefs"; then
+  echo "Profile-refresh test expected the initial AdGuard cache before changing the selected profile."
   read_prefs
-  cat /tmp/guardian-after-reboot-blocked-dns.txt || true
-  adb_cmd logcat -d -t 4000 | grep -E 'GuardianProtection|GuardianVpn|FATAL EXCEPTION' | tail -220 || true
   exit 1
 fi
-echo "Device reboot recovery passed: boot receiver restored VPN protection, allowed DNS resumed, and the ad test domain was blocked."
+profile_fixture="$(sed -E \
+  -e 's#<string name="filter_profile">[^<]*</string>##g' \
+  -e 's#<boolean name="filter_auto_update" value="[^"]*" />##g' \
+  -e 's#</map>#<boolean name="filter_auto_update" value="false" /><string name="filter_profile">1hosts_lite</string></map>#' \
+  <<<"$profile_prefs")"
+printf '%s' "$profile_fixture" | adb_cmd shell run-as "$PACKAGE" tee shared_prefs/guardian_settings.xml >/dev/null
+adb_cmd logcat -c
+launch_result="$(adb_cmd shell am start -W -n "$PACKAGE/.MainActivity" 2>&1 || true)"
+if ! grep -q 'Status: ok' <<<"$launch_result"; then
+  echo "Guardian did not launch after the selected-profile mismatch fixture."
+  echo "$launch_result"
+  exit 1
+fi
+profile_refresh=0
+for attempt in $(seq 1 120); do
+  prefs="$(read_prefs)"
+  guardian_logs="$(adb_poll shell logcat -d -s Guardian:I 2>/dev/null || true)"
+  if grep -q 'name="filter_cached_profile">1hosts_lite</string>' <<<"$prefs" &&
+     grep -q 'name="filter_auto_update"[^>]*value="false"' <<<"$prefs" &&
+     grep -q 'name="filter_list_block_count"[^>]*value="[1-9][0-9]*"' <<<"$prefs" &&
+     grep -Fq 'profileChanged=true selectedProfile=1hosts_lite cachedProfile=adguard' <<<"$guardian_logs" &&
+     grep -Fq 'Starting filter update for 1hosts_lite' <<<"$guardian_logs"; then
+    profile_refresh=1
+    break
+  fi
+  if (( attempt % 15 == 0 )); then
+    echo "Waiting for the selected profile cache to refresh while recurring updates remain disabled ($attempt/120)."
+    read_prefs | grep -E 'filter_profile|filter_cached_profile|filter_auto_update|filter_list_' || true
+    printf '%s\n' "$guardian_logs" | tail -35 || true
+  fi
+  sleep 2
+done
+if [[ "$profile_refresh" -ne 1 ]]; then
+  echo "A selected-profile cache mismatch did not trigger the required first-party refresh with auto-update disabled."
+  read_prefs
+  adb_cmd logcat -d -t 6000 | grep -E 'Guardian|Filter|FATAL EXCEPTION' | tail -220 || true
+  exit 1
+fi
+echo "Selected filter profile refresh passed while automatic filter updates remained disabled."
