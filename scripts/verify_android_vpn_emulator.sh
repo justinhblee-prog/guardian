@@ -1333,88 +1333,106 @@ echo "Automatic package-update recovery passed: receiver relaunched VPN, DNS que
 
 echo "Verifying the newly installed APK's inline full filter-rule editor."
 # The package replacement broadcast can leave the launcher on top after the
-# previous-version upgrade test. Explicitly bring the freshly upgraded app
-# back to the foreground before interacting with its current UI hierarchy.
+# previous-version upgrade test. Bring the current app back before UI checks.
 adb_cmd shell monkey -p "$PACKAGE" 1 >/dev/null
 sleep 2
-# This must run after the predecessor APK has been upgraded; the earlier
-# compatibility pass intentionally allows older published builds to lack this UI.
 tap_content_description "홈"
 sleep 1
 open_settings_menu_item "필터 관리"
-rules_current_xml=""
-current_editor_ready=0
-for attempt in $(seq 1 12); do
-  rules_current_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-collapsed.xml)"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
+
+# Expanded editor contents extend below a phone-sized viewport. Verify each
+# required section/action after scrolling it into view rather than expecting
+# all labels to be visible at the same time.
+ensure_editor_element_visible() {
+  local wanted="$1"
+  local kind="text"
+  local direction="up"
+  local size width height center_x start_y end_y xml
+  if [[ -n "$2" ]]; then kind="$2"; fi
+  if [[ -n "$3" ]]; then direction="$3"; fi
+  size="$(adb_cmd shell wm size | awk -F': ' '/Physical size/ {print $2; exit}')"
+  width="$(awk -F'x' '{print $1}' <<<"$size")"
+  height="$(awk -F'x' '{print $2}' <<<"$size")"
+  if [[ -z "$width" || -z "$height" || "$width" == "$height" ]]; then
+    echo "Could not determine emulator size while locating editor element: $size"
+    return 1
+  fi
+  center_x=$((width / 2))
+  if [[ "$direction" == "down" ]]; then
+    start_y=$((height / 5))
+    end_y=$((height * 4 / 5))
+  else
+    start_y=$((height * 4 / 5))
+    end_y=$((height / 5))
+  fi
+  for attempt in $(seq 1 12); do
+    xml="$(dump_ui_hierarchy /sdcard/guardian-inline-editor-visibility.xml)"
+    if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-if any(n.attrib.get("text","").strip()=="편집"
+wanted,kind=sys.argv[1:3]
+for node in root.iter("node"):
+    if (node.attrib.get("text","").strip()==wanted
+        and node.attrib.get("visible-to-user","true")=="true"
+        and (kind!="button" or (node.attrib.get("clickable")=="true" and node.attrib.get("enabled")=="true"))):
+        raise SystemExit(0)
+raise SystemExit(1)' "$wanted" "$kind" <<<"$xml"; then
+      return 0
+    fi
+    adb_cmd shell input swipe "$center_x" "$start_y" "$center_x" "$end_y" 450
+    sleep 0.4
+  done
+  echo "Current filter editor element did not enter the visible viewport: $wanted ($kind)"
+  echo "$xml"
+  return 1
+}
+
+rules_current_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-collapsed.xml)"
+if ! python3 -c 'import sys,xml.etree.ElementTree as ET
+root=ET.fromstring(sys.stdin.read())
+if not any(n.attrib.get("text","").strip()=="편집"
        and n.attrib.get("clickable")=="true"
        and n.attrib.get("visible-to-user","true")=="true" for n in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' <<<"$rules_current_xml"; then
-    current_editor_ready=1
-    break
-  fi
-  adb_cmd shell input swipe 540 1500 540 600 450
-  sleep 0.4
-done
-if [[ "$current_editor_ready" -ne 1 ]]; then
-  echo "Current upgraded APK did not expose the full filter editor's Edit action."
-  echo "$rules_current_xml"
-  exit 1
-fi
-python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
+    raise SystemExit("Current upgraded APK did not expose the full filter editor Edit action.")
 visible={n.attrib.get("text","").strip() for n in root.iter("node")
          if n.attrib.get("visible-to-user","true")=="true"}
 if visible.intersection({"차단 도메인","허용 도메인"}):
-    raise SystemExit("Full filter editor was not collapsed by default.")
-' <<<"$rules_current_xml"
-tap_text "편집"
-sleep 1
-# The editor expands below the full filter card. On a phone viewport its lower
-# fields are initially below the fold, so scroll the Settings content until all
-# editor controls are simultaneously visible before asserting the accordion UI.
-rules_current_expanded_xml=""
-current_editor_controls_ready=0
-for attempt in $(seq 1 6); do
-  rules_current_expanded_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-expanded.xml)"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-visible={n.attrib.get("text","").strip() for n in root.iter("node")
-         if n.attrib.get("visible-to-user","true")=="true"}
-required={"차단 도메인","허용 도메인","규칙 저장 및 적용","접기"}
-raise SystemExit(0 if required.issubset(visible) else 1)' <<<"$rules_current_expanded_xml"; then
-    current_editor_controls_ready=1
-    break
-  fi
-  adb_cmd shell input swipe 540 1500 540 850 450
-  sleep 0.5
-done
-if [[ "$current_editor_controls_ready" -ne 1 ]]; then
-  echo "Expanded current editor did not expose all controls after scrolling."
-  echo "$rules_current_expanded_xml"
+    raise SystemExit("Full filter editor was not collapsed by default.")' <<<"$rules_current_xml"; then
+  echo "$rules_current_xml"
   exit 1
 fi
-# Recreate the Activity while expanded. The expansion flag must be restored
-# with the filter destination; no rule is saved during this UI-state check.
+
+tap_text "편집"
+sleep 1
+ensure_editor_element_visible "차단 도메인" text up
+ensure_editor_element_visible "허용 도메인" text up
+ensure_editor_element_visible "규칙 저장 및 적용" button up
+ensure_editor_element_visible "접기" button down
+
+# Recreate the Activity while expanded. Confirm that the collapse action,
+# both domain sections, and the save action still exist after orientation change.
 adb_cmd shell settings put system accelerometer_rotation 0
 adb_cmd shell settings put system user_rotation 1
 sleep 3
-rules_current_rotated_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-rotated.xml)"
-python3 -c 'import sys,xml.etree.ElementTree as ET
+rotated_editor_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-rotated.xml)"
+if ! python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-visible={n.attrib.get("text","").strip() for n in root.iter("node")
-         if n.attrib.get("visible-to-user","true")=="true"}
-required={"차단 도메인","허용 도메인","규칙 저장 및 적용","접기"}
-missing=required-visible
-if missing: raise SystemExit("Expanded filter editor state was not restored after Activity recreation: "+", ".join(sorted(missing)))
-' <<<"$rules_current_rotated_xml"
+if not any(n.attrib.get("text","").strip()=="접기" and n.attrib.get("clickable")=="true"
+       for n in root.iter("node")):
+    raise SystemExit("The full filter editor collapsed during Activity recreation.")' <<<"$rotated_editor_xml"; then
+  echo "$rotated_editor_xml"
+  exit 1
+fi
+ensure_editor_element_visible "차단 도메인" text down
+ensure_editor_element_visible "허용 도메인" text up
+ensure_editor_element_visible "규칙 저장 및 적용" button up
+ensure_editor_element_visible "접기" button down
+
 adb_cmd shell settings put system user_rotation 0
 sleep 2
+ensure_editor_element_visible "접기" button down
 tap_text "접기"
 sleep 1
+ensure_editor_element_visible "편집" button down
 rules_current_collapsed_again_xml="$(dump_ui_hierarchy /sdcard/guardian-current-rules-collapsed-again.xml)"
 python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
@@ -1423,12 +1441,11 @@ visible={n.attrib.get("text","").strip() for n in root.iter("node")
 if visible.intersection({"차단 도메인","허용 도메인"}):
     raise SystemExit("The filter editor failed to collapse after restored expansion.")
 if not any(n.attrib.get("text","").strip()=="편집" and n.attrib.get("clickable")=="true"
-           for n in root.iter("node")):
+           and n.attrib.get("visible-to-user","true")=="true" for n in root.iter("node")):
     raise SystemExit("The collapsed current editor did not restore the Edit action.")
 ' <<<"$rules_current_collapsed_again_xml"
 tap_content_description "홈"
 echo "Current upgraded APK inline filter editor expand/collapse and rotation restoration passed."
-
 
 # The pre-update fixture is intentionally 0.7.25-dev and cannot contain this feature.
 # Run the compatibility UI/behavior check only after installing and verifying
