@@ -1438,7 +1438,8 @@ class MainActivity : Activity() {
         body.addView(text("업데이트 채널", 13f, white, true).withTop(14))
         body.addView(channelSpinner, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(5) })
 
-        val feedback = text("업데이트 확인 전", 12f, muted, false).withTop(12) as TextView
+        // Keep the status line below the channel selector readable on the dark settings surface.
+        val feedback = text("업데이트 확인 전", 12f, Color.WHITE, false).withTop(12) as TextView
         body.addView(feedback)
         var downloaded: File? = null
         val installButton = Button(this).apply {
