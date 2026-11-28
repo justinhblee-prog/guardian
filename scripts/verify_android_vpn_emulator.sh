@@ -839,30 +839,23 @@ controls=[node.attrib.get("text","").strip() for node in nodes
     and node.attrib.get("clickable")=="true"]
 if len(controls)!=1:
     raise SystemExit("Home must expose exactly one protection control; found "+repr(controls))
+if not any(n.attrib.get("content-desc")=="홈" and n.attrib.get("selected")=="true"
+           and n.attrib.get("clickable")=="true" for n in nodes):
+    raise SystemExit("Home is not selected in the primary navigation.")' <<<"$home_navigation_xml"
+
+# The published predecessor can already use either the five-tab redesigned
+# navigation or the older Premium / All Menu layout. Detect its live model.
 navigation_model="$(python3 scripts/android_navigation_compat.py navigation <<<"$home_navigation_xml")"
 case "$navigation_model" in
-  redesigned)
-    navigation_labels=("보호" "앱 제외" "활동" "설정")
-    ;;
-  legacy:Premium)
-    navigation_labels=("보호" "활동" "Premium" "전체 메뉴")
-    ;;
-  legacy:프리미엄)
-    navigation_labels=("보호" "활동" "프리미엄" "전체 메뉴")
-    ;;
+  redesigned) navigation_labels=("보호" "앱 제외" "활동" "설정") ;;
+  legacy:Premium) navigation_labels=("보호" "활동" "Premium" "전체 메뉴") ;;
+  legacy:프리미엄) navigation_labels=("보호" "활동" "프리미엄" "전체 메뉴") ;;
   *)
     echo "Unsupported published-predecessor navigation model: $navigation_model"
     echo "$home_navigation_xml"
     exit 1
     ;;
 esac
-if ! grep -Fq 'content-desc="홈"' <<<"$home_navigation_xml" ||
-   ! grep -Fq 'selected="true"' <<<"$home_navigation_xml"; then
-  echo "Home is not selected in the primary navigation."
-  echo "$home_navigation_xml"
-  exit 1
-fi
-' <<<"$home_navigation_xml"
 for navigation_label in "${navigation_labels[@]}"; do
   tap_content_description "$navigation_label"
   sleep 1
