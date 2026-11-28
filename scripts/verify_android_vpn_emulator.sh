@@ -1612,63 +1612,11 @@ auto_pause_picker_visible=0
 # validates the actual Settings route rather than relying on a stale tab state.
 tap_content_description "홈"
 sleep 1
-# Compatibility and auto-pause controls now live in Full Menu > Filtering.
-# Navigate to that submenu explicitly before searching its scrollable content.
-settings_tab_selected=0
-settings_navigation_label="설정"
-settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
-# Published predecessor versions use a "전체 메뉴" bottom destination;
-# current builds use "설정". Resolve the actual clickable navigation control
-# from the live hierarchy so the test never taps a nested settings label.
-if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-raise SystemExit(0 if any(n.attrib.get("content-desc")=="전체 메뉴"
-    and n.attrib.get("clickable")=="true"
-    and n.attrib.get("visible-to-user","true")=="true"
-    for n in root.iter("node")) else 1)' <<<"$settings_navigation_xml"; then
-  settings_navigation_label="전체 메뉴"
-fi
-for attempt in $(seq 1 3); do
-  tap_content_description "$settings_navigation_label"
-  sleep 1
-  settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
-  if python3 -c 'import sys,xml.etree.ElementTree as ET
-root=ET.fromstring(sys.stdin.read())
-wanted=sys.argv[1]
-if any(node.attrib.get("content-desc")==wanted
-       and node.attrib.get("selected")=="true"
-       and node.attrib.get("clickable")=="true"
-       for node in root.iter("node")):
-    raise SystemExit(0)
-raise SystemExit(1)' "$settings_navigation_label" <<<"$settings_navigation_xml"; then
-    settings_tab_selected=1
-    break
-  fi
-  echo "$settings_navigation_label navigation did not become selected (attempt $attempt/3); retrying."
-done
-if [[ "$settings_tab_selected" -ne 1 ]]; then
-  echo "Could not select the $settings_navigation_label navigation destination before checking VPN auto-pause."
-  echo "$settings_navigation_xml"
-  exit 1
-fi
-# The foreground-app compatibility controls are part of the PRO/DNS
-# settings screen, not the Filtering screen. Select the actual destination
-# that owns buildCompatibilityPauseSection() in the current app.
-if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
-  legacy_pro_target="$(python3 scripts/android_navigation_compat.py settings-item "Premium" <<<"$settings_navigation_xml" 2>/dev/null || true)"
-  if [[ -z "$legacy_pro_target" ]]; then
-    legacy_pro_target="$(python3 scripts/android_navigation_compat.py settings-item "프리미엄" <<<"$settings_navigation_xml" 2>/dev/null || true)"
-  fi
-  if [[ -z "$legacy_pro_target" ]]; then
-    echo "Legacy Full Menu does not expose a compatible PRO destination."
-    echo "$settings_navigation_xml"
-    exit 1
-  fi
-  scroll_to_text "$legacy_pro_target"
-else
-  ensure_text_visible "라이선스 및 프리미엄"
-  tap_text "라이선스 및 프리미엄"
-fi
+# The compatibility controls are rendered inside the Protection screen's
+# DNS upstream section (buildProtection), not the PRO membership preview.
+# Use the real primary navigation destination and scroll its content.
+tap_content_description "보호"
+sleep 1
 sleep 1
 for attempt in $(seq 1 24); do
   adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
