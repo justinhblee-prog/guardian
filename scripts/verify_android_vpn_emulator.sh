@@ -1506,16 +1506,17 @@ grep -Fq '광고 차단이 되지 않아요' <<<"$support_faq_xml" || {
   echo "$support_faq_xml"
   exit 1
 }
-tap_text_row "광고 차단이 되지 않아요"
+# The current FAQ is a custom inline accordion, not the legacy AlertDialog ListView.
+tap_content_description "광고 차단이 되지 않아요 답변 펼치기"
 sleep 1
 adb_cmd shell uiautomator dump /sdcard/guardian-support-faq-answer.xml >/dev/null 2>&1
 support_faq_answer_xml="$(adb_cmd exec-out cat /sdcard/guardian-support-faq-answer.xml | tr -d '\r')"
 grep -Fq 'DNS 기반 광고·추적 도메인' <<<"$support_faq_answer_xml" || {
-  echo "Customer support FAQ answer did not render."
+  echo "Customer support FAQ answer did not render beneath the selected question."
   echo "$support_faq_answer_xml"
   exit 1
 }
-tap_text "확인"
+tap_text "닫기"
 # The Settings support card is taller than the phone viewport; scroll its
 # remaining actions into view before tapping the inquiry form entry.
 scroll_to_text "문의 및 의견 보내기"
@@ -1544,20 +1545,13 @@ tap_text "취소"
 echo "Customer support center FAQ, inquiry submission form, and private lookup UI passed."
 
 
-auto_pause_picker_visible=0
-# Support dialogs can return to the previously active destination on some
-# Android builds. Reset through Home before entering Settings so this assertion
-# validates the actual Settings route rather than relying on a stale tab state.
+# Foreground-app auto-pause is part of Settings > General, alongside
+# DNS upstream configuration. It is not a Filtering submenu control.
 tap_content_description "홈"
 sleep 1
-# Compatibility and auto-pause controls now live in Full Menu > Filtering.
-# Navigate to that submenu explicitly before searching its scrollable content.
 settings_tab_selected=0
 settings_navigation_label="설정"
 settings_navigation_xml="$(dump_ui_hierarchy /sdcard/guardian-settings-navigation.xml)"
-# Published predecessor versions use a "전체 메뉴" bottom destination;
-# current builds use "설정". Resolve the actual clickable navigation control
-# from the live hierarchy so the test never taps a nested settings label.
 if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 raise SystemExit(0 if any(n.attrib.get("content-desc")=="전체 메뉴"
@@ -1582,34 +1576,28 @@ raise SystemExit(1)' "$settings_navigation_label" <<<"$settings_navigation_xml";
     settings_tab_selected=1
     break
   fi
-  echo "$settings_navigation_label navigation did not become selected (attempt $attempt/3); retrying."
 done
 if [[ "$settings_tab_selected" -ne 1 ]]; then
-  echo "Could not select the $settings_navigation_label navigation destination before checking VPN auto-pause."
+  echo "Could not select the Settings navigation destination before checking VPN auto-pause."
   echo "$settings_navigation_xml"
   exit 1
 fi
-# The predecessor exposes Filtering as a direct Full Menu item; current builds
-# expose it as a Settings category card. Select the route supported by the
-# actual screen rather than substring-matching descriptions in DNS details.
 if [[ "$settings_navigation_label" == "전체 메뉴" ]]; then
-  legacy_filter_target="$(python3 scripts/android_navigation_compat.py settings-item "필터 관리" <<<"$settings_navigation_xml" 2>/dev/null || true)"
-  if [[ -z "$legacy_filter_target" ]]; then
-    echo "Legacy Full Menu does not expose a compatible Filtering destination."
+  legacy_general_target="$(python3 scripts/android_navigation_compat.py settings-item "일반" <<<"$settings_navigation_xml" 2>/dev/null || true)"
+  if [[ -z "$legacy_general_target" ]]; then
+    echo "Legacy Full Menu does not expose a compatible General destination."
     echo "$settings_navigation_xml"
     exit 1
   fi
-  scroll_to_text "$legacy_filter_target"
+  scroll_to_text "$legacy_general_target"
 else
-  ensure_text_visible "필터링"
-  # The category card exposes its clickable accessibility label with the
-  # action suffix; the visible title itself is a non-clickable TextView.
-  tap_content_description "필터링 설정 열기"
+  ensure_text_visible "일반"
+  tap_text "일반"
 fi
 sleep 1
+auto_pause_picker_visible=0
 for attempt in $(seq 1 24); do
-  adb_cmd shell uiautomator dump /sdcard/guardian-window.xml >/dev/null 2>&1
-  auto_pause_settings_xml="$(adb_cmd shell cat /sdcard/guardian-window.xml | tr -d '\r')"
+  auto_pause_settings_xml="$(dump_ui_hierarchy /sdcard/guardian-compatibility-settings.xml)"
   if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
 if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
@@ -1621,15 +1609,14 @@ if any(node.attrib.get("content-desc")=="VPN 자동 일시중지 앱 선택"
     raise SystemExit(0)
 raise SystemExit(1)' <<<"$auto_pause_settings_xml"; then
     auto_pause_picker_visible=1
-    echo "Foreground-app compatibility controls found after $attempt Settings scroll checks."
+    echo "Foreground-app compatibility controls found in Settings > General after $attempt scroll checks."
     break
   fi
-  # Swipe up to reveal settings content below the current viewport.
   adb_cmd shell input swipe 540 1500 540 600 450
   sleep 0.5
 done
 if [[ "$auto_pause_picker_visible" -ne 1 ]]; then
-  echo "Foreground-app auto-pause controls were not visible in Settings."
+  echo "Foreground-app auto-pause controls were not visible in Settings > General."
   echo "$auto_pause_settings_xml"
   exit 1
 fi
