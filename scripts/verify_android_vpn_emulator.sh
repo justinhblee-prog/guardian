@@ -195,6 +195,15 @@ open_settings_menu_item() {
   local title="$1"
   local xml target
   xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
+  # App exclusions is a primary bottom-navigation destination in the current
+  # five-tab UI, not a Settings category. Open it directly instead of entering
+  # Settings and waiting for a category card that does not exist there.
+  if [[ "$title" == "앱 제외 관리" ]] &&
+     grep -Fq 'content-desc="앱 제외"' <<<"$xml"; then
+    tap_content_description "앱 제외"
+    sleep 1
+    return 0
+  fi
   # The predecessor APK used a dedicated "전체 메뉴" destination alongside
   # a separate Premium tab. Prefer that exact legacy route when it is present;
   # the detail page can also contain a nested control named "설정", which must
@@ -224,12 +233,19 @@ open_settings_menu_item() {
       xml="$(dump_ui_hierarchy /sdcard/guardian-settings-menu.xml)"
       if python3 -c 'import sys,xml.etree.ElementTree as ET
 root=ET.fromstring(sys.stdin.read())
-expected={"일반 설정 열기","필터링 설정 열기","라이선스 및 프리미엄 설정 열기","고객 지원 설정 열기","정보 설정 열기","종료 설정 열기"}
-visible={n.attrib.get("content-desc","") for n in root.iter("node")
-         if n.attrib.get("visible-to-user","true")=="true"
-         and n.attrib.get("clickable")=="true"
-         and n.attrib.get("enabled")=="true"}
-raise SystemExit(0 if expected.intersection(visible) else 1)' <<<"$xml"; then
+parents={child: parent for parent in root.iter() for child in parent}
+expected={"일반","필터링","라이선스 및 프리미엄","고객 지원","정보"}
+for node in root.iter("node"):
+    if node.attrib.get("text","").strip() not in expected or node.attrib.get("visible-to-user","true")!="true":
+        continue
+    target=node
+    while target is not None:
+        if (target.attrib.get("visible-to-user","true")=="true"
+            and target.attrib.get("clickable")=="true"
+            and target.attrib.get("enabled")=="true"):
+            raise SystemExit(0)
+        target=parents.get(target)
+raise SystemExit(1)' <<<"$xml"; then
         index_ready=1
         break
       fi
